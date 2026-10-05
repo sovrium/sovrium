@@ -50,6 +50,7 @@
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+import { computeBadgeClasses } from '@/presentation/design/navbar-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // GRID — the `data-component="gallery"` container
@@ -186,6 +187,21 @@ export const GALLERY_CARD_BODY_NO_COVER_CLASSES = `${GALLERY_CARD_BODY_CLASSES} 
  * business, and one long title in a grid stretches the column every card in it
  * shares.
  */
+/**
+ * A card's record components besides text: the initials disc of an `avatar`
+ * and the neutral chip of a `badge`, drawn from the same recipes the board's
+ * card uses so a record reads alike in a gallery and on a board.
+ */
+export const GALLERY_CARD_AVATAR_CLASSES = [
+  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-2xs font-medium',
+  `bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
+  `text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
+].join(' ')
+
+/** The neutral chip a `badge` in a gallery card draws. */
+export const computeGalleryCardBadgeClasses = (): string =>
+  computeBadgeClasses({ variant: 'secondary' })
+
 export const GALLERY_CARD_DEFAULT_TITLE_CLASSES = 'truncate text-sm font-medium'
 
 // ──────────────────────────────────────────────────────────────────────────────

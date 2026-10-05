@@ -141,7 +141,7 @@ export const computeBreadcrumbItemClasses = ({
 } = {}): string => BREADCRUMB_ITEM_STATE_CLASS[state]
 
 const BREADCRUMB_SEPARATOR_CLASS = [
-  `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
+  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
   'text-md select-none',
 ].join(' ')
 

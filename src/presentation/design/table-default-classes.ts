@@ -47,8 +47,6 @@
  * own frame, a toolbar MENU floats over the rows.
  */
 
-export { TABLE_HEADER_TYPE } from '@/presentation/design/table-type-classes'
-
 export {
   computeTableShellClasses,
   computeTableElementClasses,
@@ -71,10 +69,8 @@ export {
   computeTableFrozenCellClasses,
   computeTableRowNumberClasses,
   computeTableEmptyValueClasses,
-  computeTableCheckboxCellClasses,
   computeTableCheckboxControlClasses,
 } from './table-body-default-classes'
-export type { TableRowState } from './table-body-default-classes'
 
 export {
   TABLE_GROUP_INDENT_PX,
@@ -121,7 +117,6 @@ export {
   computeTableActionRowClasses,
   computeTableInlineConfirmClasses,
 } from './table-panel-default-classes'
-export type { TableSaveStatus } from './table-panel-default-classes'
 
 export {
   TABLE_EDITOR_PROSE_WIDTH,

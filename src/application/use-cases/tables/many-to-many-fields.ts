@@ -54,6 +54,9 @@ const relatedTablePointsBack = (
   relatedTable: string,
   sourceTable: string
 ): boolean => {
+  // A table linked to itself keeps its links in ONE link table, both ends
+  // read through the same field: there is no mirror table to write.
+  if (relatedTable === sourceTable) return false
   const target = tables?.find((t) => t.name === relatedTable)
   if (!target) return false
   return target.fields.some(

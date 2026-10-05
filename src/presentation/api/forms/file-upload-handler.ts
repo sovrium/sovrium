@@ -13,7 +13,7 @@ import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
- * F-11 (file-uploads): server-side multipart-to-canonical-metadata pipeline.
+ * [internal ref] (file-uploads): server-side multipart-to-canonical-metadata pipeline.
  *
  * The standalone `/api/forms/:name/submissions` endpoint accepts both JSON
  * and multipart bodies. When the body is multipart, individual `File`

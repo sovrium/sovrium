@@ -535,9 +535,18 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.scope':
           'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
         'admin.automations.runs.search': 'Search runs',
+        'admin.automations.runs.status.cancelled': 'Cancelled',
         'admin.automations.runs.status.failed': 'Failed',
         'admin.automations.runs.status.partial': 'Partial',
+        'admin.automations.runs.status.queued': 'Queued',
+        'admin.automations.runs.status.rejected': 'Rejected',
+        'admin.automations.runs.status.retriesExhausted': 'Retries exhausted',
+        'admin.automations.runs.status.running': 'Running',
+        'admin.automations.runs.status.skipped': 'Skipped',
         'admin.automations.runs.status.success': 'Success',
+        'admin.automations.runs.status.timedOut': 'Timed out',
+        'admin.automations.runs.status.waitingApproval': 'Waiting for approval',
+        'admin.automations.runs.step.filtered': 'Filtered out',
         'admin.automations.tabs.automations': 'Automations',
         'admin.automations.tabs.history': 'History',
         'admin.automations.tabs.region': 'Runs sub-views',
@@ -1243,9 +1252,18 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.scope':
           'Affiche les 25 exécutions les plus récentes. La recherche et les filtres interrogent toutes les exécutions et renvoient les 25 correspondances les plus récentes.',
         'admin.automations.runs.search': 'Rechercher des exécutions',
+        'admin.automations.runs.status.cancelled': 'Annulée',
         'admin.automations.runs.status.failed': 'Échouée',
         'admin.automations.runs.status.partial': 'Partielle',
+        'admin.automations.runs.status.queued': "En file d'attente",
+        'admin.automations.runs.status.rejected': 'Refusée',
+        'admin.automations.runs.status.retriesExhausted': 'Tentatives épuisées',
+        'admin.automations.runs.status.running': 'En cours',
+        'admin.automations.runs.status.skipped': 'Ignorée',
         'admin.automations.runs.status.success': 'Réussie',
+        'admin.automations.runs.status.timedOut': 'Expirée',
+        'admin.automations.runs.status.waitingApproval': 'En attente de validation',
+        'admin.automations.runs.step.filtered': 'Filtrée',
         'admin.automations.tabs.automations': 'Automatisations',
         'admin.automations.tabs.history': 'Historique',
         'admin.automations.tabs.region': 'Sous-vues Exécutions',
@@ -8700,7 +8718,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           visibility: {
                                             record: {
                                               field: 'supersedes',
-                                              notIn: ['undefined', ''],
+                                              isNotEmpty: true,
                                             },
                                           },
                                         },
@@ -8733,7 +8751,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           visibility: {
                                             record: {
                                               field: 'supersededBy',
-                                              notIn: ['undefined', ''],
+                                              isNotEmpty: true,
                                             },
                                           },
                                         },
@@ -11727,7 +11745,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           visibility: {
                                             record: {
                                               field: 'version',
-                                              notIn: ['undefined', '', 'null'],
+                                              isNotEmpty: true,
                                             },
                                           },
                                         },
@@ -13230,7 +13248,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'previousConfigHash',
-                                          notIn: ['undefined', '', 'null'],
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -13246,7 +13264,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'previousConfigHash',
-                                          in: ['undefined', '', 'null'],
+                                          isEmpty: true,
                                         },
                                       },
                                     },
@@ -13276,7 +13294,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'previousConfigHash',
-                                          notIn: ['undefined', '', 'null'],
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -13345,7 +13363,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'schemaChanges',
-                                          neq: '',
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -13360,8 +13378,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       type: 'text',
                                       visibility: {
                                         record: {
-                                          eq: '',
                                           field: 'schemaChanges',
+                                          isEmpty: true,
                                         },
                                       },
                                     },
@@ -13431,7 +13449,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'engineMigrations',
-                                          neq: '',
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -13446,8 +13464,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       type: 'text',
                                       visibility: {
                                         record: {
-                                          eq: '',
                                           field: 'engineMigrations',
+                                          isEmpty: true,
                                         },
                                       },
                                     },
@@ -13504,7 +13522,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   visibility: {
                                     record: {
                                       field: 'version',
-                                      notIn: ['undefined', '', 'null'],
+                                      isNotEmpty: true,
                                     },
                                   },
                                 },
@@ -13614,7 +13632,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   visibility: {
                                     record: {
                                       field: 'previousEngineVersion',
-                                      notIn: ['undefined', '', 'null'],
+                                      isNotEmpty: true,
                                     },
                                   },
                                 },
@@ -13672,7 +13690,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   visibility: {
                                     record: {
                                       field: 'previousConfigHash',
-                                      notIn: ['undefined', '', 'null'],
+                                      isNotEmpty: true,
                                     },
                                   },
                                 },
@@ -14400,7 +14418,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'degraded',
-                                          neq: '',
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -14552,7 +14570,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'findings',
-                                          neq: '',
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -14602,8 +14620,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       type: 'container',
                                       visibility: {
                                         record: {
-                                          eq: '',
                                           field: 'findings',
+                                          isEmpty: true,
                                         },
                                       },
                                     },
@@ -14753,7 +14771,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           visibility: {
                                             record: {
                                               field: 'exceptions',
-                                              neq: '',
+                                              isNotEmpty: true,
                                             },
                                           },
                                         },
@@ -14804,8 +14822,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           type: 'container',
                                           visibility: {
                                             record: {
-                                              eq: '',
                                               field: 'exceptions',
+                                              isEmpty: true,
                                             },
                                           },
                                         },
@@ -15283,8 +15301,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           type: 'container',
                                           visibility: {
                                             record: {
-                                              eq: '',
                                               field: 'edges',
+                                              isEmpty: true,
                                             },
                                           },
                                         },
@@ -22258,6 +22276,18 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       label: '$t:admin.automations.runs.status.partial',
                                       value: 'completed-with-errors',
                                     },
+                                    {
+                                      label: '$t:admin.automations.runs.status.waitingApproval',
+                                      value: 'waiting-approval',
+                                    },
+                                    {
+                                      label: '$t:admin.automations.runs.status.rejected',
+                                      value: 'rejected',
+                                    },
+                                    {
+                                      label: '$t:admin.automations.runs.status.cancelled',
+                                      value: 'cancelled',
+                                    },
                                   ],
                                   props: {
                                     className: 'w-56',
@@ -22287,32 +22317,98 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   cellStyle: [
                                     {
                                       className:
-                                        'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-success-solid',
                                       when: {
                                         eq: 'Success',
                                       },
                                     },
                                     {
                                       className:
-                                        'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-error-solid',
                                       when: {
                                         eq: 'Failed',
                                       },
                                     },
                                     {
                                       className:
-                                        'bg-warning-bg text-warning-fg rounded-full px-2 py-0.5 text-sm',
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-warning-solid',
                                       when: {
                                         eq: 'Partial',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-info-solid',
+                                      when: {
+                                        eq: 'Waiting for approval',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
+                                      when: {
+                                        eq: 'Rejected',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
+                                      when: {
+                                        eq: 'Cancelled',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-error-solid',
+                                      when: {
+                                        eq: 'Retries exhausted',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-warning-solid',
+                                      when: {
+                                        eq: 'Timed out',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
+                                      when: {
+                                        eq: 'Queued',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-info-solid',
+                                      when: {
+                                        eq: 'Running',
+                                      },
+                                    },
+                                    {
+                                      className:
+                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
+                                      when: {
+                                        eq: 'Skipped',
                                       },
                                     },
                                   ],
                                   field: 'status',
                                   label: '$t:admin.automations.runs.col.status',
                                   valueLabels: {
+                                    Cancelled: '$t:admin.automations.runs.status.cancelled',
                                     Failed: '$t:admin.automations.runs.status.failed',
                                     Partial: '$t:admin.automations.runs.status.partial',
+                                    Queued: '$t:admin.automations.runs.status.queued',
+                                    Rejected: '$t:admin.automations.runs.status.rejected',
+                                    'Retries exhausted':
+                                      '$t:admin.automations.runs.status.retriesExhausted',
+                                    Running: '$t:admin.automations.runs.status.running',
+                                    Skipped: '$t:admin.automations.runs.status.skipped',
                                     Success: '$t:admin.automations.runs.status.success',
+                                    'Timed out': '$t:admin.automations.runs.status.timedOut',
+                                    'Waiting for approval':
+                                      '$t:admin.automations.runs.status.waitingApproval',
                                   },
                                 },
                                 {
@@ -27973,7 +28069,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           content: '$t:admin.buckets.blurbSystem',
                           element: 'p',
                           props: {
-                            className: 'text-muted-foreground max-w-3xl text-sm',
+                            className: 'text-foreground-muted max-w-3xl text-sm',
                           },
                           type: 'text',
                         },
@@ -28779,7 +28875,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           content: '$t:admin.buckets.blurbBucket',
                           element: 'p',
                           props: {
-                            className: 'text-muted-foreground max-w-3xl text-sm',
+                            className: 'text-foreground-muted max-w-3xl text-sm',
                           },
                           type: 'text',
                         },
@@ -35315,7 +35411,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       visibility: {
                                         record: {
                                           field: 'summary',
-                                          neq: '',
+                                          isNotEmpty: true,
                                         },
                                       },
                                     },
@@ -43102,7 +43198,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           visibility: {
                                                             record: {
                                                               field: 'pairsWith',
-                                                              neq: '',
+                                                              isNotEmpty: true,
                                                             },
                                                           },
                                                         },
@@ -64995,7 +65091,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -65019,7 +65115,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -65044,7 +65140,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                   element: 'p',
                                                                   props: {
                                                                     className:
-                                                                      'text-muted-foreground px-1 text-sm',
+                                                                      'text-foreground-muted px-1 text-sm',
                                                                   },
                                                                   type: 'text',
                                                                 },
@@ -65061,7 +65157,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                               element: 'p',
                                                               props: {
                                                                 className:
-                                                                  'text-muted-foreground text-xs',
+                                                                  'text-foreground-muted text-xs',
                                                               },
                                                               type: 'text',
                                                             },
@@ -77127,7 +77223,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -78345,7 +78441,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -78707,7 +78803,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -78822,7 +78918,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                               element: 'span',
                                                                               props: {
                                                                                 className:
-                                                                                  'text-muted-foreground',
+                                                                                  'text-foreground-muted',
                                                                               },
                                                                               type: 'text',
                                                                             },
@@ -78847,7 +78943,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                               element: 'span',
                                                                               props: {
                                                                                 className:
-                                                                                  'text-muted-foreground',
+                                                                                  'text-foreground-muted',
                                                                               },
                                                                               type: 'text',
                                                                             },
@@ -78971,7 +79067,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                               element: 'span',
                                                                               props: {
                                                                                 className:
-                                                                                  'text-muted-foreground',
+                                                                                  'text-foreground-muted',
                                                                               },
                                                                               type: 'text',
                                                                             },
@@ -78996,7 +79092,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                               element: 'span',
                                                                               props: {
                                                                                 className:
-                                                                                  'text-muted-foreground',
+                                                                                  'text-foreground-muted',
                                                                               },
                                                                               type: 'text',
                                                                             },
@@ -79020,7 +79116,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                               element: 'span',
                                                                               props: {
                                                                                 className:
-                                                                                  'text-muted-foreground',
+                                                                                  'text-foreground-muted',
                                                                               },
                                                                               type: 'text',
                                                                             },
@@ -79173,7 +79269,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -79274,7 +79370,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                       element: 'span',
                                                                       props: {
                                                                         className:
-                                                                          'text-muted-foreground',
+                                                                          'text-foreground-muted',
                                                                       },
                                                                       type: 'text',
                                                                     },
@@ -79585,7 +79681,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                           element: 'span',
                                                                           props: {
                                                                             className:
-                                                                              'text-muted-foreground',
+                                                                              'text-foreground-muted',
                                                                           },
                                                                           type: 'text',
                                                                         },
@@ -96028,7 +96124,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           children: [
                                                             {
                                                               content:
-                                                                'galleryCard:\n  coverImage: $record.photo\n  hoverOverlay: true\n  onClick: open-drawer',
+                                                                'galleryCard:\n  coverImage: \\$record.photo\n  hoverOverlay:\n    children:\n      - type: text\n        content: View profile\n  onClick:\n    action: openDrawer\n    component: person-drawer',
                                                               props: {
                                                                 language: 'yaml',
                                                               },
@@ -97312,7 +97408,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           children: [
                                                             {
                                                               content:
-                                                                'card:\n  coverImage: $record.thumbnail',
+                                                                'card:\n  coverImage: \\$record.thumbnail',
                                                               props: {
                                                                 language: 'yaml',
                                                               },
@@ -100194,7 +100290,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           children: [
                                                             {
                                                               content:
-                                                                'listDisplay:\n  itemTemplate:\n    image: $record.avatar\n    title: $record.name',
+                                                                'listDisplay:\n  itemTemplate:\n    image: \\$record.avatar\n    title: \\$record.name',
                                                               props: {
                                                                 language: 'yaml',
                                                               },

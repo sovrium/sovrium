@@ -257,7 +257,9 @@ export const displayLabelsSchema = Schema.Record(
  */
 export const recordSchema = Schema.Struct({
   ...Schema.Struct({
-    id: Schema.Union([Schema.String, Schema.Finite]).annotate({ description: 'Record identifier' }),
+    id: Schema.String.annotate({
+      description: 'Record identifier — always a string, exact beyond 2^53',
+    }),
     fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
       description: 'User-defined field values (may include display formatting)',
     }),
@@ -304,9 +306,21 @@ export const getTableResponseSchema = Schema.Struct({
  * single aggregated field, e.g. `?aggregate=amount:sum`) or a per-field record
  * (JSON form or multi-field shortcut).
  */
+const numericValueSchema = Schema.Union([Schema.Finite, Schema.Null])
 const aggregationValueSchema = Schema.Union([
-  Schema.Finite,
-  Schema.Record(Schema.String, Schema.Finite),
+  numericValueSchema,
+  Schema.Record(Schema.String, numericValueSchema),
+])
+
+/**
+ * A `min` or `max` orders numbers AND dates: a date field (or a lookup of one)
+ * answers the earliest or latest as an ISO string (a `date` as its day). Over
+ * no values — like a `sum` or an `avg` — it answers `null`.
+ */
+const orderedValueSchema = Schema.Union([Schema.Finite, Schema.String, Schema.Null])
+const orderedAggregationValueSchema = Schema.Union([
+  orderedValueSchema,
+  Schema.Record(Schema.String, orderedValueSchema),
 ])
 
 const aggregationsSchema = Schema.Struct({
@@ -315,10 +329,24 @@ const aggregationsSchema = Schema.Struct({
       description: 'Total count of records (flat number for shortcut form, string otherwise)',
     })
   ),
-  sum: optionalField(aggregationValueSchema.annotate({ description: 'Sum aggregation(s)' })),
-  avg: optionalField(aggregationValueSchema.annotate({ description: 'Average aggregation(s)' })),
-  min: optionalField(aggregationValueSchema.annotate({ description: 'Minimum aggregation(s)' })),
-  max: optionalField(aggregationValueSchema.annotate({ description: 'Maximum aggregation(s)' })),
+  sum: optionalField(
+    aggregationValueSchema.annotate({ description: 'Sum aggregation(s); null over no values' })
+  ),
+  avg: optionalField(
+    aggregationValueSchema.annotate({ description: 'Average aggregation(s); null over no values' })
+  ),
+  min: optionalField(
+    orderedAggregationValueSchema.annotate({
+      description:
+        'Minimum aggregation(s): a number, or a date as its ISO string; null over no values',
+    })
+  ),
+  max: optionalField(
+    orderedAggregationValueSchema.annotate({
+      description:
+        'Maximum aggregation(s): a number, or a date as its ISO string; null over no values',
+    })
+  ),
 }).annotate({ description: 'Aggregation results' })
 
 /**
@@ -395,8 +423,8 @@ export const listRecordsResponseSchema = Schema.Struct({
 export const getRecordResponseSchema = Schema.StructWithRest(
   Schema.Struct({
     ...Schema.Struct({
-      id: Schema.Union([Schema.String, Schema.Finite]).annotate({
-        description: 'Record identifier',
+      id: Schema.String.annotate({
+        description: 'Record identifier — always a string, exact beyond 2^53',
       }),
       fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
         description: 'User-defined field values (may include display formatting)',
@@ -428,7 +456,9 @@ export const getRecordResponseSchema = Schema.StructWithRest(
 export const createRecordResponseSchema = Schema.StructWithRest(
   Schema.Struct({
     ...Schema.Struct({
-      id: Schema.String.annotate({ description: 'Record identifier' }),
+      id: Schema.String.annotate({
+        description: 'Record identifier — always a string, exact beyond 2^53',
+      }),
       fields: Schema.Record(Schema.String, fieldValueSchema).annotate({
         description: 'User-defined field values',
       }),
@@ -583,6 +613,11 @@ export const getViewResponseSchema = Schema.Struct({
 export const getViewRecordsResponseSchema = Schema.Struct({
   records: Schema.Array(recordSchema).annotate({ description: 'Records matching view' }),
   pagination: optionalField(paginationSchema.annotate({ description: 'Pagination metadata' })),
+  aggregations: optionalField(
+    aggregationsSchema.annotate({
+      description: 'Totals over the rows the view returns, when `aggregate` was requested',
+    })
+  ),
 })
 
 // ============================================================================

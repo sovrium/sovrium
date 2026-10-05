@@ -86,6 +86,10 @@ To keep the transcript on the record, follow it with a `record/update` writing `
 
 `ai/transcribe` checks the recording's size in the storage catalog against `STT_MAX_FILE_BYTES` before downloading it, so an oversized recording fails the step without being read.
 
+Under a `retry` policy, only a failure another attempt could fix is retried. A speech endpoint answering `5xx`, `408` or `429`, or not answering before `STT_TIMEOUT_MS`, is retried up to `maxAttempts`. A `4xx` other than `408` and `429`, a recording refused before it is sent (not audio, or too large), and a speech endpoint that is not configured fail the step at once, and the run ends `failed` rather than `exhausted`.
+
+The speech engine receives the recording under a file name whose extension comes from its audio type (`audio/webm` → `.webm`, `audio/mp4` → `.m4a`, `audio/mpeg` → `.mp3`, `audio/ogg` → `.ogg`, `audio/wav` → `.wav`), because engines pick their decoder from that name. A browser recording stored as `.weba` keeps its stored name; only the name sent to the engine changes.
+
 ## `agent`
 
 Invokes an agent configured under the app's agents. The agent plans and executes several steps against its own scoped tools, rather than answering in one turn.
@@ -103,6 +107,10 @@ Invokes an agent configured under the app's agents. The agent plans and executes
 ```
 
 `maxSteps` caps the agent's reasoning and tool steps. Set it: an agent without a cap is a loop whose termination depends on a model.
+
+When the agent turns on knowledge retrieval (`memory.knowledge.enabled`), the step retrieves from that agent's own knowledge base and from the shared knowledge documents (narrowed to its `memory.knowledge.sources`, when set). It never retrieves from another agent's knowledge base, so an agent declared with a narrow role cannot ground its answer on what an agent with a wider role has embedded.
+
+A run someone starts by hand (a manual trigger, a record button) has a human caller, and its agent steps never show her more than she may read herself: of the agent's knowledge, the step grounds only on records she may read through the records API, and only on fields she may read. A run nobody started by hand (a webhook, a schedule, a record event) keeps the agent's declared reach.
 
 ## Routing is the operator's choice, not the action's
 

@@ -22,9 +22,12 @@ webhooks:
 
 `auth` secures the outgoing request. Secrets, keys and tokens accept an `$env.` reference, which is how a credential stays out of the configuration file.
 
+**`$env` here reads only variables the app declares in `app.env`**, as everywhere else in the configuration: the operator's value first, then the declared `default`. A reference to a variable `app.env` does not declare is refused at boot and by `sovrium validate`, with a message naming the variable to declare, even when the server's environment sets it. Configuration cannot read an arbitrary server variable by naming it. Each example below therefore needs its variable declared, for instance `env: [{ key: PARTNER_WEBHOOK_SECRET }]` at the top of the app.
+
 <!-- sovrium:options WebhookAuthSchema -->
 
 ```yaml
+# Requires env: [{ key: PARTNER_WEBHOOK_SECRET }, { key: SERVICE_API_KEY }, { key: API_BEARER_TOKEN }] at the top of the app
 webhooks:
   - name: order_created
     url: https://hooks.example.com/orders
@@ -68,9 +71,18 @@ payload: { includeFields: [customer, status, total], includePreviousValues: true
 
 Prefer `includeFields` where the receiver is a third party. A whitelist keeps a column added later out of the payload by default; a blacklist sends it the day it appears.
 
+`data.record.id` is the record's id exactly as the records API returned it when the record was created — a string — on every event. A relationship value in `data.record` or `previousValues` is the related record's id as a string too.
+
+## Managing webhooks over the API
+
+Five routes manage a table's webhooks: the list of its webhooks, a webhook's delivery log, one delivery, a retry of a delivery, and a test send. **They are for admin-equivalent roles** (see Roles & RBAC), so a custom top role is admitted, and so is the built-in `admin` even when a custom role outranks it. Every other signed-in caller, whatever it may do to the table's records, gets the same `404` as for a table that does not exist, and a retry or a test from such a caller sends nothing. A caller with no session gets `401`. An app without `auth` has no admin, so these routes answer `404` to every visitor.
+
+The restriction is deliberate. The list and every delivery carry the webhook's URL, which often holds a token, and a retry or a test sends a request with the webhook's credentials. A retry sends the stored payload again and logs it as a new delivery. A test sends a `webhook.test` payload made of sample values shaped like the table's fields. Neither changes a record.
+
 ## A full example
 
 ```yaml
+# Requires env: [{ key: ORDER_WEBHOOK_SECRET }] at the top of the app
 webhooks:
   - name: order_lifecycle
     url: https://hooks.example.com/orders

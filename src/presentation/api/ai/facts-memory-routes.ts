@@ -149,7 +149,7 @@ const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Respons
   // it sits under a different prefix (`/api/ai/agents/*`) from the other three.
   // That prefix also attaches `authMiddleware` without chaining `requireAuth()`,
   // so gating `/api/agents/*` alone would leave the agent reachable here.
-  const triggerRefusal = await checkTriggerPermission(c, agent)
+  const triggerRefusal = await checkTriggerPermission(c, agent, app)
   if (triggerRefusal) return triggerRefusal
 
   const { message, sessionId } = await parseFactsChatBody(c)

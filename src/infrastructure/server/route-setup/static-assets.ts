@@ -11,6 +11,8 @@ import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
+import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
 import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
@@ -778,7 +780,13 @@ export const setupBrandMarkRoute = embeddedAssetRoute(BRAND_MARK_PREFIX, readEmb
 /**
  * Setup static asset routes (CSS, JavaScript, islands, and optional public directory)
  *
- * Mounts CSS, JavaScript, island, and optionally public directory asset routes
+ * Mounts CSS, JavaScript, island, and optionally public directory asset routes.
+ *
+ * The page-search index (`/sovrium-search/*`) is served from the data
+ * directory the boot wrote it into (`searchIndexDir`), mounted BEFORE the
+ * app's own `public/` folder so a stale copy an older version left there can
+ * never shadow the current index. That directory holds nothing but
+ * `sovrium-search/`, so mounting it exposes nothing else of the data dir.
  *
  * @param honoApp - Hono application instance
  * @param app - Application configuration
@@ -805,5 +813,8 @@ export async function setupStaticAssets(
   // does not exist, the helper returns `withAssets` unchanged so the framework
   // 404 handler picks up matching requests; no behavioral regression vs. the
   // sync past.
-  return publicDir ? setupPublicDirRoute(withAssets, publicDir) : withAssets
+  const withSearch = hasPageSearchComponent(app)
+    ? await setupPublicDirRoute(withAssets, searchIndexDir())
+    : withAssets
+  return publicDir ? setupPublicDirRoute(withSearch, publicDir) : withSearch
 }

@@ -1,20 +1,25 @@
+# One thing the product does: an icon, a title, one sentence. Declared once
+# and used three times on the page, each with its own `vars`.
 name: feature-card
-type: container
+type: card
 props:
-  data-component: feature-card
-  className: p-6 border rounded-xl bg-white hover:shadow-lg transition-shadow
+  className: flex flex-col gap-2.5 rounded-lg border border-border bg-background-raised p-6 text-left shadow-sm
 children:
   - type: container
     props:
-      className: text-4xl mb-4
-    content: $icon
+      className: flex size-10 items-center justify-center rounded-md bg-primary-subtle text-primary-subtle-foreground
+    children:
+      - type: icon
+        props:
+          name: $icon
+          size: 20
   - type: text
     element: h3
     props:
-      className: text-2xl font-semibold mb-2
+      className: text-[20px] leading-[1.3] font-semibold text-foreground
     content: $title
   - type: text
     element: p
     props:
-      className: text-gray-600
-    content: $description
+      className: text-[15px] leading-[1.6] text-foreground-muted
+    content: $text

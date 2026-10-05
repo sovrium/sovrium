@@ -96,6 +96,7 @@ export function RelatedCreateForm({
           {column.label}
           <input
             type="text"
+            data-component-type="input"
             className={INPUT_CLASS}
             value={values[column.field] ?? ''}
             onChange={(event) => setValues({ ...values, [column.field]: event.target.value })}
@@ -130,12 +131,14 @@ function CreateFormButtons({
     <div className="flex gap-2">
       <button
         type="submit"
+        data-component-type="button"
         className={SAVE_CLASS}
       >
         {labels.save}
       </button>
       <button
         type="button"
+        data-component-type="button"
         className={CANCEL_CLASS}
         onClick={onCancel}
       >

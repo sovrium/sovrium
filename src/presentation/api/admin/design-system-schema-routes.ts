@@ -67,6 +67,7 @@ import {
 import { fieldTypeListResponseSchema } from '@/domain/models/api/admin/design-system/field-types'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
 import { parseOptionalCap } from '@/presentation/api/runtime/query-cap-parsers'
 import { buildClassProvenance } from '@/presentation/render/styling/class-provenance-report'
@@ -95,7 +96,7 @@ const NO_STORE = 'no-store'
  * Spelled as the module-level constant `agents.ts` and `connections.ts` already
  * use for this same envelope.
  */
-const NOT_FOUND = { success: false, message: 'Not found', code: 'NOT_FOUND' } as const
+const NOT_FOUND = notFoundBody('Not found')
 
 /**
  * A 500 for a payload that failed its own contract.

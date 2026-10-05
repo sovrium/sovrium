@@ -79,6 +79,7 @@ import type { Form } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Table } from '@/domain/models/app/tables'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 // ============================================================================
 // Internal Runtime API (used by src/cli/index.ts — NOT a public npm API)
@@ -209,7 +210,8 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
     throw new Error(
       `Sovrium failed to start: ${message}\n\n` +
         `If this looks like a bug, please open an issue:\n` +
-        `  https://github.com/sovrium/sovrium/issues/new`
+        `  https://github.com/sovrium/sovrium/issues/new`,
+      { cause: error }
     )
   }
 }
@@ -233,10 +235,10 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
  * is also what it did before this hoist. The receipt itself is discarded: a
  * build prints no startup banner, so there are no rows to carry.
  */
-const runBuildStartupOnce = (validatedApp: App) =>
+const runBuildStartupOnce = (validatedApp: App, authoredTableIds: AuthoredTableIds) =>
   Effect.gen(function* () {
     const serverFactory = yield* ServerFactory
-    yield* serverFactory.startDatabase(validatedApp, { ephemeral: true })
+    yield* serverFactory.startDatabase(validatedApp, { ephemeral: true, authoredTableIds })
     yield* serverFactory.runDeferredMaintenance(validatedApp)
   })
 
@@ -250,7 +252,7 @@ export const build = async (
   try {
     // `generateStatic` re-decodes the config it is handed, so it must receive
     // the same object `decodeOrThrow` validated — not a separately-parsed one.
-    const { raw: rawApp, app: validatedApp } = decodeOrThrow(app)
+    const { raw: rawApp, app: validatedApp, authoredTableIds } = decodeOrThrow(app)
 
     // A static build never executes an automation, so refusing a code action
     // that does not type-check buys this command nothing on its own. It is here
@@ -265,7 +267,7 @@ export const build = async (
     }
 
     const program = Effect.gen(function* () {
-      yield* runBuildStartupOnce(validatedApp)
+      yield* runBuildStartupOnce(validatedApp, authoredTableIds)
       logDebug('[ssg] generating static site...')
       const result = yield* generateStaticUseCase(rawApp, options)
       logDebug(`[ssg] static site generated to ${result.outputDir} (${result.files.length} files)`)
@@ -304,7 +306,7 @@ export const build = async (
     // eslint-disable-next-line functional/no-throw-statements -- re-throw the refusal verbatim
     if (isConfigRejectedError(error)) throw error
     const message = formatRuntimeError(error)
-    // eslint-disable-next-line functional/no-throw-statements -- re-throw with enriched message
+    // eslint-disable-next-line functional/no-throw-statements, preserve-caught-error -- re-throw with enriched message; the message already embeds the inner error, and a cause would make logError render the inner chain (and any query parameters it carries) on every failed build
     throw new Error(
       `Sovrium failed to build: ${message}\n\n` +
         `If this looks like a bug, please open an issue:\n` +

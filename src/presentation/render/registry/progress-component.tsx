@@ -26,6 +26,7 @@
  */
 
 import { StepRail } from '@/presentation/design/step-rail'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   computeProgressBarClasses,
   computeProgressCircleBarStroke,
@@ -59,6 +60,8 @@ interface ProgressFields {
   /** The named positions a `steps` rail draws. Empty for the other variants. */
   readonly steps: readonly StepRailStep[]
   readonly testId: string | undefined
+  /** The type stamp every rendered component carries. */
+  readonly componentType: string | undefined
 }
 
 /** Resolve the numeric value/max/percent triple from the component fields. */
@@ -76,7 +79,8 @@ function resolveProgressNumbers(c: Record<string, unknown>): {
 /** Resolve the progress fields from the component definition + raw props. */
 function resolveProgressFields(
   component: Component | undefined,
-  rawProps: Record<string, unknown> | undefined
+  rawProps: Record<string, unknown> | undefined,
+  componentType: string | undefined
 ): ProgressFields {
   const c = (component ?? {}) as Record<string, unknown>
   const props = rawProps ?? {}
@@ -92,6 +96,7 @@ function resolveProgressFields(
     label: typeof props.label === 'string' ? props.label : undefined,
     steps: resolveSteps(c.steps),
     testId: typeof props['data-testid'] === 'string' ? props['data-testid'] : undefined,
+    componentType,
   }
 }
 
@@ -133,6 +138,7 @@ function renderCircle(f: ProgressFields): ReactElement {
       aria-valuemin={0}
       aria-valuemax={f.max}
       data-component="progress"
+      data-component-type={f.componentType}
       data-progress-variant="circle"
       className="relative inline-flex items-center justify-center"
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call sizing in a stateless SSR renderer; rendered once on the server
@@ -174,7 +180,10 @@ function renderCircle(f: ProgressFields): ReactElement {
 function renderLinear(f: ProgressFields): ReactElement {
   const height = BAR_HEIGHT_PX[f.size] ?? BAR_HEIGHT_PX.md ?? 8
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2"
+      data-component-type={f.componentType}
+    >
       <div
         id={f.id}
         role="progressbar"
@@ -222,6 +231,7 @@ function renderSteps(f: ProgressFields): ReactElement {
       aria-label={f.label}
       data-testid={f.testId}
       data-component="progress"
+      data-component-type={f.componentType}
       data-progress-variant="steps"
       className="flex items-center"
     >
@@ -237,8 +247,8 @@ function renderSteps(f: ProgressFields): ReactElement {
  * Progress component renderer — dispatches to the step, circle or linear
  * variant.
  */
-export const progressComponent: ComponentRenderer = ({ component, rawProps }) => {
-  const fields = resolveProgressFields(component, rawProps)
+export const progressComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
+  const fields = resolveProgressFields(component, rawProps, hostComponentType(elementProps))
   if (fields.variant === 'steps') return renderSteps(fields)
   return fields.variant === 'circle' ? renderCircle(fields) : renderLinear(fields)
 }

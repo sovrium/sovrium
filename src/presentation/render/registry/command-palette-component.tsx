@@ -6,6 +6,10 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import {
+  resolveInterpreterString,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
 import { COMMAND_PALETTE_RUNTIME } from './command-palette-runtime'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -24,7 +28,11 @@ const TEXT_FIELD_TYPES = new Set([
 /** Minimal table shape consumed by the quick-action creation dialogs. */
 interface PaletteTable {
   readonly name: string
-  readonly fields?: ReadonlyArray<{ readonly name: string; readonly type: string }>
+  readonly fields?: ReadonlyArray<{
+    readonly name: string
+    readonly type: string
+    readonly label?: string
+  }>
 }
 
 /** Minimal navigable-page shape carried in the synthesized component props. */
@@ -84,6 +92,7 @@ function renderSearchPalette(search: PaletteSearch): ReactElement {
       />
       <div
         data-island="command-palette"
+        data-component-type="command-palette"
         data-island-props={islandProps}
         className="hidden"
       >
@@ -249,6 +258,70 @@ function resolveSearchMode(
 }
 
 /**
+ * The fields, per table, the page pass found this reader may not read — stamped
+ * on the palette's props, because the renderer holds the tables but not the
+ * app's roles. Empty when the reader may read every field.
+ */
+const unreadableFieldsOf = (
+  component: ComponentDispatchConfig['component']
+): Readonly<Record<string, readonly string[]>> => {
+  const stamped = (component as { readonly props?: Record<string, unknown> } | undefined)?.props?.[
+    '_unreadableFields'
+  ]
+  return typeof stamped === 'object' && stamped !== null
+    ? (stamped as Readonly<Record<string, readonly string[]>>)
+    : {}
+}
+
+/** The tables the page pass found this reader may not read at all. */
+const unreadableTablesOf = (component: ComponentDispatchConfig['component']): readonly string[] => {
+  const stamped = (component as { readonly props?: Record<string, unknown> } | undefined)?.props?.[
+    '_unreadableTables'
+  ]
+  return Array.isArray(stamped) ? (stamped as readonly string[]) : []
+}
+
+/**
+ * The tables the create dialogs offer — only those the reader may read — each
+ * with its text columns, only those the reader may read. A control is labelled as the hosted form labels it: by
+ * the column's label in the page language, its name when it has none.
+ */
+const paletteTables = (config: ComponentDispatchConfig) => {
+  const lang = config.currentLang ?? config.languages?.default ?? ''
+  const unreadable = unreadableFieldsOf(config.component)
+  const hiddenTables = unreadableTablesOf(config.component)
+  const readable = ((config.tables ?? []) as ReadonlyArray<PaletteTable>).filter(
+    (table) => !hiddenTables.includes(table.name)
+  )
+  return readable.map((table) => ({
+    name: table.name,
+    fields: (table.fields ?? [])
+      .filter((field) => TEXT_FIELD_TYPES.has(field.type))
+      .filter((field) => !(unreadable[table.name] ?? []).includes(field.name))
+      .map((field) => ({
+        name: field.name,
+        ...(field.label !== undefined && {
+          label: resolveTranslationPattern(field.label, lang, config.languages),
+        }),
+      })),
+  }))
+}
+
+/**
+ * The create dialog's own words in the page language, stamped into the inline
+ * runtime's config as the confirm gate's labels are. `{table}` is filled there.
+ */
+const paletteStrings = (config: ComponentDispatchConfig): Readonly<Record<string, string>> => {
+  const resolve = (key: string) =>
+    resolveInterpreterString(key, config.currentLang ?? config.languages?.default, config.languages)
+  return {
+    createTitle: resolve('commandPalette.createTitle'),
+    create: resolve('commandPalette.create'),
+    cancel: resolve('commandPalette.cancel'),
+  }
+}
+
+/**
  * Renderer for the render-time-synthesized `command-palette` component.
  *
  * This component type is never schema-authored — it is injected into every
@@ -281,18 +354,14 @@ export const commandPaletteComponent: ComponentRenderer = (
     return renderSearchPalette(search)
   }
 
-  const tables = ((config.tables ?? []) as ReadonlyArray<PaletteTable>).map((table) => ({
-    name: table.name,
-    fields: (table.fields ?? [])
-      .filter((field) => TEXT_FIELD_TYPES.has(field.type))
-      .map((field) => ({ name: field.name })),
-  }))
+  const tables = paletteTables(config)
   const componentProps = (config.component?.props ?? {}) as { readonly pages?: PalettePage[] }
   const pages = Array.isArray(componentProps.pages) ? componentProps.pages : []
   if (specimenQuery !== undefined) return renderSpecimenOverlay(tables, pages, specimenQuery)
   const paletteConfig = {
     tables: tables.map((table) => ({ name: table.name, fields: table.fields })),
     pages: pages.map((page) => ({ name: page.name, path: page.path, title: page.title })),
+    strings: paletteStrings(config),
   }
   // `serializeJsonForScript` escapes `<` so a value containing `</script>`
   // cannot break out of the JSON config `<script>` block. This escape used to

@@ -1,52 +1,46 @@
 ---
 title: Introduction
-description: What this docs site is and how a markdown file becomes a route.
-category: Getting Started
+description: What this site is, and how a markdown file becomes a page.
+category: getting-started
 order: 1
-draft: false
+updated: 2026-09-02
 ---
 
 # Introduction
 
-Welcome to the Sovrium documentation starter. This whole section is generated
-from the `.md` files in `content/docs/` — there is no per-page configuration to
-maintain. Add a file, get a route.
+This site is a folder of markdown files. Every page you read here is a file
+under `content/docs/`, and the sidebar, the outline, previous and next, and
+the highlighted code all come from those files and one page of configuration.
 
-## How a file becomes a route
+## How a file becomes a page
 
-The `config/pages/docs.yaml` page declares a **content directory collection**.
-At startup Sovrium scans the folder, reads each file's frontmatter, and
-registers one route per file:
+`config/pages/docs.yaml` declares a content collection. At start, Sovrium
+reads every file in the folder and serves each one at its own address:
 
-| File                                | Route                     |
-| ----------------------------------- | ------------------------- |
-| `content/docs/introduction.md`      | `/docs/introduction`      |
-| `content/docs/installation.md`      | `/docs/installation`      |
-| `content/docs/guides/deployment.md` | `/docs/guides/deployment` |
+| File                                   | Page                         |
+| -------------------------------------- | ---------------------------- |
+| `content/docs/introduction.md`         | `/docs/introduction`         |
+| `content/docs/quick-start.md`          | `/docs/quick-start`          |
+| `content/docs/guides/configuration.md` | `/docs/guides/configuration` |
 
-Because `slugFrom: filepath`, nested folders are preserved in the URL — so the
-folder layout _is_ the navigation.
+A folder stays in the address, so `guides/` is both a folder on disk and a part
+of the URL. `/docs` itself opens this page.
 
-## Frontmatter drives everything
+![Three markdown files on the left; on the right, the sidebar they produce — Getting started with Introduction and Quick Start, Guides with Configuration.](/docs/files-to-pages.avif)
 
-Every file opens with a YAML frontmatter block. These keys do real work:
+## What the front matter does
 
-- `title` — the sidebar label for this page (`nav.labelFrom: title`)
-- `description` — a short summary of the page
-- `category` — the sidebar group heading (`nav.groupBy: category`)
-- `order` — the position within the section (`sort.field: order`)
-- `draft` — set `true` to exclude a file from routes and the sidebar
+Every file opens with a short block of front matter. Each key has one job:
 
-> The sidebar, the table of contents, and the previous/next links at the bottom
-> of this page are all derived automatically. You never hand-write a nav list.
+- `title` — the page's name in the sidebar and the browser tab.
+- `description` — the summary search engines and link previews show.
+- `category` — the sidebar section the page sits in.
+- `order` — its place in the reading order, across sections.
+- `updated` — the date printed under the page as "Last updated".
 
 ## What you can write
 
-The body is GitHub-Flavored Markdown: tables, ordered and nested lists,
-blockquotes, autolinks like https://sovrium.com, images, and fenced code that is
-syntax-highlighted server-side.
-
-::: callout
-Ready to run it locally? Head to **Installation** using the link at the bottom of
-this page — the prev/next chrome is generated from the collection order.
-:::
+The body is GitHub-flavoured markdown: headings, tables, lists, images, and
+fenced code highlighted on the server. Three kinds of callout set a sentence
+apart — a note, a tip and a warning. The [Quick Start](/docs/quick-start) adds
+a page in three steps.

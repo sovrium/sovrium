@@ -1,5 +1,18 @@
+# The tasks of those projects: what is due, how urgent, who holds it, and
+# whether it is done.
+#
+# Same rules as `projects`: every role reads, an admin or a member creates and
+# edits, only an admin deletes. A delete is a soft delete: the task goes to the
+# trash and `POST /api/tables/tasks/records/:id/restore` brings it back. Every
+# change is kept in the record's history, read by the table's id:
+# `GET /api/tables/2/records/:id/history`.
 id: 2
 name: tasks
+permissions:
+  read: [admin, member, viewer]
+  create: [admin, member]
+  update: [admin, member]
+  delete: [admin]
 fields:
   - id: 1
     name: title
@@ -8,11 +21,14 @@ fields:
   - id: 2
     name: description
     type: long-text
+  # The list returns the project's id; `displayField` is the field the admin
+  # console shows in its place.
   - id: 3
     name: project
     type: relationship
     relatedTable: projects
     relationType: many-to-one
+    displayField: name
   - id: 4
     name: priority
     type: single-select
@@ -27,6 +43,8 @@ fields:
   - id: 6
     name: due_date
     type: date
+  # An account of this app. A task is filtered by it with
+  # `?filter=assigned_to:<user id>`.
   - id: 7
     name: assigned_to
     type: user

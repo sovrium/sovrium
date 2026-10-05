@@ -29,17 +29,25 @@
  * `forms[]`. A future tier may surface a developer-time warning for them.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
+import {
+  INLINE_CRUD_PREFILL_KEY,
+  type ResolvedInlineCrudPrefill,
+} from '@/presentation/render/elements/crud-form/crud-form-inline-prefill'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
-import { resolveText } from './form-field-resolver'
-import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
-import { renderEmbeddedFormBody } from './form-renderer'
+import { resolveDocumentLang, resolveText } from './form-field-resolver'
+import { type FormPrefillContext } from './form-prefill-resolver'
+import { renderEmbeddedFormBody, resolveFormStartingValues } from './form-renderer'
 import {
   isInlinePrefill,
+  prefillColumnsOf,
+  prefillUserOf,
   resolveRecordPrefillMap,
   type InlinePrefillShape,
   type PrefillValue,
 } from './record-prefill-resolver'
+import type { EmbeddedFormPrefillContext } from './form-body'
 import type { FormRefOptionSets } from './form-ref-option-sources'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -150,7 +158,7 @@ export interface FormRefExpansionContext {
    */
   readonly activeLang?: string | undefined
   /**
-   * GAP-3 / [internal ref]: the host page's request query string. Threaded so an
+   * [internal ref]: the host page's request query string. Threaded so an
    * embedded form's form-level `prefill: { field: '$query.<name>' }` resolves
    * against the host page URL, matching the standalone `/forms/:name` route.
    * When omitted, `$query.*` prefill entries drop out (field renders empty),
@@ -166,20 +174,48 @@ export interface FormRefExpansionContext {
 }
 
 /**
- * Resolve a form's form-level `prefill` map (literal / `$query` / `$user`) into
- * concrete embedded initial values. Only `$query` is honoured on
- * the embedded path — `$user.*` is intentionally NOT resolved (it would require
- * the standalone route's auth-gate to avoid leaking session state, so it safely
- * drops to empty here). Returns an empty map when the form declares no prefill.
+ * The embedded form's own starting values — its fields' `defaultValue`s under
+ * its form-level `prefill` map — resolved through the SAME merge
+ * and the SAME request facts the standalone `/forms/:name` page starts from
+ * (`resolveFormStartingValues`): the host page's query string, and the signed-in
+ * viewer for `$user.*` (absent for an anonymous visitor, so the entry drops
+ * exactly as it does on the standalone page). A form therefore starts alike
+ * wherever it is shown. The host's inline prefill, which the page author writes
+ * for this page, is resolved separately and wins on the keys it names.
  */
 function resolveFormLevelPrefill(
+  app: App,
   form: Readonly<Form>,
   ctx: FormRefExpansionContext
 ): Readonly<Record<string, PrefillValue>> {
-  const { prefill } = form as { readonly prefill?: Readonly<Record<string, PrefillValue>> }
-  if (prefill === undefined) return {}
-  const prefillCtx: FormPrefillContext = { query: ctx.query ?? {} }
-  return resolveFormPrefill(prefill, prefillCtx)
+  const user = prefillUserOf(ctx.session)
+  const prefillCtx: FormPrefillContext = {
+    query: ctx.query ?? {},
+    ...(user === undefined ? {} : { user }),
+  }
+  return resolveFormStartingValues(app, form, prefillCtx)
+}
+
+/**
+ * Resolve the host's inline prefill for an embedded form, and describe how it
+ * applies over the form's own starting values: it wins on the keys it names,
+ * and — when locked — only those keys ride in hidden inputs.
+ */
+function resolveEmbedPrefill(
+  app: App,
+  form: Readonly<Form>,
+  inlinePrefill: InlinePrefillShape | undefined,
+  ctx: FormRefExpansionContext
+): EmbeddedFormPrefillContext {
+  const inline = resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord, {
+    session: ctx.session,
+    columns: prefillColumnsOf(app.tables, form.submitTo.table),
+  })
+  return {
+    prefill: { ...resolveFormLevelPrefill(app, form, ctx), ...inline },
+    lockPrefill: inlinePrefill?.lockPrefill === true,
+    lockedKeys: Object.keys(inlinePrefill?.prefill ?? {}),
+  }
 }
 
 /**
@@ -272,20 +308,15 @@ function expandFormRefComponent(
   const form = app.forms?.find((f) => f.name === formRefInfo.formRef)
   if (form === undefined) return component
 
-  // Form-level `$query` prefill provides EDITABLE initial values;
-  // inline `$parent` prefill (Y-5) wins on key collisions and drives the
-  // lock-prefill (hidden-input) rendering mode.
-  const resolvedPrefill = {
-    ...resolveFormLevelPrefill(form, ctx),
-    ...resolveRecordPrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord),
-  }
-  const lockPrefill = formRefInfo.inlinePrefill?.lockPrefill === true
+  // The form's own defaults + `$query` prefill provide EDITABLE
+  // initial values; the inline prefill (Y-5) wins on the keys it names and, when
+  // locked, renders exactly those keys as hidden inputs.
   const titleAs = readHeadingLevel(formRefInfo.originalProps)
 
   const formBodyHtml = renderEmbeddedFormBody(
     app,
     applySubmitLabelOverride(form, formRefInfo.originalProps),
-    { prefill: resolvedPrefill, lockPrefill },
+    resolveEmbedPrefill(app, form, formRefInfo.inlinePrefill, ctx),
     ctx.activeLang,
     { titleAs, ...optionSetsFor(form, ctx) }
   )
@@ -300,10 +331,15 @@ function expandFormRefComponent(
   // at render time, AFTER schema decode, so a schema author can never
   // supply the field (the decoded `customHTML` schema only exposes
   // `content` / `htmlSrc`).
+  //
+  // `authoredType` keeps the element NAMED as the author wrote it: the page
+  // declared a `form`, and the rewrite to `customHTML` is a rendering detail
+  // nothing reading the page should see.
   return {
     type: 'customHTML',
     props: buildWrapperProps(formRefInfo.formRef, formRefInfo.originalProps),
     trustedContent: formBodyHtml,
+    authoredType: 'form',
   } as unknown as Component
 }
 
@@ -339,9 +375,51 @@ export function expandFormRefs(
     if (isFormRefEmbedding(component) && isComponentHiddenForSession(component, ctx.session, app)) {
       return []
     }
-    const expanded = expandDialogFormRef(expandFormRefComponent(component, app, ctx), app, ctx)
+    const expanded = expandDialogFormRef(
+      expandFormRefComponent(stampInlineCrudPrefill(component, app, ctx), app, ctx),
+      app,
+      ctx
+    )
     return [expandNestedFormRefs(expanded, app, ctx)]
   })
+}
+
+/** The table an in-place form writes to: its `dataSource`, else its `crud` action's. */
+function readDataSourceTable(component: Component): string | undefined {
+  const node = component as {
+    readonly dataSource?: { readonly table?: unknown }
+    readonly action?: { readonly table?: unknown }
+  }
+  const table = node.dataSource?.table ?? node.action?.table
+  return typeof table === 'string' ? table : undefined
+}
+
+/**
+ * Resolve the `inlinePrefill` of a form declared IN PLACE (its own `dataSource`,
+ * `fields` and `crud` create action) against the host page, exactly as a
+ * `formRef` embed's is resolved, and stamp it for the crud-form renderer — which
+ * draws the form later and never sees the host record. A `formRef` embed, or a
+ * form without `inlinePrefill`, is returned unchanged.
+ */
+function stampInlineCrudPrefill(
+  component: Component,
+  app: App,
+  ctx: FormRefExpansionContext
+): Component {
+  if (component.type !== 'form') return component
+  const node = component as { readonly formRef?: unknown; readonly inlinePrefill?: unknown }
+  if (typeof node.formRef === 'string' || !isInlinePrefill(node.inlinePrefill)) return component
+  const stamped: ResolvedInlineCrudPrefill = {
+    values: resolveRecordPrefillMap(node.inlinePrefill, ctx.parentRecord, {
+      session: ctx.session,
+      columns: prefillColumnsOf(app.tables, readDataSourceTable(component)),
+    }),
+    lock: node.inlinePrefill.lockPrefill === true,
+  }
+  return {
+    ...(component as Record<string, unknown>),
+    [INLINE_CRUD_PREFILL_KEY]: stamped,
+  } as Component
 }
 
 /**
@@ -433,13 +511,8 @@ function expandDialogFormRef(
 
   const inlinePrefillRaw = (component as { readonly inlinePrefill?: unknown }).inlinePrefill
   const inlinePrefill = isInlinePrefill(inlinePrefillRaw) ? inlinePrefillRaw : undefined
-  // Form-level `$query` prefill underlays the inline `$parent`
-  // prefill; the latter wins on collisions and drives lock-prefill rendering.
-  const resolvedPrefill = {
-    ...resolveFormLevelPrefill(form, ctx),
-    ...resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord),
-  }
-  const lockPrefill = inlinePrefill?.lockPrefill === true
+  // The form's own starting values underlay the inline prefill, which wins on
+  // the keys it names and drives lock-prefill rendering for those keys.
   const titleAs = readHeadingLevel(component.props)
 
   // `props.label` is deliberately NOT forwarded on the dialog path. On a
@@ -450,9 +523,19 @@ function expandDialogFormRef(
   const formBodyHtml = renderEmbeddedFormBody(
     app,
     form,
-    { prefill: resolvedPrefill, lockPrefill },
+    resolveEmbedPrefill(app, form, inlinePrefill, ctx),
     ctx.activeLang,
-    { titleAs, omitTitle: true, ...optionSetsFor(form, ctx) }
+    {
+      titleAs,
+      omitTitle: true,
+      // The dialog draws a Cancel beside the form's submit, in the page language.
+      cancelLabel: resolveInterpreterString(
+        'dialog.cancel',
+        resolveDocumentLang(app.languages, ctx.activeLang),
+        app.languages
+      ),
+      ...optionSetsFor(form, ctx),
+    }
   )
   return {
     ...(component as Record<string, unknown>),

@@ -1,190 +1,188 @@
-# Sample support queue.
+# Fourteen tickets at Tallyline over the last two weeks: nine open — two new
+# that nobody holds yet, four open and three waiting on the customer — and
+# five finished. Clara holds four of the open ones, Yann three.
 #
-# All five statuses carry tickets, so the triage kanban on /triage reads as a
-# working queue rather than one loaded column, and all four priorities appear so
-# the "Urgent" KPI tile is a real number instead of a permanent zero.
-#
-# `resolved_at` is set only on Resolved and Closed rows — a resolution date on
-# an open ticket is the kind of quietly-wrong demo data that teaches a reader
-# the wrong thing about the model.
-#
-# `assignee` is deliberately unseeded. It is a `user` field storing an auth user
-# id (TEXT); `sovrium seed` resolves `@table.key` references but has no
-# vocabulary for auth users, and inventing an id would render as a blank cell
-# that looks like a bug rather than an absence. Assign tickets in the UI.
-#
-# Requester addresses use `.example`, a reserved TLD that can never resolve, so
-# a demo reset can never mail a real person.
+# Every date is relative to the day the seed runs, so the demo never ages;
+# `--today <YYYY-MM-DD>` pins them to one day. Seeding runs no automation, so
+# the arrival and due times the app writes for a new ticket are written here.
 records:
-  - key: export-timeout
+  - key: t1051
     fields:
-      subject: CSV export times out on large tables
-      description: >-
-        Exporting our orders table (about 40k rows) spins for two minutes and
-        then returns an empty file. Smaller tables export fine.
+      subject: 'CSV export times out on large tables'
+      details: 'Exporting the orders table as CSV times out after two minutes once it passes about 50 000 rows. Smaller tables export fine.'
+      requester_name: Dana Whitfield
+      requester_email: dana.whitfield@northgate.example
+      company: Northgate
       status: New
       priority: Urgent
       category: Bug report
-      requester_name: Dana Whitfield
-      requester_email: dana.whitfield@northgate.example
-
-  - key: sso-google
+      opened_at: '{{today}}'
+      first_reply_due: '{{today}}'
+  - key: t1050
     fields:
-      subject: Can we sign in with Google Workspace?
-      description: >-
-        We already manage accounts in Workspace and would rather not maintain a
-        second set of passwords.
+      subject: 'Can we sign in with Google Workspace?'
+      details: 'We moved the whole company to Google Workspace. Can the team sign in with it instead of a separate password?'
+      requester_name: Idris Bello
+      requester_email: idris.bello@vantage.example
+      company: Vantage
       status: New
       priority: Normal
       category: Feature request
-      requester_name: Idris Bello
-      requester_email: idris.bello@vantage.example
-
-  - key: invoice-vat
+      opened_at: '{{today-1d}}'
+      first_reply_due: '{{today}}'
+  - key: t1047
     fields:
-      subject: VAT number missing from January invoice
-      description: >-
-        Our finance team cannot process the invoice without our VAT number on
-        it. Can you reissue it?
-      status: Open
-      priority: High
-      category: Billing
+      subject: 'VAT number missing from January invoice'
+      details: 'Our January invoice has no VAT number on it, so our accountant cannot book it. Can you send a corrected copy?'
       requester_name: Margit Halvorsen
       requester_email: margit.halvorsen@fjordline.example
-
-  - key: attachment-limit
-    fields:
-      subject: Upload fails silently above 10 MB
-      description: >-
-        Dragging a larger PDF into a record shows the progress bar, then
-        nothing happens and no error appears.
+      company: Fjordline
       status: Open
       priority: High
-      category: Bug report
+      category: Billing
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-1d}}'
+      first_reply_due: '{{today}}'
+  - key: t1046
+    fields:
+      subject: 'Upload fails silently above 10 MB'
+      details: 'Attaching a 14 MB PDF to a record shows the spinner, then nothing. No error, and the file is not there.'
       requester_name: Tomás Reyes
       requester_email: tomas.reyes@altamar.example
-
-  - key: timezone-dates
-    fields:
-      subject: Dates shift by a day for our Sydney team
-      description: >-
-        A record created on the 3rd in Sydney shows as the 2nd for colleagues in
-        London. Which timezone are dates stored in?
+      company: Altamar
       status: Open
-      priority: Normal
-      category: Question
+      priority: High
+      category: Bug report
+      assignee: '@user:yann.kerbrat@tallyline.example'
+      opened_at: '{{today-1d}}'
+      first_reply_due: '{{today}}'
+  - key: t1044
+    fields:
+      subject: 'Dates shift by a day for our Sydney team'
+      details: 'Dates entered by our Sydney office show up one day earlier for everyone in Europe.'
       requester_name: Priya Anand
       requester_email: priya.anand@waverley.example
-
-  - key: webhook-retries
-    fields:
-      subject: Do webhooks retry after a 500?
-      description: >-
-        Our endpoint was down for twenty minutes during a deploy and we are
-        trying to work out whether we lost events.
+      company: Waverley
       status: Open
       priority: Normal
       category: Question
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-2d}}'
+      first_reply_due: '{{today+1d}}'
+  - key: t1043
+    fields:
+      subject: 'Do webhooks retry after a 500?'
+      details: 'If our endpoint answers 500, does your side retry the webhook, and how often?'
       requester_name: Kwame Osei
       requester_email: kwame.osei@brightpath.example
-
-  - key: seat-count
+      company: Brightpath
+      status: Open
+      priority: Normal
+      category: Question
+      assignee: '@user:yann.kerbrat@tallyline.example'
+      opened_at: '{{today-3d}}'
+      first_reply_due: '{{today+1d}}'
+  - key: t1041
     fields:
-      subject: Adding five seats mid-cycle
-      description: >-
-        We want five more seats now. Will we be billed pro rata or at the next
-        renewal?
+      subject: 'Adding five seats mid-cycle'
+      details: 'We are hiring five people next month. How is a seat added mid-cycle billed?'
+      requester_name: Elena Rossi
+      requester_email: elena.rossi@corvina.example
+      company: Corvina
       status: Waiting on customer
       priority: Normal
       category: Billing
-      requester_name: Elena Rossi
-      requester_email: elena.rossi@corvina.example
-
-  - key: import-mapping
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-2d}}'
+      first_reply_due: '{{today+2d}}'
+  - key: t1039
     fields:
-      subject: Column mapping resets between import steps
-      description: >-
-        Going back one step in the importer loses the mapping. Sending a screen
-        recording once IT approves the tool.
+      subject: 'Column mapping resets between import steps'
+      details: 'On step three of the CSV import the column mapping from step two is gone.'
+      requester_name: Jonas Meier
+      requester_email: jonas.meier@steinbruck.example
+      company: Steinbruck
       status: Waiting on customer
       priority: High
       category: Bug report
-      requester_name: Jonas Meier
-      requester_email: jonas.meier@steinbruck.example
-
-  - key: api-rate-limit
+      assignee: '@user:yann.kerbrat@tallyline.example'
+      opened_at: '{{today-3d}}'
+      first_reply_due: '{{today+2d}}'
+  - key: t1038
     fields:
-      subject: What is the API rate limit per token?
-      description: >-
-        Planning a nightly sync and want to size the batches correctly. Waiting
-        on their integration lead to confirm the expected volume.
+      subject: 'What is the API rate limit per token?'
+      details: 'We plan a nightly sync. What is the request limit per API token?'
+      requester_name: Sofia Lindqvist
+      requester_email: sofia.lindqvist@nordkap.example
+      company: Nordkap
       status: Waiting on customer
       priority: Low
       category: Question
-      requester_name: Sofia Lindqvist
-      requester_email: sofia.lindqvist@nordkap.example
-
-  - key: password-reset-loop
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-6d}}'
+      first_reply_due: '{{today+3d}}'
+  - key: t1036
     fields:
-      subject: Password reset email never arrives
-      description: >-
-        Resolved — their mail gateway was quarantining our sender. Added to
-        their allowlist and confirmed delivery.
+      subject: 'Password reset email never arrives'
+      details: 'Three people on our team asked for a password reset this morning and none of the emails arrived.'
+      requester_name: Aoife Byrne
+      requester_email: aoife.byrne@clonmara.example
+      company: Clonmara
       status: Resolved
       priority: Urgent
       category: Bug report
-      requester_name: Aoife Byrne
-      requester_email: aoife.byrne@clonmara.example
-      resolved_at: '{{today-3d}}'
-
-  - key: dark-mode
+      assignee: '@user:yann.kerbrat@tallyline.example'
+      opened_at: '{{today-2d}}'
+      resolved_at: '{{today-1d}}'
+  - key: t1034
     fields:
-      subject: Is there a dark mode?
-      description: >-
-        Pointed them at the theme toggle in the workspace header. They had not
-        scrolled far enough to see it.
+      subject: 'Is there a dark mode?'
+      details: 'Some of us work late. Is there a dark mode?'
+      requester_name: Hugo Delacroix
+      requester_email: hugo.delacroix@marchand.example
+      company: Marchand
       status: Resolved
       priority: Low
       category: Question
-      requester_name: Hugo Delacroix
-      requester_email: hugo.delacroix@marchand.example
-      resolved_at: '{{today-6d}}'
-
-  - key: duplicate-charge
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-3d}}'
+      resolved_at: '{{today-2d}}'
+  - key: t1033
     fields:
-      subject: Charged twice in November
-      description: >-
-        Confirmed a duplicate charge from a retried payment. Refunded in full,
-        four working days to land.
+      subject: 'Charged twice in November'
+      details: 'Our card was charged twice for November. Please refund the second charge.'
+      requester_name: Beatriz Almeida
+      requester_email: beatriz.almeida@saltrio.example
+      company: Saltrio
       status: Resolved
       priority: Urgent
       category: Billing
-      requester_name: Beatriz Almeida
-      requester_email: beatriz.almeida@saltrio.example
-      resolved_at: '{{today-1d}}'
-
-  - key: mobile-layout
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-3d}}'
+      resolved_at: '{{today-3d}}'
+  - key: t1030
     fields:
-      subject: Table columns overflow on a phone
-      description: >-
-        Fixed in the release two weeks ago — tables now scroll horizontally
-        inside their own container.
+      subject: 'Table columns overflow on a phone'
+      details: 'On a phone the wider tables run off the right edge of the screen.'
+      requester_name: Nadia Haddad
+      requester_email: nadia.haddad@zephyr.example
+      company: Zephyr
       status: Closed
       priority: Normal
       category: Bug report
-      requester_name: Nadia Haddad
-      requester_email: nadia.haddad@zephyr.example
-      resolved_at: '{{today-21d}}'
-
-  - key: trial-extension
+      assignee: '@user:yann.kerbrat@tallyline.example'
+      opened_at: '{{today-10d}}'
+      resolved_at: '{{today-6d}}'
+  - key: t1029
     fields:
-      subject: Trial extension while we finish procurement
-      description: >-
-        Extended by three weeks. Procurement completed and the account is now on
-        an annual plan.
+      subject: 'Trial extension while we finish procurement'
+      details: 'Our procurement review takes two more weeks. Could the trial run until then?'
+      requester_name: Ravi Chandran
+      requester_email: ravi.chandran@keelson.example
+      company: Keelson
       status: Closed
       priority: Normal
       category: Billing
-      requester_name: Ravi Chandran
-      requester_email: ravi.chandran@keelson.example
-      resolved_at: '{{today-34d}}'
+      assignee: '@user:clara.dumas@tallyline.example'
+      opened_at: '{{today-13d}}'
+      resolved_at: '{{today-8d}}'

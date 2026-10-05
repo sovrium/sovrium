@@ -288,10 +288,10 @@ export const BuildFormsList = (
         : null
 
     // Build admin items in parallel — each item runs a small aggregate query.
-    const items = yield* Effect.all(
-      pageSlice.map((form) =>
-        repo.aggregateForForm(form.name).pipe(Effect.map((agg) => buildFormAdminItem(form, agg)))
-      ),
+    const items = yield* Effect.forEach(
+      pageSlice,
+      (form) =>
+        repo.aggregateForForm(form.name).pipe(Effect.map((agg) => buildFormAdminItem(form, agg))),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
 

@@ -19,16 +19,14 @@ import type { ReactElement } from 'react'
 const SHELL_CLASSES = computeChartShellClasses()
 
 /**
- * Mirrors gallery-states pattern — every state still emits
- * `data-component="chart"` so spec assertions on the canonical
- * chart attribute resolve regardless of branch.
+ * Chart render states. None carries `data-component="chart"`: the island host
+ * names the chart once, whatever state is drawn inside it.
  */
 
 export function ChartLoading(): ReactElement {
   return (
     <div
       className={SHELL_CLASSES}
-      data-component="chart"
       data-chart-state="loading"
       role="status"
       aria-label="Loading chart..."
@@ -50,7 +48,6 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
   return (
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
-      data-component="chart"
       data-chart-state="error"
       role="alert"
     >
@@ -89,7 +86,6 @@ export function ChartEmpty({
     return (
       <section
         className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
-        data-component="chart"
         data-chart-state="empty"
         role="region"
         aria-label={emptyState.name}
@@ -106,7 +102,6 @@ export function ChartEmpty({
   return (
     <div
       className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
-      data-component="chart"
       data-chart-state="empty"
     >
       <p>{message ?? 'No data to chart yet.'}</p>
@@ -123,7 +118,6 @@ export function ChartMissingTable(): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="chart"
       data-chart-state="missing-table"
       role="alert"
     >
@@ -137,7 +131,6 @@ export function ChartMissingAxes(): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="chart"
       data-chart-state="missing-axes"
       role="alert"
     >

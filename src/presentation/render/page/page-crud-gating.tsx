@@ -75,10 +75,21 @@ function declaredWriteGrant(
  * is why the gate evaluates the ladder rather than calling the API's helper.
  *
  * `groups` is forwarded so a `group:<name>` entry in an allowlist is honoured
- * here exactly as `matchesRoleList` honours it on the write path.
+ * here exactly as `matchesRoleList` honours it on the write path — except for
+ * a `viewer` account, whom the write path judges on her own role alone (a
+ * group opens a table to her read, never to her writes), so the form a write
+ * would refuse is not offered.
  */
 const gateCaller = (session: SessionInfo | undefined): PermissionCaller | undefined =>
-  session === undefined ? undefined : { role: session.role, groups: session.groups }
+  session === undefined
+    ? undefined
+    : {
+        role: session.role,
+        groups: session.role === 'viewer' ? [] : session.groups,
+        // Stamped by the auth context from `isAdminEquivalent`: the app's top
+        // role outranks a role list exactly as the built-in `admin` does.
+        adminEquivalent: session.isUnrestricted === true,
+      }
 
 /**
  * Checks if a caller is allowed to create records in a table.

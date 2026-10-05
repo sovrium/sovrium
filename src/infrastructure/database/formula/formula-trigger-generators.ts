@@ -5,13 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { pinFormulaClock } from './formula-dev-clock'
+import { formulaNeedsUtcSession } from './formula-postgres-stability'
+import { qualifyColumnReferences } from './formula-qualification'
 import { translateFormula } from './formula-translation'
 import {
   castFormulaDivisionOperands,
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
   getViewComputedFormulaFields,
-  qualifyColumnReferences,
 } from './formula-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -96,10 +99,21 @@ export const generateVolatileFormulaTriggerFunction = (
       // (`t.total_minutes / 60` → `CAST(t.total_minutes AS NUMERIC) / 60`) —
       // [internal ref]. Runs AFTER qualification so it
       // matches the already-aliased references.
-      const castFormula = castFormulaDivisionOperands(qualifiedFormula, fields, 't')
-      return `  SELECT (${castFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
+      const castFormula = pinFormulaClock(
+        castFormulaDivisionOperands(qualifiedFormula, fields, 't'),
+        'postgres'
+      )
+      return `  SELECT (${castFormula}) INTO NEW.${quoteSqlIdentifier(field.name)} FROM (SELECT NEW.*) AS t;`
     })
     .join('\n')
+
+  // A date or datetime read as text — or a datetime converted through the time
+  // zone — follows the session's `TimeZone` and `DateStyle` on PostgreSQL. Pin both for the function's own execution so the
+  // label reads the UTC ISO text SQLite stores, whatever the connection's
+  // settings — the value then reads identically on both engines.
+  const sessionPins = volatileFields.some((field) => formulaNeedsUtcSession(field.formula, fields))
+    ? " SET TimeZone TO 'UTC' SET DateStyle TO 'ISO, YMD'"
+    : ''
 
   return `
 CREATE OR REPLACE FUNCTION ${functionName}()
@@ -108,7 +122,7 @@ BEGIN
 ${assignments}
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql${sessionPins};
 `.trim()
 }
 
@@ -158,8 +172,8 @@ export const generateSqliteFormulaTriggers = (
   const assignments = triggerFields
     .map((field) => {
       const translated = translateFormula(field.formula, fields)
-      const castFormula = castFormulaDivisionOperands(translated, fields)
-      return `  UPDATE ${tableName} SET ${field.name} = (${castFormula}) WHERE rowid = NEW.rowid;`
+      const castFormula = pinFormulaClock(castFormulaDivisionOperands(translated, fields), 'sqlite')
+      return `  UPDATE ${tableName} SET ${quoteSqlIdentifier(field.name)} = (${castFormula}) WHERE rowid = NEW.rowid;`
     })
     .join('\n')
 
@@ -185,6 +199,64 @@ FOR EACH ROW
 BEGIN
 ${assignments}
 END`,
+  ]
+}
+
+/**
+ * The trigger-computed formulas of a table as a comparable value: each one's
+ * name and formula, in the order they are computed. Two definitions with the
+ * same signature compute the same values, so a migration that leaves it
+ * unchanged has nothing to recompute for the rows already there.
+ */
+export const triggerFormulaSignature = (fields: readonly Fields[number][]): string =>
+  JSON.stringify(getTriggerFormulaFields(fields).map((field) => [field.name, field.formula]))
+
+/**
+ * SQLite: compute every trigger-computed formula for every row already in the
+ * table — the statements of {@link generateSqliteFormulaTriggers} without their
+ * `WHERE rowid = NEW.rowid`, one per field in dependency order.
+ *
+ * A trigger only fills the column when a row is written, so a formula that is
+ * added or edited would otherwise reach only the rows written after the
+ * release. The table's `updated_at` trigger is dropped around the backfill and
+ * recreated from `updatedAtTriggers` (its own `DROP` + `CREATE`): a recomputed
+ * formula is not an edit of the record, and must not restamp every row.
+ */
+export const generateSqliteFormulaBackfill = (
+  tableName: string,
+  fields: readonly Fields[number][],
+  updatedAtTriggers: readonly string[]
+): readonly string[] => {
+  const triggerFields = getTriggerFormulaFields(fields)
+  if (triggerFields.length === 0) return []
+  const updates = triggerFields.map((field) => {
+    const translated = translateFormula(field.formula, fields)
+    // The same pinned clock the trigger reads (`formula-dev-clock.ts`), so a
+    // formula added while `SOVRIUM_DEV_CLOCK` is set backfills on that day.
+    const castFormula = pinFormulaClock(castFormulaDivisionOperands(translated, fields), 'sqlite')
+    return `UPDATE ${tableName} SET ${quoteSqlIdentifier(field.name)} = (${castFormula})`
+  })
+  return [...updatedAtTriggers.slice(0, 1), ...updates, ...updatedAtTriggers]
+}
+
+/**
+ * PostgreSQL: compute every trigger-computed formula for every row already in
+ * the table, through the formula trigger itself — the one place the formulas,
+ * their order and their session pins are written. Every other user trigger on
+ * the table is disabled for the statement, so the `updated_at` stamp, the
+ * authorship and the AI-compute triggers do not read the backfill as an edit.
+ */
+export const generatePostgresFormulaBackfill = (
+  tableName: string,
+  fields: readonly Fields[number][]
+): readonly string[] => {
+  const [first] = getTriggerFormulaFields(fields)
+  if (first === undefined) return []
+  return [
+    `ALTER TABLE ${tableName} DISABLE TRIGGER USER`,
+    `ALTER TABLE ${tableName} ENABLE TRIGGER trigger_compute_${tableName}_formulas`,
+    `UPDATE ${tableName} SET ${first.name} = ${first.name}`,
+    `ALTER TABLE ${tableName} ENABLE TRIGGER USER`,
   ]
 }
 
@@ -226,6 +298,12 @@ export const createVolatileFormulaTriggers = async (
   if (triggerFunction) await tx.unsafe(triggerFunction)
 
   const trigger = generateVolatileFormulaTrigger(tableName, fields)
-  if (trigger) await tx.unsafe(trigger)
+  if (trigger === undefined) return
+  // A migration of a table that already exists re-applies its features, so the
+  // trigger may already be there: without the drop, `CREATE TRIGGER` refuses
+  // and the whole boot fails — the same shape every sibling PostgreSQL trigger
+  // generator uses (`DROP TRIGGER IF EXISTS … ON …` first).
+  await tx.unsafe(`DROP TRIGGER IF EXISTS trigger_compute_${tableName}_formulas ON ${tableName}`)
+  await tx.unsafe(trigger)
 }
 /* eslint-enable functional/no-expression-statements */

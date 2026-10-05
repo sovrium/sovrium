@@ -151,15 +151,13 @@ export const BuildConnectionsList: Effect.Effect<
 
   const rows = yield* connRepo.list
 
-  const connections = yield* Effect.all(
-    rows.map((row) =>
-      Effect.gen(function* () {
-        const connectionId = String(row['id'])
-        const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
-        const appToken = yield* tokenRepo.findAppSummary({ connectionId })
-        return buildConnectionItem(row, tokens, appToken)
-      })
-    )
+  const connections = yield* Effect.forEach(rows, (row) =>
+    Effect.gen(function* () {
+      const connectionId = String(row['id'])
+      const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
+      const appToken = yield* tokenRepo.findAppSummary({ connectionId })
+      return buildConnectionItem(row, tokens, appToken)
+    })
   )
 
   const body = { connections }

@@ -1,0 +1,95 @@
+# Keeps every event's seats taken and waitlist current.
+#
+# The public page reads `seats_taken` and `on_waitlist` on the event, because
+# a visitor may not read the registrations themselves. Every time a
+# registration is added, removed, moved to another event or changes status,
+# this counts the registrations again and writes the numbers that changed.
+#
+# It counts rather than adding or subtracting one, and it counts every event,
+# not only the one that changed: a number that was ever wrong — a run that
+# failed, a row fixed by hand, a registration moved away from an event — is
+# right again after the next change.
+name: recount-seats
+label: Registration changed — recount the seats
+description: Count the confirmed and waitlisted registrations of every event again and write the numbers that changed.
+enabled: true
+trigger:
+  type: record
+  table: registrations
+  events:
+    - create
+    - update
+    - delete
+  # An edit to a name or a check-in at the door changes no count.
+  watchFields:
+    - event
+    - status
+actions:
+  - name: events
+    type: record
+    operator: list
+    props:
+      table: events
+      fields: [seats_taken, on_waitlist]
+      limit: 10000
+  - name: registrations
+    type: record
+    operator: list
+    props:
+      table: registrations
+      fields: [event, status]
+      limit: 10000
+  # One change per event whose numbers moved, as the step below takes them.
+  - name: tally
+    type: code
+    operator: runTypescript
+    props:
+      inputData:
+        events: '{{json events.records}}'
+        registrations: '{{json registrations.records}}'
+      code: |
+        async function execute(context) {
+          const list = (value) => (typeof value === 'string' ? JSON.parse(value || '[]') : value ?? [])
+          const eventOf = (row) => {
+            const value = row.event ?? row.fields?.event
+            return String(typeof value === 'object' && value !== null ? value.id : value)
+          }
+          const counts = new Map()
+          for (const row of list(context.inputData.registrations)) {
+            const status = row.status ?? row.fields?.status
+            const count = counts.get(eventOf(row)) ?? { confirmed: 0, waiting: 0 }
+            if (status === 'Confirmed') count.confirmed += 1
+            if (status === 'Waitlist') count.waiting += 1
+            counts.set(eventOf(row), count)
+          }
+          const items = []
+          for (const event of list(context.inputData.events)) {
+            const id = String(event.id)
+            const count = counts.get(id) ?? { confirmed: 0, waiting: 0 }
+            const taken = Number(event.seats_taken ?? event.fields?.seats_taken ?? 0)
+            const waiting = Number(event.on_waitlist ?? event.fields?.on_waitlist ?? 0)
+            if (taken === count.confirmed && waiting === count.waiting) continue
+            items.push({
+              filter: { conditions: [{ field: 'id', operator: 'equals', value: id }] },
+              data: { seats_taken: count.confirmed, on_waitlist: count.waiting },
+            })
+          }
+          return { items, changed: items.length }
+        }
+  - name: onlyWhenSomethingChanged
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{tally.result.changed}}'
+            operator: notEquals
+            value: '0'
+      onFalse: stop
+  - name: writeCounts
+    type: record
+    operator: batchUpdate
+    props:
+      table: events
+      items: '{{tally.result.items}}'

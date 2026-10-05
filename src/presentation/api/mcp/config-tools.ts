@@ -46,7 +46,7 @@ import {
   type ConfigToolsProvider,
   type ConfigValidatePayload,
 } from '@/application/use-cases/config/config-mcp-tools'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { App } from '@/domain/models/app'
 import type { McpCaller } from '@/presentation/api/mcp/auth'
@@ -142,7 +142,7 @@ export const handleHttpConfigToolCall = async (input: {
   readonly args: Readonly<Record<string, unknown>>
   readonly deps: HttpConfigToolsDeps
 }): Promise<McpToolResult> => {
-  if (!isAdminRole(input.caller.role)) {
+  if (!isAdminTierCaller(input.caller)) {
     return toolFailure(
       -32_603,
       `Access denied: ${input.toolName} is admin-only. The configuration surface is observability for the operator, not a tool every role reads.`

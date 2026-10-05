@@ -1,0 +1,50 @@
+# The bar at the top of every public page: the publication's name, the way
+# back to the essays, and the RSS feed. On a phone the name and the feed stay.
+type: container
+element: header
+props:
+  # The engine wraps every page in its own `main`, and a header inside `main`
+  # is not the page's banner on its own: the role says so.
+  role: banner
+  className: flex h-[60px] flex-none items-center gap-[18px] border-b border-border bg-background px-10 max-md:gap-2.5 max-md:px-3.5
+children:
+  - type: link
+    props:
+      href: /
+      className: flex items-center gap-2.5 text-[14px] font-semibold text-foreground no-underline
+    children:
+      - type: icon
+        props:
+          name: pen-line
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Field Notes
+  - type: container
+    props:
+      className: grow
+  - type: container
+    element: nav
+    props:
+      aria-label: Sections
+      className: flex items-center gap-[18px] max-md:hidden
+    children:
+      - type: link
+        props:
+          href: /
+          className: text-[14px] font-medium text-foreground no-underline
+        content: Essays
+  # The feed every essay is published to, newest first.
+  - type: link
+    props:
+      href: /feed.xml
+      className: flex items-center gap-1.5 text-[14px] text-foreground-muted no-underline hover:text-foreground
+    children:
+      - type: icon
+        props:
+          name: rss
+          size: 15
+      - type: text
+        element: span
+        content: RSS

@@ -41,6 +41,7 @@ import {
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { logError } from '@/infrastructure/logging/logger'
 import { requireAdminCaller } from '@/presentation/api/auth/admin-invitation-guard'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
@@ -63,7 +64,7 @@ const respondToActionFailure = (
   result: Exclude<InvitationActionResult<unknown>, { readonly status: 'ok' }>
 ): Response =>
   result.status === 'not-found'
-    ? c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+    ? notFound(c, 'Not Found')
     : c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
 
 /**

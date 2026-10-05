@@ -15,6 +15,10 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import { migrate as migrateSqlite } from 'drizzle-orm/bun-sqlite/migrator'
 import { Effect, Data } from 'effect'
 import { adminSearchFtsBootStatements } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
+import {
+  postgresClientOptions,
+  probePostgresRuntimeSettings,
+} from '@/infrastructure/database/sql/postgres-client-options'
 import { withCauseInMessage } from '@/infrastructure/errors/with-cause-in-message'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { applySqlitePragmas, sqliteLockHint } from '../sql/sqlite-pragmas'
@@ -190,7 +194,11 @@ const runPostgresMigrations = (
   databaseUrl: string
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
-    const client = new SQL(databaseUrl)
+    // First, before any other client of this process is built: whether this
+    // database (or the pooler in front of it) accepts the runtime settings.
+    // effect-promise: total -- `probePostgresRuntimeSettings` settles both arms of its only query and never rejects (a refused or failed probe answers `false`).
+    yield* Effect.promise(() => probePostgresRuntimeSettings(databaseUrl))
+    const client = new SQL(postgresClientOptions(databaseUrl))
     // No `schema` map: drizzle v1 removed the option, and the migrator never
     // read it — it applies raw SQL files.
     const db = drizzlePg({ client })
@@ -516,7 +524,7 @@ const readAppliedNames = (
 
   return Effect.tryPromise({
     try: async () => {
-      const client = new SQL(config.databaseUrl)
+      const client = new SQL(postgresClientOptions(config.databaseUrl))
       try {
         return await postgresAppliedNames((sql) => client.unsafe(sql), shipped)
       } finally {

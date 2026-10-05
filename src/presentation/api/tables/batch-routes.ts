@@ -35,32 +35,44 @@ import {
   hasCreatePermissionForRoles,
   hasReadPermissionForRoles,
   hasUpdatePermissionForRoles,
-  hasDeletePermission,
   hasDeletePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { runTableProgram, provideTableLive } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { runEffect } from '@/presentation/api/runtime'
-import { payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
+import { notFound, payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import {
   checkViewerPermission,
   checkRecordLimitExceeded,
   applyBatchReadFiltering,
+  batchCreateAnswer,
   checkBatchFieldPermissions,
   validateBulkFieldValues,
   validateStrippedRecordsNotEmpty,
 } from './batch-permission-helpers'
+import {
+  batchUpdateTargets,
+  keyShapedBatchItems,
+  refuseNonKeyBatchDelete,
+  refuseNonKeyBatchRestore,
+} from './batch-record-ids'
 import { handleBatchRestoreError } from './error-helpers'
+import { getLinkReader } from './relationship-rules'
 import { forbiddenCreateResponse } from './response-helpers'
 import {
   enforceBulkCreateGate,
   enforceBulkMutationGate,
+  enforceRestoreGate,
+  passesUnguardedTableGate,
   resolveGuardForTable,
+  restoreRoleGateAdmits,
 } from './row-level-guard'
+import { callerReadsTable } from './table-read-gate'
 import {
   validateReadonlyFields,
   validateUpsertRequest,
@@ -103,34 +115,25 @@ const readPreGuardBody = async (
  * Handle batch restore endpoint
  */
 async function handleBatchRestore(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = getTableContext(c)
+  // Session, tableName, userRole and userGroups are guaranteed by middleware chain
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Authorization check BEFORE validation. Restore reuses the canonical DELETE
   // role gate, exactly as the single-record path does (`handleRestoreRecord`):
   // restore is the inverse of soft-delete, so one endpoint must not be a weaker
-  // door onto the operation than the other. A hardcoded `userRole === 'viewer'`
-  // test here ignored `permissions.delete` entirely and let any non-viewer role
-  // restore rows on a table that grants delete to admins only.
-  //
-  // NOTE: deliberately NOT routed through `enforceBulkMutationGate`. That helper
-  // resolves rows via the list program, which excludes soft-deleted rows — and a
-  // restore target is by definition soft-deleted, so every row-level-scoped
-  // batch restore would 404. Row-level scoping of batch restore is out of scope.
+  // door onto the operation than the other. Under row-level rules the gate is
+  // the guard's, over the caller's effective roles (assignment roles included),
+  // and the rules themselves are checked on the trashed rows once the ids are
+  // known (below).
   //
   // S1 anti-enumeration: authz denial returns 404.
-  if (!hasDeletePermission(table, userRole, app.tables)) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
+  const permitted = guard
+    ? restoreRoleGateAdmits(table, guard)
+    : passesUnguardedTableGate(app, table, { userRole, userGroups }, 'delete')
+  if (!permitted) return notFound(c)
 
   // Check payload size before validation (mirrors batch-delete 1000-record guard)
   const body = await readPreGuardBody(c)
@@ -140,9 +143,17 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
+  const nonKeyRefusal = refuseNonKeyBatchRestore(c, table, result.data.ids)
+  if (nonKeyRefusal !== undefined) return nonKeyRefusal
+
+  // A batch naming one row the caller's rules exclude is refused whole, as a
+  // missing row is, and restores nothing.
+  const ids = result.data.ids.map(String)
+  const rowGateError = await enforceRestoreGate({ c, table, session, tableName, ids, guard })
+  if (rowGateError) return rowGateError
 
   const programResult = await runTableProgram(
-    batchRestoreProgram(session, tableName, result.data.ids)
+    batchRestoreProgram(session, tableName, result.data.ids, app)
   )
 
   if (programResult._tag === 'Failure') {
@@ -161,18 +172,21 @@ async function resolveBatchMutationAuth(input: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly table: ReturnType<NonNullable<App['tables']>['find']>
   readonly ids: readonly string[]
   readonly op: 'write' | 'delete'
   readonly canonicalCheck: () => boolean
   readonly forbiddenAction: 'update' | 'delete'
+  readonly changes?: ReadonlyMap<string, Readonly<Record<string, unknown>>>
 }): Promise<Response | undefined> {
   // `forbiddenAction` is kept on the input type for call-site readability
   // (and historical API stability) but is no longer surfaced in the response
   // envelope per S1 anti-enumeration.
-  const { c, app, tableName, userRole, session, table, ids, op, canonicalCheck } = input
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const { c, app, tableName, session, table, ids, op, canonicalCheck, changes } = input
+  const { userRole, userGroups } = input
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   if (guard) {
     return enforceBulkMutationGate({
@@ -183,6 +197,7 @@ async function resolveBatchMutationAuth(input: {
       ids,
       guard,
       op,
+      changes,
     })
   }
   // S1 anti-enumeration: authz denial returns 404 so the permission
@@ -191,6 +206,7 @@ async function resolveBatchMutationAuth(input: {
     return c.json(
       {
         success: false,
+        error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
       },
@@ -238,7 +254,7 @@ async function resolveBatchCreateAuth(input: {
 }): Promise<Response | undefined> {
   const { c, app, tableName, userRole, userGroups, session, records } = input
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   if (guard) {
     return enforceBulkCreateGate({
@@ -249,11 +265,11 @@ async function resolveBatchCreateAuth(input: {
     })
   }
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  if (!hasCreatePermissionForRoles(table, effectiveRoles, app.tables)) {
+  if (!hasCreatePermissionForRoles(table, effectiveRoles, app)) {
     // S1 anti-enumeration, mirroring the single-record path: no read access
     // collapses the denial to 404 so the table's existence is not disclosed.
-    if (!hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    if (!hasReadPermissionForRoles(table, effectiveRoles, app)) {
+      return notFound(c)
     }
     return forbiddenCreateResponse(c)
   }
@@ -291,8 +307,8 @@ async function handleBatchCreate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
-  // Authorization check BEFORE validation (viewer role cannot create)
-  const viewerCheck = checkViewerPermission(userRole, c)
+  // A viewer the table does not name in its create grant is refused BEFORE validation.
+  const viewerCheck = checkViewerPermission(c, app, ['create'])
   if (viewerCheck) return viewerCheck
 
   // Check record count before validation to return 413 for payload too large
@@ -324,6 +340,7 @@ async function handleBatchCreate(c: Context, app: App) {
     app,
     tableName,
     userRole,
+    userGroups,
     c,
   })
   if (fieldPermCheck) return fieldPermCheck
@@ -347,13 +364,14 @@ async function handleBatchCreate(c: Context, app: App) {
     recordsData: flatRecordsData,
     returnRecords: result.data.returnRecords,
     app,
+    linkReader: getLinkReader(c),
   })
 
-  // Apply field-level read filtering to response (if records returned)
+  // Field-level read filtering on the records returned; a caller who may not
+  // read the table is handed back the count alone — no value, no id.
+  const readsTable = await callerReadsTable(c, app, table)
   const filteredProgram = program.pipe(
-    Effect.map((response) =>
-      applyBatchReadFiltering(response, { app, tableName, userRole }, 'created')
-    )
+    Effect.map(batchCreateAnswer(readsTable, { app, tableName, userRole, userGroups }))
   )
 
   return runEffect(c, provideTableLive(filteredProgram), batchCreateRecordsResponseSchema, 201)
@@ -378,37 +396,34 @@ const signalUserAuthoredAiFields =
     )
 
 /**
- * Handle batch update endpoint
+ * Handle batch update endpoint. Authorization is row-level scoping when the
+ * table declares it — each row checked as it stands and as it would be
+ * written — and the canonical role check otherwise.
  */
 async function handleBatchUpdate(c: Context, app: App) {
   // Session, tableName, userRole and userGroups are guaranteed by middleware chain
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-
-  // Authorization check BEFORE validation (viewer role cannot update)
-  const viewerCheck = checkViewerPermission(userRole, c)
+  const writer = { role: userRole, groups: userGroups }
+  // A viewer the table does not name in its update grant is refused BEFORE validation.
+  const viewerCheck = checkViewerPermission(c, app, ['update'])
   if (viewerCheck) return viewerCheck
 
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
 
   const table = app.tables?.find((t) => t.name === tableName)
-
-  // Authorization: row-level scoping when declared, canonical role check otherwise.
+  const { records } = result.data
   const authError = await resolveBatchMutationAuth({
-    c,
-    app,
-    tableName,
-    userRole,
-    session,
-    table,
-    ids: result.data.records.map((r) => r.id),
+    ...{ c, app, tableName, userRole, userGroups, session, table },
+    // An item whose id no key could hold is skipped, as a missing id is.
+    ...batchUpdateTargets(app, tableName, writer, keyShapedBatchItems(table, records)),
     op: 'write',
     // Effective roles, not a bare role: a `group:<name>` permission entry lives
     // only in the resolved set `buildEffectiveRoles` produces, so a bare string
     // could never match one and every `group:` update grant was silently inert
     // on this path while the sibling create gate (`:225`) honoured it.
-    canonicalCheck: () => hasUpdatePermissionForRoles(table, effectiveRoles, app.tables),
+    canonicalCheck: () => hasUpdatePermissionForRoles(table, effectiveRoles, app),
     forbiddenAction: 'update',
   })
   if (authError) return authError
@@ -416,16 +431,15 @@ async function handleBatchUpdate(c: Context, app: App) {
   // Readonly-field and per-value enforcement, BEFORE permission checks. An
   // update reaches the same column as a create and needs the same guard.
   const fieldGuard =
-    validateReadonlyFields(table, result.data.records, c) ??
-    (await validateBulkFieldValues(c, app, result.data.records))
+    validateReadonlyFields(table, records, c) ?? (await validateBulkFieldValues(c, app, records))
   if (fieldGuard) return fieldGuard
 
   // Field-level write permissions: strip unwritable fields, then require that
   // at least one writable field survives.
-  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+  const strippedRecords = stripUnwritableFields(app, tableName, writer, records)
   const strippedValidation = validateStrippedRecordsNotEmpty({
     strippedRecords,
-    originalRecords: result.data.records,
+    originalRecords: records,
     app,
     tableName,
     userRole,
@@ -433,8 +447,10 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (strippedValidation) return strippedValidation
 
-  const recordsData = strippedRecords.map((record) => ({ id: record.id, fields: record.fields }))
-
+  const recordsData = keyShapedBatchItems(table, strippedRecords).map((record) => ({
+    id: record.id,
+    fields: record.fields,
+  }))
   // Execute batch update with field-level read filtering on response
   const filteredProgram = batchUpdateProgram({
     session,
@@ -442,10 +458,11 @@ async function handleBatchUpdate(c: Context, app: App) {
     recordsData,
     returnRecords: result.data.returnRecords,
     app,
+    linkReader: getLinkReader(c),
   }).pipe(
     signalUserAuthoredAiFields(app, tableName, recordsData),
     Effect.map((response) =>
-      applyBatchReadFiltering(response, { app, tableName, userRole }, 'updated')
+      applyBatchReadFiltering(response, { app, tableName, userRole, userGroups }, 'updated')
     )
   )
 
@@ -465,8 +482,8 @@ async function handleBatchDelete(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
 
-  // Authorization check BEFORE validation (viewer role cannot delete)
-  const viewerCheck = checkViewerPermission(userRole, c, 'delete records in this table')
+  // A viewer the table does not name in its delete grant is refused BEFORE validation.
+  const viewerCheck = checkViewerPermission(c, app, ['delete'])
   if (viewerCheck) return viewerCheck
 
   // Check payload size before validation
@@ -481,11 +498,14 @@ async function handleBatchDelete(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Authorization: row-level scoping when declared, canonical role check otherwise.
+  const nonKeyRefusal = refuseNonKeyBatchDelete(c, table, result.data.ids)
+  if (nonKeyRefusal !== undefined) return nonKeyRefusal
   const authError = await resolveBatchMutationAuth({
     c,
     app,
     tableName,
     userRole,
+    userGroups,
     session,
     table,
     ids: result.data.ids,
@@ -493,15 +513,19 @@ async function handleBatchDelete(c: Context, app: App) {
     // Effective roles, not a bare role — same contract as the update gate
     // above. Serves BOTH `DELETE /records/batch` and
     // `POST /records/batch/delete`, which share this handler.
-    canonicalCheck: () => hasDeletePermissionForRoles(table, effectiveRoles, app.tables),
+    canonicalCheck: () => hasDeletePermissionForRoles(table, effectiveRoles, app),
     forbiddenAction: 'delete',
   })
   if (authError) return authError
 
-  // The validated body is the only source for the `permanent` flag.
+  // The validated body is the only source for the `permanent` flag. A
+  // permanent delete is an admin-equivalent role's, exactly as the
+  // single-record `?permanent=true` is; anyone else gets its 404 and nothing
+  // is destroyed.
   const permanent = result.data.permanent === true
-
-  const tappedProgram = batchDeleteProgram(session, tableName, result.data.ids, permanent).pipe(
+  if (permanent && !isAdminEquivalent(userRole, app)) return notFound(c)
+  const program = batchDeleteProgram(session, tableName, result.data.ids, { permanent, app })
+  const tappedProgram = program.pipe(
     Effect.tapError((error) =>
       Effect.sync(() => {
         logError(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
@@ -518,8 +542,9 @@ async function handleBatchDelete(c: Context, app: App) {
 async function handleUpsert(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
-  // Authorization check BEFORE validation (viewer role cannot upsert)
-  const viewerCheck = checkViewerPermission(userRole, c)
+  // A viewer the table names in neither its create nor its update grant is
+  // refused BEFORE validation; `validateUpsertRequest` decides the rest.
+  const viewerCheck = checkViewerPermission(c, app, ['create', 'update'])
   if (viewerCheck) return viewerCheck
 
   const result = await validateRequest(c, upsertRecordsRequestSchema)
@@ -554,6 +579,7 @@ async function handleUpsert(c: Context, app: App) {
     tableName,
     userRole,
     userGroups,
+    session,
     records: result.data.records,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
   })
@@ -568,6 +594,7 @@ async function handleUpsert(c: Context, app: App) {
     fieldsToMergeOn: result.data.fieldsToMergeOn,
     returnRecords: result.data.returnRecords,
     app,
+    linkReader: getLinkReader(c),
   })
 
   // Apply field-level read filtering to response
@@ -576,6 +603,7 @@ async function handleUpsert(c: Context, app: App) {
     app,
     tableName,
     userRole,
+    userGroups,
   })
 
   return runEffect(c, provideTableLive(filteredProgram), upsertRecordsResponseSchema)

@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
@@ -81,7 +82,7 @@ const asFilterGroup = (node: ViewFilterNode): FilterGroup | undefined =>
 
 const compileFilterNode = (node: ViewFilterNode, parenthesize: boolean): string => {
   if ('field' in node && 'operator' in node && 'value' in node) {
-    return generateSqlCondition(node.field, node.operator, node.value)
+    return generateSqlCondition(quoteSqlIdentifier(node.field), node.operator, node.value)
   }
 
   const group = asFilterGroup(node)
@@ -123,12 +124,12 @@ const generateWhereClause = (filters: View['filters']): string => {
 const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): string => {
   // Build order items immutably
   const groupByItems = groupBy
-    ? [`${groupBy.field} ${(groupBy.direction || 'asc').toUpperCase()}`]
+    ? [`${quoteSqlIdentifier(groupBy.field)} ${(groupBy.direction || 'asc').toUpperCase()}`]
     : []
 
   const sortItems =
     sorts && sorts.length > 0 && !groupBy
-      ? sorts.map((sort) => `${sort.field} ${sort.direction.toUpperCase()}`)
+      ? sorts.map((sort) => `${quoteSqlIdentifier(sort.field)} ${sort.direction.toUpperCase()}`)
       : []
 
   const orderItems = [...groupByItems, ...sortItems]
@@ -178,11 +179,18 @@ export const generateViewSQL = (table: Table, view: View): string => {
   }
 
   // Otherwise, build query from filters, sorts, fields, groupBy
-  const fields = view.fields && view.fields.length > 0 ? view.fields.join(', ') : '*'
+  // Column names are quoted the way the table's own columns were (a field may
+  // be named `values` or `window`, key words a bare column cannot be).
+  const fields =
+    view.fields && view.fields.length > 0 ? view.fields.map(quoteSqlIdentifier).join(', ') : '*'
   const whereClause = generateWhereClause(view.filters)
   const orderByClause = generateOrderByClause(view.sorts, view.groupBy)
 
-  const clauses = [`SELECT ${fields}`, `FROM ${table.name}`, whereClause, orderByClause].filter(
+  // The DATABASE name, quoted: the config name (`report-requests`) is not an
+  // identifier. A view-backed table reads its lookup VIEW, which carries this
+  // same name and the computed columns a saved view may select.
+  const source = quoteSqlIdentifier(sanitizeTableName(table.name))
+  const clauses = [`SELECT ${fields}`, `FROM ${source}`, whereClause, orderByClause].filter(
     (clause) => clause !== ''
   )
 
@@ -192,19 +200,17 @@ export const generateViewSQL = (table: Table, view: View): string => {
 }
 
 /**
- * Generate all CREATE VIEW statements for a table.
+ * The views of a table that become database VIEWs, in config order.
  *
  * JSON config mode views with numeric IDs cannot create PostgreSQL VIEWs — unquoted
  * numeric identifiers are invalid SQL syntax. Those are handled at the API layer via
  * ?view= param. SQL query mode views (with a `query` property) always create
- * PostgreSQL VIEWs regardless of ID type, so they are retained.
+ * PostgreSQL VIEWs regardless of ID type, so they are retained. Each one's
+ * statement is {@link generateViewSQL} of that view: a caller pairs the two
+ * directly, never by searching the statements for the id's text.
  */
-export const generateTableViewStatements = (table: Table): readonly string[] => {
-  if (!table.views || table.views.length === 0) return []
-
-  const sqlViews = table.views.filter((view) => view.query || typeof view.id !== 'number')
-  return sqlViews.map((view) => generateViewSQL(table, view))
-}
+export const sqlBackedViews = (table: Table): readonly View[] =>
+  (table.views ?? []).filter((view) => view.query || typeof view.id !== 'number')
 
 /**
  * The read-only guard, in SQLite's spelling.
@@ -248,7 +254,7 @@ END`,
  * accepted that config, and no `@spec` test could see it because `@spec` runs on
  * PostgreSQL — which is why its spec is parameterised by dialect.
  *
- * A NUMERIC view id never reaches here: `generateTableViewStatements` creates no
+ * A NUMERIC view id never reaches here: `sqlBackedViews` leaves it out, so no
  * SQL view for one, by design, because those are served by the records API
  * through `?view=`.
  */
@@ -307,8 +313,8 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
  * Combines both sources, since the obsolete-view sweepers must treat the
  * union as "expected" or they will drop legitimately-created views:
  *  - (a) User-declared views from `table.views[]`.
- *  - (b) Auto-generated lookup/rollup/count views (named `<table.name>`,
- *    sibling of `<table.name>_base`) emitted by the `shouldUseView` machinery
+ *  - (b) Auto-generated lookup/rollup/count views (named after the table's
+ *    DATABASE name, sibling of `<name>_base`) emitted by the `shouldUseView` machinery
  *    in `lookup-view-generators.ts`.
  *
  * Omitting (b) was the root cause of [internal ref]: the
@@ -321,7 +327,7 @@ const collectExpectedViewIds = (tables: readonly Table[]): ReadonlySet<string> =
   )
   const autoGeneratedLookupViewNames = tables
     .filter((table) => shouldUseView(table))
-    .map((table) => table.name)
+    .map((table) => sanitizeTableName(table.name))
   return new Set<string>([...userDeclaredViewIds, ...autoGeneratedLookupViewNames])
 }
 

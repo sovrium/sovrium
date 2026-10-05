@@ -6,6 +6,7 @@
  */
 
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
+import { placeInZone } from './calendar-zone'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -102,6 +103,35 @@ function readString(record: TableRecord, field: string | undefined): string | un
 }
 
 /**
+ * The end FullCalendar needs for a DAY end — the day after it.
+ *
+ * A `date` end is the LAST DAY the range covers — a leave from the 3rd to the
+ * 17th includes the 17th — while FullCalendar reads an all-day end as
+ * EXCLUSIVE. A `datetime` end is an instant and never reaches this.
+ */
+function dayAfter(day: string): string {
+  const next = new Date(`${day}T00:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return next.toISOString().slice(0, 10)
+}
+
+/** A day-valued field's value as the `YYYY-MM-DD` FullCalendar reads as all-day. */
+const asDay = (value: string): string => value.slice(0, 10)
+
+/**
+ * An event's end as FullCalendar reads it: a day range drawn to its last day
+ * included, a date-time placed at its zone's wall clock.
+ */
+const eventEnd = (
+  stored: string | undefined,
+  isDay: boolean,
+  zone: () => string | undefined
+): string | undefined => {
+  if (!stored) return undefined
+  return isDay ? dayAfter(asDay(stored)) : placeInZone(stored, zone())
+}
+
+/**
  * Maps a list of table records into FullCalendar-compatible event objects.
  *
  * Records without a value at `dateField` are dropped — they have no calendar
@@ -121,17 +151,32 @@ export function recordsToCalendarEvents(
     readonly colorField?: string | undefined
     /** `optionValue → #RRGGBB` declared on `colorField`; absent when it declares none. */
     readonly colorFieldColors?: Readonly<Record<string, string>> | undefined
+    /** The fields holding a calendar day rather than an instant (server-resolved). */
+    readonly dateOnlyFields?: readonly string[] | undefined
+    /**
+     * The zone a date-time field reads in — its declared `timeZone`, else the
+     * operator zone — or `undefined` to leave it on the browser's clock.
+     */
+    readonly zoneOf?: ((field: string) => string | undefined) | undefined
   }
 ): readonly CalendarEvent[] {
   const { dateField, endDateField, labelField, colorField, colorFieldColors } = options
+  const isDay = (field: string | undefined) =>
+    field !== undefined && (options.dateOnlyFields?.includes(field) ?? false)
   if (!dateField) return []
+  const zoneOf = (field: string | undefined) =>
+    field === undefined ? undefined : options.zoneOf?.(field)
 
   return records
     .map((record): CalendarEvent | undefined => {
-      const start = readString(record, dateField)
-      if (!start) return undefined
+      const stored = readString(record, dateField)
+      if (!stored) return undefined
+      // A date-time is placed at its zone's wall clock, as the grid writes it.
+      const start = isDay(dateField) ? asDay(stored) : placeInZone(stored, zoneOf(dateField))
 
-      const end = readString(record, endDateField)
+      const end = eventEnd(readString(record, endDateField), isDay(endDateField), () =>
+        zoneOf(endDateField)
+      )
       const titleField = labelField ?? 'title'
       const title = readString(record, titleField) ?? ''
 

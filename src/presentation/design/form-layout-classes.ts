@@ -113,8 +113,13 @@ export const computeFormControlClasses = (): string =>
  * on the default foreground tone — the standard form-label weight across
  * Sovrium, one rung BELOW the 13px control it introduces so the label reads as
  * the caption and the value reads as the content.
+ *
+ * On a 19px line — the line every board draws a form label on — rather than
+ * the rung's own 18px. The leading class sits AFTER the size class so it wins
+ * the merge (a type rung carries its own line-height).
  */
-export const computeFormFieldLabelClasses = (): string => 'text-foreground text-sm font-medium'
+export const computeFormFieldLabelClasses = (): string =>
+  'text-foreground text-sm leading-[19px] font-medium'
 
 /**
  * Typography className for a field's help/hint text (the `<small>` under a

@@ -1,0 +1,106 @@
+# The hub's persistent navigation, placed first on every signed-in page: the
+# company's name, the four pages everyone uses, and sign-out.
+#
+# The sidebar is drawn twice and `visibility` keeps exactly one of them in each
+# response: managers (and IT, the admin) get a Managers heading with Publish,
+# everyone else does not — the page an employee is served carries no link to
+# Publish at all, and the Publish page refuses them too (`access` on
+# publish.yaml).
+#
+# The column is fixed to the left edge, so the page's own sections can sit
+# beside it at the top level of the page — which is where a section bound to
+# a table draws one card per row. On a laptop narrower than `lg` it shrinks to
+# a column of icons, and on a phone (below `md`) it leaves the layout: a menu
+# button opens the same entries in a drawer.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 md:fixed md:inset-y-0 md:left-0 md:z-20 max-lg:w-[57px] max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: house
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Halden
+  - type: sidebar
+    visibility:
+      roles: [admin, managers]
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      # Row metrics tuned to a short navigation: 32px rows, 13.5px labels, the
+      # current page on the accent's quiet ground, and the Managers heading as
+      # a small monospace overline.
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-foreground-subtle [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+    groups:
+      - landmark: Hub
+        items:
+          - { label: Home, href: /portal, icon: house }
+          - label: News
+            href: /news
+            icon: megaphone
+            badge:
+              endpoint: /api/tables/posts/records?limit=1
+              valuePath: pagination.total
+          - label: People
+            href: /people
+            icon: users
+            badge:
+              endpoint: /api/tables/members/records?limit=1
+              valuePath: pagination.total
+          - label: Resources
+            href: /resources
+            icon: link
+            badge:
+              endpoint: /api/tables/resources/records?limit=1
+              valuePath: pagination.total
+      - label: Managers
+        landmark: Hub
+        headingLevel: 2
+        items:
+          - { label: Publish, href: /publish, icon: pencil }
+  - type: sidebar
+    visibility:
+      roles: [member]
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+    groups:
+      - landmark: Hub
+        items:
+          - { label: Home, href: /portal, icon: house }
+          - { label: News, href: /news, icon: megaphone }
+          - { label: People, href: /people, icon: users }
+          - { label: Resources, href: /resources, icon: link }
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /

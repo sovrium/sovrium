@@ -6,7 +6,7 @@
  */
 
 import { computeChartShellClasses } from '@/presentation/design/chart-default-classes'
-import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
+import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /**
@@ -60,9 +60,9 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
  * `data-island="chart"` (so the runtime can mount the React component) plus
  * `data-chart-type` (so spec attribute assertions resolve before hydration).
  *
- * `data-component="chart"` lives on the inner ChartCanvas/empty-state in the
- * island itself — keeping it off the outer wrapper avoids strict-mode
- * locator collisions in Playwright specs.
+ * The wrapper is also the ONE element naming the chart (`data-component`
+ * beside `data-component-type`): nothing the island draws inside it carries
+ * either, so a reader counting by either attribute finds one chart.
  */
 export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
   const islandProps = extractChartProps(elementProps)
@@ -73,7 +73,7 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
     <div
       data-island="chart"
       data-island-props={propsJson}
-      data-component-type="chart"
+      {...namedHost('chart')}
       data-chart-type={chartType}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={hostClassName(elementProps)}

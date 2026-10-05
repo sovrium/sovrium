@@ -30,6 +30,8 @@
  * `islands/search/search-query-binding.ts`).
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
 interface ComponentSearch {
@@ -40,12 +42,18 @@ interface ComponentSearch {
 /**
  * Render the component search bar when `search.enabled` is true, else nothing.
  */
-export function renderComponentSearchBar(search: unknown): ReactElement | undefined {
+export function renderComponentSearchBar(
+  search: unknown,
+  locale: { readonly currentLang?: string | undefined; readonly languages?: Languages | undefined }
+): ReactElement | undefined {
   const cfg = (search ?? {}) as ComponentSearch
   if (cfg.enabled !== true) {
     return undefined
   }
-  const placeholder = typeof cfg.placeholder === 'string' ? cfg.placeholder : 'Search...'
+  const placeholder =
+    typeof cfg.placeholder === 'string'
+      ? cfg.placeholder
+      : resolveInterpreterString('search.placeholder', locale.currentLang, locale.languages)
   return (
     <div
       className="mb-3"

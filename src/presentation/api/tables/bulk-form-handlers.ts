@@ -13,6 +13,7 @@ import {
 } from '@/application/use-cases/tables/batch-operations'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
@@ -27,6 +28,7 @@ import {
   validateUpdateReadonlyFields,
 } from './record-update-guards'
 import { filterAllowedFieldsWithRole } from './record-update-permissions'
+import { getLinkReader } from './relationship-rules'
 import { enforceBulkMutationGate, resolveGuardForTable } from './row-level-guard'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -57,7 +59,7 @@ export async function handleFormBulkDelete(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Effective roles, not a bare role: the guarded branch below evaluates
   // `guard.effectiveRoles`, while this unguarded branch used a bare `userRole`
@@ -67,7 +69,7 @@ export async function handleFormBulkDelete(c: Context, app: App) {
   // normalising that divergence is a separate decision and nothing pins it.
   if (
     !guard &&
-    !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)
+    !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
   ) {
     return c.json(
       {
@@ -104,7 +106,7 @@ export async function handleFormBulkDelete(c: Context, app: App) {
   }
 
   // eslint-disable-next-line functional/no-expression-statements -- Side effect: execute batch delete
-  await runTableProgram(batchDeleteProgram(session, tableName, ids, false))
+  await runTableProgram(batchDeleteProgram(session, tableName, ids, { app }))
 
   // The path arrives in the request body, so it is only honoured once proven
   // same-origin — otherwise it is an open redirect off this site.
@@ -137,7 +139,7 @@ export async function handleFormBulkDelete(c: Context, app: App) {
  * Only the columns the payload SUPPLIES are inspected, which is what keeps a
  * legitimate bulk write working: a column absent from `_data` is neither
  * validated nor written, and a column carrying no explicit `permissions.fields`
- * entry stays writable.
+ * `write` entry stays writable to a caller who may read it.
  */
 async function resolveBulkUpdateFields(input: {
   readonly c: Context
@@ -151,10 +153,13 @@ async function resolveBulkUpdateFields(input: {
   const readonlyError = validateUpdateReadonlyFields(data, c)
   if (readonlyError) return { refusal: readonlyError }
 
+  const unknownError = refuseUnknownBulkKeys(app, tableName, data, c)
+  if (unknownError) return { refusal: unknownError }
+
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
     tableName,
-    userRole,
+    { role: userRole, groups: getTableContext(c).userGroups },
     data
   )
   // S1 anti-enumeration: a field the role cannot write refuses the whole
@@ -179,14 +184,55 @@ async function resolveBulkUpdateFields(input: {
   // what this helper returns and therefore what reaches every targeted row:
   // computing it without feeding it forward would leave the raw markup on the
   // column while every gate reported success.
-  return { fields: await sanitizeUpdateRichTextFields(app, tableName, userRole, allowedData) }
+  return {
+    fields: await sanitizeUpdateRichTextFields(
+      app,
+      tableName,
+      {
+        role: userRole,
+        groups: getTableContext(c).userGroups,
+        signedOut: isGuestSession(getTableContext(c).session.userId),
+      },
+      allowedData
+    ),
+  }
 }
 
 /**
- * The bulk-update REQUEST gates, in their established order: the table-level
- * update permission (403), the empty-target check (400), then the Z-3
- * row-level gate over every targeted id (404). Returns the refusal `Response`,
- * or `undefined` when the write may proceed.
+ * Refuse a bulk-update key that names no field of the table.
+ *
+ * `_data` is written column by column, and a key naming nothing was dropped on
+ * the way while the request still answered success — so the single-record
+ * form's `<field>__clear` marker, posted here, reported a clear that never
+ * happened. The records API refuses an unknown field with this same 400; a bulk
+ * clear is stated as JSON `null`.
+ */
+function refuseUnknownBulkKeys(
+  app: App,
+  tableName: string,
+  data: Readonly<Record<string, unknown>>,
+  c: Context
+): Response | undefined {
+  const known = new Set(
+    (app.tables?.find((t) => t.name === tableName)?.fields ?? []).map((f) => f.name)
+  )
+  if (Object.keys(data).every((key) => known.has(key))) return undefined
+  return c.json(
+    {
+      success: false,
+      message: 'A submitted field is not recognised for this resource',
+      code: 'VALIDATION_ERROR',
+    },
+    400
+  )
+}
+
+/**
+ * The bulk-update REQUEST gates, in order: the table-level update permission
+ * (403), the empty-target check (400), the per-field and per-value rules, then
+ * the Z-3 row-level gate over every targeted id (404) — which reads each row as
+ * it will be written, so it runs on the resolved field map. Returns the refusal
+ * `Response`, or the field map to write.
  *
  * Extracted for the same reason `resolveFormUpdateAuth` is on the single-record
  * form verb (record-write-handlers.ts) — it keeps the handler within the
@@ -204,19 +250,21 @@ async function resolveBulkUpdateGates(input: {
   /** Group names the caller belongs to (un-prefixed) — group-aware RBAC. */
   readonly userGroups: readonly string[]
   readonly ids: readonly string[]
-}): Promise<Response | undefined> {
-  const { c, app, session, tableName, userRole, userGroups, ids } = input
+  /** The parsed `_data` blob. */
+  readonly data: Record<string, unknown>
+}): Promise<{ readonly refusal: Response } | { readonly fields: Record<string, unknown> }> {
+  const { c, app, session, tableName, userRole, userGroups, ids, data } = input
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Effective roles, not a bare role — same contract, and same deliberately
   // preserved 403, as the bulk-delete gate above.
   if (
     !guard &&
-    !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)
+    !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
   ) {
-    return c.json(
+    const refusal = c.json(
       {
         success: false,
         message: 'You do not have permission to update records in this table',
@@ -224,16 +272,36 @@ async function resolveBulkUpdateGates(input: {
       },
       403
     )
+    return { refusal }
   }
 
   if (ids.length === 0) {
-    return c.json({ success: false, message: 'No records specified', code: 'BAD_REQUEST' }, 400)
+    const refusal = c.json(
+      { success: false, message: 'No records specified', code: 'BAD_REQUEST' },
+      400
+    )
+    return { refusal }
   }
 
-  // Z-3: row-level scoping — every id must individually satisfy
-  // read+write predicates. Atomic-fail on any miss.
-  if (!guard) return undefined
-  return enforceBulkMutationGate({ c, table, session, tableName, ids, guard, op: 'write' })
+  // Per-FIELD and per-VALUE rules, after the table-level gate so an
+  // unauthorized caller is refused before learning anything about the payload.
+  const resolved = await resolveBulkUpdateFields({ c, app, tableName, userRole, data })
+  if ('refusal' in resolved || !guard) return resolved
+
+  // Z-3: row-level scoping — every id must individually satisfy the read and
+  // write predicates, each row checked as it stands AND as it will be written
+  // (the resolved field map). Atomic-fail on any miss.
+  const rowError = await enforceBulkMutationGate({
+    c,
+    table,
+    session,
+    tableName,
+    ids,
+    guard,
+    op: 'write',
+    changes: new Map(ids.map((id) => [String(id), resolved.fields])),
+  })
+  return rowError ? { refusal: rowError } : resolved
 }
 
 /**
@@ -255,7 +323,7 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
   const data = parseJsonField<Record<string, unknown>>(body['_data'], {})
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
-  const gateError = await resolveBulkUpdateGates({
+  const resolved = await resolveBulkUpdateGates({
     c,
     app,
     session,
@@ -263,19 +331,22 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
     userRole,
     userGroups,
     ids,
+    data,
   })
-  if (gateError) return gateError
-
-  // Per-FIELD and per-VALUE rules, after the authz gates above so an
-  // unauthorized caller is refused before learning anything about the payload.
-  const resolved = await resolveBulkUpdateFields({ c, app, tableName, userRole, data })
   if ('refusal' in resolved) return resolved.refusal
 
   const recordsData = ids.map((id) => ({ id, fields: resolved.fields }))
 
   // eslint-disable-next-line functional/no-expression-statements -- Side effect: execute batch update
   await runTableProgram(
-    batchUpdateProgram({ session, tableName, recordsData, returnRecords: false, app })
+    batchUpdateProgram({
+      session,
+      tableName,
+      recordsData,
+      returnRecords: false,
+      app,
+      linkReader: getLinkReader(c),
+    })
   )
 
   // [internal ref] Phase 2: same rule as every other write path — a column the user

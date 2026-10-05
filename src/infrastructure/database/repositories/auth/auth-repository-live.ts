@@ -5,17 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, asc, count, countDistinct, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, asc, count, countDistinct, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AuthRepository,
   AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { redactEmail } from '@/domain/kernel/sanitize/email-redaction'
+import { isBanInForce } from '@/domain/models/app/auth/ban-standing-service'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
-  authSessionsTable,
   authAccountsTable,
   authTeamsTable,
   authTeamMembersTable,
@@ -81,6 +81,38 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       })
 
       return result[0]?.email ?? undefined
+    }),
+
+  findUserEmailsByIds: (userIds: readonly string[]) =>
+    Effect.gen(function* () {
+      const wanted = [...new Set(userIds)]
+      if (wanted.length === 0) return new Map<string, string>()
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ id: users.id, email: users.email })
+          .from(users)
+          .where(inArray(users.id, wanted))
+      })
+      return new Map(
+        rows.filter((row) => row.email !== '').map((row) => [row.id, row.email] as const)
+      )
+    }),
+
+  findUserIdsByEmails: (emails: readonly string[]) =>
+    Effect.gen(function* () {
+      const wanted = [...new Set(emails.map((email) => email.trim().toLowerCase()))].filter(
+        (email) => email !== ''
+      )
+      if (wanted.length === 0) return new Map<string, string>()
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ id: users.id, email: users.email })
+          .from(users)
+          .where(inArray(sql`lower(${users.email})`, wanted))
+      })
+      return new Map(rows.map((row) => [row.email.toLowerCase(), row.id] as const))
     }),
 
   findUserContactById: (userId: string) =>
@@ -189,6 +221,22 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return rows.length > 0
     }),
 
+  isActiveUser: (userId: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ banned: users.banned, banExpires: users.banExpires })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1)
+      })
+      const row = rows[0]
+      if (row === undefined) return false
+      // A ban with an expiry that has passed no longer holds (Better Auth lifts it the same way).
+      return !isBanInForce(row.banned, row.banExpires)
+    }),
+
   findUserRole: (userId: string) =>
     Effect.gen(function* () {
       const rows = yield* wrap(() => {
@@ -221,6 +269,32 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return db.update(users).set({ banned: false, banReason: null }).where(eq(users.id, userId))
     }).pipe(Effect.asVoid),
 
+  findUserBanState: (userId: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ banned: users.banned, banReason: users.banReason })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1)
+      })
+      const row = rows[0]
+      return row === undefined
+        ? undefined
+        : // eslint-disable-next-line unicorn/no-null -- the port reports an empty `ban_reason` as `null`, the value it is written back as
+          { banned: row.banned === true, banReason: row.banReason ?? null }
+    }),
+
+  restoreUserBanState: (userId: string, state) =>
+    wrap(() => {
+      const users = authUsersTable()
+      return db
+        .update(users)
+        .set({ banned: state.banned, banReason: state.banReason })
+        .where(eq(users.id, userId))
+    }).pipe(Effect.asVoid),
+
   // Groups are Better Auth "teams": a membership is a `team_member` row linking
   // `user.id` to `team.id`. The INNER JOIN projects the team NAME, which is the
   // un-prefixed Sovrium group name that permission evaluation compares against.
@@ -238,18 +312,24 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return rows.map((row) => row.name)
     }),
 
-  getUserSessionToken: (userId: string) =>
+  getUsersGroups: (userIds: readonly string[]) =>
     Effect.gen(function* () {
-      const result = yield* wrap(async () => {
-        const sessions = authSessionsTable()
+      const ids = [...new Set(userIds)]
+      if (ids.length === 0) return new Map<string, readonly string[]>()
+      const rows = yield* wrap(async () => {
+        const teams = authTeamsTable()
+        const teamMembers = authTeamMembersTable()
         return await db
-          .select({ token: sessions.token })
-          .from(sessions)
-          .where(eq(sessions.userId, userId))
-          .limit(1)
+          .select({ userId: teamMembers.userId, name: teams.name })
+          .from(teamMembers)
+          .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+          .where(inArray(teamMembers.userId, ids))
       })
-
-      return result[0]?.token ?? undefined
+      return new Map(
+        [...Map.groupBy(rows, (row) => row.userId)].map(
+          ([userId, memberships]) => [userId, memberships.map((row) => row.name)] as const
+        )
+      )
     }),
 
   countUsers: Effect.gen(function* () {

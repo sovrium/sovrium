@@ -15,8 +15,8 @@
  */
 
 import { Duration, Effect, Schedule } from 'effect'
-import type { ActionHandler, ActionKey, ActionOutcome, AutomationContext } from '../action-handlers'
-import type { StepLogEntry } from '../action-handlers/shared'
+import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
+import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
@@ -28,9 +28,11 @@ import type { AutomationRepository } from '@/application/ports/repositories/auto
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
+import type { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
@@ -38,6 +40,8 @@ import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
+import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 
 /**
  * Step record retained in run history.
@@ -74,6 +78,8 @@ export interface ExecutedStep {
   readonly output?: Record<string, unknown>
   /** Redacted `context.log` entries of a code step, in call order. */
   readonly logs?: readonly StepLogEntry[]
+  /** What the step recorded reading as it ran (`read-tracker.ts`), when it did. */
+  readonly reads?: readonly StepRead[]
 }
 
 /**
@@ -185,6 +191,17 @@ export interface StepContext {
    * A→B→A chain terminates instead of running away.
    */
   readonly visitedAutomations: ReadonlySet<string>
+  /**
+   * How many automation writes separate this run from the write a person or
+   * an external caller made: 0 for a run a records API write, a webhook, a
+   * schedule or a manual trigger started; N+1 for a run a record event of an
+   * N-deep run's step started.
+   */
+  readonly recordEventDepth: number
+  /** The record-event channel handed to every step (`action-handlers/shared.ts`). */
+  readonly recordEvents: RecordEventChannel
+  /** See `ExecuteAutomationRunInput.propsFinal`. */
+  readonly propsFinal?: true
 }
 
 /**
@@ -207,6 +224,8 @@ export interface ResolvedRetryConfig {
  */
 export type StepRequirements =
   | TableRepository
+  // The caller gate a hand-started run's record actions run before writing.
+  | DataSourceRepository
   | AutomationStateRepository
   | AutomationDigestRepository
   | AutomationApprovalRepository
@@ -248,6 +267,10 @@ export type RunRequirements =
   | SpeechService
   | LinkRepository
   | ServerOrigin
+  // A record a step writes starts the record automations of its table,
+  // whose trigger data hydrates user and relationship fields through these two.
+  | CommentRepository
+  | DataSourceRepository
 
 /**
  * Locally re-typed `app.actions[]` template entry. The runtime invoker
@@ -263,8 +286,8 @@ export interface RuntimeActionTemplate {
 
 /**
  * Result of running an automation. `actions` is retained for run-history
- * persistence; the public trigger response exposes only `lastOutput` as
- * `output`. `error` is the first action failure (already redacted).
+ * persistence; the manual-trigger response exposes only `lastOutput` as
+ * `output`; a webhook's default answer is the run id and status. `error` is the first action failure (already redacted).
  *
  * `responseOverride` — when set — is the (status, body, headers) payload
  * a `webhook/response` action emitted via its `ActionOutcome.responseOverride`
@@ -330,10 +353,28 @@ export interface ExecuteAutomationRunInput {
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
   /**
+   * A person started this run by hand — a manual trigger, a table button, an
+   * MCP action template or automation tool. Its record actions then write AS
+   * `userId`: the table's grants, row-level rules and field write audiences
+   * apply inside the run. Omitted for a run nobody started (cron, including
+   * "run now", webhook, record event, form, `automation:call`), which writes as
+   * the system.
+   */
+  readonly startedByHand?: boolean
+  /**
+   * The actions' props are values already filled in once (an action template
+   * a caller invoked with arguments, see `fillInvokedTemplateAction`): no step
+   * resolves `$env.` or renders `{{...}}` in them again, and each handler takes
+   * them as given. Omitted for a run of authored actions.
+   */
+  readonly propsFinal?: boolean
+  /**
    * Call-stack depth for this run. Top-level triggers omit it (treated as
    * 0); nested `automation:call` hops pass `callerDepth + 1`.
    */
   readonly callDepth?: number
+  /** See `StepContext.recordEventDepth`; omitted means 0. */
+  readonly recordEventDepth?: number
   /**
    * Names of every automation already on the call stack — used by the
    * `automation:call` invoker's cycle guard. Omitted for top-level runs.
@@ -351,6 +392,18 @@ export interface ExecuteAutomationRunInput {
    */
   readonly skipActionNames?: ReadonlySet<string>
   /**
+   * Step outputs the resumed run starts with, keyed by step name — so a later
+   * step reads what a skipped step decided. Set by the approval resume, whose
+   * approval step output names the `decision`. Omitted: none.
+   */
+  readonly seedOutputs?: Readonly<Record<string, Record<string, unknown>>>
+  /**
+   * Set by a resume (the approval resolution): a hand-started run first checks
+   * that its starter still stands — not banned, not deleted — and fails before
+   * any step otherwise. Omitted: no check (a fresh run's caller holds a session).
+   */
+  readonly checkStarterStanding?: boolean
+  /**
    * Optional callback invoked synchronously by the scheduler the moment
    * the `'queued'` run row lands in `system.automation_runs`. Threaded
    * through so the async webhook dispatcher (`respondImmediately: true`)
@@ -363,6 +416,14 @@ export interface ExecuteAutomationRunInput {
    * {@link RunAutomationResult} returned at completion time.
    */
   readonly onPersisted?: (runId: string) => void
+  /**
+   * The run that handed this one its trigger data — a call's caller, a failure
+   * handler's failed run — or `outside` for a replay an admin supplied new
+   * trigger data for. Recorded on the run, so a reader is shown what it was
+   * handed only as far as she may read what the feeding run had read. Omitted
+   * for every other run.
+   */
+  readonly relay?: RunRelay
 }
 
 /**
@@ -376,6 +437,8 @@ export type AutomationInvoker = (input: {
   readonly inputData: Readonly<Record<string, unknown>>
   readonly mode: 'sync' | 'async'
   readonly maxDepth: number
+  /** Told the id of the run the call started, once it has one. */
+  readonly onRun?: (runId: string) => void
 }) => Promise<{ readonly result: Readonly<Record<string, unknown>> }>
 
 /**
@@ -511,5 +574,3 @@ export const truncateError = (input: string): string => {
  */
 export const isTerminalFailureStatus = (status: RunAccumulator['runStatus']): boolean =>
   status === 'failure' || status === 'exhausted' || status === 'cancelled'
-
-export type { ActionOutcome }

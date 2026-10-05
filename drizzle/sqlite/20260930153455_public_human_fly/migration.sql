@@ -1,0 +1,1 @@
+ALTER TABLE `system_schema_checksum` ADD `formula_engine_version` integer DEFAULT 0 NOT NULL;

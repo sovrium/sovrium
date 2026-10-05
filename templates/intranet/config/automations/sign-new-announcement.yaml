@@ -1,0 +1,70 @@
+# An announcement published from the Publish page arrives with its title, its
+# text and perhaps a date. This signs it with the publisher's name, dates it
+# today, addresses it to the whole company and uses its opening as the
+# excerpt the cards show — so it reads like every other announcement the
+# moment it lands on Home.
+#
+# The trigger carries what was submitted, not who submitted it, so the row is
+# read back first for the account the server stamped on it; that account's
+# row of the directory is the author.
+name: sign-new-announcement
+label: New announcement — sign it, date it, address it
+description: Fill a new announcement's author, date, audience and excerpt when it was published without them.
+enabled: true
+trigger:
+  type: record
+  table: posts
+  events:
+    - create
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.published_at}}'
+        operator: isEmpty
+actions:
+  - name: readPost
+    type: record
+    operator: list
+    props:
+      table: posts
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      limit: 1
+  - name: findAuthor
+    type: record
+    operator: list
+    props:
+      table: members
+      filter:
+        conditions:
+          - field: account
+            operator: equals
+            value: '{{readPost.result.record.createdBy}}'
+      limit: 1
+  - name: findCompany
+    type: record
+    operator: list
+    props:
+      table: company
+      limit: 1
+  - name: today
+    type: date
+    operator: now
+    props: {}
+  - name: signPost
+    type: record
+    operator: update
+    props:
+      table: posts
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        author: '{{findAuthor.result.record.id}}'
+        audience: '{{findCompany.result.record.id}}'
+        published_at: '{{today.instant}}'
+        excerpt: '{{readPost.result.record.body}}'

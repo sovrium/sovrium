@@ -1,0 +1,14 @@
+# The two colleagues who can sign in to the demo.
+#
+# Hannah owns the handbook, so she is the admin — which also opens the
+# managers' section to her. Léa joined this month: a member, she reads
+# everything but that section. No password is written here: every account
+# takes `SOVRIUM_SEED_PASSWORD` from the environment, so a password never
+# lands in a file you might commit.
+users:
+  - email: hannah.okafor@corvel.example
+    name: Hannah Okafor
+    role: admin
+  - email: lea.bernard@corvel.example
+    name: Léa Bernard
+    role: member

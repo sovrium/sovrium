@@ -1,3 +1,5 @@
+# One row per ticket: what the requester asked, who they are, where it stands,
+# who holds it and when its first reply is due.
 id: 1
 name: tickets
 fields:
@@ -6,49 +8,54 @@ fields:
     type: single-line-text
     required: true
   - id: 2
-    name: description
+    name: details
     type: long-text
-  # Option `color` is the author's own datum (ADR-024 A7 ruling 1) and MUST be a
-  # literal `#RRGGBB` — the schema rejects `var(--color-*)`, so these five stay
-  # hex rather than becoming design tokens. They are five separable hues that each
-  # say who is holding the ticket:
-  #   New       the app's rose accent — the queue's call to action.
-  #   Open      amber: in flight, on us.
-  #   Waiting   sky: blocked on the customer, a different kind of open. Was
-  #             violet, which sat too close to the rose accent to read apart.
-  #   Resolved  green, then Closed grey: done, then archived.
+  # Colour means an outcome or nothing. Resolved is the one outcome, in the
+  # success colour; New, Open, Waiting on customer and Closed are states, not
+  # verdicts, so they share one quiet grey. An option colour is the author's
+  # own literal `#RRGGBB` — the schema refuses a design token here.
   - id: 3
     name: status
     type: status
     options:
       - value: New
-        color: '#E11D48'
+        color: '#6F6668'
       - value: Open
-        color: '#F59E0B'
+        color: '#6F6668'
       - value: Waiting on customer
-        color: '#0EA5E9'
+        color: '#6F6668'
       - value: Resolved
-        color: '#10B981'
+        color: '#2E7D4F'
       - value: Closed
-        color: '#94A3B8'
+        color: '#6F6668'
     default: New
+  # Urgent is the one priority that asks for attention, in the error colour;
+  # the others are words.
   - id: 4
     name: priority
     type: single-select
     options:
-      - Low
-      - Normal
-      - High
-      - Urgent
+      - value: Low
+        color: '#6F6668'
+      - value: Normal
+        color: '#6F6668'
+      - value: High
+        color: '#6F6668'
+      - value: Urgent
+        color: '#B4452A'
     default: Normal
   - id: 5
     name: category
     type: single-select
     options:
-      - Question
-      - Bug report
-      - Billing
-      - Feature request
+      - value: Question
+        color: '#6F6668'
+      - value: Bug report
+        color: '#6F6668'
+      - value: Billing
+        color: '#6F6668'
+      - value: Feature request
+        color: '#6F6668'
   - id: 6
     name: requester_name
     type: single-line-text
@@ -56,17 +63,64 @@ fields:
     name: requester_email
     type: email
     required: true
+  # Who holds the ticket. A new ticket has nobody until an agent picks it up.
   - id: 8
     name: assignee
     type: user
     allowMultiple: false
+  # Written when the ticket is marked Resolved
+  # (config/automations/when-resolved.yaml).
   - id: 9
     name: resolved_at
-    type: date
+    type: datetime
   - id: 10
     name: created_at
     type: created-at
+  # When the requester wrote in, and when the first reply is promised: four
+  # hours later. Both are written the moment a ticket arrives
+  # (config/automations/when-a-ticket-arrives.yaml); the seed writes them for
+  # the sample tickets, since seeding runs no automation.
+  - id: 11
+    name: opened_at
+    type: datetime
+  - id: 12
+    name: first_reply_due
+    type: datetime
+  # The requester's company, when they give one.
+  - id: 13
+    name: company
+    type: single-line-text
+  # A screenshot or a log file sent with the ticket. Kept in the built-in file
+  # store, which is also the one `sovrium seed` can fill.
+  - id: 14
+    name: attachment
+    type: single-attachment
+    allowedFileTypes:
+      - image/png
+      - image/jpeg
+      - image/webp
+      - application/pdf
+      - text/plain
+    maxFileSize: 10485760
+  # 1 while nobody holds the ticket. The Unassigned tab and KPI read it, since a
+  # page filter compares values and cannot test for an empty field.
+  - id: 15
+    name: unassigned
+    type: formula
+    formula: "CASE WHEN assignee IS NULL OR assignee = '' THEN 1 ELSE 0 END"
+    resultType: number
 
+views:
+  # The tickets still waiting on the team: the count beside Queue in the sidebar.
+  - id: open_queue
+    name: Open queue
+    filters:
+      and:
+        - { field: status, operator: in, value: [New, Open, Waiting on customer] }
+
+# Every agent reads and works every ticket; only an admin removes one. A
+# member asking to delete a ticket is answered 404, never 403, so the answer
+# says nothing about whether the ticket exists.
 permissions:
   read: authenticated
   create:

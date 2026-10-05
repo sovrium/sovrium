@@ -15,7 +15,7 @@
 
 import { Result } from 'effect'
 import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
-import { toNumber, toStr } from './helper-coercion'
+import { toNumber } from './helper-coercion'
 
 // ─── tokenisation ────────────────────────────────────────────────────────
 
@@ -277,7 +277,7 @@ export const matchAll = (input: string, pattern: string, flags: string): readonl
     // error only, so catastrophic backtracking in an operator-authored pattern is
     // unmitigated — accepted because config is authored by the operator, who
     // already controls the process.
-    // eslint-disable-next-line sovrium/no-dynamic-regexp -- operator-supplied pattern is the documented feature
+    // eslint-disable-next-line sovrium/no-dynamic-regexp -- the pattern is guaranteed an authored literal: the template engine refuses at compile time any `matchAll` call whose pattern is not a quoted string
     try: () => new RegExp(pattern, withGlobal),
     catch: () => undefined,
   })
@@ -286,4 +286,4 @@ export const matchAll = (input: string, pattern: string, flags: string): readonl
 }
 
 /** Shared string coercion re-export so registrations import from one place. */
-export { toStr, toNumber }
+export { toNumber }

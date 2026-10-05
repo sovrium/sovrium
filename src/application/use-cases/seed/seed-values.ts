@@ -28,14 +28,15 @@ export interface SeedRef {
 }
 
 /**
- * A planned field value: literal data, one link, a link list, a binary, or
- * one or more sign-in accounts named by email.
+ * A planned field value: literal data, one link, a link list, one binary or a
+ * list of them, or one or more sign-in accounts named by email.
  */
 export type SeedValue =
   | { readonly kind: 'literal'; readonly value: unknown }
   | { readonly kind: 'ref'; readonly ref: SeedRef }
   | { readonly kind: 'refs'; readonly refs: readonly SeedRef[] }
   | { readonly kind: 'asset'; readonly filename: string }
+  | { readonly kind: 'assets'; readonly filenames: readonly string[] }
   | { readonly kind: 'user'; readonly email: string }
   | { readonly kind: 'users'; readonly emails: readonly string[] }
 
@@ -114,6 +115,14 @@ export const planSeedValue = (raw: unknown, runAt: Readonly<Date>): SeedValueOut
   const emails = planned.values.flatMap((value) => (value.kind === 'user' ? [value.email] : []))
   if (emails.length > 0 && emails.length === planned.values.length) {
     return { ok: true, value: { kind: 'users', emails } }
+  }
+  // A list of `@asset:` tokens is a `multiple-attachments` value: every file
+  // is uploaded, in order, and the field stores the list of their keys.
+  const filenames = planned.values.flatMap((value) =>
+    value.kind === 'asset' ? [value.filename] : []
+  )
+  if (filenames.length > 0 && filenames.length === planned.values.length) {
+    return { ok: true, value: { kind: 'assets', filenames } }
   }
   return {
     ok: true,

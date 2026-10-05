@@ -1,3 +1,5 @@
+# The four subjects a document is filed under. An assistant reads them to
+# group or narrow its answer; it cannot invent new ones.
 name: tags
 fields:
   - id: 1
@@ -15,20 +17,24 @@ fields:
   - id: 3
     name: created_at
     type: created-at
+
+# Every role reads the tags; only an admin changes the list.
 permissions:
   read: authenticated
-  create:
-    - editor
-  update:
-    - editor
-  delete:
-    - editor
+  create: [admin]
+  update: [admin]
+  delete: [admin]
+  # Every role reads the colour too; without this line a `viewer` would read
+  # the name only.
+  fields:
+    - field: color
+      read: authenticated
+
+# Read-only to an assistant: a taxonomy is decided by people.
 aiAccess:
-  description: Topical tags used to categorize documents. Use this when you need to filter or group documents by subject.
+  description: >-
+    The subjects documents are filed under: Runbooks, Decisions, Incidents and
+    Onboarding. Read them to group or narrow an answer.
   operations:
-    - read
     - list
-  fieldExposure: permissioned
-  annotations:
-    readOnly: true
-    idempotent: true
+    - read

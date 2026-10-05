@@ -24,7 +24,7 @@
  *
  * All helpers expect the `Form` shape with `steps[]` already cross-validated
  * (see `domain/models/app/forms/forms-validation.ts`). Reuses the field-value
- * predicate evaluator from F-12 (`evaluateVisibleWhen`) so step visibility
+ * predicate evaluator from [internal ref] (`evaluateVisibleWhen`) so step visibility
  * speaks the same operator catalog as field visibility.
  */
 

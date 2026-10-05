@@ -10,7 +10,7 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
-import { validateColumnName, validateTableName } from '../statement/validation'
+import { validateColumnName, databaseTableName } from '../statement/validation'
 
 /**
  * How a JS value becomes the SQL that stores it — the single answer shared by
@@ -123,7 +123,6 @@ export async function lookupArrayColumnTypes(
   // JSON-text literal on SQLite) when a column is absent from this map, which
   // is exactly the desired encoding. Skip the introspection round-trip.
   if (parseDatabaseDialectConfig().dialect === 'sqlite') return {}
-  validateTableName(tableName)
   // Defense in depth: validate every name through the same regex the clause
   // builders use, then bind each name as a SQL parameter via `sql\`${n}\``.
   // Per-name binding is required because `bun:sql` mishandles
@@ -144,7 +143,7 @@ export async function lookupArrayColumnTypes(
       tx,
       sql`SELECT column_name, data_type FROM information_schema.columns
           WHERE table_schema = current_schema()
-            AND table_name = ${tableName}
+            AND table_name = ${databaseTableName(tableName)}
             AND column_name IN (${inList})`
     )) as unknown as ReadonlyArray<{
       readonly column_name: string

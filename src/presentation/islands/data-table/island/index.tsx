@@ -5,11 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useContext, useMemo, useState } from 'react'
 import { type FieldMetaMap } from '../../hooks/use-inline-editing'
+import { isRateLimitedRead, RateLimitedNotice } from '../../runtime/read-failure'
 import { type DataTableRowClickAction } from '../body'
 import { usePasteImport } from '../paste-preview/use-paste-import'
 import { coerceFieldValues, createRecord } from './create-record-data'
+import { GridStringsContext, type GridStrings } from './grid-strings'
 import { withColumnDisplayFields } from './island-setup-helpers'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
@@ -167,6 +169,12 @@ interface DataTableIslandProps {
    */
   readonly saveLabel?: string
   readonly cancelLabel?: string
+  /**
+   * The grid's other interface strings (toolbar, pager, search default,
+   * add-row), resolved server-side and sent only where they differ from the
+   * English each control is written in — absent on an English page.
+   */
+  readonly uiStrings?: GridStrings
   readonly groupBy?: DataTableGroupBy
   readonly summary?: readonly DataTableSummaryItem[]
   readonly autoSave?: AutoSaveConfig
@@ -241,6 +249,9 @@ const DEFAULT_DECLARED_VIEWS: readonly DataTableViewType[] = ['grid']
 const DEFAULT_SAVE_LABEL = 'Save'
 const DEFAULT_CANCEL_LABEL = 'Cancel'
 
+/** The provider value of a grid whose host sent no strings: every control keeps its English. */
+const NO_UI_STRINGS: GridStrings = {}
+
 /**
  * The grid's load-failure alert. Operator-facing, so it states what failed and
  * what to do about it — not a raw response envelope.
@@ -265,6 +276,25 @@ function ErrorBanner({ error }: { readonly error: unknown }) {
         to try again.
       </p>
     </div>
+  )
+}
+
+/** A rate-limited read offers a Retry; any other failure keeps the banner. */
+function ReadErrorNotice({
+  error,
+  onRetry,
+}: {
+  readonly error: unknown
+  readonly onRetry: () => void
+}) {
+  const strings = useContext(GridStringsContext)
+  return isRateLimitedRead(error) ? (
+    <RateLimitedNotice
+      onRetry={onRetry}
+      strings={strings}
+    />
+  ) : (
+    <ErrorBanner error={error} />
   )
 }
 
@@ -543,7 +573,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   const declaredViews = props.views ?? DEFAULT_DECLARED_VIEWS
 
   return (
-    <>
+    <GridStringsContext.Provider value={props.uiStrings ?? NO_UI_STRINGS}>
       {paste.dialog}
       {paste.toast}
       {/*
@@ -556,7 +586,12 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
         the server actually served, and keeps every control they need to try
         something else.
       */}
-      {setup.readError !== undefined && <ErrorBanner error={setup.readError} />}
+      {setup.readError !== undefined && (
+        <ReadErrorNotice
+          error={setup.readError}
+          onRetry={setup.handleRefresh}
+        />
+      )}
       <DataTableView
         containerRef={clipboardRef}
         table={setup.table}
@@ -642,6 +677,6 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
         {...(props.kanbanGroupBy && { kanbanGroupBy: props.kanbanGroupBy })}
         {...(props.dateField !== undefined && { dateField: props.dateField })}
       />
-    </>
+    </GridStringsContext.Provider>
   )
 }

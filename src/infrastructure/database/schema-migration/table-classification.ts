@@ -41,12 +41,15 @@ export const expectedPhysicalTableNames = (tables: readonly Table[]): ReadonlySe
   new Set(
     tables.flatMap((table) => {
       const sanitized = sanitizeTableName(table.name)
-      const junctions = table.fields
-        .filter(isManyToManyRelationship)
-        .flatMap((field) => [
-          generateJunctionTableName(table.name, field.relatedTable),
-          generateJunctionTableName(field.relatedTable, table.name),
-        ])
+      const junctions = table.fields.filter(isManyToManyRelationship).flatMap((field) => [
+        generateJunctionTableName(table.name, field.relatedTable),
+        generateJunctionTableName(field.relatedTable, table.name),
+        // The spelling an older engine created from the CONFIG names. SQLite
+        // keeps a name's case (`Projects_tags`), and matches it
+        // case-insensitively, so such a junction is still this one.
+        `${table.name}_${field.relatedTable}`,
+        `${field.relatedTable}_${table.name}`,
+      ])
       return [
         table.name,
         sanitized,
@@ -112,13 +115,113 @@ export const isCommandSearchIndexTable = (tableName: string): boolean =>
 export const formatRowCount = (rows: number): string => `${rows} ${rows === 1 ? 'row' : 'rows'}`
 
 /**
+ * A stored many-to-many link table: the two CONFIG tables whose relationship it
+ * held, source first, as the stored schema recorded them.
+ */
+export interface StoredLinkTable {
+  readonly linkOf: readonly [source: string, related: string]
+}
+
+/**
+ * What the stored schema says a physical table was: the `id` of the config table
+ * whose rows it held, or the relationship whose links it held.
+ */
+export type StoredTableIdentity = number | string | StoredLinkTable
+
+/** The relationship `physicalTable` held the links of, per the stored schema. */
+const storedLinkTableFor = (
+  physicalTable: string,
+  storedTables: readonly object[]
+): StoredLinkTable | undefined =>
+  storedTables
+    .flatMap((table: object): readonly StoredLinkTable[] => {
+      if (!('name' in table) || typeof table.name !== 'string') return []
+      if (!('fields' in table) || !Array.isArray(table.fields)) return []
+      const source = table.name
+      return (table.fields as readonly unknown[]).flatMap((field): readonly StoredLinkTable[] => {
+        const link = field as { readonly relationType?: unknown; readonly relatedTable?: unknown }
+        if (link.relationType !== 'many-to-many' || typeof link.relatedTable !== 'string') return []
+        const related = link.relatedTable
+        return generateJunctionTableName(source, related) === physicalTable ||
+          generateJunctionTableName(related, source) === physicalTable
+          ? [{ linkOf: [source, related] }]
+          : []
+      })
+    })
+    .at(0)
+
+/**
+ * What the stored schema snapshot says `physicalTable` was: the `id` it recorded
+ * for the table whose rows live there — the table itself, or the `<name>_base`
+ * behind a view-backed one — or, for a many-to-many link table, the
+ * relationship whose links it held. `undefined` when the snapshot is absent or
+ * holds neither.
+ */
+export const storedTableIdentityFor = (
+  physicalTable: string,
+  previousSchema: { readonly tables: readonly object[] } | undefined
+): StoredTableIdentity | undefined => {
+  const storedTables = previousSchema?.tables ?? []
+  const stored = storedTables.find((table: object) => {
+    if (!('name' in table) || typeof table.name !== 'string') return false
+    const name = sanitizeTableName(table.name)
+    return physicalTable === name || physicalTable === getBaseTableName(name)
+  }) as { readonly id?: unknown } | undefined
+  if (typeof stored?.id === 'number' || typeof stored?.id === 'string') return stored.id
+  return stored === undefined ? storedLinkTableFor(physicalTable, storedTables) : undefined
+}
+
+/** How the stored id is written in a config: `id: 3`, `id: 'catalog'`. */
+const formatIdDeclaration = (id: number | string): string =>
+  typeof id === 'number' ? `id: ${id}` : `id: '${id}'`
+
+/** The plan-then-consent sentence every drop refusal ends with. */
+const DESTRUCTIVE_CONSENT =
+  `read the plan with \`sovrium migrate <config> --dry-run\` and apply it with ` +
+  `\`sovrium migrate <config> --allow-destructive\`.`
+
+/**
+ * The refusal for a link table. Its likeliest cause is not a table renamed
+ * without an id — a link table is never declared, so "declare it with its id"
+ * would point at nothing — but a table at either END renamed without one (a
+ * rename under an id carries its link tables), or the relationship removed.
+ */
+const formatPopulatedLinkDropRefusal = (
+  tableName: string,
+  rows: number,
+  { linkOf: [source, related] }: StoredLinkTable
+): string =>
+  `Refusing to drop table ${tableName} (${formatRowCount(rows)}): it holds the links of the ` +
+  `many-to-many relationship between ${source} and ${related}, which the config no longer ` +
+  `declares under those names, and dropping it would delete them. Starting the app never ` +
+  `drops a populated table. A table renamed under the \`id\` it was stored under takes its ` +
+  `link tables with it, so if ${source} or ${related} was renamed, declare it with that ` +
+  `\`id\`. If the relationship was removed on purpose, ${DESTRUCTIVE_CONSENT}`
+
+/**
  * Why a drop of a populated obsolete table is refused, in the words every
  * surface uses — the boot, `sovrium migrate`, `--dry-run` and `--check` all
  * print this sentence, so the operator reads one refusal wherever they meet it.
+ *
+ * It also answers the likeliest reason the table left the config: it was
+ * renamed. Only an id written in the config makes a name change a rename, so
+ * a table renamed without one arrives here, and the refusal says which `id`
+ * keeps it — the one the stored schema recorded, when there is one. A
+ * many-to-many link table gets its own wording (see
+ * {@link formatPopulatedLinkDropRefusal}).
  */
-export const formatPopulatedDropRefusal = (tableName: string, rows: number): string =>
-  `Refusing to drop table ${tableName} (${formatRowCount(rows)}): the config no longer ` +
-  `declares it, and dropping it would delete its rows. Starting the app never drops a ` +
-  `populated table. Keep the table in the config, or read the plan with ` +
-  `\`sovrium migrate <config> --dry-run\` and apply it with ` +
-  `\`sovrium migrate <config> --allow-destructive\`.`
+export const formatPopulatedDropRefusal = (
+  tableName: string,
+  rows: number,
+  stored?: StoredTableIdentity
+): string =>
+  typeof stored === 'object'
+    ? formatPopulatedLinkDropRefusal(tableName, rows, stored)
+    : `Refusing to drop table ${tableName} (${formatRowCount(rows)}): the config no longer ` +
+      `declares it, and dropping it would delete its rows. Starting the app never drops a ` +
+      `populated table. If a table in the config is ${tableName} under a new name, declare it ` +
+      (stored === undefined
+        ? `with the \`id\` it was stored under: `
+        : `with \`${formatIdDeclaration(stored)}\`: `) +
+      `only an id written in the config makes a name change a rename. Otherwise keep the ` +
+      `table in the config, or ${DESTRUCTIVE_CONSENT}`

@@ -86,7 +86,7 @@ export const accounts = authTable(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    // See the pg mirror for why this is nullable rather than NOT NULL.
+    // RETIRED, never written or read since Better Auth 1.7.3 — see the pg mirror.
     issuer: text('issuer'),
     userId: text('user_id')
       .notNull()

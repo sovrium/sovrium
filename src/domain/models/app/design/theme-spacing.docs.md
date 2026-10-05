@@ -71,6 +71,8 @@ design:
 
 This is a single global choice rather than a per-block one, so a documentation site's samples stay visually consistent whichever page they appear on.
 
+Where a theme's own colour for a token falls under 4.5:1 on the block — the comments of `github-dark` and `github-light`, the keywords and keys of `github-light` — that token is drawn in the nearest tone of the same hue that reaches it, so every token reads at 4.5:1 or more against the block.
+
 ## Composing them
 
 Tokens compose the way handwritten classes do. The point is that the decisions are named and central:

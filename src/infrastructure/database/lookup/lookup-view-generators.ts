@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getViewFormulaLayers, buildLayeredViewSQL } from '../formula/view-formula-generators'
@@ -14,9 +15,12 @@ import {
   generateForwardLookupExpression,
 } from './lookup-expressions'
 import { resolveForeignKeyColumn } from './lookup-foreign-key'
+import { readThroughSelfLookup } from './lookup-self-read'
 import {
   buildWhereClause,
   flattenFilterNode,
+  relatedAliasOf,
+  relationNameOf,
   mapAggregationToSql,
   getDefaultValueForAggregation,
 } from './lookup-view-helpers'
@@ -147,8 +151,25 @@ export const getViewBodyReferencedTables = (
     }
     return []
   })
-  return new Set(referenced)
+  // A self-reference reads the base table (`relationFor`), not this view.
+  return new Set(referenced.filter((name) => name !== table.name))
 }
+
+/**
+ * The relation a view body reads for a related table.
+ *
+ * A table's VIEW carries its computed columns and has the table's own name;
+ * its stored rows live in `<name>_base`. A view that read ITSELF — a lookup
+ * through a relationship to its own table, an org chart's manager — is
+ * circularly defined (SQLite refuses it, PostgreSQL cannot create it), so a
+ * self-reference reads the base table: the related row's stored columns are
+ * all a lookup through it reads. Every other related table is read through
+ * its view, as before.
+ */
+const relationFor = (relatedTable: string, currentTable: string): string =>
+  sanitizeTableName(relatedTable) === sanitizeTableName(currentTable)
+    ? quoteSqlIdentifier(`${sanitizeTableName(relatedTable)}_base`)
+    : relationNameOf(relatedTable)
 
 /** Check if relationship field is many-to-many with valid related table */
 const isManyToMany = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
@@ -216,6 +237,7 @@ const generateLookupExpression = (
     return generateManyToManyLookupExpression({
       lookupName,
       relatedTable: relationshipFieldDef.relatedTable,
+      relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
       relatedField,
       filters,
       tableAlias,
@@ -225,10 +247,16 @@ const generateLookupExpression = (
 
   // Forward lookup (many-to-one)
   if (hasRelatedTable(relationshipFieldDef)) {
+    const throughSelf = readThroughSelfLookup(lookupField, relationshipFieldDef.relatedTable, {
+      actualTableName,
+      allFields,
+    })
+    if (throughSelf !== undefined) return throughSelf
     return generateForwardLookupExpression({
       lookupName,
       relationshipField,
       relatedTable: relationshipFieldDef.relatedTable,
+      relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
       relatedField,
       filters,
       tableAlias,
@@ -285,9 +313,12 @@ const generateRollupExpression = (
   }
 
   const { relatedTable } = relationshipFieldDef
-  const alias = `${relatedTable}_for_${rollupName}`
+  const alias = relatedAliasOf(relatedTable, rollupName)
 
-  const aggregationExpr = mapAggregationToSql(aggregation, `${alias}.${relatedField}`)
+  const aggregationExpr = mapAggregationToSql(
+    aggregation,
+    `${alias}.${quoteSqlIdentifier(relatedField)}`
+  )
   const defaultValue = getDefaultValueForAggregation(aggregation)
 
   const foreignKeyColumn = resolveForeignKeyColumn(
@@ -297,7 +328,7 @@ const generateRollupExpression = (
     allTables
   )
 
-  const baseCondition = `${alias}.${foreignKeyColumn} = ${tableAlias}.id`
+  const baseCondition = `${alias}.${quoteSqlIdentifier(foreignKeyColumn)} = ${tableAlias}.id`
   // Soft-deleted child rows must NOT contribute to the aggregate — a devoted /
   // trashed related record is logically gone (soft-delete-by-default: every app
   // table carries a `deleted_at` column). Without this, "un-voting" (soft-
@@ -313,7 +344,7 @@ const generateRollupExpression = (
   // The VIEW will be created after all base tables exist, so it's safe to reference
   return `COALESCE(
     (SELECT ${aggregationExpr}
-     FROM ${relatedTable} AS ${alias}
+     FROM ${relationFor(relatedTable, parentTableName)} AS ${alias}
      WHERE ${whereClause}),
     ${defaultValue}
   ) AS ${rollupName}`
@@ -349,7 +380,7 @@ const generateCountExpression = (
   }
 
   const { relatedTable } = relationshipFieldDef
-  const alias = `${relatedTable}_for_${countName}`
+  const alias = relatedAliasOf(relatedTable, countName)
 
   const foreignKeyColumn = resolveForeignKeyColumn(
     relationshipFieldDef as unknown as Readonly<Record<string, unknown>>,
@@ -359,7 +390,7 @@ const generateCountExpression = (
   )
 
   // Build WHERE clause with base condition + optional filter conditions
-  const baseCondition = `${alias}.${foreignKeyColumn} = ${tableAlias}.id`
+  const baseCondition = `${alias}.${quoteSqlIdentifier(foreignKeyColumn)} = ${tableAlias}.id`
 
   // Soft-deleted child rows must NOT be counted — a devoted / trashed related
   // record is logically gone (soft-delete-by-default: every app table carries a
@@ -377,7 +408,7 @@ const generateCountExpression = (
   // Use COALESCE to ensure 0 instead of NULL when no records match
   return `COALESCE(
     (SELECT COUNT(*)
-     FROM ${relatedTable} AS ${alias}
+     FROM ${relationFor(relatedTable, parentTableName)} AS ${alias}
      WHERE ${whereClause}),
     0
   ) AS ${countName}`
@@ -388,7 +419,8 @@ const generateCountExpression = (
  */
 const buildForwardLookupJoins = (
   lookupFields: readonly LookupFieldInput[],
-  allFields: readonly Fields[number][]
+  allFields: readonly Fields[number][],
+  currentTable: string
 ): string => {
   const forwardLookups = lookupFields.filter((field) => {
     const relationshipFieldDef = allFields.find((f) => f.name === field.relationshipField)
@@ -408,8 +440,10 @@ const buildForwardLookupJoins = (
         return ''
       }
       const { relatedTable } = relationshipFieldDef as unknown as { relatedTable: string }
-      const alias = `${relatedTable}_for_${field.name}`
-      return `LEFT JOIN ${relatedTable} AS ${alias} ON ${alias}.id = base.${field.relationshipField}`
+      const alias = relatedAliasOf(relatedTable, field.name)
+      // A linked record in the trash contributes nothing through a link to ONE
+      // record either, as through a link to many (`lookup-expressions.ts`).
+      return `LEFT JOIN ${relationFor(relatedTable, currentTable)} AS ${alias} ON ${alias}.id = base.${field.relationshipField} AND ${alias}.deleted_at IS NULL`
     })
     .filter((join) => join !== '')
     .join('\n  ')
@@ -460,7 +494,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   const sanitized = sanitizeTableName(table.name)
 
   // Build JOIN clauses for forward lookups
-  const joins = buildForwardLookupJoins(lookupFields, table.fields)
+  const joins = buildForwardLookupJoins(lookupFields, table.fields, table.name)
 
   // Computed (lookup/rollup/count) column SELECT list, over the base table.
   const computedSelectClause = buildComputedSelectClause(table, allTables)
@@ -473,7 +507,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   // `createLookupViewsEffect` drops any survivor with `DROP VIEW IF EXISTS`.
   const createView = isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'
 
-  const fromClause = `FROM ${sanitized}_base AS base
+  const fromClause = `FROM ${quoteSqlIdentifier(`${sanitized}_base`)} AS base
   ${joins ? joins : ''}`
 
   // Formulas that reference view-only fields (rollup/lookup/count) are computed
@@ -485,7 +519,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
 
   if (formulaLayers.length === 0) {
     // No view-computed formulas — keep the historical single-SELECT shape.
-    return `${createView} ${sanitized} AS
+    return `${createView} ${quoteSqlIdentifier(sanitized)} AS
   SELECT
     ${computedSelectClause}
   ${fromClause}`
@@ -493,7 +527,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
 
   return buildLayeredViewSQL({
     createView,
-    viewName: sanitized,
+    viewName: quoteSqlIdentifier(sanitized),
     computedSelectClause,
     fromClause,
     formulaLayers,

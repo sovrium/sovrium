@@ -68,7 +68,7 @@ export const OPTIONAL_UNDEFINED_MARKER = 'sovrium:optional-undefined'
  * and every Scalar reader that the field accepts `null`, which it does not.
  *
  * The branch cannot be suppressed at the source: measured on
- * effect 4.0.0-rc.108, an annotation on the `Schema.Undefined` member itself is
+ * effect 4.0.0, an annotation on the `Schema.Undefined` member itself is
  * DROPPED by the emitter, so the member cannot be marked. The marker therefore
  * goes on the wrapper, where `title` does survive, and the adapter removes the
  * branch and the marker together. Routing every call site through one function

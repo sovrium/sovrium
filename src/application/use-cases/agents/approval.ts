@@ -11,12 +11,13 @@
  * The authoritative runtime state for agent approvals is the presentation
  * in-memory store (`approval-store.ts`). These use cases mirror a subset of
  * that state into `system.automation_approval_requests` (so DB-readback spec
- * assertions observe the row) and resolve the approver's email for a decision.
+ * assertions observe the row) and resolve the approver's email and name for a
+ * decision.
  *
  * They are thin wrappers over {@link ApprovalRepository}: no shaping logic is
  * needed (the route already maps its `ApprovalRecord` onto the port-level
  * `ApprovalMirrorRecord`). The best-effort discard-on-error and the `''`
- * email-lookup default are applied by the route-side runner, NOT here — the
+ * identity-lookup default are applied by the route-side runner, NOT here — the
  * use-case/port contract stays honest about the possible
  * {@link ApprovalDatabaseError}.
  */
@@ -26,6 +27,7 @@ import {
   ApprovalRepository,
   type ApprovalDatabaseError,
   type ApprovalMirrorRecord,
+  type ApprovalUserIdentity,
 } from '@/application/ports/repositories/ai/approval-repository'
 import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
 
@@ -47,14 +49,14 @@ export const MirrorApprovalUpdate = (
     yield* repo.updateApprovalRow(record)
   }).pipe(Effect.withSpan('agents.mirror-approval-update'))
 
-/** Resolve an approving user's email address by id (the read-side lookup). */
-export const LookupApproverEmail = (
+/** Resolve an approving user's email address and name by id (the read-side lookup). */
+export const LookupApproverIdentity = (
   userId: string
-): Effect.Effect<string, ApprovalDatabaseError, ApprovalRepository> =>
+): Effect.Effect<ApprovalUserIdentity, ApprovalDatabaseError, ApprovalRepository> =>
   Effect.gen(function* () {
     const repo = yield* ApprovalRepository
-    return yield* repo.lookupUserEmail(userId)
-  }).pipe(Effect.withSpan('agents.lookup-approver-email'))
+    return yield* repo.lookupUserIdentity(userId)
+  }).pipe(Effect.withSpan('agents.lookup-approver-identity'))
 
 /**
  * Application layer for the agent-approval mirror use cases.

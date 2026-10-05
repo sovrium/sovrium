@@ -324,11 +324,12 @@ const castToText = (expr: string): string =>
  *   normalises non-text columns to a stable string representation; the
  *   inline `ORDER BY` clause inside the aggregate sorts the input rows
  *   deterministically.
- * - SQLite: `group_concat(CAST(<expr> AS TEXT) ORDER BY <orderBy>, '<separator>')`
+ * - SQLite: `group_concat(CAST(<expr> AS TEXT), '<separator>' ORDER BY <orderBy>)`
  *   — `group_concat` is SQLite's spelling; the `ORDER BY` inside the
  *   aggregate is supported in SQLite 3.44+ (bun:sqlite ships 3.50+ so this
- *   is always available); separator is a positional argument, NOT a
- *   second template form like PG.
+ *   is always available). The `ORDER BY` goes AFTER the separator: written
+ *   before it, SQLite reads `, '<separator>'` as a second sort term and
+ *   joins with its default `,`.
  *
  * The separator is inlined as a SQL literal — callers must pass a safe
  * fixed value (typically `', '`). The expression and the optional orderBy
@@ -346,8 +347,8 @@ export const stringAggExpression = (
 ): string => {
   const sortClause = orderByExpression ? ` ORDER BY ${orderByExpression}` : ''
   if (isSqliteRuntime()) {
-    // SQLite: `group_concat(CAST(expr AS TEXT) ORDER BY x, ', ')`
-    return `group_concat(${castToText(expression)}${sortClause}, '${separator}')`
+    // SQLite: `group_concat(CAST(expr AS TEXT), ', ' ORDER BY x)`
+    return `group_concat(${castToText(expression)}, '${separator}'${sortClause})`
   }
   // Postgres: `STRING_AGG(expr::TEXT, ', ' ORDER BY x)`
   return `STRING_AGG(${castToText(expression)}, '${separator}'${sortClause})`

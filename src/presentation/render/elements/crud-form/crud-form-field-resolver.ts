@@ -14,6 +14,11 @@ import {
 } from '@/presentation/design/field-display'
 import { fieldWidgetOf, showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/design/string-utils'
+import {
+  callerTableOf,
+  readableFieldsOf,
+  writableFieldsOf,
+} from '@/presentation/render/props/caller-table-inputs'
 import type { ResolvedFieldDef } from './crud-form-types'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -375,4 +380,51 @@ export function buildResolvedFieldDefs(
   }
 
   return tableFields.map((tf) => resolveFieldDef(tf, undefined, imageBucket))
+}
+
+/**
+ * The fields a CREATE form renders an input for. A form listing its `fields`
+ * renders those; a form listing none generates one input per field of the
+ * table. Either list is narrowed, when the page stamped the reader's view of
+ * the table (`props._callerTable`), to the fields she may write
+ * (`writableFieldsOf`, the records API's own write predicate, which names no
+ * field she may not read): a new record has no value to show for any other,
+ * and the island props and the server-drawn controls are both built from this
+ * one list.
+ */
+export function buildCreateFieldDefs(
+  tables: Tables | undefined,
+  tableName: string,
+  component?: Component,
+  buckets?: Buckets
+): readonly ResolvedFieldDef[] {
+  const defs = buildResolvedFieldDefs(tables, tableName, component, buckets)
+  const callerTable = component === undefined ? undefined : callerTableOf(component)
+  if (callerTable === undefined) return defs
+  const writable = new Set(writableFieldsOf(callerTable))
+  return defs.filter((def) => writable.has(def.name))
+}
+
+/**
+ * The fields an UPDATE form renders a control for, from the same per-reader
+ * answer a create form reads (`props._callerTable`): a control only for a field
+ * she may write — the records API's own write predicate, which names no field
+ * she may not read. A form the page drew read-only (`readOnly`: the table's
+ * `update` refuses her) shows every field she may READ, disabled, instead.
+ * Unchanged without a stamp, or when the table is not declared.
+ */
+export function updateFieldDefsForReader(
+  defs: readonly ResolvedFieldDef[],
+  ctx: {
+    readonly table: Tables[number] | undefined
+    readonly component: Component | undefined
+    readonly readOnly: boolean
+  }
+): readonly ResolvedFieldDef[] {
+  const callerTable = ctx.component === undefined ? undefined : callerTableOf(ctx.component)
+  if (callerTable === undefined || ctx.table === undefined) return defs
+  const kept = new Set(
+    ctx.readOnly ? readableFieldsOf(ctx.table, callerTable) : writableFieldsOf(callerTable)
+  )
+  return defs.filter((def) => kept.has(def.name))
 }

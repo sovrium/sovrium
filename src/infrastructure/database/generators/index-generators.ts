@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
@@ -76,11 +77,13 @@ const generateStandardIndexes = (table: Table): readonly string[] => {
       if (sqlite && (needsGin || needsGist)) return []
       const indexName = standardIndexName(table.name, field)
       if (sqlite) {
-        return [`CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${field.name})`]
+        return [
+          `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${quoteSqlIdentifier(field.name)})`,
+        ]
       }
       const indexType = needsGin ? 'USING gin' : needsGist ? 'USING gist' : 'USING btree'
       return [
-        `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} ${indexType} (${field.name})`,
+        `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} ${indexType} (${quoteSqlIdentifier(field.name)})`,
       ]
     })
 }
@@ -95,7 +98,7 @@ const generateAutonumberIndexes = (table: Table): readonly string[] => {
     .filter((field) => field.type === 'autonumber')
     .map((field) => {
       const indexName = `idx_${sanitized}_${field.name}_unique`
-      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${tableRef} (${field.name})`
+      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${tableRef} (${quoteSqlIdentifier(field.name)})`
     })
 }
 
@@ -117,7 +120,7 @@ const generateGeolocationConstraints = (table: Table): readonly string[] => {
     .map((field) => {
       // Use PostgreSQL naming convention: {table}_{column}_key (matches constraint naming)
       const constraintName = `${sanitized}_${field.name}_key`
-      return `ALTER TABLE public.${sanitized} ADD CONSTRAINT ${constraintName} EXCLUDE USING gist (${field.name} WITH ~=)`
+      return `ALTER TABLE public.${sanitized} ADD CONSTRAINT ${constraintName} EXCLUDE USING gist (${quoteSqlIdentifier(field.name)} WITH ~=)`
     })
 }
 
@@ -138,7 +141,7 @@ const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
     )
     .map((field) => {
       const indexName = `idx_${sanitized}_${field.name}_fulltext`
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING gin (to_tsvector('english'::regconfig, ${field.name}))`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING gin (to_tsvector('english'::regconfig, ${quoteSqlIdentifier(field.name)}))`
     })
 }
 
@@ -186,8 +189,8 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
   const fkIndexSql = (fieldName: string): string => {
     const indexName = `idx_${sanitized}_${fieldName}_fk`
     return sqlite
-      ? `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${fieldName})`
-      : `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${fieldName})`
+      ? `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${quoteSqlIdentifier(fieldName)})`
+      : `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${quoteSqlIdentifier(fieldName)})`
   }
   const relationshipIndexes = table.fields
     .filter(isRelationshipField)

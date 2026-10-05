@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { RowClickActionSchema } from '../../../action'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
@@ -22,6 +23,13 @@ export const listFields = {
   ...i18nFields,
   ...dataBoundFields,
   listDisplay: Schema.optional(ListDisplaySchema),
+  /**
+   * What clicking an item does — the same two verbs a grid row takes
+   * (`navigate` / `openDrawer`), so a list of records can open the one a reader
+   * picks. `openDrawer` also writes `?record=<id>` into the address, as the grid
+   * does, so the opened record is a link.
+   */
+  onRowClick: Schema.optional(RowClickActionSchema),
 } as const
 
 // Re-export all sub-schemas

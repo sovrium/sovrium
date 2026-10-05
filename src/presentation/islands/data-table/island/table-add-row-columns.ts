@@ -42,6 +42,17 @@ function toAddRowColumn(
   const field = column.columnDef.meta?.field
   if (field === undefined) return { label: column.id, required: false }
   const meta = fieldMeta?.[field]
+  // A field the reader may not write takes no input on a new record.
+  if (meta?.readOnly === true) return { label: labelOf(field), required: false }
+  return inputColumnOf(field, meta, labelOf)
+}
+
+/** A column the add-row offers an input on, typed and labelled from its field. */
+function inputColumnOf(
+  field: string,
+  meta: FieldMetaMap[string] | undefined,
+  labelOf: (field: string) => string
+): AddRowColumn {
   return {
     field,
     label: labelOf(field),

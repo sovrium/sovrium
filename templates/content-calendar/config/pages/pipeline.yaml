@@ -1,73 +1,174 @@
+# The Pipeline: every piece from idea to scheduled, each with its owner and
+# its day; the late draft carries its flag. Published pieces fold into one
+# column a click away. Two tabs narrow the board — everyone's pieces, or only
+# yours — and New piece adds an idea in a dialog.
+#
+# Moving a piece to Review asks the lead to approve it. The lead finds it
+# below the board, approves it (the piece is then Scheduled), or sends it back
+# to Draft.
 name: pipeline
 path: /pipeline
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Pipeline
-  description: The editorial kanban — idea to published
+  title: Pipeline · Loomwork Content
+  description: Every piece from idea to scheduled, with its owner and its day.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Pipeline
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Drag each piece from idea to published.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: New piece
-          - type: form
-            dataSource:
-              table: content
-            fields:
-              - field: title
-              - field: content_type
-              - field: channels
-              - field: status
-              - field: publish_date
-              - field: campaign
-            action:
-              type: crud
-              operation: create
-              table: content
-              onSuccess:
-                navigate: /pipeline
-                toast:
-                  message: Piece added to the pipeline
-                  variant: success
-
-      - type: kanban
-        dataSource:
-          table: content
-        kanbanGroupBy:
-          field: status
-        emptyColumnMessage: Nothing at this stage.
-        card:
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-medium
-              content: $record.title
-          footer:
-            - field: publish_date
-              format: relative-date
-            - field: content_type
-              format: badge
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Pipeline
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New piece
+                props:
+                  data-testid: new-piece
+                  className: h-8 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-piece-dialog
+          - $ref: ./_new-piece-dialog.yaml
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: tabs
+                defaultTab: everyone
+                panels:
+                  - { id: everyone, label: Everyone }
+                  - { id: mine, label: Mine }
+                children:
+                  - type: kanban
+                    dataSource:
+                      table: content
+                    props:
+                      className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Published]]:flex-[0_0_12rem]!'
+                    kanbanGroupBy:
+                      field: status
+                      collapsed: [Published]
+                    drag:
+                      enabled: true
+                      persistAction:
+                        type: crud
+                        operation: update
+                        table: content
+                    emptyColumnMessage: Nothing at this step. Move a piece here when it is ready for it.
+                    card:
+                      children:
+                        - type: text
+                          element: h3
+                          props:
+                            className: text-[13px] font-medium leading-[18px] text-foreground
+                          content: $record.title
+                        - type: text
+                          element: p
+                          props:
+                            className: text-xs text-foreground-muted
+                          content: $record.content_type · $record.channel
+                      footer:
+                        - { field: flag, format: badge }
+                        - { field: publish_at, format: short-date }
+                        - { field: owner }
+                  - type: kanban
+                    dataSource:
+                      table: content
+                      filter:
+                        - { field: owner, operator: eq, value: $currentUser.id }
+                    props:
+                      className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Published]]:flex-[0_0_12rem]!'
+                    kanbanGroupBy:
+                      field: status
+                      collapsed: [Published]
+                    drag:
+                      enabled: true
+                      persistAction:
+                        type: crud
+                        operation: update
+                        table: content
+                    emptyColumnMessage: Nothing at this step. Move a piece here when it is ready for it.
+                    card:
+                      children:
+                        - type: text
+                          element: h3
+                          props:
+                            className: text-[13px] font-medium leading-[18px] text-foreground
+                          content: $record.title
+                        - type: text
+                          element: p
+                          props:
+                            className: text-xs text-foreground-muted
+                          content: $record.content_type · $record.channel
+                      footer:
+                        - { field: flag, format: badge }
+                        - { field: publish_at, format: short-date }
+                        - { field: owner }
+              # For the lead only: the pieces waiting for a decision. Either
+              # answer resumes the approval run: approving schedules the piece,
+              # sending it back returns it to Draft with its owner.
+              - type: text
+                element: h2
+                visibility:
+                  roles: [admin]
+                props:
+                  className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: Waiting for your approval
+              - type: table
+                visibility:
+                  roles: [admin]
+                props:
+                  id: approval-runs
+                dataSource:
+                  system:
+                    endpoint: /api/automations/approvals
+                    rowsKey: approvals
+                    idKey: approvalId
+                    query:
+                      status: pending
+                columns:
+                  - { field: message, label: Piece }
+                  - { field: requestedAt, label: Sent for review, format: relative-date }
+                  - type: actions
+                    actions:
+                      - label: Approve
+                        icon: check
+                        action:
+                          type: fetch
+                          url: /api/automations/runs/$record.runId/approvals/$record.approvalId/approve
+                          method: POST
+                          onSuccess:
+                            type: toast
+                            message: Approved — the piece is scheduled
+                            variant: success
+                            refetch: approval-runs
+                      - label: Send back to Draft
+                        icon: undo-2
+                        variant: ghost
+                        confirm: Send this piece back to Draft? Its owner picks it up again from the board.
+                        action:
+                          type: fetch
+                          url: /api/automations/runs/$record.runId/approvals/$record.approvalId/reject
+                          method: POST
+                          onSuccess:
+                            type: toast
+                            message: Sent back to Draft
+                            variant: success
+                            refetch: approval-runs
+                emptyMessage: Nothing waits for your approval. A piece moved to Review appears here.

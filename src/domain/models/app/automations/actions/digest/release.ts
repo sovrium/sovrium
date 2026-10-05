@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { digestSortKeyProblem } from './sort-key-validation'
 
 /**
  * Digest Release Action (type: digest, operator: release)
@@ -40,11 +41,13 @@ export const DigestReleaseActionSchema = Schema.Struct({
     /** Sort configuration for released items */
     sort: Schema.optional(
       Schema.Struct({
-        /** Field to sort by */
+        /** Key of the collected items to sort by */
         field: TemplateStringSchema.pipe(
           Schema.annotate({
-            description: 'Field name to sort by (supports template variables)',
-          })
+            description:
+              'Key of the collected items to sort by (supports template variables). A key starting with "$" is refused: it names a key, not a JSON path',
+          }),
+          Schema.check(Schema.makeFilter((field: string) => digestSortKeyProblem(field)))
         ),
 
         /** Sort direction */

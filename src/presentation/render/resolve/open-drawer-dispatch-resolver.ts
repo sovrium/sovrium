@@ -10,12 +10,13 @@
  *
  * Walks a page's component tree once and identifies any drawer whose `id` is
  * referenced by a sibling component's `onRowClick.action === 'openDrawer'`
- * (the "quick-edit drawer" pattern). Each referenced drawer is tagged with a
- * render-time-only `_openDrawerDispatchedById: <id>` prop. The drawer's
- * island-props builder reads this flag and emits `defaultOpen: false` to the
- * hydrated island so the drawer remains hidden on page load and opens only in
- * response to the dispatched `sovrium:open-drawer` CustomEvent fired by the
- * data-table island when a row is clicked.
+ * (the "quick-edit drawer" pattern), or a board's `card.onClick` or a
+ * gallery's `galleryCard.onClick` of that shape. Each referenced drawer is
+ * tagged with a render-time-only `_openDrawerDispatchedById: <id>` prop. The
+ * drawer's island-props builder reads this flag and emits `defaultOpen: false`
+ * to the hydrated island so the drawer remains hidden on page load and opens
+ * only in response to the dispatched `sovrium:open-drawer` CustomEvent fired
+ * when a row (or a board or gallery card) is clicked.
  *
  * Drawers that are NOT referenced by an `openDrawer` action keep the legacy
  * default-open contract — the pre-hydration `data-click-modal` click handler
@@ -62,11 +63,28 @@ function collectRelatedRowTargets(component: Component | string): readonly strin
   ]
 }
 
-/** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openDrawer', component }` in the subtree rooted at `component`. */
+/**
+ * The drawer a board's or a gallery's cards open, when `card.onClick` (or
+ * `galleryCard.onClick`) is an `openDrawer` — the same verb a grid row click
+ * takes, so its drawer starts closed the same way.
+ */
+function cardClickTarget(card: unknown): readonly string[] {
+  const onClick = (card as Record<string, unknown> | null | undefined)?.['onClick']
+  return isOpenDrawerAction(onClick) ? [onClick.component] : []
+}
+
+/** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openDrawer', component }` (or a board's `card.onClick`, a gallery's `galleryCard.onClick`) in the subtree rooted at `component`. */
 function collectIdsFromComponent(component: Component | string): readonly string[] {
   if (typeof component === 'string') return []
-  const { onRowClick, children } = component as unknown as Record<string, unknown>
-  const selfId = isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []
+  const { onRowClick, card, galleryCard, children } = component as unknown as Record<
+    string,
+    unknown
+  >
+  const selfId = [
+    ...(isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []),
+    ...cardClickTarget(card),
+    ...cardClickTarget(galleryCard),
+  ]
   if (!Array.isArray(children)) return selfId
   const childIds = (children as readonly (Component | string)[]).flatMap(collectIdsFromComponent)
   return [...selfId, ...childIds]

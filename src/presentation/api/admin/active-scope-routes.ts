@@ -13,6 +13,7 @@ import {
   validateActiveAssignment,
 } from '@/domain/models/app/auth/active-assignment-cookie'
 import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -51,8 +52,7 @@ interface ContextLike {
   readonly json: (body: unknown, status?: number) => Response
 }
 
-const respondNotFound = (c: ContextLike) =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+const respondNotFound = (c: ContextLike) => c.json(notFoundBody(), 404)
 
 const respondUnauthorized = (c: ContextLike) =>
   c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
@@ -62,8 +62,7 @@ const respondUnauthorized = (c: ContextLike) =>
  * existence of out-of-scope records or restricted scope-tables is not
  * discoverable — the denial reason is deliberately not emitted.
  */
-const respondForbidden = (c: ContextLike) =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+const respondForbidden = (c: ContextLike) => c.json(notFoundBody(), 404)
 
 const respondBadRequest = (c: ContextLike, message: string) =>
   c.json({ success: false, message, code: 'BAD_REQUEST' }, 400)

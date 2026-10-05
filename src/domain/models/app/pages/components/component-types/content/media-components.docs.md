@@ -105,6 +105,8 @@ components:
 
 The symbol is rendered on the server and ships no JavaScript. It works with scripting disabled and prints from the browser's own print dialog. The SVG always carries a `viewBox`, so it scales cleanly whether or not you set `size`, and its quiet zone is painted rather than left transparent, which keeps it scannable on a dark background.
 
+Inside a record drawer's `children`, or a board or gallery card, `value` may name the record, `value: $record.sku`, and so may the `aria-label`. That symbol is drawn in the browser once the record is known — and, in a drawer, redrawn when it opens on another record — so it needs scripting, unlike a symbol whose value is written out.
+
 Give every symbol an `aria-label`. A QR matrix is opaque to a screen reader, so without one there is nothing to announce. Raise `ecc` to `H` when you overlay a logo: the added redundancy is what lets a scanner recover the covered modules.
 
 ### Encoding a short link

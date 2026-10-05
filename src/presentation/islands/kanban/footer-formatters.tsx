@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import {
@@ -14,28 +13,12 @@ import {
   computeKanbanFooterBadgeClasses,
 } from '@/presentation/design/kanban-default-classes'
 import { resolvePageTimezone } from '../runtime/page-timezone'
+import { initialsOf } from './card-template'
 import type { KanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanCardFooterItem } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
+import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
 import type { ReactNode } from 'react'
-
-/** A footer date, short, in the page's language — « 18 mars 2026 » on a French page. */
-export function formatShortDate(value: unknown, locale: string): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleDateString(usableLocale(locale), {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-export function avatarInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return (parts[0]?.[0] ?? '?').toUpperCase()
-  return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase()
-}
 
 /**
  * Render a single footer item per its format. Falls back to plain text when
@@ -75,11 +58,35 @@ function plainChipText(
         currency: format.currencyOptionsFor(item.field),
         timeZone: resolvePageTimezone(),
       })
+    // The grid's own `short-date`: this year's date without its year.
     case 'short-date':
-      return formatShortDate(stored, format.locale)
+      return formatCellValue(stored, 'short-date', format.locale, {
+        timeZone: resolvePageTimezone(),
+      })
     default:
       return String(label)
   }
+}
+
+/** A `badge` footer chip, with its server-resolved paint and leading dot. */
+function renderBadge(label: string, paint: OptionChipPaint | undefined): ReactNode {
+  return (
+    <span
+      data-footer-format="badge"
+      data-component-type="badge"
+      className={computeKanbanFooterBadgeClasses()}
+      style={paint?.style}
+    >
+      {paint?.dot && (
+        <span
+          data-badge-dot=""
+          className={paint.dot.className}
+          style={paint.dot.style}
+        />
+      )}
+      {label}
+    </span>
+  )
 }
 
 export function renderFooterItem(
@@ -100,24 +107,20 @@ export function renderFooterItem(
         className={computeKanbanCardFooterChipClasses()}
       >
         <span
+          data-component-type="avatar"
           className={KANBAN_FOOTER_AVATAR_CLASSES}
           aria-hidden="true"
         >
-          {avatarInitials(label)}
+          {initialsOf(label)}
         </span>
         <span>{label}</span>
       </span>
     )
   }
   if (item.format === 'badge') {
-    return (
-      <span
-        data-footer-format="badge"
-        className={computeKanbanFooterBadgeClasses()}
-      >
-        {label}
-      </span>
-    )
+    // An option value draws the grid's chip: its colour, or the neutral outline,
+    // in the app's badge form — painted on the server (`option-badge-paints.ts`).
+    return renderBadge(label, format.fieldMeta?.[item.field]?.paints?.[String(stored)])
   }
   return (
     <span

@@ -44,16 +44,26 @@ export interface ApprovalRecord {
   readonly escalatedTo: string | undefined
   readonly escalateAfterMs: number | undefined
   readonly approvedByEmail: string | undefined
+  /**
+   * The user who started the run that opened this request — the one non-admin
+   * besides its approver who reads its decision in the activity feed.
+   * `undefined` for a run nobody started (a schedule).
+   */
+  readonly requestedById: string | undefined
 }
 
-/** An activity-log entry produced by an approval decision. */
+/**
+ * An activity-log entry produced by an approval decision. `runStartedById` is
+ * kept for the feed's audience rule and never reaches the wire.
+ */
 export interface ApprovalActivityEntry {
   readonly id: string
   readonly action: 'approval.approved' | 'approval.rejected'
   readonly approvalId: string
   readonly agentName: string
-  readonly actor: { readonly id: string; readonly email: string }
+  readonly actor: { readonly id: string; readonly name: string; readonly email: string }
   readonly createdAt: string
+  readonly runStartedById: string | undefined
 }
 
 /**
@@ -64,6 +74,10 @@ export interface ApprovalActivityEntry {
  * configured name, so monitoring can attribute the action to a non-human
  * actor. This is the in-memory counterpart of the `activity_log` table row
  * written by `agent-activity-log.ts`.
+ *
+ * `targetTable` and `recordId` decide who reads it — the records read gate of
+ * that table and row. `runStartedById` decides it for an action that touches
+ * no table, and never reaches the wire.
  */
 export interface AgentActivityEntry {
   readonly id: string
@@ -71,7 +85,9 @@ export interface AgentActivityEntry {
   readonly agentName: string
   readonly actor: { readonly type: 'agent'; readonly name: string }
   readonly targetTable: string | undefined
+  readonly recordId: string | undefined
   readonly createdAt: string
+  readonly runStartedById: string | undefined
 }
 
 /**

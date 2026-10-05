@@ -65,9 +65,9 @@ const sortDesc = (numbers: ReadonlyArray<number>): ReadonlyArray<number> =>
   [...numbers].sort((a, b) => b - a)
 
 const restoreChainNumbers = (versions: ReadonlyArray<VersionRow>): ReadonlyArray<number> =>
-  versions
-    .filter((v) => v.restoredFromVersion !== undefined)
-    .flatMap((v) => [v.versionNumber, v.restoredFromVersion as number])
+  versions.flatMap((v) =>
+    v.restoredFromVersion === undefined ? [] : [v.versionNumber, v.restoredFromVersion]
+  )
 
 /**
  * Resolve the retention set.

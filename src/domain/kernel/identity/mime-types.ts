@@ -26,25 +26,13 @@
 /** Fallback MIME type for keys with an unknown or missing extension. */
 const DEFAULT_MIME_TYPE = 'application/octet-stream'
 
-/** Filename-extension → canonical MIME type map. */
-const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = {
-  // Documents & data
-  txt: 'text/plain',
-  csv: 'text/csv',
-  json: 'application/json',
-  pdf: 'application/pdf',
-  md: 'text/markdown',
-  html: 'text/html',
-  htm: 'text/html',
-  xml: 'application/xml',
-  // Web assets (scripts / styles / source maps / manifests)
-  js: 'text/javascript',
-  mjs: 'text/javascript',
-  css: 'text/css',
-  map: 'application/json',
-  wasm: 'application/wasm',
-  webmanifest: 'application/manifest+json',
-  // Images
+/**
+ * The image rows of the table below, kept apart so the one question a browser
+ * island asks — "is this file an image?" ({@link isImageKey}) — ships these few
+ * rows and not the whole table. They are still ONE table: the full map spreads
+ * them in, so an extension is an image here exactly when it is one there.
+ */
+const IMAGE_EXTENSION_MIME_MAP: Readonly<Record<string, string>> = {
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -53,30 +41,68 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = {
   webp: 'image/webp',
   avif: 'image/avif',
   ico: 'image/x-icon',
-  // Time-based media. A browser refuses to PLAY a clip served as
-  // octet-stream, so the design-system console's `.webm` and `.mp3` samples
-  // depend on these two entries as much as on the route that serves them.
-  // Note that `webm` names a CONTAINER and one extension resolves to one type
-  // here, so an audio-only `.webm` would be announced as video — which is why
-  // the audio sample is an `.mp3`, and why an audio recording in a `.webm`
-  // travels with an explicit MIME type (the speech-to-text action also accepts
-  // `video/webm` as an audio container). `.weba` is the audio-only spelling.
-  webm: 'video/webm',
-  weba: 'audio/webm',
-  mp3: 'audio/mpeg',
-  // Audio recordings a speech-to-text engine transcribes.
-  wav: 'audio/wav',
-  ogg: 'audio/ogg',
-  oga: 'audio/ogg',
-  opus: 'audio/ogg',
-  m4a: 'audio/mp4',
-  flac: 'audio/flac',
-  // Fonts
-  woff: 'font/woff',
-  woff2: 'font/woff2',
-  ttf: 'font/ttf',
-  otf: 'font/otf',
 }
+
+/** A key's lower-cased filename extension, or `undefined` when it has none. */
+const extensionOf = (key: string): string | undefined =>
+  key.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+
+/**
+ * Filename-extension → canonical MIME type map.
+ *
+ * Composed with a `@__PURE__` `Object.assign` rather than a spread, so a bundle
+ * that reads only {@link IMAGE_EXTENSION_MIME_MAP} drops the rest: a bundler
+ * must keep an object literal holding a spread (the spread could run a getter),
+ * while a pure call whose arguments are plain names may be removed whole.
+ */
+const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = /* @__PURE__ */ Object.assign(
+  {},
+  {
+    // Documents & data
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    pdf: 'application/pdf',
+    md: 'text/markdown',
+    html: 'text/html',
+    htm: 'text/html',
+    xml: 'application/xml',
+    // Web assets (scripts / styles / source maps / manifests)
+    js: 'text/javascript',
+    mjs: 'text/javascript',
+    css: 'text/css',
+    map: 'application/json',
+    wasm: 'application/wasm',
+    webmanifest: 'application/manifest+json',
+  },
+  // Images
+  IMAGE_EXTENSION_MIME_MAP,
+  {
+    // Time-based media. A browser refuses to PLAY a clip served as
+    // octet-stream, so the design-system console's `.webm` and `.mp3` samples
+    // depend on these two entries as much as on the route that serves them.
+    // Note that `webm` names a CONTAINER and one extension resolves to one type
+    // here, so an audio-only `.webm` would be announced as video — which is why
+    // the audio sample is an `.mp3`, and why an audio recording in a `.webm`
+    // travels with an explicit MIME type (the speech-to-text action also accepts
+    // `video/webm` as an audio container). `.weba` is the audio-only spelling.
+    webm: 'video/webm',
+    weba: 'audio/webm',
+    mp3: 'audio/mpeg',
+    // Audio recordings a speech-to-text engine transcribes.
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    oga: 'audio/ogg',
+    opus: 'audio/ogg',
+    m4a: 'audio/mp4',
+    flac: 'audio/flac',
+    // Fonts
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    otf: 'font/otf',
+  }
+)
 
 /**
  * Best-effort MIME-type inference from a filename / storage key extension.
@@ -85,9 +111,12 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = {
  * unrecognised.
  */
 export const inferMimeFromKey = (key: string): string => {
-  const ext = key.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
-  if (!ext) return DEFAULT_MIME_TYPE
-  return EXTENSION_MIME_MAP[ext] ?? DEFAULT_MIME_TYPE
+  const ext = extensionOf(key)
+  // An own-key lookup: `.constructor` is a valid extension, and a plain index
+  // would hand back `Object` — a function, not a MIME type — for a file named so.
+  return ext !== undefined && Object.hasOwn(EXTENSION_MIME_MAP, ext)
+    ? (EXTENSION_MIME_MAP[ext] ?? DEFAULT_MIME_TYPE)
+    : DEFAULT_MIME_TYPE
 }
 
 /**
@@ -121,9 +150,12 @@ export const canonicalMimeType = (reported: string): string => {
  * True when the storage key names an image file (by filename extension).
  *
  * Used to reject on-the-fly transform requests against non-image files
- * (PDFs, text, etc.) before the storage lookup runs.
+ * (PDFs, text, etc.) before the storage lookup runs, and by a card to draw a
+ * cover only from a file that is a picture. Reads the image rows alone, so a
+ * browser bundle calling it does not carry the rest of the table.
  */
-export const isImageKey = (key: string): boolean => inferMimeFromKey(key).startsWith('image/')
+export const isImageKey = (key: string): boolean =>
+  Object.hasOwn(IMAGE_EXTENSION_MIME_MAP, extensionOf(key) ?? '')
 
 /**
  * MIME types that are images but carry ACTIVE content a browser will execute

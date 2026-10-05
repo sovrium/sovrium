@@ -1012,4 +1012,28 @@ export const sidebarFields = {
         'Re-derive the current-entry mark on the client after a same-document navigation (default: false)',
     })
   ),
+  /**
+   * Turn a click on an in-app link into a content swap instead of a page load.
+   *
+   * Opt-in, default false. With it, a plain left click on a same-origin link
+   * fetches only the destination's `<main id="main-content">` and replaces the
+   * current one in place: the document, the client runtime and the data cache
+   * all survive, so a table or board the reader has already seen renders its
+   * rows at once on return, with no loading skeleton, and refreshes in the
+   * background. The sidebar sits inside that region, so it comes back from the
+   * server with the right entry marked — `trackNavigation` is not needed.
+   *
+   * A link still loads the whole document when the destination declares
+   * `scripts`, sets `presence: true`, or uses a record-bound `layout.sidebar`,
+   * because each of those lives outside the swapped region. A link carrying
+   * `data-no-spa`, opening a new tab, downloading, or modified by a key is
+   * never intercepted. The `sovrium:navigated` event is announced after every
+   * swap, exactly as `trackNavigation`'s contract describes.
+   */
+  clientSideNavigation: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Swap only the page's main content region on an in-app link click instead of reloading the document, keeping loaded data on screen across navigations (default: false). Pages declaring scripts, presence, or a layout sidebar still load in full",
+    })
+  ),
 } as const

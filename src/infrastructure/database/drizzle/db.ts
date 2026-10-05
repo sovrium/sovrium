@@ -7,7 +7,7 @@
 
 import type { DrizzleDB } from './db-bun'
 
-export { db, getDb, getPgDb, resetDbCache } from './db-bun'
+export { db, getDb, resetDbCache } from './db-bun'
 export type { DrizzleDB } from './db-bun'
 
 /**

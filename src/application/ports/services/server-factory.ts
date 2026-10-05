@@ -13,6 +13,7 @@ import type {
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -121,7 +122,11 @@ export interface ServerFactoryConfig {
       readonly urlLanguage?: string
     }
   ) => PageRenderResult | Promise<PageRenderResult>
-  readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderNotFoundPage: (
+    app?: App,
+    detectedLanguage?: string,
+    requestPath?: string
+  ) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   /**
    * RSS feed renderer ([internal ref] — [internal ref]).
@@ -217,10 +222,16 @@ export class ServerFactory extends Context.Service<
      *   and gets its row. It is about the command, not about any one server:
      *   the flag that used to mark an individual server as throwaway is gone
      *   along with the throwaway servers themselves (`buildRenderApp`).
+     * @param options.authoredTableIds - The ids the author WROTE, as the decode
+     *   returned them beside the config; only a name change under one of these
+     *   is a table rename. Omitted, a rename is refused as a populated drop.
      */
     readonly startDatabase: (
       app: App,
-      options?: { readonly ephemeral?: boolean }
+      options?: {
+        readonly ephemeral?: boolean
+        readonly authoredTableIds?: AuthoredTableIds
+      }
     ) => Effect.Effect<
       DatabaseStartupReport,
       AuthConfigRequiredForUserFields | SchemaInitializationError | Error

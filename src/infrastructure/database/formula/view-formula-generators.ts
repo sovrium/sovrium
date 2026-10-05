@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { rewriteOutsideStringLiterals } from './formula-qualification'
 import { translateFormula } from './formula-translation'
 import { castFormulaDivisionOperands, getViewComputedFormulaFields } from './formula-utils'
 import type { NumericCastField } from './formula-numeric-cast'
@@ -25,7 +27,8 @@ const toCastField = (field: Fields[number]): NumericCastField => ({
  * truncate.
  *
  * Qualification mirrors `qualifyColumnReferences` (whole-word replacement,
- * dot/quote-aware lookbehind to avoid double-qualifying) but targets a CTE
+ * dot/quote-aware lookbehind to avoid double-qualifying, string literals left
+ * as written) but targets a CTE
  * column rather than a `NEW`/`OLD` record. The numeric CAST is applied as a
  * shared post-pass (`castFormulaDivisionOperands`) scoped to `/` operands so
  * integer-arg functions / EXTRACT keywords are untouched (consistent with the
@@ -40,10 +43,12 @@ const qualifyViewFormula = (
   allFields: readonly Fields[number][],
   cteAlias: string
 ): string => {
-  const qualified = allFields.reduce((acc, field) => {
-    const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'(])`, 'gi')
-    return acc.replace(fieldRegex, `${cteAlias}.${field.name}`)
-  }, formula)
+  const qualified = rewriteOutsideStringLiterals(formula, (code) =>
+    allFields.reduce((acc, field) => {
+      const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'(])`, 'gi')
+      return acc.replace(fieldRegex, `${cteAlias}.${field.name}`)
+    }, code)
+  )
   return castFormulaDivisionOperands(qualified, allFields.map(toCastField), cteAlias)
 }
 
@@ -118,7 +123,7 @@ export const getViewFormulaLayers = (
       // references to the previous CTE alias.
       const translated = translateFormula(field.formula, allFields)
       const expression = qualifyViewFormula(translated, allFields, previousAlias)
-      return `(${expression}) AS ${field.name}`
+      return `(${expression}) AS ${quoteSqlIdentifier(field.name)}`
     },
   }))
 }

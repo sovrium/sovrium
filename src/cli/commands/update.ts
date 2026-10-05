@@ -25,7 +25,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { chmod, copyFile, mkdir, rename, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Effect, Console } from 'effect'
@@ -36,6 +36,7 @@ import {
   printDocument,
   printFailure,
   printProgress,
+  type CliFailure,
 } from '@/infrastructure/logging/cli-output'
 
 const GITHUB_REPO = 'sovrium/sovrium'
@@ -79,29 +80,69 @@ const isNetworkDisabled = (): boolean => process.env.SOVRIUM_DISABLE_NETWORK ===
 const githubApiHost = (): string => process.env.SOVRIUM_UPDATE_API_HOST || GITHUB_API_HOST_DEFAULT
 
 /**
- * Detect how Sovrium was installed to choose the right update strategy.
+ * What install-method detection reads from the running process.
  *
- * `SOVRIUM_INSTALL_METHOD` short-circuits detection — it is the test seam that
- * lets every branch be exercised on a CI runner without the matching package
- * manager present, and an escape hatch for operators whose environment fools
- * the heuristics below.
+ * Passed in rather than read inside so every branch is testable with plain
+ * values — no module mocking, no real Cellar or Scoop directory on the runner.
  */
-export const detectInstallMethod = (): InstallMethod => {
-  const override = process.env.SOVRIUM_INSTALL_METHOD
-  if (isInstallMethod(override)) return override
+export interface InstallMethodProbe {
+  /** Absolute path of THIS binary (`process.execPath`). */
+  readonly execPath: string
+  /** The `SOVRIUM_INSTALL_METHOD` marker or override, if any. */
+  readonly override: string | undefined
+}
 
-  if (existsSync('/.dockerenv')) return 'docker'
-  if (process.env.HOMEBREW_PREFIX) return 'homebrew'
+/**
+ * Classify an install from what the process can see about itself.
+ *
+ * Package managers are recognised from THIS binary's path, never from the
+ * environment. A manager's variables are exported into every shell of every
+ * user who has it installed — `brew shellenv` sets `HOMEBREW_PREFIX` on any Mac
+ * with Homebrew, and a Scoop-aware shell carries `SCOOP` — so reading them
+ * misfiles a binary the install script put in `~/.sovrium/bin` and sends
+ * `sovrium update` to a package manager that never installed it.
+ *
+ * - Homebrew keeps a formula under `<prefix>/Cellar/sovrium/<version>/` and
+ *   links `<prefix>/bin/sovrium` to it. Bun resolves symlinks when it computes
+ *   `process.execPath` (on Linux, macOS and Windows alike), so the linked
+ *   command still reports its Cellar path.
+ * - Scoop installs under `…\scoop\apps\sovrium\current\…`.
+ *
+ * Separators and case are normalised first, for Windows paths and for
+ * case-insensitive macOS volumes.
+ *
+ * A container is NOT inferred. `/.dockerenv` is wrong in both directions: an
+ * install-script binary inside a devcontainer or CI job has it, and would be
+ * told to `docker pull` an image it never came from; the official image under
+ * Podman or Kubernetes lacks it, and would try to overwrite
+ * `/usr/local/bin/sovrium` as its non-root user. The official image declares
+ * itself instead — its `Dockerfile` sets `SOVRIUM_INSTALL_METHOD=docker`, the
+ * same explicit marker the desktop app sets for its sidecar.
+ */
+export const classifyInstallMethod = (probe: Readonly<InstallMethodProbe>): InstallMethod => {
+  if (isInstallMethod(probe.override)) return probe.override
 
-  // Scoop installs the app under `…\scoop\apps\sovrium\current\…`. Match that
-  // segment in THIS binary's path (authoritative) rather than the `SCOOP` env
-  // var, which any process in a Scoop-aware shell inherits → false positives.
-  // Normalize separators + case for Windows before matching.
-  const execPathNormalized = process.execPath.replace(/\\/g, '/').toLowerCase()
+  const execPathNormalized = probe.execPath.replace(/\\/g, '/').toLowerCase()
+  if (execPathNormalized.includes('/cellar/sovrium/')) return 'homebrew'
   if (execPathNormalized.includes('/scoop/apps/sovrium/')) return 'scoop'
 
   return 'binary'
 }
+
+/**
+ * Detect how Sovrium was installed to choose the right update strategy.
+ *
+ * `SOVRIUM_INSTALL_METHOD` short-circuits detection. It is how the official
+ * Docker image and the desktop app declare themselves, the test seam that lets
+ * every branch be exercised on a CI runner without the matching package manager
+ * present, and an escape hatch for operators whose layout fools the path-based
+ * detection in {@link classifyInstallMethod}.
+ */
+export const detectInstallMethod = (): InstallMethod =>
+  classifyInstallMethod({
+    execPath: process.execPath,
+    override: process.env.SOVRIUM_INSTALL_METHOD,
+  })
 
 /**
  * Fetch the latest release version from GitHub.
@@ -143,8 +184,10 @@ const isNewerVersion = (current: string, latest: string): boolean => {
  */
 const packageManagerUpdateCommand = (method: InstallMethod): readonly string[] | undefined => {
   // Qualify with the tap (`sovrium/tap/sovrium`): Sovrium ships from a Homebrew
-  // tap, not core, so the bare name fails to resolve when the tap isn't already
-  // tapped. The qualified name auto-taps, so no separate `brew tap` step is needed.
+  // tap, not core. Only `brew install` auto-taps a qualified name: `brew upgrade`
+  // does not, and fails with "requires the tap sovrium/tap" when it is absent.
+  // That holds here because this branch is reached only for a binary living in
+  // the Cellar, which `brew install sovrium/tap/sovrium` put there after tapping.
   if (method === 'homebrew') return ['brew', 'upgrade', 'sovrium/tap/sovrium']
   // `scoop` is a PowerShell function, so it cannot be spawned as a bare exe.
   if (method === 'scoop') return ['powershell', '-NoProfile', '-Command', 'scoop update sovrium']
@@ -404,6 +447,82 @@ const downloadArchive = async (
 }
 
 /**
+ * Delete a file or directory, ignoring every failure.
+ *
+ * Only for leftovers of this command — a staged binary or the extraction
+ * directory. Neither is worth failing an update over, and neither holds
+ * anything the operator could act on.
+ */
+const removeQuietly = (path: string): Promise<void> =>
+  rm(path, { recursive: true, force: true }).catch(() => undefined)
+
+/**
+ * Where the new binary is staged before it takes the current one's place.
+ *
+ * In the SAME directory as the current binary, so the final step is a
+ * `rename` within one filesystem — atomic, and never an in-place write over
+ * the running executable (which macOS can answer by killing a signed binary on
+ * its next launch). Dot-prefixed so a half-finished update does not show up as
+ * a second command on PATH.
+ */
+export const stagingPathFor = (currentBinary: string, stamp: string): string =>
+  join(dirname(currentBinary), `.sovrium-update-${stamp}`)
+
+/**
+ * Put the extracted binary in place of the current one.
+ *
+ * Copies it next to the current binary, makes it executable, lets `prepare`
+ * touch the staged file (macOS clears its quarantine flag there), then renames
+ * it over the current binary. Resolves to `undefined` once the new binary is
+ * in place, or to the error that stopped it — in which case the staged copy has
+ * been removed and the current binary is exactly as it was.
+ */
+export const replaceBinary = async (
+  newBinary: string,
+  currentBinary: string,
+  stamp: string,
+  prepare: (staged: string) => void = () => undefined
+): Promise<unknown> => {
+  const staged = stagingPathFor(currentBinary, stamp)
+  const failure: unknown = await copyFile(newBinary, staged)
+    .then(() => chmod(staged, 0o755))
+    .then(() => prepare(staged))
+    .then(() => rename(staged, currentBinary))
+    .then(
+      () => undefined,
+      (error: unknown) => error ?? new Error('The binary could not be replaced.')
+    )
+  if (failure !== undefined) await removeQuietly(staged)
+  return failure
+}
+
+/**
+ * Why the new binary could not be put in place, worded for `printFailure`.
+ *
+ * A permission error gets its own answer because it is the common case — a
+ * binary installed with `sudo` into a system directory — and the fix is a
+ * command the operator can run, not a retry.
+ */
+export const replaceFailure = (error: unknown, currentBinary: string): CliFailure => {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined
+  if (code === 'EACCES' || code === 'EPERM') {
+    return {
+      headline: `Cannot write to ${dirname(currentBinary)}. Nothing was replaced.`,
+      detail: [`${currentBinary} is in a directory this user cannot write to.`],
+      guidance:
+        "Re-run it as the owner of that directory, for example 'sudo sovrium update',\n" +
+        '  or reinstall into a directory you own: curl -fsSL https://sovrium.com/install | sh',
+    }
+  }
+  return {
+    headline: `Could not replace ${currentBinary}. Nothing was replaced.`,
+    detail: [error instanceof Error ? error.message : String(error)],
+    guidance: "Fix the problem above, then re-run 'sovrium update'.",
+  }
+}
+
+/**
  * Download a new binary version and replace the current one.
  */
 const downloadAndReplace = async (version: string, currentVersion: string): Promise<void> => {
@@ -415,12 +534,15 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
 
   const archiveBuffer = await downloadArchive(url, archive, version, target)
 
-  const tempDir = join(tmpdir(), `sovrium-update-${Date.now()}`)
-  // eslint-disable-next-line functional/no-expression-statements
-  await mkdir(tempDir, { recursive: true })
-
+  // Verified before the extraction directory exists: a mismatch exits from
+  // inside `verifyChecksum`, and would otherwise leave the directory behind.
   printProgress('Verifying the checksum')
   const checksumVerified = await verifyChecksum(archiveBuffer, version, target)
+
+  const stamp = `${Date.now()}`
+  const tempDir = join(tmpdir(), `sovrium-update-${stamp}`)
+  // eslint-disable-next-line functional/no-expression-statements
+  await mkdir(tempDir, { recursive: true })
 
   printProgress('Extracting')
   try {
@@ -431,30 +553,28 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
     // eslint-disable-next-line functional/no-expression-statements
     await new Bun.Archive(archiveBuffer).extract(tempDir)
   } catch (error) {
+    await removeQuietly(tempDir)
     printFailure({
       headline: `Could not extract ${archive}. Nothing was replaced.`,
       detail: [error instanceof Error ? error.message : String(error)],
-      guidance: `Retry the update — the download may be truncated or corrupt. If it persists, check that ${tempDir} is writable.`,
+      guidance: `Retry the update — the download may be truncated or corrupt. If it persists, check that ${tmpdir()} is writable.`,
     })
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
-  const newBinary = join(tempDir, 'sovrium')
   const currentBinary = process.execPath
-
-  await chmod(newBinary, 0o755)
-
-  if (os === 'darwin') {
+  const failure = await replaceBinary(join(tempDir, 'sovrium'), currentBinary, stamp, (staged) => {
+    if (os === 'darwin') {
+      // eslint-disable-next-line functional/no-expression-statements
+      Bun.spawnSync(['xattr', '-d', 'com.apple.quarantine', staged])
+    }
+  })
+  await removeQuietly(tempDir)
+  if (failure !== undefined) {
+    printFailure(replaceFailure(failure, currentBinary))
     // eslint-disable-next-line functional/no-expression-statements
-    Bun.spawnSync(['xattr', '-d', 'com.apple.quarantine', newBinary])
-  }
-
-  try {
-    await rename(newBinary, currentBinary)
-  } catch {
-    await copyFile(newBinary, currentBinary)
-    await chmod(currentBinary, 0o755)
+    process.exit(1)
   }
 
   // No `→` line: the replaced path is already named in a ✓ phase, and a locator

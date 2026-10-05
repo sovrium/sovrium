@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { qualifiedAuthTable } from './dialect-ddl'
 import {
   isRelationshipField,
@@ -34,6 +36,28 @@ export const isBtreeUniqueField = (
   'unique' in field && !!field.unique && field.type !== 'geolocation'
 
 /**
+ * The prefix of every constraint named after a table: its DATABASE name.
+ *
+ * Callers pass the config name (`report-requests`, `Open Orders`); spliced as
+ * is, it made the constraint name a syntax error. The derived name is the one
+ * the table itself is created under, and idempotent on a name already derived.
+ */
+export const tableConstraintPrefix = (tableName: string): string => sanitizeTableName(tableName)
+
+/**
+ * The relation a foreign key to the config table `configName` references: its
+ * database name, or the `<name>_base` that holds a view-backed table's rows.
+ * `tableUsesView` is keyed by CONFIG name.
+ */
+const referencedRelation = (
+  configName: string,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): string => {
+  const name = sanitizeTableName(configName)
+  return quoteSqlIdentifier(tableUsesView?.get(configName) === true ? `${name}_base` : name)
+}
+
+/**
  * Generate UNIQUE constraints for fields with unique property
  * Uses PostgreSQL default naming convention: {table}_{column}_key
  *
@@ -45,7 +69,10 @@ export const generateUniqueConstraints = (
 ): readonly string[] =>
   fields
     .filter(isBtreeUniqueField)
-    .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
+    .map(
+      (field) =>
+        `CONSTRAINT ${tableConstraintPrefix(tableName)}_${field.name}_key UNIQUE (${quoteSqlIdentifier(field.name)})`
+    )
 
 /**
  * Map onDelete/onUpdate values to PostgreSQL referential actions
@@ -90,12 +117,14 @@ const generateCompositeForeignKeyConstraints = (
   }[]
 ): readonly string[] =>
   compositeForeignKeys.map((fk) => {
-    const localFields = fk.fields.join(', ')
-    const referencedFields = fk.referencedFields.join(', ')
+    // Quoted: unlike a field `name`, these columns and `referencedTable` carry
+    // no identifier pattern in the schema, so they reach SQL only as identifiers.
+    const localFields = fk.fields.map(quoteSqlIdentifier).join(', ')
+    const referencedFields = fk.referencedFields.map(quoteSqlIdentifier).join(', ')
     const onDeleteClause = mapReferentialAction(fk.onDelete, 'delete')
     const onUpdateClause = mapReferentialAction(fk.onUpdate, 'update')
 
-    return `CONSTRAINT ${fk.name} FOREIGN KEY (${localFields}) REFERENCES ${fk.referencedTable}(${referencedFields})${onDeleteClause}${onUpdateClause}`
+    return `CONSTRAINT ${fk.name} FOREIGN KEY (${localFields}) REFERENCES ${referencedRelation(fk.referencedTable)}(${referencedFields})${onDeleteClause}${onUpdateClause}`
   })
 
 /**
@@ -106,12 +135,9 @@ const generateRelationshipConstraint = (
   field: Fields[number] & { readonly type: 'relationship'; readonly relatedTable: string },
   tableUsesView?: ReadonlyMap<string, boolean>
 ): string => {
-  const constraintName = `${tableName}_${field.name}_fkey`
+  const constraintName = `${tableConstraintPrefix(tableName)}_${field.name}_fkey`
   // If the related table uses a VIEW (has lookup fields), reference the base table instead
-  const relatedTableName =
-    tableUsesView?.get(field.relatedTable) === true
-      ? `${field.relatedTable}_base`
-      : field.relatedTable
+  const relatedTableName = referencedRelation(field.relatedTable, tableUsesView)
 
   // Build referential actions (ON DELETE, ON UPDATE)
   const onDeleteClause =
@@ -122,7 +148,7 @@ const generateRelationshipConstraint = (
   // Use relatedField if specified, otherwise default to 'id'
   const referencedColumn = 'relatedField' in field && field.relatedField ? field.relatedField : 'id'
 
-  return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
+  return `CONSTRAINT ${constraintName} FOREIGN KEY (${quoteSqlIdentifier(field.name)}) REFERENCES ${relatedTableName}(${quoteSqlIdentifier(referencedColumn)})${onDeleteClause}${onUpdateClause}`
 }
 
 /**
@@ -180,8 +206,8 @@ export const generateForeignKeyConstraints = (
   // person's content, so shedding the identifier and keeping the record is the
   // right outcome — and it is what keeps an assigned account erasable at all.
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
-    const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${qualifiedAuthTable('user')}(id)${USER_FIELD_ON_DELETE}`
+    const constraintName = `${tableConstraintPrefix(tableName)}_${field.name}_fkey`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${quoteSqlIdentifier(field.name)}) REFERENCES ${qualifiedAuthTable('user')}(id)${USER_FIELD_ON_DELETE}`
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')

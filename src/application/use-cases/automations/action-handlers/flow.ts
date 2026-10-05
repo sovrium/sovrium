@@ -6,11 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -29,7 +25,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * Templates in `props.output` (`{{steps.compute.total}}`) are resolved here
  * against the run context so whole-string references keep their original
  * type (number/array/object) — the run loop's global pass stringifies, so
- * this handler reads the RAW pre-substitution action like `data/set` does.
+ * this handler reads its props as AUTHORED like `data/set` does.
  * The HTTP status stays 200 regardless of the stop status (STOP-001 asserts
  * `response.status() === 200` even for `status: 'error'`), so the handler
  * itself records `status: 'success'` and lets `responseOverride` carry the
@@ -42,19 +38,18 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
     if (runContext === undefined) {
       return { status: 'success' } as const satisfies ActionOutcome
     }
-    const props = rawActionProps(runContext)
-    const ctx = buildRunContextView(runContext)
-    const rawStatus = resolveRunContextValue(props['status'], ctx)
+    const props = authoredActionProps(runContext)
+    const rawStatus = resolveOwnProp(runContext, props['status'])
     const status = rawStatus === 'success' ? 'success' : 'error'
     const message =
       props['message'] !== undefined
-        ? String(resolveRunContextValue(props['message'], ctx))
+        ? String(resolveOwnProp(runContext, props['message']))
         : undefined
     const output =
       props['output'] !== undefined &&
       typeof props['output'] === 'object' &&
       props['output'] !== null
-        ? (resolveRunContextValue(props['output'], ctx) as Record<string, unknown>)
+        ? (resolveOwnProp(runContext, props['output']) as Record<string, unknown>)
         : undefined
     const body: Readonly<Record<string, unknown>> = {
       status,

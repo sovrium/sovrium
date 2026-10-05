@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every field type a table column can declare (49), by category, in the words of the schema. The options each type takes are in the article named under its category, or one at a time with `sovrium docs config tables[].fields[]`.
+Every field type a table column can declare (50), by category, in the words of the schema. The options each type takes are in the article named under its category, or one at a time with `sovrium docs config tables[].fields[]`.
 
 ## Contents
 
@@ -40,6 +40,7 @@ Read: `sovrium docs fields/number-fields`
 | `currency` | Specialized numeric field for monetary values with currency codes (ISO 4217). Uses exact DECIMAL storage to prevent rounding errors in financial calculations. |
 | `decimal` | Numeric field for numbers with decimal places. Supports configurable precision (1-10 decimal places) and min/max range validation. Uses exact DECIMAL storage. |
 | `integer` | Numeric field for whole numbers without decimal places. Supports min/max range validation and is optimized for performance. |
+| `number` | An alias of the 'decimal' field type. It takes the same options (precision, min, max, default) and is stored the same way; the records API returns its value as a JSON number, where a 'decimal' value is a string that keeps every digit. |
 | `percentage` | Specialized numeric field for percentage values (0-100). Values automatically display with % symbol in UI. Supports configurable decimal precision. |
 | `progress` | Displays percentage value as progress bar. Used for tracking completion status or goals. |
 | `rating` | Allows rating values with configurable maximum. Typically rendered as stars or other indicators. |

@@ -26,6 +26,7 @@
  * `Form` schema and circular imports would otherwise force a third
  * module purely for the type alias.
  */
+import { inputComponentTypeOf } from '@/presentation/design/field-control-attributes'
 import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import {
   typedInputAttributes,
@@ -58,6 +59,12 @@ export interface ResolvedFormField {
   readonly required: boolean
   readonly hidden: boolean
   /**
+   * True when this field's prefilled value stays an editable starting value
+   * although the host locked its inline prefill: the lock names other keys
+   * (`EmbeddedFormPrefillContext.lockedKeys`).
+   */
+  readonly prefillEditable?: boolean
+  /**
    * True when the field's `visibleWhen` is false for the values the page is
    * served with: the wrapper is served `hidden` and its controls `disabled`,
    * so it is neither shown, validated nor sent until the rule turns true.
@@ -75,7 +82,7 @@ export interface ResolvedFormField {
   /** Seconds a browser recording may last; present only when `recordAudio` is set. */
   readonly recordAudioMaxSeconds?: number
   /**
-   * For `user`-typed columns (Bug 4 / [internal ref]): whether the picker
+   * For `user`-typed columns: whether the picker
    * allows multiple selections. Surfaces as the `data-allow-multiple`
    * attribute on the picker root so the inline runtime can choose between
    * single- and multi-select widgets.
@@ -135,6 +142,7 @@ const TextareaInput = ({
     </label>
     <textarea
       id={`field-${field.name}`}
+      data-component-type="textarea"
       name={field.name}
       required={field.required}
       {...ariaRequired(field.required)}
@@ -198,6 +206,7 @@ const SelectInput = ({
     </label>
     <select
       id={`field-${field.name}`}
+      data-component-type="select"
       name={field.name}
       required={field.required}
       {...ariaRequired(field.required)}
@@ -331,6 +340,7 @@ const TextInput = ({
       <input
         id={`field-${field.name}`}
         type={field.htmlInputType}
+        data-component-type={inputComponentTypeOf(field.htmlInputType)}
         name={field.name}
         required={field.required}
         {...ariaRequired(field.required)}
@@ -438,7 +448,7 @@ const LockedHiddenInput = ({
  * Splitting further would be more indirection than it's worth — this is the
  * leaf dispatcher.
  *
- * Bug 4 / [internal ref] added the `'user'` branch.
+ * [internal ref] added the `'user'` branch.
  */
 
 /** A `section` item and a `rating` scale, the two items that are not a single input. */
@@ -536,7 +546,7 @@ export function FormFieldElement({
     }
     return undefined
   }
-  if (lockPrefill && prefillValue !== undefined) {
+  if (lockPrefill && field.prefillEditable !== true && prefillValue !== undefined) {
     return (
       <LockedHiddenInput
         field={field}

@@ -9,7 +9,7 @@ import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { classifyCommentBySpam } from '@/domain/models/app/tables/comment-spam-classification'
 import { checkAndRecord, type RateLimitPolicy } from '@/infrastructure/forms/form-rate-limiter'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type {
@@ -25,7 +25,7 @@ import type { Context } from 'hono'
  * stays under the 400-line ESLint cap. Each helper is a thin route-layer
  * adapter around a pure domain primitive:
  *
- *   - `applyRateLimit` reuses F-03's in-process `checkAndRecord`
+ * - `applyRateLimit` reuses [internal ref]'s in-process `checkAndRecord`
  *     (`infrastructure/forms/form-rate-limiter`) so comment rate-limits
  *     share the same sliding-window machinery as form submissions.
  *   - `classifySpam` calls the pure
@@ -44,7 +44,7 @@ import type { Context } from 'hono'
  */
 const DEFAULT_RATE_LIMIT_PER_IP = 5
 const DEFAULT_RATE_WINDOW_SECONDS = 60
-const DEFAULT_RATE_LIMIT_PER_FORM = 1000 // permissive global ceiling — F-03 mirror
+const DEFAULT_RATE_LIMIT_PER_FORM = 1000 // permissive global ceiling — [internal ref] mirror
 
 /**
  * Per-table comments config shape this guard cares about. Kept local
@@ -90,6 +90,16 @@ export function resolveRateLimitPolicy(
 }
 
 /**
+ * The limiter key a table's comments are counted under.
+ *
+ * The limiter's windows are shared with public form submissions, which are
+ * keyed by form name. A form name matches `^[a-z][a-z0-9-]*$`, so a key with a
+ * `:` can never be one: a form called `comments-tickets` no longer shares its
+ * count with the comments on `tickets`.
+ */
+export const commentRateLimitKey = (tableName: string): string => `comments:${tableName}`
+
+/**
  * Apply the rate-limit gate. When the resolved policy trips, returns a
  * 429 `Response` with a `Retry-After: <seconds>` header (RFC 7231).
  * Returns `undefined` when the policy passes (or is not applicable).
@@ -104,13 +114,13 @@ export function applyRateLimit(input: {
 }): Response | undefined {
   const policy = resolveRateLimitPolicy(input.table)
   if (policy === undefined) return undefined
-  const ip = getRequestClientIp(input.c)
+  const ip = getRequestRateLimitKey(input.c)
   const ipHash = hashIp(resolveIpHashSalt(), ip ?? '')
-  const formName = `comments-${input.table.name}`
+  const formName = commentRateLimitKey(input.table.name)
   const result = checkAndRecord({ ipHash, formName, policy })
   if (result.ok) return undefined
   // The 429 body intentionally does NOT leak the trip reason — mirrors
-  // the F-03 forms rate-limit response shape.
+  // the [internal ref] forms rate-limit response shape.
   return input.c.json(
     errorBody({
       error: 'rate limit exceeded',

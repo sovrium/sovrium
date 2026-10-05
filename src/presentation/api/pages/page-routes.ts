@@ -7,6 +7,7 @@
 
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { requestedPath } from '@/domain/kernel/url/requested-path'
 import {
   LANGUAGE_PREFERENCE_COOKIE,
   detectLanguageIfEnabled,
@@ -16,6 +17,7 @@ import {
 } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
 import { isProduction as isProductionEnv } from '@/infrastructure/process/env'
+import { applyCredentialedPageIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/vary'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
@@ -161,7 +163,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       // ordinary 404, exactly as any other path that renders nothing.
       const renderRoot = async (): Promise<Response> =>
         (await renderTracedPage(c, config, '/', reqCtx)) ??
-        c.html(await renderNotFoundPage(app, urlLanguage), 404)
+        c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
 
       // A remembered choice names its own address, whatever detection is doing.
       // This sits ABOVE the guard below on purpose: that guard is a statement
@@ -265,10 +267,19 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(await renderNotFoundPage(app, notFoundLanguage(config, c, base)), 404)
+        return c.html(
+          await renderNotFoundPage(
+            app,
+            notFoundLanguage(config, c, base),
+            requestedPath(c.req.url)
+          ),
+          404
+        )
       }
       const lang = await renderWithCache(config, '/', { ...base, detectedLanguage: urlLanguage }, c)
-      return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
+      return (
+        lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
+      )
     } catch (error) {
       logError(`[server] GET ${c.req.path} → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
@@ -308,7 +319,14 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(await renderNotFoundPage(app, notFoundLanguage(config, c, base)), 404)
+        return c.html(
+          await renderNotFoundPage(
+            app,
+            notFoundLanguage(config, c, base),
+            requestedPath(c.req.url)
+          ),
+          404
+        )
       }
       const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
       const lang = await renderWithCache(
@@ -317,7 +335,9 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
         { ...base, detectedLanguage: urlLanguage },
         c
       )
-      return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
+      return (
+        lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
+      )
     } catch (error) {
       logError(`[server] GET ${path} → ${ERROR_PAGE_STATUS} Error rendering page`, error)
       return c.html(await renderErrorPage(app, detectedLanguage), ERROR_PAGE_STATUS)
@@ -371,7 +391,13 @@ export function setupDynamicPageRoutes(
     // A path that names no page is still read by someone: the not-found page
     // speaks the reader's remembered language before the browser's guess, the
     // same rank every declared page applies.
-    return response ?? c.html(await renderNotFoundPage(app, urlLanguage ?? detectedLanguage), 404)
+    return (
+      response ??
+      c.html(
+        await renderNotFoundPage(app, urlLanguage ?? detectedLanguage, requestedPath(c.req.url)),
+        404
+      )
+    )
   })
 }
 
@@ -395,14 +421,14 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
 
   return honoApp.get('/feed.xml', async (c) => {
     if (!renderRssFeed) {
-      return c.html(await renderNotFoundPage(app), 404)
+      return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
     }
     try {
       const url = new URL(c.req.url)
       const baseUrl = `${url.protocol}//${url.host}`
       const xml = await renderRssFeed(app, baseUrl)
       if (xml === undefined) {
-        return c.html(await renderNotFoundPage(app), 404)
+        return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
       }
       return c.body(xml, 200, {
         'Content-Type': 'application/rss+xml; charset=utf-8',
@@ -427,7 +453,7 @@ export function setupTestErrorRoute(
   return honoApp.get('/test/error', (c) => {
     if (isProductionEnv()) {
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-      return c.html(renderNotFoundPage(app, detectedLanguage), 404)
+      return c.html(renderNotFoundPage(app, detectedLanguage, requestedPath(c.req.url)), 404)
     }
     // eslint-disable-next-line functional/no-throw-statements
     throw new Error('Test error')
@@ -499,7 +525,14 @@ export function setupPageRoutes(
             // the operator's config.
             setupAdminMountRoutes(
               setupRssFeedRoute(
-                setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
+                setupTestErrorRoute(
+                  // The per-address ceiling for requests that carry a
+                  // credential, ahead of every route below that looks a
+                  // session up (pages, `.md` twins, the console). Static
+                  // assets were served before this point.
+                  setupHomepageRoute(applyCredentialedPageIpCeiling(honoApp as Hono), config),
+                  config
+                ),
                 config
               ),
               config

@@ -50,6 +50,13 @@ export const DateFieldSchema = BaseFieldSchema.pipe(
         })
       )
     ),
+    weekday: Schema.optional(
+      Schema.Literals(['short', 'long']).annotate({
+        description:
+          'Prints the day of the week before the date wherever the value is shown: `short` reads "Thu 24 Sep 2026", `long` reads "Thursday 24 September 2026", in the page language.',
+        examples: ['short', 'long'],
+      })
+    ),
     timeFormat: Schema.optional(
       Schema.Literals(['12-hour', '24-hour']).pipe(
         Schema.annotate({

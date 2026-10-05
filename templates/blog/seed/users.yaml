@@ -1,0 +1,9 @@
+# The one person who signs in: Mireille, who edits Field Notes. She is an
+# admin, which is what opens the desk behind `/admin`.
+#
+# No password is written here: the account takes `SOVRIUM_SEED_PASSWORD` from
+# the environment, so a password never lands in a file you might commit.
+users:
+  - email: mireille.baptiste@fieldnotes.example
+    name: Mireille Baptiste
+    role: admin

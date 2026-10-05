@@ -25,8 +25,10 @@ import {
   resolveChunkSettings,
   type ChunkSettings,
 } from '@/domain/models/app/agents/rag-chunking'
+import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
 import { countRowsBy, embedChunksToRows, RagSyncLayer, swallowLogged } from './embed-pipeline'
@@ -44,6 +46,8 @@ interface KnowledgeRecord {
 interface KnowledgeTableEntry {
   readonly table: string
   readonly fields: ReadonlyArray<string>
+  /** `fields` partitioned by effective read grant; absent = one group. */
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>>
   readonly filter?: Readonly<Record<string, unknown>>
 }
 
@@ -58,13 +62,6 @@ export interface SyncKnowledgeStats {
   readonly tables: Readonly<Record<string, number>>
   readonly totalChunks: number
 }
-
-/**
- * Quote a SQL identifier (table or column name). Knowledge table/field
- * names are already schema-validated against `app.tables`, so this is a
- * defence-in-depth measure, not the primary trust boundary.
- */
-const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`
 
 /**
  * Run a portable read query and return the row objects. Postgres uses the
@@ -100,7 +97,7 @@ class KnowledgeTableUnreadable extends Data.TaggedError('KnowledgeTableUnreadabl
 }> {}
 
 /**
- * Load records for one knowledge-table entry. Selects `id` plus each
+ * Load the live records for one knowledge-table entry. Selects `id` plus each
  * configured field, applying the optional equality filter. Failures resolve
  * to an empty list so a missing/renamed table never aborts the sync.
  */
@@ -111,19 +108,25 @@ const loadKnowledgeRecords = (input: {
 }): Effect.Effect<ReadonlyArray<KnowledgeRecord>, never> =>
   Effect.tryPromise({
     try: async () => {
-      const columns = ['id', ...input.fields].map(quoteIdent).join(', ')
+      const columns = sql.join(
+        ['id', ...input.fields].map((column) => sql.identifier(column)),
+        sql`, `
+      )
       const filterEntries = Object.entries(input.filter ?? {})
-      const whereClause =
-        filterEntries.length > 0
-          ? sql` WHERE ${sql.join(
-              filterEntries.map(
-                ([key, value]) => sql`${sql.raw(quoteIdent(key))} = ${value as string}`
-              ),
-              sql` AND `
-            )}`
-          : sql``
+      // Live rows only: a row in the trash is out of the index, as it is out
+      // of the records API's lists. A soft delete re-embeds through the
+      // update path, which then finds no row and leaves its chunks cleared.
+      const whereClause = sql` WHERE ${sql.join(
+        [
+          sql`${sql.identifier(INTRINSIC_DELETED_AT_COLUMN)} IS NULL`,
+          ...filterEntries.map(([key, value]) => sql`${sql.identifier(key)} = ${value as string}`),
+        ],
+        sql` AND `
+      )}`
       const rows = await runReadQuery(
-        sql`SELECT ${sql.raw(columns)} FROM ${sql.raw(quoteIdent(input.table))}${whereClause}`
+        // The table by its DATABASE name: `Help Articles` is stored as
+        // `help_articles`, and `"Help Articles"` is a relation nobody created.
+        sql`SELECT ${columns} FROM ${tableIdentifier(input.table)}${whereClause}`
       )
       return rows.map((row): KnowledgeRecord => {
         const fields = Object.fromEntries(
@@ -148,12 +151,18 @@ const loadKnowledgeRecords = (input: {
     Effect.orElseSucceed(() => [] as ReadonlyArray<KnowledgeRecord>)
   )
 
-/** A chunk awaiting embedding, carrying its provenance. */
+/**
+ * A chunk awaiting embedding, carrying its provenance: the row it was cut
+ * from and the names of the fields whose values it holds. The field names are
+ * what a search judges the chunk by — a searcher is served it only when she
+ * may read every one of them.
+ */
 interface PendingChunk {
   readonly table: string
   readonly recordId: string
   readonly chunkIndex: number
   readonly content: string
+  readonly fields: ReadonlyArray<string>
 }
 
 /**
@@ -172,31 +181,47 @@ const toTableEmbeddingRow = (
   chunkIndex: chunk.chunkIndex,
   content: chunk.content,
   embedding,
-  metadata: { table: chunk.table, recordId: chunk.recordId },
+  metadata: { table: chunk.table, recordId: chunk.recordId, fields: chunk.fields },
 })
 
 /**
- * Flatten one knowledge-table entry's records into pending chunks: each
- * record's configured text fields are concatenated then chunked.
+ * Cut one record into pending chunks, one chunk sequence per field group: the
+ * non-empty values of a group's fields are joined, chunked, and each chunk
+ * records the group's field names. A group with no value yields no chunk.
+ * Chunk indexes run on across the groups, so every chunk of the record keeps a
+ * distinct `sourceRef`.
  */
-const recordsToChunks = (
+const recordToChunks = (
   table: string,
-  records: ReadonlyArray<KnowledgeRecord>,
-  fields: ReadonlyArray<string>,
+  record: KnowledgeRecord,
+  fieldGroups: ReadonlyArray<ReadonlyArray<string>>,
   chunkSettings: ChunkSettings
 ): ReadonlyArray<PendingChunk> =>
-  records.flatMap((record) => {
-    const text = fields
-      .map((field) => record.fields[field] ?? '')
-      .filter((value) => value.trim().length > 0)
-      .join('\n')
-    return chunkText(text, chunkSettings).map((content, chunkIndex) => ({
+  fieldGroups
+    .map((fields) => ({
+      fields,
+      contents: chunkText(
+        fields
+          .map((field) => record.fields[field] ?? '')
+          .filter((value) => value.trim().length > 0)
+          .join('\n'),
+        chunkSettings
+      ),
+    }))
+    .flatMap(({ fields, contents }) => contents.map((content) => ({ fields, content })))
+    .map(({ fields, content }, chunkIndex) => ({
       table,
       recordId: record.id,
       chunkIndex,
       content,
+      fields,
     }))
-  })
+
+/** The field groups of an entry: its partition, or one group of every field. */
+const fieldGroupsOf = (entry: {
+  readonly fields: ReadonlyArray<string>
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>> | undefined
+}): ReadonlyArray<ReadonlyArray<string>> => entry.fieldGroups ?? [entry.fields]
 
 /**
  * Embed a single agent's table-knowledge and persist it
@@ -226,7 +251,9 @@ const syncAgentKnowledge = (input: {
         filter: entry.filter,
       }).pipe(
         Effect.map((records) =>
-          recordsToChunks(entry.table, records, entry.fields, input.chunkSettings)
+          records.flatMap((record) =>
+            recordToChunks(entry.table, record, fieldGroupsOf(entry), input.chunkSettings)
+          )
         )
       )
     )
@@ -281,6 +308,7 @@ export const runSyncKnowledgeAtStartup = async (input: {
       const tableEntries = (agent.knowledge?.tables ?? []).map((t) => ({
         table: t.table,
         fields: t.fields,
+        ...(t.fieldGroups !== undefined ? { fieldGroups: t.fieldGroups } : {}),
         ...(t.filter !== undefined ? { filter: t.filter } : {}),
       }))
       return { name: agent.name, tables: tableEntries }
@@ -304,6 +332,7 @@ export const buildKnowledgeBindings = (
   readonly agentName: string
   readonly table: string
   readonly fields: ReadonlyArray<string>
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>>
   readonly filter?: Readonly<Record<string, unknown>>
 }> =>
   (agents ?? []).flatMap((agent) =>
@@ -311,6 +340,7 @@ export const buildKnowledgeBindings = (
       agentName: agent.name,
       table: t.table,
       fields: t.fields,
+      ...(t.fieldGroups !== undefined ? { fieldGroups: t.fieldGroups } : {}),
       ...(t.filter !== undefined ? { filter: t.filter } : {}),
     }))
   )
@@ -341,6 +371,7 @@ export const embedKnowledgeRecord = async (input: {
   readonly agentName: string
   readonly table: string
   readonly fields: ReadonlyArray<string>
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>> | undefined
   readonly filter: Readonly<Record<string, unknown>> | undefined
   readonly recordId: string
 }): Promise<void> => {
@@ -363,18 +394,7 @@ export const embedKnowledgeRecord = async (input: {
       })
     )
     if (record === undefined) return
-    const text = input.fields
-      .map((field) => record.fields[field] ?? '')
-      .filter((value) => value.trim().length > 0)
-      .join('\n')
-    const chunks: ReadonlyArray<PendingChunk> = chunkText(text, chunkSettings).map(
-      (content, chunkIndex) => ({
-        table: input.table,
-        recordId: input.recordId,
-        chunkIndex,
-        content,
-      })
-    )
+    const chunks = recordToChunks(input.table, record, fieldGroupsOf(input), chunkSettings)
     const rows = yield* embedChunksToRows(chunks, (chunk, embedding) =>
       toTableEmbeddingRow(input.agentName, chunk, embedding)
     )

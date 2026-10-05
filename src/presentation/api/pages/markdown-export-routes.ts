@@ -34,6 +34,11 @@ import { Effect } from 'effect'
 import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
+import {
+  isArticleReadable,
+  isPublicArticle,
+  type ContentDirArticleBody,
+} from '@/domain/models/app/pages/content-dir-access'
 import { matchContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-match'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
@@ -44,7 +49,9 @@ import { varyOnAccept } from '@/presentation/api/runtime/vary'
 import { PRIVATE_CACHE_CONTROL } from './page-cache-decision'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
+import type { PageAccess } from '@/domain/models/app/pages/access'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 import type { Context, Hono, Next } from 'hono'
 
@@ -134,12 +141,19 @@ const findContentDirArticle = (
 /** Cache policy of a public article's Markdown: shareable for five minutes. */
 const PUBLIC_MARKDOWN_CACHE_CONTROL = 'public, max-age=300'
 
-const markdownResponseHeaders = (page: Page): Record<string, string> => ({
+const markdownResponseHeaders = (
+  page: Page,
+  articleAccess: PageAccess | undefined
+): Record<string, string> => ({
   'Content-Type': 'text/markdown; charset=utf-8',
-  // A page restricted by `access` answers each session with its own Markdown,
-  // exactly as its HTML does, so it carries the HTML's private policy: a
-  // shared cache must never store it and hand it to the next caller.
-  'Cache-Control': isPublicPage(page) ? PUBLIC_MARKDOWN_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
+  // A page — or an article, by its front matter — restricted by `access`
+  // answers each session with its own Markdown, exactly as its HTML does, so
+  // it carries the HTML's private policy: a shared cache must never store it
+  // and hand it to the next caller.
+  'Cache-Control':
+    isPublicPage(page) && isPublicArticle(articleAccess)
+      ? PUBLIC_MARKDOWN_CACHE_CONTROL
+      : PRIVATE_CACHE_CONTROL,
   ...(isNoindexPage(page) ? { 'X-Robots-Tag': 'noindex' } : {}),
 })
 
@@ -157,6 +171,32 @@ const answerHtmlVaryingOnAccept = async (
 ): Promise<void> => {
   await next()
   if (findContentDirArticle(app, path) !== undefined) varyOnAccept(c)
+}
+
+/**
+ * The article behind a matched `.md` request, when `session` may read it.
+ *
+ * A slug absent from an existing collection is a real 404 (the article path's
+ * collection-not-found contract). An article gated by its own front matter
+ * answers exactly the readers its HTML answers — the router's
+ * predicate, on the same session — and is a 404 to the rest.
+ */
+const readReadableArticle = async (
+  c: Context,
+  app: App,
+  match: ContentDirArticleMatch,
+  session: SessionInfo | undefined
+): Promise<ContentDirArticleBody | undefined> => {
+  const article = await runDomainPromise(
+    c,
+    Effect.gen(function* () {
+      const reader = yield* ContentDirReader
+      return yield* reader.readBodyForSlug(match.contentDir, match.slug)
+    })
+  )
+  return article !== undefined && isArticleReadable(match.page.access, article.access, app, session)
+    ? article
+    : undefined
 }
 
 /**
@@ -195,22 +235,12 @@ export function setupMarkdownExportRoutes(
       return c.html(await config.renderNotFoundPage(app), 404)
     }
 
-    const body = await runDomainPromise(
-      c,
-      Effect.gen(function* () {
-        const reader = yield* ContentDirReader
-        return yield* reader.readBodyForSlug(match.contentDir, match.slug)
-      })
-    )
-    if (body === undefined) {
-      // Slug genuinely absent from an existing collection → real 404
-      // (consistent with the article path's collection-not-found contract).
-      return c.html(await config.renderNotFoundPage(app), 404)
-    }
+    const article = await readReadableArticle(c, app, match, session)
+    if (article === undefined) return c.html(await config.renderNotFoundPage(app), 404)
 
     // The negotiated form shares its URL with the HTML; the `.md` address has
     // one representation and needs no `Vary`.
     if (!byExtension) varyOnAccept(c)
-    return c.body(body, 200, markdownResponseHeaders(match.page))
+    return c.body(article.body, 200, markdownResponseHeaders(match.page, article.access))
   })
 }

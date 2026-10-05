@@ -27,7 +27,7 @@ import {
   type FormAccessDecision,
 } from '@/domain/models/app/forms/form-access-flow'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { Form } from '@/domain/models/app/forms'
 import type { Context } from 'hono'
@@ -127,16 +127,7 @@ export function denyFormAccess(
 ): Response | Promise<Response> | undefined {
   if (decision.kind === 'allow') return undefined
   if (decision.kind === 'not-found') {
-    return mode === 'json'
-      ? c.json(
-          errorBody({
-            error: 'form_not_found',
-            message: 'No such form',
-            code: ApiErrorCode.NOT_FOUND,
-          }),
-          404
-        )
-      : c.notFound()
+    return mode === 'json' ? notFound(c, 'No such form') : c.notFound()
   }
   return mode === 'json'
     ? c.json(

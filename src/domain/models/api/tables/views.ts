@@ -18,5 +18,4 @@ export {
   listViewsResponseSchema,
   getViewResponseSchema,
   getViewRecordsResponseSchema,
-  type View,
 } from './tables'

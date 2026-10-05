@@ -139,4 +139,4 @@ A method the server does not serve is answered with JSON-RPC error `-32601` rath
 
 ## The same four tools on HTTP
 
-A deployed app running the MCP server serves these same four tools on its endpoint, where there **is** a session to check — so they are **admin-only** there, filtered out of the tool list for every other role. The local path on this page has no session, and none is invented. The endpoint serves neither the write tools nor the skill prompts: both belong to this pipe.
+A deployed app running the MCP server serves these same four tools on its endpoint, where there **is** a session to check — so they are reserved there to **admin-equivalent roles** — the built-in `admin` and the app's highest role — and filtered out of the tool list for every other role. The local path on this page has no session, and none is invented. The endpoint serves neither the write tools nor the skill prompts: both belong to this pipe.

@@ -441,12 +441,12 @@ const recentSubmissionsBlock = (
   return degradeTo(
     Effect.gen(function* () {
       const repo = yield* AdminFormsRepository
-      const perForm = yield* Effect.all(
-        forms.map((form) =>
+      const perForm = yield* Effect.forEach(
+        forms,
+        (form) =>
           repo
             .listSubmissionsSince(form.name, since)
-            .pipe(Effect.map((rows) => rows.map(() => form.name)))
-        ),
+            .pipe(Effect.map((rows) => rows.map(() => form.name))),
         { concurrency: 2 }
       )
       return tallyCell(perForm.flat())

@@ -73,15 +73,16 @@ export const listUserConversations = (input: {
 
 /**
  * Delete a conversation thread and (by ON DELETE CASCADE) all its messages
- *.
+ *. Answers whether a thread was removed — `false` when
+ * the caller owns no thread by that id, which the route answers as a 404.
  */
 export const deleteUserConversation = (input: {
   readonly userId: string
   readonly sessionId: string
-}): Effect.Effect<void, AiMemoryDatabaseError, AiMemoryRepository> =>
+}): Effect.Effect<boolean, AiMemoryDatabaseError, AiMemoryRepository> =>
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
-    yield* repo.deleteConversation(input)
+    return yield* repo.deleteConversation(input)
   }).pipe(Effect.withSpan('ai.delete-user-conversation'))
 
 /**

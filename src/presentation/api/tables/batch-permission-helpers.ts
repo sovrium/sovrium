@@ -6,13 +6,20 @@
  */
 
 import { Effect } from 'effect'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import {
+  hasCreatePermissionForRoles,
+  hasDeletePermissionForRoles,
+  hasUpdatePermissionForRoles,
+} from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import {
   createValidationLayer,
   formatValidationError,
 } from '@/presentation/api/middleware/validation'
-import { payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
+import { payloadTooLarge, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import {
@@ -29,28 +36,41 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/** A write a batch route performs, named as the table grant that admits it. */
+export type BatchWriteOperation = 'create' | 'update' | 'delete'
+
+const WRITE_EVALUATORS = {
+  create: hasCreatePermissionForRoles,
+  update: hasUpdatePermissionForRoles,
+  delete: hasDeletePermissionForRoles,
+} as const
+
 /**
- * Check if user is viewer and return 404 response if so (S1 anti-enumeration —
- * viewer-role denial is uniform across batch endpoints so the write boundary
- * is not discoverable). The `action` parameter is retained for call-site
- * readability but never emitted in the response.
+ * The early viewer refusal of the batch routes, asked BEFORE the body is read
+ * so a viewer the table does not admit is answered the same 404 whatever she
+ * sent (S1 anti-enumeration — the write boundary is not discoverable).
+ *
+ * It decides nothing on its own: it asks the table's own write evaluators
+ * (`has{Create,Update,Delete}PermissionForRoles`), whose `writingRoles` is the
+ * one place the viewer rule lives — the viewer role writes only where a table
+ * names it (by name, or through `'all'` / `'authenticated'`), and a grant
+ * reaching her through a group or an assignment is read-only. So a viewer a
+ * table names writes by batch exactly as she writes one record at a time, and
+ * the route's own gates then judge her as they judge anyone else. A viewer is
+ * let through when ANY of `operations` admits her (an upsert may create or
+ * update).
  */
 export function checkViewerPermission(
-  userRole: string,
   c: Context,
-  _action: string = 'perform this action'
+  app: App,
+  operations: readonly BatchWriteOperation[]
 ): Response | undefined {
-  if (userRole === 'viewer') {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
-  return undefined
+  const { tableName, userRole, userGroups } = getTableContext(c)
+  if (userRole !== 'viewer') return undefined
+  const table = app.tables?.find((t) => t.name === tableName)
+  const roles = buildEffectiveRoles(userRole, userGroups)
+  const admitted = operations.some((op) => WRITE_EVALUATORS[op](table, roles, app.tables))
+  return admitted ? undefined : notFound(c)
 }
 
 /**
@@ -73,6 +93,8 @@ interface ReadFilteringParams {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
 }
 
 /**
@@ -93,7 +115,7 @@ export function applyBatchReadFiltering<K extends string>(
     fields: filterReadableFields({
       app: params.app,
       tableName: params.tableName,
-      userRole: params.userRole,
+      caller: { role: params.userRole, groups: params.userGroups },
       record: record.fields,
     }) as Record<string, RecordFieldValue | FormattedFieldValue>,
   }))
@@ -105,6 +127,21 @@ export function applyBatchReadFiltering<K extends string>(
 }
 
 /**
+ * The answer to a batch create: the created records filtered by field read
+ * permission, or — for a caller who may not read the table — the count alone,
+ * with no value of any record and no id to address one by.
+ */
+export const batchCreateAnswer =
+  (readsTable: boolean, params: ReadFilteringParams) =>
+  (response: {
+    readonly created: number
+    readonly records?: readonly TransformedRecord[]
+  }): { readonly created: number; readonly records?: readonly TransformedRecord[] } =>
+    readsTable
+      ? applyBatchReadFiltering(response, params, 'created')
+      : { created: response.created }
+
+/**
  * Check field-level write permissions for batch records
  */
 export function checkBatchFieldPermissions(config: {
@@ -112,23 +149,18 @@ export function checkBatchFieldPermissions(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly c: Context
 }): Response | null {
-  const { records, app, tableName, userRole, c } = config
+  const { records, app, tableName, userRole, userGroups, c } = config
+  const writer = { role: userRole, groups: userGroups }
   const allForbiddenFields = records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .map((record) => validateFieldWritePermissions(app, tableName, writer, record.fields))
     .filter((fields) => fields.length > 0)
 
   // S1 anti-enumeration: field-permission denial returns 404; field names dropped.
   if (allForbiddenFields.length > 0) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
+    return notFound(c)
   }
 
   // eslint-disable-next-line unicorn/no-null -- null indicates no permission error
@@ -155,14 +187,7 @@ export function validateStrippedRecordsNotEmpty(config: {
   // the offending fields — those config keys are kept on the type to keep
   // call-site signatures stable but are no longer destructured.
   if (!hasWritableFields) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
+    return notFound(c)
   }
 
   // eslint-disable-next-line unicorn/no-null -- null indicates no error
@@ -213,8 +238,12 @@ export async function validateBulkFieldValues(
   app: App,
   records: readonly { readonly fields: Record<string, unknown> }[]
 ): Promise<Response | undefined> {
-  const { tableName, userRole } = getTableContext(c)
-  const layer = createValidationLayer(app, tableName, userRole)
+  const { tableName, userRole, userGroups, session } = getTableContext(c)
+  const layer = createValidationLayer(app, tableName, {
+    role: userRole,
+    groups: userGroups,
+    signedOut: isGuestSession(session.userId),
+  })
 
   const program = Effect.forEach(
     records,

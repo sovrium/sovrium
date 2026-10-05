@@ -29,7 +29,10 @@ import { substituteRecordVars } from '@/domain/models/app/pages/substitute-recor
 import { buildSortParam } from '../hooks/use-records-query'
 import { dispatch } from '../runtime/event-bus'
 import { nullable } from '../runtime/query-client'
+import { readDisplayText } from '../runtime/record-display-label'
+import { ReadOnlyValue } from './record-drawer-read-only-value'
 import { RelatedCreateForm } from './record-drawer-related-create'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 type Row = Readonly<Record<string, unknown>>
 
@@ -45,6 +48,7 @@ export interface RelatedSection {
     readonly field: string
     readonly label: string
     readonly type: string
+    readonly currency?: CurrencyDisplayOptions
   }[]
   readonly sort?: readonly { readonly field: string; readonly direction: 'asc' | 'desc' }[]
   readonly limit: number
@@ -183,7 +187,14 @@ function RelatedTable({
                 key={column.field}
                 className={CELL_CLASS}
               >
-                {cellText(row[column.field])}
+                {readDisplayText(row, column.field) ?? (
+                  <ReadOnlyValue
+                    type={column.type}
+                    value={row[column.field]}
+                    label={column.label}
+                    currency={column.currency}
+                  />
+                )}
               </td>
             ))}
           </tr>
@@ -213,6 +224,7 @@ function RelatedCreate({
     return (
       <button
         type="button"
+        data-component-type="button"
         className={CREATE_CLASS}
         onClick={() => setCreating(true)}
       >

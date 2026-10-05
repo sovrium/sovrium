@@ -26,6 +26,11 @@ import { basename, join } from 'node:path'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { listDirSync, walkSync } from '../lib/drift/walk'
 import { fileImportSpecifier, posixRelative } from '../lib/posix-path'
+import {
+  describeNonCanonicalNodeModules,
+  nonCanonicalNodeModulesRefusal,
+} from '../lib/runtime-assets'
+import { THROWAWAY_RUNTIME_MANIFEST_ENV } from '../lib/throwaway-runtime-manifest'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
@@ -39,6 +44,28 @@ const OUT_FILE = join(
   'embedded-runtime-assets.generated.ts'
 )
 const REL_ROOT = '../../..'
+
+// Refuse BEFORE reading dist/: a bundle built through a symlinked or borrowed
+// node_modules is valid but carries non-canonical chunk names, and committing
+// its manifest makes every real install (CI included) read it as stale.
+// The only exception is a build that declares itself throwaway for THIS root
+// (`THROWAWAY_RUNTIME_MANIFEST_ENV`, set by the isolated-build E2E fixture),
+// and it says so on stderr so the bypass is never silent.
+const nonCanonical = nonCanonicalNodeModulesRefusal(PROJECT_ROOT, process.env)
+if (nonCanonical === null && describeNonCanonicalNodeModules(PROJECT_ROOT) !== null) {
+  printStderr(
+    `Throwaway build (${THROWAWAY_RUNTIME_MANIFEST_ENV}): generating the runtime asset ` +
+      `manifest from a non-canonical node_modules. Its chunk names are NOT the ones CI ` +
+      `produces; never commit this manifest.`
+  )
+}
+if (nonCanonical !== null) {
+  printStderr(
+    `Refusing to generate the runtime asset manifest: ${nonCanonical}\n` +
+      `  Then rebuild: rm -rf dist && bun run scripts/build/build-runtime-assets.ts`
+  )
+  process.exit(1)
+}
 
 if (!existsSync(join(DIST_DIR, 'client-bundle.js'))) {
   printStderr('dist/client-bundle.js not found — run scripts/build/build-runtime-assets.ts first')

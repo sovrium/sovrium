@@ -39,7 +39,7 @@ const AutoApproveSchema = Schema.Struct({
 /**
  * Spam Protection Configuration (PG-02)
  *
- * Per-table spam guards layered on top of F-03's always-on rate-limit/IP-hash
+ * Per-table spam guards layered on top of [internal ref]'s always-on rate-limit/IP-hash
  * floor. Honeypot, link-threshold, and blocked-word checks all run server-side
  * in the comment-create pipeline so a direct API call cannot bypass them.
  */
@@ -85,7 +85,7 @@ const SpamProtectionSchema = Schema.Struct({
     identifier: 'CommentsSpamProtection',
     title: 'Comment Spam Protection',
     description:
-      'Per-table spam guards (honeypot, rate limit, link threshold, blocked words) layered on top of the always-on F-03 anti-spam floor',
+      'Per-table spam guards (honeypot, rate limit, link threshold, blocked words) layered on top of the anti-spam floor that is always on',
   })
 )
 

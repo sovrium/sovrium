@@ -1,0 +1,48 @@
+# What a reader sees when an address answers nothing — an old link, an essay
+# that was unpublished, a slug that lost a letter. The server answers 404 and
+# renders this page: it says what happened and offers the way back.
+name: not-found
+path: /404
+meta:
+  title: This essay is not here · Field Notes
+  description: The essay you opened is not published here.
+  # This page answers any address that matches nothing, often one level
+  # deep (/blog/<slug>): `./../` reaches the icon at the root of `public/`.
+  favicon: ./../favicon.svg
+components:
+  - $ref: ./_site-header.yaml
+  - type: container
+    element: section
+    props:
+      className: mx-auto flex w-full max-w-[560px] flex-col items-start gap-3.5 pt-10 pb-[88px] max-md:px-3.5
+    children:
+      - type: text
+        element: p
+        props:
+          className: font-mono text-[12px] font-medium uppercase tracking-wider text-error
+        content: Not found
+      - type: text
+        element: h1
+        props:
+          className: text-[34px] leading-tight font-semibold tracking-tight text-foreground
+        content: This essay is not here
+      - type: text
+        element: p
+        props:
+          className: text-[17px] text-foreground-muted
+        content: It may have been unpublished, or the link lost a letter. The published essays are one click away.
+      - type: container
+        props:
+          className: flex flex-wrap gap-2.5
+        children:
+          - type: link
+            props:
+              href: /
+              className: inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-[14px] font-medium text-primary-foreground no-underline hover:bg-primary-hover
+            content: See all essays
+          - type: link
+            props:
+              href: /feed.xml
+              className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground no-underline hover:bg-background-subtle
+            content: Follow the RSS feed
+  - $ref: ./_site-footer.yaml

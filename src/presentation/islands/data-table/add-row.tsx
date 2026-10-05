@@ -20,6 +20,7 @@ import {
   computeTableCheckboxControlClasses,
 } from '@/presentation/design/table-default-classes'
 import { resolveCellEditor, resolveInputType } from './editors/editor-registry'
+import { useGridString } from './island/grid-strings'
 import { isWritableAddRowColumn, useAddRowDraft, type AddRowColumn } from './use-add-row-draft'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { KeyboardEvent, ReactElement } from 'react'
@@ -294,6 +295,7 @@ function RestingAddRow({
   readonly config: AddRowConfig
   readonly onOpen: () => void
 }): ReactElement {
+  const addRowLabel = useGridString('datatable.addRow', 'New row')
   return (
     <tr
       data-add-row="true"
@@ -308,7 +310,7 @@ function RestingAddRow({
           onClick={onOpen}
           className={computeTableAddRowTriggerClasses()}
         >
-          + New row
+          + {addRowLabel}
         </button>
       </td>
     </tr>

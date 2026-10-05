@@ -1,14 +1,12 @@
+# The people an essay can be signed by. A byline is public, so anyone may read
+# this table; only the editor changes it.
 id: 1
 name: authors
-# Public bylines. Anyone can read them; only admins manage the roster.
 permissions:
   read: all
-  create:
-    - admin
-  update:
-    - admin
-  delete:
-    - admin
+  create: [admin]
+  update: [admin]
+  delete: [admin]
 fields:
   - id: 1
     name: name
@@ -23,6 +21,19 @@ fields:
   - id: 3
     name: bio
     type: long-text
+  # A square portrait, shown beside the name wherever the author signs.
   - id: 4
     name: avatar
     type: single-attachment
+    bucket: images
+    allowedFileTypes:
+      - image/png
+      - image/jpeg
+      - image/webp
+      - image/avif
+  # The portrait's address in the public `images` bucket.
+  - id: 5
+    name: avatar_url
+    type: formula
+    formula: "CASE WHEN avatar IS NULL THEN '' ELSE '/api/buckets/images/files/' || avatar END"
+    resultType: string

@@ -164,6 +164,7 @@ export function getCommentWithUser(config: {
       readonly user: UserMetadataWithOptionalImage | undefined
       readonly guestName: string | null
       readonly guestEmail: string | null
+      readonly status: 'approved' | 'pending' | 'rejected'
     }
   | undefined,
   DatabaseError
@@ -335,6 +336,7 @@ export function listComments(config: {
     readonly user: UserMetadataWithOptionalImage | undefined
     readonly guestName: string | null
     readonly guestEmail: string | null
+    readonly status: 'approved' | 'pending' | 'rejected'
   }[],
   DatabaseError
 > {

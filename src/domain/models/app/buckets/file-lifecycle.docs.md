@@ -22,7 +22,7 @@ Two rows deserve attention.
 
 The last one saves you: before deleting bytes during a purge, Sovrium checks whether any **other** record still points at the same key — soft-deleted records included — so two records sharing one upload cannot orphan each other.
 
-The hard-delete row is the trap. It is the admin-only path, and it drops the row **without touching storage**. Purge is what you want when the file must go too; it needs only the ordinary delete permission and cleans both sides.
+The hard-delete row is the trap. It drops the row **without touching storage**. Purge is what you want when the file must go too, and it cleans both sides. Both are reserved for an admin-equivalent role (see Roles & RBAC); the ordinary `delete` grant only ever trashes.
 
 Purge is irreversible, with no intermediate state. A plain delete is the reversible one; reach for purge when you mean erasure rather than tidying up.
 

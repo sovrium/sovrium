@@ -100,12 +100,12 @@ export const accounts = authSchema.table(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    // Account identity is scoped by issuer: `local:credential` for password
-    // accounts, `local:oauth:<providerId>` for social ones. Upstream declares it
-    // required with no default, but it is kept NULLABLE here on purpose — SQLite
-    // cannot ADD COLUMN … NOT NULL without a default, and a PG-only NOT NULL
-    // would diverge the two dialects. Every writer must set it; the value is
-    // produced by `credentialIssuer()` / `oauthIssuer()` in `account-issuer.ts`.
+    // RETIRED. Better Auth 1.7.0–1.7.2 identified accounts by
+    // `(issuer, accountId)`; 1.7.3 reverted to `(providerId, accountId)` and no
+    // longer writes this column, so rows created since carry NULL while older
+    // rows keep their backfilled value. Nothing may read or match on it. It
+    // stays NULLABLE, which is what keeps sign-ups and account linking working:
+    // a NULL never collides in the unique index below, on either dialect.
     issuer: text('issuer'),
     userId: text('user_id')
       .notNull()
@@ -125,8 +125,9 @@ export const accounts = authSchema.table(
   },
   (table) => [
     index('account_userId_idx').on(table.userId),
-    // Name matches the one Better Auth's own migrator generates, so an operator
-    // who ever runs `auth migrate` finds it present and skips it.
+    // Legacy index from Better Auth 1.7.0–1.7.2. Inert since the `issuer`
+    // column stopped being written: PostgreSQL and SQLite both treat NULLs as
+    // distinct in a unique index, so new rows can never collide on it.
     uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
   ]
 )

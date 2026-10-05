@@ -1,0 +1,49 @@
+# What readers wrote. A comment arrives Held; open it and set it to Approved to
+# put it under its essay, or delete it.
+name: admin-comments
+path: /admin/comments
+access:
+  require: [admin]
+  redirectTo: /admin/login
+meta:
+  title: Comments · Field Notes
+  description: The comments readers wrote, held until you approve them.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Comments
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: table
+                dataSource:
+                  table: comments
+                  sort:
+                    - { field: posted_at, direction: desc }
+                rowHeight: short
+                columns:
+                  - { field: author_name, label: Name }
+                  - { field: body, label: Comment }
+                  - { field: post, label: Essay }
+                  - { field: status, label: Status }
+                  - { field: posted_at, label: Written, format: short-date }
+                pagination:
+                  pageSize: 50
+                emptyMessage: Comments readers leave under an essay wait here until you approve them.

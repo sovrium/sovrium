@@ -134,6 +134,10 @@ elevation:
   md: 0 0 0 1px rgb(28 40 16 / 0.08)
   lg: 0 12px 32px rgb(28 40 16 / 0.14)
 
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
 # A run line carries its outcome, its id, its duration and one line of why, so
 # the app runs at the middle step. The three steps are the platform's own
 # values, written out so one number can be tuned.

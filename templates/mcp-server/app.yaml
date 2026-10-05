@@ -1,28 +1,50 @@
-name: mcp-server-example
-version: 1.0.0
-description: A headless Sovrium app that exposes tables to an LLM client via MCP
-
-# This is a HEADLESS app — no `pages` array. The MCP protocol is the only surface.
+# Team knowledge base — a team's runbooks and decisions, served over MCP.
 #
-# Per-entity MCP exposure is declared via `aiAccess` on each table. The MCP server
-# itself is activated by the operator via environment variables (NOT in schema):
+# The reader of this app is an assistant: a developer connects the MCP client
+# they already use to `/mcp`, and the assistant lists, reads and records the
+# team's documents through tools the engine generates from two tables. Each
+# table's `aiAccess` block says which tools exist and which fields they return;
+# each table's `permissions` block says which role may call them. A tool call
+# runs as the person who owns the key, so the assistant can never write what
+# its owner could not.
+#
+# The MCP server itself is switched on by whoever runs the app, through the
+# environment, never by this file:
 #
 #   MCP_ENABLED=true
 #   MCP_TRANSPORT=streamable-http
 #
-# There is no credential variable: /mcp authenticates on the header a request carries — an
-# API key on `x-api-key`, or an OAuth access token on `Authorization: Bearer`. Both are
-# issued by the auth layer, which is why MCP_ENABLED=true requires the `auth` block below.
+# There is no credential variable: `/mcp` reads the header a request carries —
+# an API key on `x-api-key`, or an OAuth access token on `Authorization:
+# Bearer` — both issued by the `auth` block below, which is why the server
+# refuses to start without one.
 #
-# Schema author declares intent; operator activates. README.md ("Turning MCP on") lists the
-# tools this exposes once MCP_ENABLED=true — and why there is nothing to add under config/.
+# There is one page, at `/`: what the server gives an assistant, how to switch
+# it on, the client configuration to paste, and the tools it lists. The admin
+# console at `/_admin` is where keys, roles and documents are managed.
 #
-# Sample data lives in seed/ and loads with `sovrium seed app.yaml`. There are no pages, so
-# the REST API and the MCP tools are the only way to see it.
+# The name below prefixes every tool the server publishes
+# (`mcp-server-example_documents_list`, …). Rename the app and the tools
+# follow.
+name: mcp-server-example
+version: 1.0.0
+description: >-
+  A team knowledge base served over MCP: documents and tags an assistant lists,
+  reads and adds to with an API key, within what the key's owner may do.
 
 auth:
   $ref: ./config/auth.yaml
 
+design:
+  $ref: ./config/design.yaml
+
 tables:
   - $ref: ./config/tables/tags.yaml
   - $ref: ./config/tables/documents.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+
+# The page's footer carries its own "Built with Sovrium" line, so the engine's
+# badge is switched off.
+badge: false

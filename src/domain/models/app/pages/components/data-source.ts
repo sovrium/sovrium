@@ -21,10 +21,12 @@ export const FilterOperatorSchema = Schema.Literals([
   'gte',
   'lte',
   'in',
+  'isEmpty',
+  'isNotEmpty',
 ]).annotate({
   title: 'Filter Operator',
   description:
-    'Comparison operator for filtering records. "in" expects an array value (e.g. resolved $currentUser.assignments.<table>).',
+    'Comparison operator for filtering records. "in" expects an array value (e.g. resolved $currentUser.assignments.<table>). "isEmpty" keeps the records whose field holds no value and "isNotEmpty" the records whose field holds one; both take no value.',
 })
 
 /**
@@ -178,10 +180,12 @@ export const DataFilterSchema = Schema.Struct({
    *   loader): `'$currentUser.id'`, `'$currentUser.assignments.<table>'`,
    *   `'$currentUser.activeAssignment'`
    */
-  value: FilterValueSchema.annotate({
-    description:
-      'Literal value, $currentUser reference, or template string. $currentUser refs resolve per-request from session.',
-  }),
+  value: Schema.optional(
+    FilterValueSchema.annotate({
+      description:
+        'Literal value, $currentUser reference, or template string. $currentUser refs resolve per-request from session. Omitted for isEmpty and isNotEmpty.',
+    })
+  ),
 }).annotate({
   title: 'Data Filter',
   description: 'Single filter condition for data source queries',

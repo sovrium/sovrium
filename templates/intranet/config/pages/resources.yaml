@@ -1,0 +1,48 @@
+# Resources: the guides, policies and tools everyone needs, grouped, each
+# with a line on what you find there and its address.
+name: resources
+path: /resources
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Resources · Halden
+  description: Guides, policies and the internal tools, grouped.
+components:
+  - $ref: ./_shell.yaml
+  - type: container
+    element: header
+    props:
+      className: flex h-12 items-center gap-3 border-b border-border px-5 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-[15px] font-semibold text-foreground
+        content: Resources
+  - type: container
+    element: main
+    props:
+      className: flex max-w-[860px] flex-col gap-3 px-5 pt-4 pb-8 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-muted
+        content: Guides first, then the policies, then the tools you open every day.
+      - type: list
+        props:
+          className: rounded-lg border border-border bg-background-raised [&_li]:px-3
+        dataSource:
+          table: resources
+          sort:
+            - { field: category, direction: asc }
+            - { field: title, direction: asc }
+        listDisplay:
+          emptyMessage: Policies, guides and tools appear here once IT adds them.
+          itemTemplate:
+            title: $record.title
+            subtitle: $record.note
+            badge: $record.category
+            metadata:
+              - { field: url, format: text }

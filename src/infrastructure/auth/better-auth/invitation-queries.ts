@@ -12,7 +12,6 @@ import {
   authUsersTable,
   authVerificationsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
-import { credentialIssuer } from './account-issuer'
 
 /**
  * Identifier prefix used for admin invitation verification rows.
@@ -363,11 +362,10 @@ export async function userHasCredentialPassword(userId: string): Promise<boolean
     .select({ password: accounts.password })
     .from(accounts)
     .where(
-      and(
-        eq(accounts.userId, userId),
-        eq(accounts.providerId, 'credential'),
-        eq(accounts.issuer, credentialIssuer())
-      )
+      // Keyed on `(userId, providerId)`, the identity Better Auth resolves
+      // credential accounts by. `issuer` is a retired column: Better Auth no
+      // longer writes it, so a predicate on it would miss every new row.
+      and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential'))
     )
     .limit(1)
   const row = rows[0]
@@ -391,10 +389,9 @@ export async function insertCredentialAccount(params: {
     id: params.id,
     accountId: params.userId,
     providerId: 'credential',
-    // Load-bearing. Credential lookups match on `issuer`, so a row written
-    // without one is invisible: the invited customer can neither sign in nor
-    // reset their password, and the insert itself still succeeds.
-    issuer: credentialIssuer(),
+    // No `issuer`: Better Auth identifies accounts by `(providerId, accountId)`
+    // and leaves that retired column NULL on the rows it writes, so this row
+    // matches them.
     userId: params.userId,
     password: params.hashedPassword,
   })
@@ -423,21 +420,15 @@ export async function markUserEmailVerified(userId: string): Promise<void> {
  */
 export async function deleteCredentialAccountForUser(userId: string): Promise<void> {
   const accounts = authAccountsTable()
-  // Matched on `issuer` as well as `providerId`, mirroring how Better Auth
-  // itself resolves credential accounts. Every credential row carries
-  // `local:credential`: writers set it, and the migration that introduced the
-  // column backfilled every pre-existing row, so narrowing the match here
-  // cannot leave a throwaway password behind.
+  // Matched on `providerId` only — never on the retired `issuer` column.
+  // Better Auth's `admin.createUser` writes the throwaway credential row with
+  // `issuer` NULL, so an `issuer` predicate would delete nothing: the accept
+  // flow would then insert a SECOND credential row, and sign-in, which rejects
+  // an ambiguous account key, would fail for the invited customer.
   // eslint-disable-next-line functional/no-expression-statements -- DB delete is a side effect
   await db
     .delete(accounts)
-    .where(
-      and(
-        eq(accounts.userId, userId),
-        eq(accounts.providerId, 'credential'),
-        eq(accounts.issuer, credentialIssuer())
-      )
-    )
+    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential')))
 }
 
 /**

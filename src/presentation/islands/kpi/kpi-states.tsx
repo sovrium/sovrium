@@ -6,22 +6,23 @@
  */
 
 import {
-  computeKpiCardClasses,
   computeKpiLabelClasses,
+  KPI_STACK_CLASSES,
 } from '@/presentation/design/kpi-default-classes'
+import { useNamedHostAttributes } from '../hooks/use-named-host-attributes'
+import { RateLimitedNotice } from '../runtime/read-failure'
 import type { ReactElement } from 'react'
 
 /**
- * Non-card KPI render states. Every state emits `data-component="kpi"` so
- * spec assertions on the canonical KPI attribute resolve in every branch.
+ * Non-card KPI render states. Each writes its `data-kpi-state` onto the island
+ * host, the one element that names the KPI.
  */
 
 export function KpiLoading(): ReactElement {
   return (
     <div
-      className={`${computeKpiCardClasses()} w-full`}
-      data-component="kpi"
-      data-kpi-state="loading"
+      className={KPI_STACK_CLASSES}
+      ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'loading' })}
       role="status"
       aria-label="Loading KPI..."
     >
@@ -49,8 +50,7 @@ export function KpiError({
   return (
     <div
       className="border-error-border bg-error-bg text-md rounded border p-3"
-      data-component="kpi"
-      data-kpi-state="error"
+      ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'error' })}
       role="alert"
     >
       {label && (
@@ -69,12 +69,46 @@ export function KpiError({
   )
 }
 
+/**
+ * A KPI whose records read was refused with 429: its label, and the shared
+ * rate-limited notice whose Retry asks again.
+ */
+export function KpiRateLimited({
+  label,
+  onRetry,
+  strings,
+}: {
+  readonly label?: string
+  readonly onRetry: () => void
+  /** The notice's words in the page language, where they differ from English. */
+  readonly strings?: Readonly<Record<string, string>> | undefined
+}): ReactElement {
+  return (
+    <div
+      className={KPI_STACK_CLASSES}
+      ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'rate-limited' })}
+    >
+      {label && (
+        <div
+          data-role="kpi-label"
+          className={computeKpiLabelClasses()}
+        >
+          {label}
+        </div>
+      )}
+      <RateLimitedNotice
+        onRetry={onRetry}
+        strings={strings}
+      />
+    </div>
+  )
+}
+
 export function KpiMissingTable(): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="kpi"
-      data-kpi-state="missing-table"
+      ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'missing-table' })}
       role="alert"
     >
       <p>KPI is missing a dataSource.table binding.</p>

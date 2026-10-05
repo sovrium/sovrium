@@ -1,139 +1,149 @@
+# English and French. The page is written once, in config/pages/home.yaml,
+# with a `$t:` key wherever it speaks; each language fills the keys below.
+# `/en/` and `/fr/` serve the page in that language, and `/` in the visitor's
+# own (their earlier choice, then their browser, then English).
+#
+# The French is written in French, not translated from the English: it
+# addresses the reader as `tu`, the way a small restaurant talks to its
+# suppliers.
 default: en
 supported:
   - code: en
-    locale: en-US
+    locale: en-GB
     label: English
     direction: ltr
-    flag: '🇺🇸'
   - code: fr
     locale: fr-FR
     label: Français
     direction: ltr
-    flag: '🇫🇷'
 fallback: en
 detectBrowser: true
 persistSelection: true
 translations:
   en:
-    meta.title: Sovrium - Build Your Next App
-    meta.description: A modern, configuration-driven platform for rapid application development
+    meta.title: Tablée — table bookings for independent restaurants
+    meta.description: Tablée takes bookings from your website and the phone, reminds guests the day before, and shows the evening at a glance.
+    meta.image: /og-en.png
+    meta.imageAlt: Tablée — every table, every evening, in one screen.
 
-    nav.home: Home
+    nav.label: Sections
     nav.features: Features
-    nav.pricing: Pricing
-    nav.contact: Contact
+    nav.how: How it works
+    nav.demo: Demo
+    nav.cta: Book a demo
 
-    hero.badge: Now in Public Beta
-    hero.title: Build Your Next App with Sovrium
-    hero.subtitle: A modern, configuration-driven platform for rapid application development
-    hero.cta.primary: Get Started
-    hero.cta.secondary: Learn More
-    hero.stats.apps: Apps Built
-    hero.stats.developers: Developers
-    hero.stats.uptime: Uptime
+    hero.over: Table bookings for independent restaurants
+    hero.title: Every table, every evening, in one screen.
+    hero.lead: Tablée takes bookings from your website and the phone, reminds guests the day before, and shows the evening at a glance.
+    hero.cta: Book a 20-minute demo
+    hero.cta2: See how it works
 
-    features.title: Why Choose Sovrium?
-    features.subtitle: Everything you need to build modern applications
+    shot.title: Friday 25 September · dinner
+    shot.seats: 22 of 28 seats
+    shot.caption: Friday's dinner as Tablée shows it
+    shot.time: Time
+    shot.guest: Guest
+    shot.covers: Covers
+    shot.table: Table
+    shot.status: Status
+    shot.confirmed: Confirmed
+    shot.notConfirmed: Not confirmed
+    shot.seated: Seated
+    shot.walkIn: Walk-in
 
-    feature.1.title: Declarative Configuration
-    feature.1.description: Define your entire application using simple JSON schemas. No complex build setups or configuration files.
-    feature.1.icon: "\U0001F4CB"
+    features.title: What it does for your evenings
+    feature.1.title: One list for every booking
+    feature.1.text: Online, phone and walk-in bookings land in the same list, with the table and the time.
+    feature.2.title: A reminder the day before
+    feature.2.text: Guests get an email the day before with a link to change or cancel, so a freed table can be given again.
+    feature.3.title: Your room, your rules
+    feature.3.text: Draw your tables once, set how long a sitting lasts, and close a table for a private event.
 
-    feature.2.title: Type-Safe by Default
-    feature.2.description: Full TypeScript support out of the box. Catch errors at compile-time, not runtime.
-    feature.2.icon: "\U0001F512"
+    steps.title: Ready for Friday in three steps
+    step.1.title: Draw your room
+    step.1.text: Add your tables and their seats in a few minutes.
+    step.2.title: Share your booking link
+    step.2.text: Put it on your website and your map listing.
+    step.3.title: See the evening at a glance
+    step.3.text: Who is coming, where they sit, who has not confirmed.
 
-    feature.3.title: Reactive & Fast
-    feature.3.description: Built on modern reactive patterns. Your app stays fast and responsive as it grows.
-    feature.3.icon: '⚡'
+    band.title: See Tablée on your own room
+    band.lead: A 20-minute call. We set up your first evening with you.
 
-    howItWorks.badge: How It Works
-    howItWorks.title: From Idea to Production in Minutes
-    howItWorks.subtitle: Three simple steps to launch your application
+    form.title: Tell us about your room
+    form.description: We come back with a time.
+    form.name: Your name
+    form.restaurant: Restaurant
+    form.email: Email
+    form.covers: Covers on a busy evening
+    form.choose: Choose
+    form.submit: Book my demo
+    form.receivedTitle: Request received
+    form.received: 'We will write to $record.email within two working days with two possible times.'
+    form.note: We answer within two working days, from Lyon. Your details are used for this call only.
 
-    step.1.number: '1'
-    step.1.title: Define Your Schema
-    step.1.description: Describe your data models, relationships, and business rules in a simple JSON format.
-
-    step.2.number: '2'
-    step.2.title: Customize & Extend
-    step.2.description: Add custom logic, integrations, and branding. Everything is fully customizable.
-
-    step.3.number: '3'
-    step.3.title: Deploy & Scale
-    step.3.description: Push to production with one command. Scale automatically as your users grow.
-
-    cta.title: Ready to get started?
-    cta.subtitle: Join thousands of developers building with Sovrium
-    cta.button: Start Building Now
-    cta.note: No credit card required
-
-    footer.copyright: '© 2025 Sovrium'
-    footer.rights: All rights reserved
-    footer.product: Product
-    footer.resources: Resources
-    footer.company: Company
-    footer.madeWith: Made with
-    footer.inFrance: in France
+    footer.line: Tablée · Lyon · © 2026
 
   fr:
-    meta.title: Sovrium - Créez votre prochaine application
-    meta.description: Une plateforme moderne pilotée par configuration pour le développement d'applications rapide
+    meta.title: Tablée — les réservations des restaurants indépendants
+    meta.description: Tablée prend les réservations depuis ton site et au téléphone, rappelle tes clients la veille et te montre la soirée d'un coup d'œil.
+    meta.image: /og-fr.png
+    meta.imageAlt: Tablée — chaque table, chaque soir, sur un seul écran.
 
-    nav.home: Accueil
+    nav.label: Sections
     nav.features: Fonctionnalités
-    nav.pricing: Tarifs
-    nav.contact: Contact
+    nav.how: Comment ça marche
+    nav.demo: Démo
+    nav.cta: Réserver une démo
 
-    hero.badge: Maintenant en Bêta Publique
-    hero.title: Créez votre prochaine application avec Sovrium
-    hero.subtitle: Une plateforme moderne pilotée par configuration pour le développement d'applications rapide
-    hero.cta.primary: Commencer
-    hero.cta.secondary: En savoir plus
-    hero.stats.apps: Apps Créées
-    hero.stats.developers: Développeurs
-    hero.stats.uptime: Disponibilité
+    hero.over: Réservations pour restaurants indépendants
+    hero.title: Chaque table, chaque soir, sur un seul écran.
+    hero.lead: Tablée prend les réservations depuis ton site et au téléphone, rappelle tes clients la veille et te montre la soirée d'un coup d'œil.
+    hero.cta: Réserver une démo de 20 minutes
+    hero.cta2: Voir comment ça marche
 
-    features.title: Pourquoi choisir Sovrium?
-    features.subtitle: Tout ce dont vous avez besoin pour créer des applications modernes
+    shot.title: Vendredi 25 septembre · dîner
+    shot.seats: 22 couverts sur 28
+    shot.caption: Le dîner de vendredi, tel que Tablée le montre
+    shot.time: Heure
+    shot.guest: Client
+    shot.covers: Couverts
+    shot.table: Table
+    shot.status: Statut
+    shot.confirmed: Confirmée
+    shot.notConfirmed: Non confirmée
+    shot.seated: Installée
+    shot.walkIn: Sans réservation
 
-    feature.1.title: Configuration déclarative
-    feature.1.description: Définissez votre application entière en utilisant des schémas JSON simples. Pas de configurations complexes.
-    feature.1.icon: "\U0001F4CB"
+    features.title: Ce que ça change pour tes soirées
+    feature.1.title: Une seule liste pour toutes les réservations
+    feature.1.text: En ligne, au téléphone ou sans réservation, tout arrive dans la même liste, avec la table et l'heure.
+    feature.2.title: Un rappel la veille
+    feature.2.text: Tes clients reçoivent un email la veille avec un lien pour modifier ou annuler, et une table libérée peut être redonnée.
+    feature.3.title: Ta salle, tes règles
+    feature.3.text: Dessine tes tables une fois, choisis la durée d'un service, et ferme une table pour un événement privé.
 
-    feature.2.title: Type-safe par défaut
-    feature.2.description: Support TypeScript complet dès le départ. Détectez les erreurs à la compilation.
-    feature.2.icon: "\U0001F512"
+    steps.title: Prêt pour vendredi en trois étapes
+    step.1.title: Dessine ta salle
+    step.1.text: Ajoute tes tables et leurs places en quelques minutes.
+    step.2.title: Partage ton lien de réservation
+    step.2.text: Mets-le sur ton site et sur ta fiche de carte.
+    step.3.title: Vois la soirée d'un coup d'œil
+    step.3.text: Qui vient, où il s'assoit, qui n'a pas confirmé.
 
-    feature.3.title: Réactif et rapide
-    feature.3.description: Construit sur des patterns réactifs modernes. Votre app reste rapide en grandissant.
-    feature.3.icon: '⚡'
+    band.title: Vois Tablée sur ta propre salle
+    band.lead: Un appel de 20 minutes. On prépare ta première soirée avec toi.
 
-    howItWorks.badge: Comment Ça Marche
-    howItWorks.title: De l'Idée à la Production en Minutes
-    howItWorks.subtitle: Trois étapes simples pour lancer votre application
+    form.title: Parle-nous de ta salle
+    form.description: On revient vers toi avec un créneau.
+    form.name: Ton nom
+    form.restaurant: Restaurant
+    form.email: Email
+    form.covers: Couverts un soir de rush
+    form.choose: Choisir
+    form.submit: Réserver ma démo
+    form.receivedTitle: Demande reçue
+    form.received: 'On écrit à $record.email sous deux jours ouvrés avec deux créneaux possibles.'
+    form.note: On répond sous deux jours ouvrés, depuis Lyon. Tes coordonnées servent uniquement pour cet appel.
 
-    step.1.number: '1'
-    step.1.title: Définissez Votre Schéma
-    step.1.description: Décrivez vos modèles de données, relations et règles métier en format JSON simple.
-
-    step.2.number: '2'
-    step.2.title: Personnalisez & Étendez
-    step.2.description: Ajoutez logique personnalisée, intégrations et branding. Tout est personnalisable.
-
-    step.3.number: '3'
-    step.3.title: Déployez & Scalez
-    step.3.description: Passez en production en une commande. Scalez automatiquement avec vos utilisateurs.
-
-    cta.title: Prêt à commencer?
-    cta.subtitle: Rejoignez des milliers de développeurs construisant avec Sovrium
-    cta.button: Commencer maintenant
-    cta.note: Aucune carte de crédit requise
-
-    footer.copyright: '© 2025 Sovrium'
-    footer.rights: Tous droits réservés
-    footer.product: Produit
-    footer.resources: Ressources
-    footer.company: Entreprise
-    footer.madeWith: Fait avec
-    footer.inFrance: en France
+    footer.line: Tablée · Lyon · © 2026

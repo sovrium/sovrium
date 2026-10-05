@@ -7,7 +7,12 @@
 
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { sendEmail } from '../../email/email-service'
-import { passwordResetEmail, emailVerificationEmail, resolveBrand } from '../../email/templates'
+import {
+  accountDeletionEmail,
+  passwordResetEmail,
+  emailVerificationEmail,
+  resolveBrand,
+} from '../../email/templates'
 import { logError } from '../../logging'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
@@ -347,34 +352,29 @@ const createTwoFactorBackupCodesHandler = (
 }
 
 /**
- * Create account deletion email handler with optional custom template
+ * Create the account deletion email handler with optional custom template.
  *
- * Sends a confirmation email after account deletion.
- * Unlike URL-based handlers, this fires after the user record is deleted
- * from the database, using session data captured before deletion.
+ * Sends the confirmation link for an immediate account deletion: Better Auth's
+ * `sendDeleteAccountVerification` hands over the account and the absolute
+ * `/delete-user/callback?token=…` link, which is `$url` in a custom template.
+ * With no custom template the default confirmation email is sent. Nothing is
+ * mailed once the account is erased: the address is the personal data the
+ * erasure removes, and the redirect already confirms it.
  */
 const createAccountDeletionHandler = (customTemplate?: AuthEmailTemplate, appName?: string) => {
-  return async (user: Readonly<{ email: string; name?: string }>) => {
-    const context = { name: user.name, email: user.email, appName }
-
-    try {
-      if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: user.email,
-          fromName: appName,
-          subject: substituteVariables(customTemplate.subject, context),
-          html: customTemplate.html
-            ? substituteHtmlVariables(customTemplate.html, context)
-            : undefined,
-          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
-        })
-      }
-      // No default account deletion email — only sent when explicitly configured
-    } catch (error) {
-      logError(`[EMAIL] Failed to send account deletion email to ${user.email}`, error)
-    }
-  }
+  const send = createEmailHandler(
+    {
+      emailType: 'account deletion',
+      // Better Auth builds the whole link, token and callback URL included.
+      buildUrl: (url) => url,
+      getDefaultTemplate: ({ userName, actionUrl }) =>
+        accountDeletionEmail({ appName, userName, confirmUrl: actionUrl, expiresIn: '24 hours' }),
+    },
+    customTemplate,
+    appName
+  )
+  return ({ email, name, url }: Readonly<{ email: string; name?: string; url: string }>) =>
+    send({ user: { email, name }, url, token: '' })
 }
 
 /**

@@ -11,14 +11,18 @@ import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
-import { validateTableName, validateColumnName } from '../statement/validation'
+import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
+import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Cascade soft delete to related records
  *
- * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
+ * Soft-deletes the child records of every table whose relationship field
+ * references this table with `onDelete: 'cascade'`, and returns each child row
+ * it removed (`RETURNING *`, on both dialects) so the delete can announce them
+ * on their own table's change stream once it commits.
  */
 export async function cascadeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
@@ -36,8 +40,8 @@ export async function cascadeSoftDelete(
     }>
   },
   userId?: string
-): Promise<void> {
-  if (!app.tables) return
+): Promise<readonly CommittedRowChange[]> {
+  if (!app.tables) return []
 
   // Find all tables with relationship fields that reference this table with onDelete: 'cascade'
   const relatedTables = app.tables.flatMap((table) =>
@@ -57,46 +61,48 @@ export async function cascadeSoftDelete(
   const deletedByValue = getDeletedByValue(userId)
 
   // Cascade soft delete to each related table
-  // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
-  await Promise.all(
+  const removed = await Promise.all(
     relatedTables.map(async (relatedInfo) => {
       const childTable = relatedInfo.tableName
       const childColumn = relatedInfo.fieldName
 
-      validateTableName(childTable)
       validateColumnName(childColumn)
 
       // Check if child table has deleted_at column (dialect-aware introspection)
-      const childHasDeletedAt = await columnExists(tx, childTable, 'deleted_at')
+      const childHasDeletedAt = await columnExists(tx, databaseTableName(childTable), 'deleted_at')
+      if (!childHasDeletedAt) return []
 
-      if (childHasDeletedAt) {
-        // Check if child table has deleted_by column (using helper)
-        const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
+      // Check if child table has deleted_by column (using helper)
+      const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
 
-        // Cascade soft delete to related records with deleted_by if column exists
-        if (hasDeletedByCol) {
-          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
-          await executeRaw(
+      // Cascade soft delete to related records with deleted_by if column exists
+      const rows = hasDeletedByCol
+        ? await executeRaw(
             tx,
-            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
           )
-        } else {
-          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
-          await executeRaw(
+        : await executeRaw(
             tx,
-            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+            sql`UPDATE ${tableIdentifier(childTable)} SET deleted_at = ${nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL RETURNING *`
           )
-        }
-      }
+      return rows.map((row): CommittedRowChange => ({
+        tableName: childTable,
+        event: 'delete',
+        recordId: String(row['id']),
+        previous: row,
+      }))
     })
   )
+  return removed.flat()
 }
 
 /**
  * Cascade set-null to related records
  *
- * Helper function to set FK columns to NULL in child records based on onDelete: 'set-null' configuration.
- * Returns true if any child records were updated.
+ * Sets the FK column to NULL in the child records of every table whose
+ * relationship field references this table with `onDelete: 'set-null'`, and
+ * returns each live child row it changed (`RETURNING *`) with the row as it
+ * stood, so the delete can announce them as updates on their own table.
  */
 export async function cascadeSetNull(
   tx: Readonly<DrizzleTransaction>,
@@ -113,8 +119,8 @@ export async function cascadeSetNull(
       }>
     }>
   }
-): Promise<boolean> {
-  if (!app.tables) return false
+): Promise<{ readonly performed: boolean; readonly changes: readonly CommittedRowChange[] }> {
+  if (!app.tables) return { performed: false, changes: [] }
 
   // Find all tables with relationship fields that reference this table with onDelete: 'set-null'
   const relatedTables = app.tables.flatMap((table) =>
@@ -131,27 +137,34 @@ export async function cascadeSetNull(
       }))
   )
 
-  if (relatedTables.length === 0) return false
+  if (relatedTables.length === 0) return { performed: false, changes: [] }
 
   // Set FK to NULL in each related table
-  // eslint-disable-next-line functional/no-expression-statements -- Database updates for set-null cascade are required side effects
-  await Promise.all(
+  const changed = await Promise.all(
     relatedTables.map(async (relatedInfo) => {
       const childTable = relatedInfo.tableName
       const childColumn = relatedInfo.fieldName
 
-      validateTableName(childTable)
       validateColumnName(childColumn)
 
-      // eslint-disable-next-line functional/no-expression-statements -- Database update for set-null is required
-      await executeRaw(
+      const rows = await executeRaw(
         tx,
-        sql`UPDATE ${sql.identifier(childTable)} SET ${sql.identifier(childColumn)} = NULL WHERE ${sql.identifier(childColumn)} = ${recordId}`
+        sql`UPDATE ${tableIdentifier(childTable)} SET ${sql.identifier(childColumn)} = NULL WHERE ${sql.identifier(childColumn)} = ${recordId} RETURNING *`
       )
+      // A child already in the trash is not on anyone's live view.
+      return rows
+        .filter((row) => row['deleted_at'] === undefined || row['deleted_at'] === null)
+        .map((row): CommittedRowChange => ({
+          tableName: childTable,
+          event: 'update',
+          recordId: String(row['id']),
+          row,
+          previous: { ...row, [childColumn]: recordId },
+        }))
     })
   )
 
-  return true
+  return { performed: true, changes: changed.flat() }
 }
 
 /**
@@ -195,12 +208,11 @@ export async function checkRestrictConstraint(
 
   const hasChildrenResults = await Promise.all(
     restrictedTables.map(async (relatedInfo) => {
-      validateTableName(relatedInfo.tableName)
       validateColumnName(relatedInfo.fieldName)
 
       const result = await executeRaw(
         tx,
-        sql`SELECT COUNT(*) as count FROM ${sql.identifier(relatedInfo.tableName)} WHERE ${sql.identifier(relatedInfo.fieldName)} = ${recordId}`
+        sql`SELECT COUNT(*) as count FROM ${tableIdentifier(relatedInfo.tableName)} WHERE ${sql.identifier(relatedInfo.fieldName)} = ${recordId}`
       )
 
       return toFiniteCount(result[0]?.count) > 0
@@ -225,7 +237,7 @@ export async function executeSoftDelete(
     const hasDeletedByCol = await hasDeletedByColumn(tx, tableName)
     const deletedByValue = getDeletedByValue(userId)
 
-    const tableIdent = sql.identifier(tableName)
+    const tableIdent = tableIdentifier(tableName)
 
     // Build UPDATE query with or without deleted_by
     const result = hasDeletedByCol
@@ -255,7 +267,7 @@ export async function executeHardDelete(
   recordId: string
 ): Promise<boolean> {
   try {
-    const tableIdent = sql.identifier(tableName)
+    const tableIdent = tableIdentifier(tableName)
     const result = await executeRaw(
       tx,
       sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
@@ -276,7 +288,7 @@ export async function checkDeletedAtColumn(
   tableName: string
 ): Promise<boolean> {
   try {
-    return await columnExists(tx, tableName, 'deleted_at')
+    return await columnExists(tx, databaseTableName(tableName), 'deleted_at')
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to check columns for ${tableName}`, error)

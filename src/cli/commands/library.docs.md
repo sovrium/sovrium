@@ -39,6 +39,15 @@ The command finds your config the way `sovrium start` does — `app.yaml`, `app.
 2. **Wires it** by adding exactly one line, `- $ref: ./library/<kind>/<name>.yaml`, at the end of the `components`, `connections` or `automations` list — creating the key at the end of the file when it is missing. Nothing else in `app.yaml` moves: comments, ordering and quoting stay as you wrote them.
 3. **Lists the secrets** an entry reads by appending their names — never a value — to `.env.example`. `.env` is never read or written.
 
+An entry that reads environment variables needs them declared under `env` in your config first, since a config may reference only the variables it declares. Until they are, `add` refuses — writing nothing — and prints the exact lines to add, for example:
+
+```yaml
+env:
+  - key: STRIPE_SECRET_KEY
+```
+
+The entry itself is never changed to fit.
+
 A recipe that needs a connection installs it too, unless your config already defines one of that name.
 
 An entry that reads data binds to a table your config already has: `library show` lists the table and fields it expects, `--set table=<yours>` (and any field parameter) rebinds it, and `add` refuses — writing nothing — when the table or a field is missing. The library never creates a table.

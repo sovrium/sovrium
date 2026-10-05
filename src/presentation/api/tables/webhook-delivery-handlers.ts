@@ -5,13 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { redactSecretHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import {
-  hasReadPermissionForRoles,
-  hasUpdatePermissionForRoles,
-} from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app'
 import {
   getDelivery,
   listDeliveries,
@@ -23,7 +19,11 @@ import {
   deliverTestWebhook,
   type TableWebhookPayload,
 } from '@/infrastructure/webhooks/table-webhook-dispatch'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import {
+  errorBody,
+  notFound as notFoundResponse,
+  notFoundBody,
+} from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Webhook } from '@/domain/models/app/tables/webhooks'
@@ -47,32 +47,25 @@ const findWebhook = (app: App, tableName: string, webhookName: string): Webhook 
 
 /** The canonical 404 these handlers return for BOTH absence and denial (S1). */
 const notFound = (c: Context, what: string): Response =>
-  c.json(errorBody({ error: `${what} not found`, code: ApiErrorCode.NOT_FOUND }), 404)
+  c.json(notFoundBody(`${what} not found`), 404)
 
 /**
- * Gate a delivery-log request on the TABLE's own permissions.
+ * Gate every webhook management request on the caller being an admin.
  *
- * Webhook-exists → 404 was the only gate these four endpoints had. A delivery
- * row carries the record payload verbatim, so a `viewer` on a
- * `read: ['admin']` table could read every record through the delivery log —
- * the table gate the records API applies, applied nowhere here.
+ * Managing a table's webhooks — the list, the delivery log, one delivery, a
+ * retry and a test send — is an admin's, whatever the caller may do to the
+ * table's records. A delivery row and the webhook list both carry the
+ * configured URL (often with a token in it), and a retry or a test drives an
+ * OUTBOUND request carrying the webhook's resolved credentials, so a table
+ * grant is not enough to admit anyone here. `isAdminEquivalent` is the
+ * canonical predicate, so a custom top role counts as the admin it is.
  *
- * `read` governs the two GETs. Retry and test both drive an OUTBOUND request
- * carrying the webhook's resolved credentials, which is a side effect on the
- * table's behalf rather than a read, so they take `update`. A denial is a 404
- * either way: confirming the webhook exists is itself the enumeration this
- * endpoint must not offer.
+ * Every other caller gets the exact 404 the table middleware answers for a
+ * table that does not exist — same status, same body — and it is returned
+ * before any webhook or delivery lookup and before any side effect (S1).
  */
-const denyUnlessPermitted = (c: Context, app: App, op: 'read' | 'update'): Response | undefined => {
-  const { tableName, userRole, userGroups } = getTableContext(c)
-  const table = app.tables?.find((t) => t.name === tableName)
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  const permitted =
-    op === 'read'
-      ? hasReadPermissionForRoles(table, effectiveRoles, app.tables)
-      : hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)
-  return permitted ? undefined : notFound(c, 'Webhook')
-}
+export const denyUnlessWebhookAdmin = (c: Context, app: App): Response | undefined =>
+  isAdminEquivalent(getTableContext(c).userRole, app) ? undefined : notFoundResponse(c)
 
 /**
  * Redact the credential-bearing headers of a stored delivery row.
@@ -118,7 +111,7 @@ export async function handleListDeliveries(c: Context, app: App): Promise<Respon
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
 
-  const denied = denyUnlessPermitted(c, app, 'read')
+  const denied = denyUnlessWebhookAdmin(c, app)
   if (denied) return denied
 
   const webhook = findWebhook(app, tableName, webhookName)
@@ -154,7 +147,7 @@ export async function handleGetDelivery(c: Context, app: App): Promise<Response>
   const webhookName = c.req.param('webhookName')!
   const deliveryIdRaw = c.req.param('deliveryId')!
 
-  const denied = denyUnlessPermitted(c, app, 'read')
+  const denied = denyUnlessWebhookAdmin(c, app)
   if (denied) return denied
 
   const webhook = findWebhook(app, tableName, webhookName)
@@ -206,7 +199,7 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
   const webhookName = c.req.param('webhookName')!
   const deliveryIdRaw = c.req.param('deliveryId')!
 
-  const denied = denyUnlessPermitted(c, app, 'update')
+  const denied = denyUnlessWebhookAdmin(c, app)
   if (denied) return denied
 
   const webhook = findWebhook(app, tableName, webhookName)
@@ -225,7 +218,7 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
   }
 
   const payload = rebuildPayload(delivery)
-  const outcome = await deliverAndLog({ webhook, tableName, payload })
+  const outcome = await deliverAndLog({ webhook, tableName, payload, appEnv: app.env })
 
   return c.json(
     {
@@ -263,7 +256,7 @@ export async function handleTestWebhook(c: Context, app: App): Promise<Response>
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
 
-  const denied = denyUnlessPermitted(c, app, 'update')
+  const denied = denyUnlessWebhookAdmin(c, app)
   if (denied) return denied
 
   const webhook = findWebhook(app, tableName, webhookName)
@@ -272,7 +265,12 @@ export async function handleTestWebhook(c: Context, app: App): Promise<Response>
   }
 
   const sampleRecord = buildSampleRecord(findTableFields(app, tableName))
-  const result = await deliverTestWebhook({ webhook, tableName, sampleRecord })
+  const result = await deliverTestWebhook({
+    webhook,
+    tableName,
+    sampleRecord,
+    appEnv: app.env,
+  })
 
   // A `httpStatus` of 0 means the request never reached the endpoint
   // (DNS/connection failure or SSRF-guard rejection) — surface a 502.

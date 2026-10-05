@@ -71,6 +71,16 @@ export function renderLanguageSwitcher(
   const hasFlags = languages.supported.some((lang) => lang.flag)
   const showFlags = (props.showFlags as boolean | undefined) ?? hasFlags
 
+  // The rest of `props` is markup: the author's HTML attributes and the
+  // `data-component-type` stamp, which belong on the switcher's outer element.
+  // The display options above are the switcher's own reading, not attributes.
+  const {
+    variant: _variant,
+    showFlags: _showFlags,
+    position: _position,
+    ...attributes
+  } = omitInternalMarkers(props)
+
   // Languages already validated at server startup (start-server.ts)
   return (
     <LanguageSwitcher
@@ -78,6 +88,7 @@ export function renderLanguageSwitcher(
       variant={variant}
       showFlags={showFlags}
       currentLang={currentLang}
+      attributes={attributes}
     />
   )
 }

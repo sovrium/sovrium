@@ -7,10 +7,9 @@
 # shop or any system you give the token to can post leads, and nobody else
 # can.
 #
-# The last step adds this run's line to the activity log. A lead typed in or
-# posted to the records API runs recipe 2; a lead written by this recipe does
-# not yet, because a record written by an automation does not start another
-# automation's record trigger today.
+# The last step adds this run's line to the activity log. The lead it writes
+# then runs recipe 2, exactly as a lead typed in or posted to the records API
+# does: a record an automation writes starts the record triggers of its table.
 name: capture-lead-from-webhook
 label: Webhook → record
 description: Turn an authenticated webhook POST into a lead.

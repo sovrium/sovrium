@@ -15,7 +15,7 @@
  *
  * The page cache is consulted ONLY for anonymous requests. The renderer's
  * session-dependent steps — visibility filtering, CRUD-permission filtering,
- * OAuth filtering (see `presentation/rendering/visibility-filter.ts` and
+ * OAuth filtering (see `presentation/render/resolve/visibility-filter.ts` and
  * `render-page.tsx`) — are all pure functions of `(schema, session)`. With
  * `session === undefined` they produce deterministic output, so they do NOT
  * make a page uncacheable.
@@ -26,6 +26,16 @@
  * `$ref` expansion, `$vars` substitution, island SSR skeletons) is a pure
  * function of the schema and is already covered by the render-checksum cache
  * key.
+ *
+ * ## What the verdict reads: the page AS RENDERED, not as authored
+ *
+ * A component placed through `$ref` / `component` is a pointer into
+ * `app.components`, and a breakpoint's `responsive.<bp>.children` is a second
+ * child list beside `children`. The renderer expands and draws both, so every
+ * per-request signal below is looked for there too — templates at any depth,
+ * guarded against a template that (directly or through another) places itself.
+ * Reading only the authored tree once let a template's record list or
+ * query-prefilled form be served from a copy stored for another visitor.
  *
  * ## Three-way verdict
  *
@@ -52,11 +62,22 @@
  */
 
 import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
+import { NOW_TOKEN } from '@/domain/kernel/time/now-token'
 import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
 import { APP_ORIGIN_TOKEN } from '@/domain/models/app/pages/app-vars'
+import {
+  placedTemplatesOf,
+  someRenderedNode,
+  type PlacedTemplates,
+  type Templates,
+  type TreeNode,
+} from '@/domain/models/app/pages/component-tree-has-type'
+import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { Page } from '@/domain/models/app/pages'
+
+type Node = TreeNode
 
 /**
  * Returns true when `page.access` gates the page to non-anonymous users. An
@@ -98,7 +119,7 @@ type DynamicSignalId =
  */
 const DYNAMIC_PAGE_SIGNALS: readonly {
   readonly id: DynamicSignalId
-  readonly trips: (page: Page) => boolean
+  readonly trips: (page: Page, placed: PlacedTemplates) => boolean
 }[] = [
   { id: 'access', trips: (page) => hasNonPublicAccess(page.access) },
   { id: 'collection', trips: (page) => page.collection !== undefined },
@@ -112,19 +133,22 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
   // G1: `$app.origin` prints the address THIS request arrived on. The page
   // cache is keyed by path, so serving a second front host from an entry minted
   // for the first would print the wrong address to every one of its visitors.
-  { id: 'appOrigin', trips: (page) => referencesRequestOrigin(page) },
+  { id: 'appOrigin', trips: (page, placed) => referencesRequestOrigin(page, placed) },
 ]
 
 /**
- * Whether any string the page carries references `$app.origin`.
+ * Whether any string the page carries — or any template it places — references
+ * `$app.origin`.
  *
  * A deep scan rather than a shallow one because the token is usable anywhere a
- * string is — a heading, a prop, an `href`, a breadcrumb label. Only `$app.` is
- * tested per string before the full token, so the walk costs one `includes` on
- * the overwhelming majority of pages that carry no reference at all.
+ * string is — a heading, a prop, an `href`, a breadcrumb label. The page's own
+ * scan also covers a reference's `vars`; the scan of each placed template covers
+ * the body those vars are substituted into. Each string is visited once.
  */
-function referencesRequestOrigin(page: Page): boolean {
-  return hasOriginToken(page.components) || hasOriginToken(page.layout)
+function referencesRequestOrigin(page: Page, placed: PlacedTemplates): boolean {
+  return (
+    hasOriginToken(page.components) || hasOriginToken(page.layout) || placed.some(hasOriginToken)
+  )
 }
 
 function hasOriginToken(value: unknown): boolean {
@@ -149,24 +173,20 @@ const CONTENT_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSign
 ])
 
 /**
- * Walks a component tree depth-first and reports whether any node carries a
- * `dataSource` binding. A component-level `dataSource` makes the renderer read
- * the database for that component, so its HTML is not checksum-invariant and
- * the host page must not be cached.
- *
- * Tree items may be a direct component object (which may own a `dataSource`
- * and nested `children`), a `$ref` / `component` reference (opaque — no
- * `dataSource` of its own), or a plain string (text child — never dynamic).
+ * Whether any rendered node carries a `dataSource` binding. A component-level
+ * `dataSource` makes the renderer read the database for that component, so its
+ * HTML is not checksum-invariant and the host page must not be cached.
  */
-function componentTreeHasDataSource(items: readonly unknown[]): boolean {
-  return items.some((item) => {
-    if (item === null || typeof item !== 'object') return false
-    const node = item as Record<string, unknown>
-    if ('$ref' in node || 'component' in node) return false
-    if (node.dataSource !== undefined) return true
-    const { children } = node
-    return Array.isArray(children) ? componentTreeHasDataSource(children) : false
-  })
+const componentTreeHasDataSource = (items: readonly unknown[], placed: PlacedTemplates): boolean =>
+  someRenderedNode(items, placed, (node) => node['dataSource'] !== undefined)
+
+/** {@link classifyPageCacheability} over templates already collected. */
+const verdictFor = (page: Page, placed: PlacedTemplates): PageCacheability => {
+  if (componentTreeHasDataSource(page.components ?? [], placed)) return 'dynamic'
+  const tripped = DYNAMIC_PAGE_SIGNALS.filter((signal) => signal.trips(page, placed))
+  if (tripped.length === 0) return 'static'
+  if (page.contentDir === undefined) return 'dynamic'
+  return tripped.every((signal) => CONTENT_BACKED_SIGNALS.has(signal.id)) ? 'content' : 'dynamic'
 }
 
 /**
@@ -180,64 +200,73 @@ function componentTreeHasDataSource(items: readonly unknown[]): boolean {
  * Pure: this only classifies. Measuring the corpus (a filesystem read) belongs
  * to the infrastructure layer.
  *
- * @param page - The resolved page schema object.
+ * @param page - The page schema object, as authored (references unexpanded).
+ * @param templates - `app.components`, which the page's references name.
  */
-export const classifyPageCacheability = (page: Page): PageCacheability => {
-  if (componentTreeHasDataSource(page.components ?? [])) return 'dynamic'
-  const tripped = DYNAMIC_PAGE_SIGNALS.filter((signal) => signal.trips(page))
-  if (tripped.length === 0) return 'static'
-  if (page.contentDir === undefined) return 'dynamic'
-  return tripped.every((signal) => CONTENT_BACKED_SIGNALS.has(signal.id)) ? 'content' : 'dynamic'
-}
+export const classifyPageCacheability = (page: Page, templates: Templates = []): PageCacheability =>
+  verdictFor(page, placedTemplatesOf(page.components ?? [], templates))
 
 /**
- * True when a form's form-level `prefill` reads any `$query.*` reference. Such a
- * form renders query-dependent initial values, so a page embedding it (via
- * `formRef`) is not safe to serve from the path-keyed page cache.
+ * True when a prefill or default value is resolved from the REQUEST rather than
+ * the schema: `$query.<name>` (the URL) or `$now` (the moment of the render).
+ * `$user.<prop>` is deliberately absent — the page cache only ever serves
+ * anonymous requests, for which it resolves to nothing, identically every time.
  */
-const formHasQueryPrefill = (form: Readonly<Form>): boolean => {
+const isRequestValue = (value: unknown): boolean =>
+  typeof value === 'string' && (value.startsWith('$query.') || value === NOW_TOKEN)
+
+/**
+ * True when a form starts from a request-dependent value: its form-level
+ * `prefill`, or one of its fields' `defaultValue`s (an embedded form starts
+ * from both, exactly as its standalone page does). Such a form renders
+ * per-request initial values, so a page embedding it (via `formRef`) is not
+ * safe to serve from the path-keyed page cache.
+ */
+const formHasRequestPrefill = (form: Readonly<Form>): boolean => {
   const { prefill } = form as { readonly prefill?: Readonly<Record<string, unknown>> }
-  if (prefill === undefined) return false
-  return Object.values(prefill).some(
-    (value) => typeof value === 'string' && value.startsWith('$query.')
+  if (prefill !== undefined && Object.values(prefill).some(isRequestValue)) return true
+  const fields = (form as { readonly fields?: readonly unknown[] }).fields ?? []
+  return fields.some((field) =>
+    isRequestValue((field as { readonly defaultValue?: unknown } | null)?.defaultValue)
   )
 }
 
-/**
- * True when a single component node embeds a `{ type: 'form' | 'dialog',
- * formRef: <name> }` referencing a form whose form-level `prefill` reads
- * `$query.*`. Split out of the tree walker to keep each function's cyclomatic
- * complexity within the project cap.
- */
-function nodeEmbedsQueryPrefillForm(
-  node: Readonly<Record<string, unknown>>,
-  forms: readonly Form[]
-): boolean {
-  if (node.type !== 'form' && node.type !== 'dialog') return false
-  if (typeof node.formRef !== 'string') return false
-  const form = forms.find((candidate) => candidate.name === node.formRef)
-  return form !== undefined && formHasQueryPrefill(form)
+/** True when a page-form node's own `inlinePrefill` names a request-dependent value. */
+function inlinePrefillReadsRequest(node: Node): boolean {
+  const { inlinePrefill } = node as { readonly inlinePrefill?: { readonly prefill?: unknown } }
+  const prefill = inlinePrefill?.prefill
+  if (prefill === null || typeof prefill !== 'object') return false
+  return Object.values(prefill).some(isRequestValue)
 }
 
 /**
- * Walk a component tree and report whether any `{ type: 'form' | 'dialog',
- * formRef: <name> }` node references a form whose form-level `prefill` reads
- * `$query.*`. Such a page's embedded form renders differently
- * per request query string, so its HTML is not request-invariant.
+ * True when a single component node renders request-dependent starting values:
+ * its own `inlinePrefill` does, or it embeds (`formRef`) a form that does.
+ *
+ * The embedded form is read through {@link readEmbeddedFormRef}, the one
+ * predicate the router's embedded-form gate and the page-search corpus also
+ * ask, so a component kind that gains `formRef` joins this verdict the moment
+ * its schema declares the key rather than when someone remembers this list.
  */
-function componentTreeHasQueryPrefillForm(
-  items: readonly unknown[],
-  forms: readonly Form[]
-): boolean {
-  return items.some((item) => {
-    if (item === null || typeof item !== 'object') return false
-    const node = item as Record<string, unknown>
-    if ('$ref' in node || 'component' in node) return false
-    if (nodeEmbedsQueryPrefillForm(node, forms)) return true
-    const { children } = node
-    return Array.isArray(children) ? componentTreeHasQueryPrefillForm(children, forms) : false
-  })
+function nodeRendersRequestPrefill(node: Node, forms: readonly Form[]): boolean {
+  if (inlinePrefillReadsRequest(node)) return true
+  const formRef = readEmbeddedFormRef(node)
+  if (formRef === undefined) return false
+  const form = forms.find((candidate) => candidate.name === formRef)
+  return form !== undefined && formHasRequestPrefill(form)
 }
+
+/**
+ * Whether any rendered `form` / `dialog` node — inline, inside a placed
+ * template, or only in a breakpoint's children — renders request-dependent
+ * starting values ([internal ref]: `$query.*`; `$now`). Such a page's form
+ * renders differently per request, so its HTML is not request-invariant.
+ */
+const componentTreeHasRequestPrefillForm = (
+  items: readonly unknown[],
+  forms: readonly Form[],
+  placed: PlacedTemplates
+): boolean => someRenderedNode(items, placed, (node) => nodeRendersRequestPrefill(node, forms))
 
 /**
  * How the page that would render for `path` may be cached, paired with the
@@ -279,12 +308,14 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
 
   const page = pages[match.index]
   if (!page) return unmatched(path)
-  // GAP-3 / [internal ref]: a page embedding a formRef form whose form-level
-  // `prefill` reads `$query.*` renders query-dependent output. The page cache is
-  // keyed by path only (no query string), so serving such a page from cache
-  // would leak a prior request's `?param` values — exclude it.
-  if (componentTreeHasQueryPrefillForm(page.components ?? [], app.forms ?? [])) {
+  // [internal ref]: a page whose form starts from `$query.*` or `$now`
+  // (its prefill, its fields' defaults, or the host's inline prefill) renders
+  // per-request output. The page cache is keyed by path only (no query string)
+  // and has no TTL, so serving such a page from cache would leak a prior
+  // request's `?param` values, or freeze `$now` — exclude it.
+  const placed = placedTemplatesOf(page.components ?? [], app.components ?? [])
+  if (componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)) {
     return { verdict: 'dynamic', page }
   }
-  return { verdict: classifyPageCacheability(page), page }
+  return { verdict: verdictFor(page, placed), page }
 }

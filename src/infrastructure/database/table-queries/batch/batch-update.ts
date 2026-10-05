@@ -8,6 +8,10 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
+  reportCommittedRows,
+  type CommittedRowChange,
+} from '@/application/ports/services/record-change-feed'
+import {
   db,
   type ValidationError,
   type DrizzleTransaction,
@@ -17,14 +21,14 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
-import { fetchRecordByIdEffect } from '../mutation-helpers/record-fetch-helpers'
+import { fetchRecordByIdEffect, rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
-import { logActivity } from '../query-helpers/activity-log-helpers'
+import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
 import {
   wrapDatabaseErrorWithValidation,
   wrapWriteStatementError,
 } from '../statement/error-handling'
-import { validateTableName } from '../statement/validation'
+import { tableIdentifier } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -58,9 +62,12 @@ function executeRecordUpdate(
     try: async () => {
       const result = await executeRaw(
         tx,
-        sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+        sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
       )
-      return result[0]
+      const [updated] = result
+      return updated === undefined
+        ? undefined
+        : { ...(await rowAfterTriggers(tx, tableName, updated)) }
     },
     catch: wrapWriteStatementError(`Failed to update a batch record in ${tableName}`),
   })
@@ -74,7 +81,7 @@ function updateSingleRecordInBatch(
   tableName: string,
   session: Readonly<Session>,
   update: { readonly id: string; readonly fields?: Record<string, unknown> }
-): Effect.Effect<Record<string, unknown> | undefined, DatabaseError | ValidationError> {
+): Effect.Effect<CommittedRowChange | undefined, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const fieldsToUpdate = extractFieldsFromUpdate(update)
 
@@ -108,14 +115,13 @@ function updateSingleRecordInBatch(
     const updatedRecord = yield* executeRecordUpdate(tx, tableName, update.id, setClause)
 
     if (updatedRecord) {
-      yield* logActivity({
-        session,
+      return {
         tableName,
-        action: 'update',
+        event: 'update',
         recordId: String(update.id),
-        changes: { before: recordBefore, after: updatedRecord },
-      })
-      return updatedRecord
+        row: updatedRecord,
+        previous: recordBefore,
+      }
     }
 
     return undefined
@@ -139,22 +145,25 @@ export function batchUpdateRecords(
   tableName: string,
   updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
-  return withTransaction(
-    db,
-    (tx) =>
-      Effect.gen(function* () {
-        validateTableName(tableName)
-
+  return Effect.gen(function* () {
+    const committed = yield* withTransaction(
+      db,
+      (tx) =>
         // Process updates sequentially with immutable array building
-        return yield* Effect.reduce(
+        Effect.reduce(
           updates,
-          () => [] as readonly Record<string, unknown>[],
+          () => [] as readonly CommittedRowChange[],
           (acc, update) =>
             updateSingleRecordInBatch(tx, tableName, session, update).pipe(
-              Effect.map((record) => (record ? [...acc, record] : acc))
+              Effect.map((change) => (change ? [...acc, change] : acc))
             )
-        )
-      }),
-    wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
-  )
+        ),
+      wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
+    )
+    // Logged and reported once the transaction has committed — a rolled-back
+    // batch changed nothing.
+    yield* logCommittedRowChanges(session, committed)
+    yield* reportCommittedRows(committed)
+    return committed.flatMap((change) => (change.row === undefined ? [] : [{ ...change.row }]))
+  })
 }

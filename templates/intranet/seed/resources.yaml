@@ -1,69 +1,106 @@
-# Shared quick links, shown on /portal.
+# The links everyone needs, in three groups.
 #
-# All four categories are represented and unevenly weighted, because that is
-# what a real link list looks like: a handful of tools everyone opens daily, a
-# smaller set of policies nobody opens until they need to, and a long tail.
-#
-# URLs point at `example.com` paths on purpose. A template published to a public
-# repository must not carry a real internal hostname, and a link that 404s in a
-# demo is better than one that leaks where somebody's intranet actually lives.
+# URLs point at `example.com` paths on purpose: a template published to a
+# public repository must not carry a real internal hostname. Point them at
+# your own tools.
 records:
-  - key: handbook
-    fields:
-      title: Company handbook
-      url: https://intranet.example.com/handbook
-      category: Guides
-
-  - key: onboarding-checklist
-    fields:
-      title: New starter onboarding checklist
-      url: https://intranet.example.com/handbook/onboarding
-      category: Guides
-
-  - key: expense-policy
-    fields:
-      title: Expense policy (current version)
-      url: https://intranet.example.com/policies/expenses
-      category: Policies
-
-  - key: security-policy
-    fields:
-      title: Information security policy
-      url: https://intranet.example.com/policies/security
-      category: Policies
-
-  - key: time-off-policy
-    fields:
-      title: Time off and public holidays
-      url: https://intranet.example.com/policies/time-off
-      category: Policies
-
-  - key: it-helpdesk
-    fields:
-      title: IT helpdesk
-      url: https://helpdesk.example.com
-      category: Tools
-
-  - key: expense-tool
-    fields:
-      title: Submit an expense claim
-      url: https://expenses.example.com
-      category: Tools
-
-  - key: room-booking
-    fields:
-      title: Book a meeting room
-      url: https://rooms.example.com
-      category: Tools
-
-  - key: status-page
-    fields:
-      title: Internal systems status
-      url: https://status.example.com
-      category: Links
-
-  - key: org-chart
-    fields:
-      title: Org chart
-      url: https://intranet.example.com/people/org-chart
-      category: Links
+  - {
+      key: handbook,
+      fields:
+        {
+          title: Company handbook,
+          category: Guides,
+          url: 'https://intranet.example.com/handbook',
+          note: 'How we work, from day one to leaving well',
+        },
+    }
+  - {
+      key: new-starter,
+      fields:
+        {
+          title: New starter checklist,
+          category: Guides,
+          url: 'https://intranet.example.com/handbook/new-starters',
+          note: 'Your first two weeks, step by step',
+        },
+    }
+  - {
+      key: style-guide,
+      fields:
+        {
+          title: Writing style guide,
+          category: Guides,
+          url: 'https://intranet.example.com/handbook/style',
+          note: 'How we write to customers and to each other',
+        },
+    }
+  - {
+      key: expense-policy,
+      fields:
+        {
+          title: Expense policy,
+          category: Policies,
+          url: 'https://intranet.example.com/policies/expenses',
+          note: 'What you can claim and how',
+        },
+    }
+  - {
+      key: time-off,
+      fields:
+        {
+          title: Time off and public holidays,
+          category: Policies,
+          url: 'https://intranet.example.com/policies/time-off',
+          note: "Allowances and each office's holidays",
+        },
+    }
+  - {
+      key: security-policy,
+      fields:
+        {
+          title: Security policy,
+          category: Policies,
+          url: 'https://intranet.example.com/policies/security',
+          note: 'Devices, passwords and reporting an incident',
+        },
+    }
+  - {
+      key: it-helpdesk,
+      fields:
+        {
+          title: IT helpdesk,
+          category: Tools,
+          url: 'https://helpdesk.example.com',
+          note: 'Report a problem or ask for a laptop',
+        },
+    }
+  - {
+      key: meeting-rooms,
+      fields:
+        {
+          title: Book a meeting room,
+          category: Tools,
+          url: 'https://rooms.example.com',
+          note: "Every office's rooms in one calendar",
+        },
+    }
+  - {
+      key: payslips,
+      fields:
+        {
+          title: Payslips,
+          category: Tools,
+          url: 'https://payroll.example.com',
+          note: 'Your payslips and tax documents',
+        },
+    }
+  - {
+      key: status-page,
+      fields:
+        {
+          title: System status,
+          category: Tools,
+          url: 'https://status.example.com',
+          note: 'Whether the tools you use are up',
+        },
+    }

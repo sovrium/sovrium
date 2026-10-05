@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import nodemailer from 'nodemailer'
+import nodemailer, { type Transporter } from 'nodemailer'
 import { getEmailConfigFromEffect } from './email-config'
 import type Mail from 'nodemailer/lib/mailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport'
@@ -90,7 +90,7 @@ function resolveSmtpTimeout(envVar: string): number {
 /* eslint-disable functional/prefer-immutable-types -- nodemailer transporter is inherently mutable */
 export function createTransporter(
   config: Readonly<EmailConfig>
-): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
+): Transporter<SMTPTransport.SentMessageInfo> {
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,
@@ -124,7 +124,7 @@ export function createTransporter(
 // eslint-disable-next-line functional/no-let -- lazy singleton cache for email config
 let _config: EmailConfig | undefined
 // eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- lazy singleton cache for transporter
-let _transporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | undefined
+let _transporter: Transporter<SMTPTransport.SentMessageInfo> | undefined
 
 function getLazyConfig(): EmailConfig | undefined {
   if (!_config) {
@@ -140,8 +140,7 @@ function getLazyConfig(): EmailConfig | undefined {
  * disabled no transport is created and no connection is attempted.
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- nodemailer Transporter is mutable by library design
-export function getTransporter():
-  nodemailer.Transporter<SMTPTransport.SentMessageInfo> | undefined {
+export function getTransporter(): Transporter<SMTPTransport.SentMessageInfo> | undefined {
   const config = getLazyConfig()
   if (!config) return undefined
   if (!_transporter) {

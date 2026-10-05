@@ -63,3 +63,26 @@ export const cosineSimilarity = (a: ReadonlyArray<number>, b: ReadonlyArray<numb
   if (magA === 0 || magB === 0) return 0
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
+
+/**
+ * The field names a stored chunk records in its `metadata.fields`, whatever
+ * shape the driver surfaces the metadata column as (a parsed object from
+ * pgvector's `jsonb`, a JSON string from SQLite). `undefined` when the chunk
+ * records none — a document chunk, or a table chunk written before chunks
+ * recorded their fields — or when the metadata cannot be read.
+ */
+export const chunkFieldsOf = (metadata: unknown): ReadonlyArray<string> | undefined => {
+  const parsed = ((): unknown => {
+    if (typeof metadata !== 'string') return metadata
+    try {
+      return JSON.parse(metadata) as unknown
+    } catch {
+      return undefined
+    }
+  })()
+  if (parsed === null || typeof parsed !== 'object') return undefined
+  const { fields } = parsed as { readonly fields?: unknown }
+  return Array.isArray(fields) && fields.every((field) => typeof field === 'string')
+    ? (fields as ReadonlyArray<string>)
+    : undefined
+}

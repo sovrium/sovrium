@@ -33,7 +33,7 @@ The automation a button names must carry a `manual` trigger to be invocable this
 
 ## Showing a button on some records only
 
-`visibleWhen` names a record field and applies the shared condition vocabulary — `eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte` — to its value. Supplying several operators requires all of them to hold.
+`visibleWhen` names a record field and applies the shared condition vocabulary — `eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte`, and the presence flags `isEmpty: true` / `isNotEmpty: true` — to its value. Supplying several operators requires all of them to hold. A presence flag treats a missing value, an empty text, an empty list and an empty object alike, so `{ field: phone, isNotEmpty: true }` shows the button only on records that actually have a phone number.
 
 ```yaml
 - {

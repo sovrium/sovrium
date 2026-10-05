@@ -66,7 +66,17 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   //   elapses. Severity 'critical' because the action is irreversible;
   //   actor_id is null-ified by the FK ON DELETE SET NULL on the audit_log
   //   table (the user row is gone by the time anyone reads the entry).
+  //
+  // - `requested` fires on a `POST /api/auth/delete-user` that mailed its
+  //   confirmation link (the immediate door), actor = the user themself.
+  //
+  // - `deferred`  fires from the background purge job when a due erasure would
+  //   leave no one able to administer the app: the account stays scheduled and
+  //   is retried on every sweep. Written once per scheduled erasure, actor =
+  //   the sweep (`system`), severity 'warning', result 'failure'.
   'account.deletion.scheduled': 'user',
+  'account.deletion.requested': 'user',
+  'account.deletion.deferred': 'user',
   'account.deletion.purged': 'user',
   // Admin config readbacks
   'config.version.queried': 'config',
@@ -145,7 +155,7 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // Body reveal (D7) — same resource type, severity escalates at emit time
   // (handler passes severity: 'critical' to emitAuditEvent).
   'form.submission.body.revealed': 'form.submission',
-  // F-04 analytics + export endpoints. Aggregate analytics keys on the
+  // [internal ref] analytics + export endpoints. Aggregate analytics keys on the
   // singular `form` resource (it's a form-level metric), the CSV export
   // keys on `form.submission` (it returns submission rows).
   'form.analytics.queried': 'form',
@@ -155,6 +165,43 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // single-role-per-user contract; sibling per-user CRUD endpoints (story
   // `admin-user-management.md`) share the same compound-free type.
   'user.overview.queried': 'user',
+  // Privileged acts ON an account. A role change is a change of what
+  // somebody may do, and an impersonation is an admin acting as somebody else,
+  // so both are kept on the retained admin trail rather than the per-record
+  // activity feed, whose rows an erasure deletes. All three key on `user`: the
+  // resource is the account acted upon, named by its opaque id alone — never
+  // its email address or name — so the entry outlives that account's erasure
+  // without keeping anything of theirs but an id that resolves to no one.
+  //
+  // - `user.role.changed` — one entry per write that actually changes the
+  //   stored role (set-role, update-user, the user update route, the
+  //   `auth/assignRole` action); `metadata: { previousRole, role }`, plus
+  //   `automation` when an automation made it.
+  // - `user.impersonation.started` / `.stopped` — the actor is the impersonating
+  //   admin in both, never the account being acted as.
+  //
+  // WRITES: `emitAuditEvent` drops an unregistered action with a warning, so a
+  // missing entry here would leave these acts unrecorded and fail nothing.
+  'user.role.changed': 'user',
+  'user.impersonation.started': 'user',
+  'user.impersonation.stopped': 'user',
+  // The other privileged acts on an account, on the same terms: the resource is
+  // the account acted upon, named by its id alone, and only an act that stood
+  // is recorded.
+  //
+  // - `user.banned` — `metadata: { expiresAt }` (an ISO timestamp, or null for
+  //   a ban without an end). Never the ban reason: it is free text an admin
+  //   wrote about the person, and the entry outlives that person's erasure.
+  // - `user.unbanned` — no metadata. Lifting a ban on an account that was not
+  //   banned changes nothing and records nothing.
+  // - `user.password.set` — an admin set the account's password. No metadata:
+  //   neither the password nor anything derived from it is ever written here.
+  //
+  // An automation author is recorded as for `user.role.changed`: actor
+  // `{ id: null, type: 'automation' }`, the automation's name in `metadata`.
+  'user.banned': 'user',
+  'user.unbanned': 'user',
+  'user.password.set': 'user',
   // Admin automations readbacks ([internal ref] Lane B — drain-admin-automations).
   // The overview endpoint keys on the singular resource type `automation`
   // (story §6.2 — every `automation.*` action shares the singular type).
@@ -263,6 +310,8 @@ export function resolveResourceType(action: string): string | undefined {
  */
 export const AUDIT_ACTIONS = {
   ACCOUNT_DELETION_SCHEDULED: 'account.deletion.scheduled',
+  ACCOUNT_DELETION_REQUESTED: 'account.deletion.requested',
+  ACCOUNT_DELETION_DEFERRED: 'account.deletion.deferred',
   ACCOUNT_DELETION_PURGED: 'account.deletion.purged',
   CONFIG_VERSION_QUERIED: 'config.version.queried',
   CONFIG_SCHEMA_QUERIED: 'config.schema.queried',
@@ -287,6 +336,12 @@ export const AUDIT_ACTIONS = {
   FORM_ANALYTICS_QUERIED: 'form.analytics.queried',
   FORM_EXPORT_QUERIED: 'form.export.queried',
   USER_OVERVIEW_QUERIED: 'user.overview.queried',
+  USER_ROLE_CHANGED: 'user.role.changed',
+  USER_IMPERSONATION_STARTED: 'user.impersonation.started',
+  USER_IMPERSONATION_STOPPED: 'user.impersonation.stopped',
+  USER_BANNED: 'user.banned',
+  USER_UNBANNED: 'user.unbanned',
+  USER_PASSWORD_SET: 'user.password.set',
   AUTOMATION_OVERVIEW_QUERIED: 'automation.overview.queried',
   AUTOMATION_RUNS_LIST_QUERIED: 'automation.runs.list.queried',
   AUTOMATION_RUNS_DETAIL_QUERIED: 'automation.runs.detail.queried',

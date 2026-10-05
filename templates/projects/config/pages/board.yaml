@@ -89,7 +89,7 @@ components:
                         - type: text
                           element: h3
                           props:
-                            className: text-[13px] font-medium leading-snug text-foreground
+                            className: text-[13px] font-medium leading-[18px] text-foreground
                           content: $record.title
                         - type: text
                           element: p
@@ -113,7 +113,7 @@ components:
                 dataSource:
                   table: tasks
                 props:
-                  title: Task
+                  title: $record.title
                 recordFields:
                   - { name: title, type: single-line-text, label: Task }
                   - { name: project, type: relationship, label: Project }

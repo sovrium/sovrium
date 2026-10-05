@@ -567,6 +567,8 @@ const CONDITION_OPERATORS = [
   'lt',
   'gte',
   'lte',
+  'isEmpty: true',
+  'isNotEmpty: true',
 ] as const
 
 /** True when a predicate carries at least one key that is not `field`. */

@@ -1,0 +1,26 @@
+# The assistant on /assistant answers from the handbook and nothing else.
+#
+# Its knowledge is the five articles everyone may read — the managers'
+# section is left out on purpose, because anything an agent has read it can
+# repeat to whoever asks. It holds the `member` role and is given no table
+# and no action: it reads, it never writes. `model` is left out so it uses
+# the provider you configure (AI_PROVIDER in `.env.example`); without one,
+# the rest of the handbook runs and the assistant page says what to set.
+name: handbook-assistant
+role: member
+systemPrompt: |
+  You answer questions from Corvel's handbook. Answer first, in two or three
+  sentences, then name the article the answer comes from.
+
+  If the handbook does not answer the question, say so plainly and name the
+  person who owns the nearest article. Never invent a policy, an amount or a
+  date.
+knowledge:
+  documents:
+    - { path: content/kb/getting-started/welcome.md, label: Welcome }
+    - { path: content/kb/getting-started/first-week.md, label: Your first week }
+    - { path: content/kb/it/laptop.md, label: Setting up your laptop }
+    - { path: content/kb/policies/expense-policy.md, label: Expense policy }
+    - { path: content/kb/policies/security-policy.md, label: Security policy }
+limits:
+  maxTokensPerDay: 200000

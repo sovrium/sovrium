@@ -1,0 +1,55 @@
+# What readers write under an essay. A new comment is Held: nobody sees it
+# until the editor approves it on the desk.
+#
+# Everyone may read the table, but the row-level rule below narrows every read
+# to Approved comments — a held comment is invisible to readers and to the
+# records API alike. The editor, an admin, sees them all.
+id: 4
+name: comments
+permissions:
+  read: all
+  create: [admin]
+  update: [admin]
+  delete: [admin]
+rowLevelPermissions:
+  read:
+    when:
+      field: status
+      operator: eq
+      value: Approved
+fields:
+  - id: 1
+    name: post
+    type: relationship
+    relatedTable: posts
+    relationType: many-to-one
+    displayField: title
+    onDelete: cascade
+    required: true
+  - id: 2
+    name: author_name
+    type: single-line-text
+    required: true
+  - id: 3
+    name: body
+    type: long-text
+    required: true
+  - id: 4
+    name: status
+    type: single-select
+    required: true
+    default: Held
+    options:
+      - Held
+      - Approved
+  # When the comment was written. A new one is stamped with the moment it
+  # arrives (config/automations/stamp-new-comment.yaml).
+  - id: 5
+    name: posted_at
+    type: datetime
+  # The date as a reader reads it, as on the essay's byline.
+  - id: 6
+    name: date_label
+    type: formula
+    formula: "CAST(substr(CAST(posted_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(posted_at AS TEXT), 6, 2) WHEN '01' THEN 'January' WHEN '02' THEN 'February' WHEN '03' THEN 'March' WHEN '04' THEN 'April' WHEN '05' THEN 'May' WHEN '06' THEN 'June' WHEN '07' THEN 'July' WHEN '08' THEN 'August' WHEN '09' THEN 'September' WHEN '10' THEN 'October' WHEN '11' THEN 'November' WHEN '12' THEN 'December' END || ' ' || substr(CAST(posted_at AS TEXT), 1, 4)"
+    resultType: string

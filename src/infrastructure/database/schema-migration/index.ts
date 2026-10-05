@@ -44,6 +44,7 @@ export {
 export {
   normalizeDataType,
   doesColumnTypeMatch,
+  findDriftedFormulaColumns,
   generateAlterColumnTypeStatement,
 } from './type-utils'
 
@@ -67,6 +68,10 @@ export {
   needsTableRecreation,
   isTableDefinitionUnchanged,
   needsDefinitionReconciliation,
+  findPreviousTableDefinition,
+  formulaColumnsNeedRebuild,
+  formulaColumnsReshaped,
+  hasDriftedFormulaColumns,
 } from './migration-statements'
 
 // Constraint synchronization

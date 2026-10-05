@@ -4,6 +4,8 @@
 
 A `formula` field stores nothing a user types. Its value is computed from an expression referencing other fields in the same record, and it recomputes whenever one of those inputs changes.
 
+A formula that is added or edited is computed for every row already in the table when the app next starts, and the record a write returns carries its computed value. The same happens once after an upgrade to a version of Sovrium that computes formulas differently: the first start recomputes every formula for the rows already there. That recompute runs no automation and leaves each row's modification time alone.
+
 ```yaml
 - { id: 1, name: total_price, type: formula, formula: 'price * quantity', resultType: number }
 ```
@@ -68,6 +70,8 @@ Two things follow. The refusal fires at DDL-generation time, not at `sovrium val
 Intuition is a poor guide here in both directions. Bun ships SQLite's math extension, so `power`, `sqrt`, `ceil`, `floor`, `mod`, `exp`, `ln`, `log`, `sign` and `trunc` all work — while `repeat` and `strpos`, which look far more primitive, do not.
 
 The `LPAD` example above is a case in point: it is fine today, but a Postgres cast such as `::text` beside it is Postgres syntax, so keep a formula meant to run on both engines to the portable subset.
+
+A formula that reads a date as text — `CAST(due AS TEXT)`, `'Due ' || due`, `CONCAT('Due ', due)` — is computed when the row is saved, on PostgreSQL as on SQLite, and reads the same day on both. A datetime read as text is spelled differently by the two engines: PostgreSQL writes it in UTC (`2026-10-05 14:30:00+00`) whatever the database session's time zone, while SQLite keeps the text the value was written with. For a label that reads the same everywhere, take only the day — `SUBSTR(CAST(starts_at AS TEXT), 1, 10)` — of a datetime written in UTC.
 
 ## A computed column is not editable
 

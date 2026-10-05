@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { isPhysicalColumnField } from '../sql/sql-field-predicates'
+import { generateColumnDefinition } from '../sql/sql-generators'
 import {
   generateCreatedAtColumn,
   generateDeletedAtColumn,
@@ -23,6 +26,7 @@ import {
   type ExistingColumnInfo,
 } from './column-detection'
 import { detectAmbiguousFieldRenames, detectFieldRenames } from './rename-detection'
+import { findDriftedFormulaColumns } from './type-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -203,6 +207,109 @@ const findPreviousTable = (
   )
 
 /**
+ * The previous definition of a table renamed under its id: the snapshot entry
+ * with the same `id` whose name the config no longer declares. The rename step
+ * has already moved the relation to the new name, so the comparison reads that
+ * entry under the new name — a rename alone is not a definition change, and
+ * must not rebuild the table and copy its rows.
+ */
+const findRenamedPreviousTable = (
+  table: Table,
+  declared: ReadonlyMap<string, unknown>,
+  previousSchema?: { readonly tables: readonly object[] }
+): object | undefined => {
+  const previous = previousSchema?.tables.find((t) => {
+    if (typeof t !== 'object' || t === null) return false
+    const entry = t as { readonly id?: unknown; readonly name?: unknown }
+    return (
+      entry.id !== undefined &&
+      String(entry.id) === String(table.id) &&
+      typeof entry.name === 'string' &&
+      !declared.has(entry.name)
+    )
+  })
+  return previous === undefined ? undefined : { ...previous, name: table.name }
+}
+
+/** A formula column's definition, or `undefined` when a stored snapshot cannot render it. */
+const formulaColumnDefinition = (
+  field: Fields[number],
+  fields: readonly Fields[number][]
+): string | undefined => {
+  try {
+    return generateColumnDefinition(field, false, fields)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Whether a formula column already in the table changes shape: it moves
+ * between a generated column and a plain one a trigger fills, or its generated
+ * expression changes. Neither is an `ALTER` the engine emits — a generated
+ * column's expression is fixed, and a trigger cannot write one — so the table
+ * is rebuilt from the current definition, its rows copied and its trigger
+ * formulas computed again. Left alone, the column kept its old expression, and
+ * a write to the table failed once a trigger tried to fill it.
+ */
+export const formulaColumnsReshaped = (
+  table: Table,
+  previousTable: object | undefined
+): boolean => {
+  const previousFields = (previousTable as { readonly fields?: unknown } | undefined)?.fields
+  if (!Array.isArray(previousFields)) return false
+  const before = previousFields as readonly Fields[number][]
+  return table.fields.some((field) => {
+    if (field.type !== 'formula' || !isPhysicalColumnField(field, table.fields)) return false
+    const previous = before.find((candidate) => candidate.name === field.name)
+    if (previous?.type !== 'formula') return false
+    const now = formulaColumnDefinition(field, table.fields)
+    const then = formulaColumnDefinition(previous, before)
+    if (now === undefined || then === undefined || now === then) return false
+    return now.includes('GENERATED ALWAYS') || then.includes('GENERATED ALWAYS')
+  })
+}
+
+/**
+ * Whether a formula column of the live table is not of the type this version
+ * declares (see {@link findDriftedFormulaColumns}). PostgreSQL only.
+ */
+export const hasDriftedFormulaColumns = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { readonly dataType: string }>
+): boolean =>
+  !isSqliteRuntime() &&
+  findDriftedFormulaColumns(
+    table.fields,
+    new Map([...existingColumns].map(([name, column]) => [name, column.dataType]))
+  ).length > 0
+
+/**
+ * Whether the table's formula columns force a rebuild: one changed shape since
+ * the previous migration ({@link formulaColumnsReshaped}), or one is of a type
+ * an earlier version converted it to ({@link hasDriftedFormulaColumns}).
+ */
+export const formulaColumnsNeedRebuild = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { readonly dataType: string }>,
+  previousTable: object | undefined
+): boolean =>
+  formulaColumnsReshaped(table, previousTable) || hasDriftedFormulaColumns(table, existingColumns)
+
+/**
+ * The previous definition of `table`: the snapshot entry of the same name, or
+ * — for a table renamed under its id — the entry it was renamed from, read
+ * under the new name. `declared` is keyed by every table the config declares.
+ */
+export const findPreviousTableDefinition = (
+  table: Table,
+  declared: ReadonlyMap<string, unknown>,
+  previousSchema?: { readonly tables: readonly object[] }
+): object | undefined =>
+  findPreviousTable(table.name, previousSchema) ??
+  findRenamedPreviousTable(table, declared, previousSchema)
+
+/**
  * Whether this table's definition is byte-identical to its definition in the
  * previously-migrated schema snapshot.
  *
@@ -294,7 +401,7 @@ export const needsDefinitionReconciliation = (options: {
     ...(hasAuthConfig === undefined ? {} : { hasAuthConfig }),
   }
   if (isTableDefinitionUnchanged(table, previousSchema)) return false
-  const previousTable = findPreviousTable(table.name, previousSchema)
+  const previousTable = findPreviousTableDefinition(table, tablePrimaryKeyTypes, previousSchema)
   if (!previousTable) return true
   // Both sides are fingerprinted with the SAME map and auth flag: the question
   // is whether the two DEFINITIONS differ, so any input that is not part of the
@@ -405,7 +512,7 @@ const planColumnChanges = (params: {
   return {
     renameStatements: Array.from(fieldRenames.entries()).map(
       ([oldName, newName]) =>
-        `ALTER TABLE ${physicalTableName} RENAME COLUMN ${oldName} TO ${newName}`
+        `ALTER TABLE ${physicalTableName} RENAME COLUMN ${quoteSqlIdentifier(oldName)} TO ${quoteSqlIdentifier(newName)}`
     ),
     renamedNewNames,
     columnsToAdd: findColumnsToAdd(table, existingColumns, renamedNewNames),

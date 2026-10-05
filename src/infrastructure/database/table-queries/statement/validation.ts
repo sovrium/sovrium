@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sql } from 'drizzle-orm'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+
 /**
  * Validate a table name to prevent SQL injection
  *
@@ -26,6 +29,35 @@ export const validateTableName = (tableName: string): void => {
     throw new Error(`Invalid table name: ${tableName}`)
   }
 }
+
+/**
+ * The database name of a table, from the name the config gives it.
+ *
+ * The records runtime is handed a table's CONFIG name — `Clients`,
+ * `client-notes`, `Open Deals` — which is the key for everything that looks the
+ * table up in the app (fields, permissions, activity). The migrations create
+ * the table under the name {@link sanitizeTableName} derives from it
+ * (`clients`, `client_notes`, `open_deals`), so every statement must name it
+ * that way too: quoted as written, `"Clients"` is a relation PostgreSQL never
+ * created, and `client-notes` is no identifier at all.
+ *
+ * Idempotent on a name that is already derived — which is what a view-backed
+ * table's view, a `<name>_base` relation and every junction table are — so a
+ * helper may resolve whatever it was handed. The derived name always passes
+ * {@link validateTableName}; the check stays as the last line of defence.
+ */
+export const databaseTableName = (tableName: string): string => {
+  const derived = sanitizeTableName(tableName)
+  validateTableName(derived)
+  return derived
+}
+
+/**
+ * A table spliced into a statement: its database name as a quoted identifier.
+ * See {@link databaseTableName}.
+ */
+export const tableIdentifier = (tableName: string): Readonly<ReturnType<typeof sql.identifier>> =>
+  sql.identifier(databaseTableName(tableName))
 
 /** PostgreSQL identifier shape: letter/underscore first, then alphanumerics. */
 const VALID_COLUMN_IDENTIFIER = /^[a-z_][a-z0-9_]*$/i

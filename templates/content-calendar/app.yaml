@@ -1,9 +1,17 @@
-name: content-calendar
-version: 1.0.0
+# Loomwork Content — a small team's content calendar in one config.
+#
+# Every piece, from idea to published, on one month coloured by channel, on a
+# board by status, and in a grid grouped by campaign. A piece sent to Review
+# waits for the lead's approval before it is scheduled, and every Monday the
+# team gets the week's pieces by email. This is the file you diff, fork and
+# redeploy.
+name: loomwork-content
+version: 2.0.0
 description: >-
-  Marketing content calendar — plan pieces on a month view, move them through
-  an editorial kanban, and keep briefs and assets attached to every piece.
-  A Monday-morning cron emails the team what ships this week.
+  A content calendar: every piece on a month coloured by its channel, a
+  pipeline from idea to published with the lead's approval before a piece is
+  scheduled, campaigns on a strip with every piece grouped under them, and a
+  Monday email of what goes out that week.
 
 auth:
   $ref: ./config/auth.yaml
@@ -11,16 +19,42 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# The address the digest's link points at, and who receives the digest. Set
+# both in production.
+env:
+  - key: BASE_URL
+    description: The public address of this app, used in the link the digest carries.
+    required: false
+    default: http://localhost:3000
+    secret: false
+  - key: SOVRIUM_DIGEST_TO
+    description: The address the Monday digest goes to, usually the team's alias.
+    required: false
+    default: team@example.com
+    secret: false
+
 tables:
   - $ref: ./config/tables/campaigns.yaml
   - $ref: ./config/tables/content.yaml
 
+# The one form opens in the New piece dialog on every page.
+forms:
+  - $ref: ./config/forms/new-piece.yaml
+
+# Automations run on the server, with their history kept in your own database.
+automations:
+  - $ref: ./config/automations/own-new-piece.yaml
+  - $ref: ./config/automations/approve-for-scheduling.yaml
+  - $ref: ./config/automations/monday-digest.yaml
+
+# Listed in the order of the sidebar, then sign-in.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
   - $ref: ./config/pages/calendar.yaml
   - $ref: ./config/pages/pipeline.yaml
-  - $ref: ./config/pages/grid.yaml
+  - $ref: ./config/pages/content.yaml
+  - $ref: ./config/pages/sign-in.yaml
 
-# Automations run server-side with full history in your own database.
-automations:
-  - $ref: ./config/automations/weekly-digest.yaml
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the calendar.
+badge:
+  placement: footer

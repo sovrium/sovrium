@@ -11,6 +11,7 @@ Two operators computing digests and signatures, typically to verify an inbound w
 `algorithm` is required on both operators. `encoding` is `hex` by default, or `base64`.
 
 ```yaml
+# Requires env: [{ key: SIGNING_SECRET }] at the top of the app
 - name: signPayload
   type: crypto
   operator: hmac
@@ -33,7 +34,7 @@ Two operators that collect items across many runs into a named bucket, then drai
 
 <!-- sovrium:options DigestActionSchema -->
 
-`digestKey` is required on both operators and is what pairs a producer with its consumer. `sort.direction` defaults to ascending.
+`digestKey` is required on both operators and is what pairs a producer with its consumer. `sort.direction` defaults to ascending. `sort.field` names a key of the collected items; a key starting with `$`, which reads as a JSON path rather than a key, is refused — when the config is checked, or when a key filled in from the request reaches the release, which then fails with the reason. The refusal points at `sort.field` and names the key to write instead: `$.priority` is refused with `(write "priority")`.
 
 ```yaml
 - name: queueDigest

@@ -6,7 +6,7 @@
  */
 
 /**
- * F-11 (file-uploads): inline JS source for the file-input portion of
+ * [internal ref] (file-uploads): inline JS source for the file-input portion of
  * the standalone form runtime. Sliced out of `form-runtime.tsx` so the
  * runtime file stays under the project's max-lines cap; concatenated
  * verbatim into the IIFE source string at module load time.
@@ -16,8 +16,14 @@
  *   - `removeIfPresent` (DOM helper)
  *   - `showFieldError` (inline-error helper)
  *
- * The fragment exports two locals:
+ * It also relies on `labelOf` / `fieldErrorMessage` (field-errors fragment).
+ *
+ * The fragment exports these locals:
  *   - `fileStash` (per-field selected-file array, keyed on input name)
+ *   - `invalidMessageOf(input)` (the validation verdict both the whole-form and
+ *     the one-question validators use: an attachment field is judged on its
+ *     stash, so a recorded, dropped or picked file satisfies `required` and
+ *     removing the last one fails it again)
  *   - `fileInputs` / `hasFileInputs` (used by the submit interceptor)
  *
  * Both branches (`bindFileInput`, `buildMultipartBody` etc.) read these
@@ -180,6 +186,19 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
         processSelectedFiles(input, ev.dataTransfer.files)
       }
     })
+  }
+  // Why a named input is refused, or null when it passes. An attachment
+  // field's files live in fileStash — a recording or a drop never reaches the
+  // native input, and a removed chip leaves the native input's own list
+  // stale — so its required check reads the stash, never checkValidity().
+  function invalidMessageOf(input) {
+    var stashName = input.type === 'file' ? input.getAttribute('data-form-file-input') : null
+    if (stashName) {
+      return input.required && (fileStash[stashName] || []).length === 0
+        ? requiredMessage(labelOf(input))
+        : null
+    }
+    return input.checkValidity() ? null : fieldErrorMessage(input)
   }
   var fileInputs = getFileInputs()
   fileInputs.forEach(bindFileInput)

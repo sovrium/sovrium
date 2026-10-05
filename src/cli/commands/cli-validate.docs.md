@@ -94,7 +94,7 @@ What survives is always enough to act on: the path, the complaint, and the shape
 
 ### Notices
 
-A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today two exist — a superseded design key, and a field whose id is left implicit.
+A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today three exist — a superseded design key, a field whose id is left implicit, and an engine interface string overridden under its bare name.
 
 #### `field-id-implicit`
 
@@ -130,6 +130,21 @@ tables:
 Keep the id each field has today — its current position, counting from `1` — and give every new field the next unused number, wherever in the list you put it. The id is identity; the array position is still what orders the fields, so the two are free to disagree. That is the whole point: a field inserted at the top with the next unused id changes the order and renames nothing.
 
 One notice per **table**, not per field: a table written before ids were explicit omits every one of them, and forty identical lines teach their reader to ignore notices. The table is named because "some field somewhere has no id" is not actionable in a config split across a dozen `$ref` files, and a field with no `name` is referred to by the position that _is_ its id. The token `field-id-implicit` is in the message so it is greppable.
+
+#### `engine-key-unprefixed`
+
+You override the engine's own interface text — a grid's **New record**, a confirm dialog's **Cancel** — under the reserved `sovrium.` prefix: `languages.translations.en['sovrium.datatable.newRecord']`. Ten keys were read under their bare name before the prefix existed, and a config that still spells one of them that way keeps working, with this notice:
+
+```console
+$ sovrium validate app.yaml
+Notice:
+
+  engine-key-unprefixed: languages.translations.en['datatable.newRecord'] overrides engine interface text under its bare name, which is deprecated — write it as 'sovrium.datatable.newRecord'. The bare name still works for the ten keys that accepted it before the prefix.
+
+Valid configuration: crm
+```
+
+One notice for the whole config, listing every occurrence with its prefixed spelling. The server prints the same notice once when it starts. A bare key that is not one of the ten earns nothing: it is your own vocabulary, and it never renames engine chrome.
 
 ## Validating from inside a config
 

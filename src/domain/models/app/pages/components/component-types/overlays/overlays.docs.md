@@ -4,6 +4,8 @@
 
 Overlay components float above the page. The three floating ones — popover, tooltip, hover-card — share `floatingSide` and `floatingAlign` positioning. The dialog family is opened by a **sibling** component whose `interactions.click.modal` names the overlay's `props.id`, and traps focus while open unless the dialog opts out of hydration. All accept the shared `props` bag plus the `visibility` and `responsive` modules.
 
+An overlay is gated with the triggers that open it. When every button, row click or action that opens a dialog, drawer or popover is hidden from a viewer — by `visibility` or a capability gate — the overlay is left out of that viewer's page too, not rendered and hidden. An overlay's own `visibility` still applies on top, so the two combine as AND.
+
 ```yaml
 components:
   # The opener: any component whose click interaction names the dialog id
@@ -24,9 +26,13 @@ components:
 
 A modal dialog. The dialog itself declares no trigger: it is opened by a sibling whose `props.interactions.click.modal` names this dialog's `props.id`. Clicking the backdrop or pressing Escape closes it, and focus is trapped within the panel while it is open.
 
+Whether a dialog starts open depends on that opener. A dialog named by any `interactions.click.modal` in the page's configuration stays closed until it is opened — even when the trigger is not drawn yet, because it sits in a tab panel the reader has not opened or in another view of the page. A dialog nothing names opens on its own when the page loads.
+
 <!-- sovrium:options type:dialog -->
 
-`props.id` is the identifier the opener names; `props.title` and `props.description` are the heading and the supporting line; `children` are rendered inside the panel; and `formRef` names a top-level form from `app.forms[]` to render in the body.
+`props.id` is the identifier the opener names; `props.title` and `props.description` are the heading and the supporting line, and both accept a `$t:` key that prints the active language's text — in the dialog's accessible name too; `children` are rendered inside the panel; and `formRef` names a top-level form from `app.forms[]` to render in the body.
+
+A dialog has a close button in its header, named "Close" in the page language. A dialog that holds a form through `formRef` also offers a Cancel beside the form's submit, which closes the dialog without sending the form; both labels come from the page language, and an author renames them under `sovrium.dialog.close` and `sovrium.dialog.cancel`. A multi-step or one-question form keeps its own step buttons.
 
 A dialog wrapping a form shows one title: its own, or the form's when it declares none.
 
@@ -65,15 +71,19 @@ A panel that slides in from a screen edge.
 
 <!-- sovrium:options type:drawer depth=3 -->
 
-`drawerSide` is the edge it slides from — `left`, `right`, `top`, `bottom` — and `drawerSize` a preset of `sm`, `md`, `lg` or `full`.
+`drawerSide` is the edge it slides from — `left`, `right`, `top`, `bottom` — and `drawerSize` a preset of `sm`, `md`, `lg` or `full`. Its close button is named "Close" in the page language, like a dialog's, and is renamed under the same `sovrium.dialog.close`.
 
 ### The record-detail drawer
 
 Give a drawer a `dataSource` and it becomes record-bound: it fetches one record, renders a control per field, and — unless you turn editing off — saves back through the record API. This is the panel a `table` opens on a row click, and it also self-opens on a `?record=<id>` deep link.
 
-`dataSource` takes `{ table }` for a database record or `{ system }` to fetch one from a read endpoint; a system-bound drawer is read-only, because there is no table to save to. `recordFields` lists the fields to show, each `{ name, type }`, with `label` to rename an entry and `renderAs` to choose the rendering: `text`, the default, stringifies the value, and `json`, `list`, `key-value` and `code` each unpack a nested one. `canEdit: false` renders the record read-only. `actions` are footer buttons firing against the loaded record — `$record.*` resolves at click time, and `confirm` gates the click. `role` is `dialog` by default or `region`, and its accessible name comes from `props.title`. `id` is what a grid's `onRowClick: { action: openDrawer, component: <id> }` names.
+A drawer opened on a record it cannot show — one that does not exist, or one its reader may not read — says "This record could not be found." in the page language (`sovrium.recordDrawer.notFound` renames it) and offers nothing to edit or save; it says the same for both, so a reader cannot tell a hidden record from a missing one.
 
-A read-only drawer shows a value as the grid does — a multi-select as chips, an amount in its currency.
+Opening a drawer on a record writes `?record=<id>&drawer=<drawer id>` into the address — whatever opened it: a grid row, a list item, a calendar event or another drawer's footer — so the link a reader copies reopens that drawer on that record, and only that drawer. Record ids are per table, so on a page declaring several record drawers a bare `?record=<id>` cannot say which one it means: it opens exactly one, the first record-bound drawer the page declares.
+
+`dataSource` takes `{ table }` for a database record or `{ system }` to fetch one from a read endpoint; a system-bound drawer is read-only, because there is no table to save to. `recordFields` lists the fields to show, each `{ name, type }`, with `label` to rename an entry and `renderAs` to choose the rendering: `text`, the default, stringifies the value, and `json`, `list`, `key-value` and `code` each unpack a nested one. `canEdit: false` renders the record read-only; an attachment then reads as its file's name, linking to the file, as in the grid. An editable drawer draws each field with the control the form draws for it: a `status` or `single-select` is a choice of its options, a `user` a choice of accounts shown by name, and the drawer saves the stored value. A single-valued `relationship` is a picker searching the related table by its `displayField`: it shows the linked record by that field, and saving stores the picked record's key. An optional link also offers a Clear control, and saving then unlinks the record. The picker's candidates follow the related table's read permissions, so a record the reader may not read is neither offered nor named. A drawer shows each reader only what they may read: a field their role cannot read is left out, a field it cannot write is shown as its value without an editable control, and Save sends only the fields the reader may write. A drawer in which the reader may change none of the fields it shows — the table's `update` refuses her, or every field is read-only for her — draws no Save button at all. Save refuses a required field left blank, naming it in the page language; an optional field left empty saves. `actions` are footer buttons firing against the loaded record — `$record.*` resolves at click time, and `confirm` gates the click. A footer action may also be `{ action: openDrawer, component: <id> }`, which closes this drawer and opens the named one on the same record — a detail drawer whose Decide button opens the decision drawer. The drawer's `props.className` lands on the drawer surface the reader sees. `role` is `dialog` by default or `region`, and its accessible name comes from `props.title`, which accepts a `$t:` key like a dialog's. A drawer's title may name its record: `title: $record.name`, or `Role of $record.name`; it follows the record the drawer opens. `id` is what a grid's `onRowClick: { action: openDrawer, component: <id> }` names.
+
+A read-only drawer lists its fields as a description list and draws each value as the grid does: a choice as a badge in its option colour, a user with an avatar, a date in the page's date format, a date-time as its date and time in the page language, at the field's own `timeZone`, else the operator time zone, a stored file by the name it was uploaded under, as a link to it, a checkbox as a check mark, a multi-select as chips, an amount in its currency. With no session, the drawer leaves out every field an anonymous reader may not read — no label, no empty value. An editable drawer draws each field with the control a form draws for its type, one input high: a date picker, a number input, a text area for long text, a checkbox, and a file picker for an attachment. A date-and-time field keeps a text box holding the stored instant.
 
 ```yaml
 tables:
@@ -179,7 +189,7 @@ A record usually has records of its own in other tables: a company's contacts, a
       onRowClick: { action: openDrawer, component: contact-detail }
 ```
 
-The list is read when the drawer opens, and again each time it opens on another record. It is read-only and compact: no toolbar, no inline editing. It follows the related table's own permissions. A reader who may not read `table` sees no section at all, and the create button appears only for a reader allowed to create in `table`. A click on a row does nothing unless `onRowClick` says so: `openDrawer` opens that row in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` taken from the clicked row.
+A related section prints labels and money as the grid does: a relationship column shows the related record's `displayField`, a `user` column the account's name, and a `currency` column the amount in the field's own currency. The list is read when the drawer opens, and again each time it opens on another record. It is read-only and compact: no toolbar, no inline editing. It follows the related table's own permissions. A `columns` entry on a field of `table` its reader may not read is left out, and the page does not name it. A reader who may not read `table` sees no section at all, and the create button appears only for a reader allowed to create in `table`. A click on a row does nothing unless `onRowClick` says so: `openDrawer` opens that row in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` taken from the clicked row.
 
 `field` must be a `relationship` column of `table` whose `relatedTable` is the drawer's own table. Sovrium refuses to start otherwise, naming the entry (`related[0].field`), the column and the table. The same goes for a `table` that does not exist, a `columns` or `sort` field `table` does not have, an `openDrawer` target that is not a drawer on the page bound to `table`, and `related` on a drawer that is not bound to a table. Related lists go one level deep: a related row's own related records are reached by opening it.
 

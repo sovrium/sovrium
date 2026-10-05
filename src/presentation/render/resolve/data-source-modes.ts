@@ -17,19 +17,23 @@
  * steps visible as shared.
  */
 
+import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import {
-  hasCreatePermission,
-  hasInlineEditDefault,
+  hasCreatePermissionForRoles,
+  hasInlineEditDefaultForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
+import {
+  callerReaderFromSession,
+  tableReadPrincipal,
+} from '@/domain/models/app/tables/caller-record-gate-service'
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
-  readPrincipalFromSession,
   stripRestrictedColumns,
   type ReadAccessPlan,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { withCallerTableView } from './caller-table-stamp'
 import {
   SINGLE_RECORD_NOT_FOUND,
   validateDataSourceFields,
@@ -39,8 +43,18 @@ import {
 } from './data-source-contracts'
 import { expandDataSourceChildren } from './data-source-rows'
 import { applyFieldLevelPermissions } from './field-permission-filter'
-import { rowLevelCheckForVisitor, type RowLevelReadCheck } from './record-read-gate'
+import {
+  formManyToManyFields,
+  narrowRecordToComponent,
+  withManyToManyLinks,
+} from './form-bound-record'
+import { readRecordForCaller, readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
+import {
+  isReadWithheld,
+  isWithheldOverUnreadableTable,
+  withheldComponent,
+} from './withheld-component'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -61,35 +75,6 @@ function buildFavoritesButton(tableName: string, record: Record<string, unknown>
     entityId: recordId !== undefined && recordId !== null ? String(recordId) : '',
     tableName,
   } as unknown as Component
-}
-
-/**
- * The columns a record carries whatever a form lists: its id (the address a
- * save writes to) and its save token, under both spellings the row can have.
- */
-const RECORD_IDENTITY_KEYS: ReadonlySet<string> = new Set(['id', 'updatedAt', 'updated_at'])
-
-/**
- * The record a `form` serialises into the page, narrowed to the fields it
- * lists (all of them when it lists none) plus {@link RECORD_IDENTITY_KEYS}.
- *
- * A form prefills its inputs from `_record`, and `_record` reaches the HTML
- * whole — as the island's props — whatever the inputs show. So a column the
- * form does not list has no business in it, however readable it is. Names are
- * matched the way the form's own field resolver matches them
- * (`fieldNamesMatch`), so `firstName` in the form still finds `first_name`.
- * Every other component keeps the record it was given.
- */
-function narrowRecordToComponent(component: Component, record: RecordRow): RecordRow {
-  if (component.type !== 'form') return record
-  const { fields } = component as { readonly fields?: readonly { readonly field?: string }[] }
-  const listed = (fields ?? []).flatMap((f) => (typeof f.field === 'string' ? [f.field] : []))
-  if (listed.length === 0) return record
-  return Object.fromEntries(
-    Object.entries(record).filter(
-      ([key]) => RECORD_IDENTITY_KEYS.has(key) || listed.some((name) => fieldNamesMatch(key, name))
-    )
-  )
 }
 
 /**
@@ -137,99 +122,49 @@ function applySingleRecordToComponent(
 type RecordRow = Readonly<Record<string, unknown>>
 
 interface SingleModeOptions {
+  readonly app: App
+  readonly session: SessionInfo | undefined
   readonly tableName: string
   readonly param: string | undefined
   readonly requestedFields: readonly string[] | undefined
   readonly routeParams: Readonly<Record<string, string>>
   readonly db: DataSourceDb
   readonly plan: ReadAccessPlan | undefined
-  /** The table's row-level read check for this visitor; `undefined` admits every row. */
-  readonly rowLevelCheck: RowLevelReadCheck | undefined
-}
-
-/**
- * The fetched row as this visitor may see it, or `undefined` when its
- * row-level rule hides it: the row less the plan's restricted columns, then
- * narrowed to the binding's `fields` when it lists any.
- *
- * The row is fetched with every column when a row-level rule exists, because
- * the rule reads a column (`manager_id`, say) the binding need not list; the
- * narrowing to `fields` happens here instead, after the rule has been asked.
- */
-async function gateSingleRecord(
-  record: RecordRow,
-  options: SingleModeOptions
-): Promise<RecordRow | undefined> {
-  if (options.rowLevelCheck !== undefined && !(await options.rowLevelCheck(record))) {
-    return undefined
-  }
-  const readable =
-    options.plan === undefined ? record : stripRestrictedColumns(options.plan, record)
-  const { requestedFields } = options
-  if (requestedFields === undefined || options.rowLevelCheck === undefined) return readable
-  return Object.fromEntries(
-    Object.entries(readable).filter(([key]) => requestedFields.includes(key))
-  )
-}
-
-/** The columns to SELECT: all of them when a row-level rule must read the row first. */
-function selectedFields(options: SingleModeOptions): string[] | undefined {
-  if (options.rowLevelCheck !== undefined) return undefined
-  return options.requestedFields ? [...options.requestedFields] : undefined
-}
-
-/**
- * The record behind a single-mode binding: the route parameter's row, or —
- * when the binding names no `param` and the URL has no matching segment (a
- * static path like `/profile/edit`) — the table's first row, so a
- * single-record view works without a dynamic route param.
- */
-async function fetchSingleModeRecord(
-  options: SingleModeOptions
-): Promise<RecordRow | undefined | { readonly missingParam: string }> {
-  const { tableName, param, routeParams, db } = options
-  const paramName = param ?? tableName
-  const paramValue = routeParams[paramName]
-  if (paramValue) {
-    return db.fetchSingleRecord(tableName, paramName, paramValue, selectedFields(options))
-  }
-  if (param !== undefined) return { missingParam: paramName }
-  const fallbackRecords = await db.fetchRecords(tableName, {
-    fields: selectedFields(options),
-    pageSize: 1,
-    page: 1,
-  })
-  return fallbackRecords[0]
+  /** The many-to-many fields a form shows, whose links live in junction tables. */
+  readonly manyToManyFields: ReturnType<typeof formManyToManyFields>
 }
 
 /**
  * Resolve a `mode: single` binding for this visitor.
  *
  * The record reaches the page (its `$record.*` text, a form's prefilled
- * values, the island props), so it answers the records API's gates first: a
- * row the table's row-level rule hides answers exactly as a row that does not
- * exist — the page's 404, so the page cannot be used to learn which ids exist —
- * and a readable row arrives less the columns this visitor may not read. The
- * table-read refusal is answered before this runs (`denyWhenUnreadable`).
+ * values, the island props), so it is read through the records gate
+ * ({@link readRecordForCaller}): the route parameter's row, or — with no
+ * `param` and no matching URL segment (`/profile/edit`) — the first row the
+ * visitor may read. A row the table's row-level rule hides, or one in the
+ * trash, answers exactly as a row that does not exist — the page's 404, so the
+ * page cannot be used to learn which ids exist — and a readable row arrives
+ * less the columns this visitor may not read. The table-read refusal is
+ * answered before this runs (`denyWhenUnreadable`).
  */
 async function resolveSingleMode(
   component: Component,
   options: SingleModeOptions
 ): Promise<Component | typeof SINGLE_RECORD_NOT_FOUND> {
-  const fetched = await fetchSingleModeRecord(options)
-  if (fetched !== undefined && 'missingParam' in fetched) {
-    return withDataSourceError(
-      component,
-      `Error: route parameter "${String(fetched.missingParam)}" not found`
-    )
+  const { tableName, param, routeParams } = options
+  const paramName = param ?? tableName
+  const paramValue = routeParams[paramName]
+  if (!paramValue && param !== undefined) {
+    return withDataSourceError(component, `Error: route parameter "${paramName}" not found`)
   }
-  if (fetched === undefined) return SINGLE_RECORD_NOT_FOUND
-  const record = await gateSingleRecord(fetched, options)
-  if (record === undefined) return SINGLE_RECORD_NOT_FOUND
-  return applySingleRecordToComponent(component, record, {
-    tableName: options.tableName,
-    plan: options.plan,
+  const gatedRecord = await readRecordForCaller({
+    ...options,
+    at: paramValue ? { field: paramName, value: paramValue } : 'first-readable',
+    fields: options.requestedFields,
   })
+  if (gatedRecord === undefined) return SINGLE_RECORD_NOT_FOUND
+  const record = await withManyToManyLinks(gatedRecord, options)
+  return applySingleRecordToComponent(component, record, { tableName, plan: options.plan })
 }
 
 export function checkFieldErrors(
@@ -243,50 +178,67 @@ export function checkFieldErrors(
   return validateDataSourceFields(component, tableName, requestedFields, tableFieldNames)
 }
 
-function buildListQueryOptions(
-  component: Component,
+/** Rows a server-drawn section reads: `limit`, its page size, or the smaller of both. */
+function rowCap(dataSource: Component['dataSource']): number | undefined {
+  const { limit, pagination } = dataSource ?? {}
+  return limit === undefined ? pagination?.pageSize : Math.min(limit, pagination?.pageSize ?? limit)
+}
+
+/** Who a server-side read of rows answers, and through which reader. */
+interface CallerReadContext {
+  readonly app: App
+  readonly session: SessionInfo | undefined
+  readonly db: DataSourceDb
+}
+
+/** A binding's own `fields`, `filter` and `sort`, as one query of rows. */
+function bindingQuery(
+  dataSource: Component['dataSource'],
   requestedFields: readonly string[] | undefined
-) {
-  const filter = component.dataSource?.filter ?? undefined
-  const sort = component.dataSource?.sort ?? undefined
+): CallerRowsQuery {
   return {
-    queryOpts: {
-      fields: requestedFields ? [...requestedFields] : undefined,
-      filter,
-      sort,
-      pageSize: component.dataSource?.pagination?.pageSize,
-      page: 1,
-    },
-    filter,
-    pagination: component.dataSource?.pagination,
+    ...(requestedFields !== undefined ? { fields: requestedFields } : {}),
+    ...(dataSource?.filter !== undefined ? { filter: dataSource.filter } : {}),
+    ...(dataSource?.sort !== undefined ? { sort: dataSource.sort } : {}),
   }
 }
 
+/**
+ * Resolve a list binding: its rows are drawn on the server, so they are read
+ * through the records gate ({@link readRowsForCaller}) — the rows the row-level
+ * rule shows this visitor, less the columns she may not read — and the pager's
+ * total counts those rows alone.
+ */
 async function resolveListMode(
-  db: DataSourceDb,
   component: Component,
   tableName: string,
-  requestedFields: readonly string[] | undefined
+  ctx: CallerReadContext & { readonly requestedFields: readonly string[] | undefined }
 ): Promise<Component> {
-  const { queryOpts, filter, pagination } = buildListQueryOptions(component, requestedFields)
+  const { dataSource } = component
+  const pagination = dataSource?.pagination
   const pageSize = pagination?.pageSize
+  const { rows, total: totalCount } = await readRowsForCaller({
+    app: ctx.app,
+    tableName,
+    session: ctx.session,
+    db: ctx.db,
+    query: { ...bindingQuery(dataSource, ctx.requestedFields), pageSize: rowCap(dataSource) },
+    withTotal: pageSize !== undefined,
+  })
 
-  const [records, totalCount] = await Promise.all([
-    db.fetchRecords(tableName, queryOpts),
-    pageSize !== undefined ? db.countRecords(tableName, filter) : Promise.resolve(0),
-  ])
-
+  // `limit` caps the whole section, so the pager never offers a page it may not draw.
+  const total = Math.min(totalCount, dataSource?.limit ?? totalCount)
   const paginationMeta =
-    pageSize !== undefined ? { pageSize, totalCount, style: pagination?.style } : undefined
+    pageSize !== undefined ? { pageSize, totalCount: total, style: pagination?.style } : undefined
 
-  return expandDataSourceChildren(component, records, paginationMeta)
+  return expandDataSourceChildren(component, rows, paginationMeta)
 }
 
 function buildSearchProps(
   component: Component,
   records: readonly Record<string, unknown>[]
 ): Record<string, unknown> {
-  const { searchFields, debounceMs, limit, bindTo } = component.dataSource ?? {}
+  const { table, searchFields, debounceMs, limit, bindTo } = component.dataSource ?? {}
   // `listDisplay` is the declarative search-first display config (itemTemplate,
   // emptyMessage, loadMore, highlight). Only `list` components carry it.
   const { listDisplay } = component as { listDisplay?: unknown }
@@ -298,10 +250,18 @@ function buildSearchProps(
     _searchDebounceMs: debounceMs ?? 0,
     _searchLimit: limit ?? 0,
     _searchChildTemplate: JSON.stringify(component.children ?? []),
+    // The table the rows come from, carried into the island props so the page's
+    // one payload filter judges the search fields and the item template against
+    // THIS table's hidden fields — not only against names hidden on every table,
+    // which a readable field of the same name on another table would mask.
+    ...(typeof table === 'string' ? { _searchTable: table } : {}),
     // `bindTo` defers the query to an external `search-input` component; the list
     // then renders results only (no own input box) to avoid duplicate inputs.
     ...(bindTo !== undefined ? { _searchBindTo: bindTo } : {}),
-    ...(listDisplay !== undefined ? { _listDisplay: JSON.stringify(listDisplay) } : {}),
+    // Kept an OBJECT, not a JSON string: the props pass that resolves `$t:`
+    // walks nested objects but reads a string whole, so a serialised
+    // `emptyMessage: '$t:…'` reached the page as the raw key.
+    ...(listDisplay !== undefined ? { _listDisplay: listDisplay } : {}),
   }
 }
 
@@ -309,29 +269,25 @@ function buildSearchProps(
  * Resolve a `mode: search` binding: every matching row is serialised into the
  * island's props so the island can filter client-side.
  *
- * Serialised WHOLE, so each row first loses the columns this visitor may not
- * read. A binding that lists no `fields` selects every column, and without the
- * projection a restricted one reached the page inside `data-island-props`
- * although no child template ever printed it.
+ * Serialised WHOLE, so the rows are read through the records gate
+ * ({@link readRowsForCaller}): only the rows the row-level rule shows this
+ * visitor, each less the columns she may not read. Every row in the payload is
+ * in the HTML whatever the island draws.
  */
 async function resolveSearchMode(
-  db: DataSourceDb,
   component: Component,
   tableName: string,
-  ctx: {
-    readonly requestedFields: readonly string[] | undefined
-    readonly plan: ReadAccessPlan | undefined
-  }
+  ctx: CallerReadContext & { readonly requestedFields: readonly string[] | undefined }
 ): Promise<Component> {
-  const { requestedFields, plan } = ctx
-  const records = await db.fetchRecords(tableName, {
-    fields: requestedFields ? [...requestedFields] : undefined,
-    filter: component.dataSource?.filter ?? undefined,
-    sort: component.dataSource?.sort ?? undefined,
+  const { dataSource } = component
+  const { rows } = await readRowsForCaller({
+    app: ctx.app,
+    tableName,
+    session: ctx.session,
+    db: ctx.db,
+    query: bindingQuery(dataSource, ctx.requestedFields),
   })
-  const readable =
-    plan === undefined ? records : records.map((record) => stripRestrictedColumns(plan, record))
-  return { ...component, props: buildSearchProps(component, readable) }
+  return { ...component, props: buildSearchProps(component, rows) }
 }
 
 /**
@@ -342,11 +298,11 @@ async function resolveSearchMode(
  *
  * ROW-LEVEL SCOPING IS NOT PART OF THIS PLAN: `rowContext` is omitted, the
  * plan reports `'unresolved'`, and no caller reads that field. The row-level
- * rule is answered where a single row is in hand instead — evaluated in memory
- * against the fetched row (`record-read-gate.ts`) by a `mode: single` binding,
- * a page-level `dataSource`, and a collection page.
- * A list binding over a row-scoped table does not apply it server-side; its
- * island reads through the records API, which does.
+ * rule is answered in memory against the fetched rows (`record-read-gate.ts`):
+ * by `readRowsForCaller` for every server-drawn list, search, option list and
+ * sidebar, and by the single-row checks of a `mode: single` binding, a
+ * page-level `dataSource` and a collection page. A
+ * grid's island reads through the records API, which applies it in SQL.
  */
 export function resolveRenderPlan(ctx: {
   readonly matchedTable: TableLike | undefined
@@ -357,7 +313,7 @@ export function resolveRenderPlan(ctx: {
   return buildReadAccessPlan({
     app: ctx.app,
     table: ctx.matchedTable,
-    principal: readPrincipalFromSession(ctx.session),
+    principal: tableReadPrincipal(ctx.matchedTable, callerReaderFromSession(ctx.session, ctx.app)),
     policy: CANONICAL_READ_POLICY,
   })
 }
@@ -373,8 +329,13 @@ export function resolveRenderPlan(ctx: {
  * read therefore mounted anyway, printed the column names of a table the
  * records API refuses them, and offered its toolbar. Without a `dataSource` the
  * renderer takes the static branch, which emits none of that.
+ *
+ * A board, a calendar, a gallery, a chart, a timeline, a drawer and a KPI are
+ * withheld instead (`withheld-component.ts`): their islands are built from the
+ * table's declaration, so they leave the page — a KPI keeping its label.
  */
 function emptyDataBoundComponent(component: Component): Component {
+  if (isWithheldOverUnreadableTable(component)) return withheldComponent(component)
   // A record the page handed down (`_record`) leaves with the binding: a form
   // the caller may not read renders empty, not prefilled from the page.
   const { _record: _withheld, ...ownProps } = (component.props ?? {}) as Record<string, unknown>
@@ -510,17 +471,26 @@ function relatedCreateGates(ctx: {
   readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
   readonly session: SessionInfo | undefined
 }): Record<string, boolean> {
-  const role = ctx.session?.role ?? ''
-  const groups = ctx.session?.groups ?? []
+  const roles = writeGateRoles(ctx.session)
   return Object.fromEntries(
     ctx.table.fields.flatMap((field) => {
       if (field.type !== 'relationship') return []
       const { relatedTable } = field as { readonly relatedTable?: string }
       if (relatedTable === undefined) return []
       const related = ctx.app.tables?.find((t) => t.name === relatedTable)
-      return [[field.name, hasCreatePermission(related, role, ctx.app.tables, groups)] as const]
+      return [[field.name, hasCreatePermissionForRoles(related, roles, ctx.app)] as const]
     })
   )
+}
+
+/**
+ * The caller's account role first, then a `group:<name>` entry per membership —
+ * the shape the records API's `*ForRoles` write evaluators read, so an
+ * affordance follows their rules exactly: a viewer is offered no write a group
+ * grant would give her, because the API refuses it.
+ */
+function writeGateRoles(session: SessionInfo | undefined): readonly string[] {
+  return [session?.role ?? '', ...(session?.groups ?? []).map(toGroupReference)]
 }
 
 type WriteGateContext = {
@@ -537,10 +507,10 @@ type WriteGateContext = {
  * caller.
  */
 function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
-  const groups = session.groups ?? []
+  const roles = writeGateRoles(session)
   return {
-    _canCreate: hasCreatePermission(ctx.table, session.role, ctx.app.tables, groups),
-    _canUpdate: hasInlineEditDefault(ctx.table, session.role, ctx.app.tables, groups),
+    _canCreate: hasCreatePermissionForRoles(ctx.table, roles, ctx.app),
+    _canUpdate: hasInlineEditDefaultForRoles(ctx.table, roles, ctx.app),
     // Per-relationship-field create gates. Stamped alongside the two
     // table-level gates because this is the one layer holding BOTH the session
     // and `app.tables` — the picker's create affordance needs the second
@@ -565,6 +535,19 @@ function withWritePermissionGates(ctx: WriteGateContext): Component {
 }
 
 /**
+ * The declared table a component reads directly, or `undefined` for one that
+ * reads through a view (gated by the view's own grant on its own route) or
+ * names no declared table (a system source).
+ */
+function directlyBoundTable(component: Component, app: App) {
+  if (component.dataSource?.view !== undefined) return undefined
+  const tableName = component.dataSource?.table
+  return typeof tableName === 'string'
+    ? (app.tables ?? []).find((t) => t.name === tableName)
+    : undefined
+}
+
+/**
  * The read and write gates for a table grid NESTED inside a layout container.
  *
  * `resolveComponent` gates a grid at the top level of a page, but a grid one
@@ -582,46 +565,32 @@ function withWritePermissionGates(ctx: WriteGateContext): Component {
  * permissions itself, so the server-side list query and the child-template
  * filter have nothing to do for it. A binding naming no declared table (a
  * system source) comes back untouched.
+ *
+ * The read gate applies, alone, to the other record components whose island is
+ * built from the table's declaration (`withheld-component.ts`): one container
+ * down, a board or a calendar over a table the caller may not read is withheld
+ * exactly as it is at the top of the page.
  */
 export function gateNestedTableBinding(
   component: Component,
   ctx: { readonly app: App; readonly session: SessionInfo | undefined }
 ): Component {
-  if (component.type !== 'table') return component
-  // Reads through the view's own route, gated by the view's grant.
-  if (component.dataSource?.view !== undefined) return component
-  const tableName = component.dataSource?.table
-  const table =
-    typeof tableName === 'string'
-      ? (ctx.app.tables ?? []).find((t) => t.name === tableName)
-      : undefined
+  const isGrid = component.type === 'table'
+  if (!isGrid && !isWithheldOverUnreadableTable(component)) return component
+  const table = directlyBoundTable(component, ctx.app)
   if (table === undefined) return component
   const plan = resolveRenderPlan({
     matchedTable: table as TableLike,
     app: ctx.app,
     session: ctx.session,
   })
-  return (
-    denyWhenUnreadable(component, plan) ??
-    withWritePermissionGates({ component, app: ctx.app, table, session: ctx.session })
-  )
-}
-
-/**
- * The row-level read check a single-mode binding answers; `undefined` when
- * auth is not configured — the full-access model — or there is nothing to check.
- */
-function rowLevelCheckOf(ctx: {
-  readonly app: App
-  readonly table: TableLike
-  readonly session: SessionInfo | undefined
-  readonly db: DataSourceDb
-}): RowLevelReadCheck | undefined {
-  return ctx.app.auth ? rowLevelCheckForVisitor(ctx.table, ctx.session, ctx.db) : undefined
+  const denied = denyWhenUnreadable(component, plan)
+  if (denied !== undefined || !isGrid) return denied ?? component
+  return withWritePermissionGates({ component, app: ctx.app, table, session: ctx.session })
 }
 
 /** Resolves a validated component by mode (list/single/search) with field-level filtering. */
-export function resolveByMode(ctx: {
+export async function resolveByMode(ctx: {
   readonly component: Component
   readonly app: App
   readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
@@ -634,7 +603,7 @@ export function resolveByMode(ctx: {
   // it is not a list, and resolving it as one queried the whole table only to
   // discard every row. Its record answers the caller's read plan instead.
   if (holdsInheritedRecord(ctx.component)) {
-    return Promise.resolve(gateInheritedRecord(ctx.component, ctx.plan))
+    return gateInheritedRecord(ctx.component, ctx.plan)
   }
   const { table: tableName, fields: requestedFields, mode, param } = ctx.component.dataSource!
   // The plan's restricted set, NOT a locally re-derived one. The predecessor
@@ -644,7 +613,8 @@ export function resolveByMode(ctx: {
   // granted table read saw every column on a page while the records API
   // stripped all but name/title from the same table.
   const restricted = ctx.plan?.restrictedColumns ?? new Set<string>()
-  const gated = withWritePermissionGates(ctx)
+  const gated = await withCallerTableView(withWritePermissionGates(ctx), ctx)
+  if (isReadWithheld(gated)) return gated
   const { component: fc, fields: ff } = applyFieldLevelPermissions(
     gated,
     requestedFields,
@@ -652,16 +622,18 @@ export function resolveByMode(ctx: {
   )
   if (mode === 'single') {
     return resolveSingleMode(fc, {
+      app: ctx.app,
+      session: ctx.session,
       tableName,
       param,
       requestedFields: ff,
       routeParams: ctx.routeParams,
       db: ctx.db,
       plan: ctx.plan,
-      rowLevelCheck: rowLevelCheckOf(ctx),
+      manyToManyFields: formManyToManyFields(fc, ctx.table, ctx.plan),
     })
   }
-  if (mode === 'search')
-    return resolveSearchMode(ctx.db, fc, tableName, { requestedFields: ff, plan: ctx.plan })
-  return resolveListMode(ctx.db, fc, tableName, ff)
+  const reader = { app: ctx.app, session: ctx.session, db: ctx.db, requestedFields: ff }
+  if (mode === 'search') return resolveSearchMode(fc, tableName, reader)
+  return resolveListMode(fc, tableName, reader)
 }

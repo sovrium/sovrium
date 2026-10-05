@@ -1,0 +1,21 @@
+# The three people of the team, one per role, so every rule of the server can
+# be tried with a real key:
+#
+# - Priya is an `admin`: she reads everything, drafts included, deletes, and
+#   opens the admin console at `/_admin`.
+# - Marco is an `editor`: his assistant lists, reads and adds documents.
+# - Elin is a `viewer`: her assistant lists and reads, and a call to the create
+#   tool is refused.
+#
+# No password is written here: each account takes `SOVRIUM_SEED_PASSWORD` from
+# the environment, so a password never lands in a file you might commit.
+users:
+  - email: priya.nair@teamkb.example
+    name: Priya Nair
+    role: admin
+  - email: marco.bianchi@teamkb.example
+    name: Marco Bianchi
+    role: editor
+  - email: elin.sundberg@teamkb.example
+    name: Elin Sundberg
+    role: viewer

@@ -1,27 +1,31 @@
-# helpdesk
+# tallyline-support
 
-Customer support helpdesk — a public intake form feeds a triage kanban and a ticket grid, with automations confirming receipt and announcing resolutions. No per-agent licence, and every ticket lives in your own database.
+Tallyline Support — a small software company's helpdesk. Requesters write in from a public form
+with a screenshot and no account; the team works every ticket from one queue by status, with who
+holds it; a ticket opens over the grid with its conversation; the requester rates the answer once
+it is resolved.
 
 ## This app at a glance
 
-- **Tables** (1): tickets
-- **Pages** (5): home, thanks, sign-in, triage, tickets
-- **Forms** (1): submit-ticket
-- **Automations** (2): confirm-new-ticket, notify-requester-on-resolved
-- **Singletons**: auth, design
+- **Tables** (3): tickets, ticket_replies (the conversation of a ticket), ratings
+- **Forms** (2): contact-support (rendered on `/`), rate-answer (rendered on `/rate`)
+- **Pages** (7): triage (`/triage`, the Queue), tickets, reports (admin), home (`/`, public),
+  thanks, rate (public), sign-in
+- **Automations** (2): when-a-ticket-arrives, when-resolved
+- **Singletons**: auth, design, env
+- **Seed data**: `seed/` — two sign-in accounts, fourteen tickets, three conversations and
+  three ratings, dated relative to the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, keep
+one accent, and keep colour for the outcomes (resolved, urgent and still open). The public
+pages never use the team's words — no "queue", no "triage".
 
 ---
 

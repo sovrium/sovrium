@@ -15,10 +15,16 @@
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
+import {
+  runRecordRefs,
+  type RunReads,
+} from '@/domain/models/app/automations/run-record-refs-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { App } from '@/domain/models/app'
+import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 
 /**
  * Build the actor overlay for a run insert: `{ triggeredByUserId }` when a real
@@ -28,9 +34,15 @@ import type { TriggerData } from '../resolve-trigger-data'
  * "the system caused this" and "a user caused this but we lost the id"
  * indistinguishable-by-construction: there is no third value to write.
  */
-const runActorOverlay = (userId: string | undefined): { readonly triggeredByUserId?: string } => {
+const runActorOverlay = (
+  userId: string | undefined,
+  startedByHand?: boolean
+): { readonly triggeredByUserId?: string; readonly startedByHand?: true } => {
   const actorId = resolveActorUserId(userId)
-  return actorId === undefined ? {} : { triggeredByUserId: actorId }
+  // The marker survives a missing actor: a hand-started run that lost its
+  // caller keeps refusing its writes, through every later approval.
+  const hand = startedByHand === true ? { startedByHand: true as const } : {}
+  return actorId === undefined ? hand : { triggeredByUserId: actorId, ...hand }
 }
 
 /**
@@ -56,11 +68,17 @@ const runActorOverlay = (userId: string | undefined): { readonly triggeredByUser
  * through {@link runActorOverlay} before it reaches the row, so the guest and
  * system sentinels land as SQL NULL rather than tripping the actor column's
  * foreign key.
+ *
+ * `startedByHand` is recorded beside the actor, so a run that pauses on an
+ * approval resumes writing as the person who started it.
  */
 export const persistQueuedRun = (input: {
   readonly automationId: string
   readonly triggerData: TriggerData
   readonly userId: string | undefined
+  readonly startedByHand?: boolean
+  /** The run that handed this one its trigger data, recorded by id. */
+  readonly relay?: RunRelay | undefined
 }): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
@@ -69,7 +87,8 @@ export const persistQueuedRun = (input: {
         automationId: input.automationId,
         status: 'queued',
         triggerData: input.triggerData as unknown,
-        ...runActorOverlay(input.userId),
+        ...runActorOverlay(input.userId, input.startedByHand),
+        ...(input.relay === undefined ? {} : { relay: input.relay }),
       })
     )
     if (result._tag === 'Failure') {
@@ -132,6 +151,7 @@ const buildStepsInput = (
     ...(step.props !== undefined ? { input: step.props as unknown } : {}),
     ...(step.output !== undefined ? { output: step.output as unknown } : {}),
     ...(step.logs !== undefined ? { logs: step.logs } : {}),
+    ...(step.reads !== undefined ? { reads: step.reads } : {}),
     startedAt,
     completedAt: finishedAt,
     ...(step.error !== undefined ? { error: step.error } : {}),
@@ -163,7 +183,40 @@ type FinaliseRunInput = {
    * {@link persistQueuedRun}, and finalisation only touches status + timings.
    */
   readonly userId: string | undefined
+  /**
+   * The run as it was started: its app and automation, from which the records
+   * it read are indexed (`run-record-refs-service.ts`), and its relay, carried
+   * for the fallback insert's row.
+   */
+  readonly source?: {
+    readonly app: App
+    readonly name: string
+    readonly relay?: RunRelay | undefined
+  }
 }
+
+/**
+ * The records the run read, for the erasure index — or none when the caller
+ * did not say which automation it ran.
+ */
+const readsOfRun = (input: FinaliseRunInput): RunReads | undefined =>
+  input.source === undefined
+    ? undefined
+    : runRecordRefs({
+        app: input.source.app,
+        automationName: input.source.name,
+        triggerData: input.triggerData,
+        steps: input.steps.map((step) => ({
+          name: step.name,
+          status: toApiStepStatus(step.status),
+          output: step.output,
+          reads: step.reads,
+        })),
+      })
+
+/** The run row's refs overlay: the records it read, and the runs its calls started. */
+const refsOverlay = (reads: RunReads | undefined) =>
+  reads === undefined ? {} : { refs: reads.refs, refsFromRuns: reads.calledRuns }
 
 /**
  * Fallback path: the queued/running row vanished (race with manual delete,
@@ -183,7 +236,9 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
         ...runActorOverlay(input.userId),
+        ...(input.source?.relay === undefined ? {} : { relay: input.source.relay }),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
+        ...refsOverlay(readsOfRun(input)),
         steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
       })
     )
@@ -207,6 +262,7 @@ export const finaliseRun = (
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
         steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
+        ...refsOverlay(readsOfRun(input)),
       })
     )
     if (finalised._tag === 'Failure' || finalised.success === undefined) {

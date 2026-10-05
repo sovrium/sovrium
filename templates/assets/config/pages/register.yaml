@@ -63,8 +63,10 @@ components:
                         - { field: status, operator: neq, value: Retired }
                     kpiAggregate: { function: sum, field: value }
                     kpiFormat: { type: currency, options: { currency: EUR } }
+                  # Every asset in service, held by someone or not: the
+                  # desk monitor and the standing desks count too.
                   - type: kpi
-                    label: Checked out
+                    label: In use
                     dataSource:
                       table: assets
                       filter:
@@ -156,7 +158,7 @@ components:
             dataSource:
               table: assets
             props:
-              title: Asset
+              title: $record.name
             recordFields:
               - { name: name, type: single-line-text, label: Asset }
               - { name: asset_tag, type: single-line-text, label: Tag }
@@ -171,13 +173,20 @@ components:
               - { name: value, type: currency, label: Value }
               - { name: purchased_on, type: date, label: Purchased }
               - { name: warranty_end, type: date, label: Warranty ends }
+            # The label on the asset itself: a QR code of its tag, drawn once
+            # the asset is known, so a phone camera finds this drawer again.
+            children:
+              - type: qr-code
+                value: $record.asset_tag
+                size: 112
+                props:
+                  aria-label: QR label for $record.asset_tag
             related:
-              # Who held it is written in the History below: a related list
-              # prints a person column as an account id, so it is left out.
               - label: Check-outs
                 table: check_outs
                 field: asset
                 columns:
+                  - { field: holder, label: Held by }
                   - { field: checked_out_at, label: Out }
                   - { field: due_back, label: Return by }
                   - { field: checked_in_at, label: Back }

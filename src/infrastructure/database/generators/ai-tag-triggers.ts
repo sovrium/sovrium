@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -40,16 +41,16 @@ const TAG_PAYLOAD_KIND = 'categorize'
 const buildTagGuardSql = (fieldName: string): string =>
   `  -- INSERT: honour an explicit non-empty user-supplied tag array.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL
-       AND jsonb_typeof(NEW.${fieldName}) = 'array'
-       AND jsonb_array_length(NEW.${fieldName}) > 0 THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL
+       AND jsonb_typeof(NEW.${quoteSqlIdentifier(fieldName)}) = 'array'
+       AND jsonb_array_length(NEW.${quoteSqlIdentifier(fieldName)}) > 0 THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- Empty source content: leave the column as an empty array.
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = '[]'::jsonb;
+    NEW.${quoteSqlIdentifier(fieldName)} = '[]'::jsonb;
     RETURN NEW;
   END IF;
 
@@ -85,7 +86,7 @@ ${maxTagsLimit}`
  */
 const buildTagNotifySql = (field: AiTagField, sanitized: string, fieldName: string): string => {
   const modelLiteral = sqlTextLiteral(field.model)
-  return `  NEW.${fieldName} = to_jsonb(chosen);
+  return `  NEW.${quoteSqlIdentifier(fieldName)} = to_jsonb(chosen);
 
   -- Emit NOTIFY so the application layer can observe + log the tagging
   -- and invoke the AI provider with the field's model override.

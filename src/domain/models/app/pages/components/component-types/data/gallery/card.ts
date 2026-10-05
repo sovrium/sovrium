@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema } from '../../../action'
+import { CardClickActionSchema } from '../../../action'
 
 /**
  * Gallery card template configuration.
@@ -16,6 +16,14 @@ export const GalleryCardSchema = Schema.Struct({
     Schema.String.annotate({
       description: 'Image URL or $record.* variable for card cover image',
       examples: ['$record.image', '$record.thumbnail'],
+    })
+  ),
+  loading: Schema.optional(
+    Schema.Literals(['lazy', 'eager']).annotate({
+      defaultNote: 'lazy',
+      description:
+        'How the cover image is fetched: `lazy` waits until the card nears the viewport, `eager` fetches it with the page',
+      examples: ['eager'],
     })
   ),
   aspectRatio: Schema.optional(
@@ -34,7 +42,8 @@ export const GalleryCardSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  onClick: Schema.optional(ActionSchema),
+  /** What a click on the card does — `navigate` or `openDrawer`, as on a board card */
+  onClick: Schema.optional(CardClickActionSchema),
   hoverOverlay: Schema.optional(
     Schema.Struct({
       children: Schema.optional(

@@ -77,7 +77,6 @@ export const VisibleWhenSchema = Schema.Struct({
   description: 'Condition that controls visibility / required / disabled state of a form field',
 })
 
-export type ConditionOperator = Schema.Schema.Type<typeof ConditionOperatorSchema>
 export type VisibleWhen = Schema.Schema.Type<typeof VisibleWhenSchema>
 
 // ---------------------------------------------------------------------------

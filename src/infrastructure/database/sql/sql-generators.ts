@@ -64,6 +64,7 @@ export {
 export {
   generateJunctionTableDDL,
   generateJunctionTableName,
+  junctionKeyColumns,
   toSingular,
 } from './sql-junction-tables'
 

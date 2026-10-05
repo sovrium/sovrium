@@ -29,6 +29,10 @@ It declares no schema option of its own: `props` carries the HTML attributes and
 
 The switcher never prints the app's `fallback` language. When one is declared it is exposed on the switcher as `data-fallback-language`, for a script or a stylesheet to read. The trigger, the popup and each language option are drawn with the design system's own chrome, so the control needs no styling of its own to sit in a header beside the navigation.
 
+`props.variant: toggle` — for an app with exactly two languages — renders one link to the same page in the other language, reading its code and named by its label.
+
+Whichever variant it draws, the switcher's outer element carries `data-component-type="language-switcher"` and the HTML attributes given in `props`, `className` among them. No element inside it carries the name.
+
 ## `file-upload`
 
 A file selector with optional drag-and-drop.

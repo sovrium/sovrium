@@ -7,13 +7,16 @@
 
 /* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React form event-handler pattern. */
 
-import { useState, type ReactElement } from 'react'
+import { useId, useState, type ReactElement } from 'react'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeCommentComposerFieldClasses,
   computeCommentFormClasses,
 } from '@/presentation/design/comments-default-classes'
 import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
+import { CommentMentionListbox } from './comment-mention-listbox'
+import { useCommentString } from './comment-strings'
+import { mentionOptionId, useMentionComposer, type MentionComposer } from './use-mention-composer'
 
 const SUBMIT_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
 const CANCEL_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
@@ -28,6 +31,8 @@ const CANCEL_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 
  *   `validateCreateCommentBody`).
  * - Empty + whitespace-only submissions are blocked client-side with a
  * "Comment cannot be empty" message.
+ * - Typing `@` opens the mention picker; a picked person reads as `@<name>` in
+ *   the textarea and is posted as `@[<user id>]` markup.
  */
 interface CommentThreadFormProps {
   readonly placeholder: string
@@ -83,6 +88,80 @@ function CommentFormActions({
   )
 }
 
+/**
+ * A comment textarea that can mention people, with its picker under it.
+ *
+ * The textarea stays a TEXTBOX — the writer is writing prose, and the picker is
+ * an aid to it — and points at the picker with `aria-controls` and at the
+ * active person with `aria-activedescendant` while the picker is open.
+ */
+export function MentionTextarea({
+  composer,
+  label,
+  placeholder,
+}: {
+  readonly composer: MentionComposer
+  readonly label: string
+  readonly placeholder?: string
+}): ReactElement {
+  const listboxId = useId()
+  const showsOption = composer.open && composer.candidates.length > 0
+  return (
+    <>
+      <textarea
+        ref={composer.textareaRef}
+        name="content"
+        aria-label={label}
+        aria-autocomplete="list"
+        {...(composer.open && { 'aria-controls': listboxId })}
+        {...(showsOption && {
+          'aria-activedescendant': mentionOptionId(listboxId, composer.activeIndex),
+        })}
+        placeholder={placeholder}
+        value={composer.value}
+        onChange={composer.onChange}
+        onSelect={composer.onSelect}
+        onKeyDown={composer.onKeyDown}
+        maxLength={10_000}
+        className={computeCommentComposerFieldClasses()}
+      />
+      {composer.open && (
+        <CommentMentionListbox
+          composer={composer}
+          listboxId={listboxId}
+        />
+      )}
+    </>
+  )
+}
+
+/** The catalog key and English of each composer string, per variant. */
+const COMPOSER_STRINGS = {
+  comment: {
+    textarea: ['comments.write', 'Write a comment'],
+    empty: ['comments.empty', 'Comment cannot be empty'],
+    submit: ['comments.submit', 'Submit comment'],
+    submitting: ['comments.posting', 'Posting…'],
+  },
+  reply: {
+    textarea: ['comments.reply', 'Reply'],
+    empty: ['comments.replyEmpty', 'Reply cannot be empty'],
+    submit: ['comments.submitReply', 'Submit reply'],
+    submitting: ['comments.postingReply', 'Posting reply…'],
+  },
+} as const
+
+/** The composer's words in the page language, for a comment or a reply. */
+function useComposerLabels(isReply: boolean) {
+  const strings = COMPOSER_STRINGS[isReply ? 'reply' : 'comment']
+  return {
+    textarea: useCommentString(strings.textarea[0], strings.textarea[1]),
+    empty: useCommentString(strings.empty[0], strings.empty[1]),
+    submit: useCommentString(strings.submit[0], strings.submit[1]),
+    submitting: useCommentString(strings.submitting[0], strings.submitting[1]),
+  }
+}
+
 export function CommentThreadForm({
   placeholder,
   onSubmit,
@@ -90,21 +169,21 @@ export function CommentThreadForm({
   variant = 'comment',
   onCancel,
 }: CommentThreadFormProps): ReactElement {
-  const [value, setValue] = useState('')
+  const composer = useMentionComposer()
   const [errorMessage, setErrorMessage] = useState<string | undefined>()
 
   const isReply = variant === 'reply'
-  const textareaLabel = isReply ? 'Reply' : 'Write a comment'
+  const labels = useComposerLabels(isReply)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
-    if (value.trim().length === 0) {
-      setErrorMessage(isReply ? 'Reply cannot be empty' : 'Comment cannot be empty')
+    if (composer.value.trim().length === 0) {
+      setErrorMessage(labels.empty)
       return
     }
     setErrorMessage(undefined)
-    await onSubmit(value)
-    setValue('')
+    await onSubmit(composer.encode())
+    composer.reset()
   }
 
   return (
@@ -114,14 +193,10 @@ export function CommentThreadForm({
       className={`comments-form ${computeCommentFormClasses()}`}
       noValidate
     >
-      <textarea
-        name="content"
-        aria-label={textareaLabel}
+      <MentionTextarea
+        composer={composer}
+        label={labels.textarea}
         placeholder={placeholder}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        maxLength={10_000}
-        className={computeCommentComposerFieldClasses()}
       />
       {errorMessage && (
         <p
@@ -134,8 +209,8 @@ export function CommentThreadForm({
       <CommentFormActions
         isReply={isReply}
         isSubmitting={isSubmitting}
-        submitLabel={isReply ? 'Submit reply' : 'Submit comment'}
-        submittingLabel={isReply ? 'Posting reply…' : 'Posting…'}
+        submitLabel={labels.submit}
+        submittingLabel={labels.submitting}
         onCancel={onCancel}
       />
     </form>

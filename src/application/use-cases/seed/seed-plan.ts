@@ -27,7 +27,6 @@
 
 import { collectSeedTableEdges, resolveSeedTableOrder, type SeedMode } from '@/domain/models/seed'
 import {
-  checkAttachmentBuckets,
   checkDuplicateKeys,
   checkReferenceTargets,
   checkRequestedTables,
@@ -43,7 +42,7 @@ import type { SeedTableConfig } from './seed-config'
 import type { SeedValue } from './seed-values'
 import type { App } from '@/domain/models/app'
 
-export type { LoadedSeedFile, LoadedSeedRecord, PlannedSeedTable } from './seed-checks'
+export type { LoadedSeedFile, PlannedSeedTable } from './seed-checks'
 
 /** A validated, dependency-ordered write plan. */
 export interface SeedPlan {
@@ -154,7 +153,6 @@ const semanticErrors = (
   tables: readonly SeedTableConfig[],
   mode: SeedMode
 ): readonly string[] => [
-  ...checkAttachmentBuckets(planned, tables),
   ...(mode === 'upsert' ? checkUpsertManyToMany(planned) : []),
   ...checkReferenceTargets(planned),
 ]

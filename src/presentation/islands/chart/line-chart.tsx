@@ -21,6 +21,7 @@ import {
   computeChartBodyClasses,
   computeChartShellClasses,
 } from '@/presentation/design/chart-default-classes'
+import { monthKeyLabeller } from './chart-format'
 import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
 import type { CategoryDatum } from './chart-series-shared'
 import type { ReactElement } from 'react'
@@ -58,6 +59,7 @@ function LineAxes({
   readonly innerWidth: number
   readonly innerHeight: number
 }): ReactElement {
+  const monthLabel = monthKeyLabeller(points.map((p) => p.key))
   return (
     <g>
       <line
@@ -83,7 +85,7 @@ function LineAxes({
           fill={CHART_TICK_FILL}
           textAnchor="middle"
         >
-          {p.key}
+          {monthLabel === undefined ? p.key : monthLabel(p.key)}
         </text>
       ))}
     </g>
@@ -169,10 +171,7 @@ const CHART_CANVAS_BODY_CLASSES = computeChartBodyClasses()
 
 export function LineChartCanvas({ data, accessibleName }: LineChartProps): ReactElement {
   return (
-    <div
-      data-component="chart"
-      className={CHART_CANVAS_CLASSES}
-    >
+    <div className={CHART_CANVAS_CLASSES}>
       <div className={CHART_CANVAS_BODY_CLASSES}>
         <ParentSize>
           {({ width, height }) => {

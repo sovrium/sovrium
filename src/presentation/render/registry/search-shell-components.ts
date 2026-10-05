@@ -21,6 +21,7 @@
  * (currently non-functional) search bar for data-bound calendar / kanban.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import * as Renderers from '../elements'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
@@ -44,10 +45,15 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
     // one never decoded. The fallback is the subscriber shell rather than a
     // throw: a renderer is not a validation seam, and drawing the lighter of the
     // two is the failure that loses least.
-    'search-input': ({ elementProps, component }) => {
+    'search-input': ({ elementProps, component, currentLang, languages }) => {
       const c = (component ?? {}) as Record<string, unknown>
+      const defaultPlaceholder = resolveInterpreterString(
+        'search.placeholder',
+        currentLang,
+        languages
+      )
       if (c['scope'] === 'page') {
-        const placeholder = c['placeholder'] as string | undefined
+        const placeholder = (c['placeholder'] as string | undefined) ?? defaultPlaceholder
         const maxResults = c['maxResults'] as number | undefined
         // `index: 'session'` asks the server per query instead of reading the
         // static public index; anything else — including an omitted key — is
@@ -62,6 +68,11 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
       }
       const debounceMs = c['debounceMs'] as number | undefined
       const minQueryLength = c['minQueryLength'] as number | undefined
-      return Renderers.renderSearchInput({ props: elementProps, debounceMs, minQueryLength })
+      return Renderers.renderSearchInput({
+        props: elementProps,
+        debounceMs,
+        minQueryLength,
+        defaultPlaceholder,
+      })
     },
   }

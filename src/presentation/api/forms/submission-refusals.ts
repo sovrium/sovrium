@@ -37,7 +37,7 @@
  */
 
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { Context } from 'hono'
 
 /** The request named no form. */
@@ -52,11 +52,7 @@ export const formNameRequired = (c: Context): Response =>
   )
 
 /** No such form — absence and denial answer identically (S1 anti-enumeration). */
-export const formNotFound = (c: Context): Response =>
-  c.json(
-    errorBody({ error: 'form_not_found', message: 'No such form', code: ApiErrorCode.NOT_FOUND }),
-    404
-  )
+export const formNotFound = (c: Context): Response => notFound(c, 'No such form')
 
 /**
  * The honeypot field was filled.

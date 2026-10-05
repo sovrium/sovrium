@@ -6,10 +6,19 @@
  */
 
 import { type ReactElement } from 'react'
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveInterpreterString,
+  resolveInterpreterStringOverrides,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
 import { computeFormLayoutClasses } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
-import { buildResolvedFieldDefs } from './crud-form-field-resolver'
+import {
+  buildCreateFieldDefs,
+  buildResolvedFieldDefs,
+  updateFieldDefsForReader,
+} from './crud-form-field-resolver'
+import { applyInlineCrudPrefill } from './crud-form-inline-prefill'
 import { buildCrudIslandProps, readAutoSaveConfig } from './crud-form-island-props'
 import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skeleton'
 import type { ElementProps } from '../html-element-renderer'
@@ -32,6 +41,52 @@ import type { Tables } from '@/domain/models/app/tables'
 function localize(text: string, context: CrudFormRenderContext): string {
   const { lang, languages } = context
   return resolveTranslationPattern(text, lang ?? languages?.default ?? '', languages)
+}
+
+/**
+ * The form's own interface strings in the page language: one default label
+ * for the server-rendered button, and the `form.*` strings that differ from
+ * English for the island (absent on an English page).
+ */
+function formString(key: string, context: CrudFormRenderContext): string {
+  return resolveInterpreterString(
+    key,
+    context.lang ?? context.languages?.default,
+    context.languages
+  )
+}
+
+function formUiStrings(
+  context: CrudFormRenderContext
+): Readonly<Record<string, string>> | undefined {
+  const { lang, languages } = context
+  return resolveInterpreterStringOverrides(['form.'], lang ?? languages?.default, languages)
+}
+
+/**
+ * The author's `id` and `data-testid` name the `<form>` a reader fills in, not
+ * the island host around it: the island draws the same names on its own form,
+ * so a host carrying them too would give one page two elements per name.
+ */
+function formNames(props: ElementProps): {
+  readonly id?: string
+  readonly 'data-testid'?: string
+} {
+  const { id, 'data-testid': testId } = props as Record<string, unknown>
+  return {
+    ...(typeof id === 'string' && { id }),
+    ...(typeof testId === 'string' && { 'data-testid': testId }),
+  }
+}
+
+/** The island host's attributes: the element props minus the names the form carries. */
+function hostProps(props: ElementProps): ElementProps {
+  const {
+    id: _id,
+    'data-testid': _testId,
+    ...rest
+  } = omitInternalMarkers(props) as Record<string, unknown>
+  return rest as ElementProps
 }
 
 /**
@@ -75,7 +130,10 @@ export function renderCrudCreateForm(
   buckets?: Buckets,
   context: CrudFormRenderContext = {}
 ): ReactElement {
-  const baseFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
+  const baseFields = applyInlineCrudPrefill(
+    buildCreateFieldDefs(tables, action.table, component, buckets),
+    component
+  )
   const fields = applyCrudFieldOverrides(baseFields, action.fields, context)
   const submitBtn = readSubmitButtonProps(action, context, component)
   const { layout, fieldGroups, wizardSteps } = readLayoutOptions(component)
@@ -91,18 +149,24 @@ export function renderCrudCreateForm(
     fieldGroups,
     wizard: wizardSteps,
     autoSave: readAutoSaveConfig(component),
+    uiStrings: formUiStrings(context),
   })
 
   return (
     <div
-      {...omitInternalMarkers(props)}
+      {...hostProps(props)}
       data-island="crud-form"
       data-island-props={islandProps}
     >
-      {/* SSR skeleton — progressive enhancement fallback */}
+      {/* SSR skeleton — the first paint, replaced by the island. The records
+          API takes JSON, which only the island sends, so the skeleton's submit
+          is drawn disabled (blocking Enter too) and the form posts, never GETs:
+          a press before the script ran used to put every field in the URL. */}
       <form
         className={computeFormLayoutClasses()}
         aria-label={`Create ${action.table}`}
+        {...formNames(props)}
+        method="post"
         data-action-type="crud"
         data-action-method="create"
         data-action-table={action.table}
@@ -119,9 +183,10 @@ export function renderCrudCreateForm(
         />
         <button
           type="submit"
+          disabled
           {...(submitBtn.variant && { 'data-variant': submitBtn.variant })}
         >
-          {submitBtn.label ?? 'Create'}
+          {submitBtn.label ?? formString('form.create', context)}
         </button>
       </form>
     </div>
@@ -182,15 +247,17 @@ export function renderCrudUpdateForm(
   context: CrudFormRenderContext = {}
 ): ReactElement {
   const record = (props._record ?? {}) as Record<string, unknown>
-  const resolvedFields = readableFieldDefs(
-    buildResolvedFieldDefs(tables, action.table, component, buckets),
-    props._unreadableFields
+  const isReadOnly = props._readOnly === true
+  const resolvedFields = updateFieldDefsForReader(
+    readableFieldDefs(
+      buildResolvedFieldDefs(tables, action.table, component, buckets),
+      props._unreadableFields
+    ),
+    { table: tables?.find((t) => t.name === action.table), component, readOnly: isReadOnly }
   )
   const rawFields = applyCrudFieldOverrides(resolvedFields, action.fields, context)
   const submitBtn = readSubmitButtonProps(action, context, component)
-  const readOnlyFlag = props._readOnly
   const restProps = omitInternalMarkers(props) as Record<string, unknown>
-  const isReadOnly = readOnlyFlag === true
   // PG-04: when the page filter detects that the
   // synthesized CRUD update would be denied by table-level update permissions,
   // it stamps `_readOnly: true` on the component's props. Propagate that to
@@ -213,18 +280,20 @@ export function renderCrudUpdateForm(
     layout,
     fieldGroups,
     autoSave: readAutoSaveConfig(component),
+    uiStrings: formUiStrings(context),
   })
   const formAction = buildUpdateFormAction(action.table, recordId)
 
   return (
     <div
-      {...(restProps as ElementProps)}
+      {...hostProps(restProps as ElementProps)}
       data-island="crud-form"
       data-island-props={islandProps}
     >
       <form
         className={computeFormLayoutClasses()}
         aria-label={`Edit ${action.table}`}
+        {...formNames(restProps as ElementProps)}
         method="POST"
         action={formAction}
         data-action-type="crud"
@@ -242,7 +311,9 @@ export function renderCrudUpdateForm(
           value={action.onSuccess?.navigate ?? ''}
         />
         {fields.map((f) => renderUpdateSkeletonField(f, record))}
-        {!isReadOnly && <button type="submit">{submitBtn.label ?? 'Update'}</button>}
+        {!isReadOnly && (
+          <button type="submit">{submitBtn.label ?? formString('form.update', context)}</button>
+        )}
       </form>
     </div>
   )
@@ -277,6 +348,7 @@ function buildAutomationIslandProps(ctx: {
   readonly variant: string | undefined
   readonly testId: unknown
   readonly id: unknown
+  readonly uiStrings: Readonly<Record<string, string>> | undefined
 }): string {
   return JSON.stringify({
     operation: 'automation',
@@ -290,6 +362,7 @@ function buildAutomationIslandProps(ctx: {
     variant: ctx.variant,
     'data-testid': ctx.testId,
     id: ctx.id,
+    uiStrings: ctx.uiStrings,
   })
 }
 
@@ -298,7 +371,8 @@ export function renderAutomationForm(
   action: AutomationFormAction,
   tables?: Tables,
   component?: Component,
-  buckets?: Buckets
+  buckets?: Buckets,
+  context: CrudFormRenderContext = {}
 ): ReactElement {
   const componentRecord = (component ?? {}) as Record<string, unknown>
   const dataSource = componentRecord['dataSource'] as { table?: string } | undefined
@@ -308,7 +382,7 @@ export function renderAutomationForm(
   // an action carrying only the table identity so it falls back to props.label.
   const submitBtn = readSubmitButtonProps(
     { type: 'automation', operation: 'automation', table: tableName },
-    {},
+    context,
     component
   )
   const islandProps = buildAutomationIslandProps({
@@ -321,17 +395,23 @@ export function renderAutomationForm(
     variant: submitBtn.variant,
     testId: props['data-testid'],
     id: props.id,
+    uiStrings: formUiStrings(context),
   })
 
   return (
     <div
-      {...omitInternalMarkers(props)}
+      {...hostProps(props)}
       data-island="crud-form"
       data-island-props={islandProps}
     >
+      {/* SSR skeleton, replaced by the island: an automation is triggered over
+          JSON only, so — like the create form — the submit waits disabled for
+          the island and the form posts, never GETs. */}
       <form
         className={computeFormLayoutClasses()}
         aria-label={`Submit ${action.name}`}
+        {...formNames(props)}
+        method="post"
         data-action-type="automation"
         data-action-automation={action.name}
         noValidate
@@ -343,9 +423,10 @@ export function renderAutomationForm(
         />
         <button
           type="submit"
+          disabled
           {...(submitBtn.variant && { 'data-variant': submitBtn.variant })}
         >
-          {submitBtn.label ?? 'Submit'}
+          {submitBtn.label ?? formString('form.submit', context)}
         </button>
       </form>
     </div>

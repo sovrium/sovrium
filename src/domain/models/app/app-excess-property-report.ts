@@ -197,11 +197,38 @@ export interface UnknownDiscriminantFinding {
   readonly migration: string | undefined
 }
 
+/**
+ * A rule (`Schema.check`) that the chosen member of a union failed.
+ *
+ * WHY THIS EXISTS. When a union has several members the decoder tried, its own
+ * formatter prints every member's failure: the rule the author actually broke,
+ * then a line per sibling blaming them for a shape they never reached for.
+ * Measured: a digest release with a refused sort key printed the right sentence
+ * and then `Unexpected key with value "release"` at the step's `operator`, from
+ * the action-reference member, which declares no `operator` at all.
+ *
+ * Reported ONLY when branch selection is decisive — the member the rule lives in
+ * strictly outscores every sibling the decoder tried, at every multi-member
+ * union on the way up. A tie hands the failure back to the decoder's own
+ * formatter, which names every member, rather than guessing which one the author
+ * meant. A rule failed outside any contested union is left to the decoder too:
+ * its message already stands alone there.
+ * @public
+ */
+export interface CheckFailureFinding {
+  readonly kind: 'check-failure'
+  /** Dotted/indexed path from the config root. */
+  readonly path: string
+  /** The rule's own message, verbatim. */
+  readonly message: string
+}
+
 /** Anything this module can say about a decode failure. @public */
 export type DecodeFinding =
   | (ExcessPropertyFinding & { readonly kind: 'excess-property' })
   | UnionMismatchFinding
   | UnknownDiscriminantFinding
+  | CheckFailureFinding
 
 interface RawExcessFinding {
   readonly kind: 'excess-property'
@@ -227,7 +254,19 @@ interface RawDiscriminantFinding {
   readonly input: unknown
 }
 
-type RawFinding = RawExcessFinding | RawMismatchFinding | RawDiscriminantFinding
+interface RawCheckFinding {
+  readonly kind: 'check-failure'
+  readonly segments: readonly (string | number)[]
+  readonly message: string
+  /**
+   * `undefined` until a contested union rules on it; then `true` only while
+   * EVERY contested union above it chose decisively. One tie anywhere on the
+   * way up pins it to `false` for good.
+   */
+  readonly confirmed: boolean | undefined
+}
+
+type RawFinding = RawExcessFinding | RawMismatchFinding | RawDiscriminantFinding | RawCheckFinding
 
 /**
  * A branch of the issue tree, scored by how much of what the author wrote it
@@ -592,6 +631,8 @@ const walkIssue = (issue: SchemaIssue.Issue, segments: readonly (string | number
     // is deleted rather than ported; the test that caught the original lie
     // ('stays silent when the matching branch failed a rule') still guards it.
     case 'Filter':
+      return walkFilter(issue, segments)
+
     case 'Encoding':
       return walkIssue(issue.issue, segments)
 
@@ -624,6 +665,48 @@ const walkIssue = (issue: SchemaIssue.Issue, segments: readonly (string | number
 }
 
 /**
+ * A failed check.
+ *
+ * A rule that failed with its own message becomes a candidate finding, held
+ * UNCONFIRMED: only a decisive union choice above it may publish it (see
+ * `CheckFailureFinding`). It earns no score — it says nothing about which shape
+ * the author meant — so branch selection is exactly what it was before. Any
+ * other inner issue is walked as before.
+ */
+const walkFilter = (
+  issue: Extract<SchemaIssue.Issue, { readonly _tag: 'Filter' }>,
+  segments: readonly (string | number)[]
+): Candidate => {
+  const inner = issue.issue
+  const message = inner._tag === 'InvalidValue' ? inner.annotations?.message : undefined
+  if (typeof message !== 'string' || message.length === 0) return walkIssue(inner, segments)
+  return {
+    findings: [{ kind: 'check-failure', segments, message, confirmed: undefined }],
+    score: 0,
+  }
+}
+
+/**
+ * The same candidate with its rule failures confirmed or withdrawn by one union.
+ *
+ * Only a union the decoder actually contested — more than one member tried —
+ * has a say. A decisive choice confirms; a tie withdraws, even a confirmation
+ * earned lower down, because the rule lives in a member nobody can show the
+ * author meant. And a withdrawal is FINAL: a decisive union higher up says the
+ * author meant the outer shape, not which inner member they meant, so it must
+ * not revive a rule an inner tie withdrew — that would hide the tied sibling's
+ * complaint behind a guess.
+ */
+const settleChecks = (candidate: Candidate, decisive: boolean): Candidate => ({
+  ...candidate,
+  findings: candidate.findings.map((finding) =>
+    finding.kind === 'check-failure'
+      ? { ...finding, confirmed: decisive && finding.confirmed !== false }
+      : finding
+  ),
+})
+
+/**
  * A union.
  *
  * When the parser entered at least one branch, that branch's own failure is
@@ -644,7 +727,12 @@ const walkAnyOf = (
   issue: Extract<SchemaIssue.Issue, { readonly _tag: 'AnyOf' }>,
   segments: readonly (string | number)[]
 ): Candidate => {
-  const best = pickBestBranch(issue.issues.map((child) => walkIssue(child, segments)))
+  const branches = issue.issues.map((child) => walkIssue(child, segments))
+  const chosen = pickBestBranch(branches)
+  const best =
+    branches.length > 1
+      ? settleChecks(chosen, branches.filter((branch) => branch.score >= chosen.score).length === 1)
+      : chosen
   if (issue.issues.length > 0) return best
 
   const input = inputOf(issue)
@@ -731,6 +819,8 @@ const findingIdentity = (finding: RawFinding): string => {
       return `union::${formatPath(finding.segments)}::${finding.variants.join('|')}`
     case 'unknown-discriminant':
       return `discriminant::${formatPath(finding.segments)}::${finding.discriminant}`
+    case 'check-failure':
+      return `check::${formatPath(finding.segments)}::${finding.message}`
   }
 }
 
@@ -742,6 +832,9 @@ const writtenDiscriminant = (input: unknown, name: string): string | undefined =
 }
 
 const toDecodeFinding = (finding: RawFinding): DecodeFinding => {
+  if (finding.kind === 'check-failure') {
+    return { kind: 'check-failure', path: formatPath(finding.segments), message: finding.message }
+  }
   if (finding.kind === 'unknown-discriminant') {
     const value = writtenDiscriminant(finding.input, finding.discriminant)
     return {
@@ -789,7 +882,8 @@ const toDecodeFinding = (finding: RawFinding): DecodeFinding => {
  */
 export const collectDecodeFindings = (issue: SchemaIssue.Issue): readonly DecodeFinding[] =>
   walkIssue(issue, [])
-    .findings.filter(
+    .findings.filter((finding) => finding.kind !== 'check-failure' || finding.confirmed === true)
+    .filter(
       (finding, index, all) =>
         all.findIndex((other) => findingIdentity(other) === findingIdentity(finding)) === index
     )
@@ -904,17 +998,6 @@ export interface ConfigFinding {
    */
   readonly severity: 'error'
 }
-
-/** The headline of a finding, reusing the exact wording its report line uses. */
-const findingMessage = (finding: DecodeFinding): string => {
-  if (finding.kind === 'unknown-discriminant') return discriminantLines(finding)[0].trim()
-  if (finding.kind === 'union-mismatch') return mismatchLines(finding)[0].trim()
-  return `Unknown property '${finding.key}'${finding.nodeLabel ? ` on ${finding.nodeLabel}` : ''}`
-}
-
-/** What may be written at this node — the values, the keys, or the variants. */
-const findingAccepted = (finding: DecodeFinding): readonly string[] =>
-  finding.kind === 'union-mismatch' ? finding.variants : finding.accepted
 
 // =============================================================================
 // THE ECHO RULE
@@ -1035,6 +1118,20 @@ const withoutReportedInput = (message: string): string =>
     })
     .join('\n')
 
+/** The headline of a finding, reusing the exact wording its report line uses. */
+const findingMessage = (finding: DecodeFinding): string => {
+  if (finding.kind === 'check-failure') return withoutReportedInput(finding.message)
+  if (finding.kind === 'unknown-discriminant') return discriminantLines(finding)[0].trim()
+  if (finding.kind === 'union-mismatch') return mismatchLines(finding)[0].trim()
+  return `Unknown property '${finding.key}'${finding.nodeLabel ? ` on ${finding.nodeLabel}` : ''}`
+}
+
+/** What may be written at this node — the values, the keys, or the variants. */
+const findingAccepted = (finding: DecodeFinding): readonly string[] | undefined => {
+  if (finding.kind === 'check-failure') return undefined
+  return finding.kind === 'union-mismatch' ? finding.variants : finding.accepted
+}
+
 /**
  * Project decode findings into the machine-readable vocabulary, attributing each
  * one to the `$ref` partial it came from. Pure.
@@ -1049,10 +1146,11 @@ export const toConfigFindings = (
 ): readonly ConfigFinding[] =>
   findings.map((finding) => {
     const sourceFile = attributeSourceFile(finding.path, refSources)
+    const accepted = findingAccepted(finding)
     return {
       path: finding.path,
       message: findingMessage(withoutEchoedValue(finding)),
-      accepted: findingAccepted(finding),
+      ...(accepted !== undefined && { accepted }),
       ...(sourceFile !== undefined && { sourceFile }),
       severity: 'error' as const,
     }
@@ -1137,6 +1235,8 @@ export const formatDecodeReport = (
       const [headline, trailer] = mismatchLines(finding)
       return [headline, ...atLine, trailer]
     }
+
+    if (finding.kind === 'check-failure') return [`  ${finding.message}`, ...atLine]
 
     if (finding.kind === 'unknown-discriminant') {
       const [headline, trailer] = discriminantLines(finding)

@@ -1,0 +1,27 @@
+# Registration, `/register?event=<id>`: the event card links here with its
+# event already chosen, so the visitor types a name and an email and answers
+# one question. The form is config/forms/register.yaml.
+name: register
+path: /register
+meta:
+  title: Register · Fieldday
+  description: Register for a Fieldday event. It takes a minute, needs no account and is free.
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: main
+        props:
+          className: mx-auto flex w-full max-w-[620px] flex-1 flex-col gap-5 px-6 pt-12 pb-12 max-md:px-4 max-md:pt-8
+        children:
+          - type: form
+            formRef: register
+          - type: link
+            props:
+              href: /
+              className: text-xs text-foreground-muted hover:text-foreground
+            content: See every event
+      - $ref: ./_site-footer.yaml

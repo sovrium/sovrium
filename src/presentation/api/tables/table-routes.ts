@@ -11,6 +11,7 @@ import {
   createGetTableProgram,
   createGetPermissionsProgram,
 } from '@/application/use-cases/tables/table-operations'
+import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
@@ -21,7 +22,10 @@ import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffect } from '@/presentation/api/runtime/run-effect'
 import { handleExportTableCsv } from './export-handlers'
+import { resolveAccessRolesFor } from './row-level-guard'
+import { resolveTableReadCaller } from './table-read-caller'
 import {
+  denyUnlessWebhookAdmin,
   handleGetDelivery,
   handleListDeliveries,
   handleRetryDelivery,
@@ -31,17 +35,27 @@ import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 // Handler for GET /api/tables
-// Note: This route doesn't have :tableId, so only session is guaranteed by middleware
-// (requireAuth ensures session exists, but validateTable/enrichUserRole don't run)
+// Note: This route doesn't have :tableId, so validateTable/enrichUserRole don't run.
+// With `auth`, requireAuth guarantees a session; without it no session is ever
+// mounted and every caller is the guest, as on the records routes.
 async function handleListTables(c: Context, app: App) {
-  // Session is guaranteed by requireAuth() middleware (non-null assertion safe)
-  const session = getSessionContext(c)!
-
-  // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
-  const userRole = await runDomainPromise(c, getUserRole(session.userId))
+  const session = app.auth === undefined ? undefined : getSessionContext(c)
+  const [userRole, userGroups] =
+    session === undefined
+      ? ['guest', []]
+      : await Promise.all([
+          runDomainPromise(c, getUserRole(session.userId)),
+          runDomainPromise(c, getUserGroups(session.userId)),
+        ])
+  // The `user_access` roles the records route adds on a table with row-level
+  // rules, so the list names exactly the tables those records admit.
+  const accessRoles = await resolveAccessRolesFor(session, app.tables ?? [])
 
   const program = Effect.gen(function* () {
-    const result = yield* createListTablesProgram(userRole, app)
+    const result = yield* createListTablesProgram(
+      { role: userRole, groups: userGroups, accessRoles },
+      app
+    )
     return decodeOrThrow(Schema.Array(Schema.Unknown))(result)
   })
 
@@ -51,10 +65,11 @@ async function handleListTables(c: Context, app: App) {
 // Handler for GET /api/tables/:tableId
 async function handleGetTable(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
-  const { tableId, userRole } = getTableContext(c)
+  const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+  const caller = await resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
-    const result = yield* createGetTableProgram(tableId, app, userRole)
+    const result = yield* createGetTableProgram(tableId, app, caller)
     const validated = decodeOrThrow(getTableResponseSchema)(result)
     // Return the table object directly (unwrapped) to match test expectations
     return validated.table
@@ -64,9 +79,12 @@ async function handleGetTable(c: Context, app: App) {
 }
 
 // Handler for GET /api/tables/:tableId/webhooks
-// Lists the outgoing webhook configurations declared on a table. Webhook
-// secrets are stripped from the response so auth credentials never leak.
+// Lists the outgoing webhook configurations declared on a table, to admins
+// only (every other caller gets the missing-table 404). Webhook secrets are
+// stripped from the response so auth credentials never leak.
 function handleListWebhooks(c: Context, app: App) {
+  const denied = denyUnlessWebhookAdmin(c, app)
+  if (denied) return denied
   const { tableId } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableId)
   const webhooks = (table?.webhooks ?? []).map((webhook) => ({
@@ -80,11 +98,14 @@ function handleListWebhooks(c: Context, app: App) {
 
 // Handler for GET /api/tables/:tableId/permissions
 async function handleGetPermissions(c: Context, app: App) {
-  // Session, tableId, and userRole are guaranteed by middleware chain
-  const { tableId, userRole } = getTableContext(c)
+  // Session, tableId, and userRole are guaranteed by middleware chain. The
+  // caller is resolved as the records route resolves her — assignment roles
+  // included on a table with row-level rules — so the map admits whom they do.
+  const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+  const caller = await resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
-    const result = yield* createGetPermissionsProgram(tableId, app, userRole)
+    const result = yield* createGetPermissionsProgram(tableId, app, caller)
     return decodeOrThrow(getTablePermissionsResponseSchema)(result)
   })
 

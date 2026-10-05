@@ -111,6 +111,16 @@ const describeWith = (description: string | undefined) =>
 const annotatedString = (description: string | undefined) =>
   description === undefined ? Schema.String : Schema.String.pipe(Schema.annotate({ description }))
 
+/**
+ * The whole shape of a table name, read on the name AS WRITTEN: optional plain
+ * spaces, a letter, then letters, digits, underscores, hyphens and plain spaces.
+ * Only U+0020 counts as a space. The filter below applies it and words the
+ * refusal; the same source is published as the JSON Schema `pattern`, so an
+ * editor completing against `schemas/app.json` flags a tab or a line break the
+ * way `sovrium validate` does.
+ */
+const TABLE_NAME_PATTERN = /^ *[a-zA-Z][a-zA-Z0-9_ -]*$/
+
 /** Table names: user-friendly format, sanitized for the database downstream. */
 const tableIdentifierSchema = (description: string | undefined) =>
   annotatedString(description).pipe(
@@ -119,16 +129,24 @@ const tableIdentifierSchema = (description: string | undefined) =>
       Schema.isMaxLength(63, { message: 'Maximum length is 63 characters' })
     ),
     Schema.check(
-      Schema.makeFilter((name) => {
-        const trimmed = name.trim()
-        if (/^\d/.test(trimmed)) {
-          return `Invalid table name '${name}': name must start with a letter`
-        }
-        if (!/^[a-zA-Z][a-zA-Z0-9_\s-]*$/.test(trimmed)) {
-          return `Invalid table name '${name}': name must start with a letter and contain only letters, numbers, underscores, hyphens, or spaces`
-        }
-        return true
-      })
+      Schema.makeFilter(
+        (name) => {
+          // Only a PLAIN space (U+0020) separates words or pads the ends. `\s`
+          // once stood here and let a newline, a tab, a carriage return or a
+          // non-breaking space through — each then reached every log and prompt
+          // that names the table. The name is printed with `JSON.stringify` so a
+          // control character in a refused name cannot break the report's line.
+          const shown = JSON.stringify(name)
+          if (/^ *\d/.test(name)) {
+            return `Invalid table name ${shown}: name must start with a letter`
+          }
+          if (!TABLE_NAME_PATTERN.test(name)) {
+            return `Invalid table name ${shown}: name must start with a letter and contain only letters, numbers, underscores, hyphens, or plain spaces (a tab, a line break or any other whitespace is refused)`
+          }
+          return true
+        },
+        { toJsonSchema: () => ({ pattern: TABLE_NAME_PATTERN.source }) }
+      )
     ),
     Schema.check(
       Schema.makeFilter((name) => {
@@ -140,7 +158,7 @@ const tableIdentifierSchema = (description: string | undefined) =>
         const isReserved = SQL_RESERVED_KEYWORDS.has(sanitized)
         return (
           !isReserved ||
-          `Table name '${name}' resolves to reserved SQL keyword '${sanitized}'. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a different name.`
+          `Table name ${JSON.stringify(name)} resolves to reserved SQL keyword '${sanitized}'. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a different name.`
         )
       })
     )

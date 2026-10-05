@@ -47,7 +47,21 @@ const handlePatternOperator = (
 }
 
 /**
- * Handle NULL check operators (isNull, isNotNull, isEmpty)
+ * The texts an empty value reads as once cast to text — the inline twin of
+ * `EMPTY_VALUE_TEXTS` below, for DDL where nothing can be bound. Constant
+ * literals: no configured value reaches this string.
+ */
+const EMPTY_VALUE_TEXTS_LITERAL = "('', '[]', '{}')"
+
+/**
+ * Handle NULL check operators (isNull, isNotNull, isEmpty, isNotEmpty)
+ *
+ * `isEmpty` / `isNotEmpty` compile to exactly the condition the parameterised
+ * {@link emptyValueCondition} emits: NULL, or the column cast to
+ * text reads `''`, `'[]'` or `'{}'`. Comparing as TEXT is what lets one
+ * condition read a PostgreSQL array (an empty `TEXT[]` casts to `{}`), a JSON
+ * column and plain text on both engines — a bare `= ''` against an array
+ * column is a `malformed array literal` on PostgreSQL.
  */
 const handleNullOperator = (field: string, operator: string): string | undefined => {
   if (operator === 'isNull') {
@@ -57,7 +71,10 @@ const handleNullOperator = (field: string, operator: string): string | undefined
     return `${field} IS NOT NULL`
   }
   if (operator === 'isEmpty') {
-    return `(${field} IS NULL OR ${field} = '')`
+    return `(${field} IS NULL OR CAST(${field} AS TEXT) IN ${EMPTY_VALUE_TEXTS_LITERAL})`
+  }
+  if (operator === 'isNotEmpty') {
+    return `(${field} IS NOT NULL AND CAST(${field} AS TEXT) NOT IN ${EMPTY_VALUE_TEXTS_LITERAL})`
   }
   return undefined
 }
@@ -76,18 +93,44 @@ const handleBooleanOperator = (field: string, operator: string): string | undefi
 }
 
 /**
- * Handle IN operator (field matches any value in array)
+ * The members a set-membership operator (`in`, `notIn`) compares against.
+ *
+ * A single value is a list of one: without this, a scalar fell through to the
+ * comparison fallback, `=`, which for `notIn` INVERTS the filter (`notIn:
+ * "done"` listed exactly the done rows). A missing member (`null`) is dropped
+ * from a `notIn` list: `NOT IN (…, NULL)` is never true, so one null in the
+ * list used to leave out every row. A row with no value is already left out by
+ * the `IS NOT NULL` both builders state.
+ */
+const setMembersOf = (operator: 'in' | 'notIn', value: unknown): readonly unknown[] => {
+  const members = Array.isArray(value) ? value : [value]
+  return operator === 'notIn'
+    ? members.filter((member) => member !== null && member !== undefined)
+    : members
+}
+
+/** Whether an operator is one of the two set-membership operators. */
+const isSetOperator = (operator: string): operator is 'in' | 'notIn' =>
+  operator === 'in' || operator === 'notIn'
+
+/**
+ * Handle the set-membership operators `in` and `notIn`.
+ *
+ * A row with no value is kept by neither: `in` cannot match NULL, and `notIn`
+ * states `IS NOT NULL` rather than leaving it to `NOT IN`'s three-valued logic,
+ * so the rule reads the same on both engines. An empty `notIn` list leaves out
+ * nothing that has a value — where SQL's `NOT IN (NULL)` would leave out every
+ * row. See {@link setMembersOf} for a single value and a null member.
  */
 const handleInOperator = (field: string, operator: string, value: unknown): string | undefined => {
+  if (!isSetOperator(operator)) return undefined
+  const formattedValues = setMembersOf(operator, value).map((v) => formatSqlValue(v))
   if (operator === 'in') {
-    if (!Array.isArray(value)) {
-      return undefined
-    }
-    // Format each value in the array immutably
-    const formattedValues = value.map((v) => formatSqlValue(v))
-    return `${field} IN (${formattedValues.join(', ')})`
+    return formattedValues.length === 0 ? '1 = 0' : `${field} IN (${formattedValues.join(', ')})`
   }
-  return undefined
+  return formattedValues.length === 0
+    ? `${field} IS NOT NULL`
+    : `(${field} IS NOT NULL AND ${field} NOT IN (${formattedValues.join(', ')}))`
 }
 
 /**
@@ -229,7 +272,7 @@ const buildPatternFragment = (
 }
 
 /**
- * Build a parameterized NULL/empty check fragment (isNull/isNotNull/isEmpty).
+ * Build a parameterized NULL/empty check fragment (isNull/isNotNull/isEmpty/isNotEmpty).
  * These reference only the column; no value binding needed.
  */
 const buildNullFragment = (column: SqlIdentifier, operator: string): Readonly<SQL> | undefined => {
@@ -239,11 +282,31 @@ const buildNullFragment = (column: SqlIdentifier, operator: string): Readonly<SQ
   if (operator === 'isNotNull') {
     return sql`${column} IS NOT NULL`
   }
-  if (operator === 'isEmpty') {
-    return sql`(${column} IS NULL OR ${column} = '')`
-  }
+  if (operator === 'isEmpty') return emptyValueCondition(column)
+  if (operator === 'isNotEmpty') return nonEmptyValueCondition(column)
   return undefined
 }
+
+/**
+ * The text an empty value reads as once cast to text, on either engine: empty
+ * text, an empty JSON list or object (`jsonb` on PostgreSQL, JSON text on
+ * SQLite), and an empty PostgreSQL array (`TEXT[]` — a multi-select).
+ */
+const EMPTY_VALUE_TEXTS = sql`('', '[]', '{}')`
+
+/**
+ * "This column holds no value": NULL, empty text, an empty list or
+ * an empty object.
+ * Compared as TEXT, so the one rule reads a number, a date, a JSON list or an
+ * array column on both engines — where a bare `= ''` refuses a non-text
+ * column on PostgreSQL. No value is bound: the column is the only input.
+ */
+export const emptyValueCondition = (column: Readonly<SQL> | SqlIdentifier): Readonly<SQL> =>
+  sql`(${column} IS NULL OR CAST(${column} AS TEXT) IN ${EMPTY_VALUE_TEXTS})`
+
+/** The negation of {@link emptyValueCondition}: the column holds a value. */
+export const nonEmptyValueCondition = (column: Readonly<SQL> | SqlIdentifier): Readonly<SQL> =>
+  sql`(${column} IS NOT NULL AND CAST(${column} AS TEXT) NOT IN ${EMPTY_VALUE_TEXTS})`
 
 /**
  * Build a parameterized boolean check fragment (isTrue/isFalse).
@@ -263,22 +326,28 @@ const buildBooleanFragment = (
 }
 
 /**
- * Build a parameterized IN fragment. Each array value is bound individually.
+ * Build a parameterized `in` / `notIn` fragment. Each member is bound
+ * individually; a row with no value is kept by neither (see
+ * {@link handleInOperator}, and {@link setMembersOf} for a single value).
  */
 const buildInFragment = (
   column: SqlIdentifier,
   operator: string,
   value: unknown
 ): Readonly<SQL> | undefined => {
-  if (operator !== 'in') return undefined
-  if (!Array.isArray(value)) return undefined
-  // An empty IN list is invalid SQL; `IN (NULL)` matches nothing, mirroring intent.
-  if (value.length === 0) return sql`${column} IN (NULL)`
+  if (!isSetOperator(operator)) return undefined
+  const members = setMembersOf(operator, value)
   const boundValues = sql.join(
-    value.map((v) => sql`${v}`),
+    members.map((v) => sql`${v}`),
     sql`, `
   )
-  return sql`${column} IN (${boundValues})`
+  if (operator === 'in') {
+    // An empty IN list is invalid SQL; `IN (NULL)` matches nothing, mirroring intent.
+    return members.length === 0 ? sql`${column} IN (NULL)` : sql`${column} IN (${boundValues})`
+  }
+  return members.length === 0
+    ? sql`${column} IS NOT NULL`
+    : sql`(${column} IS NOT NULL AND ${column} NOT IN (${boundValues}))`
 }
 
 /**

@@ -14,6 +14,7 @@
 
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeCommentSortSelectClasses } from '@/presentation/design/comments-default-classes'
+import { useCommentString } from './comment-strings'
 import type { ReactElement } from 'react'
 
 /**
@@ -31,19 +32,23 @@ export function SortDropdown({
   readonly sort: 'newest' | 'oldest'
   readonly onChange: (next: 'newest' | 'oldest') => void
 }): ReactElement {
+  const sortLabel = useCommentString('comments.sort', 'Sort')
+  const sortName = useCommentString('comments.sortLabel', 'Sort comments')
+  const newest = useCommentString('comments.newest', 'Newest first')
+  const oldest = useCommentString('comments.oldest', 'Oldest first')
   return (
     // The sort bar supplies the row's alignment and its 11px muted tone, so
     // the label only has to keep its own two children on one baseline.
     <label className="flex items-center gap-1">
-      <span>Sort</span>
+      <span>{sortLabel}</span>
       <select
-        aria-label="Sort comments"
+        aria-label={sortName}
         value={sort}
         onChange={(e) => onChange(e.target.value === 'oldest' ? 'oldest' : 'newest')}
         className={computeCommentSortSelectClasses()}
       >
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
+        <option value="newest">{newest}</option>
+        <option value="oldest">{oldest}</option>
       </select>
     </label>
   )

@@ -116,9 +116,9 @@ export type IslandLoader = () => Promise<{
  * a pending top-level await, which deadlocks. It throws nothing and logs
  * nothing — the surface simply renders with no island mounted, reading as
  * "the sidebar is missing" rather than as an import problem. It cost 10 of the
- * 10 `[internal ref]` specs before
- * `admin-spa-nav-swap.ts` was moved to a dynamic `import()`, which is also why
- * `tabs-island.tsx` has always reached the mounter that way.
+ * 10 `[internal ref]` specs before the SPA swap
+ * module (now `navigation/spa-nav-swap.ts`) was moved to a dynamic `import()`,
+ * which is also why `tabs-island.tsx` has always reached the mounter that way.
  *
  * To add a new island type:
  * 1. Create the component in src/presentation/islands/
@@ -131,11 +131,11 @@ export type IslandLoader = () => Promise<{
 
 const loadAdminAgentConversations = () => import('./admin/agents/admin-agent-conversations-island')
 const loadAdminCommandPalette = () => import('./admin/command-palette/admin-command-palette-island')
-const loadAdminSpaNav = () => import('./admin/spa-nav/admin-spa-nav-island')
 const loadAiChat = () => import('./ai-chat-island')
 const loadAuthForm = () => import('./auth-form/auth-form-island')
 const loadCrudForm = () => import('./crud-form-island/crud-form-island')
 const loadDatePicker = () => import('./date-picker/date-picker-island')
+const loadSpaNav = () => import('./navigation/spa-nav-island')
 const loadTabs = () => import('./disclosure/tabs-island')
 const loadFileUpload = () => import('./file-upload/file-upload-island')
 const loadNumberInput = () => import('./form-controls/number-input-island')
@@ -183,7 +183,10 @@ export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   // button that does not respond yet.
   'sidebar-drawer': loadSidebarDrawer,
   'record-drawer': loadRecordDrawer,
-  'admin-spa-nav': loadAdminSpaNav,
+  'admin-spa-nav': loadSpaNav,
+  // The same island over an app's own pages (`sidebar.clientSideNavigation`):
+  // its click interceptor must be live before the reader's first click.
+  'spa-nav': loadSpaNav,
   'command-palette': loadAdminCommandPalette,
   'admin-agent-conversations': loadAdminAgentConversations,
   'file-upload': loadFileUpload,
@@ -440,7 +443,14 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // PRIORITY so the global click interceptor is live before the first nav
   // click. Mounted via a `data-island` marker in the shell chrome (outside the
   // swap region so its listeners survive content swaps).
-  'admin-spa-nav': lazy(loadAdminSpaNav),
+  'admin-spa-nav': lazy(loadSpaNav),
+  // `spa-nav` — the same content-only navigation over an app's own pages
+  //. Mounted by a hidden host the page
+  // renders beside `<main id="main-content">` when its sidebar sets
+  // `clientSideNavigation`; props `{ regionId: 'main-content', scope: 'app' }`
+  // make it replace the main landmark and serve the app's pages only. PRIORITY
+  // for the same reason as the console's.
+  'spa-nav': lazy(loadSpaNav),
   // `command-palette` — the ⌘K search overlay a `command-palette` component in
   // SEARCH mode hosts ([internal ref],
   // [internal ref]). Its binding arrives as props: `endpoint`

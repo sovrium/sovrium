@@ -1,81 +1,74 @@
+# One post, open for editing: its words on the left, its publishing on the
+# right. The form opens with the post's own values. Giving a draft a publish
+# date and pressing Schedule saves it, and the post becomes Scheduled
+# (config/automations/schedule-on-date.yaml); it goes live at that hour.
 name: admin-post-edit
 path: /admin/posts/:id/edit
 access:
-  require: authenticated
+  require: [admin]
   redirectTo: /admin/login
-# Binds the page to one posts record resolved from the :id route param so the
-# form below loads the existing values for editing.
-dataSource:
-  table: posts
-  mode: single
-  param: id
 meta:
-  title: Edit post
-  description: Edit and publish a blog post
+  title: Edit post · Field Notes
+  description: Edit, schedule and publish a post.
 components:
   - type: container
-    element: section
     props:
-      className: bg-background min-h-screen py-10 px-6
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: max-w-2xl mx-auto
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: link
-            props:
-              href: /admin
-              className: text-md mb-6 inline-block text-primary hover:underline
-            content: ← Back to posts
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-6 text-foreground
-            content: Edit post
-
           - type: container
             props:
-              className: p-6 rounded-lg border border-border bg-card
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
             children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Edit post
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # The words on the left, the publishing on the right: the form's
+              # fields are laid on two columns, the status, the date, the byline
+              # and Schedule in the narrow one. One column on a phone.
               - type: form
                 props:
-                  id: edit-post-form
+                  className: >-
+                    lg:[&_form]:grid lg:[&_form]:grid-flow-dense lg:[&_form]:grid-cols-[minmax(0,1fr)_340px] lg:[&_form]:items-start lg:[&_form]:gap-x-[22px]
+                    lg:[&_form>*]:col-start-1 lg:[&_form>div:nth-child(n+6)]:col-start-2 lg:[&_form>button]:col-start-2
                 dataSource:
                   table: posts
-                layout: single-column
-                fieldGroups:
-                  - label: Content
-                    fields: [title, slug, excerpt, body, cover_image]
-                  - label: Publishing
-                    fields: [status, published_at, author, tags]
+                  mode: single
+                  param: id
                 fields:
-                  - field: title
-                    label: Title
-                    placeholder: Post title
+                  - { field: title, label: Title }
                   - field: slug
                     label: URL slug
-                    placeholder: my-post-slug
-                  - field: excerpt
-                    label: Excerpt
-                    placeholder: A short summary shown in listings and meta tags.
-                  - field: body
-                    label: Body
-                  - field: cover_image
-                    label: Cover image
+                    description: The essay's address, /blog/<slug>. Lowercase words joined by hyphens.
+                  - { field: excerpt, label: Excerpt }
+                  - { field: body, label: Body }
+                  - { field: cover, label: Cover image }
                   - field: status
                     label: Status
-                  - field: published_at
-                    label: Publish date
-                  - field: author
-                    label: Author
-                  - field: tags
-                    label: Tags
+                    description: Draft stays on the desk; Published is on the site now.
+                  - field: publish_at
+                    label: Publish at
+                    description: Set a date on a draft and press Schedule — the post goes live at that hour.
+                  - { field: author, label: Author }
+                  - { field: tags, label: Tags }
                 action:
                   type: crud
                   operation: update
                   table: posts
+                  submitLabel: Schedule
                   onSuccess:
                     navigate: /admin
                     toast:
-                      message: Post saved
+                      message: Saved. A draft with a publish date is now scheduled.
                       variant: success

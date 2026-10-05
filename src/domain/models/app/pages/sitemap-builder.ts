@@ -18,11 +18,8 @@
  * were a second, older spelling for the same two values and have been removed.
  */
 
-import {
-  isOpenToEveryone,
-  toPermissionValue,
-  type PermissionCaller,
-} from '@/domain/models/app/auth/permission-evaluation'
+import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
+import { readOpensToEveryone } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import type { App } from '@/domain/models/app'
@@ -115,13 +112,18 @@ export interface SitemapCollectionSource {
   readonly filter: readonly DataFilter[] | undefined
 }
 
-/** True when an anonymous caller could read the table's rows AND their address field. */
+/**
+ * True when an anonymous caller could read the table's rows AND their address
+ * field. The table's read is the one it resolves to through `inherit` and
+ * `override`, as the records API judges a visitor: a table inheriting `all` is
+ * open, one overriding its own `all` to signed-in callers is not.
+ */
 const isAnonymouslyAddressable = (
   app: App,
   table: NonNullable<App['tables']>[number],
   slugField: string
 ): boolean =>
-  isOpenToEveryone(toPermissionValue(table.permissions?.read)) &&
+  readOpensToEveryone(table, app.tables) &&
   table.rowLevelPermissions?.read === undefined &&
   isFieldReadableByCaller(app, table.name, ANONYMOUS_CRAWLER, slugField)
 
@@ -137,8 +139,8 @@ const ANONYMOUS_CRAWLER: PermissionCaller = { role: '' }
  *
  * A record is listed only where an anonymous visitor could open it — the same
  * rule {@link isPageInSitemap} applies to a page — so the table must be open to
- * everyone (`permissions.read: 'all'`, the one rung that admits anonymous
- * reads) and carry no row-level read predicate, which is evaluated per visitor
+ * everyone (its read, resolved through `inherit` and `override`, is `'all'`,
+ * the one rung that admits anonymous reads) and carry no row-level read predicate, which is evaluated per visitor
  * and cannot be answered for a crawler. The field the address is built from
  * must be readable by an anonymous caller too, decided by the same
  * field-level predicate the records API applies — listing an address the API

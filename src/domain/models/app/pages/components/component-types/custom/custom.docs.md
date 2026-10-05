@@ -29,6 +29,10 @@ pages:
           subtitle: One config file. A complete app.
 ```
 
+A template with no `$variable` placeholders is placed with `$ref` alone — `vars` may be omitted. In a YAML or JSON config, `$ref: section-header` is a template name because it has no `/` or `.`; a value that does, like `./header.yaml`, includes a file instead (see Multi-File Configs).
+
+A name that matches no template in `app.components` is refused when the config is validated or the app starts, in both placement forms — `$ref: plan-card` and `component: plan-card` — so a typo never reaches a page.
+
 ## Template properties
 
 | Property   | Description                                                                      |

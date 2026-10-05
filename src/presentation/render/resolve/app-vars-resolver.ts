@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { resolveAppVarValues, type AppVarName } from '@/domain/models/app/pages/app-vars'
+import { withPlainTextPin } from './record-substitution'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
+import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * Every `$app.<name>` reference reachable in a page. A single STATIC literal —
@@ -76,22 +78,66 @@ export function resolvePageAppVars(
   page: Page,
   app: App,
   origin: string | undefined,
-  serving?: { readonly basePath?: string; readonly engineVersion?: string }
+  serving?: {
+    readonly basePath?: string
+    readonly engineVersion?: string
+    readonly path?: string
+  }
 ): Page {
-  const values = resolveAppVarValues(app, origin, serving?.basePath, serving?.engineVersion)
+  const values = resolveAppVarValues(app, origin, serving)
 
-  const substitute = (str: string): string =>
-    str.includes('$app.')
-      ? str.replaceAll(APP_REFERENCE, (match, name: string) => values[name as AppVarName] ?? match)
-      : str
+  const substitute = (str: string): string => {
+    if (!str.includes('$app.')) return str
+    // An author HTML template (`<p>Nothing at $app.path</p>`) reaches the raw
+    // HTML sink, so each value it takes is escaped: `$app.path` is whatever
+    // address a visitor typed, decoded, and `$app.origin` can come from a
+    // request header. A text template is escaped by React on output instead,
+    // and escaping it here would print the entities.
+    const encode = str.trim().startsWith('<') ? escapeHtml : (value: string) => value
+    return str.replaceAll(APP_REFERENCE, (match, name: string) => {
+      const value = values[name as AppVarName]
+      return value === undefined ? match : encode(value)
+    })
+  }
 
   return {
     ...page,
     ...(page.components !== undefined
-      ? { components: mapStringsDeep(page.components, substitute) as Page['components'] }
+      ? { components: substituteDeep(page.components, substitute) as Page['components'] }
       : {}),
     ...(page.layout !== undefined
-      ? { layout: mapStringsDeep(page.layout, substitute) as Page['layout'] }
+      ? { layout: substituteDeep(page.layout, substitute) as Page['layout'] }
       : {}),
   }
+}
+
+/** Does a `content` string start with markup — the renderer's raw-HTML test? */
+const startsAsMarkup = (value: unknown): boolean =>
+  typeof value === 'string' && value.trim().startsWith('<')
+
+/**
+ * {@link mapStringsDeep}, plus the one decision a string-level walk cannot
+ * take: whether a substituted value turned an author TEXT template into markup.
+ *
+ * `renderHTMLElement` renders `content` as raw HTML when it starts with `<`, and
+ * `$app.origin` and `$app.path` are built from the request — a header, an
+ * address a visitor typed. A bare `$app.origin` template does not start with
+ * `<`, so it is left unescaped for React to escape; a value that starts with `<`
+ * would then flip the element onto the raw-HTML branch and build whatever it
+ * spelled. The branch is decided by what the AUTHOR wrote: when the author's
+ * template is text and the substituted result would read as markup, the
+ * content is pinned to text — the same pin `$record.*` substitution sets.
+ */
+const substituteDeep = (value: unknown, substitute: (str: string) => string): unknown => {
+  if (typeof value === 'string') return substitute(value)
+  if (Array.isArray(value)) return value.map((item) => substituteDeep(item, substitute))
+  if (value === null || typeof value !== 'object') return value
+  const node = value as Readonly<Record<string, unknown>>
+  const mapped = Object.fromEntries(
+    Object.entries(node).map(([key, entry]) => [key, substituteDeep(entry, substitute)])
+  )
+  const flipped = !startsAsMarkup(node['content']) && startsAsMarkup(mapped['content'])
+  return flipped
+    ? { ...mapped, props: withPlainTextPin(mapped['props'] as Component['props'], true) }
+    : mapped
 }

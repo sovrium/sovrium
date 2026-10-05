@@ -32,7 +32,7 @@ export const ActionTemplateSchema = Schema.Struct({
   /** The action configuration (any action type) */
   // NOTE: no annotation here. `ActionSchema` is a codec whose ENCODED side is
   // `Schema.Unknown`, and `Schema.Unknown` discards every annotation on the way
-  // to JSON Schema (measured on effect 4.0.0-rc.108, in every position). The
+  // to JSON Schema (measured on effect 4.0.0, in every position). The
   // prose lives on `ActionSchema` itself, where the AST keeps it.
   action: ActionSchema,
 

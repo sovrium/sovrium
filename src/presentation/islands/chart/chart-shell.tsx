@@ -6,8 +6,9 @@
  */
 
 /**
- * Shared layout shell for the multi-series chart family. Renders the
- * `data-component="chart"` container, the optional interactive legend, and
+ * Shared layout shell for the multi-series chart family. Renders the chart
+ * container (named `data-component="chart"` by its island host, not here),
+ * the optional interactive legend, and
  * a `ParentSize`-measured body that delegates SVG rendering to a
  * per-chart-type `renderSvg` callback.
  *
@@ -142,10 +143,7 @@ export function ChartShell({
   )
 
   return (
-    <div
-      data-component="chart"
-      className={SHELL_CLASSES}
-    >
+    <div className={SHELL_CLASSES}>
       <div className={beside ? LAYOUT_BESIDE_CLASSES : LAYOUT_CLASSES}>
         {isLegendFirst(legendPosition) ? (
           <>

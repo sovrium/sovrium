@@ -24,7 +24,6 @@
  * different declarations and together exceeded the tree's file ceiling.
  */
 
-import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
@@ -51,34 +50,7 @@ export const noopDb: DataSourceDb = {
 }
 
 /**
- * Bug 2 / [internal ref]: render a minimal access-denied page
- * for a `permission-blocked` collection-page outcome. Returns 200-shaped
- * HTML carrying the "Access denied" marker the spec's regex looks for
- * (`/(access|permission|autorisation|forbidden)/i`). Kept simple and
- * dependency-free so it works for every language / theme combination
- * without needing a per-app configurable template — a richer UX (custom
- * page slot, i18n, theme integration) is a follow-up tier.
- */
-export function renderPermissionBlockedPage(app: App, pagePath: string): string {
-  // Same step the page itself would have run at. A closed literal set, so it
-  // needs no escaping inside the attribute.
-  const densityStep = resolveDensityStep(
-    app.design,
-    pagePath,
-    app.languages?.supported.map((language) => language.code)
-  )
-  return (
-    '<!DOCTYPE html>\n' +
-    `<html lang="en" data-density="${densityStep}"><head><meta charset="utf-8">` +
-    '<title>Access denied</title></head><body>' +
-    '<main><h1>Access denied</h1>' +
-    '<p>You do not have permission to view this record.</p>' +
-    '</main></body></html>'
-  )
-}
-
-/**
- * Bug 2 / [internal ref]: overlay user_access roles onto the
+ * [internal ref]: overlay user_access roles onto the
  * session. Mirrors `mergeRoles` in `row-level-guard.ts`. Always returns a
  * fresh SessionInfo with `effectiveRoles` populated (deduped union of the
  * Better Auth role + all user_access roles); the original `role` field is
@@ -98,7 +70,7 @@ async function overlayUserAccessRoles(
 }
 
 /**
- * Bug 2 / [internal ref]: overlay `system.user_access` roles
+ * [internal ref]: overlay `system.user_access` roles
  * onto the request session before any access check fires, mirroring the
  * table-level Z-3 pattern in `row-level-guard.ts`. A user with Better
  * Auth role `member` but a `user_access` row of `role: 'engineer'`
@@ -240,6 +212,8 @@ export async function resolvePreRenderRedirect(input: {
   if (landing !== undefined) return landing
 
   const firstObject = await resolveFirstObjectRedirect(page, {
+    app,
+    session,
     db: db ?? noopDb,
     ...(fetchSystemRows !== undefined ? { fetchSystemRows } : {}),
   })

@@ -88,8 +88,8 @@ interface ChartIslandProps {
  * - Returns `ChartEmpty` (with `emptyMessage`) when zero records come back.
  * - Otherwise renders a visx-backed SVG chart of the requested `chartType`.
  *
- * Each branch emits `data-component="chart"` so spec assertions on that
- * canonical attribute resolve in every state.
+ * The island host names the chart (`data-component="chart"`) once, whatever
+ * branch is drawn inside it.
  */
 interface ChartGuardResult {
   readonly element?: ReactElement

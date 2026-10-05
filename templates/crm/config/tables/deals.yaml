@@ -83,6 +83,15 @@ fields:
     precision: 0
     thousandsSeparator: space
 
+views:
+  # The deals still in play — every stage before Won and Lost. The sidebar
+  # counts them beside Pipeline.
+  - id: open_deals
+    name: Open deals
+    filters:
+      and:
+        - { field: stage, operator: in, value: [Prospect, Qualified, Proposal, Negotiation] }
+
 aiAccess:
   description: >-
     The sales pipeline. Use this when the user asks about deals, stages,

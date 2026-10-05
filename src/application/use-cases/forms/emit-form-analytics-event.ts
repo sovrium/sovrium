@@ -9,7 +9,7 @@
  * Emit a `form_submission` row to the unified `system.analytics_events`
  * table after a successful form submission lands.
  *
- * Per the F-04 locked plan: form submissions become the 7th `event_type`
+ * Per the [internal ref] locked plan: form submissions become the 7th `event_type`
  * on the existing unified analytics_events table ([internal ref] extended, no
  * new DEC). Gated by:
  *   - `ECO_FORM_ANALYTICS` env (default ON; frugal-by-default per

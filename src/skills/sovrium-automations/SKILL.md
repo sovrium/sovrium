@@ -62,7 +62,7 @@ Sovrium stops a chain of automations calling each other at `maxDepth` (default 1
 ## Connections and secrets
 
 - Credentials for an external service go in a **connection** under the top-level `connections` list and are referenced as `$connection.NAME`. Manual: `sovrium docs automations/automation-connections`.
-- Every secret value is `$env.NAME`, with the value in `.env` (never committed) and the name in `.env.example`. `sovrium secret generate` prints fresh auth and encryption secrets.
+- Every secret value is `$env.NAME`, with `NAME` declared in the app's top-level `env` block (an undeclared one refuses to boot), the value in `.env` (never committed) and the name in `.env.example`. `sovrium secret generate` prints fresh auth and encryption secrets.
 - Never a key or token inline in the config, in a record field, in a template, or in a code step's source.
 - An app-scoped OAuth connection is shared by every automation that references it, including cron and webhook runs that have no user.
 

@@ -8,7 +8,7 @@ The `auth` family operates on the same user store and the same roles as end-user
 | ------------ | ------------------------------------- | ------------------------------------------------------------ |
 | `createUser` | `email`, `name`, `password?`, `role?` | Creates an account; the password is generated when omitted   |
 | `assignRole` | `userId`, `role`                      | Assigns a role — built-in or custom — to an existing account |
-| `banUser`    | `userId`, `reason?`                   | Bans an account, storing the reason for the audit trail      |
+| `banUser`    | `userId`, `reason?`                   | Bans an account, storing the reason on the account           |
 | `unbanUser`  | `userId`                              | Lifts a ban                                                  |
 
 <!-- sovrium:options AuthActionSchema -->
@@ -34,7 +34,7 @@ An omitted `role` on `createUser` falls back to the app's configured default rol
 
 ## An automation is not exempt from the role rules
 
-`assignRole` writes through the same guard the admin endpoints use, so a role name the app has not declared is refused rather than stored, and the last remaining admin cannot be demoted by an automation any more than by a person. A workflow that provisions accounts is therefore safe to run against a trigger you do not fully control; it is still worth gating with a filter, because a refused write fails the step and fails the run.
+`assignRole` writes through the same guard the admin endpoints use, so a role name the app has not declared is refused rather than stored, and the last remaining admin cannot be demoted by an automation any more than by a person, nor banned: `banUser` refuses to ban the last admin able to sign in and fails the step. A role an automation changes is recorded in the audit log as `user.role.changed`, a ban as `user.banned` (with `expiresAt: null`, since `banUser` sets no end, and never with its reason) and a lifted ban as `user.unbanned`, each attributed to the automation by name — the entry's actor is the automation, and its name is in the entry's `metadata.automation`. Lifting a ban from an account that was not banned records nothing. A workflow that provisions accounts is therefore safe to run against a trigger you do not fully control; it is still worth gating with a filter, because a refused write fails the step and fails the run.
 
 ## Generated passwords are not delivered
 

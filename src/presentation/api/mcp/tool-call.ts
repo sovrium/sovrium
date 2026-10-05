@@ -25,27 +25,21 @@
 import { Effect } from 'effect'
 import { createListRecordsProgram } from '@/application/use-cases/tables/list-records-program'
 import {
-  collectAssignmentScopeTables,
   loadCurrentUserContext,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
-import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import {
   createRecordProgram,
   updateRecordProgram,
 } from '@/application/use-cases/tables/write-record-programs'
-import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
+import { isAiAccessEnabled, toolSafeTableName } from '@/domain/models/app/auth/ai-access'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import {
-  evaluateRecordAgainstPredicate,
-  isPredicateGroup,
-  projectPredicateToFilter,
-  projectWhenToFilter,
-  type CurrentUserContext,
-  type RowLevelFilterNode,
-} from '@/domain/models/app/tables/row-level-evaluator-service'
+import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
+import { type CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { handleActionCall, resolveActionTemplateTool } from './action-call'
@@ -56,17 +50,20 @@ import {
   resolveCallerAuthority,
   type CallerAuthority,
 } from './caller-authority'
+import { buildReadListFilter, recordPassesReadPredicate } from './row-level-read-gate'
+import { createIsInScope, existingRowIsInScope } from './row-level-write-gate'
 import {
   applyMcpFieldExposureToRecord,
   applyMcpFieldExposureToRecords,
-  findFirstMultiSelectViolation,
   toolFailure,
   toolSuccess,
   type McpToolResult,
   runProgramAsToolResult,
 } from './tool-call-helpers'
+import { applyCreateRules, applyUpdateRules, refuseLockedRecord } from './write-tool-rules'
 import type { McpCaller } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
 import type { AiAccess, AiAccessOperation } from '@/domain/models/app/auth/ai-access'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
@@ -118,6 +115,12 @@ export async function handleToolsCall(
   // it owns.
   const template = resolveActionTemplateTool(app, envelope.toolName)
   if (template !== undefined) {
+    // `tools/list` withholds every action from a viewer (an action is a side
+    // effect by definition); a hand-named call is refused the same way, since
+    // an action template declares no role gate of its own.
+    if (caller.role === 'viewer') {
+      return toolFailure(-32_603, "Operation 'action' is not permitted for the viewer role")
+    }
     return handleActionCall({ app, caller, template, envelope, domainContext })
   }
 
@@ -139,6 +142,12 @@ export async function handleToolsCall(
     app,
     caller,
     lookupGroups: (userId) => runOnDomain(domainContext, getUserGroups(userId)),
+    // Assignment roles count only on a table with row-level rules, as on the
+    // records route, so they are read only there.
+    lookupAccessRoles: (userId) =>
+      resolved.table.rowLevelPermissions === undefined
+        ? Promise.resolve([])
+        : Effect.runPromise(provideTableLive(getUserAccessRoles(userId))),
   })
   if (!passesTablePermission(app, resolved.table, resolved.operation, authority)) {
     // The records API's own refusal, byte for byte: a caller the table does not
@@ -146,7 +155,7 @@ export async function handleToolsCall(
     return toolFailure(-32_603, 'Resource not found')
   }
 
-  return executeTool({ app, caller, authority, envelope, resolved })
+  return executeTool({ app, caller, authority, envelope, resolved, domainContext })
 }
 
 /**
@@ -165,8 +174,8 @@ function resolveTool(app: App, toolName: string): ResolvedTool | undefined {
   const operation = remainder.slice(lastUnderscore + 1) as AiAccessOperation
   if (!SUPPORTED_OPERATIONS.has(operation)) return undefined
 
-  const tableName = remainder.slice(0, lastUnderscore)
-  const table = (app.tables ?? []).find((t) => t.name === tableName)
+  const toolTable = remainder.slice(0, lastUnderscore)
+  const table = (app.tables ?? []).find((t) => toolSafeTableName(t.name) === toolTable)
   if (table === undefined) return undefined
   if (!isAiAccessEnabled(table.aiAccess)) return undefined
   if (!isOperationAllowedByAiAccess(table.aiAccess, operation)) return undefined
@@ -206,6 +215,7 @@ interface ExecuteToolInput {
   readonly authority: CallerAuthority
   readonly envelope: CallEnvelope
   readonly resolved: ResolvedTool
+  readonly domainContext: DomainContext
 }
 
 /**
@@ -216,14 +226,21 @@ interface ExecuteToolInput {
  * up as -32602 / -32603 per the user-story spec.
  */
 async function executeTool(input: ExecuteToolInput): Promise<McpToolResult> {
-  const { app, caller, authority, envelope, resolved } = input
+  const { app, caller, authority, envelope, resolved, domainContext } = input
   const { operation, table } = resolved
   const session = synthesizeSession(caller.userId)
-  const branch = { app, caller, authority, envelope, table, session }
+  const branch = { app, caller, authority, envelope, table, session, domainContext }
 
   if (operation === 'list') return executeList(branch)
-  if (operation === 'read') return executeRead(branch)
   if (operation === 'create') return executeCreate(branch)
+  // An id no key of the table could hold names no record — answered as the
+  // records API answers it, before any query runs.
+  const recordId = envelope.args['id']
+  const spelled = typeof recordId === 'number' ? String(recordId) : recordId
+  if (typeof spelled === 'string' && spelled !== '' && !isRecordKeyShaped(spelled, table)) {
+    return toolFailure(-32_603, RECORD_NOT_FOUND)
+  }
+  if (operation === 'read') return executeRead(branch)
   if (operation === 'update') return executeUpdate(branch)
   return executeDelete(branch)
 }
@@ -235,6 +252,7 @@ interface ExecBranchInput {
   readonly envelope: CallEnvelope
   readonly table: Table
   readonly session: UserSession
+  readonly domainContext: DomainContext
 }
 
 async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
@@ -259,6 +277,7 @@ async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
       tableName: table.name,
       app,
       userRole: authority.role,
+      userGroups: authority.groups,
       filter: filter ?? undefined,
       limit,
       offset,
@@ -289,6 +308,7 @@ async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
       recordId,
       app,
       userRole: authority.role,
+      userGroups: authority.groups,
     }),
     formatSuccess: (out) => {
       const record = out as Record<string, unknown>
@@ -302,19 +322,16 @@ async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
 }
 
 async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, authority, envelope, table, session } = input
-  const fields = extractFields(envelope.args)
-  const whitelistError = findFirstWhitelistViolation(table, fields)
-  if (whitelistError !== undefined) {
-    return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
-  }
-  const writeError = findFirstFieldWriteViolation(app, table, authority, fields)
-  if (writeError !== undefined) {
-    return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
-  }
-  const multiSelectError = findFirstMultiSelectViolation(table, fields)
-  if (multiSelectError !== undefined) {
-    return toolFailure(-32_602, multiSelectError)
+  const { app, caller, authority, envelope, table, session } = input
+  const requested = checkWritePermissions(input, extractFields(envelope.args))
+  const fields = await applyCreateRules(ruleInput(input), requested)
+
+  // The records API evaluates `create.when` on the validated row and refuses an
+  // out-of-scope one with 404; a note filed under someone else's name is
+  // refused here the same way, before anything is written.
+  const userCtx = await resolveUserContextOrUndefined(caller.userId, authority, table, app)
+  if (!createIsInScope(table, fields, userCtx)) {
+    return toolFailure(-32_603, RECORD_NOT_FOUND)
   }
 
   return runProgramAsToolResult({
@@ -324,7 +341,12 @@ async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
       fields,
       app,
       userRole: authority.role,
+      userGroups: authority.groups,
+      linkReader: linkReaderOf(input),
     }),
+    // The echoed record answers to the same whitelist a read does: a write
+    // naming only whitelisted fields must not hand back the rest of the row.
+    formatSuccess: (out) => applyMcpFieldExposureToRecord(out as Record<string, unknown>, table),
   })
 }
 
@@ -334,26 +356,25 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
   }
-  const fields = extractFields(envelope.args)
-  const whitelistError = findFirstWhitelistViolation(table, fields)
-  if (whitelistError !== undefined) {
-    return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
-  }
-  const writeError = findFirstFieldWriteViolation(app, table, authority, fields)
-  if (writeError !== undefined) {
-    return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
-  }
-  const multiSelectError = findFirstMultiSelectViolation(table, fields)
-  if (multiSelectError !== undefined) {
-    return toolFailure(-32_602, multiSelectError)
-  }
+  // Row scope first, as the records API does: a caller learns nothing about a
+  // row it may not write — not its values, not which of its fields it could
+  // have touched — nor about any row of a table she may not read.
+  const change = extractFields(envelope.args)
+  if (!readsTable(input) || !(await rowIsInScope(input, recordId, 'write', change)))
+    return toolFailure(-32_603, RECORD_NOT_FOUND)
+  await refuseLockedRecord(table, session, recordId, app)
+  const requested = checkWritePermissions(input, change)
+  const fields = await applyUpdateRules(ruleInput(input), requested)
 
   return runProgramAsToolResult({
     program: updateRecordProgram(session, table.name, recordId, {
       fields,
       app,
       userRole: authority.role,
+      userGroups: authority.groups,
+      linkReader: linkReaderOf(input),
     }),
+    formatSuccess: (out) => applyMcpFieldExposureToRecord(out as Record<string, unknown>, table),
   })
 }
 
@@ -363,10 +384,85 @@ async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
   }
+  // A table the caller may not read answers as a record that does not exist.
+  if (!readsTable(input)) return toolSuccess(MISSING_RECORD_DELETE)
+  if (!(await rowIsInScope(input, recordId, 'delete')))
+    return toolFailure(-32_603, RECORD_NOT_FOUND)
   return runProgramAsToolResult({
     program: deleteRecordProgram(session, table.name, recordId, app),
   })
 }
+
+/** The records API's refusal for anything out of the caller's reach. */
+const RECORD_NOT_FOUND = 'Resource not found'
+
+/** What `deleteRecordProgram` answers for a record that does not exist. */
+const MISSING_RECORD_DELETE = { success: false, setNullPerformed: false, restrictViolation: false }
+
+/**
+ * Whether the caller reads the table at all. A write on a stored record of a
+ * table she may not read answers exactly as one on a missing record, and
+ * nothing is written — as on the records API.
+ */
+const readsTable = (input: ExecBranchInput): boolean =>
+  passesTablePermission(input.app, input.table, 'read', input.authority)
+
+/**
+ * Whether the caller may write or delete the row: readable under its
+ * row-level rules, and inside the operation's own rule.
+ */
+async function rowIsInScope(
+  input: ExecBranchInput,
+  recordId: string,
+  op: 'write' | 'delete',
+  change?: Readonly<Record<string, unknown>>
+): Promise<boolean> {
+  const { app, caller, authority, table, session } = input
+  const ctx = await resolveUserContextOrUndefined(caller.userId, authority, table, app)
+  return existingRowIsInScope({ app, table, session, recordId, ctx, op, change })
+}
+
+/**
+ * The permission rules a write tool enforces before the value rules, in the
+ * records API's order: the MCP whitelist, then field-level write permission
+ * under the caller's full authority (role and groups). Throws the first
+ * violation as a JSON-RPC error; returns the requested values.
+ */
+function checkWritePermissions(
+  input: ExecBranchInput,
+  fields: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> {
+  const { app, authority, table } = input
+  const whitelistError = findFirstWhitelistViolation(table, fields)
+  if (whitelistError !== undefined) {
+    return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
+  }
+  const writeError = findFirstFieldWriteViolation(app, table, authority, fields)
+  if (writeError !== undefined) {
+    return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
+  }
+  return fields
+}
+
+/**
+ * Whose read rules judge the rows a write links to: the caller's full
+ * authority, groups included, exactly as the records API judges them.
+ */
+const linkReaderOf = (input: ExecBranchInput): LinkReader => ({
+  session: input.session,
+  role: input.authority.role,
+  groups: input.authority.groups,
+})
+
+/** What the records API's value rules are keyed on for this call. */
+const ruleInput = (input: ExecBranchInput) => ({
+  app: input.app,
+  table: input.table,
+  userRole: input.authority.role,
+  userGroups: input.authority.groups,
+  signedOut: isGuestSession(input.session.userId),
+  domainContext: input.domainContext,
+})
 
 /**
  * When `aiAccess.fieldExposure: 'whitelist'` is set, reject any payload that
@@ -409,11 +505,12 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 
 /**
  * Build a synthetic UserSession suitable for the application-layer
- * programs. With static-token strategy `userId` is `undefined`; the
- * authorship helpers tolerate this and fall back to `null` for
- * created_by / updated_by columns. The four `null`s are required by
- * the Better Auth-shaped UserSession contract — the fields are not
- * meaningful for an MCP-issued session but the typed shape demands them.
+ * programs. Every authenticated caller names a user; `userId` is `undefined`
+ * only on the unreachable fail-closed fallback caller, for which the
+ * authorship helpers fall back to `null` for created_by / updated_by. The
+ * four `null`s are required by the Better Auth-shaped UserSession contract —
+ * the fields are not meaningful for an MCP-issued session but the typed shape
+ * demands them.
  */
 function synthesizeSession(userId: string | undefined): UserSession {
   const now = new Date()
@@ -434,68 +531,11 @@ function synthesizeSession(userId: string | undefined): UserSession {
 }
 
 /**
- * Build the Z-3 read-side filter for list queries. Returns:
- *   - `undefined`  → no row-level predicate (or admin bypass) — list everything
- *   - `'empty'`    → predicate resolves to "match nothing" (e.g. user has no
- *                    user_access rows for the scope) — caller short-circuits
- *   - `'reject'`   → predicate could not be projected — same short-circuit
- *   - `{ and }`    → AND clause to merge with the request filter
- */
-/**
- * Project a single-triple read predicate to a filter result. An empty `in`
- * resolves to the whole-predicate `'empty'` short-circuit (no rows). Split
- * out of `buildReadListFilter` to keep that function under the complexity cap.
- */
-function projectSingleTripleReadFilter(
-  predicate: Parameters<typeof projectPredicateToFilter>[0],
-  ctx: CurrentUserContext
-): 'empty' | 'reject' | { readonly and: readonly RowLevelFilterNode[] } {
-  const projected = projectPredicateToFilter(predicate, ctx)
-  if (!projected) return 'reject'
-  const isEmptyIn =
-    projected.operator === 'in' && Array.isArray(projected.value) && projected.value.length === 0
-  return isEmptyIn ? 'empty' : { and: [projected] }
-}
-
-function buildReadListFilter(
-  table: Table,
-  ctx: CurrentUserContext | undefined
-): undefined | 'empty' | 'reject' | { readonly and: readonly RowLevelFilterNode[] } {
-  const rlp = table.rowLevelPermissions
-  if (!rlp?.read?.when) return undefined
-  if (!ctx || ctx.isUnrestricted) return undefined
-
-  // GAP-3: a composite group projects to a nested AND/OR filter node. An
-  // empty `in` inside the tree is scoped to its branch (rendered as
-  // `IN (NULL)`), so no whole-predicate `'empty'` short-circuit applies.
-  if (isPredicateGroup(rlp.read.when)) {
-    const node = projectWhenToFilter(rlp.read.when, ctx)
-    return node ? { and: [node] } : 'reject'
-  }
-
-  return projectSingleTripleReadFilter(rlp.read.when, ctx)
-}
-
-/**
- * Apply the row-level read predicate to a single fetched record. Returns
- * true when the record is in scope for the caller, false otherwise.
- */
-function recordPassesReadPredicate(
-  table: Table,
-  record: Readonly<Record<string, unknown>>,
-  ctx: CurrentUserContext | undefined
-): boolean {
-  const predicate = table.rowLevelPermissions?.read?.when
-  if (!predicate) return true
-  if (!ctx || ctx.isUnrestricted) return true
-  return evaluateRecordAgainstPredicate(record, predicate, ctx)
-}
-
-/**
- * Resolve a `CurrentUserContext` from the OAuth-authenticated caller. Returns
- * `undefined` when no userId is available (static-token strategy) — Z-3
- * filtering is skipped in that case, matching the user-story decision that
- * static tokens are operator-issued and have no per-user identity.
+ * Resolve a `CurrentUserContext` from the authenticated caller. Returns
+ * `undefined` when no userId is available — only the unreachable fail-closed
+ * fallback caller, since every credential `/mcp` accepts names a user. The
+ * row-level gates read an absent context as "no identity" and DENY every row
+ * a rule governs, the same way that caller is already denied every tool.
  */
 async function resolveUserContextOrUndefined(
   userId: string | undefined,
@@ -508,6 +548,7 @@ async function resolveUserContextOrUndefined(
     { userId },
     { role: authority.role, isUnrestricted: isAdminEquivalent(authority.role, app) }
   )
-  const scopeTables = collectAssignmentScopeTables(table.rowLevelPermissions)
-  return Effect.runPromise(provideTableLive(loadCurrentUserContext(projection, scopeTables)))
+  return Effect.runPromise(
+    provideTableLive(loadCurrentUserContext(projection, table.rowLevelPermissions))
+  )
 }

@@ -26,6 +26,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { PinnedApprovers } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import type { Effect } from 'effect'
 
 /**
@@ -45,6 +46,8 @@ export interface AutomationApprovalRow {
    * existed). Read it through `toApproverList`.
    */
   readonly approvers: unknown
+  /** When the request times out; `null` when the action declared no timeout. */
+  readonly expiresAt: Date | null
 }
 
 /**
@@ -55,12 +58,20 @@ export interface AutomationApprovalListRow {
   readonly id: string
   readonly runId: string
   readonly automationName: string
+  /** The 0-indexed position of the request step in its run. */
+  readonly stepIndex: number
   readonly status: string
   readonly message: string | null
   readonly approvers: unknown
   readonly createdAt: Date
   readonly expiresAt: Date | null
   readonly respondedAt: Date | null
+}
+
+/** A request linked to a run, with the approvers it persisted (raw). */
+export interface RunApproversRow {
+  readonly runId: string
+  readonly approvers: unknown
 }
 
 /**
@@ -94,7 +105,7 @@ export class AutomationApprovalRepository extends Context.Service<
        * Who may resolve the request, as rendered for this run. Omitted when
        * the action declared none, which reads as `all-admins`.
        */
-      readonly approvers: 'all-admins' | readonly string[] | undefined
+      readonly approvers: 'all-admins' | PinnedApprovers | undefined
     }) => Effect.Effect<void, AutomationApprovalDatabaseError>
 
     /** Load an approval row by id. Returns `undefined` when no row matches. */
@@ -114,6 +125,23 @@ export class AutomationApprovalRepository extends Context.Service<
     }) => Effect.Effect<readonly AutomationApprovalListRow[], AutomationApprovalDatabaseError>
 
     /**
+     * Every request linked to a run, whatever its status — or only those of
+     * `runId` when given — with the approvers it persisted. Read to decide who
+     * may read a run: an approver a request names may read the run it pauses.
+     *
+     * `mentioning` narrows the read in the query to the requests whose
+     * persisted approvers contain one of the given strings anywhere in their
+     * text (a role name, an account id). It is a SUPERSET of the requests that
+     * name the caller — the caller still applies the exact approver rule — so
+     * a non-admin's run list reads the requests that could name them, not the
+     * whole history.
+     */
+    readonly listRunApprovers: (input: {
+      readonly runId?: string
+      readonly mentioning?: readonly string[]
+    }) => Effect.Effect<readonly RunApproversRow[], AutomationApprovalDatabaseError>
+
+    /**
      * The id of the pending request a run is paused on, or `undefined` when
      * the run waits on none.
      */
@@ -122,14 +150,35 @@ export class AutomationApprovalRepository extends Context.Service<
     ) => Effect.Effect<string | undefined, AutomationApprovalDatabaseError>
 
     /**
+     * The automation-step requests (rows linked to a run) still `pending`
+     * whose `expiresAt` is at or before `now`, oldest deadline first (ties by
+     * id, so the order is total and a cursor over it is stable). Read by
+     * the timeout sweep, which decides from each run's automation what the
+     * timeout means.
+     */
+    readonly listExpiredPending: (input: {
+      readonly now: Date
+      /** At most this many rows are read per call. */
+      readonly limit: number
+      /**
+       * Read only the rows past this one in `(expiresAt, id)` order — the last
+       * row of the previous page — so a sweep can step over the requests it
+       * leaves open instead of reading them again at the head of every page.
+       */
+      readonly after?: { readonly expiresAt: Date; readonly id: string }
+    }) => Effect.Effect<readonly AutomationApprovalRow[], AutomationApprovalDatabaseError>
+
+    /**
      * Move a PENDING approval row to `status` (`approved` / `rejected`),
-     * stamping `respondedAt`. Returns the new status when the row was pending
+     * stamping `respondedAt` — and `approvedById` when a person answered; a
+     * timeout leaves it empty. Returns the new status when the row was pending
      * and is now updated; `undefined` when no pending row matched — an unknown
-     * id, or a request another caller resolved first.
+     * id, or a request another caller (or the timeout) resolved first.
      */
     readonly resolvePending: (input: {
       readonly id: string
       readonly status: string
+      readonly approvedById?: string
     }) => Effect.Effect<string | undefined, AutomationApprovalDatabaseError>
   }
 >()('AutomationApprovalRepository') {}

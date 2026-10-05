@@ -34,7 +34,7 @@ components:
 
 Saved views are declared on the **table** as `tables[].views`. The component's own `views` property lists which view _types_ — grid, kanban, calendar — its switcher offers. The two are spelled the same and mean different things, so a `views: [grid]` on a component is not a reference to a saved view and will never resolve to one.
 
-`toolbar.views: true` is what surfaces the saved-views dropdown that reads `tables[].views`.
+`toolbar.views: true` is what surfaces the saved-views dropdown that reads `tables[].views`. It offers each reader only the views she may open — the list `GET /api/tables/:t/views` answers her — each without the conditions on fields she may not read. The page itself is held to the same answer: what the server writes into it for the grid names only those views, only the fields she may read, and her own permission map rather than the table's `permissions` block.
 
 ## Moving data in and out
 
@@ -42,6 +42,10 @@ Users can export the full table or a hand-picked selection to CSV, and import a 
 
 ## Personalisation never widens access
 
-Every runtime view, export, import and clipboard paste runs through the same table and field-level permissions as the rest of the Records API. A user tailoring their workspace can filter, read, write and share only the data they were already authorized to reach, and an unauthorized record answers `404` here exactly as it does everywhere else in the records path — with one exception: **CSV export refuses with `403`**, because it is an action the caller explicitly asked for on a table already visible to them rather than a probe for a row's existence. **Records Import and Export** says so beside the endpoint.
+Every runtime view, export, import and clipboard paste runs through the same table and field-level permissions as the rest of the Records API. A user tailoring their workspace can filter, read, write and share only the data they were already authorized to reach, and an unauthorized record answers `404` here exactly as it does everywhere else in the records path, CSV export included. On a table the caller may not read, their saved views and preferences answer the `404` of a table that does not exist, as does any request on the table whatever its shape — a malformed query or body never answers a validation error first.
+
+A view someone shares with you is masked the same way. Opening it hands you only the filter conditions, sorts, columns, grouping and column widths on fields you may read: a condition on a field kept from you is left out, along with the value it filtered on. The view still opens for you, built from what remains.
+
+A shared view link opens for whoever may read its table: their role, their groups and — on a table with row-level rules — the roles their assignments give them.
 
 This is the property that makes the whole surface safe to hand to end users: personalisation composes _on top of_ the permission layer rather than beside it, so there is no configuration in which a saved view, a shared view or an export can return a row its owner could not have listed.

@@ -81,6 +81,8 @@ export const dispatchAutomationOnce = (input: {
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   readonly userId: string | undefined
+  /** See `ExecuteAutomationRunInput.recordEventDepth`; omitted means 0. */
+  readonly recordEventDepth?: number
 }): Effect.Effect<RunAutomationResult | undefined, never, ExecuteAutomationRunRequirements> =>
   Effect.gen(function* () {
     const { automation, app, processEnv, triggerData, userId } = input
@@ -96,5 +98,6 @@ export const dispatchAutomationOnce = (input: {
       triggerData,
       handlers: defaultActionHandlers,
       userId,
+      ...(input.recordEventDepth === undefined ? {} : { recordEventDepth: input.recordEventDepth }),
     })
   }).pipe(Effect.withSpan('automations.dispatch-automation-once'))

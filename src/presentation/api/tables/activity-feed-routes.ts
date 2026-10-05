@@ -12,25 +12,38 @@ import {
   ListActivityLogs,
 } from '@/application/use-cases/list-activity-logs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { enrichUserRole } from '@/presentation/api/middleware/table'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/runtime/error-sanitizer'
 import { listActivityEntries } from '../agents/approval-store'
+import {
+  activityAdmission,
+  admitsActivityEntry,
+  filterAudienceEntries,
+  projectActivityActor,
+  projectActivityChanges,
+  projectEntryActor,
+  toWireEntry,
+} from './activity-reader-gate'
+import type { ActivityLogPageQuery } from '@/application/ports/repositories/analytics/activity-log-repository'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /**
- * User metadata in activity log API response
+ * User metadata in activity log API response. `email` is present for an admin
+ * reader and on the reader's own entries only.
  */
 interface ActivityLogResponseUser {
   readonly id: string
   readonly name: string
-  readonly email: string
+  readonly email?: string
 }
 
 /**
@@ -71,7 +84,7 @@ interface PaginationParams {
 /**
  * Map ActivityLogOutput to API response format
  */
-function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
+function mapToApiResponse(c: Context, app: App, log: ActivityLogOutput): ActivityLogResponse {
   return {
     id: log.id,
     createdAt: log.createdAt,
@@ -79,7 +92,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,
-    user: log.user,
+    user: projectActivityActor(c, app, log.user),
   }
 }
 
@@ -102,25 +115,43 @@ function parsePaginationParams(
 }
 
 /**
- * Build paginated response from activity log list
+ * Build the paginated response from one page of activity and the count of
+ * every admitted entry the filters match.
  */
 function buildPaginatedResponse(
-  logs: readonly ActivityLogOutput[],
-  page: number,
-  pageSize: number
+  c: Context,
+  app: App,
+  {
+    activities: logs,
+    total,
+  }: { readonly activities: readonly ActivityLogOutput[]; readonly total: number },
+  params: PaginationParams
 ): { activities: readonly ActivityLogResponse[]; pagination: PaginationMeta } {
-  const total = logs.length
-  const totalPages = Math.ceil(total / pageSize)
-  const start = (page - 1) * pageSize
-  const paginatedLogs = logs.slice(start, start + pageSize)
-  const pagination: PaginationMeta = { total, page, pageSize, totalPages }
-  return { activities: paginatedLogs.map(mapToApiResponse), pagination }
+  const { page, pageSize } = params
+  const pagination: PaginationMeta = {
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  }
+  return { activities: logs.map((log) => mapToApiResponse(c, app, log)), pagination }
+}
+
+/** The one 404 an activity id answers with: missing and not-yours alike. */
+function activityNotFound(c: Context) {
+  return c.json(
+    { success: false, error: 'Not Found', message: 'Activity not found', code: 'NOT_FOUND' },
+    404
+  )
 }
 
 /**
- * Handle GET /api/activity/:activityId - Get activity log details
+ * Handle GET /api/activity/:activityId - Get activity log details.
+ *
+ * An entry the caller may not read through the records API answers exactly as
+ * one that does not exist; one she may read shows only her readable fields.
  */
-async function handleGetActivityById(c: Context) {
+async function handleGetActivityById(c: Context, app: App) {
   const activityId = c.req.param('activityId')!
 
   const program = provideDomain(c, GetActivityById(activityId))
@@ -138,7 +169,7 @@ async function handleGetActivityById(c: Context) {
     }
 
     if (error._tag === 'ActivityNotFoundError') {
-      return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
+      return activityNotFound(c)
     }
 
     logError('[activity] get-by-id failed', error)
@@ -148,7 +179,17 @@ async function handleGetActivityById(c: Context) {
     )
   }
 
-  return c.json(result.success, 200)
+  const activity = result.success
+  if (!(await admitsActivityEntry(c, app, activity))) return activityNotFound(c)
+
+  return c.json(
+    {
+      ...activity,
+      changes: projectActivityChanges(c, app, activity.tableName, activity.changes),
+      user: projectActivityActor(c, app, activity.user),
+    },
+    200
+  )
 }
 
 /**
@@ -175,45 +216,20 @@ function parseActionFilter(
 /**
  * Check if a user is authorized to filter by the given userId
  *
- * Admins can filter by any userId.
- * Non-admin users can only filter by their own userId.
+ * An admin-equivalent caller (the built-in `admin` or the app's top role)
+ * can filter by any userId; any other caller only by her own.
  * Returns true if authorized, false if forbidden.
  */
 async function isAuthorizedForUserIdFilter(
   c: Context,
+  app: App,
   sessionUserId: string,
   userIdFilter: string | undefined
 ): Promise<boolean> {
   if (userIdFilter === undefined) return true
   if (userIdFilter === sessionUserId) return true
   const role = await runDomainPromise(c, getUserRole(sessionUserId))
-  return isAdminRole(role)
-}
-
-/**
- * Filter options for activity log queries
- */
-interface ActivityFilters {
-  readonly tableName?: string
-  readonly action?: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
-  readonly userId?: string
-  readonly startDate?: Date
-}
-
-/**
- * Apply tableName, action, userId, and startDate filters to activity logs
- */
-function applyFilters(
-  logs: readonly ActivityLogOutput[],
-  filters: ActivityFilters
-): readonly ActivityLogOutput[] {
-  return logs.filter(
-    (log) =>
-      (filters.tableName === undefined || log.tableName === filters.tableName) &&
-      (filters.action === undefined || log.action === filters.action) &&
-      (filters.userId === undefined || log.userId === filters.userId) &&
-      (filters.startDate === undefined || new Date(log.createdAt) >= filters.startDate)
-  )
+  return isAdminEquivalent(role, app)
 }
 
 /**
@@ -242,7 +258,7 @@ function parseQueryFilters(c: Context): {
  */
 interface ListActivityValidationError {
   readonly status: number
-  readonly body: { success: false; message: string; code: string }
+  readonly body: { success: false; error?: string; message: string; code: string }
 }
 
 /**
@@ -252,6 +268,7 @@ interface ListActivityValidationError {
  */
 async function validateListActivityRequest(
   c: Context,
+  app: App,
   sessionUserId: string
 ): Promise<ListActivityValidationError | undefined> {
   const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
@@ -271,12 +288,13 @@ async function validateListActivityRequest(
   }
 
   const userIdFilter = c.req.query('userId')
-  const authorized = await isAuthorizedForUserIdFilter(c, sessionUserId, userIdFilter)
+  const authorized = await isAuthorizedForUserIdFilter(c, app, sessionUserId, userIdFilter)
   if (!authorized) {
     return {
       status: 404,
       body: {
         success: false,
+        error: 'Not Found',
         message: 'Not found',
         code: 'NOT_FOUND',
       },
@@ -287,15 +305,39 @@ async function validateListActivityRequest(
 }
 
 /**
+ * Run the list query, or answer its failure as the sanitized error response.
+ */
+async function listActivityPage(
+  c: Context,
+  query: ActivityLogPageQuery
+): Promise<
+  { readonly activities: readonly ActivityLogOutput[]; readonly total: number } | Response
+> {
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, ListActivityLogs(query)).pipe(Effect.result)
+  )
+  if (result._tag === 'Success') return result.success
+  const sanitized = sanitizeError(
+    result.failure,
+    (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
+  )
+  return c.json(
+    { success: false, message: sanitized.message ?? sanitized.error, code: sanitized.code },
+    getStatusCode(sanitized.code)
+  )
+}
+
+/**
  * Handle GET /api/activity - List activity logs with pagination
  */
-async function handleListActivityLogs(c: Context) {
+async function handleListActivityLogs(c: Context, app: App) {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const validationError = await validateListActivityRequest(c, session.userId)
+  const validationError = await validateListActivityRequest(c, app, session.userId)
   if (validationError !== undefined) {
     return c.json(validationError.body, validationError.status as 400 | 403)
   }
@@ -303,36 +345,32 @@ async function handleListActivityLogs(c: Context) {
   const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))!
   const { tableName, action, userId, startDate } = parseQueryFilters(c)
 
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, ListActivityLogs({ userId: session.userId })).pipe(Effect.result)
-  )
+  // Only the entries of records the caller may read through the records API:
+  // each table's gate resolved once, the rows judged, paged and counted in the
+  // database, so the total counts what she is shown. A `startDate` that is no
+  // date matches no entry.
+  const page =
+    startDate !== undefined && isNaN(startDate.getTime())
+      ? { activities: [], total: 0 }
+      : await listActivityPage(c, {
+          admission: await activityAdmission(c, app, tableName),
+          filters: { tableName, action: action ?? undefined, userId, since: startDate },
+          offset: (params.page - 1) * params.pageSize,
+          limit: params.pageSize,
+        })
+  if (page instanceof Response) return page
 
-  if (result._tag === 'Failure') {
-    const sanitized = sanitizeError(
-      result.failure,
-      (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
-    )
-    return c.json(
-      { success: false, message: sanitized.message ?? sanitized.error, code: sanitized.code },
-      getStatusCode(sanitized.code)
-    )
-  }
-
-  const filtered = applyFilters(result.success, {
-    tableName,
-    action: action ?? undefined,
-    userId,
-    startDate,
-  })
   // `entries` carries the AI agent-approval decision log (approval.approved /
   // approval.rejected) alongside the CRUD `activities`. It is additive — the
   // existing `{ activities, pagination }` contract is preserved for the
-  // activity-monitoring specs while approval specs read `entries`.
+  // activity-monitoring specs while approval specs read `entries`. A
+  // non-admin reads only the entries the audience rule admits, and another
+  // user's email in them stays on admin surfaces.
+  const audience = await filterAudienceEntries(c, app, listActivityEntries())
   return c.json(
     {
-      ...buildPaginatedResponse(filtered, params.page, params.pageSize),
-      entries: listActivityEntries(),
+      ...buildPaginatedResponse(c, app, page, params),
+      entries: audience.map((entry) => projectEntryActor(c, app, toWireEntry(entry))),
     },
     200
   )
@@ -343,13 +381,19 @@ async function handleListActivityLogs(c: Context) {
  *
  * Provides:
  * - GET /api/activity/:activityId - Get activity log details
- * - GET /api/activity - List activity logs (admin/member only)
+ * - GET /api/activity - List activity logs, narrowed to what the caller may read
+ *
+ * Both resolve the caller's role and groups first (`enrichUserRole`), which
+ * decide what of the feed she reads.
  *
  * @param honoApp - Hono instance to chain routes onto
+ * @param resolveApp - The live app, whose tables and permissions gate the feed
  * @returns Hono app with activity routes chained
  */
-export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
+export function chainActivityRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
   return honoApp
-    .get('/api/activity/:activityId', handleGetActivityById)
-    .get('/api/activity', handleListActivityLogs) as T
+    .get('/api/activity/:activityId', enrichUserRole(), (c) =>
+      handleGetActivityById(c, resolveApp())
+    )
+    .get('/api/activity', enrichUserRole(), (c) => handleListActivityLogs(c, resolveApp())) as T
 }

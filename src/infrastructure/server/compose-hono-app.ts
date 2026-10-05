@@ -19,6 +19,8 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { requestId } from 'hono/request-id'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
+import { requestedPath } from '@/domain/kernel/url/requested-path'
+import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isLiveReloadEligible } from '@/infrastructure/process/env'
@@ -54,9 +56,11 @@ import { setupOpenApiRoutes } from '@/presentation/api/openapi/routes'
 import { setupPageRoutes } from '@/presentation/api/pages/page-routes'
 import { setupRedirectRoutes } from '@/presentation/api/pages/redirect-routes'
 import { setupSeoRoutes } from '@/presentation/api/pages/seo-routes'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { setupBootstrapRoutes } from '@/presentation/api/server/bootstrap-routes'
 import { setupDevReloadRoute } from '@/presentation/api/server/dev-reload-routes'
 import type { HonoAppConfig } from '@/application/ports/contracts/hono-app-config'
+import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 
 /**
@@ -139,6 +143,23 @@ interface HonoAppExtras {
  * cluster has to move together. See `register-agent-schedules.ts` for that
  * measurement.
  */
+
+/**
+ * An `/api/*` path no API route claimed answers the canonical JSON 404 — unless
+ * the app itself declares a page there.
+ *
+ * The prefix names the engine's HTTP API, not a forbidden spelling: a
+ * configuration may declare a page at `/api/v1/users/profile`, and that page is
+ * served (and emitted by a static build) like any other. So a declared page
+ * falls through to the page routes, which also own its access check.
+ */
+const answerUnmatchedApiPaths =
+  (app: App) =>
+  (honoApp: Readonly<Hono>): Readonly<Hono> =>
+    honoApp.all('/api/*', (c, next) =>
+      resolvesToDeclaredPage(app, c.req.path) ? next() : c.json(notFoundBody(), 404)
+    )
+
 export { fireAgentSchedule }
 
 export async function createHonoApp(
@@ -303,62 +324,74 @@ export async function createHonoApp(
   // `/:lang/*`, which matches `/l/abc`, and its handler renders a 404
   // terminally instead of calling `next()`. Mounted after the page routes,
   // every short link would 404.
+  //
+  // Every API route is registered by now, and the page routes below match any
+  // path (`/:lang/*`, `*`) and render the HTML not-found page. An `/api/*` path
+  // no route claimed is a machine request: it answers the one JSON 404 body
+  // every API road answers, before a page route can take it.
   const honoWithRoutes = setupPageRoutes(
-    setupRedirectRoutes(
-      // The anonymous design-system share reader ([internal ref] A3 Part 2) sits in
-      // the SAME slot as `/l/:token` and for the same reason: after the static
-      // assets, before `setupPageRoutes`, whose `/:lang/*` route would match
-      // `/s/...` and render a terminal 404 rather than calling `next()`.
-      // `/oauth/consent` takes the same slot for the same reason. Better Auth
-      // redirects the browser here mid-authorization; mounted after the page
-      // routes, that redirect would land on `/:lang/*`'s terminal 404.
-      setupOauthConsentRoutes(
-        setupDesignSystemShareRoutes(
-          setupLinkRoutes(
-            setupDevReloadRoute(
-              await setupStaticAssets(
-                setupSeoRoutes(
-                  setupMcpRoutes(
-                    setupAuthRoutes(
-                      setupAuthMiddleware(
-                        setupOpenApiRoutes(
-                          createApiRoutes(app, honoWithBootstrap as Hono, authInstance, getSession),
-                          app,
-                          authInstance
+    answerUnmatchedApiPaths(app)(
+      setupRedirectRoutes(
+        // The anonymous design-system share reader ([internal ref] A3 Part 2) sits in
+        // the SAME slot as `/l/:token` and for the same reason: after the static
+        // assets, before `setupPageRoutes`, whose `/:lang/*` route would match
+        // `/s/...` and render a terminal 404 rather than calling `next()`.
+        // `/oauth/consent` takes the same slot for the same reason. Better Auth
+        // redirects the browser here mid-authorization; mounted after the page
+        // routes, that redirect would land on `/:lang/*`'s terminal 404.
+        setupOauthConsentRoutes(
+          setupDesignSystemShareRoutes(
+            setupLinkRoutes(
+              setupDevReloadRoute(
+                await setupStaticAssets(
+                  setupSeoRoutes(
+                    setupMcpRoutes(
+                      setupAuthRoutes(
+                        setupAuthMiddleware(
+                          setupOpenApiRoutes(
+                            createApiRoutes(
+                              app,
+                              honoWithBootstrap as Hono,
+                              authInstance,
+                              getSession
+                            ),
+                            app,
+                            authInstance
+                          ),
+                          app
                         ),
-                        app
+                        app,
+                        { authInstance, runtime, emailHandlers }
                       ),
                       app,
-                      { authInstance, runtime, emailHandlers }
+                      {
+                        domainContext: config.domainContext,
+                        authInstance,
+                        // The two file-backed facts the A8 config tools publish.
+                        // Supplied HERE because this is the one composition root
+                        // that may name both `infrastructure-server` and the
+                        // presentation tree; a route may not reach the status
+                        // file itself.
+                        configHash: configHash ?? '',
+                        readStatusDocument,
+                      }
                     ),
                     app,
-                    {
-                      domainContext: config.domainContext,
-                      authInstance,
-                      // The two file-backed facts the A8 config tools publish.
-                      // Supplied HERE because this is the one composition root
-                      // that may name both `infrastructure-server` and the
-                      // presentation tree; a route may not reach the status
-                      // file itself.
-                      configHash: configHash ?? '',
-                      readStatusDocument,
-                    }
+                    config.fetchSitemapRecords
                   ),
                   app,
-                  config.fetchSitemapRecords
+                  config.publicDir
                 ),
-                app,
-                config.publicDir
+                config.staticRender !== true && isLiveReloadEligible()
               ),
-              config.staticRender !== true && isLiveReloadEligible()
+              app
             ),
             app
           ),
           app
         ),
         app
-      ),
-      app
+      )
     ),
     // Inject getSession into config for page route handlers.
     //
@@ -378,57 +411,66 @@ export async function createHonoApp(
   )
 
   // Add error handlers
-  return honoWithRoutes
-    .notFound(async (c) => c.html(await renderNotFoundPage(app), 404))
-    .onError(async (error, c) => {
-      // Report to the telemetry backend (fire-and-forget, no-op unless SENTRY_DSN
-      // is set) WITH request context, BEFORE logError — the reporter's WeakMap
-      // then dedups the same error object when the logError-with-cause path
-      // forwards it again.
-      //
-      // Gated on the SAME predicate that path uses, so the two agree instead of
-      // relying on the dedup to hide a disagreement. A 4xx that is the caller's
-      // own fault — the 400 a validator raises on a truncated body, the shape a
-      // public endpoint sees most — is answered correctly below and belongs in
-      // the log, not in the operator's paging surface. A 5xx (including
-      // `hono/timeout`'s 504) is reported here exactly as before.
-      if (isOperatorActionable(error)) {
-        // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget crash report
-        void reportException(error, {
-          method: c.req.method,
-          url: c.req.url,
-          headers: Object.fromEntries(c.req.raw.headers.entries()),
-        })
-      }
+  return (
+    honoWithRoutes
+      // An `/api/*` path no route matches answers the one 404 body every API
+      // road answers, as JSON — never the HTML page a browser gets.
+      .notFound(async (c) =>
+        isApiPath(c.req.path)
+          ? c.json(notFoundBody(), 404)
+          : c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
+      )
+      .onError(async (error, c) => {
+        // Report to the telemetry backend (fire-and-forget, no-op unless SENTRY_DSN
+        // is set) WITH request context, BEFORE logError — the reporter's WeakMap
+        // then dedups the same error object when the logError-with-cause path
+        // forwards it again.
+        //
+        // Gated on the SAME predicate that path uses, so the two agree instead of
+        // relying on the dedup to hide a disagreement. A 4xx that is the caller's
+        // own fault — the 400 a validator raises on a truncated body, the shape a
+        // public endpoint sees most — is answered correctly below and belongs in
+        // the log, not in the operator's paging surface. A 5xx (including
+        // `hono/timeout`'s 504) is reported here exactly as before.
+        if (isOperatorActionable(error)) {
+          // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget crash report
+          void reportException(error, {
+            method: c.req.method,
+            url: c.req.url,
+            headers: Object.fromEntries(c.req.raw.headers.entries()),
+          })
+        }
 
-      // An `HTTPException` carries its OWN status (and, when the raiser supplied
-      // one, its own response). Honour it — this handler REPLACES Hono's default
-      // `.onError`, which does exactly that via `if ('getResponse' in err)`.
-      // Losing it is what collapsed `hono/timeout`'s `HTTPException(504)` into a
-      // hard-coded 500 during the 2026-07-25 incident.
-      const status = error instanceof HTTPException ? error.status : 500
-      logError(`[server] ${c.req.method} ${c.req.path} → ${status}`, error)
+        // An `HTTPException` carries its OWN status (and, when the raiser supplied
+        // one, its own response). Honour it — this handler REPLACES Hono's default
+        // `.onError`, which does exactly that via `if ('getResponse' in err)`.
+        // Losing it is what collapsed `hono/timeout`'s `HTTPException(504)` into a
+        // hard-coded 500 during the 2026-07-25 incident.
+        const status = error instanceof HTTPException ? error.status : 500
+        logError(`[server] ${c.req.method} ${c.req.path} → ${status}`, error)
 
-      // Content negotiation by ROUTE FAMILY, not by `Accept` header: `/api/*` is
-      // a machine surface and must always answer with the canonical error
-      // envelope every other 4xx/5xx uses, so one client-side decoder covers
-      // every failure. Page routes keep the human-facing rendered error page.
-      if (isApiPath(c.req.path)) {
-        return c.json(
-          {
-            success: false,
-            message: apiErrorMessage(error, status),
-            code: apiErrorCodeForStatus(status),
-          },
-          status
-        )
-      }
+        // Content negotiation by ROUTE FAMILY, not by `Accept` header: `/api/*` is
+        // a machine surface and must always answer with the canonical error
+        // envelope every other 4xx/5xx uses, so one client-side decoder covers
+        // every failure. Page routes keep the human-facing rendered error page.
+        if (isApiPath(c.req.path)) {
+          if (status === 404) return c.json(notFoundBody(apiErrorMessage(error, status)), 404)
+          return c.json(
+            {
+              success: false,
+              message: apiErrorMessage(error, status),
+              code: apiErrorCodeForStatus(status),
+            },
+            status
+          )
+        }
 
-      // Non-API: an explicitly-bodied `HTTPException` wins (the raiser chose
-      // that response); anything else renders the error page.
-      if (error instanceof HTTPException && error.res !== undefined) {
-        return error.getResponse()
-      }
-      return c.html(await renderErrorPage(app), status)
-    })
+        // Non-API: an explicitly-bodied `HTTPException` wins (the raiser chose
+        // that response); anything else renders the error page.
+        if (error instanceof HTTPException && error.res !== undefined) {
+          return error.getResponse()
+        }
+        return c.html(await renderErrorPage(app), status)
+      })
+  )
 }

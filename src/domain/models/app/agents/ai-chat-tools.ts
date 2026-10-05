@@ -37,6 +37,8 @@
  * isolation and reused by both the generic and agent-bound chat paths.
  */
 
+import { toolSafeTableName } from '@/domain/models/app/auth/ai-access'
+
 /**
  * A single function/tool definition advertised to the AI provider — the
  * OpenAI-compatible `tools[]` entry. Carries the function name, a description
@@ -89,6 +91,7 @@ export const TOOL_FILTER_OPERATORS = [
   'startsWith',
   'endsWith',
   'in',
+  'notIn',
   'isNull',
   'isNotNull',
 ] as const
@@ -196,7 +199,7 @@ export const buildChatToolDefinitions = (
     {
       type: 'function' as const,
       function: {
-        name: `query_${table.name}`,
+        name: `query_${toolSafeTableName(table.name)}`,
         description: `Read records from the "${table.name}" table with structured filters, column selection, sorting, and a row limit. Read-only.`,
         parameters: buildQueryParameters(table.columns),
       },
@@ -204,7 +207,7 @@ export const buildChatToolDefinitions = (
     {
       type: 'function' as const,
       function: {
-        name: `count_${table.name}`,
+        name: `count_${toolSafeTableName(table.name)}`,
         description: `Count records in the "${table.name}" table, optionally narrowed by structured filters. Read-only.`,
         parameters: buildCountParameters(table.columns),
       },

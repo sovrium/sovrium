@@ -11,6 +11,9 @@ import {
   type FirstObjectSource,
 } from '@/domain/models/app/pages/first-object-redirect'
 import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
+import { readRowsForCaller } from './record-read-gate'
+import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
@@ -32,6 +35,14 @@ export type SystemRowsFetcher = (
   rowsKey: string
 ) => Promise<readonly Record<string, unknown>[]>
 
+/** What reading the first row needs: the visitor, and the readers to read with. */
+interface FirstRowContext {
+  readonly app: App
+  readonly session: SessionInfo | undefined
+  readonly db: DataSourceDb
+  readonly fetchSystemRows?: SystemRowsFetcher
+}
+
 /**
  * Resolve `page.redirectToFirst` into a redirect target, or `undefined` to
  * render the page.
@@ -47,13 +58,15 @@ export type SystemRowsFetcher = (
  * state is what the operator sees. The same reasoning covers an unreachable
  * source, a failed read, and a template whose placeholders the first row cannot
  * fill.
+ *
+ * The first row is the first one the records API would list the visitor: the
+ * Location header names it whatever the page then shows, so a table she may
+ * not read offers none and a row its row-level rule hides from her is skipped
+ * (`readRowsForCaller`, the records gate every server-side read goes through).
  */
 export async function resolveFirstObjectRedirect(
   page: Page,
-  ctx: {
-    readonly db: DataSourceDb
-    readonly fetchSystemRows?: SystemRowsFetcher
-  }
+  ctx: FirstRowContext
 ): Promise<string | undefined> {
   const { redirectToFirst } = page
   if (redirectToFirst === undefined) return undefined
@@ -76,10 +89,16 @@ export async function resolveFirstObjectRedirect(
  */
 async function readFirstRow(
   source: FirstObjectSource,
-  ctx: { readonly db: DataSourceDb; readonly fetchSystemRows?: SystemRowsFetcher }
-): Promise<Record<string, unknown> | undefined> {
+  ctx: FirstRowContext
+): Promise<Readonly<Record<string, unknown>> | undefined> {
   if (source.kind === 'table') {
-    const rows = await ctx.db.fetchRecords(source.table, { pageSize: 1, page: 1 }).catch(() => [])
+    const { rows } = await readRowsForCaller({
+      app: ctx.app,
+      tableName: source.table,
+      session: ctx.session,
+      db: ctx.db,
+      query: { pageSize: 1, page: 1 },
+    }).catch(() => ({ rows: [] }))
     return rows[0]
   }
   if (ctx.fetchSystemRows === undefined) return undefined

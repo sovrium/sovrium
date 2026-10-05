@@ -1,0 +1,42 @@
+# The waitlist of a full event. It renders on `/waitlist/<event>`
+# (config/pages/waitlist.yaml), a page bound to that event: the event rides
+# into the row from the page, so a visitor only gives a name and an email.
+#
+# It writes the same kind of row as a registration, with its status set to
+# Waitlist by a hidden field: when a seat frees up, an organizer changes that
+# one word to Confirmed on the Registrations page and emails the person.
+id: 2
+name: join-waitlist
+title: Join the waitlist
+description: If a seat frees up, we email you.
+access:
+  require: all
+submitTo:
+  table: registrations
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Join the waitlist
+onSuccess:
+  type: redirect
+  url: /on-the-waitlist/$record.event
+  delaySeconds: 0
+prefill:
+  status: Waitlist
+fields:
+  - kind: table-field
+    column: event
+    required: true
+    label: Event
+  - kind: table-field
+    column: status
+    hidden: true
+  - kind: table-field
+    column: name
+    required: true
+    label: Your name
+  - kind: table-field
+    column: email
+    required: true
+    label: Email
+    helpText: We write here only if a seat frees up.

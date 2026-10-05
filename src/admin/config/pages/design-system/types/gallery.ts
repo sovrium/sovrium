@@ -145,7 +145,15 @@ const gallery: TypePageBody = {
               type: 'code',
               props: { language: 'yaml' },
               content:
-                'galleryCard:\n  coverImage: $record.photo\n  hoverOverlay: true\n  onClick: open-drawer',
+                'galleryCard:\n' +
+                '  coverImage: \\$record.photo\n' +
+                '  hoverOverlay:\n' +
+                '    children:\n' +
+                '      - type: text\n' +
+                '        content: View profile\n' +
+                '  onClick:\n' +
+                '    action: openDrawer\n' +
+                '    component: person-drawer',
             } as PageComponent,
           ],
         },

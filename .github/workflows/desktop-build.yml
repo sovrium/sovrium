@@ -35,6 +35,13 @@ concurrency:
   group: desktop-build-${{ github.ref }}
   cancel-in-progress: true
 
+# The runtime-manifest guard refuses to generate the embedded asset manifest
+# from a symlinked node_modules. Its one opt-out names a throwaway checkout and
+# belongs to a local test fixture only, so a runner-level export of it is blanked
+# here: an empty value bypasses nothing (scripts/lib/throwaway-runtime-manifest.ts).
+env:
+  SOVRIUM_THROWAWAY_RUNTIME_MANIFEST_ROOT: ''
+
 jobs:
   build:
     name: ${{ matrix.label }}

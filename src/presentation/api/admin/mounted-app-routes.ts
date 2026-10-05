@@ -72,17 +72,16 @@ import {
 } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
 import { isEmailConfigured } from '@/infrastructure/process/env'
+import {
+  extractSurfaceContent,
+  isPartialRequest,
+  partialEchoHeaders,
+} from '@/presentation/api/runtime/content-partial'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
-import {
-  PARTIAL_TITLE_HEADER,
-  extractDocumentTitle,
-  extractSurfaceContent,
-  isPartialRequest,
-} from './dashboard-partial'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -243,8 +242,11 @@ const respondWithSurface = (c: Context, rendered: string): Response => {
       // the `<head>` the partial strips. Without it the tab, the bookmark and
       // the screen reader's page-change announcement all keep naming whatever
       // surface the operator started on.
-      const title = extractDocumentTitle(rendered)
-      return c.html(content, 200, title === undefined ? {} : { [PARTIAL_TITLE_HEADER]: title })
+      //
+      // The echo says the body really IS the region: a fallback to the full
+      // document below carries no echo, so the client full-loads rather than
+      // nesting a whole page inside the region.
+      return c.html(content, 200, partialEchoHeaders(rendered))
     }
   }
   return c.html(rendered, 200)

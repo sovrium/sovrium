@@ -1,0 +1,52 @@
+# The moment a ticket lands — from the public form or added by the team:
+#
+# 1. It is stamped with when it arrived and when its first reply is due, four
+#    hours later. The Queue and All tickets read both.
+# 2. The requester gets a copy of what they sent, so they know it arrived.
+#
+# A form submission's record trigger carries the answers only, so the ticket's
+# id is read back from the table before it is updated.
+name: when-a-ticket-arrives
+label: New ticket — set its due time and confirm receipt
+description: Stamp a new ticket with its arrival and first-reply due time, then email the requester a copy.
+enabled: true
+trigger:
+  type: record
+  table: tickets
+  events:
+    - create
+actions:
+  - name: arrivedAt
+    type: date
+    operator: now
+    props: {}
+  - name: replyDue
+    type: date
+    operator: add
+    props:
+      input: '{{arrivedAt.instant}}'
+      hours: 4
+  - name: stampTicket
+    type: record
+    operator: update
+    props:
+      table: tickets
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        opened_at: '{{arrivedAt.instant}}'
+        first_reply_due: '{{replyDue.instant}}'
+  - name: emailRequester
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.requester_email}}'
+      subject: 'We have your ticket: {{trigger.data.record.subject}}'
+      body: |
+        <p>Hello {{trigger.data.record.requester_name}},</p>
+        <p>Your ticket <strong>{{trigger.data.record.subject}}</strong> is with the
+        team. A person reads every ticket and usually replies within one
+        business day.</p>

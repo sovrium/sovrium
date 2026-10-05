@@ -5,25 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   hasCreatePermissionForRoles,
   hasReadPermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { createAllowed } from '@/domain/models/app/tables/row-level-write-decision-service'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { checkFieldConditionReadOnly } from './record-update-guards'
 import { checkTableUpdatePermissionWithRole } from './record-update-permissions'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
 import {
   passesTableRoleGate,
-  recordPassesPredicate,
   type RowLevelGuardContext,
   enforceFormMutationGate,
   resolveGuardForTable,
 } from './row-level-guard'
 import type { App, Table } from '@/domain/models/app'
 import type {
+  TableGateScope,
   hasCreatePermission,
   hasReadPermission,
 } from '@/domain/models/app/auth/permission-evaluator-service'
@@ -38,13 +38,13 @@ function checkCreatePermission(
   table: Parameters<typeof hasCreatePermission>[0],
   effectiveRoles: readonly string[],
   c: Context,
-  allTables?: App['tables']
+  allTables?: TableGateScope
 ) {
   if (hasCreatePermissionForRoles(table, effectiveRoles, allTables)) return undefined
   // Enumeration protection: users without read access get 404 (prevents resource discovery)
   const readTable = table as Parameters<typeof hasReadPermission>[0]
   if (!hasReadPermissionForRoles(readTable, effectiveRoles, allTables)) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
   return forbiddenCreateResponse(c)
 }
@@ -66,12 +66,12 @@ export function checkCreateGate(input: CreateGateInput): Response | undefined {
   const { c, app, table, userRole, userGroups, guard } = input
   if (!guard) {
     const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-    return checkCreatePermission(table, effectiveRoles, c, app.tables)
+    return checkCreatePermission(table, effectiveRoles, c, app)
   }
-  if (passesTableRoleGate(table?.permissions, 'create', guard.effectiveRoles)) return undefined
+  if (passesTableRoleGate(table, 'create', guard)) return undefined
   // Lack of read access collapses to 404 (enumeration safety).
-  if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  if (!passesTableRoleGate(table, 'read', guard)) {
+    return notFound(c)
   }
   return forbiddenCreateResponse(c)
 }
@@ -87,7 +87,7 @@ export function checkCreatePredicate(
   fields: Readonly<Record<string, unknown>>
 ): Response | undefined {
   if (!guard || !table?.rowLevelPermissions) return undefined
-  if (recordPassesPredicate(table.rowLevelPermissions, 'create', fields, guard.current)) {
+  if (createAllowed(table, fields, guard.current)) {
     return undefined
   }
   return forbiddenCreateScopeResponse(c)
@@ -104,46 +104,12 @@ interface UpdateGateInput {
   readonly userGroups: readonly string[]
   readonly recordId: string
   readonly guard: RowLevelGuardContext | undefined
-}
-
-/**
- * Z-3 update gate helper: enumeration-safe write role-gate. Per S1, all
- * authz denials return 404 so the write-permission boundary is not
- * discoverable — uniform with the read-deny path.
- */
-function checkWriteRoleGate(
-  c: Context,
-  table: Table | undefined,
-  guard: RowLevelGuardContext
-): Response | undefined {
-  if (passesTableRoleGate(table?.permissions, 'write', guard.effectiveRoles)) return undefined
-  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-}
-
-interface WritePredicateInput {
-  readonly c: Context
-  readonly table: Table | undefined
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly tableName: string
-  readonly recordId: string
-  readonly guard: RowLevelGuardContext
-}
-
-/** Helper: evaluate write.when against an existing row. */
-async function checkWritePredicate(input: WritePredicateInput): Promise<Response | undefined> {
-  const { c, table, session, tableName, recordId, guard } = input
-  if (!table?.rowLevelPermissions?.write?.when) return undefined
-  const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (fetched._tag === 'Failure' || !fetched.success) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
-  return recordPassesPredicate(table.rowLevelPermissions, 'write', fetched.success, guard.current)
-    ? undefined
-    : c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  /** The change the update proposes — `write.when` is checked on the row as written too. */
+  readonly change: Readonly<Record<string, unknown>>
 }
 
 async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Response | undefined> {
-  const { c, app, table, session, tableName, userRole, userGroups, recordId, guard } = input
+  const { c, app, table, session, tableName, userRole, userGroups, recordId, guard, change } = input
 
   if (!guard) {
     // Group-aware, mirroring `checkCreateGate` above. The guarded branch below
@@ -161,10 +127,21 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
     return permissionCheck.allowed ? undefined : permissionCheck.response
   }
 
-  return (
-    checkWriteRoleGate(c, table, guard) ??
-    (await checkWritePredicate({ c, table, session, tableName, recordId, guard }))
-  )
+  // The single-record gate the delete door asks: the read grant, the row
+  // (missing answers 404), the write grant, then `read.when` AND `write.when`
+  // on the row as it stands and `write.when` on the row as written. A row the
+  // read rule hides from the caller is refused as a missing one, even where
+  // the write rule admits it. Every denial is the missing row's 404 (S1).
+  return enforceFormMutationGate({
+    c,
+    table,
+    session,
+    tableName,
+    recordId,
+    guard,
+    op: 'write',
+    change,
+  })
 }
 
 /**
@@ -205,10 +182,12 @@ export async function resolveFormUpdateAuth(input: {
   readonly userGroups: readonly string[]
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly recordId: string
+  /** The posted change — `write.when` is checked on the row as written too. */
+  readonly change: Readonly<Record<string, unknown>>
 }): Promise<Response | undefined> {
-  const { c, app, tableName, userRole, userGroups, session, recordId } = input
+  const { c, app, tableName, userRole, userGroups, session, recordId, change } = input
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   if (guard) {
     return enforceFormMutationGate({
@@ -219,6 +198,7 @@ export async function resolveFormUpdateAuth(input: {
       recordId,
       guard,
       op: 'write',
+      change,
     })
   }
   const permissionCheck = checkTableUpdatePermissionWithRole(

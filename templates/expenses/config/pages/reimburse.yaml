@@ -1,0 +1,79 @@
+# The approved claims, oldest first: what goes out in the next transfer.
+# Mark each one repaid once the money has gone out; the day is written on
+# the claim (config/automations/mark-reimbursed.yaml). Only an admin opens this
+# page.
+name: reimburse
+path: /reimburse
+access:
+  require: [admin]
+  redirectTo: /sign-in
+meta:
+  title: Reimburse · Halden Expenses
+  description: The approved claims waiting for the transfer, to mark repaid.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: font-mono text-[15px] font-semibold text-foreground
+                content: Reimburse
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: text
+                element: p
+                props:
+                  className: text-[13px] text-foreground-muted
+                content: Everything approved and not yet repaid, oldest first. Mark each claim repaid once the money has gone out; the person who filed it reads the date on their claim.
+              - type: table
+                props:
+                  id: to-repay
+                  # A stored receipt name carries a unique prefix; the
+                  # cell shows its start and the link opens the file. The
+                  # category (fourth column) is a neutral outlined word.
+                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle [&_td:nth-child(4)_span]:!bg-transparent [&_td:nth-child(4)_span]:!text-foreground-muted [&_td:nth-child(4)_span]:!border-border'
+                dataSource:
+                  table: expenses
+                  view: to_repay
+                  filter:
+                    - { field: status, operator: eq, value: Approved }
+                columns:
+                  - { field: filer, label: Filed by }
+                  - { field: description, label: Description }
+                  - { field: expense_date, label: Date, format: short-date }
+                  - { field: category, label: Category }
+                  - { field: receipt, label: Receipt }
+                  - { field: amount, label: Amount, format: currency }
+                  - type: actions
+                    actions:
+                      - label: Mark repaid
+                        icon: check
+                        action:
+                          type: fetch
+                          url: /api/tables/expenses/records/$record.id
+                          method: PATCH
+                          body:
+                            fields:
+                              status: Reimbursed
+                          onSuccess:
+                            type: toast
+                            message: Marked repaid — the claim reads Reimbursed
+                            variant: success
+                            refetch: to-repay
+                pagination:
+                  pageSize: 50
+                emptyMessage: Nothing to repay. Claims appear here once finance approves them on Review.

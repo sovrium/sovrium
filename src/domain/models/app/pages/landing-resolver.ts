@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles/role'
 import type { App } from '@/domain/models/app'
 import type { RoleDefinition } from '@/domain/models/app/auth/roles'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -60,6 +61,13 @@ function substituteAssignment(defaultLanding: string, recordId: string): string 
  * Per-role resolution outcome — `match` returns the redirect URL, `skip`
  * tells the caller to advance to the next role.
  */
+const isBuiltInRoleName = (name: string): boolean =>
+  (BUILT_IN_ROLES as readonly string[]).includes(name)
+
+/** Whether the session holds a built-in role — an unrestricted account holds admin. */
+const holdsBuiltInRole = (name: string, session: SessionInfo): boolean =>
+  session.role === name || (name === 'admin' && session.isUnrestricted === true)
+
 type RoleResolution = { readonly kind: 'match'; readonly url: string } | { readonly kind: 'skip' }
 
 async function resolveRole(
@@ -68,6 +76,14 @@ async function resolveRole(
   fetchAssignments: (userId: string, tableSlug: string) => Promise<readonly string[]>
 ): Promise<RoleResolution> {
   if (!role.defaultLanding) return { kind: 'skip' }
+
+  // A built-in role is listed only to give it a landing: it lands the
+  // accounts that hold THAT role, whatever else the list says.
+  if (isBuiltInRoleName(role.name)) {
+    return holdsBuiltInRole(role.name, session)
+      ? { kind: 'match', url: role.defaultLanding }
+      : { kind: 'skip' }
+  }
 
   const table = extractAssignmentTable(role.defaultLanding)
 

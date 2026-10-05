@@ -137,7 +137,7 @@ Binding the table this way — rather than pointing the grid at a records endpoi
 
 ## Reading through a view
 
-`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in.
+`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in. A `summary` row totals the rows the view returns — its filters included — rather than the whole table. Export stays off: the export reads the table, not the view, so it would hand a reader the fields and rows the view exists to withhold; bind the grid to the table with a filter where an export is needed.
 
 ```yaml
 name: campaign-portal
@@ -168,19 +168,46 @@ pages:
           - { field: deadline, label: Deadline }
 ```
 
-Only the `table` component reads through a view: `view` on any other component, beside a `system` source, or naming a view the table does not declare stops the config from loading. The page is told only the view's columns, so a column the view leaves out never reaches the browser. A view that is not public still needs a signed-in reader its own grant admits; anyone else sees the grid's error state.
+Only the `table` component reads through a view: `view` on any other component, beside a `system` source, or naming a view the table does not declare stops the config from loading. The page is told only the view's columns, less any its reader may not read, so a column the view leaves out — or masks from that reader — never reaches the browser. A view that is not public still needs a signed-in reader its own grant admits; anyone else sees the grid's error state.
 
 ## Filter operators
 
-| Operator     | Matches                                                    |
-| ------------ | ---------------------------------------------------------- |
-| `eq` / `neq` | Equal, not equal.                                          |
-| `gt` / `gte` | Greater than, greater than or equal.                       |
-| `lt` / `lte` | Less than, less than or equal.                             |
-| `contains`   | Substring match, ignoring case.                            |
-| `in`         | Value is one of an array — used with `$currentUser` lists. |
+| Operator     | Matches                                                                    |
+| ------------ | -------------------------------------------------------------------------- |
+| `eq` / `neq` | Equal, not equal.                                                          |
+| `gt` / `gte` | Greater than, greater than or equal.                                       |
+| `lt` / `lte` | Less than, less than or equal.                                             |
+| `contains`   | Substring match, ignoring case.                                            |
+| `in`         | Value is one of an array — used with `$currentUser` lists.                 |
+| `isEmpty`    | No value — NULL, empty text, an empty list or an empty object. No `value`. |
+| `isNotEmpty` | The field holds a value. No `value`.                                       |
 
 Conditions combine with AND. There is no OR at this level; express alternatives as a saved view or a separate component.
+
+### Relative dates
+
+A filter value may name a day relative to the day the page is read: `$today`, `$today+Nd` and `$today-Nd` for N days, `$today+Nw` and `$today-Nw` for N weeks, `$startOfMonth` and `$startOfNextMonth`. Each is resolved on the server for every request to a calendar day (the server's UTC day), on both SQLite and PostgreSQL, so a view of what is due in the next two weeks is right on the day it is read rather than on the day a record was saved. The records API resolves the same tokens in its `filter` parameter.
+
+```yaml
+name: my-app
+tables:
+  - name: tasks
+    fields:
+      - { name: title, type: single-line-text }
+      - { name: due_on, type: date }
+pages:
+  - name: due-soon
+    path: /due-soon
+    components:
+      - type: table
+        dataSource:
+          table: tasks
+          filter:
+            - { field: due_on, operator: gte, value: $today }
+            - { field: due_on, operator: lte, value: $today+14d }
+```
+
+Months and years are anchors, never offsets: they have no fixed length. A value beginning with `$today` or `$startOf` that is not one of these tokens — `$today+1m`, say — is refused at boot, naming the tokens a filter may use.
 
 ## Single and search modes
 
@@ -211,15 +238,21 @@ pages:
           limit: 20
 ```
 
+Rows a page reads on the server follow the visitor's read permissions exactly as the records API lists them for that visitor: a list, a container's per-row `children`, and every row a search hands to the browser carry only the rows the table's row-level read rule shows them, and no field they may not read — a part of the row template naming such a field is left out, however deep in the template it sits. A pager counts those rows alone.
+
+A record in the trash is drawn on no page, as the records API answers it as one that does not exist: a list, a search and a pager leave it out, a component bound to it with `mode: single` draws nothing of it, and a page bound to it by its own `dataSource` answers 404. A `mode: single` binding with no `param`, on a path with no matching segment, shows the first record the visitor may read: a record the row-level rule hides from her, or one in the trash, is passed over rather than answering the page 404.
+
+In an app with `auth`, a visitor who is not signed in may read a table on a page only when its resolved `permissions.read` is `all`, the rule the records API applies to her: a table with no `permissions` block shows her none of its rows. A component bound to a table the visitor may not read carries nothing of that table into the page — no row, no field name, no option of a field. A grid renders empty, without its columns; a `kanban`, `calendar`, `gallery`, `chart`, `timeline` or record `drawer` is left out of the page entirely; a `kpi` keeps its card and its `label`, which are the author's words, with a neutral value in place of the figure.
+
+On a table the visitor may read, every list of fields a component draws names only the fields she may read, and offers an input only on one she may write: a grid's configured column on a field she may not read is neither drawn nor named, a create `form` that lists no `fields` offers inputs for the fields she may write alone, and a drawer's `related` section with no `columns` heads only the fields she may read.
+
 `searchEngine` names the backend, and `client` — the default when the key is omitted — is the only one this mode implements: the bound rows travel to the browser and the filtering happens there. `fts`, `trigram` and `hybrid` are accepted by `sovrium validate` and reserved for the server-side engines, but a component declaring one searches exactly as `client` does today. **Search Overview** sets out all four, and the three other places a query can run when you need the database to do the searching.
 
 ## Pagination
 
-`pagination` takes a `pageSize`, which is required whenever the block is present, and an optional `style` defaulting to `numbered`. `numbered` draws numbered page navigation; `loadMore` draws a button appending the next page.
+`pagination` takes a `pageSize`, which is required whenever the block is present, and an optional `style` defaulting to `numbered`. `numbered` draws numbered page navigation; `loadMore` draws a button appending the next page. `infinite` is accepted but is not implemented: scroll-triggered paging needs a sentinel row, an intersection observer and a re-entrancy guard, and none of that ships until something specifies how it behaves at the end of the set. A component declaring it pages exactly as `numbered` does, so the gap costs you the scrolling interaction and never a record. There is deliberately no "draw no control" style: `pageSize` already narrows what a component draws, so a style that rendered nothing would leave the rest of the set unreachable. To put every record on one page, omit `pagination` rather than reaching for a style.
 
-`infinite` is accepted but is not implemented. Scroll-triggered paging needs a sentinel row, an intersection observer and a re-entrancy guard, and none of that ships until something specifies how it behaves at the end of the set. A component declaring it pages exactly as `numbered` does, so the gap costs you the scrolling interaction and never a record.
-
-There is deliberately no "draw no control" style. `pageSize` already narrows what a component draws, so a style that rendered nothing would leave the rest of the set unreachable. To put every record on one page, omit `pagination` rather than reaching for a style.
+A container bound to a table with per-row `children` — a feed of event cards — draws one copy of its children per row, on the server, wherever it sits on the page: at the top level or nested inside another container. `dataSource.limit` caps how many rows it draws, so `limit: 3` shows the first three; with a `pagination.pageSize` as well, a page draws the smaller of the two and the pager counts no more than `limit` rows. Such a section is drawn once per request and does not follow a filter bar; a list that must follow one takes a `listDisplay.itemTemplate`, and cards that must follow one are a `gallery`.
 
 ## Related reading
 

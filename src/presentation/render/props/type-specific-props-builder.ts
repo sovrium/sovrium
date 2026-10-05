@@ -5,10 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { declaredFieldLabel } from '@/presentation/design/field-display'
 import { resolveLiftedTranslationTokens } from '../i18n/translation-handler'
+import { resolveCalendarDateInputs } from './calendar-date-fields'
+import { callerTableOf, forReader, withCallerWritableColumns } from './caller-table-inputs'
+import { dataTableInterpreterStrings } from './data-table-interpreter-strings'
 import { buildEmptyStateElementProps } from './empty-state-copy-builder'
+import { resolveKanbanFooterFieldMeta, withGridBadgeForm } from './option-badge-paints'
 import { withRelatedCreateGates } from './related-create-gates'
 import {
   resolveFigureFieldContext,
@@ -22,7 +26,7 @@ import {
   resolveKanbanColumnOptions,
   resolveKanbanSwimlaneOptions,
 } from './resolve-option-colors'
-import { isViewBoundSource, narrowToBoundView, resolveBoundView } from './view-binding-inputs'
+import { isViewBoundSource } from './view-binding-inputs'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Languages } from '@/domain/models/app/languages'
 import type {
@@ -31,6 +35,7 @@ import type {
   ComponentType,
 } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
+import type { BadgeForm } from '@/presentation/design/option-chip-paint'
 
 /**
  * Pre-resolved inputs that some component types need lifted to the top-level
@@ -66,6 +71,9 @@ export type TypeSpecificResolvedInputs = {
    * `resolve-chart-field-context.ts`. Absent for every other component type. */
   readonly categoryOptions?: readonly ChartCategoryOptionInput[]
   readonly valueCurrency?: CurrencyDisplayOptions
+  /** A calendar's day-valued fields, and its fields declaring a `timeZone`. */
+  readonly dateOnlyFields?: readonly string[]
+  readonly fieldTimeZones?: Readonly<Record<string, string>>
 }
 
 /**
@@ -209,6 +217,7 @@ function resolveSystemSourceColumnInputs(component: Component): TypeSpecificReso
 
 function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInputs {
   return {
+    ...EMPTY_RESOLVED,
     dataTableTableFields: table.fields.map((f) => f.name),
     dataTableFieldMeta: Object.fromEntries(
       table.fields.map((f) => {
@@ -235,14 +244,9 @@ function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInpu
         ]
       })
     ),
-    dataTablePermissions: table.permissions,
     dataTableViews: resolveDataTableViews(
       table.views as ReadonlyArray<Record<string, unknown>> | undefined
     ),
-    kanbanColumnOptions: undefined,
-    kanbanColumnColors: undefined,
-    kanbanSwimlaneOptions: undefined,
-    colorFieldColors: undefined,
   }
 }
 
@@ -274,26 +278,6 @@ function resolveRecordViewColorField(type: string, component: Component): string
 }
 
 /**
- * The field metadata of the columns a kanban card's FOOTER names — the same
- * entries the grid receives, narrowed to what the footer can print, so a
- * `currency` item formats with the column's own currency, precision and
- * separators without the whole table's schema riding along in the page.
- * Absent when the card declares no footer.
- */
-function resolveKanbanFooterFieldMeta(
-  table: Tables[number],
-  component: Component
-): Record<string, unknown> | undefined {
-  const footer = (
-    component as { readonly card?: { readonly footer?: readonly { field: string }[] } }
-  ).card?.footer
-  if (!footer || footer.length === 0) return undefined
-  const named = new Set(footer.map((item) => item.field))
-  const all = resolveDataTableInputs(table).dataTableFieldMeta ?? {}
-  return Object.fromEntries(Object.entries(all).filter(([field]) => named.has(field)))
-}
-
-/**
  * The kanban board's four table-derived inputs: both axes' declared options,
  * the column axis' option colours, and the card's `colorField` palette.
  *
@@ -303,13 +287,19 @@ function resolveKanbanFooterFieldMeta(
  */
 function resolveKanbanInputs(
   component: Component,
-  tables: Tables | undefined
+  tables: Tables | undefined,
+  form: BadgeForm | undefined
 ): TypeSpecificResolvedInputs {
   const table = resolveSourceTable(component, tables)
   if (!table) return EMPTY_RESOLVED
   return {
     ...EMPTY_RESOLVED,
-    dataTableFieldMeta: resolveKanbanFooterFieldMeta(table, component),
+    dataTableFieldMeta: resolveKanbanFooterFieldMeta(
+      resolveDataTableInputs(table).dataTableFieldMeta,
+      table,
+      component,
+      form
+    ),
     kanbanColumnOptions: resolveKanbanColumnOptions(table, component),
     kanbanColumnColors: resolveKanbanColumnColors(table, component),
     kanbanSwimlaneOptions: resolveKanbanSwimlaneOptions(table, component),
@@ -317,6 +307,21 @@ function resolveKanbanInputs(
       table,
       resolveRecordViewColorField('kanban', component)
     ),
+  }
+}
+
+/** A calendar's or a timeline's colour palette, and a calendar's day-valued fields. */
+function resolveRecordViewInputs(
+  type: 'calendar' | 'timeline',
+  component: Component,
+  tables: Tables | undefined
+): TypeSpecificResolvedInputs {
+  const table = resolveSourceTable(component, tables)
+  if (!table) return EMPTY_RESOLVED
+  return {
+    ...EMPTY_RESOLVED,
+    colorFieldColors: resolveFieldOptionColors(table, resolveRecordViewColorField(type, component)),
+    ...resolveCalendarDateInputs(table, component),
   }
 }
 
@@ -353,13 +358,17 @@ function resolveFigureInputs(
 export function resolveTypeSpecificInputs(
   type: string,
   component: Component,
-  tables: Tables | undefined
+  tables: Tables | undefined,
+  badgeForm?: BadgeForm
 ): TypeSpecificResolvedInputs {
   if (type === 'table') {
     const table = resolveSourceTable(component, tables)
     if (!table) return resolveSystemSourceColumnInputs(component)
-    const inputs = {
-      ...resolveDataTableInputs(table),
+    return {
+      // Narrowed to what this grid's READER may see of the table — her views, her
+      // permission map, her fields, or a bound view's columns as its route serves
+      // them to her — in ONE place: `caller-table-inputs.ts`.
+      ...withGridBadgeForm(forReader(resolveDataTableInputs(table), table, component), badgeForm),
       // Same resolver, same slot as the three record views — the grid is the
       // fourth surface in the `colorField` family, not a second mechanism.
       colorFieldColors: resolveFieldOptionColors(
@@ -367,24 +376,14 @@ export function resolveTypeSpecificInputs(
         resolveRecordViewColorField(type, component)
       ),
     }
-    // A grid reading through one of the table's views is told only what the
-    // view serves — see `view-binding-inputs.ts`.
-    const view = resolveBoundView(component, table)
-    return view === undefined ? inputs : narrowToBoundView(inputs, view)
   }
 
-  if (type === 'kanban') return resolveKanbanInputs(component, tables)
+  if (type === 'kanban') return resolveKanbanInputs(component, tables, badgeForm)
 
   if (type === 'chart' || type === 'kpi') return resolveFigureInputs(type, component, tables)
 
   if (type === 'calendar' || type === 'timeline') {
-    const table = resolveSourceTable(component, tables)
-    return {
-      ...EMPTY_RESOLVED,
-      colorFieldColors: table
-        ? resolveFieldOptionColors(table, resolveRecordViewColorField(type, component))
-        : undefined,
-    }
+    return resolveRecordViewInputs(type, component, tables)
   }
 
   return EMPTY_RESOLVED
@@ -456,7 +455,8 @@ const TYPE_BUILDERS: {
       // Read-only switch for a grid reading through a view: no create, edit,
       // import, saved views or live refresh (`view-binding-inputs.ts`).
       isViewBound: isViewBoundSource(component.dataSource),
-      columns: component.columns,
+      // No inline input on a field the reader may not write (`caller-table-inputs.ts`).
+      columns: withCallerWritableColumns(component.columns, callerTableOf(component)),
       selection: component.selection,
       pagination: component.pagination,
       search: component.search,
@@ -507,17 +507,8 @@ const TYPE_BUILDERS: {
       // on the column still wins in both directions; absent (auth not configured,
       // or the table declares no `update` grant) the grid stays read-only.
       canUpdate: (componentProps as { _canUpdate?: boolean } | undefined)?._canUpdate,
-      // Interpreter-provided create-record label, resolved against the
-      // active language: English default ("New record"), French built-in, author
-      // `languages.translations['datatable.newRecord']` override wins. Consumed by
-      // the toolbar create button + the create modal title/aria-label so the
-      // interpreter never leaks hard-coded French onto a non-French surface.
-      newRecordLabel: resolveInterpreterString('datatable.newRecord', currentLang, languages),
-      // The grid's other two interpreter-provided control labels, resolved the same
-      // way: the create dialog's footer pair, and the inline editor's commit /
-      // dismiss pair (an `editSelect.saveLabel` still overrides the commit).
-      saveLabel: resolveInterpreterString('datatable.save', currentLang, languages),
-      cancelLabel: resolveInterpreterString('datatable.cancel', currentLang, languages),
+      // The grid's interpreter-provided strings in the page language.
+      ...dataTableInterpreterStrings(currentLang, languages),
     }
   },
 
@@ -547,6 +538,8 @@ const TYPE_BUILDERS: {
     labelField: component.labelField,
     colorField: component.colorField,
     colorFieldColors: resolved.colorFieldColors,
+    dateOnlyFields: resolved.dateOnlyFields,
+    fieldTimeZones: resolved.fieldTimeZones,
     maxEventsPerDay: component.maxEventsPerDay,
     calendarEvent: component.calendarEvent,
     calendarInteraction: component.calendarInteraction,
@@ -581,7 +574,7 @@ const TYPE_BUILDERS: {
     emptyState: component.emptyState,
   }),
 
-  kpi: ({ baseElementPropsWithType, component, resolved }) => ({
+  kpi: ({ baseElementPropsWithType, component, resolved, currentLang, languages }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     label: component.label,
@@ -592,6 +585,8 @@ const TYPE_BUILDERS: {
     trend: component.trend,
     thresholds: component.thresholds,
     sparkline: component.sparkline,
+    // The rate-limited read notice in the page language, where it differs from English.
+    uiStrings: resolveInterpreterStringOverrides(['rateLimit.'], currentLang, languages),
   }),
 
   // `timeline`, in BOTH shapes. A record-bound one lifts its display bindings

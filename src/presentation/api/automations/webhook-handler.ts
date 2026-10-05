@@ -17,7 +17,7 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runWebhookAuth } from './webhook-auth'
 import { checkAndRecordDedup } from './webhook-dedup'
@@ -35,6 +35,7 @@ import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validatio
 import { answerVerificationHandshake } from './webhook-verification'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
+import type { PublicRunStatus, WebhookDefaultResponse } from '@/domain/models/api/automations'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -163,7 +164,7 @@ const runRateLimitGate = (
   if (trigger.rateLimit === undefined) return undefined
   const config = normalizeRateLimit(trigger.rateLimit)
   if (config === undefined) return undefined
-  const ip = getRequestClientIp(c)
+  const ip = getRequestRateLimitKey(c)
   const limit = isRateLimited(name, ip, config)
   return limit.limited ? webhookRateLimited(c, limit.retryAfter) : undefined
 }
@@ -266,14 +267,6 @@ interface BuildResponseInput {
 }
 
 /**
- * Default sync-webhook body shape. Mirrors the manual-trigger response built
- * by `triggerResultBody` in `routes/automations/index.ts` — both endpoints
- * return the same `RunAutomationResult` and must surface the same fields.
- *
- * Extracted from {@link buildSyncResponse} so the latter stays under the
- * project's complexity cap.
- */
-/**
  * Map the engine's internal status to the public webhook-response status.
  * `'success'`/`'completed-with-errors'` are happy-path completions (the
  * latter records that some action failed but declared `continueOnError`);
@@ -281,15 +274,7 @@ interface BuildResponseInput {
  * sync response stays binary-shaped. Callers wanting the richer status
  * label should read it off the runs API.
  */
-const toWebhookResponseStatus = (
-  status: RunAutomationResult['status']
-):
-  | 'completed'
-  | 'completed-with-errors'
-  | 'failed'
-  | 'skipped'
-  | 'cancelled'
-  | 'waiting-approval' => {
+const toWebhookResponseStatus = (status: RunAutomationResult['status']): PublicRunStatus => {
   if (status === 'success') return 'completed'
   if (status === 'completed-with-errors') return 'completed-with-errors'
   if (status === 'skipped') return 'skipped'
@@ -300,12 +285,17 @@ const toWebhookResponseStatus = (
   return 'failed'
 }
 
-const defaultSyncBody = (result: RunAutomationResult) => ({
-  success: true,
+/**
+ * Default sync-webhook body: the run's id and status, nothing the run read.
+ * The webhook's caller is whoever holds its URL, so no step output and no
+ * step error (which can quote what the step read) is ever merged in; data
+ * goes back only through a `webhook/response` action or `trigger.response`.
+ * Its keys are {@link WebhookDefaultResponse}'s — the wire schema is the one
+ * place they are listed. Unlike the manual trigger's answer, on purpose.
+ */
+const defaultSyncBody = (result: RunAutomationResult): WebhookDefaultResponse => ({
   id: result.runId,
   status: toWebhookResponseStatus(result.status),
-  ...(result.lastOutput !== undefined ? { output: result.lastOutput } : {}),
-  ...(result.error !== undefined ? { error: result.error } : {}),
 })
 
 /**
@@ -336,11 +326,10 @@ const buildSyncResponse = (input: BuildResponseInput) => {
   const cfg = trigger.response
   const status = cfg?.status ?? cfg?.statusCode ?? 200
   const context = { run: { id: result.runId }, trigger: { data: triggerData } }
-  // Default response surfaces `lastOutput` under `output` so code-action
-  // results (and any future handlers that return data) are reachable from
-  // the synchronous webhook response. When the operator configured a
-  // `trigger.response.body`, we honour that instead — they explicitly
-  // shaped the response.
+  // The default body names the run and its status only. When the operator
+  // configured a `trigger.response.body`, we honour that instead — they
+  // explicitly shaped the response (its templates see `run.id` and
+  // `trigger.data` only, never a step's output).
   const body =
     cfg?.body !== undefined ? resolveTriggerInValue(cfg.body, context) : defaultSyncBody(result)
   const headers =

@@ -156,7 +156,7 @@ export const CALENDAR_DURATION_KEYS = ['years', 'months', 'weeks', 'days'] as co
  *
  * This is a deliberate divergence from `DateTime.add`, which applies EVERY
  * component as wall-clock arithmetic on a zoned value — measured on Effect
- * 4.0.0-rc.108: `DateTime.add(parisNoon, { hours: 24 })` on `2026-03-28T12:00Z`
+ * 4.0.0: `DateTime.add(parisNoon, { hours: 24 })` on `2026-03-28T12:00Z`
  * lands 23 real hours later, exactly as `{ days: 1 }` does. The shipped contract
  * says otherwise in two places: `add.ts` documents `timezone` as determining
  * "DST behaviour for day-and-larger units", and `diff.ts` states that "hour and
@@ -225,7 +225,7 @@ export const resolveDuration = (
  *
  * `subtractDuration` on the negative path rather than negating the `Duration`:
  * both work on Effect 4, whose `Duration` is signed (`Duration.hours(-2)` is
- * -7 200 000 ms — verified on 4.0.0-rc.108, `Duration.hours = (h) => make(h *
+ * -7 200 000 ms — verified on 4.0.0, `Duration.hours = (h) => make(h *
  * 3_600_000)`, no clamp). Dispatching keeps the sign in ONE place instead of
  * threading it through every constructor call, and names the inverse operation
  * that Effect itself exports for it.

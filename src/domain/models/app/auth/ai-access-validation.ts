@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isReservedInternalPrefix } from '../tables/internal-tables'
 
 /**
@@ -143,7 +144,9 @@ const checkNoReservedTablePrefixes = (app: LooseApp): true | string => {
 
   const violator = app.tables.find((t) => isReservedInternalPrefix(t.name))
   if (violator) {
-    return `Table '${violator.name}' uses a reserved prefix ('auth_' or 'system_'); rename to avoid collision with admin internals MCP tools`
+    const derived = sanitizeTableName(violator.name)
+    const stored = derived === violator.name ? '' : ` (stored as '${derived}')`
+    return `Table '${violator.name}'${stored} uses a reserved prefix ('auth_' or 'system_'); rename to avoid collision with admin internals MCP tools`
   }
   return true
 }

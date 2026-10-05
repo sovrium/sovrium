@@ -13,7 +13,8 @@
  * is attached, so apps without auth behave identically.
  */
 
-import { handlePresence } from './presence-handlers'
+import { enrichUserRole } from '@/presentation/api/middleware/table'
+import { handlePresence, type PresenceReaderResolver } from './presence-handlers'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -24,8 +25,17 @@ import type { Hono } from 'hono'
  * `api-routes.ts` (when `app.auth` is configured) so the handler can read the
  * session via `getSessionContext`. The `app` is threaded through so the
  * handler can namespace the in-memory presence channel by `app.name` and
- * keep two distinct apps' presence sets isolated.
+ * keep two distinct apps' presence sets isolated, and `getSession` — the
+ * router's session reader — so the page's `access` is judged as on a visit.
+ * `enrichUserRole` resolves the caller's role and groups, which the records
+ * gate reads on a record page.
  */
-export function chainRealtimeRoutes<T extends Hono>(honoApp: T, app: App) {
-  return honoApp.get('/api/realtime/presence', (c) => handlePresence(c, app))
+export function chainRealtimeRoutes<T extends Hono>(
+  honoApp: T,
+  app: App,
+  getSession?: PresenceReaderResolver
+) {
+  return honoApp.get('/api/realtime/presence', enrichUserRole(), (c) =>
+    handlePresence(c, app, getSession)
+  )
 }

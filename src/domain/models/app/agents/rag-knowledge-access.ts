@@ -30,6 +30,8 @@ import {
   permits,
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 
 /** Minimal shape this service needs from a table. */
 interface KnowledgeAccessTable {
@@ -61,11 +63,16 @@ interface KnowledgeAccessAgent {
  * canonical evaluator under the same named policy pair, so what could drift is
  * the policy, never the ladder.
  */
-export const canAgentReadKnowledgeTable = (role: string, read: unknown): boolean =>
+export const canAgentReadKnowledgeTable = (
+  role: string,
+  read: unknown,
+  app: AdminRoleResolvable = {}
+): boolean =>
   permits(
     evaluatePermission(
       toPermissionValue(read),
-      { role },
+      // The app's top role outranks a read grant exactly as the built-in `admin` does.
+      { role, adminEquivalent: isAdminEquivalent(role, app) },
       {
         // An absent read grant denies only the lowest-privilege built-in role —
         // the same answer `hasReadPermission` gives a human caller, which is
@@ -88,7 +95,8 @@ export const canAgentReadKnowledgeTable = (role: string, read: unknown): boolean
  */
 export const filterAgentKnowledgeTables = <T extends KnowledgeAccessAgent>(
   agent: T,
-  tables: ReadonlyArray<KnowledgeAccessTable>
+  tables: ReadonlyArray<KnowledgeAccessTable>,
+  app: AdminRoleResolvable = {}
 ): T => {
   const knowledgeTables = agent.knowledge?.tables
   if (knowledgeTables === undefined || knowledgeTables.length === 0) return agent
@@ -99,7 +107,7 @@ export const filterAgentKnowledgeTables = <T extends KnowledgeAccessAgent>(
   const allowed = knowledgeTables.filter((entry) => {
     // Tables not declared in the schema are passed through untouched.
     if (!readByTable.has(entry.table)) return true
-    return canAgentReadKnowledgeTable(role, readByTable.get(entry.table))
+    return canAgentReadKnowledgeTable(role, readByTable.get(entry.table), app)
   })
 
   return {

@@ -128,6 +128,10 @@ elevation:
   md: 0 4px 12px rgb(48 36 20 / 0.08)
   lg: 0 12px 32px rgb(48 36 20 / 0.14)
 
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
 # A stock manager reads many rows at once, so the grids run compact. The three
 # steps are the platform's own values, written out so one number can be tuned.
 density:

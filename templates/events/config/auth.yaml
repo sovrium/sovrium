@@ -1,6 +1,16 @@
-# Email + password auth for the organizing team. Attendees never sign in —
-# they register through the public /register form.
-allowSignUp: true
+# Email and password sign-in, for the organizers only.
+#
+# Attendees never sign in: they register from the public page with no
+# account. Nobody signs themselves up either. The first administrator comes
+# from `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first start (see
+# `.env.example`), and every other organizer is added by an admin with
+# `sovrium admin create <email>`. The demo accounts come from
+# `seed/users.yaml`.
+#
+# Two roles: `member` for the organizers who run registrations and the door,
+# and `admin` for the lead, who is also the only one who removes an event or
+# a registration.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

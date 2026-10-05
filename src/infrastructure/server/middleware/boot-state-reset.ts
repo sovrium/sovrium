@@ -55,7 +55,7 @@ export const resetBootState = (): void => {
   resetEcoIndexTrackerAtBoot()
   resetPageCacheStatsAtBoot()
 
-  // Same boot-reset rationale for the F-03 / PG-02 in-process rate-limit
+  // Same boot-reset rationale for the [internal ref] in-process rate-limit
   // sliding-window state. Without this, a comment rate-limit test that
   // consumed all 5 slots in spec N would leave spec N+1 starting with the
   // budget already exhausted (the same Bun process re-uses the module-level

@@ -11,6 +11,7 @@ import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/en
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
 import { updateRecordProgram } from '@/application/use-cases/tables/write-record-programs'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
@@ -23,12 +24,14 @@ import {
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
 import { isStaleWrite } from './record-conflict-check'
+import { getLinkReader } from './relationship-rules'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -173,6 +176,15 @@ function hasUpdateRecordTrigger(
 }
 
 /**
+ * Who the record a write hands back is read as, beyond the role: the caller's
+ * groups (a field read grant may name one) and the reader its links are judged as.
+ */
+const writerReadsAs = (c: Context) => ({
+  userGroups: getTableContext(c).userGroups,
+  linkReader: getLinkReader(c),
+})
+
+/**
  * No-trigger fast path for `executeUpdate`. Runs the program, handles
  * the standard error/empty-result branches, and asynchronously cleans
  * up replaced single-attachment storage keys. Extracted so the parent
@@ -207,6 +219,7 @@ async function executeUpdateNoTrigger(config: {
       fields: dataWithPublishedAt,
       app,
       userRole,
+      ...writerReadsAs(c),
     })
   )
   if (result._tag === 'Failure') {
@@ -214,10 +227,10 @@ async function executeUpdateNoTrigger(config: {
   }
   const updateResult = result.success
   if (!updateResult || Object.keys(updateResult).length === 0) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
-  publishUpdateChange({ app, tableName, recordId, incoming, updateResult, oldRecord })
+  signalAiComputeAfterUpdate({ app, tableName, recordId, incoming, updateResult, oldRecord })
   if (oldRecord) {
     const replacedKeys = collectReplacedAttachmentKeys(
       oldRecord,
@@ -391,6 +404,7 @@ async function executeUpdateWithRecordTrigger(config: {
       fields: allowedData,
       app,
       userRole,
+      ...writerReadsAs(c),
     })
     return { previous, updated }
   }).pipe(
@@ -415,11 +429,11 @@ async function executeUpdateWithRecordTrigger(config: {
 
   const updateResult = result.success.updated
   if (!updateResult || Object.keys(updateResult).length === 0) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
   const oldRecord = result.success.previous ?? undefined
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
-  publishUpdateChange({ app, tableName, recordId, incoming, updateResult, oldRecord })
+  signalAiComputeAfterUpdate({ app, tableName, recordId, incoming, updateResult, oldRecord })
   return c.json(updateResult, 200)
 }
 
@@ -466,18 +480,27 @@ async function fireUpdateWebhooks(
 ): Promise<void> {
   return triggerTableWebhooks({
     table: app.tables?.find((t) => t.name === tableName),
+    appEnv: app.env,
     event: 'update',
     record: extractRecordForWebhook(updateResult),
-    previousRecord,
+    // The pre-update row is raw: its dates read as the record does, or a date
+    // would carry a time in `previousValues` and read as changed on every update.
+    previousRecord:
+      previousRecord === undefined
+        ? undefined
+        : { ...serializeDriverRow(previousRecord, { app, tableName }) },
   })
 }
 
 /**
- * Wave-1 realtime delivery: publish an `update` change event to the table's
- * channel. `oldRecord` carries the pre-update row so a filtered subscription
- * can detect a filter enter/exit transition.
+ * Signal the AI-compute write phase for an update that stood.
+ *
+ * The realtime `update` change event is not published here: the update
+ * program announces the row it changed once the write commits
+ * (`record-change-announcement.ts`), with the row as it stood so a filtered
+ * subscription can detect a filter enter/exit transition.
  */
-function publishUpdateChange(params: {
+function signalAiComputeAfterUpdate(params: {
   readonly app: App
   readonly tableName: string
   readonly recordId: string
@@ -488,7 +511,6 @@ function publishUpdateChange(params: {
 }): void {
   const { app, tableName, recordId, incoming, updateResult, oldRecord } = params
   const record = extractRecordFields(updateResult)
-  publishRecordChange({ appId: app.name, tableName, event: 'update', recordId, record, oldRecord })
   // [internal ref] Phase 2: signal the AI-compute write phase. A user override is
   // recorded as `skipped` (both dialects); a recomputed field is enqueued to the
   // shared worker on SQLite (Postgres uses the NOTIFY listener). Fire-and-forget,
@@ -535,25 +557,18 @@ async function handleUpdateError(config: {
   try {
     const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
     if (result._tag === 'Failure') {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+      return notFound(c)
     }
     const readResult = result.success
 
     // S1 anti-enumeration: if we can read but not update, still return 404
     // so the write-permission boundary is not discoverable.
     if (readResult !== null) {
-      return c.json(
-        {
-          success: false,
-          message: 'Resource not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      )
+      return notFound(c)
     }
 
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   } catch {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
 }

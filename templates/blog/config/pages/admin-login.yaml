@@ -1,50 +1,43 @@
+# The way into the desk. Sign-up is closed (config/auth.yaml), so this page
+# only signs people in; an admin adds another editor with `sovrium admin
+# create`. The editor lands on the posts.
 name: admin-login
 path: /admin/login
 meta:
-  title: Sign in
-  description: Sign in to the blog admin
+  title: Sign in · Field Notes
+  description: Sign in to write and publish Field Notes.
 components:
   - type: container
-    element: section
     props:
-      className: bg-background min-h-screen py-16 px-6
+      className: flex min-h-screen items-center justify-center bg-background-subtle px-5 py-12
     children:
       - type: container
         props:
-          className: max-w-md mx-auto
+          className: flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-background-raised p-6
         children:
+          - type: container
+            props:
+              className: flex items-center gap-2.5 text-sm font-semibold text-foreground
+            children:
+              - type: icon
+                props:
+                  name: pen-line
+                  size: 14
+                  className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+              - type: text
+                element: span
+                content: Field Notes
           - type: text
             element: h1
             props:
-              className: text-4xl font-bold mb-2 text-foreground text-center
-            content: Sign in
-          - type: text
-            element: p
+              className: text-[22px] font-semibold tracking-tight text-foreground
+            content: Sign in to the desk
+          - type: form
             props:
-              className: text-md mb-8 text-muted-foreground text-center
-            content: Access the blog admin to write and publish posts.
-
-          - type: container
-            props:
-              className: p-6 rounded-lg border border-border bg-card
-            children:
-              - type: form
-                props:
-                  id: admin-login-form
-                action:
-                  type: auth
-                  method: login
-                  strategy: email
-                  onSuccess:
-                    navigate: /admin
-
-          - type: text
-            element: p
-            props:
-              className: text-md mt-6 text-muted-foreground text-center
-            content: No account yet?
-          - type: link
-            props:
-              href: /admin/register
-              className: block text-md text-primary hover:underline text-center
-            content: Create the first admin account →
+              id: sign-in-form
+            action:
+              type: auth
+              method: login
+              strategy: email
+              onSuccess:
+                navigate: /admin

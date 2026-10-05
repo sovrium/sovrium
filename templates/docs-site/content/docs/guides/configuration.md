@@ -1,62 +1,54 @@
 ---
 title: Configuration
-description: Design tokens, the Shiki code-block theme, and collection options.
-category: Guides
+description: Design tokens, code highlighting and the collection options.
+category: guides
 order: 4
-draft: false
+updated: 2026-09-15
 ---
 
 # Configuration
 
-Three knobs shape the site: the design tokens, the code-block highlighter, and
-the content-directory collection.
+Three files shape the site: `config/design.yaml` for how it looks,
+`config/pages/docs.yaml` for how the folder is read, and the markdown itself.
 
 ## Design tokens
 
-Colours, type, radii and elevation live in `config/design.yaml`. Token names
-become both Tailwind utilities and CSS variables, so the markdown layouts pick
-them up automatically.
+Colours, type, corners and spacing live in `config/design.yaml`. A role key
+repaints every page at once — the links, the sidebar, the callouts:
 
-```yaml
+```yaml title="config/design.yaml"
 colors:
-  primary: '#6d28d9'
-  primary-light: '#ede9fe'
-  text: '#1e1b2e'
-fonts:
-  sans:
-    family: Inter
-    size: 16px
+  primary: oklch(0.52 0.16 175)
+darkColors:
+  primary: oklch(0.78 0.12 175)
 ```
+
+`colorScheme: system` follows the reader's light or dark preference.
 
 ## Code highlighting
 
-Fenced code is highlighted server-side by Shiki, themed by one token:
+Every fenced block is highlighted on the server with one Shiki theme:
 
-```yaml
-design:
-  codeBlock:
-    theme: github-dark
+```yaml title="config/design.yaml"
+codeBlock:
+  theme: github-dark
 ```
-
-Shiki emits class / CSS-variable markup (never inline `style`), so highlighted
-code survives the HTML sanitizer. Unknown languages fall back to a plain block.
 
 ## Collection options
 
-The `docs.yaml` page configures how the folder is scanned and navigated:
+`config/pages/docs.yaml` tells Sovrium how to read `content/docs/`:
 
-| Option          | Effect                                               |
-| --------------- | ---------------------------------------------------- |
-| `slugFrom`      | `filename` (flat) or `filepath` (nested URLs)        |
-| `filter.draft`  | `false` hides files marked `draft: true`             |
-| `sort`          | Orders routes and the sidebar by a frontmatter field |
-| `nav.groupBy`   | Buckets the sidebar by a frontmatter field           |
-| `nav.labelFrom` | Chooses which frontmatter field labels each link     |
+| Option            | What it does                                                  |
+| ----------------- | ------------------------------------------------------------- |
+| `slugFrom`        | `filepath` keeps folders in the URL; `filename` flattens them |
+| `index`           | The page `/docs` opens — here, `introduction`                 |
+| `sort`            | The reading order, from a front matter key                    |
+| `nav.groupBy`     | The front matter key that sections the sidebar                |
+| `nav.groupLabels` | How each section is spelled in the sidebar                    |
+| `editUrl`         | Where "Edit this page" points, with `{path}` for the file     |
+| `filter`          | Which files are left out — `draft: true` by default here      |
 
-> Change `sort.field` to `title` and the sidebar reorders alphabetically — no
-> code, just config.
-
-::: callout
-Want a light site? Set `codeBlock.theme: github-light` and swap the palette in
-`design.yaml`. The layouts restyle themselves from the tokens.
+::: callout type="tip"
+**Point "Edit this page" at your repository.** Replace the address in
+`editUrl` with your own, and every page links to its source file.
 :::

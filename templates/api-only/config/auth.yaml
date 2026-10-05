@@ -1,2 +1,22 @@
+# Who may call the API, and how a script proves who it is.
+#
+# Nobody can open an account from outside: the first admin comes from
+# `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first start (see
+# `.env.example`), and anyone else is added with `sovrium admin create
+# <email>`. The demo member and viewer come from `seed/users.yaml`.
+#
+# The three roles are the built-in ones, and each table's `permissions` block
+# says what each may do: an `admin` does everything, a `member` reads, creates
+# and updates, a `viewer` only reads.
+allowSignUp: false
+defaultRole: viewer
 strategies:
   - type: emailAndPassword
+    minPasswordLength: 8
+
+# API keys: the credential a script holds. A signed-in user mints one with
+# `POST /api/auth/api-key/create` (an admin can also use the admin console),
+# and every call carries it on the `x-api-key` header. A key acts as the person
+# who minted it, with their role read afresh on every call, so a viewer's key
+# can never write.
+apiKeys: true

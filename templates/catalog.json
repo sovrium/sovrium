@@ -1,37 +1,37 @@
 {
   "hello-world": {
     "name": "Hello World",
-    "description": "The one-page starter. Where every app begins.",
+    "description": "The one-page starter: the first page after sovrium init.",
     "category": "starter",
     "topics": ["sovrium", "template", "self-hosted", "starter"]
   },
   "landing-page": {
     "name": "Landing Page",
-    "description": "A bilingual marketing site with reusable components.",
+    "description": "A bilingual product landing page with a demo request form.",
     "category": "website",
     "topics": ["sovrium", "template", "self-hosted", "website", "landing-page"]
   },
   "blog": {
     "name": "Blog",
-    "description": "A self-hostable blog CMS: a WordPress alternative.",
+    "description": "Field Notes: essays with covers, moderated comments, RSS, scheduling.",
     "category": "blog",
     "topics": ["sovrium", "template", "self-hosted", "blog", "cms"]
   },
   "docs-site": {
     "name": "Docs Site",
-    "description": "A docs website from markdown: a Docusaurus alternative.",
+    "description": "A docs website from markdown files: a Docusaurus alternative.",
     "category": "docs",
     "topics": ["sovrium", "template", "self-hosted", "docs", "markdown"]
   },
   "api-only": {
     "name": "Task API",
-    "description": "A headless REST API: tables and auth, no pages.",
+    "description": "Task API: a REST API called with a key, per-role rules, one landing page.",
     "category": "apiAi",
     "topics": ["sovrium", "template", "self-hosted", "api", "headless"]
   },
   "mcp-server": {
-    "name": "MCP Server",
-    "description": "Expose your tables to an LLM over MCP.",
+    "name": "Team knowledge base",
+    "description": "Team knowledge base: documents an assistant reads over MCP, with a key.",
     "category": "apiAi",
     "topics": ["sovrium", "template", "self-hosted", "mcp", "ai", "headless"]
   },
@@ -49,13 +49,13 @@
   },
   "helpdesk": {
     "name": "Helpdesk",
-    "description": "A public support form feeding a triage kanban.",
+    "description": "A public ticket form, a queue by who holds each ticket, and ratings.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "helpdesk", "support"]
   },
   "content-calendar": {
     "name": "Content Calendar",
-    "description": "Plan, draft, and publish on one calendar.",
+    "description": "Loomwork Content: a month by channel, review approvals, campaigns.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "marketing", "editorial"]
   },
@@ -67,7 +67,7 @@
   },
   "events": {
     "name": "Events",
-    "description": "Public registrations, confirmed automatically.",
+    "description": "Fieldday Events: what is on with seats left, no-account signup, a waitlist.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "events"]
   },
@@ -85,19 +85,19 @@
   },
   "expenses": {
     "name": "Expenses",
-    "description": "Receipts, approvals, and spend by category.",
+    "description": "Halden Expenses: own claims, receipts, in-app approval, repayment.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "expenses", "finance"]
   },
   "intranet": {
     "name": "Intranet",
-    "description": "A company hub: announcements, people, resources.",
+    "description": "Halden Intranet: the must-read first, news, people and resources.",
     "category": "portal",
     "topics": ["sovrium", "template", "self-hosted", "intranet", "portal"]
   },
   "knowledge-base": {
     "name": "Knowledge Base",
-    "description": "A private markdown handbook behind sign-in.",
+    "description": "A private company handbook in markdown, with a search and an assistant.",
     "category": "docs",
     "topics": ["sovrium", "template", "self-hosted", "knowledge-base", "docs"]
   },

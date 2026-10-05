@@ -21,7 +21,11 @@
  */
 
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
+import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import {
   passesTableRoleGate,
   projectReadPredicateClause,
@@ -42,7 +46,7 @@ export interface FilterLeaf {
 }
 
 /**
- * A nestable filter node (GAP-3): a leaf, an `and` group, or an `or` group.
+ * A nestable filter node: a leaf, an `and` group, or an `or` group.
  * The SQL WHERE builder walks this tree, emitting `( … AND … )` / `( … OR … )`.
  */
 export type FilterNode =
@@ -58,8 +62,7 @@ export type FilterStructure =
     }
   | undefined
 
-export const NOT_FOUND_RESPONSE = (c: Context): Response =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+export const NOT_FOUND_RESPONSE = (c: Context): Response => notFound(c)
 
 /**
  * The zero-row answer the LIST branch short-circuits to when the row-level read
@@ -84,7 +87,9 @@ export const EMPTY_LIST_RESPONSE = (c: Context): Response =>
 /**
  * Non-guard (role-only) read gate shared by the list and get handlers:
  * evaluate the table read permission against the user's effective roles
- * (global role + every `group:<name>`).
+ * (global role + every `group:<name>`). Whether the caller is signed out is the
+ * session's identity — the guest sentinel the auth middleware injects, or no
+ * session at all — never the name of her role.
  *
  * `onDeny` selects the denial response shape. Per S1 anti-enumeration, BOTH
  * list and single-record denials return 404 (`NOT_FOUND_RESPONSE`): a denied
@@ -97,8 +102,12 @@ function checkRoleOnlyReadGate(
   onDeny: (c: Context) => Response
 ): Response | undefined {
   const { c, app, table, userRole, userGroups } = input
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  return hasReadPermissionForRoles(table, effectiveRoles, app.tables) ? undefined : onDeny(c)
+  const session = getSessionContext(c)
+  const caller = {
+    effectiveRoles: buildEffectiveRoles(userRole, userGroups),
+    signedOut: session === undefined || isGuestSession(session.userId),
+  }
+  return hasReadPermissionForCaller(table, caller, app) ? undefined : onDeny(c)
 }
 
 export interface ReadGateInput {
@@ -122,9 +131,7 @@ export interface ReadGateInput {
 export function checkListReadGate(input: ReadGateInput): Response | undefined {
   const { c, table, guard } = input
   if (guard) {
-    return passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)
-      ? undefined
-      : NOT_FOUND_RESPONSE(c)
+    return passesTableRoleGate(table, 'read', guard) ? undefined : NOT_FOUND_RESPONSE(c)
   }
   return checkRoleOnlyReadGate(input, NOT_FOUND_RESPONSE)
 }
@@ -137,9 +144,7 @@ export function checkListReadGate(input: ReadGateInput): Response | undefined {
 export function checkGetReadGate(input: ReadGateInput): Response | undefined {
   const { c, table, guard } = input
   if (guard) {
-    return passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)
-      ? undefined
-      : NOT_FOUND_RESPONSE(c)
+    return passesTableRoleGate(table, 'read', guard) ? undefined : NOT_FOUND_RESPONSE(c)
   }
   return checkRoleOnlyReadGate(input, NOT_FOUND_RESPONSE)
 }
@@ -179,30 +184,22 @@ export function mergeFilters(
 }
 
 /**
- * Apply the row-level read predicate post-fetch to a 200 GET response.
- * Returns 404 when the fetched record falls outside the user's scope, or
- * the original response otherwise.
+ * The single read's row-level check, asked of the STORED row by the program
+ * before any column the reader may not read is stripped — `undefined` when
+ * there is nothing to check (no guard, or no row-level rules).
  *
- * The single-record GET response carries `id` at the top level and the
- * column values under `fields`. A read predicate keyed on `id` (e.g. the
- * common `id IN [...]` per-tenant scope sourced from `system.user_access`)
- * must therefore see the top-level `id` merged into the evaluated record —
- * otherwise `id` resolves `undefined`, the predicate is always false, and a
- * user is 404'd off a record they are legitimately assigned to.
+ * The rule reads the stored row, as the list's SQL projection reads it and as
+ * the record gate does, so a rule on a column hidden from the reader judges
+ * the value it was written with — never the response after that column has
+ * been masked. The row is read as the records API reads it (SQLite `1`/`0`
+ * as booleans) before the rule sees it.
  */
-export async function enforceGetReadPredicate(
-  c: Context,
-  response: Response,
+export function readRuleAdmits(
   guard: RowLevelGuardContext | undefined,
   table: Table | undefined
-): Promise<Response> {
-  if (!guard || response.status !== 200 || !table?.rowLevelPermissions) return response
-  const body = (await response.clone().json()) as {
-    readonly id?: string | number
-    readonly fields?: Record<string, unknown>
-  }
-  const record = { ...(body.fields ?? {}), id: body.id }
-  return recordPassesPredicate(table.rowLevelPermissions, 'read', record, guard.current)
-    ? response
-    : NOT_FOUND_RESPONSE(c)
+): ((stored: Readonly<Record<string, unknown>>) => boolean) | undefined {
+  const rlp = table?.rowLevelPermissions
+  if (!guard || !rlp) return undefined
+  return (stored) =>
+    recordPassesPredicate(rlp, 'read', readStoredValues(table, stored), guard.current)
 }

@@ -8,8 +8,8 @@
 import { type ReactElement } from 'react'
 import { oauthSubmitLabel } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
-import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
+  authSkeletonFormProps,
   buildAuthWrapperStyle,
   resolveOnSuccessRedirect,
   type AuthFormAction,
@@ -26,6 +26,11 @@ import type { ElementProps } from './html-element-renderer'
  * markup replaces it byte-for-byte. Only the author `style` differs between the
  * two, and deliberately: it stays on the island WRAPPER, which is what keeps
  * the "provider not configured" hide gate in force after the island mounts.
+ *
+ * Like the credential skeleton, it cannot start anything on its own — the
+ * social sign-in answers JSON, which only the island reads — so the form is
+ * drawn `method="post"` and its button `disabled` until the island renders its
+ * live one. A press before the script ran used to fall back to a GET.
  */
 function renderOAuthSkeleton(config: {
   readonly props: ElementProps
@@ -33,9 +38,14 @@ function renderOAuthSkeleton(config: {
 }): ReactElement {
   const { props, provider } = config
   return (
-    <form {...omitInternalMarkers(props)}>
+    <form
+      {...authSkeletonFormProps(props)}
+      method="post"
+    >
       <button
         type="submit"
+        disabled
+        data-component-type="button"
         data-oauth-provider={provider}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >
@@ -99,6 +109,7 @@ export function renderOAuthForm(
     <div
       data-island="auth-form"
       data-island-props={islandProps}
+      data-component-type="form"
       data-testid={props['data-testid'] as string | undefined}
       style={buildAuthWrapperStyle(props.style)}
     >

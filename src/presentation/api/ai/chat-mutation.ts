@@ -23,36 +23,39 @@
  *  - writes one `system.ai_activity_logs` row per mutation with user
  * attribution — [internal ref].
  *
- * Mutations are issued as direct parameterised SQL via `db.execute` against
- * the `public`-schema table the engine created from `app.tables[]`. This keeps
- * the chat surface free of the full `TableRepository`/RLS wiring while
- * remaining deterministic for the spec.
+ * Which rows an update or a delete reaches is decided in ONE place, the chat
+ * write gate (`chat-write-gate.ts`): the rows a chat read shows the caller,
+ * each judged by the records API's write gate for a named caller — row-level
+ * `read` and `write` / `delete` rules, live rows only. The confirmation counts
+ * the admitted rows and the confirmed commit writes exactly them. A delete is
+ * the records API's soft delete; a create and an update run parameterised SQL
+ * through the dynamic-record repository.
  */
 
 import { Effect } from 'effect'
+import { insertDynamicRecord } from '@/application/use-cases/ai/dynamic-record-query'
+import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
-  deleteDynamicRecords,
-  insertDynamicRecord,
-  countDynamicRecords,
-  updateAllDynamicRecords,
-  updateDynamicRecordById,
-} from '@/application/use-cases/ai/dynamic-record-query'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import {
-  evaluateFieldPermissions,
   hasCreatePermissionForRoles,
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { isAdminRole } from '@/domain/models/app/auth/permissions'
+import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import { parseAiConfirmationTtlMs } from '@/domain/models/process-env/ai/ai-confirmation-ttl'
 import { recordActivityLogRow } from '@/presentation/api/ai/chat-activity-log'
+import {
+  admittedWriteIds,
+  commitChatDelete,
+  commitChatUpdate,
+  type ChatWrite,
+  type ChatWriteTarget,
+} from './chat-write-gate'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
+import type { App } from '@/domain/models/app'
 import type {
   MutationIntent,
   MutationTable,
 } from '@/domain/models/app/agents/ai-chat-mutation-parser'
-import type { TableFieldPermissions } from '@/domain/models/app/tables/permissions'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** A pending destructive action awaiting an explicit user confirmation. */
@@ -80,6 +83,8 @@ export interface ApplyMutationInput {
   /** The server's resolved services, taken off the request that started the turn. */
   readonly services: DomainContext
   readonly intent: MutationIntent
+  /** The acting user's id — the records read gate judges her rows by it. */
+  readonly userId: string
   /** The acting user's role — used for table-level RBAC checks. */
   readonly userRole: string
   /**
@@ -89,18 +94,36 @@ export interface ApplyMutationInput {
    * every `group:` grant was inert here while working on the records API.
    */
   readonly userGroups: readonly string[]
+  /**
+   * Every role the acting user's assignments (`user_access`) give her. Counted
+   * only on a table with row-level rules, exactly as on the records API.
+   */
+  readonly userAccessRoles: readonly string[]
   /** The acting user's email — written to the activity log. */
   readonly userEmail: string
   /** The full set of app tables (carries permissions + field metadata). */
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
+  /** The app the tables come from — the field write rule reads its declarations. */
+  readonly app: App
 }
 
 /**
- * The acting user's identity as the permission gates consume it: their global
- * role plus a `group:<name>` entry per membership, most-permissive-wins.
+ * The acting user's identity as the permission gates consume it: the ONE set
+ * of effective roles the records route builds (`tableEffectiveRoles`) — her
+ * account role, a `group:<name>` entry per membership and, on a table with
+ * row-level rules, every assignment role. Most-permissive-wins.
  */
-const effectiveRolesOf = (input: ApplyMutationInput): readonly string[] =>
-  buildEffectiveRoles(input.userRole, input.userGroups)
+const effectiveRolesOf = (input: ApplyMutationInput, tableName: string): readonly string[] =>
+  // The app's own table, not the mutation projection: whether assignment
+  // roles count depends on its row-level rules, which the projection drops.
+  tableEffectiveRoles(
+    input.app.tables?.find((t) => t.name === tableName),
+    {
+      role: input.userRole,
+      groups: input.userGroups,
+      accessRoles: input.userAccessRoles,
+    }
+  )
 
 // ---------------------------------------------------------------------------
 // Pending-confirmation store
@@ -122,11 +145,18 @@ const effectiveRolesOf = (input: ApplyMutationInput): readonly string[] =>
  */
 interface StoredConfirmation {
   readonly intent: MutationIntent
+  /** The ids the chat write gate admitted at issue time — the rows the commit writes. */
+  readonly admittedIds: readonly string[]
+  readonly userId: string
   readonly userRole: string
   /** Group memberships as they stood when the token was issued. */
   readonly userGroups: readonly string[]
+  /** Assignment roles as they stood when the token was issued. */
+  readonly userAccessRoles: readonly string[]
   readonly userEmail: string
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
+  /** The app as it stood when the token was issued, frozen beside `tables`. */
+  readonly app: App
   /** `Date.now` at issue time — the TTL anchor ([internal ref], decision 4). */
   readonly issuedAt: number
 }
@@ -203,46 +233,28 @@ const validateCreateData = (
 // ---------------------------------------------------------------------------
 
 /**
- * Extract the `fields` array from a table's (untyped) `permissions` block.
- * Returns `undefined` when no field-level permissions are declared.
- */
-const extractFieldPermissions = (permissions: unknown): TableFieldPermissions | undefined => {
-  if (permissions === null || typeof permissions !== 'object') return undefined
-  const { fields } = permissions as { readonly fields?: unknown }
-  return Array.isArray(fields) ? (fields as TableFieldPermissions) : undefined
-}
-
-/**
- * Enforce field-level write RBAC: for every field present in the mutation
- * payload, the acting identity must hold `write` on that field's declared
- * field-level permission. A field with no declared permission is unrestricted.
- *
- * Evaluated over the caller's EFFECTIVE roles, most-permissive-wins — the same
- * combining rule the table-level `*ForRoles` gates use, so a field
- * granted to `group:finance` is writable by that group's members.
+ * Enforce field-level write RBAC through the one rule every write door asks
+ * (`forbiddenWriteFields`): a field whose `write` rule names an audience is
+ * writable only by a ROLE in it, and a field with no `write` rule is writable
+ * exactly when the caller may READ it — field read grants (`group:` entries
+ * included) and the built-in default rules alike. An admin-equivalent role
+ * owns every field. A `group:` entry in a field's `write` rule is NOT honoured:
+ * the write half is matched against the role alone, as on the records API.
  *
  * Returns the name of the first field the user may not write, or `undefined`
  * when the whole payload is permitted.
  */
 const findForbiddenWriteField = (
-  permissions: unknown,
-  effectiveRoles: readonly string[],
+  input: ApplyMutationInput,
+  tableName: string,
   data: Readonly<Record<string, unknown>>
-): string | undefined => {
-  const fieldPerms = extractFieldPermissions(permissions)
-  if (fieldPerms === undefined) return undefined
-  const evaluated = effectiveRoles.map((role) =>
-    evaluateFieldPermissions(fieldPerms, role, isAdminRole(role))
-  )
-  return Object.keys(data).find((fieldName) => {
-    // A field absent from the declared permissions is unrestricted. Presence is
-    // role-independent (the declaration list is the same for every role), so
-    // any one evaluation answers it.
-    const declared = evaluated.some((perms) => perms[fieldName] !== undefined)
-    if (!declared) return false
-    return !evaluated.some((perms) => perms[fieldName]?.write === true)
-  })
-}
+): string | undefined =>
+  forbiddenWriteFields(
+    input.app,
+    tableName,
+    { role: input.userRole, groups: input.userGroups },
+    data
+  )[0]
 
 // ---------------------------------------------------------------------------
 // SQL execution helpers — fronted by the DynamicRecordRepository port
@@ -250,22 +262,10 @@ const findForbiddenWriteField = (
 // The raw parameterised DML lives in the infrastructure layer
 // (`dynamic-record-repository-live.ts`); these helpers consume the
 // `dynamic-record-query` use-case via `Effect.runPromise` so the presentation
-// layer holds no raw SQL literal. Behavior is byte-identical to the prior
-// inline SQL — a hard delete (not a soft `deleted_at`), `INSERT … RETURNING
-// id`, `DEFAULT VALUES` for an empty payload, no authorship stamping, no
-// activity-log side effects in the repository.
+// layer holds no raw SQL literal: `INSERT … RETURNING id`, `DEFAULT VALUES`
+// for an empty payload. Updates and deletes go through the chat write gate
+// (`chat-write-gate.ts`), which decides the rows they reach.
 // ---------------------------------------------------------------------------
-
-/**
- * Count rows in a table, optionally narrowed by a single `column = value`
- * filter. Used to size confirmation prompts for bulk/delete operations.
- */
-const countRows = async (
-  services: DomainContext,
-  tableName: string,
-  filter?: { readonly column: string; readonly value: string }
-): Promise<number> =>
-  Effect.runPromise(Effect.provide(countDynamicRecords({ table: tableName, filter }), services))
 
 /**
  * Insert one row and return its generated id. Columns and values are passed as
@@ -277,37 +277,6 @@ const insertRow = async (
   data: Readonly<Record<string, unknown>>
 ): Promise<number | string> =>
   Effect.runPromise(Effect.provide(insertDynamicRecord({ table: tableName, data }), services))
-
-/** Update one row by id; returns true when a row was affected. */
-const updateRowById = async (
-  services: DomainContext,
-  tableName: string,
-  recordId: number,
-  data: Readonly<Record<string, unknown>>
-): Promise<boolean> =>
-  Effect.runPromise(
-    Effect.provide(updateDynamicRecordById({ table: tableName, recordId, data }), services)
-  )
-
-/** Update every row in a table; returns the affected record ids. */
-const updateAllRows = async (
-  services: DomainContext,
-  tableName: string,
-  data: Readonly<Record<string, unknown>>
-): Promise<ReadonlyArray<number>> =>
-  Effect.runPromise(Effect.provide(updateAllDynamicRecords({ table: tableName, data }), services))
-
-/**
- * Hard-delete rows from a table, optionally narrowed by a `column = value`
- * filter; returns the deleted record ids. A hard delete (not a soft
- * `deleted_at`) is used so the spec's `SELECT COUNT(*)` observes zero rows.
- */
-const deleteRows = async (
-  services: DomainContext,
-  tableName: string,
-  filter?: { readonly column: string; readonly value: string }
-): Promise<ReadonlyArray<number>> =>
-  Effect.runPromise(Effect.provide(deleteDynamicRecords({ table: tableName, filter }), services))
 
 // ---------------------------------------------------------------------------
 // Activity logging
@@ -363,8 +332,10 @@ const gateArgs = (
 ) =>
   [
     table as { name: string },
-    effectiveRolesOf(input),
-    input.tables as Parameters<typeof hasCreatePermissionForRoles>[2],
+    effectiveRolesOf(input, table.name),
+    { auth: input.app.auth, tables: input.tables } as Parameters<
+      typeof hasCreatePermissionForRoles
+    >[2],
   ] as const
 
 const applyCreate = async (
@@ -378,11 +349,7 @@ const applyCreate = async (
       message: `You do not have permission to create records in "${table.name}".`,
     }
   }
-  const forbiddenField = findForbiddenWriteField(
-    table.permissions,
-    effectiveRolesOf(input),
-    input.intent.data
-  )
+  const forbiddenField = findForbiddenWriteField(input, table.name, input.intent.data)
   if (forbiddenField !== undefined) {
     return {
       status: 'forbidden',
@@ -402,7 +369,7 @@ const applyCreate = async (
       {
         type: 'create',
         table: table.name,
-        recordId,
+        recordId: String(recordId),
         description: `Created a record in "${table.name}".`,
       },
     ],
@@ -413,54 +380,81 @@ const applyCreate = async (
   }
 }
 
-/** Apply a single-record update by id. */
+/** The acting user as the chat write gate judges her. */
+const writerOf = (input: ApplyMutationInput) => ({
+  services: input.services,
+  app: input.app,
+  userId: input.userId,
+  userRole: input.userRole,
+  userGroups: input.userGroups,
+  userAccessRoles: input.userAccessRoles,
+})
+
+/** The rows `write` may reach for the acting user, through the chat write gate. */
+const admitted = (
+  input: ApplyMutationInput,
+  tableName: string,
+  write: ChatWrite,
+  target: ChatWriteTarget
+): Promise<readonly string[]> => admittedWriteIds(writerOf(input), tableName, write, target)
+
+/** The `applied` outcome of an update that wrote `ids`. */
+const updatedOutcome = (
+  tableName: string,
+  ids: readonly string[],
+  summary: string
+): MutationOutcome => ({
+  status: 'applied',
+  actions: ids.map((id) => ({
+    type: 'update' as const,
+    table: tableName,
+    recordId: id,
+    description: `Updated record #${id} in "${tableName}".`,
+  })),
+  summary,
+})
+
+/**
+ * Apply a single-record update by id. A row the
+ * write gate refuses her — hidden by a rule, in the trash, or missing — is
+ * answered as missing, and nothing is written.
+ */
 const applyUpdateById = async (
   input: ApplyMutationInput,
   tableName: string,
   recordId: number,
   data: Readonly<Record<string, unknown>>
 ): Promise<MutationOutcome> => {
-  const updated = await updateRowById(input.services, tableName, recordId, data)
-  if (!updated) {
+  const ids = await admitted(input, tableName, { op: 'update', change: data }, { recordId })
+  const written = await commitChatUpdate(input.services, tableName, ids, data)
+  if (written.length === 0) {
     return {
       status: 'validation-error',
       message: `No record #${String(recordId)} found in "${tableName}".`,
     }
   }
   await logMutation(input.services, tableName, input.userEmail)
-  return {
-    status: 'applied',
-    actions: [
-      {
-        type: 'update',
-        table: tableName,
-        recordId,
-        description: `Updated record #${String(recordId)} in "${tableName}".`,
-      },
-    ],
-    summary: `Updated record #${String(recordId)} in "${tableName}".`,
-  }
+  return updatedOutcome(
+    tableName,
+    written,
+    `Updated record #${String(recordId)} in "${tableName}".`
+  )
 }
 
-/** Apply an update to every row of a table ([internal ref] confirmed path). */
-const applyUpdateAll = async (
+/** Apply an update to the admitted rows ([internal ref] confirmed path). */
+const applyUpdateToIds = async (
   services: DomainContext,
   userEmail: string,
   tableName: string,
-  data: Readonly<Record<string, unknown>>
+  change: { readonly ids: readonly string[]; readonly data: Readonly<Record<string, unknown>> }
 ): Promise<MutationOutcome> => {
-  const ids = await updateAllRows(services, tableName, data)
+  const written = await commitChatUpdate(services, tableName, change.ids, change.data)
   await logMutation(services, tableName, userEmail)
-  return {
-    status: 'applied',
-    actions: ids.map((id) => ({
-      type: 'update' as const,
-      table: tableName,
-      recordId: id,
-      description: `Updated record #${String(id)} in "${tableName}".`,
-    })),
-    summary: `Updated ${String(ids.length)} record(s) in "${tableName}".`,
-  }
+  return updatedOutcome(
+    tableName,
+    written,
+    `Updated ${String(written.length)} record(s) in "${tableName}".`
+  )
 }
 
 const applyUpdate = async (
@@ -486,28 +480,25 @@ const applyUpdate = async (
   }
   // Field-level write RBAC: deny before the bulk
   // confirmation gate so a forbidden field never reaches a stashed intent.
-  const forbiddenField = findForbiddenWriteField(table.permissions, effectiveRolesOf(input), data)
+  const forbiddenField = findForbiddenWriteField(input, table.name, data)
   if (forbiddenField !== undefined) {
     return {
       status: 'forbidden',
       message: `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`,
     }
   }
-  // Bulk update affecting 2+ rows requires explicit confirmation
-  //. The row count is the table-wide total since the
-  // intent targets "all" rows.
-  if (bulk) {
-    const affectedCount = await countRows(input.services, table.name)
-    if (affectedCount >= 2) {
-      return {
-        status: 'pending',
-        pendingConfirmation: stashConfirmation(input, 'bulk update', affectedCount),
-      }
+  if (recordId !== undefined) return applyUpdateById(input, table.name, recordId, data)
+  // The rows the write gate admits for her; a bulk update reaching 2+ of them
+  // requires explicit confirmation, and the count it
+  // quotes is exactly the rows the confirmed commit writes.
+  const ids = await admitted(input, table.name, { op: 'update', change: data }, {})
+  if (bulk && ids.length >= 2) {
+    return {
+      status: 'pending',
+      pendingConfirmation: stashConfirmation(input, 'bulk update', ids),
     }
   }
-  return recordId !== undefined
-    ? applyUpdateById(input, table.name, recordId, data)
-    : applyUpdateAll(input.services, input.userEmail, table.name, data)
+  return applyUpdateToIds(input.services, input.userEmail, table.name, { ids, data })
 }
 
 const applyDelete = async (
@@ -521,11 +512,12 @@ const applyDelete = async (
       message: `You do not have permission to delete records in "${table.name}".`,
     }
   }
-  // Every delete requires explicit confirmation.
-  const affectedCount = await countRows(input.services, table.name, input.intent.filter)
+  // Every delete requires explicit confirmation,
+  // over the rows the write gate admits for her.
+  const ids = await admitted(input, table.name, { op: 'delete' }, { filter: input.intent.filter })
   return {
     status: 'pending',
-    pendingConfirmation: stashConfirmation(input, 'delete', Math.max(affectedCount, 1)),
+    pendingConfirmation: stashConfirmation(input, 'delete', ids),
   }
 }
 
@@ -536,16 +528,22 @@ const applyDelete = async (
 const stashConfirmation = (
   input: ApplyMutationInput,
   action: string,
-  affectedCount: number
+  admittedIds: readonly string[]
 ): PendingConfirmation => {
   const confirmationToken = crypto.randomUUID()
+  // A delete always asks, and quotes at least one record.
+  const affectedCount = action === 'delete' ? Math.max(admittedIds.length, 1) : admittedIds.length
   // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- module-local mutable Map, mirrors conversation store
   pendingConfirmations.set(confirmationToken, {
     intent: input.intent,
+    admittedIds,
+    userId: input.userId,
     userRole: input.userRole,
     userGroups: input.userGroups,
+    userAccessRoles: input.userAccessRoles,
     userEmail: input.userEmail,
     tables: input.tables,
+    app: input.app,
     issuedAt: Date.now(),
   })
   return {
@@ -582,8 +580,9 @@ export const applyMutation = async (input: ApplyMutationInput): Promise<Mutation
 }
 
 /**
- * Commit a previously-stashed confirmation: re-run the stored intent, this
- * time forcing execution (delete / bulk update bypass the confirmation gate).
+ * Commit a previously-stashed confirmation: write exactly the rows the write
+ * gate admitted when the confirmation was issued — the rows its count quoted,
+ * judged on the identity captured then — live rows only.
  */
 export const commitConfirmedMutation = async (
   services: DomainContext,
@@ -593,16 +592,14 @@ export const commitConfirmedMutation = async (
   if (table === undefined) {
     return { status: 'forbidden', message: `Unknown table "${stored.intent.table}".` }
   }
-  const input: ApplyMutationInput = {
-    services,
-    intent: stored.intent,
-    userRole: stored.userRole,
-    userGroups: stored.userGroups,
-    userEmail: stored.userEmail,
-    tables: stored.tables,
-  }
   if (stored.intent.kind === 'delete') {
-    const ids = await deleteRows(services, table.name, stored.intent.filter)
+    const ids = await commitChatDelete({
+      services,
+      app: stored.app,
+      userId: stored.userId,
+      tableName: table.name,
+      ids: stored.admittedIds,
+    })
     await logMutation(services, table.name, stored.userEmail)
     return {
       status: 'applied',
@@ -610,27 +607,13 @@ export const commitConfirmedMutation = async (
         type: 'delete' as const,
         table: table.name,
         recordId: id,
-        description: `Deleted record #${String(id)} from "${table.name}".`,
+        description: `Deleted record #${id} from "${table.name}".`,
       })),
       summary: `Deleted ${String(ids.length)} record(s) from "${table.name}".`,
     }
   }
-  // Bulk update — apply every row directly (the confirmation gate is bypassed
-  // by routing through updateAllRows here rather than applyUpdate).
-  const ids = await updateAllRows(
-    services,
-    table.name,
-    input.intent.kind === 'update' ? input.intent.data : {}
-  )
-  await logMutation(services, table.name, stored.userEmail)
-  return {
-    status: 'applied',
-    actions: ids.map((id) => ({
-      type: 'update' as const,
-      table: table.name,
-      recordId: id,
-      description: `Updated record #${String(id)} in "${table.name}".`,
-    })),
-    summary: `Updated ${String(ids.length)} record(s) in "${table.name}".`,
-  }
+  return applyUpdateToIds(services, stored.userEmail, table.name, {
+    ids: stored.admittedIds,
+    data: stored.intent.kind === 'update' ? stored.intent.data : {},
+  })
 }

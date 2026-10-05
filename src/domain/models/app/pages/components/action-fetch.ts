@@ -209,7 +209,7 @@ const FetchSuccessReloadSchema = Schema.Boolean.annotate({
  * `.annotate(...)` on a checked node lands on the CHECK rather than on the node,
  * and the struct's `title` / `description` then vanish from `app.json` and from
  * the design-system console's Configuration table with nothing reporting it.
- * Measured on `effect@4.0.0-rc.108`, 2026-09-19.
+ * Measured on `effect@4.0.0-rc.108`, 2026-09-19; re-measured on `effect@4.0.0`.
  */
 export const FetchSuccessResponseSchema = Schema.Struct({
   ...FetchToastResponseSchema.fields,

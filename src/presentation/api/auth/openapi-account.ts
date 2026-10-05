@@ -48,6 +48,7 @@ export const accountGroup: StaticGroupSpec = {
         202: effectJsonResponse(accountDeleteScheduledResponseSchema, 'Erasure scheduled'),
         400: errorResponse('Request matches neither the confirm nor the cancel shape'),
         401: errorResponse('Not authenticated'),
+        409: errorResponse('The caller is the last admin who can sign in; nothing is scheduled'),
       },
     },
     {

@@ -1,0 +1,41 @@
+# Adding a piece, from the New piece dialog. A new piece starts as an idea;
+# a title is enough. Give it a date and it appears on the calendar.
+id: 1
+name: new-piece
+title: New piece
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: content
+display:
+  submitLabel: Add to Idea
+onSuccess:
+  type: redirect
+  url: /pipeline
+  delaySeconds: 0
+prefill:
+  status: Idea
+fields:
+  - kind: table-field
+    column: title
+    required: true
+    label: Title
+  - kind: table-field
+    column: content_type
+    label: Type
+  - kind: table-field
+    column: publish_at
+    label: Publish date
+  - kind: table-field
+    column: channels
+    label: Channels
+  - kind: table-field
+    column: campaign
+    label: Campaign
+  - kind: table-field
+    column: brief
+    label: Brief
+  - kind: table-field
+    column: status
+    hidden: true

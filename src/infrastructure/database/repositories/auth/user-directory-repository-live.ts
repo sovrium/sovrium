@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, asc, isNull, not, or, sql } from 'drizzle-orm'
+import { and, asc, inArray, isNull, not, or, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   UserDirectoryRepository,
@@ -20,6 +20,24 @@ import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-h
 
 /** Wrap a DB promise, adapting failures to UserDirectoryDatabaseError. */
 const wrap = makeDbWrap((error) => new UserDirectoryDatabaseError({ cause: error }))
+
+/** The two exclusions every directory read applies: agent accounts and banned ones. */
+function pickable(users: Readonly<ReturnType<typeof authUsersTable>>) {
+  return [notAnAgentAccount(users.email), or(isNull(users.banned), not(users.banned))] as const
+}
+
+function toEntry(row: {
+  readonly id: unknown
+  readonly name: string | null
+  readonly image: string | null
+}): UserDirectoryEntry {
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    // eslint-disable-next-line unicorn/no-null -- public wire contract: `image` is nullable, and JSON drops `undefined` entirely
+    image: row.image ?? null,
+  }
+}
 
 /**
  * User Directory Repository Implementation.
@@ -59,26 +77,39 @@ const wrap = makeDbWrap((error) => new UserDirectoryDatabaseError({ cause: error
  * `email` is never selected. See the port's {@link UserDirectoryEntry}.
  */
 export const UserDirectoryRepositoryLive = Layer.succeed(UserDirectoryRepository, {
-  listPickableUsers: ({ term, limit }) =>
+  listPickableUsers: ({ term, limit, after }) =>
     wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
       const users = authUsersTable()
-
-      const notAnAgent = notAnAgentAccount(users.email)
-      const notBanned = or(isNull(users.banned), not(users.banned))
       const matchesTerm = term ? containsInsensitive(users.name, term) : undefined
+      // Keyset on the ORDER BY below: strictly after `(lower(name), id)` of the
+      // previous page's last entry. Both values are bound parameters.
+      const afterCursor = after
+        ? sql`(lower(${users.name}) > lower(${after.name}) OR (lower(${users.name}) = lower(${after.name}) AND ${users.id} > ${after.id}))`
+        : undefined
 
       const rows = await db
         .select({ id: users.id, name: users.name, image: users.image })
         .from(users)
-        .where(and(notAnAgent, notBanned, ...(matchesTerm ? [matchesTerm] : [])))
+        .where(
+          and(
+            ...pickable(users),
+            ...(matchesTerm ? [matchesTerm] : []),
+            ...(afterCursor ? [afterCursor] : [])
+          )
+        )
         .orderBy(asc(sql`lower(${users.name})`), asc(users.id))
         .limit(limit)
 
-      return rows.map((row) => ({
-        id: String(row.id),
-        name: String(row.name ?? ''),
-        // eslint-disable-next-line unicorn/no-null -- public wire contract: `image` is nullable, and JSON drops `undefined` entirely
-        image: row.image ?? null,
-      }))
+      return rows.map(toEntry)
+    }),
+  findPickableUsersByIds: (ids) =>
+    wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
+      if (ids.length === 0) return []
+      const users = authUsersTable()
+      const rows = await db
+        .select({ id: users.id, name: users.name, image: users.image })
+        .from(users)
+        .where(and(...pickable(users), inArray(users.id, [...new Set(ids)])))
+      return rows.map(toEntry)
     }),
 })

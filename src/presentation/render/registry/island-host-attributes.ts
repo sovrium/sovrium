@@ -37,3 +37,20 @@ export const hostClassName = (
   )
   return tokens.length === 0 ? undefined : tokens.join(' ')
 }
+
+/**
+ * The attributes that NAME a data island's host: `data-component` beside
+ * `data-component-type`, both on the one element that stands for the component
+ * before and after the island mounts. Nothing the island draws inside the host
+ * carries either, so a reader counting by either attribute finds the component
+ * once — and what the server already knows about the component (`describing`:
+ * a gallery's layout, a calendar's view) sits on the same element.
+ */
+export const namedHost = (
+  name: string,
+  describing: Readonly<Record<string, string>> = {}
+): Readonly<Record<string, string>> => ({
+  ...describing,
+  'data-component': name,
+  'data-component-type': name,
+})

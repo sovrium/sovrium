@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import {
-  type ConditionOperator,
   ConditionOperatorSchema,
   type VisibleWhen,
   VisibleWhenSchema,
@@ -25,7 +24,7 @@ import { SelectOptionSourceBindingSchema } from '../../form-controls/select-opti
 // component need them, and the helper crosses the `forms` ↔ `pages` boundary.
 // Re-exported here for backward compatibility with existing imports of this file.
 export { ConditionOperatorSchema, VisibleWhenSchema, VisibleWhenConditionSchema }
-export type { ConditionOperator, VisibleWhen, VisibleWhenCondition }
+export type { VisibleWhen, VisibleWhenCondition }
 
 // ---------------------------------------------------------------------------
 // Form field configuration
@@ -325,7 +324,7 @@ export const FormFieldGroupSchema = Schema.Struct({
 // Type exports
 // ---------------------------------------------------------------------------
 //
-// Note: ConditionOperator and VisibleWhen are re-exported above from
+// Note: ConditionOperatorSchema and VisibleWhen are re-exported above from
 // `shared/visible-when` to avoid duplicate definitions.
 
 /** @public Public type surface of the form schema; awaiting adoption at callsites. */

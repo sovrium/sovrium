@@ -9,7 +9,7 @@ import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
- * F-11 (file-uploads): Upgrade single-attachment columns referenced by
+ * [internal ref] (file-uploads): Upgrade single-attachment columns referenced by
  * any top-level form to storeMetadata true so the column type becomes
  * JSONB (via mapFieldTypeToPostgres special case). This makes the column
  * accept the canonical url/name/size/mimeType payload the form submit
@@ -105,7 +105,7 @@ const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
  *   - Z-1/Z-2: tables in `auth.scopeTables` get a TEXT primary key when
  *     none was declared, so applications can store portable string IDs
  *     in `user_access.record_ids`.
- *   - F-11: form-referenced `single-attachment` columns get
+ * - [internal ref]: form-referenced `single-attachment` columns get
  *     `storeMetadata: true` so the column type becomes JSONB and accepts
  *     the canonical `{ url, name, size, mimeType }` metadata produced by
  *     the form-submit pipeline.

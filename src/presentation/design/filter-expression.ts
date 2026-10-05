@@ -23,14 +23,15 @@
  * `FilterOperatorSchema` spells the eight operators `eq neq contains gt lt gte
  * lte in` — the vocabulary an author writes in `dataSource.filter[]` and the one
  * this bar's own `conditions[]` are decoded against. The records endpoint reads
- * a DIFFERENT set: `generateSqlConditionFragment` switches on `equals`,
- * `notEquals`, `greaterThan`, `lessThan`, `greaterThanOrEqual`,
- * `lessThanOrEqual`, `contains`, `in` — and falls back to `=` for anything it
- * does not recognise.
+ * a DIFFERENT set: `equals`, `notEquals`, `greaterThan`, `lessThan`,
+ * `greaterThanOrEqual`, `lessThanOrEqual`, `contains`, `in`, `notIn` and the
+ * rest of `FILTER_OPERATOR_VOCABULARY` — and refuses anything else with a 400.
  *
- * That fallback is why this translation is load-bearing rather than cosmetic.
- * A bar publishing `{"operator":"gt"}` produces `amount = '3000'`: no error, no
- * warning, a grid narrowed by the wrong predicate. `use-data-table-query.ts`
+ * That refusal is why this translation is load-bearing rather than cosmetic.
+ * A bar publishing `{"operator":"gt"}` is answered 400, and the grid it feeds
+ * shows an error instead of rows. (Before the refusal it was worse: the
+ * endpoint fell back to `=` and produced `amount = '3000'`, a grid narrowed by
+ * the wrong predicate with no error at all.) `use-data-table-query.ts`
  * carries the same map for `dataSource.filter[]` and translates BEFORE building
  * its `?filter=`; the shared-filter bag bypasses that function entirely and
  * rides to the URL as a raw param, so the translation has to happen here.
@@ -45,9 +46,9 @@
  * knows the `kind` the author declared, so it is the last place that can answer
  * the question before the dialect does.
  *
- * `in` is the other typed case: `buildInFragment` requires an ARRAY and renders
- * `IN (NULL)` — matching nothing — for anything else. The schema documents the
- * authored form as a comma-separated list, so it is split here.
+ * `in` is the other typed case: the endpoint reads a single value as a list of
+ * one, so `"a, b"` unsplit would match only the literal text `a, b`. The schema
+ * documents the authored form as a comma-separated list, so it is split here.
  */
 
 /** What a filterable field holds — `FilterFieldKindSchema`. */
@@ -136,8 +137,8 @@ export const operatorLabel = (operator: string, kind: FilterFieldKind): string =
 
 /**
  * Schema operator -> records-API operator. See the module docstring: the
- * endpoint's fallback for an unknown operator is `=`, so a missing row here is
- * a silently wrong filter rather than a failure.
+ * endpoint refuses an operator it does not have, so a missing row here is a
+ * grid answered 400.
  */
 const API_OPERATORS: Readonly<Record<string, string>> = {
   eq: 'equals',

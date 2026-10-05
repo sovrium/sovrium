@@ -12,28 +12,29 @@ import {
   computeGalleryGridClasses,
 } from '@/presentation/design/gallery-default-classes'
 import {
-  computeKpiCardClasses,
-  computeKpiLabelClasses,
-} from '@/presentation/design/kpi-default-classes'
-import {
   computeTableFillShellClasses,
   computeTableShellClasses,
 } from '@/presentation/design/table-default-classes'
 import { computeTimelineShellClasses } from '@/presentation/design/timeline-default-classes'
-import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import {
   resolveRowExpandDrawerProps,
   resolveRowExpandRowClick,
 } from '@/presentation/render/props/resolve-row-expand'
-import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
+import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
+import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { renderComponentSearchBar } from './component-search-bar'
 import { DataTableSkeleton } from './data-table-skeleton'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
 import { KanbanSkeleton } from './island-kanban-skeleton'
+import { islandKpiComponent } from './island-kpi-component'
 import { RowExpandDrawerHost } from './row-expand-drawer-host'
 import { staticTableComponent } from './static-table-component'
-import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type {
+  ComponentDispatchConfig,
+  ComponentRenderer,
+  DispatchableComponentType,
+} from './component-dispatch-config'
 
 /**
  * Extracts data-table island props from section component props.
@@ -98,6 +99,8 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // resolved server-side alongside the create label.
     saveLabel: elementProps.saveLabel,
     cancelLabel: elementProps.cancelLabel,
+    // Every other string the grid writes itself, where it differs from English.
+    uiStrings: elementProps.uiStrings,
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
     // View-type switcher: the ordered set of view
@@ -152,41 +155,19 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
  * Forwarded to the gallery island for client-side data fetching and
  * responsive card-grid rendering with $record.* template substitution.
  */
-function extractGalleryProps(elementProps: Record<string, unknown>): Record<string, unknown> {
+function extractGalleryProps(
+  elementProps: Record<string, unknown>,
+  tables: ComponentDispatchConfig['tables']
+): Record<string, unknown> {
+  const tableName = (elementProps.dataSource as { readonly table?: unknown } | undefined)?.table
+  const weekdays = resolveWeekdayFields(tables?.find((table) => table.name === tableName))
   return {
+    ...(weekdays === undefined ? {} : { weekdays }),
     dataSource: elementProps.dataSource,
     gridColumns: elementProps.gridColumns,
     galleryCard: elementProps.galleryCard,
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
-  }
-}
-
-/**
- * Extracts KPI island props from section component props.
- *
- * Forwarded to the KPI island for client-side data fetching, single-metric
- * aggregation, and formatted card rendering.
- */
-function extractKpiProps(elementProps: Record<string, unknown>): Record<string, unknown> {
-  return {
-    dataSource: elementProps.dataSource,
-    label: elementProps.label,
-    kpiAggregate: elementProps.kpiAggregate,
-    kpiFormat: elementProps.kpiFormat,
-    // The aggregated field's currency display, resolved from `app.tables`, so
-    // a currency KPI shows the field's precision in the page language.
-    valueCurrency: elementProps.valueCurrency,
-    icon: elementProps.icon,
-    // Server-resolved icon geometry. The island draws from this instead of
-    // resolving the name itself, which is what keeps lucide's ~2,000-icon set
-    // (a measured 668 KB chunk) out of the island graph — see
-    // `@/presentation/utils/lucide-glyph`.
-    iconNode:
-      typeof elementProps.icon === 'string' ? resolveLucideIconNode(elementProps.icon) : undefined,
-    trend: elementProps.trend,
-    thresholds: elementProps.thresholds,
-    sparkline: elementProps.sparkline,
   }
 }
 
@@ -244,24 +225,21 @@ function extractTimelineProps(elementProps: Record<string, unknown>): Record<str
  */
 export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }) => {
   const islandProps = extractTimelineProps(elementProps)
-  const propsJson = JSON.stringify(islandProps)
-
-  // Note: `data-component="data-timeline"` is intentionally set only on the
-  // inner TimelineView/state (not on this outer island wrapper), so
-  // attribute assertions resolve to a single element after hydration.
+  // The host is the ONE element naming the timeline; nothing drawn inside carries either name.
+  // Spelled out rather than through `namedHost`: `data-timeline` is a surface stamp, not a
+  // type literal, and the stamp vocabulary finds it by its literal spelling.
   return (
     <div
       data-island="timeline"
-      data-island-props={propsJson}
+      data-island-props={JSON.stringify(islandProps)}
+      data-component="data-timeline"
       data-component-type="data-timeline"
       data-testid={elementProps['data-testid'] as string | undefined}
-      className={hostClassName(elementProps)}
+      className={hostClassName(elementProps, computeTimelineShellClasses())}
     >
-      {/* Loading skeleton — preserved as Suspense fallback. Reads the same
-          shell recipe as the hydrated timeline, so the frame does not change
-          radius under the reader at the moment the island mounts. */}
+      {/* Loading skeleton — preserved as Suspense fallback, inside the frame
+          the host draws, so nothing re-draws as the island mounts. */}
       <div
-        className={computeTimelineShellClasses()}
         aria-label="Loading timeline..."
         role="status"
       >
@@ -282,18 +260,15 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
 /** Data-oriented island components: data-table, kanban, calendar */
 export const islandDataComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   calendar: islandCalendarComponent,
-  gallery: ({ elementProps }) => {
-    const islandProps = extractGalleryProps(elementProps)
-    const propsJson = JSON.stringify(islandProps)
-
-    // Note: `data-component="gallery"` is intentionally set only on the inner
-    // GalleryGrid (not on this outer island wrapper), so attribute assertions
-    // like `data-columns` resolve to a single element after hydration.
+  gallery: ({ elementProps, tables }) => {
+    const islandProps = extractGalleryProps(elementProps, tables)
+    // The ONE element naming the gallery; the grid writes `data-columns` onto it.
+    const layout = typeof elementProps.layout === 'string' ? elementProps.layout : 'grid'
     return (
       <div
         data-island="gallery"
-        data-island-props={propsJson}
-        data-component-type="gallery"
+        data-island-props={JSON.stringify(islandProps)}
+        {...namedHost('gallery', { 'data-layout': layout, 'data-gallery-layout': layout })}
         data-testid={elementProps['data-testid'] as string | undefined}
         className={hostClassName(elementProps)}
       >
@@ -327,57 +302,9 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     )
   },
   chart: islandChartComponent,
-  kpi: ({ elementProps }) => {
-    const islandProps = extractKpiProps(elementProps)
-    const propsJson = JSON.stringify(islandProps)
-    // GAP-I1: server-render the KPI label as visible text in the SSR skeleton.
-    // The label is a static, public binding (not record data), so it can paint
-    // pre-hydration and remain visible to anonymous visitors on public pages —
-    // independent of the auth-gated records fetch the island performs.
-    const kpiLabel = typeof elementProps.label === 'string' ? elementProps.label : undefined
-
-    // Note: `data-component="kpi"` is intentionally set only on the inner
-    // KpiCard (not on this outer island wrapper), so attribute assertions
-    // resolve to a single element after hydration.
-    return (
-      <div
-        data-island="kpi"
-        data-island-props={propsJson}
-        data-component-type="kpi"
-        data-testid={elementProps['data-testid'] as string | undefined}
-        className={hostClassName(elementProps)}
-      >
-        {/* Loading skeleton — preserved as Suspense fallback.
-
-            The card chrome comes from `computeKpiCardClasses()`, the SAME
-            recipe the hydrated `KpiCard` reads, so the skeleton and the loaded
-            card are byte-identical surfaces: the border, radius, fill, padding
-            and column gap do not change at the moment the island mounts, and
-            the label that was server-rendered does not jump. Before this wave
-            the two were independent literals and the card visibly re-drew. */}
-        <div
-          className={`${computeKpiCardClasses()} w-full`}
-          aria-label="Loading KPI..."
-          role="status"
-        >
-          {kpiLabel ? (
-            <div
-              data-role="kpi-label"
-              className={computeKpiLabelClasses()}
-            >
-              {kpiLabel}
-            </div>
-          ) : (
-            <div className="bg-background-inset h-4 w-32 animate-pulse rounded-sm" />
-          )}
-          <div className="bg-background-inset h-9 w-24 animate-pulse rounded-sm" />
-        </div>
-      </div>
-    )
-  },
-  kanban: ({ elementProps }) => {
-    const islandProps = extractKanbanProps(elementProps)
-    const propsJson = JSON.stringify(islandProps)
+  kpi: islandKpiComponent,
+  kanban: ({ elementProps, currentLang, languages }) => {
+    const propsJson = JSON.stringify(extractKanbanProps(elementProps))
 
     return (
       <div
@@ -388,7 +315,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         data-testid={elementProps['data-testid'] as string | undefined}
         className={hostClassName(elementProps)}
       >
-        {renderComponentSearchBar(elementProps.search)}
+        {renderComponentSearchBar(elementProps.search, { currentLang, languages })}
         {/* Loading skeleton — preserved as Suspense fallback */}
         <KanbanSkeleton elementProps={elementProps} />
       </div>

@@ -31,12 +31,19 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
-import { requireSession } from '@/presentation/api/runtime/auth-helpers'
+import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { handleListApprovals } from './approvals-handlers'
-import { chainRunControlRoutes } from './runs-handlers'
+import { listedRuns } from './run-list-body'
+import { judgedRunOf, runDetailAsSeenByCaller, runsAsSeenByCaller } from './run-step-output-reach'
+import {
+  chainRunControlRoutes,
+  gateReadableRun,
+  gateRunAccess,
+  replayTriggerData,
+} from './runs-handlers'
 import { selectTriggerProgram } from './trigger-program-selector'
 import { handleWebhookRequest } from './webhook-handler'
 import type { App } from '@/domain/models/app'
@@ -175,17 +182,10 @@ function handleListAutomations(c: Context, app: App) {
  */
 function manualTriggerErrorResponse(c: Context, error: RunAutomationError) {
   if (error._tag === 'AutomationNotFound' || error._tag === 'AutomationNotManualTriggered') {
-    return c.json({ success: false, message: 'Automation not found' }, 404)
+    return notFound(c, 'Automation not found')
   }
   if (error._tag === 'AutomationManualRoleRequired') {
-    return c.json(
-      {
-        success: false,
-        message: 'Automation not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
+    return notFound(c, 'Automation not found')
   }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json({ success: false, message: 'Failed to register automation in the database' }, 500)
@@ -243,58 +243,6 @@ async function handleManualTrigger(c: Context, app: App) {
 }
 
 /**
- * Resolve a run's trigger type by looking up its automation in the schema.
- * Defaults to `'webhook'` when the automation has been removed from the schema
- * mid-flight (the run row outlives the definition reference).
- */
-const lookupTriggerType = (app: App, name: string): string =>
-  app.automations?.find((a) => a.name === name)?.trigger.type ?? 'webhook'
-
-/**
- * Compute the attempt count for a run from its step rows. When a step has
- * an `attempts: [...]` array on its `output` (populated by
- * `dispatchWithRetry` — [internal ref]), the run's attempt count
- * is the length of the largest such array across all steps. Falls back to
- * 1 when no step carried attempt history (the common no-retry path).
- */
-const computeAttemptCount = (steps: ReadonlyArray<{ readonly output?: unknown }>): number => {
-  const counts = steps
-    .map(({ output }) => {
-      if (output === null || output === undefined || typeof output !== 'object') return 0
-      const { attempts } = output as { attempts?: unknown }
-      return Array.isArray(attempts) ? attempts.length : 0
-    })
-    .filter((n) => n > 0)
-  return counts.length === 0 ? 1 : Math.max(...counts)
-}
-
-/**
- * Map a `PersistedRun` row to the public `Run` shape (Zod `runSchema`).
- * Pulled out so the list/filter handler stays under the complexity cap.
- *
- * `attempt` defaults to 1 when no per-step attempt history is supplied.
- * Callers with access to the step rows (the list handler) pass them via
- * the `steps` parameter to surface the real retry count
- *.
- */
-const persistedRunToApi = (app: App, run: PersistedRun, steps?: ReadonlyArray<PersistedStep>) => ({
-  id: run.id,
-  automationName: run.automationName,
-  status: run.status,
-  triggerType: lookupTriggerType(app, run.automationName),
-  // A webhook trigger captures EVERY inbound request header, the caller's own
-  // credential included. Step `output` was already scrubbed; `triggerData` was
-  // not, so the run history reflected `Authorization: Bearer <webhook secret>`
-  // back verbatim.
-  triggerData: redactTriggerDataHeaders(run.triggerData),
-  startedAt: run.startedAt,
-  completedAt: run.completedAt,
-  durationMs: run.durationMs,
-  attempt: steps !== undefined ? computeAttemptCount(steps) : 1,
-  error: run.error,
-})
-
-/**
  * Handle GET /api/automations/:name/runs
  *
  * Returns persisted run history for ONE named automation as a FLAT array
@@ -307,17 +255,26 @@ async function handleListRunsByName(c: Context, app: App) {
   if (name === undefined) {
     return c.json({ success: false, message: 'Automation name required' }, 400)
   }
+  // An automation the config does not declare answers the API's 404, as every
+  // other `/:name` route does — an empty list would read as "never ran".
+  if (!app.automations?.some((automation) => automation.name === name)) {
+    return notFound(c, 'Automation not found')
+  }
+
+  const access = await gateRunAccess(c, app)
+  if (!access.ok) return access.response
+  const readableBy = access.value.kind === 'scoped' ? access.value.scope : undefined
 
   // DB-backed read: list runs by name, then enrich each with its steps.
   // Returns a flat array (newest first; `listByAutomationName` already
   // orders by created_at DESC at the SQL level).
   const program = Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const runs = yield* repo.listByAutomationName(name)
+    const runs = yield* repo.listByAutomationName(name, readableBy)
     return yield* Effect.forEach(runs, (run) =>
       Effect.gen(function* () {
         const steps = yield* repo.findStepsByRunId(run.id)
-        return buildDbRunDetailBody(app, run, steps)
+        return { run, steps, detail: buildDbRunDetailBody(app, run, steps) }
       })
     )
   })
@@ -326,7 +283,16 @@ async function handleListRunsByName(c: Context, app: App) {
   if (result._tag === 'Failure') {
     return c.json({ success: false, message: 'Failed to read run history' }, 500)
   }
-  return c.json(result.success, 200)
+  const seen = await Promise.all(
+    result.success.map(({ run, steps, detail }) =>
+      runDetailAsSeenByCaller(c, app, {
+        access: { readsEveryRun: readableBy === undefined, run },
+        detail,
+        judged: judgedRunOf(run, steps),
+      })
+    )
+  )
+  return c.json(seen, 200)
 }
 
 /**
@@ -349,6 +315,10 @@ async function handleListRuns(c: Context, app: App) {
   const pageSizeStr = c.req.query('pageSize')
   const page = pageStr !== undefined ? Number(pageStr) : undefined
   const pageSize = pageSizeStr !== undefined ? Number(pageSizeStr) : undefined
+  // In the query, not after it: the total must count only the runs listed.
+  const access = await gateRunAccess(c, app)
+  if (!access.ok) return access.response
+  const readableBy = access.value.kind === 'scoped' ? access.value.scope : undefined
 
   // Steps are fetched per-run so `attempt` reflects retry history
   // ([internal ref] reads `run.attempt`). The N+1 cost is acceptable
@@ -361,6 +331,7 @@ async function handleListRuns(c: Context, app: App) {
       ...(status !== undefined ? { status } : {}),
       ...(page !== undefined ? { page } : {}),
       ...(pageSize !== undefined ? { pageSize } : {}),
+      ...(readableBy !== undefined ? { readableBy } : {}),
     })
     const stepsPerRun = yield* Effect.forEach(result.runs, (run) => repo.findStepsByRunId(run.id))
     return { ...result, stepsPerRun }
@@ -372,8 +343,12 @@ async function handleListRuns(c: Context, app: App) {
   }
 
   const { runs, total, stepsPerRun } = result.success
+  // The trigger data a run captured is judged as its detail judges it.
   const runsBody = {
-    runs: runs.map((run, i) => persistedRunToApi(app, run, stepsPerRun[i])),
+    runs: await runsAsSeenByCaller(c, app, {
+      readsEveryRun: readableBy === undefined,
+      runs: listedRuns(app, runs, stepsPerRun),
+    }),
   }
   if (pageSize !== undefined) {
     const effectivePage = page !== undefined && page >= 1 ? page : 1
@@ -438,6 +413,7 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
   attempt: 1,
   attempts: extractAttempts(steps),
   error: run.error,
+  valuesErasedAt: run.valuesErasedAt,
   steps: steps.map((step) => ({
     name: step.actionName,
     type: '',
@@ -483,17 +459,27 @@ async function handleGetRunDetail(c: Context, app: App) {
   if (id === undefined) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
+  // A run the caller may not read answers exactly what an unknown id answers.
+  const gate = await gateReadableRun(c, app, id)
+  if (!gate.ok) return gate.response
 
   const dbResult = await runRequestEffect(c, Effect.result(provideDomain(c, loadDbRunDetail(id))))
   if (dbResult._tag === 'Success' && dbResult.success !== undefined) {
     // S4: the body leaves through its published contract, so a field the
     // OpenAPI document does not declare cannot reach a client.
     const { run, steps, approvalId } = dbResult.success
+    // A step's output is what it read under the run's authority: a reader who
+    // does not read every run sees it only within her own reach.
+    const detail = await runDetailAsSeenByCaller(c, app, {
+      access: { readsEveryRun: gate.value.readsEveryRun, run },
+      detail: buildDbRunDetailBody(app, run, steps),
+      judged: judgedRunOf(run, steps),
+    })
     // eslint-disable-next-line unicorn/no-null -- runDetailSchema declares approvalId nullable
-    const body = { ...buildDbRunDetailBody(app, run, steps), approvalId: approvalId ?? null }
+    const body = { ...detail, approvalId: approvalId ?? null }
     return c.json(decodeOrThrow(runDetailSchema)(body), 200)
   }
-  return c.json({ success: false, message: 'Run not found' }, 404)
+  return notFound(c, 'Run not found')
 }
 
 /**
@@ -515,7 +501,7 @@ async function handleFormAction(c: Context, app: App) {
 
   const automation = app.automations?.find((a) => a.name === name)
   if (automation === undefined) {
-    return c.json({ success: false, message: 'Automation not found' }, 404)
+    return notFound(c, 'Automation not found')
   }
 
   const body = (await c.req.json().catch(() => ({}))) as { inputData?: Record<string, unknown> }
@@ -555,7 +541,7 @@ function replayErrorResponse(c: Context, error: ReplayAutomationRunError) {
     error._tag === 'AutomationRunNotFound' ||
     error._tag === 'AutomationRunMismatch'
   ) {
-    return c.json({ success: false, message: 'Run not found' }, 404)
+    return notFound(c, 'Run not found')
   }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json({ success: false, message: 'Failed to register automation in the database' }, 500)
@@ -581,14 +567,16 @@ async function handleReplayRun(c: Context, app: App) {
   if (name === undefined || id === undefined) {
     return c.json({ success: false, message: 'Automation name and run id required' }, 400)
   }
+  // Replaying a run is never wider than reading it.
+  const gate = await gateReadableRun(c, app, id)
+  if (!gate.ok) return gate.response
 
-  // Body is optional — empty / non-JSON bodies degrade to undefined.
-  const body = (await c.req.json().catch(() => undefined)) as
-    { triggerData?: Record<string, unknown> } | undefined
-  const overrideTriggerData =
-    body !== undefined && body.triggerData !== undefined && body.triggerData !== null
-      ? (body.triggerData as Record<string, unknown>)
-      : undefined
+  // Body is optional — empty / non-JSON bodies degrade to undefined. New
+  // trigger data is an admin's alone (`replayTriggerData`).
+  const body = (await c.req.json().catch(() => undefined)) as { triggerData?: unknown } | undefined
+  const supplied = replayTriggerData(c, gate.value, body)
+  if (!supplied.ok) return supplied.response
+  const overrideTriggerData = supplied.value
 
   const program = replayAutomationRun({
     name,
@@ -628,10 +616,9 @@ async function handleReplayRun(c: Context, app: App) {
  * replay's only protection was that run ids are "unguessable" and the list
  * hands them out.
  *
- * A session is the FLOOR, not the ceiling: run history is an operator surface
- * and an admin-only rule is defensible, but that is a spec decision rather than
- * a patch. The admin-gated twin at `/api/admin/automations/*` already exists for
- * callers who want it.
+ * A session is the FLOOR, not the ceiling: past it, each handler applies the
+ * run-reader rule (`run-access.ts`) — an admin reads every run, anyone else the
+ * runs they started by hand and the runs a request names them an approver of.
  */
 const withSession =
   (handler: (c: Context, app: App) => Promise<Response> | Response, app: App) =>

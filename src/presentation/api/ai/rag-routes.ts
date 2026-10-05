@@ -28,7 +28,8 @@
  *
  *   Tier 1 — enforced here. A caller must be authenticated
  *     (`requireSearchSession`, 401) and a result must come from a table the
- *     caller may READ (`filterResultsByTableReadAccess`). Both only engage when
+ *     caller may READ, narrowed to the rows the records API would show them
+ *     (`filterResultsByReadAccess`). Both only engage when
  *     the app configures `auth`. This was previously open: a hit's `content` is
  *     the concatenated field values of a source ROW and its `sourceRef`
  *     (`table:<name>:<recordId>:<chunk>`) names the row, so any anonymous caller
@@ -37,13 +38,13 @@
  * 200/400; those were re-authored first and the
  *     `src/` change follows them.
  *
- *   Tier 2 — NOT closable here, and deliberately not attempted. `content` is
- *     computed at INGEST, so a field the caller may not read is already inside
- *     the chunk text of a table they CAN read; a `salary` column that was
- *     embedded cannot be stripped retroactively by a route filter. Closing it
- *     needs ingest to partition chunks by field readability, which is a schema
- *     change, drafted as its own platform user story rather than smuggled into
- *     an authorization gate that could not honestly cover it.
+ *   Tier 2 — fields. `content` is computed at INGEST and cannot be masked
+ *     here, so ingest partitions it instead: a record's knowledge fields are
+ *     grouped by their effective read grant, each group embedded as its own
+ *     chunk sequence, and every chunk records the names of its fields. A table
+ *     chunk is then served only when the caller may read every field it names
+ *     under the running config; a chunk naming none (written before chunks
+ *     recorded them) or naming a field no longer declared is never served.
  *
  * `config`, `status` and `agents/:name/config` remain reachable with no caller
  * identity. They are pure config readback and carry no record data.
@@ -52,12 +53,10 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
-import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { resolveRagConfig } from '@/domain/models/app/agents/rag-config'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   discoverDocuments,
   resolveKnowledgeDir,
@@ -66,9 +65,16 @@ import {
 import { RagSyncLayer } from '@/infrastructure/ai/embed-pipeline'
 import { runSyncKnowledge } from '@/infrastructure/ai/knowledge-sync'
 import { AiLive } from '@/infrastructure/ai/layer'
-import { runDomainPromise, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { filterRagKnowledgeByRole } from '@/infrastructure/database/ai-knowledge-listener'
+import {
+  requireDomainContext,
+  runDomainPromise,
+  runRequestEffect,
+} from '@/infrastructure/logging/request-effect'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { resolveUserPrincipal } from './chat-read-scope'
+import { filterHitsThroughReadGate, filterServableHits } from './rag-search-read-gate'
 import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 import type { Hono, Context } from 'hono'
@@ -81,6 +87,7 @@ const toSyncInput = (agents: ReadonlyArray<RagAgent>) =>
       tables: (agent.knowledge?.tables ?? []).map((t) => ({
         table: t.table,
         fields: t.fields,
+        ...(t.fieldGroups !== undefined ? { fieldGroups: t.fieldGroups } : {}),
         ...(t.filter !== undefined ? { filter: t.filter } : {}),
       })),
     }))
@@ -134,64 +141,32 @@ const requireSearchSession = (c: Readonly<Context>, app: App | undefined): Respo
 }
 
 /**
- * The source table a chunk came from, or `undefined` for a non-table chunk.
+ * Tier 1, second half: keep only the hits the records API would show the
+ * caller — the records read gate, asked as a chat read asks it
+ * ({@link filterHitsThroughReadGate}): the table's read grant over her
+ * effective roles (assignment roles included), her row-level read rule, and
+ * the live rows only. A hit whose row is hidden from her, in the trash, or
+ * gone is dropped.
  *
- * `sourceRef` is `table:<name>:<recordId>:<chunk>` for table-derived chunks and
- * a document path for knowledge-file chunks. Only the table form is gated —
- * knowledge files are operator-provided content with no per-table grant to
- * consult.
+ * Tier 2 rides the same gate: a table chunk is kept only when the caller may
+ * read every field it records. With no `auth` there is no caller to judge, but
+ * a chunk that records no fields, or names a table or field the config no
+ * longer declares, is still never served ({@link filterServableHits}).
  */
-const tableNameOfSourceRef = (sourceRef: string | null): string | undefined => {
-  if (sourceRef === null) return undefined
-  const [kind, name] = sourceRef.split(':')
-  return kind === 'table' && name ? name : undefined
-}
-
-/**
- * Tier 1, second half: drop results whose source table the caller may not READ.
- *
- * Uses `hasReadPermissionForRoles` — the inheritance-aware, group-aware table
- * gate that `buildReadAccessPlan` uses — rather than a fresh comparison against
- * `permissions.read`, so a table declaring `inherit: 'parent'` or granting
- * `group:finance` resolves the same way here as it does on
- * `GET /api/tables/:t/records`. A third answer to "may this caller read this
- * table" is precisely what the read-plan consolidation exists to prevent.
- *
- * A chunk naming a table the app no longer declares is dropped: it is
- * unattributable, so no grant can vouch for it.
- *
- * KNOWN GAP — tier 2, deliberately NOT attempted here. `content` is computed at
- * INGEST, so a field the caller may not read is already inside the chunk text
- * of a table they CAN read. A route-level filter cannot strip it retroactively;
- * closing it needs ingest to partition chunks by field readability, which is a
- * schema change. It is drafted as its own platform user story
- * rather than smuggled in
- * here, where no honest assertion could cover it.
- */
-const filterResultsByTableReadAccess = async <T extends { readonly sourceRef: string | null }>(
+const filterResultsByReadAccess = async <
+  T extends {
+    readonly sourceRef: string | null
+    readonly fields?: ReadonlyArray<string> | undefined
+  },
+>(
   c: Readonly<Context>,
   app: App | undefined,
   results: readonly T[]
 ): Promise<readonly T[]> => {
-  if (app?.auth === undefined) return results
-
-  const session = getSessionContext(c as unknown as Context)
-  const userId = session?.userId
-  if (userId === undefined) return []
-
-  // Role AND group memberships, resolved the same way the records API resolves
-  // them, so `permissions: { read: ['group:finance'] }` is honoured here too.
-  const role = await runDomainPromise(c, getUserRole(userId)).catch(() => 'member')
-  const groups = await runDomainPromise(c, getUserGroups(userId))
-  const effectiveRoles = buildEffectiveRoles(role, groups)
-
-  return results.filter((result) => {
-    const tableName = tableNameOfSourceRef(result.sourceRef)
-    if (tableName === undefined) return true
-    const table = app.tables?.find((candidate) => candidate.name === tableName)
-    if (table === undefined) return false
-    return hasReadPermissionForRoles(table, effectiveRoles, app.tables)
-  })
+  if (app?.auth === undefined) return filterServableHits(app, results)
+  if (getSessionContext(c as unknown as Context)?.userId === undefined) return []
+  const { reader } = await resolveUserPrincipal(c)
+  return filterHitsThroughReadGate({ services: requireDomainContext(c), app, reader, results })
 }
 
 /**
@@ -264,7 +239,7 @@ const handleSearch = async (c: Readonly<Context>, app: App | undefined): Promise
     Effect.orElseSucceed(() => [])
   )
   const results = await runRequestEffect(c, program)
-  const readable = await filterResultsByTableReadAccess(c, app, results)
+  const readable = await filterResultsByReadAccess(c, app, results)
   return c.json({
     results: readable.map((r) => ({
       agentName: r.agentName,
@@ -293,9 +268,10 @@ const authorizeRebuild = async (
     )
   }
   const role = await runDomainPromise(c, getUserRole(session.userId)).catch(() => 'member')
-  if (!isAdminRole(role)) {
-    // S1 anti-enumeration: admin-role denial returns 404.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  if (!isAdminEquivalent(role, app)) {
+    // S1 anti-enumeration: a caller who is not admin-equivalent (the built-in
+    // `admin` or the app's top role) gets 404.
+    return notFound(c, 'Resource not found')
   }
   return undefined
 }
@@ -316,7 +292,9 @@ const handleRebuild = async (c: Readonly<Context>, app?: App): Promise<Response>
   const denied = await authorizeRebuild(c, app)
   if (denied !== undefined) return denied
 
-  const allAgents = (app?.agents ?? []) as ReadonlyArray<RagAgent>
+  // The same agents the boot sync embeds: knowledge filtered by the agent's
+  // role, each entry's fields partitioned by their effective read grant.
+  const allAgents: ReadonlyArray<RagAgent> = app === undefined ? [] : filterRagKnowledgeByRole(app)
   const selected =
     agentFilter !== undefined ? allAgents.filter((a) => a.name === agentFilter) : allAgents
   const syncInput = toSyncInput(selected)
@@ -350,7 +328,7 @@ const handleAgentConfig = async (c: Readonly<Context>, app?: App): Promise<Respo
   const name = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === name)
   if (agent === undefined) {
-    return c.json(errorBody({ error: 'Agent not found', code: ApiErrorCode.NOT_FOUND }), 404)
+    return notFound(c, 'Agent not found')
   }
   return c.json({
     name: agent.name,

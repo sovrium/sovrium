@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   SearchCommandPalette,
   type RecordSearchScope,
 } from '@/application/use-cases/command-search'
+import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { readPrincipalFromSession } from '@/domain/models/app/tables/read-access-plan-service'
 import {
   provideDomain,
   runDomainPromise,
@@ -100,8 +101,18 @@ const resolveRecordScope = async (c: Context, app: App): Promise<RecordSearchSco
   if (!app.auth) return { kind: 'unrestricted' }
   const session = getSessionContext(c)
   if (session?.userId === undefined) return { kind: 'pages-only' }
-  const role = await runDomainPromise(c, getUserRole(session.userId))
-  return { kind: 'scoped', principal: readPrincipalFromSession({ ...session, role }) }
+  // The records route's own lookups: the account role, the groups she belongs
+  // to, and the roles her assignments give her (counted only on a table with
+  // row-level rules — see `tableEffectiveRoles`).
+  const [role, groups, accessRoles] = await runDomainPromise(
+    c,
+    Effect.all([
+      getUserRole(session.userId),
+      getUserGroups(session.userId),
+      getUserAccessRoles(session.userId),
+    ])
+  )
+  return { kind: 'scoped', reader: { userId: session.userId, role, groups, accessRoles } }
 }
 
 const buildSearchHandler =

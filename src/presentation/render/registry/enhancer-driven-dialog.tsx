@@ -158,6 +158,7 @@ export function renderEnhancerDrivenDialog(
         <button
           type="button"
           aria-label="Close dialog"
+          data-component-type="button"
           data-modal-close
           className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4"
         >

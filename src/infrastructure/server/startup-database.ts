@@ -25,6 +25,7 @@ import {
 } from '@/infrastructure/database/ai-knowledge-listener'
 import { runAttachmentUrlBackfill } from '@/infrastructure/database/attachment-url-backfill'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
+import { runLegacyRunScrub } from '@/infrastructure/database/legacy-run-scrub'
 import { runLinkShadowSweep } from '@/infrastructure/database/link-shadow-sweep'
 import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories/admin/boot-ledger-repository-live'
 import { countTokensEncryptedWithAnotherKey } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
@@ -37,6 +38,7 @@ import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { captureBootLedgerEntry } from '@/infrastructure/server/boot-ledger-capture'
 import { databaseStartupLabel } from '@/infrastructure/server/startup-degradation-phases'
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type {
   DatabaseConnectionError,
@@ -113,13 +115,20 @@ const foreignKeyIdWarningPhases = (count: number): readonly StartupPhase[] =>
 export const runDatabaseStartup = (
   app: App,
   dialectConfig: DatabaseDialectConfig,
-  /**
-   * This PROCESS renders and exits rather than starting the instance, so it
-   * writes no boot-ledger row — `build`'s case, and its only caller. See
-   * `ServerFactory.startDatabase`. The ledger step is the only step in THIS
-   * chain that reads it; every other step below still runs.
-   */
-  ephemeral = false
+  options: {
+    /**
+     * This PROCESS renders and exits rather than starting the instance, so it
+     * writes no boot-ledger row — `build`'s case, and its only caller. See
+     * `ServerFactory.startDatabase`. The ledger step is the only step in THIS
+     * chain that reads it; every other step below still runs.
+     */
+    readonly ephemeral?: boolean
+    /**
+     * The ids the author WROTE, as the decode returned them beside the config:
+     * the schema step reads a table rename from these alone.
+     */
+    readonly authoredTableIds?: AuthoredTableIds
+  } = {}
 ): Effect.Effect<
   readonly StartupPhase[],
   | AuthConfigRequiredForUserFields
@@ -128,7 +137,7 @@ export const runDatabaseStartup = (
   | MigrationError
 > => {
   return runMigrations(dialectConfig).pipe(
-    Effect.flatMap(() => initializeSchema(app)),
+    Effect.flatMap(() => initializeSchema(app, { authoredTableIds: options.authoredTableIds })),
     // Unify declared `created-at` / `updated-at` / `deleted-at` columns on
     // TIMESTAMPTZ, behind an operator opt-in. NOT best-effort: when the operator
     // has opted in and the `TimeZone` preflight refuses, that abort IS the
@@ -177,7 +186,7 @@ export const runDatabaseStartup = (
     // (`render-app.ts`), so there is no render boot left to exclude here.
     // [internal ref].
     Effect.flatMap(() =>
-      ephemeral
+      options.ephemeral === true
         ? Effect.void
         : Effect.provide(captureBootLedgerEntry(app, dialectConfig), BootLedgerRepositoryLive)
     ),
@@ -202,6 +211,12 @@ export const runDatabaseStartup = (
     // `…_ad` trigger in place leaves the tokens in the inverted index. Invisible
     // on Postgres. It also has to stay PRE-BIND — after the listener opens, a
     // search request could rebuild and answer from residue first.
+    // Once after the upgrade: scrub the automation runs recorded before runs
+    // kept the records they read, which no later erasure could reach. PRE-bind
+    // so no reader is shown a value the upgrade is about to empty, and BEFORE
+    // the search purge so the rebuilt index never holds them.
+    // effect-promise: total -- `runLegacyRunScrub` wraps its whole body in a try/catch that logs; a failure leaves the markers for the next start.
+    Effect.flatMap(() => Effect.promise(() => runLegacyRunScrub(app))),
     // effect-promise: total -- `runAdminSearchIndexPurge` wraps its whole body in a try/catch that logs; that is what "never blocks startup" above means, and it is the callee's own guarantee rather than this call site's.
     Effect.flatMap(() => Effect.promise(() => runAdminSearchIndexPurge())),
     Effect.flatMap(() =>

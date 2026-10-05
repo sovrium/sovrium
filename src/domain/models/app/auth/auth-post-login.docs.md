@@ -50,6 +50,22 @@ When an authenticated session navigates to the mount point, the engine walks the
 | Templated                | more than one                       | Redirects to the role's picker   |
 | No role matched, or none | not applicable                      | Redirects to the no-access path  |
 
+### A landing for a built-in role
+
+An app that needs no role of its own can still send its built-in roles to different pages. List the built-in role under `roles` with nothing but a `defaultLanding` (and, for a templated one, a `pickerLanding`): it lands the accounts that hold that role, and its level, tier and invite right stay the engine's. A built-in role listed with a `level`, a `dashboardTier` or `canInvite` — or without a landing — is refused, since those belong to the engine.
+
+```yaml
+auth:
+  strategies:
+    - type: emailAndPassword
+  landingPath: /home
+  roles:
+    - name: admin
+      defaultLanding: /review
+    - name: member
+      defaultLanding: /my-expenses
+```
+
 ## A worked example
 
 ```yaml

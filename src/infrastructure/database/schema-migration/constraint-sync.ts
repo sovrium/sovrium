@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   executeSQLStatements,
@@ -13,7 +14,7 @@ import {
   type SQLExecutionError,
 } from '../sql/sql-execution'
 import { generateForeignKeyConstraints, generateTableConstraints } from '../sql/sql-generators'
-import { isBtreeUniqueField } from '../sql/sql-key-constraints'
+import { isBtreeUniqueField, tableConstraintPrefix } from '../sql/sql-key-constraints'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
@@ -92,7 +93,7 @@ const getUniqueConstraintDropStatements = (
   )
 
   return removedFields.map((fieldName) => {
-    const constraintName = `${table.name}_${fieldName}_key`
+    const constraintName = `${tableConstraintPrefix(table.name)}_${fieldName}_key`
     return `ALTER TABLE ${physicalTableName} DROP CONSTRAINT IF EXISTS ${constraintName}`
   })
 }
@@ -107,7 +108,7 @@ const buildUniqueConstraintAddStatements = (
 ): readonly string[] => {
   // Single-field constraints
   const singleFieldStatements = uniqueFields.map((fieldName) => {
-    const constraintName = `${table.name}_${fieldName}_key`
+    const constraintName = `${tableConstraintPrefix(table.name)}_${fieldName}_key`
     return `
       DO $$
       BEGIN
@@ -117,7 +118,7 @@ const buildUniqueConstraintAddStatements = (
             AND constraint_type = 'UNIQUE'
             AND constraint_name = '${constraintName}'
         ) THEN
-          ALTER TABLE ${physicalTableName} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
+          ALTER TABLE ${physicalTableName} ADD CONSTRAINT ${constraintName} UNIQUE (${quoteSqlIdentifier(fieldName)});
         END IF;
       END$$;
     `

@@ -18,6 +18,7 @@
 
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
+import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { logDebug } from '@/infrastructure/logging'
 import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
@@ -38,12 +39,15 @@ interface MarkdownTwin {
 const collectPageTwins = async (page: Page): Promise<readonly MarkdownTwin[]> => {
   if (page.contentDir === undefined || !isPublicPage(page)) return []
   const bodies = await readContentDirBodies(page.contentDir, page.path)
-  return bodies
-    .filter(({ entry }) => !entry.path.includes(':'))
-    .map(({ entry, body }) => ({
-      relativePath: `${entry.path.replace(/^\/+/, '').replace(/\/+$/, '')}.md`,
-      body,
-    }))
+  return (
+    bodies
+      // A twin is public: an article gated by its own front matter has none.
+      .filter(({ entry }) => !entry.path.includes(':') && isPublicArticle(entry.access))
+      .map(({ entry, body }) => ({
+        relativePath: `${entry.path.replace(/^\/+/, '').replace(/\/+$/, '')}.md`,
+        body,
+      }))
+  )
 }
 
 /** Write one twin, creating its directory first. */

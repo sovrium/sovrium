@@ -67,12 +67,15 @@ import {
   type ReactElement,
   type SetStateAction,
 } from 'react'
-import { dispatch, subscribe } from '@/presentation/islands/runtime/event-bus'
+import {
+  substituteRecordVars,
+  withDisplayLabels,
+} from '@/domain/models/app/pages/substitute-record-vars'
+import { subscribe } from '@/presentation/islands/runtime/event-bus'
 import { useRecordQuery } from '../hooks/use-records-query'
+import { addressedRecordId, clearDrawerAddress, writeDrawerAddress } from './record-drawer-address'
 import {
   DrawerContent,
-  isStructured,
-  type DrawerAction,
   type DrawerContentProps,
   type RecordDrawerField,
 } from './record-drawer-content'
@@ -84,7 +87,9 @@ import {
   type Values,
 } from './record-drawer-record-read'
 import { useRelatedSlot, type RelatedSlotProps } from './record-drawer-related-slot'
+import { useRecordSave } from './record-drawer-save'
 import { DialogSurface, RegionSurface } from './record-drawer-surfaces'
+import type { DrawerAction } from './record-drawer-actions'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 
 interface RecordDrawerIslandProps extends RelatedSlotProps {
@@ -129,6 +134,12 @@ interface RecordDrawerIslandProps extends RelatedSlotProps {
    */
   readonly saveLabel?: string
   readonly closeLabel?: string
+  /** A refused save's message (`form.operationFailed`). */
+  readonly saveFailedLabel?: string
+  /** What a drawer says of a record it cannot show (`recordDrawer.notFound`). */
+  readonly notFoundLabel?: string
+  /** The author's `props.className`, added to the surface the reader sees. */
+  readonly className?: string
 }
 
 const EMPTY_FIELDS: ReadonlyArray<RecordDrawerField> = []
@@ -137,6 +148,7 @@ const EMPTY_ACTIONS: ReadonlyArray<DrawerAction> = []
 const DEFAULT_TITLE = 'Record details'
 const DEFAULT_SAVE_LABEL = 'Save'
 const DEFAULT_CLOSE_LABEL = 'Close'
+const DEFAULT_NOT_FOUND_LABEL = 'This record could not be found.'
 
 /** The drawer's open lifecycle + DB-table record fetch, keyed to the dispatched id. */
 function useRecordDrawer(
@@ -153,10 +165,14 @@ function useRecordDrawer(
     if (!id) return undefined
     return subscribe('sovrium:open-drawer', (detail) => {
       if (detail.id !== id) return
-      setRecordId(toFormValue(detail.record['id']) || undefined)
+      const opened = toFormValue(detail.record['id']) || undefined
+      setRecordId(opened)
       setOpen(true)
+      // Whatever opened it — a row, a card, an event, another drawer's footer —
+      // the address now names this drawer and this record.
+      if (opened !== undefined && (table || system)) writeDrawerAddress(id, opened)
     })
-  }, [id])
+  }, [id, table, system])
 
   // `?record={id}` deep-link self-open: when
   // the surface is reached with a `?record=` param AND this drawer is record-bound
@@ -169,9 +185,11 @@ function useRecordDrawer(
   // pre-navigation URL; re-reading over ~400ms catches the pushState'd `?record=`.
   // A generic page that uses the drawer without `?record=` is unaffected.
   useEffect(() => {
-    if ((!table && !system) || !deepLink || typeof window === 'undefined') return undefined
+    if ((!table && !system) || typeof window === 'undefined') return undefined
     const tryOpen = (): boolean => {
-      const deepLinkId = new URLSearchParams(window.location.search).get('record')
+      // `?drawer=` names the drawer; a bare `?record=` opens only the first
+      // record-bound drawer the page declares (see `record-drawer-address.ts`).
+      const deepLinkId = addressedRecordId(id, deepLink)
       if (!deepLinkId) return false
       setRecordId(deepLinkId)
       setOpen(true)
@@ -180,49 +198,18 @@ function useRecordDrawer(
     if (tryOpen()) return undefined
     const timers = [0, 100, 250, 450].map((delay) => setTimeout(tryOpen, delay))
     return () => timers.forEach((timer) => clearTimeout(timer))
-  }, [table, system, deepLink])
+  }, [id, table, system, deepLink])
 
-  const { record, loading } = useTableRecordRead(open, table, recordId, setValues)
+  const { record, loading, notFound } = useTableRecordRead(open, table, recordId, setValues)
+  const close = useCallback(
+    (next: boolean) => {
+      setOpen(next)
+      if (!next && id) clearDrawerAddress(id)
+    },
+    [id]
+  )
 
-  return { open, setOpen, recordId, record, values, setValues, loading }
-}
-
-interface SaveParams {
-  readonly recordFields: ReadonlyArray<RecordDrawerField>
-  readonly values: Values
-  readonly table: string | undefined
-  readonly recordId: string | undefined
-  readonly setOpen: (open: boolean) => void
-  readonly setError: (error: string | undefined) => void
-}
-
-/** Validate + PATCH the editable fields; dispatches a grid refresh on success. */
-function useRecordSave(params: SaveParams): () => void {
-  const { recordFields, values, table, recordId, setOpen, setError } = params
-  const save = useCallback(async () => {
-    // Structured (`renderAs`) fields are read-only — only editable fields save.
-    const editable = recordFields.filter((field) => !isStructured(field))
-    // Inline validation: a required field cleared to empty blocks the PATCH.
-    const blank = editable.find((field) => (values[field.name] ?? '').trim().length === 0)
-    if (blank) {
-      setError(`Le champ « ${blank.name} » est requis.`)
-      return
-    }
-    if (!table || !recordId) return
-    const payload = Object.fromEntries(editable.map((f) => [f.name, values[f.name] ?? '']))
-    const res = await fetch(`/api/tables/${table}/records/${recordId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      setError('La validation a échoué.')
-      return
-    }
-    dispatch('sovrium:crud-success', { table, operation: 'update', recordId })
-    setOpen(false)
-  }, [recordFields, values, table, recordId, setOpen, setError])
-  return useCallback(() => void save(), [save])
+  return { open, setOpen: close, recordId, record, values, setValues, loading, notFound }
 }
 
 /**
@@ -310,6 +297,23 @@ function optionalBodyProps(
   }
 }
 
+/**
+ * The drawer's name for the record it holds: a title may name that record
+ * (`$record.name`, `Role of $record.name`), and follows it when the drawer
+ * opens on another one. A title with no token is returned as written.
+ */
+function recordTitle(title: string, record: RawRecord): string {
+  return substituteRecordVars(title, withDisplayLabels(record))
+}
+
+/**
+ * A record the records API answers `404` — missing, or one its reader may not
+ * read — shows the same state either way: nothing to edit, nothing to save.
+ */
+function notFoundBody(label: string | undefined): ReactElement {
+  return <p className="text-muted-foreground text-md">{label ?? DEFAULT_NOT_FOUND_LABEL}</p>
+}
+
 /** Record-drawer island — the schema-derived record-detail/edit drawer. */
 export default function RecordDrawerIsland(props: RecordDrawerIslandProps): ReactElement | null {
   const {
@@ -322,50 +326,45 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
     canEdit = true,
   } = props
   const labels = resolveDrawerLabels(props)
-  const {
-    open,
-    setOpen,
-    recordId,
-    record: tableRecord,
-    values,
-    setValues,
-    loading,
-  } = useRecordDrawer(id, table, system, props.deepLink !== false)
+  const drawer = useRecordDrawer(id, table, system, props.deepLink !== false)
+  const { open, setOpen, recordId, values, setValues, loading } = drawer
   // The effective record — DB-table fetch OR system DETAIL fetch (see hook).
-  const record = useDrawerRecord(system, recordId, tableRecord)
+  const record = useDrawerRecord(system, recordId, drawer.record)
   const { error, setError, onChange, onClose } = useDrawerHandlers(setValues, setOpen)
-  const onSave = useRecordSave({ recordFields, values, table, recordId, setOpen, setError })
+  const saved = { recordFields, values, table, recordId, setOpen, setError }
+  const onSave = useRecordSave({ ...saved, failedLabel: props.saveFailedLabel })
   const related = useRelatedSlot(props, { open, recordId, save: labels.save }, onClose)
-  const body = renderDrawerBody({
-    fields: recordFields,
-    values,
-    record,
-    canEdit,
-    loading,
-    actions,
-    onChange,
-    onSave,
-    saveLabel: labels.save,
-    ...optionalBodyProps(error, table, props.childrenHtml, related),
-  })
+  const body = drawer.notFound
+    ? notFoundBody(props.notFoundLabel)
+    : renderDrawerBody({
+        fields: recordFields,
+        values,
+        record,
+        canEdit,
+        loading,
+        actions,
+        onChange,
+        onSave,
+        onClose,
+        saveLabel: labels.save,
+        ...optionalBodyProps(error, table, props.childrenHtml, related),
+      })
 
-  if (role === 'region') {
-    return (
-      <RegionSurface
-        title={labels.title}
-        body={body}
-        closeLabel={labels.close}
-        open={open}
-        onClose={onClose}
-      />
-    )
+  const surface = {
+    title: recordTitle(labels.title, record),
+    body,
+    closeLabel: labels.close,
+    open,
+    className: props.className,
   }
-  return (
+  return role === 'region' ? (
+    <RegionSurface
+      {...surface}
+      onClose={onClose}
+    />
+  ) : (
     <DialogSurface
-      title={labels.title}
-      body={body}
-      closeLabel={labels.close}
-      open={open}
+      {...surface}
       onOpenChange={setOpen}
     />
   )

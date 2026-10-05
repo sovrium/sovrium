@@ -99,3 +99,30 @@ export const ENCRYPTION_KEY_FILENAME = 'encryption-key'
  */
 export const defaultEncryptionKeyPath = (): string =>
   path.join(parseDataDir(), ENCRYPTION_KEY_FILENAME)
+
+/**
+ * Where a running server keeps the page-search index it builds at start
+ * (`<dataDir>/search-index/<pid>/sovrium-search/{index.json,runtime.js}`),
+ * served at `/sovrium-search/*`.
+ *
+ * The index is a runtime artefact derived from the config, like the database
+ * beside it — so it lives in the data directory and never in the app's own
+ * `public/` folder, which an author commits and `sovrium build` ships.
+ *
+ * Keyed by process id because several servers can share one data directory
+ * (the E2E suite boots one per worker against the working directory's
+ * `.sovrium/`), and each must serve the index of ITS config. A start removes
+ * the entries of processes that are no longer running, so a data directory
+ * holds one index per live server.
+ *
+ * @public
+ */
+export const searchIndexRoot = (): string => path.join(parseDataDir(), 'search-index')
+
+/**
+ * The page-search directory of one server process — see {@link searchIndexRoot}.
+ *
+ * @public
+ */
+export const searchIndexDir = (pid: number = process.pid): string =>
+  path.join(searchIndexRoot(), String(pid))

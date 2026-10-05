@@ -98,3 +98,21 @@ export function varyOnCookie(c: Context): void {
 export function varyOnAccept(c: Context): void {
   c.header('Vary', ACCEPT, { append: true })
 }
+
+/** The request header that asks a page for its content-only partial. */
+const SOVRIUM_PARTIAL = 'X-Sovrium-Partial'
+
+/**
+ * Declare that this response varies on `X-Sovrium-Partial`.
+ *
+ * Applied to EVERY page response, partial or not: one URL answers either the
+ * whole document or only its main region, depending on that header. A page may
+ * ship `Cache-Control: public, max-age=300`, so without this header the browser
+ * cache (or a shared one) could answer a later partial request with the full
+ * document — or, worse, a full load with a bare region.
+ *
+ * @param c - The Hono request context.
+ */
+export function varyOnPartial(c: Context): void {
+  c.header('Vary', SOVRIUM_PARTIAL, { append: true })
+}

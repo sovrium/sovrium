@@ -346,10 +346,22 @@ export const computeTableStickyHeaderClasses = (): string => TABLE_STICKY_HEADER
 // also inflated the chrome above them. A header is chrome; its size is a
 // constant of the design, not of how much air the reader wants around values.
 //
-// `py-(--sv-density-row-y)` rather than a `5px` literal: the token's default IS
+// `--sv-density-row-y` rather than a `5px` literal: the token's default IS
 // 5px, so nothing moves, but an authored `design.density` now reaches it.
-const TABLE_HEADER_CELL = [
-  'px-2 py-(--sv-density-row-y)',
+//
+// The bottom padding carries HALF A PIXEL more than the top, and that is a fact
+// about collapsed borders: the header cell's 1px rule is shared with the first
+// body row, so each row owns half of it and the header row measured a whole
+// number plus 0.5 (32.5px at the default density) — which left the grid holding
+// it on a half pixel too. The extra half makes the header row, and the grid, a
+// whole number of pixels at every density. A header drawn OUTSIDE a table
+// (the loading skeleton's `div`) owns its whole rule and keeps even padding.
+const TABLE_HEADER_CELL_SHARED_RULE_PADDING =
+  'pt-(--sv-density-row-y) pb-[calc(var(--sv-density-row-y)+0.5px)]'
+const TABLE_HEADER_CELL_OWN_RULE_PADDING = 'py-(--sv-density-row-y)'
+
+const TABLE_HEADER_CELL_CHROME = [
+  'px-2',
   TABLE_HEADER_TYPE,
   'text-left',
   'border-b',
@@ -364,8 +376,17 @@ const TABLE_HEADER_CELL = [
  * The sort affordance (`cursor-pointer select-none`) and the `relative` a
  * resize handle needs for its containing block are appended by the caller —
  * both are conditional on the column, not on the design.
+ *
+ * `inTable: false` is for a header drawn outside a collapsed `<table>`, which
+ * owns its whole bottom rule and so needs no half-pixel correction.
  */
-export const computeTableHeaderCellClasses = (): string => TABLE_HEADER_CELL
+export const computeTableHeaderCellClasses = ({
+  inTable = true,
+}: { readonly inTable?: boolean } = {}): string =>
+  [
+    TABLE_HEADER_CELL_CHROME,
+    inTable ? TABLE_HEADER_CELL_SHARED_RULE_PADDING : TABLE_HEADER_CELL_OWN_RULE_PADDING,
+  ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SORT GLYPH — the ↑ / ↓ inside a sorted header
@@ -376,10 +397,10 @@ const TABLE_SORT_GLYPH = 'ml-1 inline-flex items-center'
 /**
  * Compute the default className for the sort-direction indicator.
  *
- * The glyph is drawn only while a sort is active, so `active: false` reaches
- * this computer from nothing the grid currently renders — it exists so a
- * caller that DOES draw an inactive affordance (a hover hint, say) has the
- * disabled tone to hand rather than minting one.
+ * `active: false` is the `↕` a sortable header draws while it is not sorted.
+ * It wears the muted foreground, not the disabled tone: it says the column
+ * sorts, which is content, and so it reads at 4.5:1 on the header like any
+ * other glyph the grid paints.
  *
  * The `sort-asc` / `sort-desc` class tokens and both `aria-label`s stay on the
  * element: spec locators resolve the indicator by class, and the labels are
@@ -389,7 +410,7 @@ const TABLE_SORT_GLYPH = 'ml-1 inline-flex items-center'
 export const computeTableSortGlyphClasses = ({ active }: { readonly active: boolean }): string =>
   [
     TABLE_SORT_GLYPH,
-    active ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
+    active ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-fg-muted', T.fgMuted)}]`,
   ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────

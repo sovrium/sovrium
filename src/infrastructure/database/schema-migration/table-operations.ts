@@ -19,13 +19,17 @@ import {
   type TransactionLike,
 } from '../sql/sql-execution'
 import { PROTECTED_SYSTEM_TABLES } from './constants'
+import { planLinkTableRenames } from './link-table-renames'
 import { detectAmbiguousTableRenames, detectTableRenames } from './rename-detection'
+import { retireRenamedTableCompanions } from './renamed-table-companions'
 import {
   classifyPhysicalTables,
   formatPopulatedDropRefusal,
   isCommandSearchIndexTable,
+  storedTableIdentityFor,
 } from './table-classification'
 import type { Table } from '@/domain/models/app/tables'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 /**
  * Whether `tableName` is a managed Better-Auth / system table that runtime
@@ -56,7 +60,9 @@ const isProtectedTable = (tableName: string): boolean => {
  * foreign keys are governed by their `ON DELETE` actions instead.
  */
 const dropTableStatement = (tableName: string): string =>
-  isSqliteRuntime() ? `DROP TABLE ${tableName}` : `DROP TABLE ${tableName} CASCADE`
+  isSqliteRuntime()
+    ? `DROP TABLE ${quoteSqlIdentifier(tableName)}`
+    : `DROP TABLE ${quoteSqlIdentifier(tableName)} CASCADE`
 
 /**
  * Diagnostic for a set of tables that exchange names in a single config edit.
@@ -66,14 +72,121 @@ const dropTableStatement = (tableName: string): string =>
  * `relation "x" already exists`, which names one table, blames the database, and
  * leaves the author no way to tell a swap from an id renumbering.
  */
-const ambiguousRenameMessage = (names: readonly string[]): string =>
+export const ambiguousRenameMessage = (names: readonly string[]): string =>
   `Ambiguous table rename detected: [${[...names].toSorted().join(', ')}] exchange names in a single config change, ` +
   `so Sovrium cannot tell which existing table each name should follow and refuses to guess. ` +
   `Rename them one at a time — deploy an intermediate name first, then the final one — or give the tables ids that stay attached to the same data.`
 
+/** `DROP VIEW IF EXISTS` for the active dialect (Postgres also takes the views built on it). */
+const dropViewStatement = (viewName: string): string =>
+  isSqliteRuntime()
+    ? `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)}`
+    : `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
+
+/** `ALTER TABLE <from> RENAME TO <to>`, both names quoted as identifiers. */
+const renameTableStatement = (from: string, to: string): string =>
+  `ALTER TABLE ${quoteSqlIdentifier(from)} RENAME TO ${quoteSqlIdentifier(to)}`
+
 /**
- * Rename tables that have changed names (same table ID, different name)
- * Uses ALTER TABLE RENAME TO to preserve data, indexes, and constraints
+ * One table rename Step 3.5 would run: the relation that holds the rows today
+ * (`from`), the one it becomes (`to`), and the statements that move them.
+ * `droppedView` is the old lookup VIEW a view-backed table loses on the way; it
+ * is rebuilt under the new name with the other lookup views.
+ */
+export interface TableRenameStep {
+  readonly oldName: string
+  readonly newName: string
+  readonly from: string
+  readonly to: string
+  readonly droppedView?: string
+  readonly statements: readonly string[]
+}
+
+/**
+ * The steps that carry each renamed table's rows to its new DATABASE name.
+ * Pure: the caller supplies the live table and view names. Shared by the apply
+ * path (Step 3.5) and `--dry-run`/`--check`/the `--watch` pre-flight, so the
+ * plan an operator reads names the rename the migration runs.
+ *
+ * `renames` maps CONFIG names — `Open Orders`, `report-requests` — which are
+ * for messages and the snapshot only. Every statement addresses the derived
+ * name (`sanitizeTableName`), quoted. The config name reaching SQL is how a
+ * hyphenated rename failed the boot, and how a legal name such as
+ * `orders DROP COLUMN amount --` rewrote the rename into a drop of another
+ * table's column.
+ *
+ *  - Two config names that derive the same database name (`Orders` → `orders`)
+ *    move nothing: no statement.
+ *  - A plain table is renamed where it stands.
+ *  - A view-backed table keeps its rows in `<name>_base` behind a `<name>`
+ *    VIEW. The BASE is renamed, to `<new>_base`, after the old view is dropped
+ *    (it is rebuilt under the new name with the other lookup views). Renaming
+ *    the view instead left the rows behind in `<old>_base`, where the next step
+ *    reads them as a table the config no longer declares.
+ *  - A relation that does not exist has nothing to carry: no statement.
+ *  - Every many-to-many link table with a renamed end follows it, after the
+ *    tables: it moves to the name, key columns and (PostgreSQL) constraint
+ *    names a fresh boot would give it, rows kept — renamed in place on
+ *    PostgreSQL, rebuilt and copied on SQLite (see `link-table-renames.ts` for
+ *    why). Its step names the link table itself, which no config entry does.
+ */
+export const planTableRenames = (
+  renames: ReadonlyMap<string, string>,
+  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> },
+  tables: readonly Table[] = []
+): readonly TableRenameStep[] => [
+  ...planConfigTableRenames(renames, existing),
+  ...planLinkTableRenames(renames, tables, existing.tables).map((link): TableRenameStep => ({
+    oldName: link.from,
+    newName: link.to,
+    ...link,
+  })),
+]
+
+/** The config tables' own renames: the first half of {@link planTableRenames}. */
+const planConfigTableRenames = (
+  renames: ReadonlyMap<string, string>,
+  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> }
+): readonly TableRenameStep[] =>
+  [...renames].flatMap(([oldName, newName]): readonly TableRenameStep[] => {
+    const from = sanitizeTableName(oldName)
+    const to = sanitizeTableName(newName)
+    if (from === to) return []
+    if (existing.tables.has(from)) {
+      return [{ oldName, newName, from, to, statements: [renameTableStatement(from, to)] }]
+    }
+    const fromBase = getBaseTableName(from)
+    if (!existing.tables.has(fromBase)) return []
+    const toBase = getBaseTableName(to)
+    const droppedView = existing.views.has(from) ? from : undefined
+    return [
+      {
+        oldName,
+        newName,
+        from: fromBase,
+        to: toBase,
+        ...(droppedView === undefined ? {} : { droppedView }),
+        statements: [
+          ...(droppedView === undefined ? [] : [dropViewStatement(droppedView)]),
+          renameTableStatement(fromBase, toBase),
+        ],
+      },
+    ]
+  })
+
+/** The statements of {@link planTableRenames}, in the order Step 3.5 runs them. */
+export const planTableRenameStatements = (
+  renames: ReadonlyMap<string, string>,
+  existing: { readonly tables: ReadonlySet<string>; readonly views: ReadonlySet<string> },
+  tables: readonly Table[] = []
+): readonly string[] =>
+  planTableRenames(renames, existing, tables).flatMap((step) => step.statements)
+
+/**
+ * Rename tables that have changed names (same author-written table ID — one
+ * in `authoredIds`, which the decode returns beside the config —
+ * different name). Uses ALTER TABLE RENAME TO to preserve data, indexes, and
+ * constraints; see {@link planTableRenameStatements} for the names it uses.
  *
  * Refuses the migration outright when the renames form a cycle: a name swap is
  * the one case where no evidence in the config can say which physical table each
@@ -82,24 +195,35 @@ const ambiguousRenameMessage = (names: readonly string[]): string =>
 export const renameTablesIfNeeded = (
   tx: TransactionLike,
   tables: readonly Table[],
-  previousSchema?: { readonly tables: readonly object[] }
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  authoredIds: AuthoredTableIds
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const ambiguous = detectAmbiguousTableRenames(tables, previousSchema)
+    const ambiguous = detectAmbiguousTableRenames(tables, previousSchema, authoredIds)
     if (ambiguous.length > 0) {
       return yield* new SQLExecutionError({ message: ambiguousRenameMessage(ambiguous) })
     }
 
-    const tableRenames = detectTableRenames(tables, previousSchema)
+    const tableRenames = detectTableRenames(tables, previousSchema, authoredIds)
 
     if (tableRenames.size === 0) return
 
-    // Generate ALTER TABLE RENAME TO statements
-    const renameStatements = Array.from(tableRenames.entries()).map(
-      ([oldName, newName]) => `ALTER TABLE ${oldName} RENAME TO ${newName}`
+    const existing = {
+      tables: new Set(yield* getExistingTableNames(tx)),
+      views: new Set(yield* getExistingViews(tx)),
+    }
+    yield* executeSQLStatements(tx, planTableRenameStatements(tableRenames, existing, tables))
+    // A table renamed in place keeps its triggers, constraints and indexes under
+    // the old name; the migration that follows installs them under the new one.
+    yield* Effect.forEach(
+      planConfigTableRenames(tableRenames, existing),
+      (step) =>
+        retireRenamedTableCompanions(tx, step.to, [
+          [step.from, step.to],
+          [sanitizeTableName(step.oldName), sanitizeTableName(step.newName)],
+        ]),
+      { discard: true }
     )
-
-    yield* executeSQLStatements(tx, renameStatements)
   })
 
 /** How many rows `tableName` holds. Numeric on both engines (pg returns `bigint` as text). */
@@ -173,7 +297,8 @@ export const obsoleteTableDropStatement = (tableName: string): string =>
 export const dropObsoleteTables = (
   tx: TransactionLike,
   tables: readonly Table[],
-  options: { readonly allowDestructive?: boolean } = {}
+  options: { readonly allowDestructive?: boolean } = {},
+  previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const obsolete = yield* findObsoleteTables(tx, tables)
@@ -182,7 +307,13 @@ export const dropObsoleteTables = (
     if (populated.length > 0 && options.allowDestructive !== true) {
       return yield* new SQLExecutionError({
         message: populated
-          .map((entry) => formatPopulatedDropRefusal(entry.table, entry.rows))
+          .map((entry) =>
+            formatPopulatedDropRefusal(
+              entry.table,
+              entry.rows,
+              storedTableIdentityFor(entry.table, previousSchema)
+            )
+          )
           .join('\n'),
       })
     }
@@ -191,10 +322,6 @@ export const dropObsoleteTables = (
     const dropStatements = obsolete.map((entry) => dropTableStatement(entry.table))
     yield* executeSQLStatements(tx, dropStatements)
   })
-
-/** `DROP VIEW IF EXISTS` for the active dialect (Postgres also takes the views built on it). */
-const dropViewStatement = (viewName: string): string =>
-  isSqliteRuntime() ? `DROP VIEW IF EXISTS ${viewName}` : `DROP VIEW IF EXISTS ${viewName} CASCADE`
 
 /**
  * One table's part of the Step 5.5 topology reconciliation.
@@ -254,7 +381,7 @@ export const planViewTopology = (
           {
             table: table.name,
             rename: { from: name, to: base },
-            statements: [`ALTER TABLE ${name} RENAME TO ${base}`, ...dropView],
+            statements: [renameTableStatement(name, base), ...dropView],
           },
         ]
       }
@@ -267,7 +394,7 @@ export const planViewTopology = (
             rename: { from: base, to: name },
             statements: [
               ...(existing.views.has(name) ? [dropViewStatement(name)] : []),
-              `ALTER TABLE ${base} RENAME TO ${name}`,
+              renameTableStatement(base, name),
             ],
           },
         ]

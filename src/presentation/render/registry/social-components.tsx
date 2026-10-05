@@ -26,6 +26,10 @@
  * [internal ref] … 045
  */
 
+import {
+  resolveInterpreterString,
+  resolveInterpreterStringOverrides,
+} from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeCommentComposerFieldClasses,
@@ -109,16 +113,24 @@ const COMMENT_FIELD_LABEL = 'text-sm font-medium'
  * for the authenticated variant.
  *
  * The honeypot input is always emitted (zero-config safety) when guest
- * comments are enabled — matches the F-03 anti-spam floor and the
+ * comments are enabled — matches the [internal ref] anti-spam floor and the
  * PG-02 locked decision.
+ *
+ * The comment is sent as JSON by the inline runtime, never by the form
+ * itself: the form is drawn `method="post"` with its submit disabled (which
+ * blocks Enter too), and the runtime enables the submit when it wires the
+ * form. A press before that script ran used to fall back to the browser
+ * default — a GET to the page carrying the guest's name, email and comment.
  */
 // eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
 function GuestCommentFormSkeleton({
   placeholder,
+  submitLabel,
   guestEmailRequired,
   honeypotEnabled,
 }: {
   readonly placeholder: string
+  readonly submitLabel: string
   readonly guestEmailRequired: boolean
   readonly honeypotEnabled: boolean
 }): ReactElement {
@@ -127,6 +139,7 @@ function GuestCommentFormSkeleton({
       data-comments-form="guest"
       data-comments-guest-email-required={String(guestEmailRequired)}
       className={`comments-form ${computeCommentFormClasses()}`}
+      method="post"
       noValidate
     >
       <label className={COMMENT_FIELD_ROW}>
@@ -161,9 +174,10 @@ function GuestCommentFormSkeleton({
       {honeypotEnabled && <GuestCommentHoneypot />}
       <button
         type="submit"
+        disabled
         className={`${computeButtonDefaultClasses()} justify-self-start`}
       >
-        Submit comment
+        {submitLabel}
       </button>
     </form>
   )
@@ -191,8 +205,9 @@ function renderCommentsSection(input: {
   readonly islandProps: string | undefined
   readonly sessionName: string | undefined
   readonly sessionEmail: string | undefined
+  readonly submitLabel: string
 }): ReactElement {
-  const { f, cfg, elementProps, islandProps, sessionName, sessionEmail } = input
+  const { f, cfg, elementProps, islandProps, sessionName, sessionEmail, submitLabel } = input
   const showGuestForm = cfg.guestComments && cfg.commentPermissionAllowsAll
   const testId =
     typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
@@ -233,6 +248,7 @@ function renderCommentsSection(input: {
         <>
           <GuestCommentFormSkeleton
             placeholder={f.placeholder}
+            submitLabel={submitLabel}
             guestEmailRequired={cfg.guestEmailRequired}
             honeypotEnabled={showGuestForm}
           />
@@ -257,7 +273,7 @@ function renderCommentsSection(input: {
  * `data-component="comment-count"` marker and its own resolver.
  */
 export const commentsComponent: ComponentRenderer = (context) => {
-  const { component, rawProps, elementProps, tables, session } = context
+  const { component, rawProps, elementProps, tables, session, currentLang, languages } = context
   const display = pickString(
     (component ?? {}) as Record<string, unknown>,
     (rawProps ?? {}) as Record<string, unknown>,
@@ -265,7 +281,12 @@ export const commentsComponent: ComponentRenderer = (context) => {
     'thread'
   )
   if (display === 'count') return commentCountComponent(context)
-  const f = resolveCommentsFields(component, rawProps, elementProps)
+  const f = resolveCommentsFields(
+    component,
+    rawProps,
+    elementProps,
+    resolveInterpreterString('comments.placeholder', currentLang, languages)
+  )
   const cfg = resolveTableCommentsConfig(f.table, tables)
   const islandProps =
     f.table && f.recordId
@@ -275,6 +296,7 @@ export const commentsComponent: ComponentRenderer = (context) => {
             elementProps,
             session,
             threading: cfg.threading,
+            uiStrings: resolveInterpreterStringOverrides(['comments.'], currentLang, languages),
           })
         )
       : undefined
@@ -290,6 +312,7 @@ export const commentsComponent: ComponentRenderer = (context) => {
     islandProps,
     sessionName: session?.name,
     sessionEmail: session?.email,
+    submitLabel: resolveInterpreterString('comments.submit', currentLang, languages),
   })
 }
 

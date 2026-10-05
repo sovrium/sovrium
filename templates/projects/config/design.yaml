@@ -126,6 +126,10 @@ elevation:
   md: 0 4px 12px rgb(20 30 56 / 0.08)
   lg: 0 12px 32px rgb(20 30 56 / 0.14)
 
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
 # A team reads a week of work, and a card carries four facts: title, project,
 # date and person. The cozy step gives each row the height that keeps those
 # legible at a glance. The three steps are the platform's own values, written

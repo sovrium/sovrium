@@ -28,8 +28,8 @@ static output by `sovrium build`.
    3. File under `public/` (this directory)
    4. 404
 
-   A `public/sitemap.xml` is silently shadowed by the generated route — see
-   CLI-SERVE-STATIC-015. Drop SEO overrides into your `pages:` config instead.
+   A `public/sitemap.xml` is silently shadowed by the generated route. Drop
+   SEO overrides into your `pages:` config instead.
 
 ## Suggestions
 

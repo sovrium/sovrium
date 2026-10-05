@@ -34,7 +34,7 @@
 import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -66,7 +66,7 @@ export const createAiAnonRateLimit = (): AiAnonRateLimit => {
     const windowMs =
       (parsePositiveIntEnv(process.env['AI_ANON_RATE_WINDOW']) ?? DEFAULT_ANON_WINDOW_SECONDS) *
       1000
-    const { limited, retryAfter } = limiter.consume(`${surface}:${getRequestClientIp(c)}`, {
+    const { limited, retryAfter } = limiter.consume(`${surface}:${getRequestRateLimitKey(c)}`, {
       windowMs,
       maxRequests,
     })

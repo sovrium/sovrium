@@ -95,6 +95,14 @@ fields:
     formula: "CASE WHEN status <> 'Done' AND due_date < CURRENT_DATE THEN 'Overdue' ELSE '' END"
     resultType: string
 
+views:
+  # Every task not done yet: the count beside Board in the sidebar.
+  - id: open_tasks
+    name: Open tasks
+    filters:
+      and:
+        - { field: status, operator: notEquals, value: Done }
+
 # Everyone signed in reads, creates and moves tasks; only an admin deletes one.
 # A member who tries is answered 404, the same answer as for a task that does
 # not exist.

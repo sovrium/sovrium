@@ -79,11 +79,10 @@ const resolveTemplateVariables = (prompt: string, app: App, agent: Agent): strin
 const buildTableContext = (app: App, agent: Agent): string => {
   const tables = app.tables ?? []
   const readableTables = tables.filter((table) =>
-    hasReadPermission(
-      table as { name: string; permissions?: { read?: unknown } },
-      agent.role,
-      tables as readonly { name: string }[]
-    )
+    hasReadPermission(table as { name: string; permissions?: { read?: unknown } }, agent.role, {
+      auth: app.auth,
+      tables: tables as readonly { name: string }[],
+    })
   )
   if (readableTables.length === 0) return ''
   const lines = readableTables.map((table) => {
@@ -125,11 +124,10 @@ const resolveAgentToolTables = (app: App, agent: Agent): ReadonlyArray<string> |
   if (allowlist === undefined) return undefined
   const tables = app.tables ?? []
   const readable = tables.filter((table) =>
-    hasReadPermission(
-      table as { name: string; permissions?: { read?: unknown } },
-      agent.role,
-      tables as readonly { name: string }[]
-    )
+    hasReadPermission(table as { name: string; permissions?: { read?: unknown } }, agent.role, {
+      auth: app.auth,
+      tables: tables as readonly { name: string }[],
+    })
   )
   return readable.filter((table) => allowlist.includes(table.name)).map((table) => table.name)
 }

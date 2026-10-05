@@ -37,3 +37,7 @@ All three of `comparisonPeriod`, `direction` and `changePercent` are required on
 ## `sparkline`
 
 All four properties are required once `sparkline` is present: `field` is plotted along the line, `groupBy` buckets the points, `interval` is `day`, `week` or `month`, and `days` is how far back the line covers.
+
+## A field the reader may not read
+
+A KPI whose `kpiAggregate.field` its reader may not read keeps its card and its `label`, and shows her no value: the page does not name the field, and the card never falls back to another figure under the same label. It answers exactly as a KPI over a table she may not read.

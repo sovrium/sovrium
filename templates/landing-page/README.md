@@ -1,6 +1,6 @@
-# Sovrium Landing Page
+# Tablée — a landing page
 
-> A bilingual marketing site with reusable components.
+> A bilingual product landing page with a demo request the owner reads in the admin.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,20 +19,30 @@ sovrium init my-landing-page --template landing-page
 
 ## What's inside
 
-A bilingual (EN/FR) marketing site: theme tokens, reusable hero/feature/CTA components, and one composed home page.
+The landing page of Tablée, a fictional booking product for independent restaurants, at
+`/en/` and `/fr/`: one sentence about what it does, the product itself (Friday's dinner as
+it shows it), three things it does, three steps to start, and a demo request. The French
+page is written in French, and the language switcher keeps the reader's place. The page
+claims no figure it cannot prove.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+A request lands in the `demo_requests` table, which only the owner reads, in the admin at
+`/_admin`. Nobody can open an account; the owner comes from `AUTH_ADMIN_EMAIL` and
+`AUTH_ADMIN_PASSWORD`. Each language shares with its own PNG card (`public/og-en.png`,
+`public/og-fr.png`); the site follows the system's light or dark scheme.
+
+Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
+application code. The words are in `config/languages.yaml`; rename the product there.
 
 ## Run locally
 
 ```bash
-sovrium start app.yaml
+sovrium start app.yaml --watch
 ```
 
-Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
-[`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+Zero-config: embedded SQLite, local file storage. Set `AUTH_ADMIN_EMAIL` and
+`AUTH_ADMIN_PASSWORD` (see [`.env.example`](./.env.example)) to read the requests in the
+admin. The sharing cards are sent as full addresses on the host the site is served at, so
+nothing needs replacing before you deploy.
 
 ## Deploy
 

@@ -96,6 +96,7 @@ export const APP_VAR_NAMES = [
   'origin',
   'basePath',
   'engineVersion',
+  'path',
 ] as const
 
 /** One `$app.<name>` token from the closed set. */
@@ -152,7 +153,8 @@ export const titleCaseAppName = (name: string): string =>
  * @param origin - the scheme + host this request arrived on, when known. Absent
  *   outside a request (a static render, an error page), where `$app.origin` is
  *   left verbatim rather than guessed.
- * @param basePath - the base this app is being SERVED at: `''` for a standalone
+ * @param serving - the three facts about THIS render the config cannot carry.
+ * @param serving.basePath - the base this app is being SERVED at: `''` for a standalone
  *   app at the site root, `/_admin` for the mounted console. It follows
  *   `origin`'s rule and not `version`'s — ABSENT means the caller has no mount
  *   context to offer, and the token survives verbatim rather than resolving to
@@ -166,27 +168,39 @@ export const titleCaseAppName = (name: string): string =>
  *   operator's own app, that 404s. That is the failure mode which looks most
  *   like success, and the surviving literal is what stops it being silent.
  *
- * @param engineVersion - the version of the SOVRIUM ENGINE serving this render,
+ * @param serving.engineVersion - the version of the SOVRIUM ENGINE serving this render,
  *   as resolved once at boot by `getSovriumVersion()`. It follows `origin`'s
  *   rule: ABSENT means the caller has no engine context to offer and the token
  *   survives verbatim. It is a parameter rather than a read because this module
  *   is domain-pure — the version comes from a build-time define or a
  *   `package.json` read, both of which are infrastructure — and because the
  *   value is a process constant the composition root already holds.
+ *
+ * @param serving.path - the path the visitor ASKED FOR, decoded and without its query
+ *   string: on a page that answers a missing address, the address that had
+ *   nothing. A fact about the request like `origin`, and absent outside one —
+ *   a static 404 serves every missing address at once, so it names none.
  */
 export const resolveAppVarValues = (
   app: App,
   origin: string | undefined,
-  basePath?: string,
-  engineVersion?: string
-): Readonly<Partial<Record<AppVarName, string>>> => ({
-  name: app.name,
-  label: titleCaseAppName(app.name),
-  version: app.version ?? '',
-  ...(origin !== undefined ? { origin } : {}),
-  ...(basePath !== undefined ? { basePath } : {}),
-  ...(engineVersion !== undefined ? { engineVersion } : {}),
-})
+  serving: {
+    readonly basePath?: string | undefined
+    readonly engineVersion?: string | undefined
+    readonly path?: string | undefined
+  } = {}
+): Readonly<Partial<Record<AppVarName, string>>> => {
+  const { basePath, engineVersion, path } = serving
+  return {
+    name: app.name,
+    label: titleCaseAppName(app.name),
+    version: app.version ?? '',
+    ...(origin !== undefined ? { origin } : {}),
+    ...(basePath !== undefined ? { basePath } : {}),
+    ...(engineVersion !== undefined ? { engineVersion } : {}),
+    ...(path !== undefined ? { path } : {}),
+  }
+}
 
 /** The token an `$app.origin` reference is written as, in full. */
 export const APP_ORIGIN_TOKEN = '$app.origin'

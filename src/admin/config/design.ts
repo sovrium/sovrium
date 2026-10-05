@@ -505,18 +505,32 @@ export const DEFAULT_FONT_FAMILIES = {
  *
  * ## Why hex and not `oklch()`
  *
- * `ColorValueSchema` accepts hex, `rgb()` and `hsl()` and rejects `oklch()`,
- * and these five are the one part of the default that decodes through it (see
- * the block comment above). So the hues are AUTHORED in oklch and SHIPPED as
- * their sRGB conversion; the oklch triple stays in this comment as the source
- * of truth for the next hue anyone adds. Rounding is the sRGB quantisation
- * only — every value is in gamut.
+ * Not the schema any more. These were converted to hex when `ColorValueSchema`
+ * refused `oklch`; [internal ref] admitted it, so `oklch(0.62 0.14 250)` would now
+ * decode through `design.colors` exactly as the hex does. Nothing that reads
+ * `--sv-chart-N` needs hex either — the chart islands paint `var(--sv-chart-N)`,
+ * which takes any CSS colour.
+ *
+ * What remains is a coupling, not a constraint: the calendar and timeline
+ * islands each keep a LITERAL copy of these five values
+ * (`src/presentation/islands/calendar/record-to-event.ts`,
+ * `src/presentation/islands/timeline/timeline-view.tsx`), and those copies must
+ * be `#RRGGBB` because `deriveOptionChipColors` parses nothing else. Kept in
+ * hex here, the three lists can be compared byte for byte; nothing checks that
+ * they agree, so a hue changed here must be changed there by hand.
+ *
+ * Switching these to `oklch()` is therefore allowed, but it changes the emitted
+ * CSS (`bun run build:default-design` regenerates the layer) and is a deliberate
+ * act with its own baselines ([internal ref] A8), not a comment fix. The oklch triple
+ * beside each value is the source of truth for the next hue anyone adds.
+ * Rounding is the sRGB quantisation only — every value is in gamut.
  *
  * Honest about what the `satisfies` proves: `ColorValue` is a CHECKED string,
  * and an Effect check does not brand, so the decoded type erases to `string`.
  * This assertion is therefore shape-level (a record of string keys to string
- * values) and does NOT prove the hex pattern holds. The decode probe in
- * `scripts/build/default-design-source.test.ts` is what proves that.
+ * values). The decode probe in `scripts/build/default-design-source.test.ts`
+ * proves the values survive `DesignSchema` unchanged — not that they are hex,
+ * since an `oklch()` value would survive it too.
  */
 export const DEFAULT_CHART_COLORS = {
   'chart-1': '#398ad6', // oklch(0.62 0.14 250)
@@ -912,7 +926,7 @@ const CANONICAL_COLOR_UTILITIES = [
   { kind: 'utility', name: 'bg-info-950' },
   {
     kind: 'comment',
-    text: '// shadcn-convention alias utilities (DEC-060) — mirror COLOR_TO_SV_TOKEN so the\n// default theme always emits them (they otherwise tree-shake to no-ops when a\n// config authored with shadcn names is not scanned, e.g. the native-free binary\n// path). Each resolves to the same --sv-* role as its v1-name sibling.',
+    text: '// shadcn-convention alias utilities — mirror COLOR_TO_SV_TOKEN so the\n// default theme always emits them (they otherwise tree-shake to no-ops when a\n// config authored with shadcn names is not scanned, e.g. the native-free binary\n// path). Each resolves to the same --sv-* role as its v1-name sibling.',
   },
   { kind: 'utility', name: 'text-primary-foreground' },
   { kind: 'utility', name: 'bg-card' },
@@ -1491,7 +1505,7 @@ export const DEFAULT_DESIGN_SOURCE = {
       { kind: 'blank' },
       {
         kind: 'comment',
-        text: "/* shadcn-convention alias utilities (DEC-060). Mirror COLOR_TO_SV_TOKEN in\n       theme-generators.ts so the DEFAULT theme mints the same shadcn names the\n       custom-theme path already accepts — text-primary-foreground / bg-card /\n       bg-muted / text-muted-foreground / bg-popover / bg-destructive /\n       text-destructive-foreground resolve to their --sv-* role token in BOTH\n       light and dark (previously they no-op'd on the default theme, leaving\n       button text inheriting --sv-fg → near-invisible in dark mode). Each maps\n       to the SAME --sv-* role its v1-name sibling maps to, so the alias and the\n       v1 utility compute identically. The Group-A *-foreground / destructive\n       names were the author-override inputs the alias bridge read as\n       var(--color-X, ...); those bridge fallbacks are dropped (custom themes set\n       the --sv-* role directly via generateAuthorSvBridge), so registering them\n       here does NOT form a --color-X to --sv-role to --color-X cycle. */",
+        text: "/* shadcn-convention alias utilities. Mirror COLOR_TO_SV_TOKEN in\n       theme-generators.ts so the DEFAULT theme mints the same shadcn names the\n       custom-theme path already accepts — text-primary-foreground / bg-card /\n       bg-muted / text-muted-foreground / bg-popover / bg-destructive /\n       text-destructive-foreground resolve to their --sv-* role token in BOTH\n       light and dark (previously they no-op'd on the default theme, leaving\n       button text inheriting --sv-fg → near-invisible in dark mode). Each maps\n       to the SAME --sv-* role its v1-name sibling maps to, so the alias and the\n       v1 utility compute identically. The Group-A *-foreground / destructive\n       names were the author-override inputs the alias bridge read as\n       var(--color-X, ...); those bridge fallbacks are dropped (custom themes set\n       the --sv-* role directly via generateAuthorSvBridge), so registering them\n       here does NOT form a --color-X to --sv-role to --color-X cycle. */",
       },
       { kind: 'decl', property: '--color-primary-foreground', value: { ref: 'primary-fg' } },
       { kind: 'decl', property: '--color-card', value: { ref: 'bg-raised' } },
@@ -1830,7 +1844,7 @@ export const DEFAULT_DESIGN_SOURCE = {
       { kind: 'decl', property: '--sv-fg', value: { ref: 'neutral-950' } },
       {
         kind: 'comment',
-        text: '/* fg-muted uses the v1 neutral default DIRECTLY (no var(--color-muted-foreground,\n       …) self-reference) to avoid the --color-muted-foreground → --sv-fg-muted →\n       --color-muted-foreground CYCLE now that --color-muted-foreground is a\n       registered shadcn alias (DEC-060). Author override still flows through\n       --sv-fg-muted directly via generateAuthorSvBridge. */',
+        text: '/* fg-muted uses the v1 neutral default DIRECTLY (no var(--color-muted-foreground,\n       …) self-reference) to avoid the --color-muted-foreground → --sv-fg-muted →\n       --color-muted-foreground CYCLE now that --color-muted-foreground is a\n       registered shadcn alias. Author override still flows through\n       --sv-fg-muted directly via generateAuthorSvBridge. */',
       },
       { kind: 'decl', property: '--sv-fg-muted', value: { ref: 'neutral-600' } },
       {
@@ -1847,7 +1861,7 @@ export const DEFAULT_DESIGN_SOURCE = {
       { kind: 'blank' },
       {
         kind: 'comment',
-        text: "/* Primary.\n       Neutral defaults are used directly (no var(--color-primary, ...)\n       self-reference) to avoid the --color-primary to --sv-primary to\n       --color-primary cycle that left bg-primary transparent in zero-config.\n       --sv-primary-fg likewise uses the neutral default DIRECTLY: as of DEC-060\n       --color-primary-foreground is a REGISTERED shadcn alias\n       (--color-primary-foreground: var(--sv-primary-fg)), so reading it back as\n       this role's fallback would form a --color-primary-foreground → --sv-primary-fg\n       → --color-primary-foreground cycle. Author override of primary-foreground\n       reaches --sv-primary-fg directly via generateAuthorSvBridge. */",
+        text: "/* Primary.\n       Neutral defaults are used directly (no var(--color-primary, ...)\n       self-reference) to avoid the --color-primary to --sv-primary to\n       --color-primary cycle that left bg-primary transparent in zero-config.\n       --sv-primary-fg likewise uses the neutral default DIRECTLY:\n       --color-primary-foreground is a REGISTERED shadcn alias\n       (--color-primary-foreground: var(--sv-primary-fg)), so reading it back as\n       this role's fallback would form a --color-primary-foreground → --sv-primary-fg\n       → --color-primary-foreground cycle. Author override of primary-foreground\n       reaches --sv-primary-fg directly via generateAuthorSvBridge. */",
       },
       { kind: 'decl', property: '--sv-primary', value: { ref: 'neutral-900' } },
       { kind: 'decl', property: '--sv-primary-hover', value: { ref: 'neutral-800' } },
@@ -1916,7 +1930,7 @@ export const DEFAULT_DESIGN_SOURCE = {
       { kind: 'blank' },
       {
         kind: 'comment',
-        text: "/* Error — author 'danger'/'error' override the -solid slot via --color-error.\n       The --color-destructive / --color-destructive-foreground shadcn names are\n       NO LONGER read here: as of DEC-060 they are registered aliases\n       (--color-destructive: var(--sv-error-solid)), so reading them back as this\n       role's fallback would form a --color-destructive → --sv-error-solid →\n       --color-destructive cycle. A destructive author override reaches\n       --sv-error-solid directly via generateAuthorSvBridge. */",
+        text: "/* Error — author 'danger'/'error' override the -solid slot via --color-error.\n       The --color-destructive / --color-destructive-foreground shadcn names are\n       NO LONGER read here: they are registered aliases\n       (--color-destructive: var(--sv-error-solid)), so reading them back as this\n       role's fallback would form a --color-destructive → --sv-error-solid →\n       --color-destructive cycle. A destructive author override reaches\n       --sv-error-solid directly via generateAuthorSvBridge. */",
       },
       { kind: 'decl', property: '--sv-error-bg', value: { ref: 'error-100' } },
       { kind: 'decl', property: '--sv-error-border', value: { ref: 'error-300' } },

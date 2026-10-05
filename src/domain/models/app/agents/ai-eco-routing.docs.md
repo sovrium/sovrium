@@ -43,6 +43,8 @@ The resolver combines three inputs: the active precedence, whether a local endpo
 
 The mode promises there is no cloud fallback, so an unreachable local model means an app declaring an AI surface can never serve one. Starting anyway would defer the failure to the first user who triggers it.
 
+An `ai-chat` counts as an AI surface wherever it is placed: in a container's children, inside a shared component a page places, or only in a breakpoint's `responsive.<bp>.children`, where it is drawn at that screen size alone.
+
 A configuration with **no** AI surface is unaffected and starts normally: a plain marketing site cannot be failed by a precedence it never consults, and one AI app and one static site should be able to share a host.
 
 ### Reachability is probed, not assumed

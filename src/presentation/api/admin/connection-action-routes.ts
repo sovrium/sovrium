@@ -63,7 +63,7 @@ import {
   type OAuth2AuthCodeProps,
   type OAuth2Props,
 } from '@/presentation/api/connections/oauth2-props'
-import { errorBody, requireSession } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -85,13 +85,12 @@ class AdminConnectionActionError extends Data.TaggedError('AdminConnectionAction
  */
 const ACTION_ERROR_BY_STATUS = {
   400: { code: ApiErrorCode.BAD_REQUEST, message: 'The connection action was refused' },
-  404: { code: ApiErrorCode.NOT_FOUND, message: 'No such connection' },
   500: { code: ApiErrorCode.INTERNAL_ERROR, message: 'The connection action failed' },
   502: {
     code: ApiErrorCode.BAD_GATEWAY,
     message: 'The connection provider could not be reached',
   },
-} satisfies Record<400 | 404 | 500 | 502, { readonly code: ApiErrorCode; readonly message: string }>
+} satisfies Record<400 | 500 | 502, { readonly code: ApiErrorCode; readonly message: string }>
 
 /**
  * A connection-action refusal.
@@ -101,7 +100,7 @@ const ACTION_ERROR_BY_STATUS = {
  * It now builds the canonical envelope and keeps the short slug in `error`,
  * which is what `[internal ref]` matches on.
  */
-const actionError = (c: Context, status: 400 | 404 | 500 | 502, error: string) =>
+const actionError = (c: Context, status: 400 | 500 | 502, error: string) =>
   c.json(errorBody({ error, ...ACTION_ERROR_BY_STATUS[status] }), status)
 
 interface ConnectionConfigDef {
@@ -230,13 +229,13 @@ async function handleAuthorize(c: Context, app: App): Promise<Response> {
   if (!auth.ok) return auth.response
   const { session } = auth
   const id = c.req.param('id')
-  if (id === undefined || id === '') return actionError(c, 404, 'connection_not_found')
+  if (id === undefined || id === '') return notFound(c, 'No such connection')
 
   const lookup = await lookupConnection(c, { by: 'id', value: id })
   if (lookup._tag === 'Failed') return lookup.response
   // Unknown connection id → anti-enum 404 (per-resource miss; the tier guard
   // already 404s non-admin callers).
-  if (lookup._tag === 'Missing') return actionError(c, 404, 'connection_not_found')
+  if (lookup._tag === 'Missing') return notFound(c, 'No such connection')
   const { row } = lookup
 
   const resolved = await resolveAuthorizeProps(c, app, row)
@@ -365,7 +364,7 @@ async function resolveCallback(
 
   const conn = findConfig(app, inputs.name)
   if (conn === undefined || conn.type !== 'oauth2') {
-    return { response: actionError(c, 404, 'connection_not_found') }
+    return { response: notFound(c, 'No such connection') }
   }
   // Resolve `$env.VAR` placeholders before the /token exchange so the
   // clientId/clientSecret/tokenUrl/redirectUri sent to the provider are the
@@ -380,7 +379,7 @@ async function resolveCallback(
 
   const lookup = await lookupConnection(c, { by: 'name', value: inputs.name })
   if (lookup._tag === 'Failed') return { response: lookup.response }
-  if (lookup._tag === 'Missing') return { response: actionError(c, 404, 'connection_not_found') }
+  if (lookup._tag === 'Missing') return { response: notFound(c, 'No such connection') }
 
   return {
     props: fieldsCheck.props,
@@ -480,7 +479,7 @@ async function handleDisconnect(c: Context): Promise<Response> {
   const auth = requireSession(c)
   if (!auth.ok) return auth.response
   const id = c.req.param('id')
-  if (id === undefined || id === '') return actionError(c, 404, 'connection_not_found')
+  if (id === undefined || id === '') return notFound(c, 'No such connection')
 
   const result = await runAdmin(
     c,
@@ -522,7 +521,7 @@ async function handleDisconnect(c: Context): Promise<Response> {
     return actionError(c, 500, 'disconnect_failed')
   }
   // Unknown connection id → anti-enum 404.
-  if (!result.success.found) return actionError(c, 404, 'connection_not_found')
+  if (!result.success.found) return notFound(c, 'No such connection')
   return c.json({ success: true }, 200)
 }
 

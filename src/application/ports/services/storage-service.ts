@@ -106,7 +106,9 @@ export class StorageService extends Context.Service<
     /**
      * File metadata from the storage catalog (`system.file_storage_metadata`),
      * which every provider keeps in sync. Fails with `StorageError` when no
-     * file is stored under `key`.
+     * file is stored under `key`. `bucket` is the binding the catalog records
+     * for the object, absent when it belongs to none — what a copy carries to
+     * its destination so the object stays reachable where it was.
      */
     readonly getMetadata: (
       key: string,
@@ -117,6 +119,7 @@ export class StorageService extends Context.Service<
         readonly contentType: string
         readonly size: number
         readonly lastModified: string
+        readonly bucket?: string
       },
       StorageError
     >

@@ -25,10 +25,17 @@
  * parent record using the page's `dataSource.param`. The form route
  * decides what to do with the result — either proceed with submission
  * (parent OK / no inline-create context) or surface a 422.
+ *
+ * The parent is read as the page read it for the same submitter: a live row
+ * only, through the table's read permission and row-level read rule. A parent
+ * she may not read, or one in the trash, is answered exactly as a missing one —
+ * otherwise the 422-versus-201 answer would tell any submitter whether a row
+ * she cannot open exists.
  */
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { callerReadsRecord } from '@/application/use-cases/tables/permissions/caller-record-gate'
 import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -41,8 +48,10 @@ import type { Component } from '@/domain/models/app/pages/components'
  *   match any page, the matched page has no single-mode dataSource, or no
  *   form-ref on the page targets this form name with `lockPrefill: true`.
  *   The form route should proceed with submission as usual.
- * - `parent-found` — the host page's parent record exists. Submission is
- *   safe.
+ * - `parent-found` — the host page's parent record exists and its submitter
+ *   may read it. Submission is safe. Nothing of the record is handed back:
+ *   the verdict is all the route needs, and a row read for a check must not
+ *   become a row a caller can pass on.
  * - `parent-missing` — the host page's parent record was deleted between
  *   page-render and form-submit. The form route should respond with 422
  *   so the submitter sees an explicit "parent does not exist" error
@@ -51,7 +60,7 @@ import type { Component } from '@/domain/models/app/pages/components'
  */
 export type InlinePrefillRevalidationResult =
   | { readonly kind: 'not-applicable' }
-  | { readonly kind: 'parent-found'; readonly record: Readonly<Record<string, unknown>> }
+  | { readonly kind: 'parent-found' }
   | {
       readonly kind: 'parent-missing'
       readonly tableName: string
@@ -128,7 +137,13 @@ const pageEmbedsLockedFormRef = (page: Page, formName: string): boolean => {
 interface RevalidationContext {
   readonly app: Readonly<App>
   readonly formName: string
-  readonly referer?: string
+  readonly referer?: string | undefined
+  /**
+   * The id of the signed-in submitter, from her session; absent for anyone
+   * else. The rest of her — role, email, groups, assignments — is read by the
+   * caller-record gate, as the records API and the page read it.
+   */
+  readonly submitterUserId?: string | undefined
 }
 
 /**
@@ -211,12 +226,27 @@ export const revalidateInlinePrefillParent = (ctx: RevalidationContext) =>
     if (lookup.kind === 'not-applicable') return { kind: 'not-applicable' as const }
 
     const repo = yield* DataSourceRepository
+    // Live rows only: a trashed parent answers as missing, as on the records API.
     const record = yield* repo.fetchSingleRecord(
       lookup.tableName,
       lookup.paramField,
-      lookup.paramValue
+      lookup.paramValue,
+      undefined,
+      { liveOnly: true }
     )
-    if (record === undefined) {
+    // The parent is judged as the WHOLE of its submitter reads it — the gate the
+    // page that drew it and the records API answer — and a parent she may not
+    // read answers exactly as a missing one, so the 422-versus-201 answer tells
+    // her nothing about a row she cannot open.
+    const readable =
+      record !== undefined &&
+      (yield* callerReadsRecord({
+        app: ctx.app,
+        tableName: lookup.tableName,
+        userId: ctx.submitterUserId,
+        record,
+      }))
+    if (record === undefined || !readable) {
       return {
         kind: 'parent-missing' as const,
         tableName: lookup.tableName,
@@ -224,7 +254,7 @@ export const revalidateInlinePrefillParent = (ctx: RevalidationContext) =>
         paramValue: lookup.paramValue,
       }
     }
-    return { kind: 'parent-found' as const, record }
+    return { kind: 'parent-found' as const }
   }).pipe(
     Effect.withSpan('forms.revalidate-inline-prefill-parent', {
       attributes: { form: ctx.formName },

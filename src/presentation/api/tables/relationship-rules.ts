@@ -7,7 +7,10 @@
 
 import { Effect } from 'effect'
 import { findRelationshipLinkOverflows } from '@/domain/models/app/tables/relationship-links-validation'
+import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { FieldValidationError, ValidationContext } from '../middleware/validation'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
+import type { Context } from 'hono'
 
 /**
  * Reject a `relationship` write linking more records than `maxLinked` permits.
@@ -54,4 +57,14 @@ export function validateRelationshipLinkLimits(
       )
     }
   })
+}
+
+/**
+ * The caller as the link target check judges them: the request's session, role
+ * and groups. Every records write that sets a relationship hands this to its
+ * program, so a link is judged by one identity whatever the verb.
+ */
+export function getLinkReader(c: Context): LinkReader {
+  const { session, userRole, userGroups } = getTableContext(c)
+  return { session, role: userRole, groups: userGroups }
 }

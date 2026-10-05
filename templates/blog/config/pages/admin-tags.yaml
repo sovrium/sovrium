@@ -1,95 +1,46 @@
+# The tags an essay can carry. Add one from the grid's own New record button;
+# a tag in use cannot be deleted without first removing it from its posts.
 name: admin-tags
 path: /admin/tags
 access:
-  require: authenticated
+  require: [admin]
   redirectTo: /admin/login
 meta:
-  title: Admin · Tags
-  description: Manage post tags
+  title: Tags · Field Notes
+  description: The tags an essay can carry.
 components:
   - type: container
-    element: section
     props:
-      className: bg-background min-h-screen py-10 px-6
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: max-w-3xl mx-auto
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: link
-            props:
-              href: /admin
-              className: text-md mb-6 inline-block text-primary hover:underline
-            content: ← Back to posts
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-6 text-foreground
-            content: Tags
-
-          # Existing tags
           - type: container
             props:
-              className: rounded-lg border border-border bg-card p-2 mb-8
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Tags
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
             children:
               - type: table
                 dataSource:
                   table: tags
                   sort:
-                    - field: name
-                      direction: asc
+                    - { field: name, direction: asc }
+                rowHeight: short
                 columns:
-                  - field: name
-                    label: Name
-                  - field: slug
-                    label: Slug
-                  - type: actions
-                    label: Actions
-                    actions:
-                      - label: Delete
-                        icon: trash
-                        confirm: Delete this tag?
-                        action:
-                          type: crud
-                          operation: delete
-                          table: tags
-                          onSuccess:
-                            navigate: /admin/tags
-                            toast:
-                              message: Tag deleted
-                              variant: success
+                  - { field: name, label: Name }
+                  - { field: slug, label: Slug }
                 pagination:
-                  pageSize: 20
-                emptyMessage: No tags yet.
-
-          # Add a tag
-          - type: text
-            element: h2
-            props:
-              className: text-xl font-semibold mb-3 text-foreground
-            content: Add a tag
-          - type: container
-            props:
-              className: p-6 rounded-lg border border-border bg-card
-            children:
-              - type: form
-                props:
-                  id: new-tag-form
-                dataSource:
-                  table: tags
-                fields:
-                  - field: name
-                    label: Name
-                    placeholder: e.g. Engineering
-                  - field: slug
-                    label: Slug
-                    placeholder: e.g. engineering
-                action:
-                  type: crud
-                  operation: create
-                  table: tags
-                  onSuccess:
-                    navigate: /admin/tags
-                    toast:
-                      message: Tag added
-                      variant: success
+                  pageSize: 50
+                emptyMessage: Tags say what an essay is about. Add the first one with New record.

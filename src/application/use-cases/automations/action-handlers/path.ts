@@ -7,11 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
@@ -49,8 +45,8 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * `batchCreate` then iterates zero items. Same failure `loop.ts` documents for
  * its `items` prop, reached here through a branch body instead.
  *
- * So — exactly as `loop.ts` does — this handler reads the RAW pre-substitution
- * action from `runContext.rawAction` and re-resolves per branch via
+ * So — exactly as `loop.ts` does — this handler reads its props as AUTHORED
+ * (`authoredActionProps`, nothing filled in yet) and resolves them per branch via
  * `resolveRunContextValue`, which unwraps a whole-string `{{path}}` to the VALUE
  * at that path (arrays and objects intact) and falls back to string
  * substitution otherwise: the path's `condition` first, then each nested
@@ -123,12 +119,11 @@ const declaredPaths = (props: Readonly<Record<string, unknown>>): ReadonlyArray<
  * condition is re-resolved against the run context first, because the raw
  * action still carries `{{trigger.data.plan}}` in its `field` positions.
  */
-const pathMatches = (path: DeclaredPath, context: Readonly<Record<string, unknown>>): boolean => {
+const pathMatches = (path: DeclaredPath, runContext: ActionRunContext): boolean => {
   if (path.condition === undefined) return true
-  const resolved = resolveRunContextValue(path.condition, context) as Readonly<
-    Record<string, unknown>
-  >
-  return evaluateGroup(resolved)
+  return evaluateGroup(
+    resolveOwnProp(runContext, path.condition) as Readonly<Record<string, unknown>>
+  )
 }
 
 /**
@@ -139,19 +134,16 @@ const pathMatches = (path: DeclaredPath, context: Readonly<Record<string, unknow
  */
 const runBranch = (input: {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly context: Readonly<Record<string, unknown>>
+  readonly runContext: ActionRunContext
   readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
 }): Promise<unknown> => {
-  const { actions, context, invoke } = input
+  const { actions, runContext, invoke } = input
   return actions.reduce<Promise<unknown>>(
     (prev, nested) =>
       prev.then(() => {
         const type = String(nested['type'] ?? '')
         const operator = String(nested['operator'] ?? '')
-        const props = resolveRunContextValue(nested['props'] ?? {}, context) as Record<
-          string,
-          unknown
-        >
+        const props = resolveOwnProp(runContext, nested['props'] ?? {}) as Record<string, unknown>
         return invoke(type, operator, props)
       }),
     Promise.resolve<unknown>(undefined)
@@ -169,14 +161,14 @@ interface BranchRun {
  */
 const runSelectedBranches = (input: {
   readonly selected: ReadonlyArray<DeclaredPath>
-  readonly context: Readonly<Record<string, unknown>>
+  readonly runContext: ActionRunContext
   readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
 }): Promise<BranchRun> => {
-  const { selected, context, invoke } = input
+  const { selected, runContext, invoke } = input
   return selected.reduce<Promise<BranchRun>>(
     async (prev, path) => {
       const acc = await prev
-      const result = await runBranch({ actions: path.actions, context, invoke })
+      const result = await runBranch({ actions: path.actions, runContext, invoke })
       return {
         matched: [...acc.matched, path.name],
         results: { ...acc.results, [path.name]: result ?? {} },
@@ -192,17 +184,16 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
       return fail('path.branch requires a run context to dispatch its branch actions')
     }
     const invoke = runContext.invokeNativeAction
-    const props = rawActionProps(runContext)
-    const context = buildRunContextView(runContext)
+    const props = authoredActionProps(runContext)
 
     const paths = declaredPaths(props)
-    const matching = paths.filter((path) => pathMatches(path, context))
+    const matching = paths.filter((path) => pathMatches(path, runContext))
     // `first-match` is the default when `mode` is absent (schema annotation).
     const allMatching = String(props['mode'] ?? 'first-match') === 'all-matching'
     const selected = allMatching ? matching : matching.slice(0, 1)
 
     return yield* Effect.tryPromise({
-      try: () => runSelectedBranches({ selected, context, invoke }),
+      try: () => runSelectedBranches({ selected, runContext, invoke }),
       catch: (cause) =>
         new PathBranchError({
           message: cause instanceof Error ? cause.message : String(cause),

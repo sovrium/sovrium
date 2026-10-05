@@ -32,6 +32,14 @@ export interface PersistedRun {
   readonly completedAt: string | null
   readonly durationMs: number | null
   readonly error: string | null
+  /** The account whose action caused the run, or `null` (the system, or an erased account). */
+  readonly triggeredByUserId: string | null
+  /** A person started the run by hand, so its record actions write as `triggeredByUserId`. */
+  readonly startedByHand: boolean
+  /** The run that handed this one its trigger data (`RunRelay`, raw), or `null`. */
+  readonly relay: unknown
+  /** When the values this run captured were erased with an account (ISO 8601), or `null`. */
+  readonly valuesErasedAt: string | null
 }
 
 /**
@@ -51,6 +59,8 @@ export interface PersistedStep {
   readonly error: string | null
   /** `context.log` entries of a code step (redacted), or `null` when it logged nothing. */
   readonly logs: unknown
+  /** What the step recorded reading as it ran (`StepRead[]`, raw), or `null`. */
+  readonly reads: unknown
 }
 
 /**
@@ -71,11 +81,28 @@ export interface CreateRunInput {
    * Resolve raw session ids through `resolveActorUserId` before setting this.
    */
   readonly triggeredByUserId?: string
+  /**
+   * `triggeredByUserId` started the run by hand (see `PersistedRun.startedByHand`).
+   * Kept with the run so a resume after an approval writes as the same person.
+   */
+  readonly startedByHand?: boolean
+  /** The run that handed this one its trigger data (`RunRelay`). Omitted for any other run. */
+  readonly relay?: unknown
   readonly startedAt?: Date
   readonly completedAt?: Date
   readonly durationMs?: number
   readonly error?: string
   readonly steps?: readonly CreateStepInput[]
+  /** The records the run read, by id, for the erasure index. */
+  readonly refs?: readonly RunRecordRef[]
+  /** The runs whose refs this run inherits — the runs its synchronous calls started. */
+  readonly refsFromRuns?: readonly string[]
+}
+
+/** One record a run read: its table and its id, or `'*'` for the whole table. */
+export interface RunRecordRef {
+  readonly table: string
+  readonly record: string
 }
 
 /**
@@ -93,6 +120,8 @@ export interface CreateStepInput {
   readonly error?: string
   /** Redacted `context.log` entries of a code step. */
   readonly logs?: unknown
+  /** What the step recorded reading as it ran (`StepRead[]`). */
+  readonly reads?: unknown
 }
 
 /**
@@ -113,6 +142,18 @@ export interface ListRunsOptions {
   readonly status?: string
   readonly page?: number
   readonly pageSize?: number
+  /** Restrict to the runs one caller may read; omitted for a caller who reads every run. */
+  readonly readableBy?: RunReaderScope
+}
+
+/**
+ * The runs a caller who does not read every run may read: those `userId`
+ * started by hand, and those listed in `runIds` (the runs a request names them
+ * an approver of). Applied in the query, so a list's total counts only them.
+ */
+export interface RunReaderScope {
+  readonly userId: string
+  readonly runIds: readonly string[]
 }
 
 /**
@@ -131,7 +172,8 @@ export class AutomationRunRepository extends Context.Service<
       id: string
     ) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     readonly listByAutomationName: (
-      automationName: string
+      automationName: string,
+      readableBy?: RunReaderScope
     ) => Effect.Effect<readonly PersistedRun[], AutomationRunDatabaseError>
     readonly listAll: (
       options: ListRunsOptions
@@ -156,6 +198,17 @@ export class AutomationRunRepository extends Context.Service<
       readonly startedAt?: Date
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     /**
+     * Replace the recorded `output` of one step of a run, addressed by its
+     * 0-indexed position. Used when an approval the run paused on is resolved,
+     * so the paused run's log reads the decision and who made it. Returns
+     * whether a step row matched.
+     */
+    readonly recordStepOutput: (input: {
+      readonly runId: string
+      readonly stepIndex: number
+      readonly output: unknown
+    }) => Effect.Effect<boolean, AutomationRunDatabaseError>
+    /**
      * Finalise a run that was previously inserted as `'queued'` / `'running'`:
      * update the terminal status + timings, optionally append step rows.
      * Used by the scheduler at the end of a run so the row id stays stable
@@ -172,6 +225,8 @@ export class AutomationRunRepository extends Context.Service<
       readonly durationMs?: number
       readonly error?: string
       readonly steps?: readonly CreateStepInput[]
+      readonly refs?: readonly RunRecordRef[]
+      readonly refsFromRuns?: readonly string[]
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
   }
 >()('AutomationRunRepository') {}

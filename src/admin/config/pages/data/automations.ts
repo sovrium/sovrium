@@ -77,6 +77,21 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 const CATALOG_GRID_ID = 'automations-catalog-grid'
 
 /** Id of the run-history grid — addressed directly by the surface's own specs. */
+/**
+ * The run status badge: an outline-dot chip, the dot painted with `dot`.
+ *
+ * A function rather than six literals so the six statuses cannot drift apart;
+ * the CSS candidates are harvested from the resolved preset, so a composed
+ * class string still reaches the stylesheet.
+ */
+const runStatusBadge = (dot: string): string =>
+  [
+    '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full',
+    '[&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5',
+    '[&>span]:text-xs [&>span]:text-foreground',
+    `[&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:${dot}`,
+  ].join(' ')
+
 const RUNS_GRID_ID = 'automation-runs-grid'
 
 /**
@@ -281,6 +296,12 @@ const filterBar = (): PageComponent =>
           { value: 'completed', label: '$t:admin.automations.runs.status.success' },
           { value: 'failed', label: '$t:admin.automations.runs.status.failed' },
           { value: 'completed-with-errors', label: '$t:admin.automations.runs.status.partial' },
+          {
+            value: 'waiting-approval',
+            label: '$t:admin.automations.runs.status.waitingApproval',
+          },
+          { value: 'rejected', label: '$t:admin.automations.runs.status.rejected' },
+          { value: 'cancelled', label: '$t:admin.automations.runs.status.cancelled' },
         ],
       }),
     ],
@@ -320,33 +341,49 @@ const runsGrid = (): PageComponent =>
         field: 'status',
         label: '$t:admin.automations.runs.col.status',
         // The platform has already turned the engine's word into the operator's
-        // (`completed` → `Success`, see `automation-run-status.ts`) before a row
-        // reaches the grid, so the map is keyed on THAT word, and so is
-        // `cellStyle`, which reads the value and never the label.
+        // (`completed` → `Success`, `waiting-approval` → `Waiting for approval`,
+        // see `automation-run-status.ts`) before a row reaches the grid, so the
+        // map is keyed on THAT word, and so is `cellStyle`, which reads the
+        // value and never the label.
         valueLabels: {
           Success: '$t:admin.automations.runs.status.success',
           Failed: '$t:admin.automations.runs.status.failed',
           Partial: '$t:admin.automations.runs.status.partial',
+          'Waiting for approval': '$t:admin.automations.runs.status.waitingApproval',
+          Rejected: '$t:admin.automations.runs.status.rejected',
+          Cancelled: '$t:admin.automations.runs.status.cancelled',
+          'Retries exhausted': '$t:admin.automations.runs.status.retriesExhausted',
+          'Timed out': '$t:admin.automations.runs.status.timedOut',
+          Queued: '$t:admin.automations.runs.status.queued',
+          Running: '$t:admin.automations.runs.status.running',
+          Skipped: '$t:admin.automations.runs.status.skipped',
         },
+        // One outline-dot badge per status, the form the templates' option
+        // chips take: an outlined chip on the page's strong edge with a leading
+        // dot, so the word stays the reading and the dot only marks the kind.
+        // Every class is scoped to the cell's inner `span` (`[&>span]:`): the
+        // grid writes a `cellStyle` class on the cell AND on the span inside
+        // it, and a pill painted on the whole cell reads as a grey slab.
         cellStyle: [
-          {
-            when: { eq: 'Success' },
-            className: 'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
-          },
-          {
-            when: { eq: 'Failed' },
-            // The error role, not the "danger" one: the theme declares no such
-            // role at all, so both halves of the pair that stood here emitted
-            // no rule and a Failed run was painted exactly like an unstyled
-            // cell — the one status on this table that has to read at a
-            // glance. This is the same pill the Blocked and Revoked statuses
-            // wear on the users and connections surfaces.
-            className: 'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
-          },
-          {
-            when: { eq: 'Partial' },
-            className: 'bg-warning-bg text-warning-fg rounded-full px-2 py-0.5 text-sm',
-          },
+          { when: { eq: 'Success' }, className: runStatusBadge('bg-success-solid') },
+          // The error role — the one status here that has to read at a glance.
+          { when: { eq: 'Failed' }, className: runStatusBadge('bg-error-solid') },
+          { when: { eq: 'Partial' }, className: runStatusBadge('bg-warning-solid') },
+          // Someone has to answer before the run can go on.
+          { when: { eq: 'Waiting for approval' }, className: runStatusBadge('bg-info-solid') },
+          // A decision, not a fault: an approver said no, or the run was
+          // stopped on purpose. Neither is painted as a failure.
+          { when: { eq: 'Rejected' }, className: runStatusBadge('bg-foreground-subtle') },
+          { when: { eq: 'Cancelled' }, className: runStatusBadge('bg-foreground-subtle') },
+          // Every retry spent: a failure, painted as one.
+          { when: { eq: 'Retries exhausted' }, className: runStatusBadge('bg-error-solid') },
+          // It ran out of time rather than broke: a warning.
+          { when: { eq: 'Timed out' }, className: runStatusBadge('bg-warning-solid') },
+          // Not finished yet: waiting for its turn, or under way.
+          { when: { eq: 'Queued' }, className: runStatusBadge('bg-foreground-subtle') },
+          { when: { eq: 'Running' }, className: runStatusBadge('bg-info-solid') },
+          // A filter stopped it, as written — not a fault.
+          { when: { eq: 'Skipped' }, className: runStatusBadge('bg-foreground-subtle') },
         ],
       },
       { field: 'startedAt', label: '$t:admin.automations.runs.col.started', format: 'datetime' },
@@ -636,8 +673,11 @@ const headerField = (
  * It does, without a map in this file: the platform relabels any read of the
  * runs endpoint — the grid's in the browser, this page's `{ system }` record on
  * the server — from one shared table, so the header and each station print
- * `Success` where the engine stored `completed`. Adding a second map here is
- * exactly how one vocabulary would come to have two spellings.
+ * `Success` where the engine stored `completed`. The server read also puts the
+ * word in the reader's language, from the same `$t:` keys the grid's
+ * `valueLabels` name — a French operator reads « Ignorée » here as in the
+ * history. Adding a second map here is exactly how one vocabulary would come to
+ * have two spellings.
  */
 const runHeader = (): PageComponent =>
   ({
@@ -654,8 +694,8 @@ const runHeader = (): PageComponent =>
           className: 'font-mono',
         }
       ),
-      // The VALUE stays the platform's English word (`Success`) in every
-      // language: a `$record.` value has no `valueLabels` hook to translate it.
+      // The VALUE is the grid's word in the reader's language: the server-side
+      // read relabels it from the keys the grid's `valueLabels` name.
       ...headerField('$t:admin.automations.runs.detail.field.status', '$record.status', {
         'data-testid': 'run-status',
       }),
@@ -798,8 +838,8 @@ const stepStation = (): PageComponent =>
             props: { className: 'text-foreground min-w-0 font-mono text-sm' },
             content: '$step.name',
           },
-          // Like the run header's status, the step's word stays the platform's
-          // English one: a `$step.` value has no `valueLabels` hook.
+          // Like the run header's status, the step's word is relabelled in the
+          // reader's language on the server (`filtered` under its own key).
           {
             type: 'text',
             element: 'span',

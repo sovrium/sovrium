@@ -1,0 +1,46 @@
+# Where a place on the waitlist lands: `/on-the-waitlist/<event>`, bound to
+# that one event so it names it. Nothing of the attendee travels in the
+# address.
+name: on-the-waitlist
+path: /on-the-waitlist/:id
+dataSource:
+  table: events
+  mode: single
+  param: id
+meta:
+  title: On the waitlist · Fieldday
+  description: You are on the waitlist. We email you if a seat frees up.
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: main
+        props:
+          className: mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-4 px-6 pt-16 pb-10 max-md:px-4 max-md:pt-8
+        children:
+          - type: icon
+            props:
+              name: clock
+              size: 28
+              className: text-warning
+          - type: text
+            element: h1
+            props:
+              className: text-[30px] font-semibold leading-tight tracking-tight text-foreground max-md:text-2xl
+            content: You are on the waitlist for $record.name
+          - type: text
+            element: p
+            props:
+              className: text-base text-foreground-muted
+            content: $record.when_label, at $record.place. If a seat frees up, we email you and hold it for a day.
+          - type: container
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] font-medium text-foreground hover:bg-background-subtle
+                content: See the other events
+      - $ref: ./_site-footer.yaml

@@ -14,7 +14,7 @@
  * This module is intentionally generator-free: it holds only the SQL-literal
  * helpers, the `source_content` / `source-changed` expression builders, the
  * trigger-timing resolver, the standard 3-statement trigger bundle, and a
- * re-export of the domain's `AI_COMPUTE_FIELD_TYPES` registry consulted by
+ * re-export of the domain's `isAiComputeFieldType` predicate consulted by
  * callers that need to know whether an app schema has *any* ai-compute field
  * (e.g. the server deciding whether to start the `AiComputeListener`). The
  * kind-specific PL/pgSQL lives next to its `generateAi<Kind>Triggers` export in
@@ -24,7 +24,7 @@
 import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 
 /**
- * The `ai-*` field-type registry, re-exported so every existing importer keeps
+ * The `ai-*` field-type predicate, re-exported so every existing importer keeps
  * its specifier.
  *
  * The list itself now lives in the DOMAIN, at
@@ -35,10 +35,7 @@ import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
  *. Extend it there when a new ai-* kind gains a
  * generator.
  */
-export {
-  AI_COMPUTE_FIELD_TYPES,
-  isAiComputeFieldType,
-} from '@/domain/models/app/tables/fields/field-types/ai/ai-field-types'
+export { isAiComputeFieldType } from '@/domain/models/app/tables/fields/field-types/ai/ai-field-types'
 
 /**
  * Re-export the canonical DDL single-quote escaper so the sibling ai-*-trigger

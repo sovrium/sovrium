@@ -16,4 +16,3 @@
  */
 
 export { parseAiEnvConfig } from '@/domain/models/process-env/ai/ai'
-export type { AiEnvConfig } from '@/domain/models/process-env/ai/ai'

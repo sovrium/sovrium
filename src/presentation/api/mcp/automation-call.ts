@@ -26,18 +26,21 @@
  *   - Anything else (RegistrySeedError, runtime fault) → -32603
  *
  * The role required by the trigger is resolved by `runManualAutomation`
- * itself; we just pass the caller's MCP role through. Static-token callers
- * still produce a meaningful role (admin / member / viewer); OAuth callers
- * map their Better Auth user role through the same path.
+ * itself; we just pass the caller's account role through. Every credential
+ * `/mcp` accepts names a Better Auth user, whose stored role is the one
+ * matched.
  */
 
 import { Effect } from 'effect'
+import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import {
   type RunAutomationError,
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
@@ -83,10 +86,43 @@ export const resolveAutomationTool = (app: App, toolName: string): Automation | 
  * the owner's account role exactly as the records API's button route passes
  * it, not the three-tier MCP view. `caller.role` collapses a custom role to
  * `member`, which refused a custom role the trigger names and handed a role
- * ranked below `member` the `member` answer. The static-token caller carries
- * no account role and falls back to its configured tier.
+ * ranked below `member` the `member` answer. Only the fail-closed fallback
+ * caller carries no account role; it falls back to its `viewer` tier.
  */
 const callerRoleForManualTrigger = (caller: McpCaller): string => caller.accountRole ?? caller.role
+
+/**
+ * Whether `tools/list` offers this tool to the caller, as far as manual
+ * automations are concerned: a tool that is not an automation tool is left to
+ * the other filters, and an automation tool is offered exactly when the call
+ * would run it — the same role, through the same {@link mayRunManualAutomation}
+ * decision `runManualAutomation` applies.
+ *
+ * An automation that is off — switched off in config (`enabled: false`) or
+ * paused by an operator (`pausedNames`) — is never offered: the call answers it
+ * "not found", so listing it would offer a tool that cannot run. Resuming it
+ * offers it again on the next `tools/list`.
+ */
+export const automationToolIsOffered = (
+  app: App,
+  toolName: string,
+  caller: Readonly<McpCaller>,
+  pausedNames: ReadonlySet<string> = new Set()
+): boolean => {
+  const automation = resolveAutomationTool(app, toolName)
+  if (automation === undefined) return true
+  if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
+  return mayRunManualAutomation(automation, app, callerRoleForManualTrigger(caller))
+}
+
+/**
+ * The automations an operator has paused, read once per `tools/list` through
+ * the server's own services. A failed read counts none as paused — the call
+ * still refuses a paused automation, so the list can only over-offer, never
+ * run one.
+ */
+export const loadPausedAutomations = (domainContext: DomainContext): Promise<ReadonlySet<string>> =>
+  runOnDomain(domainContext, loadPausedAutomationNames)
 
 /**
  * Translate a `runManualAutomation` failure into the appropriate JSON-RPC

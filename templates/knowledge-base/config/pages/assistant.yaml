@@ -1,0 +1,42 @@
+# Ask the handbook: an assistant that answers from the five articles everyone
+# may read (config/agents/handbook-assistant.yaml). It needs an AI provider —
+# without `AI_PROVIDER` the rest of the handbook runs and this page says what
+# to set.
+name: assistant
+path: /assistant
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Ask the handbook · Corvel handbook
+  description: Ask a question and get the answer from Corvel's handbook.
+components:
+  - $ref: ./_kb-header.yaml
+  - type: container
+    element: section
+    props:
+      className: mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 pt-8 pb-10 max-md:px-3.5
+    children:
+      - type: container
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-[30px] font-semibold tracking-tight text-foreground max-md:text-2xl
+            content: Ask the handbook
+          - type: text
+            element: p
+            props:
+              className: text-foreground-muted
+            content: The answer comes from the handbook, with the article it is taken from.
+      - type: ai-chat
+        agent: handbook-assistant
+        placeholder: Ask about expenses, your laptop, your first week
+        chatHeight: 480
+        props:
+          suggestions:
+            - What can I expense without asking?
+            - What do I do on my first day?
+            - Where do my passwords go?

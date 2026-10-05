@@ -54,7 +54,7 @@ export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
  * That conflict used to be a FALSE POSITIVE, because the size was spelled
  * `text-[0.6875rem]`, an arbitrary value that sets font-size only. It is real
  * now: `text-xs` is a named rung of the platform ladder and carries
- * `--text-xs--line-height` with it, so `leading-[1.3]` genuinely has to come
+ * `--text-xs--line-height` with it, so `leading-[14px]` genuinely has to come
  * after to win. The ordering did not change; what it protects did.
  *
  * This is the ONLY recipe in `src/presentation/` that carried a same-property
@@ -67,9 +67,11 @@ const BADGE_LAYOUT = [
   // NOT move to `--sv-density-text`: that token is the dense SECONDARY text of
   // a data row, and a nav badge is chrome with a step of its own.
   'inline-flex items-center gap-1 px-(--sv-density-gap) py-0.5 font-medium whitespace-nowrap',
-  // 11px on a 1.3 leading — the canvas `.badge`. `leading-none` clipped
-  // descenders on the one rung small enough for it to show.
-  `text-xs leading-[1.3]`,
+  // 11px on a 14px line — the canvas `.badge`, whose 1.3 leading (14.3px) drew
+  // the chip 20.3px tall; a whole-pixel line draws it at 20px exactly (2px of
+  // padding and a 1px border each way). `leading-none` clipped descenders on
+  // the one rung small enough for it to show.
+  `text-xs leading-[14px]`,
 ].join(' ')
 
 /**

@@ -202,9 +202,11 @@ export const handleSovriumValidateConfig: ActionHandler = (
       if (!('config' in props)) {
         return { status: 'failure', error: 'sovrium.validateConfig requires a config prop' }
       }
+      // Final props (a step handed them over) are used as given, never looked up.
+      const final = (runContext as ActionRunContext).propsFinal === true
       const context = buildRunContextView(runContext as ActionRunContext)
-      const candidate = derefOrVerbatim(props['config'], context)
-      const formatValue = derefOrVerbatim(props['format'], context)
+      const candidate = final ? props['config'] : derefOrVerbatim(props['config'], context)
+      const formatValue = final ? props['format'] : derefOrVerbatim(props['format'], context)
       const format = typeof formatValue === 'string' ? formatValue : undefined
 
       const parsed = parseCandidate(candidate, format)

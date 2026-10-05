@@ -8,12 +8,17 @@
 import { Tabs } from '@base-ui/react/tabs'
 import { useCallback, useEffect, useId, useMemo, useRef, type ReactElement } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { RUNTIME_READY_MARKS } from '@/presentation/design/runtime-ready-marks'
 import {
   computeTabsFillPanelClasses,
   computeTabsFillShellClasses,
   type TabsLayout,
 } from '@/presentation/design/tabs-fill-default-classes'
-import { mountNestedIslands, releaseDetachedIslands } from '../overlays/live-injected-markup'
+import {
+  mountNestedIslands,
+  releaseDetachedIslands,
+  runInjectedScripts,
+} from '../overlays/live-injected-markup'
 import {
   computeTabPanelClasses,
   computeTabsListClasses,
@@ -51,16 +56,6 @@ interface TabsIslandProps {
    */
   readonly ariaLabel?: string
   /**
-   * `data-component-type` from the SSR wrapper this island REPLACES.
-   *
-   * The wrapper is not kept — `createRoot` renders `Tabs.Root` in its place —
-   * so an attribute that only lived on it would vanish on mount. Carrying it
-   * across is what makes `[data-component-type="tabs"]` name the same element
-   * before and after hydration, which is how a spec can assert that a class
-   * survived the client re-render rather than merely that it was emitted.
-   */
-  readonly componentType?: string
-  /**
    * `design.components.tabs.parts`, minus `root`.
    *
    * The root part is already inside `className`; these are the parts that land
@@ -96,7 +91,8 @@ interface TabsIslandProps {
  * The markup of each panel the SERVER rendered into this host, keyed by panel id.
  *
  * Parsed from the captured subtree rather than read live: by the time any island
- * code runs, `createRoot` has already discarded those nodes. Assigning to a
+ * code runs, `createRoot` has already discarded those nodes. Their scripts run
+ * again once the panel is injected (`useNestedIslandMount`). Assigning to a
  * detached element's `innerHTML` never executes a `<script>` in it, and nothing
  * here adopts a parsed node into the live tree — the strings go back through the
  * same `dangerouslySetInnerHTML` path the props always took.
@@ -111,6 +107,12 @@ function parseSsrPanels(ssrHtml: string | undefined): Readonly<Record<string, st
   const holder = document.createElement('div')
   // eslint-disable-next-line functional/immutable-data -- filling a detached parse buffer IS the point of creating it
   holder.innerHTML = ssrHtml
+  // The capture was taken after the page's inline scripts ran, so a control
+  // they wired carries the mark its runtime left on the node it bound — a node
+  // `createRoot` has since discarded. Cleared, so each runtime binds the copy.
+  RUNTIME_READY_MARKS.forEach((mark) =>
+    holder.querySelectorAll(`[${mark}]`).forEach((node) => node.removeAttribute(mark))
+  )
   return Object.fromEntries(
     Array.from(holder.querySelectorAll<HTMLElement>('[data-tab-panel-id]')).map((panel) => [
       panel.dataset.tabPanelId ?? '',
@@ -138,6 +140,12 @@ function parseSsrPanels(ssrHtml: string | undefined): Readonly<Record<string, st
  * Both steps, and the unmount when the tab set goes away, are the shared
  * `mountNestedIslands`.
  *
+ * The same pass brings the panels' scripts to life (`runInjectedScripts`):
+ * markup placed through `dangerouslySetInnerHTML` never runs its `<script>`s, and
+ * an embedded `formRef` form ships its client runtime — validation, background
+ * submit, the audio recorder — as exactly such a script. It runs once per
+ * injected copy of a panel, and the runtime binds once per form node.
+ *
  * Only the LATEST scan's disposer is kept, and it runs only when the tab set
  * itself unmounts. Every disposer unmounts the same thing — every island under
  * the root — so disposing on each re-scan would tear down, and remount, the
@@ -155,6 +163,7 @@ function useNestedIslandMount(rootRef: React.RefObject<HTMLDivElement | null>): 
     if (!root) return
     // eslint-disable-next-line functional/immutable-data -- a ref's `.current` is React's own mutable cell, which is what it is for
     disposeRef.current = mountNestedIslands(root, () => {
+      runInjectedScripts(root)
       // eslint-disable-next-line functional/immutable-data -- same: the hosts this tab set has mounted, carried to the next scan
       hostsRef.current = releaseDetachedIslands(hostsRef.current, root)
     })
@@ -274,7 +283,6 @@ export default function TabsIsland(props: TabsIslandProps): ReactElement {
     id,
     'data-testid': testId,
     ariaLabel,
-    componentType,
     lazyParam,
   } = props
   const { items, defaultValue, rootRef, uid, parts, ssrPanels, lazy } = useTabsIslandModel(props)
@@ -290,7 +298,6 @@ export default function TabsIsland(props: TabsIslandProps): ReactElement {
       className={resolveClasses(parts.root, undefined, className)}
       id={id}
       data-testid={testId}
-      data-component-type={componentType}
       // Re-scan on every tab activation: Base UI mounts the newly-selected
       // panel's DOM (and its nested `data-island` markers) only on activation,
       // so a marker in an initially-inactive panel must be mounted then. On an

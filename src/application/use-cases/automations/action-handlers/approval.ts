@@ -32,16 +32,22 @@
  *
  * The handler's `output` carries `status: 'pending'` plus the configured
  * `timeout` / `onTimeout`, which the run loop shallow-merges into
- * `lastOutput` and the webhook dispatcher surfaces as the response
- * `body.output`.
+ * `lastOutput` and the manual-trigger response surfaces as
+ * `body.output` (a webhook's default answer carries none of it).
  *
  * Wave: [internal ref].
  */
 
 import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { parseDuration } from '@/domain/kernel/time/parse-duration'
-import { toApproverList } from '@/domain/models/app/automations/actions/approval/approver-validation'
+import {
+  approverAddresses,
+  pinApprovers,
+  toApproverList,
+  type PinnedApprovers,
+} from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -62,7 +68,7 @@ const insertApprovalRequest = (input: {
   readonly expiresAt: Date | undefined
   readonly runId: string | undefined
   readonly stepIndex: number
-  readonly approvers: 'all-admins' | readonly string[] | undefined
+  readonly approvers: 'all-admins' | PinnedApprovers | undefined
 }): Effect.Effect<void, never, AutomationApprovalRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationApprovalRepository
@@ -101,6 +107,31 @@ const deriveTimeout = (
 }
 
 /**
+ * The approvers a request persists: `all-admins` as it is, and a list pinned —
+ * every address in it bound to the account that holds it NOW, so an account
+ * registered later with that address never becomes an approver. A failed
+ * lookup pins no account, and those addresses then name nobody: the request
+ * can still be resolved by the roles it names, or by an admin re-running it.
+ */
+const pinRequestApprovers = (
+  raw: unknown
+): Effect.Effect<'all-admins' | PinnedApprovers | undefined, never, AuthRepository> =>
+  Effect.gen(function* () {
+    if (raw === undefined) return undefined
+    const list = toApproverList(raw)
+    if (list === 'all-admins') return list
+    const auth = yield* AuthRepository
+    const holders = yield* auth.findUserIdsByEmails(approverAddresses(list)).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[automations] approver addresses not resolved', cause))
+      ),
+      // effect-swallow: logged above — an address left unpinned names nobody, so a failed lookup can only NARROW who may approve.
+      Effect.orElseSucceed(() => new Map<string, string>())
+    )
+    return pinApprovers(list, holders)
+  })
+
+/**
  * `approval/request` — record a pending approval request and surface the
  * approval configuration on the step output.
  */
@@ -119,7 +150,7 @@ export const handleApprovalRequest: ActionHandler = (action, _app, automation, r
       stepIndex: runContext?.stepIndex ?? 0,
       // Persisted as rendered for THIS run, so the resolution gate checks the
       // caller against who this run named; omitted stays null (all-admins).
-      approvers: props['approvers'] === undefined ? undefined : toApproverList(props['approvers']),
+      approvers: yield* pinRequestApprovers(props['approvers']),
     })
 
     return {

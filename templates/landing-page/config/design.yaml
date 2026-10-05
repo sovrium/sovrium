@@ -1,91 +1,175 @@
-# Landing page theming — a warm amber/terracotta identity, deliberately unlike
-# the CRM's indigo and the docs site's violet, so the demo gallery shows three
-# recognisably different products rather than three tints of the same one.
+# The design system of the Tablée landing page.
 #
-# TWO THINGS THIS FILE USED TO GET WRONG
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# 1. Most of the palette was inert. `design.colors` accepts any kebab-case key,
-#    but only the keys in `COLOR_TO_SV_TOKEN`
-#    (src/infrastructure/css/theme/theme-generators.ts) emit the `--sv-*`
-#    platform tokens that every prestyled island already consumes. Everything
-#    else emits `--color-*` only and does nothing until something cites it — and
-#    of the twenty-four colours declared here, exactly two were ever cited.
-#    `gray-100` through `gray-900`, `primary-light`, `secondary-light`,
-#    `text-secondary` and `text-muted` painted nothing at all.
+# One accent, a warm terracotta, marks the one call to action per section, the
+# step numbers and the focus ring. The neutrals lean toward the same hue at a
+# whisper of chroma, a warm paper sheet. Colour is never a second accent: the
+# page reads role keys only.
+baseline: extend
+
+# Follow the visitor's operating system: light by day, dark by night.
+# `darkColors` below is what the dark scheme paints.
+colorScheme: system
+
+# Role keys repaint the prestyled components (cards, buttons, the form, the
+# table) with no class changes anywhere else in the config.
 #
-#    So the semantic ones now use their role-key names: `text` → `foreground`,
-#    `text-secondary` → `foreground-muted`, `text-muted` → `foreground-subtle`,
-#    `background-alt` → `background-subtle`. Same intent, except now it renders.
+# Every role is spelled out in BOTH schemes: a key missing from `darkColors`
+# keeps its light value, and a pale dark-mode accent needs a dark label, so
+# the dark block names every companion itself. `primary-active` is declared
+# too: left out, a pressed button would fall back to the platform's
+# achromatic default for a frame.
 #
-# 2. It asked for a typeface that does not ship. `family: Inter` emitted
-#    `font-family: Inter, system-ui, …` with no matching `@font-face` anywhere —
-#    verified in the browser: `document.fonts` carries only IBM Plex Sans
-#    Variable and JetBrains Mono Variable. No CDN request was made, so this was
-#    never the privacy leak it looked like; it was worse in a quieter way. By
-#    naming Inter first and omitting IBM Plex entirely, the declaration pushed
-#    the page onto the operating system's default face and locked the shipped,
-#    self-hosted typeface out of its own stack. The metrics below are real design
-#    decisions and are kept; only the family is corrected.
+# `error` sits at a berry hue rather than next to the terracotta accent, so
+# "Book a demo" and "this field is required" never read as one colour.
+# `success` is the form's confirmation. No `warning`: nothing on a marketing
+# page is at risk.
 colors:
-  primary: '#c2410c'
-  primary-hover: '#9a3412'
-  primary-subtle: '#ffedd5'
-  ring: '#ea580c'
-  background: '#fffbf7'
-  background-subtle: '#fef3e8'
-  foreground: '#1c1310'
-  foreground-muted: '#57433c'
-  foreground-subtle: '#8a7268'
-  border: '#f0ddd0'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
-  # Cited directly by the home page, so it stays a plain `--color-*` key.
-  secondary: '#7c3aed'
-  gray-50: '#faf7f5'
+  primary: oklch(0.52 0.16 35)
+  primary-hover: oklch(0.46 0.15 35)
+  primary-active: oklch(0.42 0.141 35)
+  primary-foreground: oklch(0.985 0.003 35)
+  primary-subtle: oklch(0.95 0.03 35)
+  primary-subtle-foreground: oklch(0.38 0.12 35)
+  ring: oklch(0.6 0.16 35)
+  background: oklch(0.985 0.003 35)
+  background-subtle: oklch(0.967 0.005 35)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 35)
+  foreground: oklch(0.21 0.008 35)
+  foreground-muted: oklch(0.45 0.012 35)
+  foreground-subtle: oklch(0.51 0.012 35)
+  foreground-disabled: oklch(0.71 0.012 35)
+  foreground-inverse: oklch(0.985 0.003 35)
+  border: oklch(0.925 0.008 35)
+  success: oklch(0.52 0.12 155)
+  error: oklch(0.53 0.17 350)
+  destructive-foreground: oklch(0.985 0.003 35)
 
 darkColors:
-  primary: '#fb923c'
-  primary-hover: '#fdba74'
-  primary-subtle: '#431407'
-  ring: '#fb923c'
-  background: '#140f0c'
-  background-subtle: '#1f1713'
-  foreground: '#f5ede8'
-  foreground-muted: '#c9b5aa'
-  foreground-subtle: '#9a8377'
-  border: '#31241d'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
-  secondary: '#a78bfa'
-  gray-50: '#1f1713'
+  primary: oklch(0.78 0.12 35)
+  primary-hover: oklch(0.83 0.09 35)
+  primary-active: oklch(0.87 0.07 35)
+  primary-foreground: oklch(0.16 0.006 35)
+  primary-subtle: oklch(0.28 0.06 35)
+  primary-subtle-foreground: oklch(0.9 0.06 35)
+  ring: oklch(0.72 0.13 35)
+  background: oklch(0.16 0.006 35)
+  background-subtle: oklch(0.19 0.007 35)
+  background-raised: oklch(0.21 0.008 35)
+  background-overlay: oklch(0.23 0.008 35)
+  background-inset: oklch(0.13 0.005 35)
+  foreground: oklch(0.95 0.005 35)
+  foreground-muted: oklch(0.75 0.01 35)
+  foreground-subtle: oklch(0.68 0.012 35)
+  foreground-disabled: oklch(0.45 0.01 35)
+  foreground-inverse: oklch(0.16 0.006 35)
+  border: oklch(0.3 0.01 35)
+  success: oklch(0.75 0.12 155)
+  error: oklch(0.72 0.14 350)
+  destructive-foreground: oklch(0.16 0.006 35)
 
+# Plex for the text and the headings, JetBrains Mono for the small overline.
+# A marketing page is read once, top to bottom: a large h1, a lead at 20 px,
+# body text at 16 px with a long line height.
 typeScale:
   families:
     sans:
       family: IBM Plex Sans Variable
       fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
-      weights: [400, 500, 600, 700]
-      size: 16px
-      lineHeight: '1.6'
     heading:
       family: IBM Plex Sans Variable
       fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
-      weights: [600, 700, 800]
-      size: 48px
-      lineHeight: '1.1'
-      letterSpacing: '-0.02em'
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 3.5rem, lineHeight: 1.05, weight: 600, letterSpacing: -0.025em }
+    h1: { size: 3rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h2: { size: 2rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.015em }
+    h3: { size: 1.25rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 1.25rem, lineHeight: 1.55 }
+    body: { size: 1rem, lineHeight: 1.6 }
+    bodySmall: { size: 0.875rem, lineHeight: 1.5 }
+    caption: { size: 0.8125rem, lineHeight: 1.4 }
+    overline: { size: 0.75rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.06em, font: mono }
 
+# Standard corners: a product you can trust, neither a ledger nor a toy.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
-  xl: 1rem
   full: 9999px
 
+# Lifted: the cards rest on a small shadow, the product view floats on a large
+# one.
 elevation:
+  none: none
   sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
   md: 0 4px 6px -1px rgb(0 0 0 / 0.1)
   lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)
-  xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. The one call to action per section, the step numbers, the focus ring.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The ground of the final call-to-action band and the current language in the switcher.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: The lead form's confirmation — the request was received.
+    pairsWith: foreground
+  error:
+    usage: A required field left empty, an address that is not an email.
+    pairsWith: foreground
+
+# One page, read once, top to bottom: the whole site runs at `roomy`. The three
+# steps are the platform's own values, written out so one number can be tuned.
+density:
+  default: roomy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the page speaks, in both languages. Nothing reads these at runtime; they
+# are the brief anyone writing a section, a label or a message follows.
+voice:
+  personality:
+    - direct
+    - warm
+    - concrete
+  pronoun: you
+  prefer:
+    - Say what the product does for the reader in one sentence, then show it.
+    - 'Lead a call to action with its verb: Book, Try, Read.'
+    - Write the French page in French — tu, not a translation of "you".
+  avoid:
+    - No exclamation marks, no "revolutionary", no "join thousands".
+    - No figure the page cannot prove — no invented counts, uptime or ratings.
+    - No emoji standing in for an icon.
+  tone:
+    empty: Say what this section will show once it is written.
+    loading: Name what is sending — the request — never a bare spinner.
+    error: Name the field and what it needs, in the reader's language.
+    success: Say what happens next and when — "We reply within two working days."
+    destructive: Not used on a public page.
+
+# Every route is the public marketing page: the accent budget of a page that
+# persuades.
+zones:
+  - pattern: /*
+    zone: marketing
+    accentBudget: public
+
+principles:
+  - A visitor knows what the product does and what to do next within one screen.
+  - Every claim on the page is one the page can prove.
+  - One call to action per section, the same verb in both languages.
+  - The page is read in the visitor's language, and the switch keeps their place.

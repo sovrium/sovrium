@@ -25,20 +25,33 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { isGuestSession, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
   buildCreateAuthorshipOverrides,
+  buildCurrentUserDefaults,
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
+import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
+import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
+import { refuseUnreadableLinkTargets } from './link-target-check'
 import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
-import { splitManyToManyFields, writeManyToManyLinks } from './record-link-enrichment'
+import { announceRecordWrites } from './record-change-announcement'
+import {
+  clearedManyToManySpecs,
+  clearManyToManyLinks,
+  splitManyToManyFields,
+  writeManyToManyLinks,
+} from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
+import type { LinkReader } from './linked-row-visibility'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { DatabaseError } from '@/domain/errors'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { DatabaseError, ForeignKeyViolationError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 interface CreateRecordConfig {
@@ -47,12 +60,21 @@ interface CreateRecordConfig {
   readonly fields: Readonly<Record<string, unknown>>
   readonly app?: App
   readonly userRole?: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups?: readonly string[]
   /** See `ListRecordsConfig.origin` in `list-records-program.ts`. */
   readonly origin?: string
+  /**
+   * Whose read rules judge the rows the record links to, when that is not the
+   * writing session with `userRole` — a visitor's create is written by the
+   * system but judged as the visitor. Absent with no `userRole`, links are
+   * judged for existence only.
+   */
+  readonly linkReader?: LinkReader
 }
 
 /**
- * GAP-16: stamp every `created-by`/`updated-by`-typed column BY NAME with the
+ * [internal ref]: stamp every `created-by`/`updated-by`-typed column BY NAME with the
  * authenticated actor. The infra authorship injection only fills the LITERAL
  * `created_by`/`updated_by` columns (discovered via DB introspection); a
  * custom-named field (e.g. `author`, generated TEXT NOT NULL under auth) would
@@ -81,15 +103,67 @@ const applyAuthorshipOverrides = (input: {
     phase === 'create'
       ? buildCreateAuthorshipOverrides(tables, tableName, userId)
       : buildUpdateAuthorshipOverrides(tables, tableName, userId)
-  return { ...fields, ...overrides }
+  // A `user` field defaulting to `$currentUser` is filled with a person, so
+  // the system actor — which is no account — leaves it empty. The defaults
+  // name only the fields the caller left empty (absent, null or ''), so they
+  // go after the fields: a value the caller names always stays.
+  const defaults =
+    phase === 'create' && userId !== SYSTEM_USER_ID
+      ? buildCurrentUserDefaults(tables, tableName, userId, fields)
+      : {}
+  return { ...fields, ...defaults, ...overrides }
+}
+
+/**
+ * Whose read rules judge the rows a write links to: the reader the caller
+ * named, else the writing session under `userRole`, else nobody — a write with
+ * no reader identity (a seed, an automation nobody started) links as the
+ * system, checked for existence only.
+ */
+const linkReaderOf = (
+  session: Readonly<UserSession>,
+  userRole: string | undefined,
+  linkReader: LinkReader | undefined
+): LinkReader | undefined =>
+  linkReader ?? (userRole === undefined ? undefined : { session, role: userRole })
+
+/**
+ * The user fields a write hands back for the caller named by `userRole` and
+ * `userGroups`: the record less the fields they may not read, transformed (and
+ * enriched, on create). `undefined` when no caller is named — the record is
+ * then answered as stored.
+ */
+const readableEchoFields = (
+  record: Readonly<Record<string, unknown>>,
+  ctx: {
+    readonly app?: App | undefined
+    readonly tableName: string
+    readonly userRole?: string | undefined
+    readonly userGroups?: readonly string[] | undefined
+    readonly enrich?: (record: TransformedRecord) => TransformedRecord
+  }
+): Readonly<TransformedRecord['fields']> | undefined => {
+  const { app, tableName, userRole } = ctx
+  if (app === undefined || userRole === undefined || userRole === '') return undefined
+  const caller = { role: userRole, groups: ctx.userGroups ?? [] }
+  const filtered = filterReadableFields({ app, tableName, caller, record })
+  const transformed = transformRecord(filtered, { app, tableName })
+  return (ctx.enrich === undefined ? transformed : ctx.enrich(transformed)).fields
 }
 
 export function createRecordProgram(config: CreateRecordConfig) {
-  const { session, tableName, fields, app, userRole, origin } = config
+  const { session, tableName, app, userRole, origin } = config
+  const fields = normalizeDateValuesIn(app?.tables, tableName, config.fields)
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
-    // GAP-16: see applyAuthorshipOverrides.
+    // Links are judged before anything is written, so a refused one leaves no record.
+    yield* refuseUnreadableLinkTargets({
+      ...{ app, session, tableName, writes: [{ fields }] },
+      reader: linkReaderOf(session, userRole, config.linkReader),
+    })
+
+    // [internal ref]: see applyAuthorshipOverrides.
     const fieldsWithAuthorship = applyAuthorshipOverrides({
       phase: 'create',
       fields,
@@ -107,8 +181,16 @@ export function createRecordProgram(config: CreateRecordConfig) {
     )
 
     // Create record with session context
-    const record = yield* repo.createRecord(session, tableName, baseFields)
-    yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
+    const created = yield* repo.createRecord(session, tableName, baseFields)
+    yield* writeManyToManyLinks(repo, tableName, created.id as string | number, links)
+
+    // The answer holds no more than the writer's own read of the record.
+    const [record = created] = yield* omitFromWriteEcho(
+      app,
+      tableName,
+      [created],
+      writeEchoReaderOf(session, { ...config, userRole })
+    )
 
     // B-01: enrich attachment fields with signedUrl / url on the create-record
     // response so callers see the same shape they get back on GET / LIST.
@@ -117,23 +199,8 @@ export function createRecordProgram(config: CreateRecordConfig) {
 
     const transformed = enrich(transformRecord(record, app ? { app, tableName } : undefined))
 
-    // Apply field-level read permissions filtering
-    // If app and userRole are provided, filter fields based on permissions
-    const filteredFields =
-      app && userRole
-        ? (() => {
-            const filteredRecord = filterReadableFields({
-              app,
-              tableName,
-              userRole,
-              record,
-            })
-
-            // Transform filtered record to get only user fields (exclude system fields)
-            const transformedFiltered = enrich(transformRecord(filteredRecord, { app, tableName }))
-            return transformedFiltered.fields
-          })()
-        : transformed.fields
+    // Field-level read filtering, for the caller (role and groups) when named
+    const filteredFields = readableEchoFields(record, { ...config, enrich }) ?? transformed.fields
 
     // Return in format expected by tests: system fields at root, user fields
     // both nested (canonical) and at the root (flat alias). The flat alias
@@ -148,7 +215,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     }
-  }).pipe(Effect.withSpan('tables.create-record-program'))
+  }).pipe(announceRecordWrites(app), Effect.withSpan('tables.create-record-program'))
 }
 
 /**
@@ -172,14 +239,27 @@ const resolveUpdatedBaseRecord = (
     readonly fields: Readonly<Record<string, unknown>>
     readonly app?: App
     readonly userRole?: string
+    readonly linkReader?: LinkReader
   }
-): Effect.Effect<Record<string, unknown>, DatabaseError, TableRepository> =>
+): Effect.Effect<
+  Record<string, unknown>,
+  DatabaseError | ForeignKeyViolationError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
+    const reader = linkReaderOf(session, params.userRole, params.linkReader)
+    // Judged before the first write; a key the row already holds is not a new link.
+    const held = repo.getRecord(session, tableName, recordId)
+    yield* refuseUnreadableLinkTargets({
+      ...{ app: params.app, session, tableName, reader },
+      writes: [{ fields: params.fields, held }],
+    })
+
     const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
     const { baseFields, links } = splitManyToManyFields(params.fields, m2mSpecs)
 
-    // GAP-16: re-stamp every `updated-by`-typed column BY NAME with the updating
+    // [internal ref]: re-stamp every `updated-by`-typed column BY NAME with the updating
     // actor (created-by fields are never touched on update).
     const baseWithAuthorship = applyAuthorshipOverrides({
       phase: 'update',
@@ -199,63 +279,75 @@ const resolveUpdatedBaseRecord = (
 
     if (Object.keys(record).length === 0) return {}
 
-    // Write the m2m junction rows (idempotent add semantics).
+    // Write the m2m junction rows (idempotent add semantics), then remove the
+    // links of any field the change clears (`null` or `[]`).
     yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
+    yield* clearManyToManyLinks({
+      app: params.app,
+      tableName,
+      recordId: record.id as string | number,
+      cleared: clearedManyToManySpecs(params.fields, m2mSpecs),
+      reader,
+    })
     return record
   })
+
+/** What an update writes, and who the record it hands back is read as. */
+interface UpdateRecordParams {
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly app?: App
+  readonly userRole?: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups?: readonly string[]
+  /**
+   * Who a cleared many-to-many field is cleared for, when that is not the
+   * session's own role — a run started by hand clears as its starter. Absent
+   * with no `userRole` too, every link of a cleared field is removed.
+   */
+  readonly linkReader?: LinkReader
+}
 
 export function updateRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string,
-  params: {
-    readonly fields: Readonly<Record<string, unknown>>
-    readonly app?: App
-    readonly userRole?: string
-  }
+  params: UpdateRecordParams
 ) {
   return Effect.gen(function* () {
     yield* refuseWhenNoSingleIdAddress(params.app, tableName)
 
     // [internal ref] (update): resolve the base row, handling the many-to-many split +
     // junction write. Extracted so this generator stays under the complexity cap.
-    const record = yield* resolveUpdatedBaseRecord(session, tableName, recordId, params)
+    const written = yield* resolveUpdatedBaseRecord(session, tableName, recordId, {
+      ...params,
+      fields: normalizeDateValuesIn(params.app?.tables, tableName, params.fields),
+    })
 
     // Pure m2m PATCH against a missing row: surface empty so the route 404s.
-    if (Object.keys(record).length === 0) return {}
+    if (Object.keys(written).length === 0) return {}
+
+    // The answer holds no more than the writer's own read of the record.
+    const [record = written] = yield* omitFromWriteEcho(
+      params.app,
+      tableName,
+      [written],
+      writeEchoReaderOf(session, params)
+    )
 
     // Transform with app context to include table-specific fields like created_at/updated_at
     const transformed = transformRecord(record, { app: params.app, tableName })
 
-    // Apply field-level read permissions filtering
-    // If app and userRole are provided, filter fields based on permissions
+    // Field-level read filtering, for the caller (role and groups) when named
     const filteredFields =
-      params.app && params.userRole
-        ? (() => {
-            const filteredRecord = filterReadableFields({
-              app: params.app!,
-              tableName,
-              userRole: params.userRole!,
-              record,
-            })
-
-            // Transform filtered record to get only user fields (exclude system fields)
-            const transformedFiltered = transformRecord(filteredRecord, {
-              app: params.app,
-              tableName,
-            })
-            return transformedFiltered.fields
-          })()
-        : transformed.fields
+      readableEchoFields(record, { ...params, tableName }) ?? transformed.fields
 
     // Return in format expected by tests: system fields at root, user fields
     // both nested (canonical) and at the root (flat alias). Mirrors the
     // create-record response so PATCH and POST share the same envelope.
-    // Preserve original ID type (number if it was number in database).
-    const originalId = record.id
     return {
       ...filteredFields,
-      id: typeof originalId === 'number' ? originalId : transformed.id,
+      // A record id reads as a string on every records-API response, as on create.
+      id: transformed.id,
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
@@ -263,5 +355,8 @@ export function updateRecordProgram(
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     }
-  }).pipe(Effect.withSpan('tables.update-record-program', { attributes: { tableName, recordId } }))
+  }).pipe(
+    announceRecordWrites(params.app),
+    Effect.withSpan('tables.update-record-program', { attributes: { tableName, recordId } })
+  )
 }

@@ -82,24 +82,19 @@ import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
  * (same file, :1078), so writing `try: () => …` would silently disable all of
  * the above. Do not drop the `signal` argument below.
  *
- * ## SQLite caveat (pre-existing, not introduced here)
+ * ## SQLite
  *
- * On the SQLite runtime `db.transaction` resolves to `SQLiteBunSession.transaction`
- * (`vendor/drizzle-orm/drizzle-orm/src/bun-sqlite/session.ts:99-110`), which is
- * SYNCHRONOUS: it runs the callback inside `client.transaction(() => …)` and
- * commits as soon as that synchronous call returns. An async callback returns a
- * pending Promise at its first `await`, so the `COMMIT` fires before the body
- * finishes and the remaining statements run in autocommit. Drizzle states the
- * constraint outright for nested transactions — "Sync drivers can't use async
- * functions in transactions!" (same file, :121).
- *
- * That is exactly why the schema layer does NOT use `db.transaction` on SQLite
- * and drives an explicit `BEGIN`/`COMMIT`/`ROLLBACK` through
- * `runSqliteSchemaTransaction` (`sql/dialect-ddl.ts`) instead. The record CRUD
- * paths have never had that adapter, so SQLite batch writes are not atomic
- * today. This seam is deliberately byte-equivalent to the callback shape it
- * replaces on that dialect — it neither introduces nor repairs the gap. Closing
- * it is a behaviour change that needs its own spec.
+ * The stock `drizzle-orm/bun-sqlite` transaction is SYNCHRONOUS
+ * (`vendor/drizzle-orm/drizzle-orm/src/bun-sqlite/session.ts:99-110`): an async
+ * callback returns a pending Promise at its first `await`, the native wrapper
+ * commits right then, and the remaining statements run in autocommit. That is
+ * why the runtime SQLite client is not the stock one: `sqlite-serialized-client.ts`
+ * opens `BEGIN IMMEDIATE … COMMIT`/`ROLLBACK` by hand around the whole body and
+ * serialises it against every other statement on the single shared connection,
+ * so a body here is all-or-nothing on both engines and no other request's write
+ * is captured by it. The one rule it adds: a body issues its statements through
+ * `tx`, never through the shared `db`, which would wait for the very
+ * transaction it is part of.
  *
  * @param database - the Drizzle client to open the transaction on
  * @param body - the work to run against the transaction handle

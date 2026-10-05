@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  resolveInterpreterString,
+  resolveInterpreterStringOverrides,
+} from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeListLoadMoreClasses,
@@ -17,6 +21,7 @@ import {
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
 /** Stable identity for the search-list SSR placeholder input. */
@@ -101,9 +106,14 @@ interface ListDisplayProps {
   readonly maxItems?: number
 }
 
-/** Parses the serialized `_listDisplay` prop into its declarative config. */
+/**
+ * Reads the `_listDisplay` prop into its declarative config. Both resolvers
+ * (`data-source-rows.ts`, `data-source-modes.ts`) stamp it as an OBJECT, never
+ * a JSON string, so the props translation pass has already resolved its `$t:`
+ * keys by the time it lands here — one shape, no second spelling to drift.
+ */
 function parseListDisplay(raw: unknown): ListDisplayProps | undefined {
-  return typeof raw === 'string' ? (JSON.parse(raw) as ListDisplayProps) : undefined
+  return typeof raw === 'object' && raw !== null ? (raw as ListDisplayProps) : undefined
 }
 
 /** Builds the serialized island props from the resolved search element props. */
@@ -111,10 +121,14 @@ function buildSearchIslandProps(
   elementProps: Record<string, unknown>,
   listDisplay: ListDisplayProps | undefined,
   records: readonly unknown[],
-  bindTo: string | undefined
+  input: { readonly bindTo: string | undefined; readonly placeholder: string | undefined }
 ): string {
+  const { bindTo, placeholder } = input
   return JSON.stringify({
     id: elementProps['id'] as string | undefined,
+    // Names the rows' table, which scopes the page payload filter to it.
+    table: elementProps['_searchTable'] as string | undefined,
+    placeholder,
     records,
     searchFields: JSON.parse((elementProps['_searchFields'] as string) ?? '[]'),
     debounceMs: elementProps['_searchDebounceMs'] as number | undefined,
@@ -136,10 +150,23 @@ function buildSearchIslandProps(
  * the island, which fetches its rows and renders the `itemTemplate`. A system
  * source is read-only — no write affordances are emitted.
  */
-function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
+/** The active page language and app translations, for the engine's own strings. */
+interface EngineLocale {
+  readonly currentLang: string | undefined
+  readonly languages: Languages | undefined
+}
+
+function renderListIsland(
+  elementProps: Record<string, unknown>,
+  { currentLang, languages }: EngineLocale
+): ReactElement {
   const listDisplay = parseListDisplay(elementProps['_listDisplay'])
   const dataSource = JSON.parse((elementProps['_listDataSource'] as string) ?? '{}') as unknown
+  // The table-derived inputs (`list-island-inputs.ts`): currencies, and the
+  // other facts about the bound fields a row prints the way a grid row does.
+  const inputs = JSON.parse((elementProps['_listInputs'] as string) ?? '{}') as object
   const islandProps = JSON.stringify({
+    ...inputs,
     dataSource,
     itemTemplate: listDisplay?.itemTemplate,
     // The paging affordance. Without this line the island cannot know a control
@@ -151,6 +178,9 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
     // never learns the cap was declared, so `listDisplay.maxItems` had no reader
     // anywhere and an author who capped a list got the whole collection.
     maxItems: listDisplay?.maxItems,
+    // The list's loading and failure chrome in the page language, sent only
+    // where it differs from the English the island is written in.
+    uiStrings: resolveInterpreterStringOverrides(['list.', 'rateLimit.'], currentLang, languages),
   })
   return (
     <div
@@ -174,7 +204,7 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
           children on mount. */}
       <div
         role="status"
-        aria-label="Loading list..."
+        aria-label={resolveInterpreterString('list.loading', currentLang, languages)}
         className={`${computeListShellClasses()} space-y-2 p-2`}
       >
         {Array.from({ length: 3 }).map((_, i) => (
@@ -191,7 +221,10 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
 /**
  * Renders the search island placeholder for client-side interactive search
  */
-function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement {
+function renderSearchIsland(
+  elementProps: Record<string, unknown>,
+  { currentLang, languages }: EngineLocale
+): ReactElement {
   const listDisplay = parseListDisplay(elementProps['_listDisplay'])
   const records = JSON.parse(
     (elementProps['_searchRecords'] as string) ?? '[]'
@@ -200,7 +233,17 @@ function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement
   // When `bindTo` is set, an external `search-input` component drives the query,
   // so this list renders results only (no own input) to avoid duplicate inputs.
   const bindTo = elementProps['_searchBindTo'] as string | undefined
-  const islandProps = buildSearchIslandProps(elementProps, listDisplay, records, bindTo)
+  // The engine's default placeholder, handed to the island only where it
+  // differs from the English the island falls back to.
+  const placeholder = resolveInterpreterString('search.placeholder', currentLang, languages)
+  const islandProps = buildSearchIslandProps(elementProps, listDisplay, records, {
+    bindTo,
+    placeholder: resolveInterpreterStringOverrides(
+      ['search.placeholder'],
+      currentLang,
+      languages
+    )?.['search.placeholder'],
+  })
   return (
     <div
       id={elementProps['id'] as string | undefined}
@@ -217,8 +260,8 @@ function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement
       {bindTo ? undefined : (
         <input
           type="search"
-          placeholder="Search..."
-          aria-label="Search..."
+          placeholder={placeholder}
+          aria-label={placeholder}
           disabled={true}
           style={SEARCH_INPUT_STYLE}
         />
@@ -280,17 +323,45 @@ function renderListWithPagination(
 }
 
 /**
+ * A bound list with no row. It says its `listDisplay.emptyMessage`, as the
+ * item-template list does; with none it stays a visible, empty box.
+ */
+function renderEmptyBoundList(
+  domProps: Record<string, unknown>,
+  emptyMessage: unknown
+): ReactElement {
+  if (typeof emptyMessage === 'string') {
+    return (
+      <div {...domProps}>
+        <p data-list-empty="">{emptyMessage}</p>
+      </div>
+    )
+  }
+  return (
+    <ul
+      {...domProps}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call style merge inside a stateless render function; memoization happens in the outer component
+      style={{
+        ...(domProps.style as object | undefined),
+        display: 'block',
+        minHeight: '1px',
+      }}
+    />
+  )
+}
+
+/**
  * Special components (card-*, navigation, list, etc.)
  *
  * These components have complex rendering logic or use custom UI components.
  */
 export const specialComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
-  list: ({ elementProps, content, design, renderedChildren }) => {
+  list: ({ elementProps, content, design, renderedChildren, currentLang, languages }) => {
     // CAP-1: a client-fetching data-bound list (DB table OR system read
     // endpoint), stamped by the data-source resolver. Emit the `list` island
     // host; the island fetches its rows and renders the itemTemplate items.
     if (elementProps['_listIslandMode']) {
-      return renderListIsland(elementProps)
+      return renderListIsland(elementProps, { currentLang, languages })
     }
 
     // Show error if dataSource validation failed
@@ -310,7 +381,7 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
     // Search mode: render island placeholder for client-side interactive search
     const searchMode = elementProps['_searchMode'] as boolean | undefined
     if (searchMode) {
-      return renderSearchIsland(elementProps)
+      return renderSearchIsland(elementProps, { currentLang, languages })
     }
 
     const { domProps, dataSourceBound, pagination } = extractListProps(elementProps)
@@ -321,17 +392,7 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
     }
     // Ensure data-bound lists are visible even when empty (no records in table)
     if (dataSourceBound && !content) {
-      return (
-        <ul
-          {...domProps}
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call style merge inside a stateless render function; memoization happens in the outer component
-          style={{
-            ...(domProps.style as object | undefined),
-            display: 'block',
-            minHeight: '1px',
-          }}
-        />
-      )
+      return renderEmptyBoundList(domProps, elementProps['_listEmptyMessage'])
     }
     return Renderers.renderList(domProps, content, design)
   },

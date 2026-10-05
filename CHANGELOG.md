@@ -1,3 +1,510 @@
+## [0.30.0](https://github.com/sovrium/sovrium/compare/v0.29.1...v0.30.0) (2026-10-05)
+
+### BREAKING CHANGES
+
+- **automations**: automation read and list steps hand over the record as the records API returns it
+- **records**: record ids and relationship values are strings on every wire
+
+### Features
+
+- **pages**: keep the document alive across sidebar navigation
+- **auth**: let a signed-in user delete their account at once through a mailed confirmation link
+- **server**: pin a development server's clock with SOVRIUM_DEV_CLOCK
+- **auth**: bans, lifted bans and admin-set passwords are recorded in the audit log
+- **account**: the personal data export lists the audit entries the person made
+- **pages**: gallery covers load lazily, or eagerly with galleryCard.loading
+- **auth**: record role changes and impersonations in the audit log
+- **i18n**: engine interface text is overridden under a reserved sovrium. prefix
+- **tables**: order dates with min and max aggregates
+- **comments**: the mention picker speaks the page language
+- **comments**: mention someone who can read the record from the comment composer
+- **i18n**: the rate-limited read notice follows the page language
+- **i18n**: the engine's own interface text follows the page language, and field labels accept translation keys
+- **pages**: choose the currency of a list metadata amount
+- **pages**: a board card can open a record drawer
+- **pages**: hide or show on whether a field has a value
+- **automations**: resolve an approval request that reaches its timeout
+- **pages**: clear an optional field on purpose from an edit form
+- **pages**: add a two-language `toggle` variant to the language switcher
+- **pages**: give each language its own sharing image from a `$t:` key
+- **pages**: print the address a visitor asked for with `$app.path`
+- **pages**: name a feed with `rss.title` and `rss.description`
+- **tables**: a date can print its weekday
+- **pages**: a filter can ask whether a field is empty
+- **auth**: a built-in role can carry its own landing page
+- **cli**: seed files may list several attachments and give a relative date a time of day
+- **pages**: a list row can open a record like a grid row
+- **pages**: a filter can name today, a day offset or the start of a month
+- **automations**: an approval can continue when rejected, recording the decision
+- **design**: option badges can be drawn outlined with a dot, everywhere they appear
+
+### Bug Fixes
+
+- **tables**: make multi-record writes all-or-nothing on SQLite
+- **automations**: keep a run waiting for an approval whole through the upgrade scrub
+- **account**: scrub the automation runs that read an erased person's records
+- **automations**: judge what an approver reads of a run by what fed it — relayed runs, step errors, request messages, calls and scripts
+- **tables**: compare a narrowed lookup list in the order and form its reader is shown
+- **tables**: filtering on a lookup that copies a list sees the names its reader may read
+- **automations**: an approver never sees a run's trigger data she may not read
+- **automations**: an approver sees a run step whose related records she may all read
+- **tables**: a lookup copying a list shows only the linked records its reader may read
+- **tables**: filtering on a lookup of a lookup sees the rows its reader may read
+- **automations**: an approver never sees a run step's related values she may not read
+- **ai**: chat tools never read a related value their user may not read
+- **tables**: a lookup of a lookup follows every hop's row rule
+- **buckets**: a file reference by a signed-in user is never judged as a visitor's because of her role's name
+- **tables**: a write's response leaves out what its writer may not read
+- **pages**: a page's chosen fields never reveal a lookup its reader may not read
+- **tables**: a formula over a hidden lookup is left out as the lookup is
+- **tables**: a lookup of a related formula follows what that formula reads
+- **tables**: related values judge a signed-out visitor by her session, not a role name
+- **pages**: the sitemap follows a table's resolved read
+- **pages**: a page over a signed-in-only table names none of its fields to a signed-out visitor
+- **tables**: a signed-in user is never taken for a signed-out visitor because of her role's name
+- **tables**: a rollup or count shows its aggregate only to a reader who may read what it adds up
+- **tables**: a lookup shows a related value only to a reader who may read it
+- **tables**: a signed-out visitor reads only tables open to everyone, on every door
+- **auth**: an API key works again once its owner's ban has expired
+- **views**: a shared-view link opens for a reader whose assignment covers its table
+- **tables**: validate refuses a row rule naming the active scope
+- **tables**: a single read judges the row rule on the stored record
+- **tables**: a signed-out visitor never satisfies a rule naming the signed-in person
+- **tables**: one record gate for pages, hosted forms and the records API
+- **tables**: a row rule on the reader's email matches her own rows and never empty ones
+- **buckets**: a batch entry without a path is refused like a single request
+- **buckets**: a signed URL's fields can no longer be read as another operation's
+- **buckets**: batch signing checks each entry's permission and batch uploads work
+- **tables**: access-assignment errors no longer echo database text
+- **views**: a shared view opens for a reader whose role comes from an assignment
+- **forms**: a hosted form refuses a parent row the submitter cannot read
+- **auth**: the app's top role opens every admin door
+- **webhooks**: a secret whose variable is empty refuses every caller
+- **cli**: refuse a library install that reads an undeclared variable
+- **env**: refuse a configuration that references an undeclared variable
+- **automations**: an environment reference inside an expression is read as a value
+- **automations**: a regex pattern must be written in the config
+- **ai**: the MCP action tool fills a template once
+- **automations**: a template variable inside a helper expression is never parsed
+- **tables**: an empty field never satisfies a row rule
+- **webhooks**: outgoing webhooks read only variables the app declares
+- **automations**: never render a value a step received as a template
+- **tables**: validate refuses row rules that cannot match the field's stored type
+- **tables**: row rules judge stored values by the field's type on every read and write
+- **pages**: the command palette hides rows the reader's row rule hides
+- **automations**: stop resolving environment references inside data a caller sent
+- **automations**: let a webhook response return a step's value with its type
+- **automations**: answer a webhook call with its run id and status only
+- **pages**: a search list names no hidden field when another table shares its name
+- **activity**: the app's top role reads the activity feed as an admin does
+- **ai**: answer a signed-out visitor of a public agent within the anonymous reach
+- **pages**: offer edit-form controls only for fields the reader may write
+- **automations**: an agent step of a run started by hand shows its starter only what she may read
+- **automations**: a run's non-admin reader sees step output only within her reach
+- **automations**: an agent step retrieves only from its own knowledge base
+- **ai**: a knowledge search returns only the fields its searcher may read
+- **ai**: a declared agent answers a signed-in caller only within her own reach
+- **pages**: a record drawer on a record it cannot show offers nothing to edit
+- **pages**: a collection page answers a row hidden by its read rule as a missing one
+- **pages**: a grid offers no alternate view built on a field its reader may not read
+- **pages**: no page names a field its reader may not read
+- **ai**: apply the records write rules to chat updates and deletes
+- **tables**: refuse an update to a record the read rule hides
+- **ai**: return only readable, live records from a knowledge search
+- **ai**: count only readable records in the chat confirmation prompt
+- **ai**: leave trashed records out of chat queries and tool calls
+- **ai**: chat answers only the tables and rows the records API would show the same user
+- **tables**: judge a SQLite checkbox as the records API reads it wherever one row meets a row-level rule
+- **realtime**: judge a SQLite checkbox as the records API reads it for presence and subscriptions
+- **tables**: judge a SQLite checkbox as the records API reads it in the update and delete gates
+- **pages**: offer an inline editor and a drawer save only to a reader who may update
+- **pages**: name no field its reader may not read on a board, calendar, timeline or chart
+- **pages**: read every server-rendered record through the one records gate
+- **forms**: refuse a submitted link to a row the related table's read rule hides
+- **activity**: judge a boolean row-level rule on SQLite as the records API does
+- **realtime**: cap presence streams at ten per user
+- **pages**: show a signed-out visitor only the tables the records API opens to her
+- **ai**: admit assignment roles on AI chat record changes as the records API does
+- **pages**: draw no record from the trash on a server-rendered page
+- **auth**: keep the built-in admin admin-equivalent when a custom role outranks it
+- **pages**: publish in /feed.xml only what a signed-out reader may read
+- **tables**: let a viewer a table names write by batch as she writes one record
+- **tables**: reserve permanent delete and purge to admin-equivalent roles
+- **pages**: offer a viewer no create or edit that a group grant alone would give her
+- **pages**: the first-object redirect lands only on a row its visitor may read
+- **pages**: field lists a page builds name only readable fields and offer inputs only on writable ones
+- **pages**: record components over a table their visitor may not read carry nothing of it
+- **realtime**: end a presence stream when the access it was opened on ends
+- **realtime**: give a missing and a hidden record the same presence check
+- **pages**: a data-bound sidebar section lists only what its visitor may read
+- **forms**: choices read from a table offer each visitor only the rows its row-level rule shows them
+- **tables**: judge signed-out access on a table's inherited and overridden rules
+- **pages**: server-drawn lists and searches show only the rows and fields their visitor may read
+- **pages**: give a data-table grid only the views, fields and permissions its reader may see
+- **mcp**: refuse an update or delete on a table its caller may not read
+- **tables**: answer a delete on a table its caller may not read as a missing record
+- **tables**: refuse every write to a viewer admitted only by a group or an assignment
+- **tables**: admit on every table door exactly the callers the records admit
+- **tables**: list a table that declares no read permission to every caller its records serve
+- **tables**: check table access before validating requests
+- **realtime**: presence on a record page follows the record a component shows
+- **tables**: refuse writes to stored records on a table the caller may not read
+- **tables**: refuse writes to a field the caller may not read
+- **activity**: show a non-admin only her own agent decisions and the actions she may read
+- **tables**: answer a refused export with the missing table's 404
+- **tables**: refuse an anonymous listing that includes deleted records
+- **tables**: list the tables a viewer may read instead of refusing her
+- **realtime**: presence on a record page follows the record
+- **activity**: keep another user's email out of the activity entries a non-admin reads
+- **activity**: let a viewer list the activity she may read
+- **activity**: describe the activity API as it answers
+- **tables**: answer a table's view list exactly as the table's records do
+- **tables**: make a view without a grant inherit its table's read
+- **realtime**: presence is served only on a page the caller may open
+- **tables**: honour a view's grant when records are listed through ?view=
+- **activity**: the activity feed shows a reader only what the records API would
+- **tables**: admit a group's members to a view whose grant names the group
+- **tables**: answer the table list and definition exactly as the table's records do
+- **tables**: let a caller sort by every field they may read
+- **tables**: guest comments no longer open a thread the table keeps to signed-in readers
+- **tables**: reading one comment by id follows the thread's moderation rule
+- **tables**: reserve a permanent batch delete to admins
+- **tables**: check row-level rules on the trashed row when restoring
+- **tables**: keep webhook configuration, delivery logs, retries and tests to admins
+- **tables**: keep operations a table does not grant refused under a row-level rule
+- **tables**: never report a write the records API would refuse in a table's permission map
+- **tables**: answer 404 for the permissions of a table the caller may not read
+- **tables**: honour a group's field read grant on every record read
+- **tables**: name no field in the permissions map of a table its caller may not read
+- **tables**: keep a shared view's malformed filters from naming hidden fields
+- **tables**: leave unreadable fields out of the table permissions map
+- **migrations**: apply a new single-select option on SQLite when the same edit adds or renames a field
+- **tables**: boot tables whose field names are SQL keywords
+- **tables**: leave unreadable fields out of a table definition
+- **tables**: mask hidden fields out of a shared saved view
+- **tables**: refuse a view id that clashes with a table or another table's view
+- **tables**: mask the views a table read returns as the views list does
+- **pages**: keep calendar days and daylight-saving hours in place on the calendar
+- **pages**: place calendar date-times in the operator time zone
+- **pages**: list only readable tables in the command palette
+- **tables**: name only readable fields in a view definition
+- **records**: refuse sum and avg over a field that is not a number
+- **migrations**: accept SQL keywords such as all or order as view ids
+- **theming**: draw a github-dark carriage-return token in the block's text tone
+- **pages**: read a date-time in its field's own zone in drawers, and keep declared file names
+- **records**: answer a field the table does not have as a field the caller may not read
+- **automations**: refuse to cancel any run that already ended
+- **pages**: name only readable fields in the command palette
+- **pages**: label chart months by name and currency ticks in compact amounts
+- **pages**: paint calendar chips, breadcrumbs, sort glyphs and tab labels in legible theme roles
+- **theming**: draw every code-block token at 4.5:1 on its block
+- **pages**: read date-times in the operator zone and files by name in grids and drawers
+- **records**: answer a hidden or missing filter field alike and refuse a sort on a hidden field
+- **automations**: a replay never gets past a filter or an approval, and only an admin replays with new data
+- **pages**: a record drawer respects field permissions and refuses only required blanks
+- **tables**: stamp a custom-named updated-by field on batch update
+- **records**: refuse a filter that is not an and list, and isTrue on a non-boolean field
+- **automations**: only an admin, the starter or a named approver can read, replay or cancel an automation run
+- **tables**: show the API's message when a grid file upload is refused
+- **pages**: save a record drawer whose multiple-attachments field holds files
+- **records**: stamp a custom-named author field on every record a batch creates
+- **automations**: answer 404 for the runs of an automation the config does not declare
+- **pages**: draw a record drawer's values as the grid does, and edit each with its own control
+- **server**: warn that email is disabled when an agent is granted email.send
+- **ai**: answer 404 when deleting a conversation that is not there
+- **api**: answer every 404 with one body
+- **records**: create a record that carries only many-to-many links
+- **records**: apply every live filter operator to the trash, and refuse a top-level or
+- **forms**: draw a telephone, date-time or file picker for standalone phone, datetime and attachment fields
+- **automations**: an approval declared as an action template also needs sign-in configured
+- **pages**: the development clock decides the year a server-written short date leaves out
+- **automations**: a refused digest sort key is reported on the sort key alone
+- **config**: a rule broken inside the clearly intended shape is reported on its own
+- **automations**: an approval nested in a loop or branch also needs sign-in configured
+- **tables**: a notIn filter with a single value or a null in its list no longer inverts or empties
+- **pages**: drawers, dialogs, forms and row actions name the parts they draw
+- **pages**: a table written row by row draws its rows on whole pixels
+- **pages**: the docs navigation folds into a bar across the column on a phone
+- **auth**: refuse an account-deletion email template that carries no confirmation link
+- **pages**: a short date of this year is written without its year
+- **tables**: notIn filters views, the records API and the chat query tool
+- **auth**: a caller demoted mid-request gets the admin plane's 404, not a 403
+- **account**: erasure never removes the last admin; a scheduled erasure is deferred instead
+- **tables**: recompute stored formulas once after an upgrade that computes them differently
+- **forms**: refuse a form address that is neither a web page nor a path on this site
+- **records**: link many-to-many values in a batch create
+- **api**: answer every missing record or table with one 404 body
+- **account**: refuse the last admin's scheduled deletion and sweep outstanding deletion links
+- **tables**: join many-to-many lookup values with a comma and a space on SQLite
+- **realtime**: a session that ends closes only its own connections
+- **realtime**: close live subscriptions at once when a group or organisation membership changes
+- **realtime**: end a live subscription with the session it was opened with
+- **database**: retire idle pooled PostgreSQL connections before a server cuts them
+- **tables**: backfill a formula on the development clock's day on SQLite
+- **pages**: draw a sidebar entry badge on a whole pixel
+- **pages**: name a drawer's close button in the page language
+- **server**: let the development clock reach every server-side now
+- **storage**: infer no MIME type from an extension that names an object member
+- **pages**: draw no card image from an attached file that is not an image
+- **forms**: honour the record-token escape in a form's success text and addresses
+- **pages**: honour the record-token escape in event paths, row actions and confirm phrases
+- **realtime**: close live subscriptions when an admin resets a password or updates an account
+- **realtime**: judge a subscription filter on readable columns and withhold row-gated lookups
+- **realtime**: announce every committed row change, and a large write as one resync
+- **realtime**: close a live subscription when the subscriber's access changes
+- **migrations**: a table renamed in place keeps one set of triggers, constraints and indexes
+- **realtime**: refuse a subscription exactly as a missing table
+- **pages**: give dialogs a named close button and form dialogs a Cancel
+- **forms**: draw form controls at the input component's height
+- **pages**: draw badges and table header rows on whole pixels
+- **theming**: paint every page in the theme background colour
+- **tables**: datetimes and times stored as typed on SQLite are rewritten once at startup
+- **migrations**: repair formula columns an earlier version converted to text on PostgreSQL
+- **pages**: an escaped record token no longer hides a component from a restricted role
+- **admin**: hide the pairing sentence for a colour role that names no pair
+- **admin**: print the record tokens in the gallery, kanban and list examples as written
+- **account**: order same-instant export entries by id
+- **config**: refuse a component: placement naming no template at boot
+- **pages**: a backslash before a record token prints the token as written
+- **realtime**: never show a row's hidden previous values when an update brings it into view
+- **automations**: refuse a digest sort key written as a JSON path at config decode
+- **forms**: hold a hidden link or account to the value the server fills in
+- **comments**: count per-record assigned roles in a record's mention audience
+- **realtime**: deliver each change only to subscribers whose row-level rule shows the row
+- **tables**: formulas reach the rows already in a table, and writes return computed values
+- **tables**: datetimes store their UTC instant and times read HH:MM:SS on SQLite
+- **tables**: a table can link to itself many-to-many, and derived table names are checked
+- **migrations**: a table renamed under its id is renamed, not rebuilt
+- **records**: an id that cannot be a record key answers 404 on PostgreSQL
+- **account**: erasure removes the person's email address from the audit log
+- **auth**: a refused admin password reset no longer signs the user out
+- **records**: empty values sort last in both directions on both engines
+- **tables**: the table list answers in an app with no auth
+- **ai**: MCP migration and schema-checksum tools read their stored tables
+- **automations**: a ban-user step cannot ban the last admin
+- **auth**: the admin role route answers like set-role, including 404 for an unknown account
+- **config**: refuse a $ref that names no template, showing how to include a file instead
+- **config**: a bare $ref places a component template instead of looking for a file
+- **auth**: two simultaneous demotions cannot remove the last admin
+- **tables**: enforce a number field's range and precision as a decimal's
+- **auth**: a role write names exactly one role, spelled exactly
+- **automations**: an assign-role step cannot demote the last admin
+- **auth**: a default role must be one the app declares
+- **auth**: a role update names a declared role and keeps the last admin
+- **migrations**: keep a many-to-many link table's keys when a linked table is rebuilt
+- **ai**: ground an agent on a table named with capitals, spaces or hyphens
+- **tables**: judge the reserved auth\_ and system\_ prefixes on the stored name
+- **ai**: name the tools of a table with a space so AI clients accept them
+- **tables**: refuse two table names that are stored as the same table
+- **tables**: store a blank date as no date, including one an automation writes
+- **tables**: keep a formula's text literals as written, and start every formula PostgreSQL computes through the session
+- **pages**: a board card shows the file of an attachment field as its cover or image
+- **auth**: changing a user's role no longer hands the admin that user's session
+- **ai**: answer chat record questions about tables named with a hyphen or a space
+- **cli**: refuse an unknown field type in sovrium validate, naming the known types
+- **tables**: give the number field the grid and min/max handling of a decimal
+- **tables**: catalogue number as an alias of decimal
+- **i18n**: built-in view labels, the clear control, the palette create dialog and automation forms follow the page language
+- **tables**: sum number, rating and progress rollups, and read a date rollup as its day
+- **tables**: compute formulas that read a date as text with the row trigger on PostgreSQL
+- **automations**: log a failed bucket lookup before falling back
+- **pages**: a card image draws only a safe address
+- **pages**: an AI chat or search box placed in a breakpoint counts at boot
+- **pages**: an editable drawer unlocks only once it shows the record
+- **forms**: a create form's id names the form itself
+- **pages**: a script in the first tab panel binds after load
+- **migrations**: carry many-to-many link tables when a table is renamed under its id
+- **tables**: refuse a unique constraint naming a field the table does not declare
+- **tables**: refuse table names holding whitespace other than a plain space
+- **migrations**: rebuild a table with a lookup without colliding on its constraint names
+- **tables**: serve records of tables named with capitals, spaces or hyphens
+- **automations**: an object with keys is a value, not empty
+- **pages**: one rule decides what is empty in visibility and collection pages
+- **tables**: a view filter judges an empty value as the records API does, on both databases
+- **migrations**: quote table names in lookup views
+- **database**: start behind a connection pooler that refuses the JIT setting
+- **tables**: a composite foreign key must name a table and fields that exist
+- **migrations**: `migrate --dry-run`, `--check` and `--watch` recognise a table renamed under its id
+- **pages**: a card click on a board, calendar or gallery only opens a page on this site, and a gallery card can open a record drawer
+- **migrations**: refuse a table rebuild that would copy none of a populated table's columns
+- **tables**: read a date as its day wherever a raw row is handed on, on PostgreSQL
+- **database**: compare view trigger functions, and preview view rebuilds an upgrade performs
+- **database**: recreate a volatile formula trigger on a table that already has it
+- **server**: refuse to start on an invalid rate-limit window
+- **security**: count an IPv6 client by its /64 in every rate limit
+- **security**: count MCP and credentialed page requests against the per-address ceiling
+- **migrations**: making a field required with a default fills existing empty rows on SQLite
+- **migrations**: quote table names in every migration statement, and rename a table only under an id its author wrote
+- **tables**: a group grant opens a table with a row-level rule as a role grant does
+- **tables**: refuse two tables that look each other up, naming the lookups
+- **auth**: draw the social sign-in skeleton as a waiting POST form
+- **ai**: draw the chat composer as a POST form
+- **auth**: never send an invitation's token and password in the address
+- **pages**: never send a guest comment in the page address
+- **database**: rebuild lookup views an upgrade writes differently
+- **security**: let every in-memory rate limiter forget idle keys
+- **security**: cap API requests per address ahead of every session lookup
+- **tables**: copy nothing from a trashed record through a link to one record
+- **tables**: answer null for an aggregate over no values
+- **tables**: read a date field as its day on PostgreSQL
+- **pages**: a button that submits a form by selector waits for the form's script like its own submit
+- **mcp**: judge a link target with the caller's groups on an MCP write
+- **forms**: a hidden relationship field is held to the rows it would offer
+- **forms**: a form submission can only link a row the form offers
+- **tables**: an upsert keeps the link its matched row already holds
+- **pages**: never send a form's values in the address when it is submitted before the page's script runs
+- **automations**: refuse an undecided approval timeout inside a branch or a loop
+- **tables**: refuse an aggregate naming a field the table does not have
+- **tables**: skip trashed records in a lookup through many, and never group or filter on a hidden one
+- **tables**: a link to a row the writer cannot read is answered as a link to a missing row
+- **pages**: a component template keeps the test id its author gives it
+- **pages**: a page keeps out of the page cache when a template or breakpoint makes it depend on the request
+- **comments**: the mention picker finds readers however many others sort first
+- **comments**: a single comment and an edited comment carry their resolved mentions
+- **comments**: a comment thread answers to its record's row-level read rule
+- **tables**: hide unreadable rows behind reverse lookups and in the trash
+- **api**: cap a comment at 50 mentions
+- **automations**: refuse an approval timeout that decides nothing
+- **pages**: name a sidebar with groups on its navigation
+- **automations**: the depth limit still stops a loop through a field a write changes without naming it
+- **automations**: the depth limit refuses only a write that would start a run
+- **pages**: a phone's calendar switch offers the agenda in the month's place
+- **admin**: every run status reads in the operator's language as a badge
+- **automations**: a run a filter stopped reads Skipped, and its filter step Filtered out
+- **tables**: a hidden lookup value no longer steers a filter, a sort or an aggregate
+- **tables**: a CSV export keeps a column whose first row leaves it out
+- **tables**: a many-to-many lookup carries only the linked records its reader may read
+- **automations**: only an admin with write authority resolves an approval request
+- **automations**: a record automation no longer re-fires on a number its own write did not change
+- **tables**: judge a lookup before a field selection or permission drops its key
+- **i18n**: an interface-text override written for one language no longer replaces the engine's words in another
+- **pages**: name the phone calendar's agenda in its view switch
+- **forms**: draw an attachment field's label at the size of every other label
+- **tables**: signed-in callers keep their own records budget, and rate-limited widgets offer a retry
+- **tables**: leave out a lookup through a link the reader may not read
+- **automations**: stop a resumed run before any step when its starter was banned
+- **automations**: a copied or moved file keeps its bucket, and a refused speech upload is not retried
+- **automations**: a record list output reads as its value in branches, filters and code steps
+- **pages**: a board card binds its drawer record only to its own table
+- **pages**: an editable record drawer picks a linked record by name instead of showing its id
+- **pages**: a sign-out form shows only its button, and a dialog with an opener elsewhere starts closed
+- **pages**: a form inside a tab panel keeps its validation, background submit and recorder
+- **forms**: an embedded form keeps its field defaults and resolves now and user tokens in its prefill
+- **forms**: an in-place create form honours its inline prefill and stores an empty link as empty
+- **pages**: translate list empty messages and overlay titles
+- **tables**: an upsert answers to the table's row-level rules
+- **forms**: style the recorder buttons and size an embedded form title by its heading level
+- **forms**: a recorded, dropped or picked file satisfies a required attachment
+- **ai**: name a recording after its audio type when sending it to a speech engine
+- **automations**: a batch update or upsert writes a many-to-many field
+- **automations**: an older approval request can no longer be claimed through a new account
+- **tables**: anonymous creates and comments no longer share a form's rate limit
+- **tables**: a signed-out visitor's record is authored by the system
+- **tables**: a record never names a linked record its reader may not read
+- **automations**: an automation can write a many-to-many field
+- **automations**: a run whose starter is banned stops acting as them
+- **automations**: a hand-started run reads records as the person who started it
+- **tables**: check a record write against the row it will actually leave
+- **automations**: rows a hand-started run writes carry the person who started it
+- **automations**: a run started by hand resumes as that person after an approval
+- **automations**: a run stopped by a rejected approval can be read again
+- **server**: serve a request that sends no Host header
+- **ai**: leave paused automations out of the MCP tool list
+- **automations**: an approver named by email is the account that held it when the request was made
+- **tables**: let create: all accept records from visitors who are not signed in
+- **tables**: hide linked records a reader may not read
+- **automations**: a run someone starts by hand writes as that person
+- **tables**: check a row-level write rule against the row as it would be written
+- **cli**: fail cleanly when sovrium update cannot replace the binary
+- **docker**: mark the official image so sovrium update recognises it
+- **cli**: detect Homebrew installs from the binary path, not HOMEBREW_PREFIX
+- **mcp**: do not list a manual automation switched off in config
+- **server**: confine the retired-host redirect's host before printing it
+- **server**: refuse a Host that lists several hosts with 400
+- **pages**: open an edit form with the record's many-to-many links
+- **pages**: name the language switcher once, and give it the attributes in its props
+- **pages**: name a form embedded by reference as a form
+- **mcp**: list a manual automation to a role exactly when that role may run it
+- **mcp**: a caller with no identity is denied by every row-level rule
+- **server**: trust X-Forwarded-Host for the retired-host redirect only behind a declared proxy
+- **auth**: build the emailed invitation link from this instance's address
+- **server**: refuse a request whose Host is not a host name with 400
+- **docs**: say which requests trust a forwarding header, and what an unset BASE_URL advertises behind a proxy
+- **server**: never print a Host header that is not a host name
+- **mcp**: write tools apply every value rule and lock the records API applies
+- **api**: a record's history answers to the record's read rules
+- **pages**: an $app value never turns text content into markup
+- **server**: believe forwarded host and scheme only behind a declared proxy
+- **mcp**: write tools answer failures and malformed values as the records API does
+- **mcp**: write tools apply the table's row-level rules
+- **forms**: save a record's edit form through the same checks and effects as the API
+- **pages**: print `$app` values as text inside an HTML template
+- **pages**: keep a cached page's sharing image on the host each visitor asked for
+- **tables**: fill a `$currentUser` default on the rows an upsert creates
+- **pages**: print a date's weekday in list metadata and on gallery cards
+- **pages**: a card qr-code's size and error-correction level are validated as a page qr-code's are
+- **automations**: a missing key stays missing when it shares a name with a built-in or inherited member
+- **forms**: mark a refused field invalid and name it by its label
+- **pages**: read a `./` favicon from the root of public/ on nested pages
+- **automations**: templates inside a path branch resolve as they do at the top level
+- **pages**: a card qr-code honours its size, error-correction level and class
+- **cli**: a bare init writes the same public/README.md a template ships
+- **pages**: make a navigating gallery card a link and show attachment covers
+- **design**: keep a page styled when one class list holds a stray quote
+- **api**: answer a record history addressed by its table name
+- **api**: read `true` and `false` as booleans in a checkbox filter shorthand
+- **tables**: stamp a datetime whose default is `now` with the write time
+- **cli**: seed attachment files into the bucket their field declares
+- **mcp**: keep a whitelisted record's fields to the fields the whitelist names
+- **forms**: keep untouched fields when an edit form is saved with its button
+- **pages**: apply a public row rule to anonymous readers of a collection page
+- **auth**: a custom role below level 80 is no longer treated as admin
+- **pages**: the collections manual says who reads a gated article's Markdown
+- **pages**: the data-binding manual states what emptiness and a section's limit mean
+- **pages**: a section's pager counts no more rows than its limit
+- **tables**: an empty list is empty to every filter, and emptiness reads any column type
+- **tables**: a signed-in default fills a field left empty, in a batch create too
+- **server**: the page-search index is replaced whole, and a shadowed public copy is reported
+- **pages**: an article's own access fails closed, and its Markdown answers the readers its page answers
+- **auth**: a built-in role listed for its landing never becomes the app's top role
+- **tables**: a lookup can read another lookup
+- **pages**: an empty list shows its empty state and a user field can default to the signed-in account
+- **pages**: an article can be gated from its front matter, the docs layout names its parts, and a title match comes first
+- **automations**: a chained run is finished before the server stops, and a cycle between two automations is refused at boot
+- **pages**: a section bound to a table honours its limit anywhere on the page
+- **pages**: a calendar opens a drawer on click, reads on a phone and refuses a colour field that is a multi-select
+- **automations**: a form submission starts its automations with the stored row
+- **tables**: a summary row works on a grid bound to a view
+- **pages**: a drawer shows files, edits with the form's controls, opens other drawers and names itself in the address
+- **api**: a filter with a malformed relative date is refused instead of forwarded
+- **automations**: a status change that leaves its own trigger condition is accepted at boot
+- **server**: the page-search index is written beside the database, not into the app folder
+- **pages**: dragging an all-day event keeps its start day east of UTC
+- **pages**: a form in an overlay the viewer cannot open reads no choices
+- **pages**: cards draw the QR code of their record
+- **pages**: an aggregated chart takes one series to name and colour it
+- **tables**: a lookup through a link to the same table works
+- **automations**: a record written by an automation starts the automations of its table, and create returns its id
+- **pages**: a drawer title can name the record it opens
+- **pages**: a calendar range that ends on a date shows its last day
+- **pages**: related lists and list items show names and money as the grid does
+- **pages**: cards draw badges, avatars and images of their record
+- **pages**: every component names its type, including code blocks, QR codes and static widgets
+- **pages**: an overlay opened by a hidden button stays hidden with it
+- **forms**: an empty email, link or phone answer is stored as no value
+
+### Performance Improvements
+
+- **automations**: a hand-started batch checks its caller once
+- **comments**: the mention picker loads readers' grants one page at a time
+- **tables**: look up the reader's email only when a rule names it
+- **activity**: judge the activity feed's read rules in the database
+- **activity**: judge the activity feed's records a few at a time
+- **tables**: keep the SQLite search index by key on every write
+- **tables**: partition a grouped record list in one pass
+- **auth**: skip the session lookup for a request that carries no credential
+- **database**: turn PostgreSQL JIT compilation off on every connection
+
 ## [0.29.1](https://github.com/sovrium/sovrium/compare/v0.29.0...v0.29.1) (2026-09-27)
 
 ### Bug Fixes

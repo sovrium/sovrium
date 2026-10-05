@@ -43,7 +43,7 @@ import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { validateTableName } from '@/infrastructure/database/table-queries/statement/validation'
+import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
 import type { SeedTableConfig } from '@/application/use-cases/seed/seed-config'
@@ -123,8 +123,13 @@ const foldSequential = <T, R>(
     Promise.resolve({ value: [], index })
   )
 
-/** Upload one `seed/assets/<file>` and return the bare storage key. */
-const uploadAsset = async (seedDir: string, filename: string): Promise<string> => {
+/**
+ * Upload one `seed/assets/<file>` into the bucket its field declares — the
+ * built-in `system` bucket for a field that names none — and return the bare
+ * storage key. The read path resolves the key through the same bucket, so a
+ * file stored anywhere else would never be found.
+ */
+const uploadAsset = async (seedDir: string, filename: string, bucket: string): Promise<string> => {
   const source = Bun.file(`${seedDir}/assets/${filename}`)
   if (!(await source.exists())) {
     // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
@@ -134,10 +139,7 @@ const uploadAsset = async (seedDir: string, filename: string): Promise<string> =
   const bytes = new Uint8Array(await source.arrayBuffer())
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    // Seeded assets always land on a column with no declared bucket — the
-    // seed refuses a bucket-bound column outright — so the read path
-    // resolves them through the built-in system bucket.
-    yield* storage.upload(key, bytes, inferMimeFromKey(filename), SYSTEM_BUCKET_NAME)
+    yield* storage.upload(key, bytes, inferMimeFromKey(filename), bucket)
   })
   return Effect.runPromise(Effect.provide(program, StorageServiceLive)).then(() => key)
 }
@@ -172,14 +174,13 @@ const findExistingId = async (
   columns: readonly (readonly [string, unknown])[]
 ): Promise<string | number | undefined> => {
   if (columns.length === 0) return undefined
-  validateTableName(tableName)
   const predicate = sql.join(
     columns.map(([name, value]) => sql`${sql.identifier(name)} = ${value}`),
     sql.raw(' AND ')
   )
   const rows = await executeRaw(
     db,
-    sql`SELECT id FROM ${sql.identifier(tableName)} WHERE ${predicate} ORDER BY id LIMIT 1`
+    sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE ${predicate} ORDER BY id LIMIT 1`
   )
   const id = rows[0]?.id
   return typeof id === 'string' || typeof id === 'number' ? id : undefined
@@ -222,11 +223,21 @@ const resolveReferenceId = async (
 const resolveSeedValue = async (
   context: SeedResolveContext,
   index: SeedKeyIndex,
-  value: SeedValue
+  value: SeedValue,
+  bucket: string
 ): Promise<Resolved<unknown>> => {
   if (value.kind === 'literal') return { value: value.value, index }
   if (value.kind === 'asset') {
-    return uploadAsset(context.seedDir, value.filename).then((key) => ({ value: key, index }))
+    return uploadAsset(context.seedDir, value.filename, bucket).then((key) => ({
+      value: key,
+      index,
+    }))
+  }
+  if (value.kind === 'assets') {
+    return foldSequential(value.filenames, index, async (carried, filename) => ({
+      value: await uploadAsset(context.seedDir, filename, bucket),
+      index: carried,
+    }))
   }
   if (value.kind === 'ref') {
     return resolveReferenceId(context, index, value.ref.table, value.ref.key)
@@ -244,10 +255,14 @@ const resolveSeedValue = async (
 export const resolveSeedFields = (
   context: SeedResolveContext,
   index: SeedKeyIndex,
-  fields: Readonly<Record<string, SeedValue>>
+  fields: Readonly<Record<string, SeedValue>>,
+  tableName: string
 ): Promise<Resolved<Record<string, unknown>>> =>
   foldSequential(Object.entries(fields), index, async (carried, [name, value]) => {
-    const resolved = await resolveSeedValue(context, carried, value)
+    const bucket =
+      findConfig(context.tables, tableName)?.fields.find((field) => field.name === name)?.bucket ??
+      SYSTEM_BUCKET_NAME
+    const resolved = await resolveSeedValue(context, carried, value, bucket)
     return { value: [name, resolved.value] as const, index: resolved.index }
   }).then((resolved) => ({
     value: Object.fromEntries(resolved.value),

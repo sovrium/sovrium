@@ -127,6 +127,10 @@ elevation:
   md: 0 4px 12px rgb(20 20 30 / 0.08)
   lg: 0 12px 32px rgb(20 20 30 / 0.14)
 
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
 # A directory card carries four facts and a request five, and nobody reads
 # them in a hurry, so rows breathe: the cozy step. The three steps are the
 # platform's own values, written out so one number can be tuned.

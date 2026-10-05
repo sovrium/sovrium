@@ -174,7 +174,7 @@ components:
             dataSource:
               table: time_off_requests
             props:
-              title: Time-off request
+              title: '$record.employee_name · $record.type'
             recordFields:
               - { name: employee_name, type: single-line-text, label: Person }
               - { name: status, type: status, label: Decision }

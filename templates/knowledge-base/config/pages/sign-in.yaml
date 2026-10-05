@@ -1,29 +1,53 @@
+# The way in: a work email and a password. Sign-up is closed
+# (config/auth.yaml); a new colleague is added by their manager, so the page
+# says who to ask rather than offering an account.
 name: sign-in
 path: /sign-in
 meta:
-  title: Sign In
-  description: Sign in to read the handbook
+  title: Sign in · Corvel handbook
+  description: Sign in to the Corvel handbook with your work email.
 components:
+  - $ref: ./_site-header.yaml
   - type: container
     element: section
     props:
-      className: py-12 px-6
+      className: flex justify-center px-10 pt-14 pb-12 max-md:px-3.5 max-md:pt-8
     children:
       - type: container
         props:
-          className: max-w-md mx-auto
+          className: flex w-full max-w-[420px] flex-col gap-[18px]
         children:
+          - type: container
+            props:
+              className: flex flex-col gap-1.5 text-center
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[28px] font-semibold tracking-tight text-foreground
+                content: Sign in to the handbook
+              - type: text
+                element: p
+                props:
+                  className: text-foreground-muted
+                content: Use your Corvel email.
+          - type: container
+            props:
+              className: flex flex-col gap-3.5 rounded-lg border border-border bg-background-raised p-5 shadow-sm
+            children:
+              - type: form
+                props:
+                  id: sign-in-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: email
+                  submitLabel: Sign in
+                  onSuccess:
+                    navigate: /kb
           - type: text
-            element: h1
+            element: p
             props:
-              className: text-4xl font-bold mb-6 text-center
-            content: Sign In
-          - type: form
-            props:
-              id: sign-in-form
-            action:
-              type: auth
-              method: login
-              strategy: email
-              onSuccess:
-                navigate: /kb/welcome
+              className: text-center text-xs text-foreground-muted
+            content: Only people with a Corvel email can read the handbook. New here? Your manager adds you.
+  - $ref: ./_site-footer.yaml

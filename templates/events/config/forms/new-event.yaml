@@ -1,0 +1,39 @@
+# Creating an event, from the dialog on the Overview. A new event starts as a
+# Draft, off the public page; open it on the Overview's list once its date,
+# place and seats are right.
+id: 3
+name: new-event
+title: New event
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: events
+display:
+  submitLabel: Create event
+onSuccess:
+  type: redirect
+  url: /calendar
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: name
+    required: true
+    label: Name
+  - kind: table-field
+    column: starts_at
+    required: true
+    label: Starts
+  - kind: table-field
+    column: ends_at
+    label: Ends
+  - kind: table-field
+    column: time_label
+    label: Time
+    helpText: The hours as visitors read them, for example 18:30 – 21:00.
+  - kind: table-field
+    column: place
+    label: Place
+  - kind: table-field
+    column: capacity
+    label: Seats

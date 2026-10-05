@@ -61,17 +61,8 @@ import {
 } from './library-openapi-schema'
 
 export type {
-  BodyEncoding,
-  EnumValue,
   GeneratedOperation,
   GeneratedPagination,
-  GeneratedParam,
-  HttpMethod,
-  ParamFormat,
-  ParamLocation,
-  ParamType,
-  ScalarType,
-  SkipReason,
   SkippedOperation,
 } from './library-openapi-schema'
 

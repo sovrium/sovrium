@@ -1,0 +1,1 @@
+ALTER TABLE `system_automation_runs` ADD `started_by_hand` integer DEFAULT false NOT NULL;

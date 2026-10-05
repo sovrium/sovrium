@@ -7,7 +7,8 @@
 
 import { Effect } from 'effect'
 import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
-import type { ActionHandler, ActionOutcome } from './shared'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
+import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
  * `filter/continue` handler — evaluate a `ConditionGroup` against the
@@ -18,10 +19,11 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * The group combinator is read from the `logic` key ('and' | 'or'); -003/-004
  * pin the `logic: 'or'` semantics (passes on any single match).
  *
- * Templates inside the condition's `field` references (e.g.
- * `{{trigger.data.plan}}`) are resolved by `resolveTriggerInValue` in
- * `run-automation.ts` BEFORE this handler is invoked — so by the time
- * we evaluate, both `field` and `value` are concrete primitives.
+ * The condition is resolved from the RAW action against the run context, as
+ * `path/branch` does: the run loop's pre-resolved props stringify a list or an
+ * object (`{{step.records}}` would arrive as text), and emptiness must be
+ * judged on the value itself. Without a run context (a direct dispatch) the
+ * pre-resolved props are all there is.
  *
  * On false condition with `onFalse: 'stop'`, we return
  * `status: 'filtered'`. The run loop in `run-automation.ts` honours
@@ -37,9 +39,21 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * (audit HIGH-2, commit 856509f8d).
  */
 
-export const handleFilterContinue: ActionHandler = (action, _app, _automation) => {
+/** The condition group, resolved against the run context when there is one. */
+const resolvedCondition = (
+  props: Readonly<Record<string, unknown>>,
+  runContext: ActionRunContext | undefined
+): Readonly<Record<string, unknown>> => {
+  if (runContext === undefined) {
+    return (props['condition'] ?? {}) as Readonly<Record<string, unknown>>
+  }
+  const raw = authoredActionProps(runContext)['condition'] ?? props['condition'] ?? {}
+  return resolveOwnProp(runContext, raw) as Readonly<Record<string, unknown>>
+}
+
+export const handleFilterContinue: ActionHandler = (action, _app, _automation, runContext) => {
   const props = (action['props'] ?? {}) as Readonly<Record<string, unknown>>
-  const condition = (props['condition'] ?? {}) as Readonly<Record<string, unknown>>
+  const condition = resolvedCondition(props, runContext)
   const onFalse = String(props['onFalse'] ?? 'stop')
 
   const passed = evaluateGroup(condition)

@@ -80,7 +80,7 @@ const describeRecipient = (to: SendMailOptions['to']): string => {
   if (to === undefined || to === null) return 'unknown'
   if (typeof to === 'string') return to
   if (Array.isArray(to)) return to.map((one) => describeRecipient(one)).join(', ')
-  const { address, name } = to
+  const { address = 'unknown', name } = to
   return name ? `${name} <${address}>` : address
 }
 

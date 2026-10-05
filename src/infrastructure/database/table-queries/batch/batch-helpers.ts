@@ -54,36 +54,6 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
  */
 export const BATCH_FANOUT_CONCURRENCY = 2
 
-/**
- * Build INSERT SQL clauses from a fields object, or `undefined` when empty.
- *
- * Delegates clause construction to the SINGLE-record builder
- * (`buildInsertClauses` in `mutation-helpers/create-record-helpers`) so both
- * write paths encode values identically. The batch path previously carried its
- * own copy that bound every value with `sql\`${value}\``, and drizzle expands a
- * JS array into a SQL ROW CONSTRUCTOR — `['a','b']` was emitted as `($2, $3)`.
- * That made array-valued fields (`multi-select`, `multiple-attachments`, any
- * JSON column holding an array) fail arity-dependently rather than
- * type-dependently: two or more elements raised a row-constructor error, while
- * a ONE-element array bound to `($2)` — legal scalar syntax — so SQLite
- * answered 201 and silently stored the bare scalar where the array belonged.
- *
- * The shared builder introspects the column type via `arrayColumnTypes` and
- * emits a native array literal for a genuine SQL array or a JSON literal
- * otherwise, which is why callers resolve that map first (see
- * `collectArrayColumnNames` / `lookupArrayColumnTypes`).
- *
- * Only the empty-fields guard stays local: batch callers treat "no fields" as
- * a skipped record rather than an error.
- */
-function buildBatchInsertClauses(
-  fields: Readonly<Record<string, unknown>>,
-  arrayColumnTypes: Readonly<Record<string, string>>
-): InsertClauses | undefined {
-  if (Object.keys(fields).length === 0) return undefined
-  return buildInsertClauses(fields, arrayColumnTypes)
-}
-
 /** The clause pair the shared builder produces, named once for reuse below. */
 type InsertClauses = ReturnType<typeof buildInsertClauses>
 
@@ -94,8 +64,8 @@ type InsertClauses = ReturnType<typeof buildInsertClauses>
  * The single place the batch INSERT is performed. The two create helpers below
  * call exactly it and differ ONLY in how a failure surfaces — one throws, one
  * fails an Effect — so holding the statement here stops the two spellings from
- * drifting the way the clause BUILDERS did (see {@link buildBatchInsertClauses}
- * for what that cost).
+ * drifting the way the clause BUILDERS once did (the batch copy bound a JS
+ * array as a SQL row constructor; both paths now share `buildInsertClauses`).
  *
  * It delegates to `insertAndResolveRow`, the same helper the single-record
  * create path uses, which is what makes the returned row USABLE on a
@@ -149,8 +119,7 @@ export async function createSingleRecord(
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const clauses = buildBatchInsertClauses(fields, arrayColumnTypes)
-  if (!clauses) return undefined
+  const clauses = buildInsertClauses(fields, arrayColumnTypes)
 
   try {
     return await executeInsertReturning(tx, tableName, clauses)
@@ -174,10 +143,13 @@ export function createSingleRecordInBatch(
 ): Effect.Effect<Record<string, unknown> | undefined, DatabaseError | ValidationError> {
   return Effect.tryPromise({
     try: async () => {
-      const clauses = buildBatchInsertClauses(fields, arrayColumnTypes)
-      if (!clauses) return undefined
-
-      return await executeInsertReturning(tx, tableName, clauses)
+      // A record with no column value (only many-to-many links) is still a
+      // row: `buildInsertClauses` inserts it with every column at its default.
+      return await executeInsertReturning(
+        tx,
+        tableName,
+        buildInsertClauses(fields, arrayColumnTypes)
+      )
     },
     catch: handleInsertError,
   })

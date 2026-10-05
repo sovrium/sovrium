@@ -30,10 +30,7 @@ const BONE = 'bg-background-subtle animate-pulse rounded'
 
 export function CalendarMissingDateField(): ReactElement {
   return (
-    <div
-      className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="calendar"
-    >
+    <div className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3">
       <p>
         Calendar is missing required <code>dateField</code> configuration.
       </p>
@@ -74,7 +71,6 @@ export function CalendarLoading(): ReactElement {
       className="w-full"
       aria-label="Loading calendar..."
       role="status"
-      data-component="calendar"
     >
       {/* Toolbar row: nav pair · today · centred title · segmented trio. */}
       <div className={computeCalendarToolbarClasses()}>
@@ -120,7 +116,6 @@ export function CalendarError({ error }: { readonly error: unknown }): ReactElem
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       role="alert"
-      data-component="calendar"
     >
       <p>
         Failed to load calendar records: {error instanceof Error ? error.message : String(error)}

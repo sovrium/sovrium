@@ -10,11 +10,7 @@ import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/service
 import { isSelfContainedSource, resolveSource, tempKey, uploadArtifact } from './file-support'
 import { applyCellRange, parseCellRange, readXlsx, type XlsxCell } from './file-xlsx-parse'
 import { buildXlsx, type XlsxSheetInput } from './file-xlsx-write'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { resolveOwnProps } from './run-context-resolution'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
@@ -196,12 +192,7 @@ const resolvedProps = (
   action: Readonly<Record<string, unknown>>,
   runContext: ActionRunContext | undefined
 ): Readonly<Record<string, unknown>> =>
-  runContext
-    ? (resolveRunContextValue(
-        rawActionProps(runContext),
-        buildRunContextView(runContext)
-      ) as Record<string, unknown>)
-    : props(action)
+  runContext ? (resolveOwnProps(runContext) as Record<string, unknown>) : props(action)
 
 /** The declared sheets: the multi-sheet `sheets` form, or the single `data` form. */
 const sheetInputsFor = (p: Readonly<Record<string, unknown>>): ReadonlyArray<XlsxSheetInput> => {

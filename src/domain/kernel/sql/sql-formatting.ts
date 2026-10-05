@@ -14,20 +14,56 @@
 export const escapeSqlString = (value: string): string => value.replace(/'/g, "''")
 
 /**
- * Quote a SQL identifier (table/view/column name) only when PostgreSQL
- * requires it.
+ * Words neither engine accepts as a bare identifier everywhere a name goes: the
+ * PostgreSQL reserved key words (including those that may only name a function
+ * or a type) and SQLite's key words. A name in this set is quoted even though
+ * it has the shape of a plain identifier — `CREATE VIEW all AS …` is a syntax
+ * error on both engines, `CREATE VIEW "all" AS …` is not.
  *
- * A plain unquoted identifier in PostgreSQL must match `[a-z_][a-z0-9_]*`.
- * Anything else (hyphens, leading digits, uppercase, reserved words) needs
- * double-quoting. View IDs accept kebab-case (e.g. `active-orders`), so an
- * unquoted `CREATE VIEW active-orders` produces `syntax error at or near "-"`.
+ * @see https://www.postgresql.org/docs/current/sql-keywords-appendix.html
+ * @see https://www.sqlite.org/lang_keywords.html
+ */
+const SQL_KEYWORDS: ReadonlySet<string> = new Set(
+  [
+    // PostgreSQL: reserved
+    'all analyse analyze and any array as asc asymmetric both case cast check collate column',
+    'constraint create current_catalog current_date current_role current_time current_timestamp',
+    'current_user default deferrable desc distinct do else end except false fetch for foreign from',
+    'grant group having in initially intersect into lateral leading limit localtime',
+    'localtimestamp not null offset on only or order placing primary references returning select',
+    'session_user some symmetric system_user table then to trailing true union unique user using',
+    'variadic when where window with',
+    // PostgreSQL: reserved, but allowed as a function or type name
+    'authorization binary collation concurrently cross current_schema freeze full ilike inner is',
+    'isnull join left like natural notnull outer overlaps right similar tablesample verbose',
+    // SQLite
+    'abort action add after alter always attach autoincrement before begin between by cascade',
+    'commit conflict current database deferred delete detach drop each escape exclude exclusive',
+    'exists explain fail filter first following generated glob groups if ignore immediate index',
+    'indexed insert instead key last match materialized no nothing nulls of others over',
+    'partition plan pragma preceding query raise range recursive regexp reindex release rename',
+    'replace restrict rollback row rows savepoint set temp temporary ties transaction trigger',
+    'unbounded update vacuum values view virtual without',
+  ].flatMap((line) => line.split(' '))
+)
+
+/**
+ * Quote a SQL identifier (table/view/column name) only when it needs it.
+ *
+ * A plain unquoted identifier must match `[a-z_][a-z0-9_]*` AND not be a key
+ * word. Anything else (hyphens, leading digits, uppercase, key words such as
+ * `all` or `order`) is double-quoted. View IDs accept kebab-case (e.g.
+ * `active-orders`), so an unquoted `CREATE VIEW active-orders` produces
+ * `syntax error at or near "-"`; a view id `all` produced `near "all"`.
  *
  * Identifiers that are already valid bare identifiers are returned unchanged
  * so existing snake_case names (`test_view`, `idx_orders_status`) keep their
- * unquoted form. Embedded double-quotes are doubled per the SQL standard.
+ * unquoted form. Embedded double-quotes are doubled per the SQL standard. A
+ * quoted lowercase name is the same name as its bare form on both engines, so
+ * quoting never renames anything.
  */
 export const quoteSqlIdentifier = (identifier: string): string => {
-  if (/^[a-z_][a-z0-9_]*$/.test(identifier)) {
+  if (/^[a-z_][a-z0-9_]*$/.test(identifier) && !SQL_KEYWORDS.has(identifier)) {
     return identifier
   }
   return `"${identifier.replace(/"/g, '""')}"`

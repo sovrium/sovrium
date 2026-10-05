@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { DEFAULT_SUMMARY_CAP } from '@/domain/models/app/tables/ai-compute-baseline'
 import {
@@ -58,7 +59,7 @@ const DEFAULT_PLACEHOLDER_CAP = DEFAULT_SUMMARY_CAP
 const buildSummaryGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -67,15 +68,15 @@ const buildSummaryGuardSql = (fieldName: string, sourceFields: readonly string[]
       RETURN NEW;
     END IF;
     -- User changed the summary column directly in this statement: honour it.
-    IF NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName}
-       AND NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS DISTINCT FROM OLD.${fieldName}
+       AND NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;`
 
@@ -101,7 +102,7 @@ const buildSummaryNotifySql = (
   const temperatureLiteral = sqlNumberLiteral(field.temperature, 'real')
   const maxTokensLiteral = sqlNumberLiteral(field.maxTokens, 'int')
 
-  return `  NEW.${fieldName} = left(btrim(source_content), ${cap});
+  return `  NEW.${quoteSqlIdentifier(fieldName)} = left(btrim(source_content), ${cap});
 
   -- Emit NOTIFY so the application layer can observe + log the summary
   -- compute event and invoke the AI provider for the canonical summary.
@@ -112,7 +113,7 @@ const buildSummaryNotifySql = (
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
     'record_id', NEW.id,
-    'value', NEW.${fieldName},
+    'value', NEW.${quoteSqlIdentifier(fieldName)},
     'source', left(source_content, 2000),
     'prompt', ${promptLiteral},
     'model', ${modelLiteral},

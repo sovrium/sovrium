@@ -12,6 +12,7 @@ import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { logError } from '@/infrastructure/logging/logger'
+import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -89,4 +90,38 @@ export function logActivity(config: {
     // unlogged discard.
     Effect.ignore
   )
+}
+
+/** The activity-log action a committed row change is recorded as. */
+const ACTION_BY_EVENT = {
+  insert: 'create',
+  update: 'update',
+  delete: 'delete',
+} as const satisfies Record<CommittedRowChange['event'], string>
+
+/**
+ * Log, once a write has COMMITTED, one activity entry per row it changed.
+ *
+ * A batch logs after its transaction rather than inside it, for two reasons.
+ * An entry for a row the rollback undid would record a change that never
+ * happened. And the entry is written through the shared `db`, which on SQLite
+ * waits for any open transaction to end: issued from inside the body, it would
+ * wait for its own transaction.
+ */
+export function logCommittedRowChanges(
+  session: Readonly<Session>,
+  changes: readonly CommittedRowChange[]
+): Effect.Effect<void, never> {
+  return Effect.forEach(changes, (change) =>
+    logActivity({
+      session,
+      tableName: change.tableName,
+      action: ACTION_BY_EVENT[change.event],
+      recordId: change.recordId,
+      changes: {
+        ...(change.previous === undefined ? {} : { before: { ...change.previous } }),
+        ...(change.row === undefined ? {} : { after: { ...change.row } }),
+      },
+    })
+  ).pipe(Effect.asVoid)
 }

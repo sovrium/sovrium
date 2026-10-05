@@ -40,7 +40,15 @@ export type CommentQueryRow = {
    */
   readonly guestName: string | null
   readonly guestEmail: string | null
+  /** Stored moderation status (`approved` / `pending` / `rejected`). */
+  readonly status: string
 }
+
+/**
+ * Stored moderation status, as the three published values. The column is
+ * free text at the database level; the only writers store one of the three.
+ */
+export type CommentModerationStatus = 'approved' | 'pending' | 'rejected'
 
 /**
  * Transform comment query result to domain model
@@ -59,6 +67,7 @@ export function transformCommentRow(row: {
   readonly userImage: string | undefined
   readonly guestName: string | null
   readonly guestEmail: string | null
+  readonly status: string
 }): {
   readonly id: string
   readonly tableId: string
@@ -71,6 +80,7 @@ export function transformCommentRow(row: {
   readonly user: UserMetadataWithOptionalImage | undefined
   readonly guestName: string | null
   readonly guestEmail: string | null
+  readonly status: CommentModerationStatus
 } {
   return {
     id: row.id,
@@ -84,6 +94,7 @@ export function transformCommentRow(row: {
     user: extractUserFromRow(row),
     guestName: row.guestName,
     guestEmail: row.guestEmail,
+    status: row.status as CommentModerationStatus,
   }
 }
 
@@ -110,5 +121,6 @@ export const buildCommentSelectFields = () => {
     userImage: users.image,
     guestName: recordComments.guestName,
     guestEmail: recordComments.guestEmail,
+    status: recordComments.status,
   }
 }

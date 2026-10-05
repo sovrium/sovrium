@@ -71,4 +71,5 @@ export const buildChatContextPrompt = (
     tables: toContextTables(app),
     automations: toContextAutomations(app),
     ...(pageContext !== undefined && { pageContext }),
+    ...(app?.auth !== undefined && { auth: app.auth }),
   })

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -45,7 +46,7 @@ const TRANSLATE_PAYLOAD_KIND = 'translate'
 const buildTranslateGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -54,15 +55,15 @@ const buildTranslateGuardSql = (fieldName: string, sourceFields: readonly string
       RETURN NEW;
     END IF;
     -- User changed the translated column directly in this statement: honour it.
-    IF NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName}
-       AND NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS DISTINCT FROM OLD.${fieldName}
+       AND NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;`
 
@@ -90,7 +91,7 @@ const buildTranslateNotifySql = (
   const temperatureLiteral = sqlNumberLiteral(field.temperature, 'real')
   const maxTokensLiteral = sqlNumberLiteral(field.maxTokens, 'int')
 
-  return `  NEW.${fieldName} = btrim(source_content);
+  return `  NEW.${quoteSqlIdentifier(fieldName)} = btrim(source_content);
 
   -- Emit NOTIFY so the application layer can observe + log the translate
   -- compute event and invoke the AI provider for the canonical translation.
@@ -101,7 +102,7 @@ const buildTranslateNotifySql = (
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
     'record_id', NEW.id,
-    'value', NEW.${fieldName},
+    'value', NEW.${quoteSqlIdentifier(fieldName)},
     'source', left(source_content, 4000),
     'targetLanguage', ${targetLanguageLiteral},
     'prompt', ${promptLiteral},

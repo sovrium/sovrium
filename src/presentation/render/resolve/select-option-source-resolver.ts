@@ -11,13 +11,17 @@ import {
   SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
 } from '@/domain/models/app/pages/components/component-types/form-controls/select-option-source'
 import {
+  callerReaderFromSession,
+  tableReadPrincipal,
+} from '@/domain/models/app/tables/caller-record-gate-service'
+import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
-  readPrincipalFromSession,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { resolveSystemOptions } from '@/presentation/render/resolve/system-option-source-resolver'
 import { resolveFilters, scopeTablesOf } from './current-user-resolver'
+import { readRowsForCaller } from './record-read-gate'
 import type { SystemRowsFetcher } from './first-object-redirect-resolver'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -148,7 +152,7 @@ function canResolve(
   const plan = buildReadAccessPlan({
     app: ctx.app,
     table: table as TableLike,
-    principal: readPrincipalFromSession(ctx.session),
+    principal: tableReadPrincipal(table, callerReaderFromSession(ctx.session, ctx.app)),
     policy: CANONICAL_READ_POLICY,
   })
   if (!plan.allowed) return false
@@ -188,11 +192,19 @@ async function fetchOptions(
   // the row has no destination and must not travel.
   const fields = [...new Set([valueField, binding.displayField])]
 
-  const rows = await ctx.db.fetchRecords(binding.table, {
-    fields,
-    ...(filters.filter.length > 0 ? { filter: filters.filter } : {}),
-    ...(binding.sort !== undefined ? { sort: binding.sort } : {}),
-    pageSize,
+  // Through the records gate: the rows the table's row-level rule shows this
+  // visitor, as the records API lists them — an option is a row's values.
+  const { rows } = await readRowsForCaller({
+    app: ctx.app,
+    tableName: binding.table,
+    session: ctx.session,
+    db: ctx.db,
+    query: {
+      fields,
+      ...(filters.filter.length > 0 ? { filter: filters.filter } : {}),
+      ...(binding.sort !== undefined ? { sort: binding.sort } : {}),
+      pageSize,
+    },
   })
 
   return rows

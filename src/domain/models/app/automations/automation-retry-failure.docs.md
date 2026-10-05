@@ -11,6 +11,9 @@ A `retry` block sits at the **automation** level, covering the whole run, or at 
 <!-- sovrium:options RetryConfigSchema -->
 
 ```yaml
+env:
+  - { key: INVENTORY_API, description: Base URL of the inventory service, secret: false }
+
 automations:
   - name: sync-inventory
     trigger: { type: cron, expression: '0 * * * *' }
@@ -25,7 +28,7 @@ automations:
 
 `maxAttempts` accepts 1 to 10 and is required once the block is present. `delayMs` accepts 100 to 60000 and defaults to 1000. `strategy` defaults to `fixed`.
 
-**Only a failure a second try could fix is retried.** A network error, a timeout, and an `http` answer of `408`, `429` or any `5xx` are retried; any other `4xx` — a missing record, a refused credential, a malformed request — would fail the same way every time, so the step fails at once and the run ends `failed` rather than `exhausted`. When a `429` or `503` carries `Retry-After`, the next attempt waits at least that long, even when `delayMs` is shorter; a server asking for more than 30 seconds is not retried at all, since a run held open that long is worse than one that fails.
+**Only a failure a second try could fix is retried.** A network error, a timeout, and an answer of `408`, `429` or any `5xx` — from an `http` step or from a provider an `ai` step calls, such as the speech endpoint of `ai/transcribe` — are retried; any other `4xx` — a missing record, a refused credential, a malformed request — would fail the same way every time (as would a recording `ai/transcribe` refuses before sending it), so the step fails at once and the run ends `failed` rather than `exhausted`. When a `429` or `503` carries `Retry-After`, the next attempt waits at least that long, even when `delayMs` is shorter; a server asking for more than 30 seconds is not retried at all, since a run held open that long is worse than one that fails.
 
 Prefer `exponential` against a dependency that might be down rather than merely slow: a fixed delay turns an outage into steady load against a service already struggling, and each attempt costs the same as the first.
 
@@ -110,7 +113,7 @@ The alert is sent through the instance's SMTP settings (see the Email section of
 
 ## Partial failure and idempotent resume
 
-When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying resumes from the failed step and skips what already completed, so the replay is safe to press without auditing what the first attempt got through.
+When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying runs only the steps the failure left `skipped` — the ones after the failed step. Neither a completed step nor the failed step runs again, so the replay is safe to press without auditing what the first attempt got through. A run that stopped on purpose — stopped by a filter, waiting for an approval, or refused one — left no step `skipped`, so its replay runs no step.
 
 Replay creates a new run rather than mutating the original.
 

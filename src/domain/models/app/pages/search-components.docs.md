@@ -71,9 +71,9 @@ pages:
         maxResults: 10
 ```
 
-**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree, `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A `scope: subscribers` input builds nothing, so an app full of bound filter boxes pays no index cost.
+**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree — including a breakpoint's `responsive.<bp>.children` and inside a shared component a page places — `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A `scope: subscribers` input builds nothing, so an app full of bound filter boxes pays no index cost.
 
-What gets emitted, under `<outputDir>/sovrium-search/`, is a JSON index and a small runtime the box queries in the browser. The index is TF-IDF over each page's text, with a double weight for words that also appear in the page title, and it carries a short excerpt per page.
+What gets emitted is a JSON index and a small runtime the box queries in the browser, served at `/sovrium-search/index.json` and `/sovrium-search/runtime.js`. `sovrium build` writes them under `<outputDir>/sovrium-search/`, as part of the site it produces. `sovrium start` writes them under the data directory (`SOVRIUM_DATA_DIR`), beside the database, and serves them from there: starting an app never writes into its own folder, so `public/` holds only what you put in it. The index is TF-IDF over each page's text, with a double weight for words that also appear in the page title, and it carries a short excerpt per page.
 
 What gets indexed is narrower than "every page", in three ways worth knowing before you rely on it:
 
@@ -83,7 +83,7 @@ What gets indexed is narrower than "every page", in three ways worth knowing bef
 
 ### `index: session` — the pages this reader may open
 
-A box with `index: session` does not read the static file. Each query goes to `GET /api/search/pages?q=`, and the server answers with the pages the reader may open: public pages for a visitor who is not signed in, plus the gated pages and `contentDir` articles their role allows once they are. The static index is untouched and stays public-only, so a public box and a session box can sit on the same site. An omitted `index` means `public`: forgetting the key gives a box that searches less than you meant, never more.
+A box with `index: session` does not read the static file. Each query goes to `GET /api/search/pages?q=`, and the server answers with the pages the reader may open: public pages for a visitor who is not signed in, plus the gated pages and `contentDir` articles their role allows once they are. A page whose title holds the words is listed before one that only mentions them, whatever the collection order, and an article gated by the `access` in its own front matter is found only by the roles it names. The static index is untouched and stays public-only, so a public box and a session box can sit on the same site. An omitted `index` means `public`: forgetting the key gives a box that searches less than you meant, never more.
 
 ```yaml
 name: my-intranet
@@ -145,9 +145,13 @@ pages:
 
 `highlight` wraps matched terms in the rendered item text and is off by default.
 
+A reader who may not read a field the list names searches and sees the list without it: a `searchFields` entry on that field is not searched, and an `itemTemplate` slot — `subtitle`, `badge` or any other — whose `$record.*` names it is left out. The page does not name the field.
+
 ## The ⌘K palette
 
 Sovrium appends its own command palette to every page and binds ⌘K / Ctrl+K to it. You get it for nothing — no configuration at all — and it searches every table you may read, plus your own pages. **Search Overview** has what it returns and who sees what.
+
+Its « create a record » dialogs offer a table's text fields, and only those its reader may read: a field the reader's role may not read is not named in the page at all.
 
 ### Switching it off app-wide
 

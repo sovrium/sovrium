@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useInfiniteQuery, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { MAX_PAGE_SIZE } from '@/domain/kernel/sql/page-window'
 import { createRecordsClient } from '@/presentation/api/client'
@@ -198,6 +203,12 @@ interface TablePageRequest {
  */
 const REFUSED_READ_STATUSES: ReadonlySet<number> = new Set([401, 403, 404])
 
+/** The HTTP status a failed read carried on its `cause`, when it got a response. */
+const readStatus = (error: unknown): unknown =>
+  error instanceof Error
+    ? (error.cause as { readonly status?: unknown } | undefined)?.status
+    : undefined
+
 /**
  * Whether a records query failed because the reader may not read the table,
  * as opposed to a fault. A refusal is an ANSWER: asking again returns it
@@ -206,24 +217,24 @@ const REFUSED_READ_STATUSES: ReadonlySet<number> = new Set([401, 403, 404])
  * telling the visitor the table exists.
  */
 export function isRefusedRead(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  const { cause } = error
-  return (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'status' in cause &&
-    typeof cause.status === 'number' &&
-    REFUSED_READ_STATUSES.has(cause.status)
-  )
+  const status = readStatus(error)
+  return typeof status === 'number' && REFUSED_READ_STATUSES.has(status)
 }
 
 /**
- * The island QueryClient's two retries, spent only on a fault: a refused read
- * is answered, not failed, and retrying it only holds the loading state for
- * the length of the backoff.
+ * The island QueryClient's two retries, withheld from a read refused with 429:
+ * it is not worth asking again before its `Retry-After`, and asking at once
+ * only spends the budget and holds the view empty for the length of the
+ * backoff. The view offers its own Retry instead (`RateLimitedNotice`). This
+ * module keeps its own copy of the rule so the many islands that read through
+ * it do not each pay for the notice.
  */
-const retryUnlessRefused = (failureCount: number, error: Error): boolean =>
-  !isRefusedRead(error) && failureCount < 2
+const retryUnlessRateLimited = (failureCount: number, error: Error): boolean =>
+  readStatus(error) !== 429 && failureCount < 2
+
+/** {@link retryUnlessRateLimited}, also withheld from a refused read, which is answered, not failed. */
+const retryUnlessAnswered = (failureCount: number, error: Error): boolean =>
+  !isRefusedRead(error) && retryUnlessRateLimited(failureCount, error)
 
 /** Fetch one page of DB-table records and flatten `record.fields` to the top level. */
 async function fetchTableRecords({
@@ -386,8 +397,11 @@ export function useRecordsQuery(
     // Held until a bound channel has been read, so the first request is the
     // filtered one rather than everything followed by a re-fetch.
     enabled: isBound(request) && shared.ready,
-    retry: retryUnlessRefused,
+    retry: retryUnlessAnswered,
     queryFn: (): Promise<FetchResult> => fetchRecordsPage(request, 0),
+    // A changed key (a filter, a sort) keeps the rows on screen until the new
+    // answer lands, rather than dropping the view back to its skeleton.
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -430,6 +444,8 @@ export interface RecordsPages {
   readonly isLoadingMore: boolean
   /** Fetch the next page and APPEND it to the rows already rendered. */
   readonly loadMore: () => void
+  /** Ask again after a failed read — what a rate-limited view's Retry spends. */
+  readonly retry: () => void
 }
 
 /**
@@ -458,19 +474,25 @@ export function useRecordsPagesQuery(
   const query = useInfiniteQuery({
     queryKey: buildPageQueryKey(`${keyPrefix}-record-pages`, request),
     enabled: isBound(request) && shared.ready,
+    retry: retryUnlessRateLimited,
     initialPageParam: 0,
     queryFn: ({ pageParam }): Promise<FetchResult> => fetchRecordsPage(request, pageParam),
     getNextPageParam: nextPageIndex,
+    // Same as `useRecordsQuery`: a changed key keeps the rows already shown.
+    placeholderData: keepPreviousData,
   })
 
   // `fetchNextPage` resolves with the whole query result; nothing here awaits
   // it, and an in-flight page is already reported through `query`. The wrapper
   // exists so the caller's `onClick` is a plain void handler rather than a
   // floating promise every call site would have to void separately.
-  const { fetchNextPage } = query
+  const { fetchNextPage, refetch } = query
   const loadMore = useCallback(() => {
     void fetchNextPage()
   }, [fetchNextPage])
+  const retry = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   const pages = query.data?.pages ?? []
   return {
@@ -482,6 +504,7 @@ export function useRecordsPagesQuery(
     hasMore: query.hasNextPage,
     isLoadingMore: query.isFetchingNextPage,
     loadMore,
+    retry,
   }
 }
 

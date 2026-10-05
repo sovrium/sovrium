@@ -21,6 +21,7 @@
  * `data-source-rows.ts`, which calls into this module once per row.
  */
 
+import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
 import {
   substituteRecordVars,
@@ -66,15 +67,10 @@ const templateIsAuthorHtml = (template: string): boolean => template.trim().star
  * stored value of `" onerror="alert(1)` walks straight out of the `alt`
  * attribute and adds an event handler to the author's own tag. Quotes are what
  * shut that door, and `&` must be escaped first or the escaping is itself
- * forgeable (`&lt;` in the data would otherwise decode to a real `<`).
+ * forgeable (`&lt;` in the data would otherwise decode to a real `<`). The
+ * kernel's `escapeHtml` is exactly that escape, so it is used rather than copied.
  */
-const escapeRecordValueForHtml = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+const escapeRecordValueForHtml = escapeHtml
 
 /**
  * Substitutes `$record.*` into a component's `content` WITHOUT letting record
@@ -234,7 +230,7 @@ export function substituteRecordInComponent(
   tableName?: string,
   substitution: RowSubstitutionDepth = 'deep'
 ): Component {
-  // GAP-5: a read-only `record-field` display component resolves the bound
+  // [internal ref]: a read-only `record-field` display component resolves the bound
   // record's value for `props.field` by the field's declared type. Inject the
   // raw value + bound table name as render-time props so the renderer can
   // dispatch (rich-text → sanitized HTML, attachment → download link, else text)
@@ -342,7 +338,7 @@ function substituteRecordInTypedFields(
  * Injects the bound record's raw value + table name into a `record-field`
  * component's props (`_recordValue`, `_recordTable`). The renderer reads these
  * plus `config.tables` to look up the field's declared type and render it
- * read-only (GAP-5 / [internal ref]).
+ * read-only.
  */
 export function injectRecordFieldValue(
   component: Component,

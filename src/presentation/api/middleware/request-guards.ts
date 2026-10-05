@@ -7,7 +7,9 @@
 
 /**
  * The guards every `/api/*` request passes before rate limiting and auth:
- * a request timeout, a body-size cap, and the two per-IP sliding windows.
+ * a request timeout, a body-size cap, and the two sliding windows — the
+ * records one counted per signed-in user or per anonymous IP, the activity one
+ * per IP.
  *
  * They are applied as one block at the head of the API chain, so they live in
  * one module rather than three — the ORDER they are applied in is the contract,
@@ -17,6 +19,7 @@
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { timeout } from 'hono/timeout'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   DEFAULT_STT_TIMEOUT_MS,
   MAX_TIMER_MS,
@@ -32,8 +35,9 @@ import {
   recordActivityRateLimitRequest,
   recordTablesRateLimitRequest,
 } from '@/presentation/api/auth/auth-route-utils'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
-import type { Hono } from 'hono'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import type { ContextWithSession } from '@/presentation/api/middleware/auth'
+import type { Context, Hono } from 'hono'
 
 /**
  * Whether a `/api/tables/*` path is the realtime subscription endpoint.
@@ -52,28 +56,52 @@ const isRealtimeSubscriptionPath = (path: string): boolean =>
   /^\/api\/tables\/[^/]+\/subscribe(\/sse)?$/.test(path)
 
 /**
+ * Who a `/api/tables*` request is counted against.
+ *
+ * A signed-in caller is counted by their user, so colleagues behind one proxy
+ * address each keep a budget of their own and anonymous traffic from that
+ * address cannot spend it; a caller who is not signed in is counted by IP
+ * address, since nothing else tells two visitors apart. The two families are
+ * prefixed so a user id can never spell an address. The key never leaves the
+ * process — a refusal carries only `Retry-After` — so it discloses nothing
+ * about which accounts exist.
+ *
+ * The session is the one `authMiddleware` attached ahead of this limiter; a
+ * synthetic guest principal is anonymous.
+ */
+const tablesRateLimitCallerKey = (c: Context): string => {
+  const userId = (c as ContextWithSession).var.session?.userId
+  return userId !== undefined && !isGuestSession(userId)
+    ? `user:${userId}`
+    : `ip:${getRequestRateLimitKey(c)}`
+}
+
+/**
  * Apply rate limiting middleware for table API endpoints
  * Returns a Hono app with rate limiting middleware applied
+ *
+ * Keyed by {@link tablesRateLimitCallerKey}: the session must already be on
+ * the context, so `api-auth-guards.ts` extracts it first.
  */
 
 export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/tables', async (c, next) => {
-      const ip = getRequestClientIp(c)
+      const callerKey = tablesRateLimitCallerKey(c)
       const { method } = c.req
       const path = '/api/tables'
 
-      if (isTablesRateLimitExceeded(method, path, ip)) {
-        const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
+      if (isTablesRateLimitExceeded(method, path, callerKey)) {
+        const retryAfter = getTablesRateLimitRetryAfter(method, path, callerKey)
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordTablesRateLimitRequest(method, path, callerKey) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
 
       await next()
     })
     .use('/api/tables/*', async (c, next) => {
-      const ip = getRequestClientIp(c)
+      const callerKey = tablesRateLimitCallerKey(c)
       const { method } = c.req
       const { path } = c.req
 
@@ -84,12 +112,12 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
         return
       }
 
-      if (isTablesRateLimitExceeded(method, path, ip)) {
-        const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
+      if (isTablesRateLimitExceeded(method, path, callerKey)) {
+        const retryAfter = getTablesRateLimitRetryAfter(method, path, callerKey)
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordTablesRateLimitRequest(method, path, callerKey) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
 
       await next()
     })
@@ -103,7 +131,7 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
 export const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/activity', async (c, next) => {
-      const ip = getRequestClientIp(c)
+      const ip = getRequestRateLimitKey(c)
       const { method } = c.req
       const path = '/api/activity'
 
@@ -117,7 +145,7 @@ export const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
       await next()
     })
     .use('/api/activity/*', async (c, next) => {
-      const ip = getRequestClientIp(c)
+      const ip = getRequestRateLimitKey(c)
       const { method } = c.req
       const { path } = c.req
 

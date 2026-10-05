@@ -21,8 +21,8 @@
  * suppresses well-known sensitive shapes, (2) the anchor-to-`app.yaml`
  * resolution so files land at the expected URL regardless of CWD, and (3) the
  * SSR > built-in routes > publicDir > 404 precedence so a same-named SEO file
- * (sitemap.xml, robots.txt) is silently shadowed by the generated route. The
- * [internal ref] reference points readers at the spec that enforces it.
+ * (sitemap.xml, robots.txt) is silently shadowed by the generated route. It is
+ * byte-identical to the `public/README.md` the `hello-world` template ships.
  */
 export const PUBLIC_README_BODY = [
   '# `public/` — static-asset directory',
@@ -41,7 +41,6 @@ export const PUBLIC_README_BODY = [
   '',
   '2. **Secret-file blocklist** — these path shapes return 404 even when the',
   '   file exists under `public/`, so an accidental commit cannot leak secrets:',
-  '',
   '   - `.env`, `.env.local`, `.env.production`, any `.env.*`',
   '   - `.git/**`, `node_modules/**`, `.sovrium/**` (runtime data dir)',
   '   - `CLAUDE.md` (LLM operator instructions)',
@@ -51,14 +50,13 @@ export const PUBLIC_README_BODY = [
   '   Symlinks whose realpath escapes this directory also return 404.',
   '',
   '3. **Routing precedence** — incoming requests are resolved in this order:',
-  '',
   '   1. Dynamic SSR page (a route registered by your `pages:` config)',
   '   2. Built-in SEO route (`/sitemap.xml`, `/robots.txt` — generated live)',
   '   3. File under `public/` (this directory)',
   '   4. 404',
   '',
-  '   A `public/sitemap.xml` is silently shadowed by the generated route — see',
-  '   CLI-SERVE-STATIC-015. Drop SEO overrides into your `pages:` config instead.',
+  '   A `public/sitemap.xml` is silently shadowed by the generated route. Drop',
+  '   SEO overrides into your `pages:` config instead.',
   '',
   '## Suggestions',
   '',

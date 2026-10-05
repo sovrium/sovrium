@@ -1,0 +1,20 @@
+# Two comments under the latest essay. Jonas's is approved, so every reader
+# sees it; Léa's arrived today and is held, so only the editor sees it, on the
+# desk, until she approves it.
+records:
+  - key: jonas
+    fields:
+      post: '@posts.config-as-code'
+      author_name: Jonas Richter
+      body: >-
+        The point about staging being the same file with different environment
+        variables is the one I will steal for our own onboarding doc.
+      status: Approved
+      posted_at: '{{today-3d}}'
+  - key: lea
+    fields:
+      post: '@posts.config-as-code'
+      author_name: Léa Kovac
+      body: Would like the follow-up on how you review a change to the file itself.
+      status: Held
+      posted_at: '{{today}}'

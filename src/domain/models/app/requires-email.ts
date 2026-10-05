@@ -68,7 +68,9 @@ export const collectActionTypes = (
  * - `emailAndPassword` declares `requireEmailVerification: true`, which holds a
  *   new account until it has verified an address it can never receive;
  * - any automation action (including nested in `path`/`loop`) is type `email` —
- *   an action the operator wrote that will now silently not happen.
+ *   an action the operator wrote that will now silently not happen;
+ * - any agent is granted the `email.send` action — the same, for an action the
+ *   agent was given.
  *
  * ── WHY BARE `emailAndPassword` IS NOT ON THAT LIST ────────────────────────
  *
@@ -86,6 +88,10 @@ export const collectActionTypes = (
  * The NAME still reads true under the narrowing: an app that sends a courtesy
  * message it can do without does not *require* email.
  */
+/** Whether any agent is granted the `email.send` action. */
+const hasEmailAgent = (app: App): boolean =>
+  app.agents?.some((agent) => agent.tools?.actions?.includes('email.send') === true) ?? false
+
 export const appRequiresEmail = (app: App): boolean => {
   if (hasStrategy(app.auth, 'magicLink')) return true
   if (app.auth?.emailTemplates?.emailOtp !== undefined) return true
@@ -96,5 +102,5 @@ export const appRequiresEmail = (app: App): boolean => {
       collectActionTypes(automation.actions).includes('email')
     ) ?? false
 
-  return hasEmailAction
+  return hasEmailAction || hasEmailAgent(app)
 }

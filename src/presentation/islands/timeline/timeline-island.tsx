@@ -78,8 +78,8 @@ interface TimelineIslandProps {
  *   markers for records lacking an end date, optional swimlanes (`groupBy`)
  *   and per-value bar colors (`colorField`).
  *
- * Every branch emits `data-component="data-timeline"` so spec assertions on
- * the canonical attribute resolve in every state.
+ * The island host names the timeline (`data-component="data-timeline"`) once,
+ * whatever branch is drawn inside it.
  */
 export default function TimelineIsland({
   dataSource,

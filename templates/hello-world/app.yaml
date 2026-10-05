@@ -1,97 +1,275 @@
+# Hello World — the first page after `sovrium init`.
+#
+# The whole app is this one file: no `config/` tree, no `$ref`s. That is the
+# point of this template. When the app grows, split it the way the other
+# templates do; until then one file you can read top to bottom is the best
+# teacher.
+#
+# The page it serves says the app runs, shows the lines of this file that make
+# it, and links the documentation and the templates. It goes away the moment
+# you write a page of your own at `/`.
 name: my-app
-version: 1.0.0
-description: My Sovrium application
+version: 2.0.0
+description: The one-page starter — the first page after sovrium init.
 
-# The whole app is this one file — no `config/` tree, no `$ref`s. That is the
-# point of this template, so the design tokens are inline too.
-#
-# NINE COLOUR KEYS, AND NOT ONE MORE
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens the prestyled components consume; everything
-#   else emits `--color-*` and does nothing until something cites it. The nine
-#   below are all role keys, and every one of them is cited by the page — see
-#   the `var(--color-*)` references in the styles further down. A starter that
-#   declared a colour nothing used would be teaching the wrong first lesson.
-#
-#   Graphite, with one accent. No `success` / `warning` / `error`: this page has
-#   no state to signal, and colour with nothing to mean is decoration.
-#
-# NO `fonts` BLOCK
-#   IBM Plex Sans and JetBrains Mono ship self-hosted with the platform and
-#   already apply. Naming any other family emits a `font-family` with no
-#   matching `@font-face`, which drops the page onto the operating system's
-#   default face AND pushes the shipped face out of its own stack.
 design:
+  # Follow the visitor's operating system: light by day, dark by night.
+  # `darkColors` below is what the dark scheme paints.
+  colorScheme: system
+
+  # TWELVE COLOUR KEYS, AND NOT ONE MORE
+  #   Every key below is a role the built-in components read (`primary`,
+  #   `background`, `foreground`…), so declaring it repaints them with no class
+  #   changes anywhere else. A key the page never reads would teach the wrong
+  #   first lesson, so there is none. No `success` / `warning` / `error`
+  #   either: this page has nothing to signal, and colour with nothing to mean
+  #   is decoration.
+  #
+  #   `foreground-subtle` is dark enough to hold 4.5:1 on `background-subtle`,
+  #   the smallest text on the page.
   colors:
     primary: '#1e3a5f'
     primary-hover: '#15293f'
+    primary-active: '#10213a'
+    primary-foreground: '#ffffff'
     ring: '#3b6ea5'
     background: '#ffffff'
     background-subtle: '#f6f7f9'
+    background-raised: '#ffffff'
     foreground: '#15181c'
     foreground-muted: '#4f555d'
-    foreground-subtle: '#7c838c'
+    foreground-subtle: '#6b727b'
     border: '#e3e5e9'
 
-  # Carried in the stylesheet always; rendered once the app declares
-  # `design.colorScheme` or ships a `theme-toggle`.
-  #
-  # The accent stays mid-tone rather than getting brighter, because the button
-  # below carries a literal `#ffffff` label. `generateThemeColors` derives that
-  # white companion for `primary` on the LIGHT surface only and deliberately
-  # does not mirror it here, so a pale dark-scheme accent would keep white text
-  # sitting on it. `#3b6ea5` holds 5.3:1 against white — the constraint decided
-  # the value, which is worth knowing before anyone brightens it.
+  # Every key is repeated for the dark scheme. One left out would keep its
+  # LIGHT value — a white card under light text. The accent stays mid-tone so
+  # the white label on it still holds 5.3:1.
   darkColors:
     primary: '#3b6ea5'
     primary-hover: '#4b82bd'
+    primary-active: '#5b93cf'
+    primary-foreground: '#ffffff'
     ring: '#5b93cf'
     background: '#101215'
     background-subtle: '#181b1f'
+    background-raised: '#181b1f'
     foreground: '#e9ebee'
     foreground-muted: '#a3a9b1'
-    foreground-subtle: '#767c85'
+    foreground-subtle: '#8a9099'
     border: '#282c32'
 
+  # Code reads the same by day and by night: one dark theme in both schemes.
+  codeBlock:
+    theme: github-dark
+
+  # Standard corners. There is no `fonts` block on purpose: IBM Plex Sans and
+  # JetBrains Mono ship with Sovrium and already apply, and naming any other
+  # family without a font file drops the page onto the system's default face.
+  radius:
+    sm: 0.25rem
+    md: 0.5rem
+    lg: 0.75rem
+    full: 9999px
+
+  # How the app speaks. Nothing renders these lines; they are written down so
+  # the next page you add sounds like this one.
+  voice:
+    personality:
+      - welcoming
+      - plain
+      - brief
+    pronoun: you
+    prefer:
+      - Say that it runs, then name the one file to open.
+      - One link to the documentation, one to the next step — never a menu.
+    avoid:
+      - No exclamation marks, not even in "Hello, world".
+      - No claim about the product; the page proves it runs, nothing more.
+    tone:
+      empty: Not used — the page is the empty state of the app.
+      loading: Not used — the page is static.
+      error: Name the route that is missing and link back to the start.
+      success: Confirm the change landed — the page shows the new heading after a save.
+      destructive: Not used.
+
+  # The three rules every page of this app keeps.
+  principles:
+    - The first page says it works, names the file to edit, and gets out of the way.
+    - It disappears when the first real page is written at /.
+    - One accent, used once.
+
 pages:
+  # The page at `/`. Replace it with your own and this one is gone.
   - name: home
     path: /
     meta:
-      title: Welcome
+      title: Your app is running
+      description: A Sovrium app, running. Open app.yaml to change this page.
     components:
       - type: container
-        element: section
+        element: main
         props:
-          className: min-h-screen flex items-center justify-center
-          style:
-            background: linear-gradient(to bottom, var(--color-background-subtle), var(--color-background))
+          className: flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6
         children:
           - type: container
             props:
-              className: text-center max-w-2xl mx-auto px-6
+              className: flex w-full max-w-[600px] flex-col gap-[18px]
             children:
+              # `$app.origin` prints the address this request arrived on, so
+              # the line is right on any port and any host.
+              - type: container
+                props:
+                  className: inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-foreground-muted
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: size-2 rounded-full bg-foreground-subtle
+                      aria-hidden: 'true'
+                    content: ''
+                  - type: text
+                    element: span
+                    content: Running on $app.origin
               - type: text
                 element: h1
                 props:
-                  className: text-6xl font-bold mb-6
-                  style:
-                    color: var(--color-foreground)
-                content: Hello, World!
+                  className: text-[40px] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground max-md:text-[30px]
+                content: Your app is running.
+              # `format: markdown` lets one sentence carry an inline `code` span.
               - type: text
                 element: p
                 props:
-                  className: text-2xl mb-8
-                  style:
-                    color: var(--color-foreground-muted)
-                content: Built with Sovrium
-              - type: button
+                  format: markdown
+                  className: '[&_p]:!text-foreground-muted [&_p]:text-[17px] [&_p]:leading-[1.6] [&_code]:font-mono [&_code]:text-[1em]'
+                content: This page is `app.yaml`. Change the heading there and save — the page reloads on its own.
+              # The lines of this file that make the page, trimmed to the one
+              # component worth editing first. No copy button: the reader
+              # edits these lines where they already are, in app.yaml, so the
+              # page carries no button at all.
+              #
+              # The wrapper paints the file bar in the code theme's own dark
+              # ground, so bar and code read as one block in both schemes.
+              - type: container
                 props:
-                  className: px-6 py-3 rounded-lg font-semibold transition-colors
-                  style:
-                    backgroundColor: var(--color-primary)
-                    # Stays a literal: this is text ON a filled button, not a
-                    # surface following the background. See the note on
-                    # `darkColors.primary` above for what that constrains.
-                    color: '#ffffff'
-                content: Get Started
+                  className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
+                children:
+                  - type: code
+                    props:
+                      language: yaml
+                    filename: app.yaml
+                    copy: false
+                    content: |-
+                      pages:
+                        - name: home
+                          path: /
+                          components:
+                            - type: text
+                              element: h1
+                              content: Your app is running.   # edit me
+              - type: container
+                element: nav
+                props:
+                  aria-label: Next steps
+                  className: flex flex-col overflow-hidden rounded-lg border border-border bg-background-raised
+                children:
+                  - type: link
+                    props:
+                      href: https://sovrium.com/en/docs
+                      className: flex items-center gap-3 border-b border-border px-4 py-3.5 text-[15px] font-medium text-foreground shadow-[inset_3px_0_0_var(--color-primary)] hover:bg-background-subtle
+                    children:
+                      - type: icon
+                        props:
+                          name: book
+                          size: 18
+                          className: shrink-0 text-primary
+                      - type: text
+                        element: span
+                        props:
+                          className: grow
+                        content: Read the documentation
+                      - type: icon
+                        props:
+                          name: arrow-right
+                          size: 16
+                          className: shrink-0 text-foreground-muted
+                  - type: link
+                    props:
+                      href: https://sovrium.com/apps
+                      className: flex items-center gap-3 px-4 py-3.5 text-[15px] text-foreground hover:bg-background-subtle
+                    children:
+                      - type: icon
+                        props:
+                          name: layers
+                          size: 18
+                          className: shrink-0 text-foreground-muted
+                      - type: text
+                        element: span
+                        props:
+                          className: grow
+                        content: Start from a template — a CRM, a blog, a helpdesk and fifteen more
+                      - type: icon
+                        props:
+                          name: arrow-right
+                          size: 16
+                          className: shrink-0 text-foreground-muted
+              - type: text
+                element: p
+                props:
+                  format: markdown
+                  className: '[&_p]:!text-foreground-subtle [&_p]:text-[13.5px] [&_code]:font-mono'
+                content: This page goes away as soon as you write your own page at `/`.
+
+  # Any address that answers nothing renders this page, with a 404 status.
+  - name: not-found
+    path: /404
+    meta:
+      title: Nothing here yet
+      description: No page answers this address yet.
+    components:
+      - type: container
+        element: main
+        props:
+          className: flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6
+        children:
+          - type: container
+            props:
+              className: flex w-full max-w-[600px] flex-col gap-[18px]
+            children:
+              - type: text
+                element: p
+                props:
+                  className: font-mono text-[12.5px] font-medium text-foreground-muted
+                content: '404'
+              - type: text
+                element: h1
+                props:
+                  className: text-[40px] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground max-md:text-[30px]
+                # `$app.path` is the address the visitor asked for, printed as text.
+                content: Nothing at $app.path yet.
+              - type: text
+                element: p
+                props:
+                  format: markdown
+                  className: '[&_p]:!text-foreground-muted [&_p]:text-[17px] [&_p]:leading-[1.6] [&_code]:font-mono [&_code]:text-[1em]'
+                content: Add a page with its `path:` set to this address in `app.yaml`, or go back to the start.
+              - type: container
+                props:
+                  className: flex
+                children:
+                  - type: link
+                    props:
+                      href: /
+                      className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground hover:bg-background-subtle
+                    children:
+                      - type: icon
+                        props:
+                          name: house
+                          size: 14
+                      - type: text
+                        element: span
+                        content: Back to the start
+
+# "Built with Sovrium" once, as a small line after the page rather than a
+# floating pill over it. Set `badge: false` to remove it.
+badge:
+  placement: footer

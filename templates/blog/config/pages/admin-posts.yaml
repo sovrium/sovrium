@@ -1,0 +1,99 @@
+# The desk: every post with its state — published, scheduled, a draft the
+# assistant proposed — and one way to start a new one. A row opens the post's
+# edit page.
+name: admin-posts
+path: /admin
+access:
+  require: [admin]
+  redirectTo: /admin/login
+meta:
+  title: Posts · Field Notes
+  description: Every post and its state.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Posts
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New post
+                props:
+                  className: h-8 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-post-dialog
+          - type: dialog
+            formRef: new-post
+            props:
+              id: new-post-dialog
+              title: New post
+              description: It starts as a draft. Give it a publish date on its page to schedule it.
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: posts-filter
+                fields:
+                  - { name: title, label: Search posts, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Draft, label: Draft }
+                      - { value: Scheduled, label: Scheduled }
+                      - { value: Published, label: Published }
+              # A post's state is an outlined chip with a dot: green once
+              # published, amber while it waits for its date or for approval.
+              - type: table
+                props:
+                  className: >-
+                    [&_td[data-field=state]>span]:inline-flex [&_td[data-field=state]>span]:items-center [&_td[data-field=state]>span]:gap-1.5
+                    [&_td[data-field=state]>span]:rounded-full [&_td[data-field=state]>span]:border [&_td[data-field=state]>span]:border-border
+                    [&_td[data-field=state]>span]:px-2 [&_td[data-field=state]>span]:py-0.5 [&_td[data-field=state]>span]:text-xs
+                    [&_td[data-field=state]>span]:before:size-1.5 [&_td[data-field=state]>span]:before:rounded-full [&_td[data-field=state]>span]:before:bg-foreground-subtle [&_td[data-field=state]>span]:before:content-['']
+                dataSource:
+                  table: posts
+                  bindTo: posts-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: updated_at, direction: desc }
+                rowHeight: short
+                columns:
+                  - { field: title, label: Title, sortable: true }
+                  - field: state
+                    label: Status
+                    cellStyle:
+                      - { when: { eq: Published }, className: '[&>span]:before:!bg-success' }
+                      - { when: { eq: Scheduled }, className: '[&>span]:before:!bg-warning' }
+                      - {
+                          when: { eq: Awaiting approval },
+                          className: '[&>span]:before:!bg-warning',
+                        }
+                  - { field: author, label: Author }
+                  - { field: publish_at, label: Published, format: short-date, sortable: true }
+                  - { field: updated_at, label: Updated, format: relative-date }
+                pagination:
+                  pageSize: 50
+                onRowClick:
+                  type: navigate
+                  path: /admin/posts/$record.id/edit
+                emptyMessage: Every post you write lands here. Start one with New post — nothing is published until you choose to.

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { text, integer, index } from 'drizzle-orm/sqlite-core'
+import { text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
@@ -112,10 +112,34 @@ export const automationRuns = systemTable(
     triggeredByUserId: text('triggered_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
+    /**
+     * Whether a person started this run by hand (a manual trigger, a table
+     * button, an MCP action template or automation tool, the chat). Its record
+     * actions then write as `triggered_by_user_id`, and a run that pauses on an
+     * approval resumes the same way. A hand-started run whose caller was since
+     * erased (the id set to NULL) resumes writing nothing.
+     */
+    startedByHand: integer('started_by_hand', { mode: 'boolean' }).notNull().default(false),
     startedAt: integer('started_at', { mode: 'timestamp_ms' }),
     completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
     durationMs: integer('duration_ms'),
     error: text('error'),
+    /**
+     * The run that handed this one its trigger data — a call's caller, a
+     * failure handler's failed run — and how many of its steps had run when it
+     * did, as `{ run, through }`; `{ outside: true }` for a replay an admin
+     * supplied new trigger data for. Ids only, never a value: who may read the
+     * relayed data is judged at read time by what that run had read. NULL for
+     * every other run, and for a call or failure run recorded before 0.30.0.
+     */
+    relay: text('relay', { mode: 'json' }),
+    /**
+     * When the values this run captured were erased with the account of a
+     * person they named: trigger data, step inputs, outputs, errors and logs,
+     * and the run's own error emptied; steps, statuses and timings kept. NULL
+     * otherwise.
+     */
+    valuesErasedAt: integer('values_erased_at', { mode: 'timestamp_ms' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -153,8 +177,41 @@ export const automationRunSteps = systemTable(
     error: text('error'),
     /** `context.log` entries a code step wrote, redacted, in call order. */
     logs: text('logs', { mode: 'json' }),
+    /**
+     * What a step read as it ran, when that is recorded rather than classified
+     * from its declaration: the actions a script called (each classified at the
+     * sandbox's dispatch), the run a synchronous call started, the records an
+     * agent's tool calls named. NULL for every other step.
+     */
+    reads: text('reads', { mode: 'json' }),
   },
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
+)
+
+/**
+ * Automation Run Refs Table
+ *
+ * Which records each run read, by id — never a value: a record trigger's
+ * captured record and the rows it links, a record step's records, an agent's
+ * tool calls, a script's calls, and what a synchronous call's run read. Erasing
+ * an account scrubs exactly the runs that read one of its records, a record
+ * naming it, or a record removed with its own. `record_id` is `'*'` when a run
+ * read a whole table, or read more than the per-run cap; a row with an empty
+ * `table_name` marks a run recorded before runs kept refs.
+ */
+export const automationRunRefs = systemTable(
+  'automation_run_refs',
+  {
+    runId: text('run_id')
+      .notNull()
+      .references(() => automationRuns.id, { onDelete: 'cascade' }),
+    tableName: text('table_name').notNull(),
+    recordId: text('record_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.tableName, table.recordId] }),
+    index('automation_run_refs_record_idx').on(table.tableName, table.recordId),
+  ]
 )
 
 /**

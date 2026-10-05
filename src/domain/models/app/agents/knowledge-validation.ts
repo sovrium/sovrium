@@ -28,6 +28,8 @@ import {
   permits,
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 
 /** Field types whose content is meaningful to embed for RAG retrieval. */
 const TEXT_LIKE_FIELD_TYPES: ReadonlySet<string> = new Set([
@@ -38,7 +40,7 @@ const TEXT_LIKE_FIELD_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /** Minimal structural shape this validator needs from `app`. */
-interface AppKnowledgeShape {
+interface AppKnowledgeShape extends AdminRoleResolvable {
   readonly tables?: ReadonlyArray<{
     readonly name: string
     readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
@@ -101,7 +103,8 @@ const validateKnowledgeField = (
  */
 const validateAgentKnowledge = (
   agent: NonNullable<AppKnowledgeShape['agents']>[number],
-  tableMap: TableFieldMap
+  tableMap: TableFieldMap,
+  app: AdminRoleResolvable
 ): string | undefined =>
   (agent.knowledge?.tables ?? [])
     .flatMap((entry): ReadonlyArray<string> => {
@@ -115,7 +118,7 @@ const validateAgentKnowledge = (
       // [internal ref]: the agent's auth role must be able to read
       // the table it embeds — every role, not only `viewer`. An absent
       // `permissions.read` denies only `viewer`.
-      const rbacError = validateKnowledgeTablePermission(agent, entry.table, meta.read)
+      const rbacError = validateKnowledgeTablePermission(agent, entry.table, meta.read, app)
       if (rbacError !== undefined) {
         return [rbacError]
       }
@@ -146,13 +149,15 @@ const validateAgentKnowledge = (
 const validateKnowledgeTablePermission = (
   agent: NonNullable<AppKnowledgeShape['agents']>[number],
   table: string,
-  read: unknown
+  read: unknown,
+  app: AdminRoleResolvable
 ): string | undefined => {
   const role = agent.role ?? 'member'
   const allowed = permits(
     evaluatePermission(
       toPermissionValue(read),
-      { role },
+      // The app's top role outranks a read grant exactly as the built-in `admin` does.
+      { role, adminEquivalent: isAdminEquivalent(role, app) },
       {
         whenUndeclared: ANY_NON_VIEWER_WHEN_UNDECLARED,
         adminOverride: 'admin-outranks-everything',
@@ -186,5 +191,5 @@ export const validateAllKnowledgeReferences = (app: AppKnowledgeShape): true | s
     ])
   )
 
-  return agents.flatMap((agent) => validateAgentKnowledge(agent, tableMap) ?? []).at(0) ?? true
+  return agents.flatMap((agent) => validateAgentKnowledge(agent, tableMap, app) ?? []).at(0) ?? true
 }

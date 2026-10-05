@@ -1,0 +1,64 @@
+# The conversation on three tickets: what the requester wrote, the team's
+# replies and an internal note only the team reads.
+records:
+  - key: reply-1
+    fields:
+      ticket: '@tickets.t1047'
+      kind: From the requester
+      author_name: Margit Halvorsen
+      body: Our January invoice has no VAT number, so our accountant cannot book it.
+      posted_at: '{{today-1d}}'
+  - key: reply-2
+    fields:
+      ticket: '@tickets.t1047'
+      kind: Internal note
+      author: '@user:clara.dumas@tallyline.example'
+      author_name: Clara Dumas
+      body: The billing profile has the VAT id; the PDF template drops it. Asked finance.
+      posted_at: '{{today-1d}}'
+  - key: reply-3
+    fields:
+      ticket: '@tickets.t1047'
+      kind: Reply
+      author: '@user:clara.dumas@tallyline.example'
+      author_name: Clara Dumas
+      body: Thank you, Margit. Finance is regenerating the invoice with your VAT number; you will have it today.
+      posted_at: '{{today}}'
+  - key: reply-4
+    fields:
+      ticket: '@tickets.t1044'
+      kind: From the requester
+      author_name: Priya Anand
+      body: Dates entered in Sydney show up one day earlier in Europe.
+      posted_at: '{{today-2d}}'
+  - key: reply-5
+    fields:
+      ticket: '@tickets.t1044'
+      kind: Reply
+      author: '@user:clara.dumas@tallyline.example'
+      author_name: Clara Dumas
+      body: Which time zone is set on your team's profiles? A date field stores the day as typed; a date-and-time field converts it.
+      posted_at: '{{today-1d}}'
+  - key: reply-6
+    fields:
+      ticket: '@tickets.t1036'
+      kind: From the requester
+      author_name: Aoife Byrne
+      body: Three password reset emails this morning, none arrived.
+      posted_at: '{{today-2d}}'
+  - key: reply-7
+    fields:
+      ticket: '@tickets.t1036'
+      kind: Internal note
+      author: '@user:yann.kerbrat@tallyline.example'
+      author_name: Yann Kerbrat
+      body: The mail provider flagged our sending domain. Fixed the record; queue is draining.
+      posted_at: '{{today-2d}}'
+  - key: reply-8
+    fields:
+      ticket: '@tickets.t1036'
+      kind: Reply
+      author: '@user:yann.kerbrat@tallyline.example'
+      author_name: Yann Kerbrat
+      body: Our email provider was holding the messages. They are going out again; please try once more.
+      posted_at: '{{today-1d}}'

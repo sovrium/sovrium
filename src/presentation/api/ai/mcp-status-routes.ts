@@ -27,7 +27,7 @@ import {
   type McpClientTool,
 } from '@/presentation/api/ai/mcp-client-config'
 import { agentNotFound } from '@/presentation/api/runtime/agent-lookup'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -111,7 +111,7 @@ const handleServerStatus = (c: Readonly<Context>): Response => {
     return c.json(
       {
         enabled: false,
-        ...errorBody({ error: 'MCP server is disabled', code: ApiErrorCode.NOT_FOUND }),
+        ...notFoundBody('MCP server is disabled'),
       },
       404
     )
@@ -130,7 +130,7 @@ const handleClientStatus = (c: Readonly<Context>): Response => {
     return c.json(
       {
         enabled: false,
-        ...errorBody({ error: 'MCP client is disabled', code: ApiErrorCode.NOT_FOUND }),
+        ...notFoundBody('MCP client is disabled'),
       },
       404
     )
@@ -148,7 +148,7 @@ const handleClientTools = (c: Readonly<Context>): Response => {
     return c.json(
       {
         enabled: false,
-        ...errorBody({ error: 'MCP client is disabled', code: ApiErrorCode.NOT_FOUND }),
+        ...notFoundBody('MCP client is disabled'),
       },
       404
     )
@@ -387,7 +387,7 @@ const resolveChatPreflight = async (
   // the same `permissions.trigger` gate `/execute` does. Ahead of the 503
   // below, which would otherwise answer differently for a declared agent than
   // for an undeclared one and reopen the enumeration oracle the 404 closes.
-  const triggerRefusal = await checkTriggerPermission(c, agent)
+  const triggerRefusal = await checkTriggerPermission(c, agent, app)
   if (triggerRefusal) return { ok: false, response: triggerRefusal }
   // [internal ref]: with no AI provider configured at all, the declared agent is
   // INERT — discoverable but not runnable. Degrade gracefully with 503 rather

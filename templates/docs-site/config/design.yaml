@@ -1,117 +1,183 @@
-# Documentation site theming — deep teal.
+# The design system of this documentation site.
 #
-# The palette moved off violet deliberately. Three pilot templates now ship a
-# real identity, and violet sat close enough to the CRM's indigo that a gallery
-# visitor would read them as two skins of one product rather than two products.
-# Teal is unambiguously separate from both, and it reads calm at the long
-# line-lengths a documentation body text runs to.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every reader's address to a third party.
 #
-# WHY THE KEY NAMES CHANGED
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens every prestyled island consumes. Everything else
-#   emits `--color-*` and does nothing until something cites it — and this
-#   template cites none of them, because unlike the landing page it carries no
-#   inline styles at all. So `text`, `text-secondary`, `text-muted` and
-#   `background-alt` were painting nothing. They are now `foreground`,
-#   `foreground-muted`, `foreground-subtle` and `background-subtle`: same
-#   intent, but reaching the page.
+# Documentation is read, not operated. One accent, a calm teal, marks the
+# links, the current page and the focus ring; everything else is the page.
+# The outcomes the site draws — a tip, a warning, a page that is not here —
+# get success, warning and error. A section is a word, never a colour.
+baseline: extend
+
+# Follow the reader's operating system: light by day, dark by night.
+# `darkColors` below is what the dark scheme paints; without `colorScheme` the
+# dark block would be declared and never shown.
+colorScheme: system
+
+# Role keys repaint the prestyled components (the article, the sidebar, the
+# outline, cards, buttons) with no class changes anywhere else in the config.
 #
-#   The admonition keys below (`note`, `tip`, and the `-bg` pairs) are KEPT as
-#   plain `--color-*` entries even though nothing in this repo was found to read
-#   them. Not being able to find a consumer is not proof there is none, and this
-#   codebase has already recorded three "obviously inert" properties that turned
-#   out to be live. Removing them buys nothing; leaving them costs a few bytes.
-#   `warning` is a role key and does repaint.
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 #
-# WHY THE TYPEFACE CHANGED
-#   `family: Inter` emitted `font-family: Inter, system-ui, …` with no matching
-#   `@font-face`: verified in the browser, `document.fonts` carries only IBM Plex
-#   Sans Variable and JetBrains Mono Variable, and no external stylesheet is
-#   requested. So this was never a CDN privacy leak — it was quieter. Naming an
-#   unserved font and omitting the served one pushed the page onto the operating
-#   system's default face and locked the shipped self-hosted typeface out of its
-#   own stack. `mono` had the same defect one step removed: `JetBrains Mono`
-#   without `Variable` misses the face that actually ships.
+# `success` sits at a leaf green rather than next to the teal accent, so a tip
+# never reads as a link. `info` is the accent: it is the edge of an untyped
+# `::: callout` block, which is guidance, not an outcome.
 colors:
-  primary: '#0f766e'
-  primary-hover: '#115e59'
-  primary-subtle: '#ccfbf1'
-  ring: '#14b8a6'
-  background: '#ffffff'
-  background-subtle: '#f5faf9'
-  foreground: '#10201e'
-  foreground-muted: '#41605c'
-  foreground-subtle: '#6d8b87'
-  border: '#dcece9'
-  warning: '#b45309'
-  success: '#047857'
-  error: '#be123c'
-  # Admonition accents — see the note above on why these stay.
-  code-bg: '#10201e'
-  code-text: '#dcece9'
-  note: '#0369a1'
-  note-bg: '#f0f9ff'
-  warning-bg: '#fffbeb'
-  tip: '#047857'
-  tip-bg: '#ecfdf5'
+  primary: oklch(0.52 0.16 175)
+  primary-hover: oklch(0.46 0.15 175)
+  primary-active: oklch(0.42 0.141 175)
+  primary-foreground: oklch(0.985 0.003 175)
+  primary-subtle: oklch(0.95 0.03 175)
+  primary-subtle-foreground: oklch(0.38 0.12 175)
+  ring: oklch(0.6 0.16 175)
+  background: oklch(0.985 0.003 175)
+  background-subtle: oklch(0.967 0.005 175)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 175)
+  foreground: oklch(0.21 0.008 175)
+  foreground-muted: oklch(0.45 0.012 175)
+  foreground-subtle: oklch(0.51 0.012 175)
+  foreground-disabled: oklch(0.71 0.012 175)
+  foreground-inverse: oklch(0.985 0.003 175)
+  border: oklch(0.925 0.008 175)
+  success: oklch(0.52 0.12 140)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 175)
+  info: oklch(0.52 0.16 175)
 
 darkColors:
-  primary: '#5eead4'
-  primary-hover: '#99f6e4'
-  primary-subtle: '#042f2e'
-  ring: '#2dd4bf'
-  background: '#0a1615'
-  background-subtle: '#101f1d'
-  foreground: '#e6f2f0'
-  foreground-muted: '#a7c4c0'
-  foreground-subtle: '#7c9995'
-  border: '#1c302d'
-  warning: '#fbbf24'
-  success: '#34d399'
-  error: '#fb7185'
-  code-bg: '#04100f'
-  code-text: '#c9e0dc'
-  note: '#38bdf8'
-  note-bg: '#082f49'
-  warning-bg: '#2a1c05'
-  tip: '#34d399'
-  tip-bg: '#052e21'
+  primary: oklch(0.78 0.12 175)
+  primary-hover: oklch(0.83 0.09 175)
+  primary-active: oklch(0.87 0.07 175)
+  primary-foreground: oklch(0.16 0.006 175)
+  primary-subtle: oklch(0.28 0.06 175)
+  primary-subtle-foreground: oklch(0.9 0.06 175)
+  ring: oklch(0.72 0.13 175)
+  background: oklch(0.16 0.006 175)
+  background-subtle: oklch(0.19 0.007 175)
+  background-raised: oklch(0.21 0.008 175)
+  background-overlay: oklch(0.23 0.008 175)
+  background-inset: oklch(0.13 0.005 175)
+  foreground: oklch(0.95 0.005 175)
+  foreground-muted: oklch(0.75 0.01 175)
+  foreground-subtle: oklch(0.68 0.012 175)
+  foreground-disabled: oklch(0.45 0.01 175)
+  foreground-inverse: oklch(0.16 0.006 175)
+  border: oklch(0.3 0.01 175)
+  success: oklch(0.75 0.12 140)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 175)
+  info: oklch(0.78 0.12 175)
 
-# Single Shiki theme token applied to every fenced code block in the markdown
-# pages. Shiki highlights server-side and emits class/CSS-variable output, so it
-# survives the HTML sanitizer. Swap for any named Shiki theme (e.g. github-light).
-codeBlock:
-  theme: github-dark
-
+# Plex for the text, JetBrains Mono for code and the small overline labels.
+# The body runs at 16 px with a long line height: a documentation page is read
+# top to bottom, in paragraphs, at a measure near 68 characters.
 typeScale:
   families:
     sans:
-      family: IBM Plex Sans Variable
-      fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
-      weights: [400, 500, 600, 700]
-      size: 16px
-      lineHeight: '1.7'
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
     heading:
-      family: IBM Plex Sans Variable
-      fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
-      weights: [600, 700, 800]
-      size: 40px
-      lineHeight: '1.2'
-      letterSpacing: '-0.02em'
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif"
     mono:
-      family: JetBrains Mono Variable
-      fallback: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
-      weights: [400, 500]
-      size: 14px
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 3rem, lineHeight: 1.05, weight: 600, letterSpacing: -0.025em }
+    h1: { size: 2.25rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h2: { size: 1.5rem, lineHeight: 1.25, weight: 600, letterSpacing: -0.01em }
+    h3: { size: 1.125rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 1.125rem, lineHeight: 1.6 }
+    body: { size: 1rem, lineHeight: 1.7 }
+    bodySmall: { size: 0.875rem, lineHeight: 1.55 }
+    caption: { size: 0.8125rem, lineHeight: 1.4 }
+    overline: { size: 0.75rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
 
+# Every fenced code block is highlighted on the server with this one Shiki
+# theme, in both schemes: code reads the same by day and by night. Swap it for
+# any Shiki theme name (`github-light`, `nord`, `vitesse-dark`…).
+codeBlock:
+  theme: github-dark
+
+# Standard corners: a reference you trust, neither a ledger nor a toy.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
 
+# Flat: a documentation page has nothing that floats. The small shadow lifts
+# the three cards on the landing page by one pixel.
 elevation:
+  none: none
   sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
   md: 0 4px 6px -1px rgb(0 0 0 / 0.1)
   lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming decoration, and a section from getting a colour of its own.
+colorRoles:
+  primary:
+    usage: The one accent. Links in the text, the current page in the sidebar and the outline, the focus ring, the Read the introduction button.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The current page in the sidebar and the note callout's ground.
+    pairsWith: primary-subtle-foreground
+  info:
+    usage: The edge of an untyped callout — guidance, not an outcome.
+    pairsWith: foreground
+  success:
+    usage: A tip callout, and a copied snippet's confirmation.
+    pairsWith: foreground
+  warning:
+    usage: A warning callout.
+    pairsWith: foreground
+  error:
+    usage: A page that is not here, and a danger callout.
+    pairsWith: foreground
+
+# Every page is a reading page, read once, top to bottom, so the whole site
+# runs at `roomy`. The three steps are the platform's own values, written out
+# so one number can be tuned.
+density:
+  default: roomy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the site speaks. Nothing reads these at runtime; they are the brief
+# anyone writing a page, a label or an empty state follows.
+voice:
+  personality:
+    - precise
+    - calm
+    - instructional
+  pronoun: you
+  prefer:
+    - 'Start a step with its verb: Run, Add, Create, Open.'
+    - Show the command, then say what it did.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "simply", "just" or "easy".
+    - Never a step without the command that performs it.
+    - No marketing tone inside an article.
+  tone:
+    empty: Say what this section will hold, then the file that adds its first page.
+    loading: Name what is loading — the page, the results — never a bare spinner.
+    error: Say the page is not here and offer the way back.
+    success: Confirm in past tense what happened — "Copied".
+    destructive: Name the page and whether it comes back.
+
+principles:
+  - A reader can copy the first command within ten seconds of landing.
+  - Every page says where it sits, what comes next and when it last changed.
+  - Colour means an outcome — a tip, a warning, a missing page — or it is not used.
+  - The site is understood without a tour.

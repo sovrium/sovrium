@@ -1,0 +1,35 @@
+# A claim is rejected by writing why. When finance saves a reason on a claim
+# that still waits on a decision, the claim is marked Rejected — so a
+# rejection can never reach the person who filed it without its reason.
+name: reject-with-reason
+label: Expense — reject with its reason
+description: Mark a waiting claim Rejected the moment finance writes why.
+enabled: true
+trigger:
+  type: record
+  table: expenses
+  events:
+    - update
+  watchFields:
+    - decision_reason
+  condition:
+    logic: and
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: Pending
+      - field: '{{trigger.data.record.decision_reason}}'
+        operator: isNotEmpty
+actions:
+  - name: markRejected
+    type: record
+    operator: update
+    props:
+      table: expenses
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        status: Rejected

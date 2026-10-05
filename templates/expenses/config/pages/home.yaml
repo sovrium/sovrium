@@ -1,0 +1,12 @@
+# The landing every sign-in passes through. A signed-in visitor never sees
+# it: the engine sends finance to /review and a member to / (see `landingPath`
+# in config/auth.yaml). An anonymous visitor is sent to sign in.
+name: home
+path: /home
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Halden Expenses
+  description: Halden Expenses.
+components: []

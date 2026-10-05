@@ -7,157 +7,182 @@
 
 import type { App } from '@/domain/models/app'
 
+/** `app.components` — the templates a `$ref` / `component` reference names. */
+export type Templates = readonly unknown[]
+
+/** One component node, as authored: references unexpanded, fields undecoded. */
+export type TreeNode = Readonly<Record<string, unknown>>
+
+/**
+ * The bodies of every template a page draws, each ONCE however many times it
+ * is placed — see {@link collectPlacedTemplates}.
+ */
+export type PlacedTemplates = readonly TreeNode[]
+
 /**
  * A question asked of one component node.
  *
  * Receives the raw node rather than a decoded component: the walk runs over
- * `$ref`-resolved plain objects, and a predicate that needed a decoded shape
- * could not be asked about a shared component reached by name.
+ * plain objects, and a predicate that needed a decoded shape could not be
+ * asked about a shared component reached by name.
  */
-export type ComponentMatcher = (node: Readonly<Record<string, unknown>>) => boolean
+export type ComponentMatcher = (node: TreeNode) => boolean
 
 /**
- * `componentTreeHasType` — the shared component-tree search behind every
- * "does this app place a component of kind X anywhere?" predicate.
+ * The template a node places, or `undefined` for a node written inline. Keyed
+ * on the VALUE being a string: a `specimen` carries a whole component object
+ * under `component`, which is a child to draw, not a template name.
+ */
+const referencedTemplateName = (node: TreeNode): string | undefined => {
+  if (typeof node['$ref'] === 'string') return node['$ref']
+  return typeof node['component'] === 'string' ? node['component'] : undefined
+}
+
+/** The child lists a node renders: its own `children`, and each breakpoint's. */
+const renderedChildLists = (node: TreeNode): readonly (readonly unknown[])[] => {
+  const own = Array.isArray(node['children']) ? [node['children'] as readonly unknown[]] : []
+  const { responsive } = node
+  if (responsive === null || typeof responsive !== 'object') return own
+  const breakpoints = Object.values(responsive).flatMap((variant) => {
+    const children = (variant as { readonly children?: unknown } | null)?.children
+    return Array.isArray(children) ? [children as readonly unknown[]] : []
+  })
+  return [...own, ...breakpoints]
+}
+
+/** The template named `name`, or `undefined` when the app declares none. */
+const findTemplate = (templates: Templates, name: string): unknown =>
+  templates.find((template) => (template as { readonly name?: unknown } | null)?.name === name)
+
+/**
+ * Every template the renderer would draw for `items`, keyed by name, each
+ * collected ONCE.
  *
- * Extracted from `has-page-search.ts`, which asked exactly this question for a
- * single literal and grew the traversal that answers it. A second caller
- * (`appRequiresAi`, which has to find an `ai-chat` under the
- * same nesting and the same `$ref` indirection) made a private copy of that
- * walk the wrong shape: two walks that must agree about references and cycles
- * cannot be kept in step by review.
+ * Walks each node's own `children` and every `responsive.<bp>.children` — the
+ * two lists the renderer expands references in — and follows each `$ref` /
+ * `component` into its template in `templates`. A template already collected is
+ * not walked again, which is both the cycle guard (a template placing itself,
+ * directly or A → B → A, still gets a verdict) and what keeps the cost linear in
+ * the size of the app rather than in the number of placements: a template
+ * placed forty times is read once.
  *
- * ## Traversal
+ * Collecting once is exact, not an approximation, for a yes/no question: every
+ * node a path-guarded walk would visit is either on the page or inside some
+ * collected template body.
+ */
+function collectPlacedTemplates(
+  items: readonly unknown[],
+  templates: Templates,
+  found: ReadonlyMap<string, TreeNode> = new Map()
+): ReadonlyMap<string, TreeNode> {
+  return items.reduce<ReadonlyMap<string, TreeNode>>((acc, item) => {
+    if (item === null || typeof item !== 'object') return acc
+    const node = item as TreeNode
+    const name = referencedTemplateName(node)
+    if (name === undefined) {
+      return renderedChildLists(node).reduce(
+        (inner, list) => collectPlacedTemplates(list, templates, inner),
+        acc
+      )
+    }
+    if (acc.has(name)) return acc
+    const template = findTemplate(templates, name)
+    if (template === null || typeof template !== 'object') return acc
+    const body = template as TreeNode
+    return collectPlacedTemplates([body], templates, new Map([...acc, [name, body]]))
+  }, found)
+}
+
+/** The bodies of every template the page's `items` place — see {@link collectPlacedTemplates}. */
+export const placedTemplatesOf = (
+  items: readonly unknown[],
+  templates: Templates
+): PlacedTemplates =>
+  templates.length === 0 ? [] : [...collectPlacedTemplates(items, templates).values()]
+
+/**
+ * Whether any node drawn from `items` itself — through its `children` and each
+ * `responsive.<bp>.children`, stopping at a reference — satisfies `trips`.
+ * References are covered by walking each placed template body separately.
+ */
+function someNodeIn(items: readonly unknown[], trips: (node: TreeNode) => boolean): boolean {
+  return items.some((item) => {
+    if (item === null || typeof item !== 'object') return false
+    const node = item as TreeNode
+    if (referencedTemplateName(node) !== undefined) return false
+    if (trips(node)) return true
+    return renderedChildLists(node).some((list) => someNodeIn(list, trips))
+  })
+}
+
+/** Every node drawn from `items` itself that satisfies `keeps` — {@link someNodeIn}'s reach. */
+function nodesIn(
+  items: readonly unknown[],
+  keeps: (node: TreeNode) => boolean
+): readonly TreeNode[] {
+  return items.flatMap((item) => {
+    if (item === null || typeof item !== 'object') return []
+    const node = item as TreeNode
+    if (referencedTemplateName(node) !== undefined) return []
+    const nested = renderedChildLists(node).flatMap((list) => nodesIn(list, keeps))
+    return keeps(node) ? [node, ...nested] : nested
+  })
+}
+
+/**
+ * Every node the renderer would draw that satisfies `keeps` — the same reach as
+ * {@link someRenderedNode}, collected rather than asked. A node inside a
+ * template is returned once however many times the template is placed.
+ */
+export const renderedNodesWhere = (
+  items: readonly unknown[],
+  placed: PlacedTemplates,
+  keeps: (node: TreeNode) => boolean
+): readonly TreeNode[] => [...nodesIn(items, keeps), ...nodesIn(placed, keeps)]
+
+/**
+ * Whether any node the renderer would draw — on the page, inside a placed
+ * template at any depth, or only in a breakpoint's children — satisfies `trips`.
+ */
+export const someRenderedNode = (
+  items: readonly unknown[],
+  placed: PlacedTemplates,
+  trips: (node: TreeNode) => boolean
+): boolean => someNodeIn(items, trips) || someNodeIn(placed, trips)
+
+/**
+ * `componentTreeHasMatch` — the shared component-tree search behind every
+ * "does this app place a component of kind X anywhere?" predicate
+ * (`hasPageSearchComponent`, `appRequiresAi`).
  *
- * Visits, in order:
- *
- * 1. Each page in `app.pages[]`
- * 2. Each top-level component in `page.components[]`
- * 3. Each nested component in any container's `children[]` (recursive)
- * 4. `$ref` / `component` references: when a page-component entry is a
- *    reference (`{ $ref: 'name', vars }`, `{ component: 'name' }`, …) the
- *    matching definition in `app.components[]` is resolved and its subtree is
- *    searched as well.
- *
- * A `Set<string>` of already-resolved reference names guards against cycles (a
- * shared component referencing itself transitively).
- *
- * ## Why a predicate, not a flag
- *
- * Mirrors the existing component-tree predicates (e.g.
- * `componentTreeHasDataSource` in `src/domain/models/app/pages/page-cacheability.ts`):
- * derived from the schema, never written to it. The schema author signals
- * intent by placing a component; the boot path observes that intent here.
+ * It asks its question of the page AS RENDERED, through the same reach the
+ * page-cache verdict uses (`page-cacheability.ts`): each page's components,
+ * every container's `children`, every breakpoint's `responsive.<bp>.children`,
+ * and the template each `$ref` / `component` reference places, at any depth,
+ * each template read once (which is also the cycle guard). A private walk used
+ * to stand here that knew `children` and references but not breakpoints, so an
+ * `ai-chat` or a page search placed only in a breakpoint's children was drawn
+ * on the page and never counted at boot. Two walks that must agree about what
+ * a page draws cannot be kept in step by review, so there is one.
  *
  * ## Why the caller supplies a PREDICATE, not a set of type names
  *
- * It used to take a `ReadonlySet<string>` of `type` literals, which was enough
- * while every question was "is this type anywhere in the tree". The catalogue
- * reshape ended that: merging two component types into one leaves questions
- * that are about a FIELD VALUE, not a name. `hasPageSearchComponent` has to
- * find a `search-input` whose `scope` is `page` and ignore one whose scope is
- * `subscribers` — the same type, and only one of them should make the boot path
- * build a search index.
- *
- * A set could not express that, and the alternative — matching the type and
- * re-walking the tree to check the field — would be a second walk that has to
- * agree with this one about `$ref` resolution and cycles. `componentTreeHasType`
- * builds the name-matching predicate for the callers that still want one.
+ * Merging two component types into one leaves questions that are about a
+ * FIELD VALUE, not a name. `hasPageSearchComponent` has to find a
+ * `search-input` whose `scope` is `page` and ignore one whose scope is
+ * `subscribers`. `componentTreeHasType` builds the name-matching predicate for
+ * the callers that still want one.
  *
  * @param app - Validated application schema.
  * @param matches - Predicate over a component node; ANY match answers `true`.
- * @returns `true` when at least one matching component is reachable.
+ * @returns `true` when at least one matching component is drawn on some page.
  */
 export const componentTreeHasMatch = (app: App, matches: ComponentMatcher): boolean => {
-  const sharedComponents = app.components ?? []
-  const sharedByName = new Map<string, unknown>(
-    sharedComponents.map((component) => [component.name, component])
-  )
-
-  return (app.pages ?? []).some((page) =>
-    searchItems(page.components ?? [], matches, sharedByName, new Set())
-  )
-}
-
-/** Read the reference name from `{ $ref }` or `{ component }`, if present. */
-const readRefName = (node: Readonly<Record<string, unknown>>): string | undefined => {
-  if (typeof node.$ref === 'string') return node.$ref
-  if (typeof node.component === 'string') return node.component
-  return undefined
-}
-
-/** Recurse into `children` (when an array); otherwise the subtree is empty. */
-const recurseChildren = (
-  node: Readonly<Record<string, unknown>>,
-  matches: ComponentMatcher,
-  sharedByName: ReadonlyMap<string, unknown>,
-  visiting: ReadonlySet<string>
-): boolean => {
-  const { children } = node
-  return Array.isArray(children) ? searchItems(children, matches, sharedByName, visiting) : false
-}
-
-/**
- * Resolve a `$ref` / `component` reference and search the referenced subtree.
- * Returns `false` on cycles or unresolvable references (defensive — the
- * predicate is a search, not a validator).
- */
-const inspectReferencedComponent = (
-  refName: string,
-  matches: ComponentMatcher,
-  sharedByName: ReadonlyMap<string, unknown>,
-  visiting: ReadonlySet<string>
-): boolean => {
-  if (visiting.has(refName)) return false
-  const target = sharedByName.get(refName)
-  if (target === null || typeof target !== 'object') return false
-  const targetNode = target as Record<string, unknown>
-  if (matches(targetNode)) return true
-  const nextVisiting = new Set([...visiting, refName])
-  return recurseChildren(targetNode, matches, sharedByName, nextVisiting)
-}
-
-/**
- * Inspect a single tree item:
- * - Primitive / non-object → no match.
- * - Reference form (`$ref` / `component`) → resolve + search the target subtree.
- * - Direct component → check `type` then recurse into `children`.
- */
-const inspectNode = (
-  item: unknown,
-  matches: ComponentMatcher,
-  sharedByName: ReadonlyMap<string, unknown>,
-  visiting: ReadonlySet<string>
-): boolean => {
-  if (item === null || typeof item !== 'object') return false
-  const node = item as Record<string, unknown>
-
-  const refName = readRefName(node)
-  if (refName !== undefined) {
-    return inspectReferencedComponent(refName, matches, sharedByName, visiting)
-  }
-
-  if (matches(node)) return true
-  return recurseChildren(node, matches, sharedByName, visiting)
-}
-
-/**
- * Walks a component tree depth-first looking for a node the predicate accepts.
- *
- * Each item is one of:
- * - A direct component object — inspect its `type` and recurse into `children`.
- * - A `$ref` / `component` reference — resolve via `sharedByName` and recurse
- *   into the referenced component's subtree. `visiting` tracks the resolution
- *   chain to short-circuit cycles.
- * - Anything else (primitives, strings) — ignored.
- */
-function searchItems(
-  items: readonly unknown[],
-  matches: ComponentMatcher,
-  sharedByName: ReadonlyMap<string, unknown>,
-  visiting: ReadonlySet<string>
-): boolean {
-  return items.some((item) => inspectNode(item, matches, sharedByName, visiting))
+  const templates: Templates = app.components ?? []
+  return (app.pages ?? []).some((page) => {
+    const items = page.components ?? []
+    return someRenderedNode(items, placedTemplatesOf(items, templates), matches)
+  })
 }
 
 /**

@@ -205,16 +205,4 @@ export const graphFields = {
 // Re-export all sub-schemas
 // ---------------------------------------------------------------------------
 
-export {
-  GraphColumnSchema,
-  GraphDataSourceSchema,
-  GraphLanesSchema,
-  GraphLaneStationsSchema,
-  GraphLayoutSchema,
-  GraphReachSchema,
-  GraphSelectionModeSchema,
-  GraphSelectionSchema,
-  GraphSystemSourceSchema,
-  type GraphColumn,
-  type GraphLanes,
-} from './schema'
+export type { GraphColumn, GraphLanes } from './schema'

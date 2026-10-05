@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { DevTools } from 'effect/unstable/devtools'
+import { DevTools } from 'effect/devtools'
 
 /**
  * Effect DevTools layer for development debugging

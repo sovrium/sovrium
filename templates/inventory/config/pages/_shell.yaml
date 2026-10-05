@@ -31,17 +31,42 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
       # Row metrics tuned to a compact five-entry navigation: 32px rows, 13.5px
       # labels, and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-foreground-subtle
     groups:
       - landmark: Workspace
         items:
-          - { label: Products, href: /, icon: package }
+          # The counts read the records endpoint of the page each entry opens:
+          # every product, the orders not yet shipped, every supplier.
+          - label: Products
+            href: /
+            icon: package
+            badge:
+              endpoint: /api/tables/products/records?limit=1
+              valuePath: pagination.total
           - { label: Stock, href: /stock, icon: layers }
-          - { label: Orders, href: /orders, icon: truck }
-          - { label: Suppliers, href: /suppliers, icon: building-2 }
+          - label: Orders
+            href: /orders
+            icon: truck
+            badge:
+              endpoint: /api/tables/orders/records?limit=1&view=open_orders
+              valuePath: pagination.total
+          - label: Suppliers
+            href: /suppliers
+            icon: building-2
+            badge:
+              endpoint: /api/tables/suppliers/records?limit=1
+              valuePath: pagination.total
+      # A second heading inside the same landmark: the assistant is a tool
+      # beside the stock records, not one more list of them.
+      - label: Tools
+        landmark: Workspace
+        headingLevel: 2
+        items:
           - { label: Assistant, href: /assistant, icon: sparkles }
   - type: container
     props:

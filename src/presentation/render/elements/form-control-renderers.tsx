@@ -167,6 +167,7 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
       className={wrapperClassName}
       data-testid={testId}
       data-component="time-picker"
+      data-component-type={props['data-component-type'] as string | undefined}
     >
       {label !== undefined && <label htmlFor={id}>{label}</label>}
       <input

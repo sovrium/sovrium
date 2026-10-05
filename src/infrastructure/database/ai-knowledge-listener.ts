@@ -10,7 +10,10 @@
 import { Context, Effect, Layer } from 'effect'
 import { Client } from 'pg'
 import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
+import { escapeSqlString, quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { filterAgentKnowledgeTables } from '@/domain/models/app/agents/rag-knowledge-access'
+import { partitionFieldsByReaders } from '@/domain/models/app/tables/field-readability-partition-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { runSyncDocumentsAtStartup } from '@/infrastructure/ai/document-sync'
 import {
@@ -42,6 +45,7 @@ export interface KnowledgeTableBinding {
   readonly agentName: string
   readonly table: string
   readonly fields: ReadonlyArray<string>
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>>
   readonly filter?: Readonly<Record<string, unknown>>
 }
 
@@ -57,11 +61,20 @@ const CHANNEL = 'sovrium_ai_knowledge'
 /**
  * Build the `CREATE FUNCTION` + `CREATE TRIGGER` DDL for one knowledge table.
  * The trigger fires `AFTER` each row change and emits a compact JSON payload.
+ *
+ * `table` is the CONFIG name — `Help Articles` — which the payload carries so
+ * the handler can match it against the agents' bindings. Everything the
+ * database resolves uses the DERIVED name, `help_articles`: the relation the
+ * trigger sits on, and the function and trigger names built from it. Spliced
+ * as written, `ON "Help Articles"` named a relation nobody created and
+ * `sovrium_ai_knowledge_notify_Help Articles()` was no identifier at all; both
+ * failures were swallowed, so the agent silently stopped learning the table.
  */
 const buildTriggerSql = (table: string): readonly string[] => {
-  const fn = `sovrium_ai_knowledge_notify_${table}`
-  const trig = `sovrium_ai_knowledge_trig_${table}`
-  const quoted = `"${table.replace(/"/g, '""')}"`
+  const relation = sanitizeTableName(table)
+  const fn = `sovrium_ai_knowledge_notify_${relation}`
+  const trig = `sovrium_ai_knowledge_trig_${relation}`
+  const quoted = quoteSqlIdentifier(relation)
   return [
     `CREATE OR REPLACE FUNCTION ${fn}() RETURNS trigger AS $$
        DECLARE rec_id text;
@@ -70,7 +83,7 @@ const buildTriggerSql = (table: string): readonly string[] => {
          ELSE rec_id := NEW.id::text;
          END IF;
          PERFORM pg_notify('${CHANNEL}', json_build_object(
-           'op', TG_OP, 'table', '${table}', 'id', rec_id
+           'op', TG_OP, 'table', '${escapeSqlString(table)}', 'id', rec_id
          )::text);
          IF (TG_OP = 'DELETE') THEN RETURN OLD; ELSE RETURN NEW; END IF;
        END;
@@ -106,9 +119,27 @@ export interface AiKnowledgeListenerStatus {
 
 const INERT: AiKnowledgeListenerStatus = { listening: false }
 
-/** This app's RAG agents, with knowledge tables filtered by role. */
+/**
+ * This app's RAG agents, with knowledge tables filtered by role and each
+ * entry's fields partitioned by their effective read grant, so that a chunk
+ * never mixes fields two readers may read differently.
+ */
 export const filterRagKnowledgeByRole = (app: App): ReadonlyArray<RagAgent> =>
-  (app.agents ?? []).map((agent) => filterAgentKnowledgeTables(agent, app.tables ?? []))
+  (app.agents ?? []).map((agent) => {
+    const filtered = filterAgentKnowledgeTables(agent, app.tables ?? [], app)
+    const tables = filtered.knowledge?.tables
+    if (tables === undefined) return filtered
+    return {
+      ...filtered,
+      knowledge: {
+        ...filtered.knowledge,
+        tables: tables.map((entry) => ({
+          ...entry,
+          fieldGroups: partitionFieldsByReaders(app, entry.table, entry.fields),
+        })),
+      },
+    }
+  })
 
 /**
  * Open the connection, install the per-table triggers, and subscribe — or
@@ -225,6 +256,7 @@ const handlePayload = async (
               agentName: binding.agentName,
               table: binding.table,
               fields: binding.fields,
+              fieldGroups: binding.fieldGroups,
               filter: binding.filter,
               recordId: payload.id,
             }).catch(() => undefined)

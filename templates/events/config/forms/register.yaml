@@ -1,11 +1,21 @@
-# Public registration form. `access: { require: all }` mounts it at /register
-# with no sign-in; each submission creates a registrations row, which fires
-# the confirmation-email automation. The honeypot silently drops naive bots.
+# The public registration form. It renders on `/register`
+# (config/pages/register.yaml) and needs no account. Each event card links
+# here with its event already chosen — `/register?event=<id>` fills the Event
+# select from the link — so a visitor types a name and an email, answers one
+# question and is done.
+#
+# A submission becomes a Confirmed registration, which starts
+# config/automations/confirm-registration.yaml. The page that follows names
+# the event: the redirect carries the event the visitor chose, and
+# `/thanks/<id>` reads it back. The honeypot silently drops naive bots.
+#
+# Capacity is advisory. Nothing refuses a registration once an event is full;
+# the public page simply stops linking a full event to this form and offers
+# its waitlist instead.
 id: 1
 name: register
-title: Register for an event
-description: Pick your event, leave your email, and you're in — confirmation lands in your inbox.
-path: /register
+title: Register
+description: No account needed, and it is free. Your confirmation goes to your email.
 access:
   require: all
 submitTo:
@@ -16,7 +26,10 @@ display:
   submitLabel: Register
 onSuccess:
   type: redirect
-  url: /thanks
+  url: /thanks/$record.event
+  delaySeconds: 0
+prefill:
+  event: $query.event
 fields:
   - kind: table-field
     column: event
@@ -30,4 +43,7 @@ fields:
     column: email
     required: true
     label: Email
-    helpText: We'll send your confirmation here.
+    helpText: Your confirmation goes here.
+  - kind: table-field
+    column: answer
+    label: What will you bring?

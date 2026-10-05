@@ -54,15 +54,21 @@ export function extractTitleFontProperties(design?: Design): TitleFontConfig | u
 }
 
 /**
- * Build body classes — canonical `fg` text token (always present via the
- * default layer); the font class still tracks the author's body-font token.
+ * Build body classes — canonical `fg` text token and `background` surface
+ * (both always present via the default layer); the font class still tracks the
+ * author's body-font token.
+ *
+ * The page is painted in the theme background so a page whose components do
+ * not cover the viewport never shows the browser's white behind them, in the
+ * dark scheme too. It is a `@layer base` rule, so any component that paints its
+ * own background still draws over it.
  *
  * @param hasBodyFont - Whether design defines body font
  * @returns Array of CSS class names for body element
  */
 export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
   const fontClass = hasBodyFont ? 'font-body' : 'font-sans'
-  return [fontClass, 'antialiased', 'text-foreground']
+  return [fontClass, 'antialiased', 'bg-background', 'text-foreground']
 }
 
 /**

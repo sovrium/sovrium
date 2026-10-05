@@ -208,14 +208,17 @@ const resolveActiveZone = (
  * docs column already returned. The `nav` itself moves into the dialog, so its
  * landmark and its name are the same at every width.
  *
- * The frame's root is `display: contents`, so at `lg` and above the `nav` is a
- * flex item of the docs row exactly as it was before — sticky, full height.
+ * Below `lg` the frame's root is the bar across the column that holds the menu
+ * button — named `container`, as the app shell's own fold bar is. At `lg` and
+ * above it is `display: contents`, so the `nav` is a flex item of the docs row
+ * exactly as it was before — sticky, full height.
  */
 export function DocsSidebarNav({ nav, menuLabel }: DocsSidebarNavProps): Readonly<ReactElement> {
   return (
     <div
       {...{ [SIDEBAR_DRAWER_ROOT_ATTRIBUTE]: '' }}
-      className="contents"
+      data-component-type="container"
+      className="flex flex-col lg:contents"
     >
       <SidebarDrawerFrame
         below="lg"
@@ -239,6 +242,7 @@ function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
     return (
       <nav
         data-component="docs-sidebar-nav"
+        data-component-type="sidebar"
         aria-label="Documentation"
         className={NAV_WRAPPER_CLASS}
       >
@@ -253,6 +257,7 @@ function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
   return (
     <nav
       data-component="docs-sidebar-nav"
+      data-component-type="sidebar"
       data-docs-active-zone={zone}
       aria-label="Documentation"
       className={NAV_WRAPPER_CLASS}

@@ -1,25 +1,31 @@
-# sovrium-landing
+# tablee
 
-Build apps faster with configuration-driven development
+Tablée — the landing page of a fictional booking product for independent restaurants, in
+English and in French: one sentence, the product itself, three things it does, three steps,
+and a demo request the owner reads in the admin. Visitors never sign in; nobody can open an
+account.
 
 ## This app at a glance
 
-- **Pages** (1): home
-- **Components** (5): hero-section, feature-card, step-card, cta-button, language-switcher
-- **Singletons**: theme, languages
-- **Static assets**: `public/` (served at the site root)
+- **Pages** (1): home (`/`, also `/en/` and `/fr/`) — its body is `_body.yaml`; the sharing
+  card is a `$t:` key, so each language shares with its own
+- **Tables** (1): demo_requests (written by the form only; read by an admin only)
+- **Forms** (1): demo-request (public, honeypot; confirms with the address typed)
+- **Components** (3): feature-card, step-card, language-switcher
+- **Singletons**: design, languages (every sentence is a `$t:` key), auth (sign-up closed)
+- **Static assets**: `public/` — `favicon.svg`, `og-en.png`, `og-fr.png`
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. A change
+to the words is a change to `config/languages.yaml`, in BOTH languages: write the French in
+French (`tu`), not as a translation. Keep one call to action per section and no figure the
+page cannot prove. The design system is in `config/design.yaml`: one accent, read its
+comments before changing a colour. The sharing card is a `$t:` key (`meta.image`), one PNG
+per language in `public/`.
 
 ---
 

@@ -1,0 +1,1 @@
+ALTER TABLE "system"."automation_runs" ADD COLUMN "started_by_hand" boolean DEFAULT false NOT NULL;

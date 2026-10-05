@@ -196,7 +196,7 @@ export const mapFormulaResultTypeToDialect = (resultType: string | undefined): s
     : postgresType
 }
 
-const NUMERIC_TYPES_WITH_PRECISION = new Set(['decimal', 'currency', 'percentage'])
+const NUMERIC_TYPES_WITH_PRECISION = new Set(['decimal', 'number', 'currency', 'percentage'])
 
 /**
  * Generous integer-part allowance for `NUMERIC(p,s)` columns.

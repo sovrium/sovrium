@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database/drizzle'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { tableIdentifier } from '../statement/validation'
 
 /**
  * Check if any records exist in database based on merge fields
@@ -45,9 +46,34 @@ export async function checkForExistingRecords(
   const whereClause = sql.join(mergeConditions, sql` OR `)
   const existingRecords = await executeRaw(
     db,
-    sql`SELECT COUNT(*) as count FROM ${sql.identifier(tableName)} WHERE ${whereClause}`
+    sql`SELECT COUNT(*) as count FROM ${tableIdentifier(tableName)} WHERE ${whereClause}`
   )
 
   const firstRecord = existingRecords[0]
   return firstRecord !== undefined && toFiniteCount(firstRecord.count) > 0
+}
+
+/**
+ * The ids of every row an upsert record would merge onto — each row whose merge
+ * fields equal the record's. Empty when the record lacks a merge field (the
+ * upsert refuses it) or when no row matches, so the record would be created.
+ *
+ * Every matching row is returned, not the first: the upsert updates one of
+ * them, and the row-level gate that reads this must judge whichever it is.
+ */
+export async function findRecordIdsByMergeFields(
+  tableName: string,
+  fields: Readonly<Record<string, unknown>>,
+  fieldsToMergeOn: readonly string[]
+): Promise<readonly string[]> {
+  if (fieldsToMergeOn.length === 0) return []
+  if (!fieldsToMergeOn.every((fieldName) => fields[fieldName] !== undefined)) return []
+  const conditions = fieldsToMergeOn.map(
+    (fieldName) => sql`${sql.identifier(fieldName)} = ${fields[fieldName]}`
+  )
+  const rows = await executeRaw(
+    db,
+    sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE ${sql.join(conditions, sql` AND `)}`
+  )
+  return rows.map((row) => String(row.id))
 }

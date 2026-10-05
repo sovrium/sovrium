@@ -1,152 +1,185 @@
-# Sample editorial pipeline.
+# Loomwork's content: fifteen pieces from a published retrospective to two
+# ideas without a date. Four went out earlier this month, four are scheduled,
+# two wait for the lead in Review, three are drafts and one of them is late.
 #
-# Two views read this table and they want opposite things from it, so the data
-# has to satisfy both:
+# Every date is relative to the day the seed runs, so the demo never ages;
+# `--today <YYYY-MM-DD>` pins them to one day. A relative date carries no time
+# of day, so the hour a piece goes out is written as words in `time_label`.
+# Ideas have no date, which keeps them off the calendar.
 #
-#   - `/` is a month calendar keyed on `publish_date`. Every date is a relative
-#     token spread from three weeks back to five weeks out, so the previous,
-#     current and next month all carry entries whatever day the demo is opened.
-#     Pieces still at Idea deliberately have NO publish date — that is what an
-#     idea is — which also proves the calendar copes with rows it cannot place.
-#   - `/pipeline` is a kanban grouped on `status`. All five columns are
-#     populated; a board where every card sits in one column shows nothing about
-#     the board.
-#
-# `channels` is a multi-select, so it takes a YAML list. `content_type` is a
-# single-select and takes one string. `owner` (a `user` field) and `assets` (an
-# attachment field) are left unseeded on purpose: the first needs a real account
-# id that does not exist until someone signs up, and the second needs binary
-# files this repository does not ship.
+# `channels` is every channel a piece goes out on; `channel` is the first of
+# them, the one the calendar colours it by. `owner` names a seeded account.
+# The screen recording carries its thumbnail from `seed/assets/`, the same
+# file among its attachments, and its name beside it for the drawer.
 records:
-  # ── Published ───────────────────────────────────────────────────────
-  - key: year-in-review
+  - key: year
     fields:
-      title: What we shipped this year, and what we did not
+      title: 'What we shipped this year, and what we did not'
       content_type: Blog post
-      channels: [Website, LinkedIn, Email]
+      channels: [Website, Email]
+      channel: Website
       status: Published
-      publish_date: '{{today-19d}}'
-      campaign: '@campaigns.winter-retro'
-      brief: <p>Honest ledger, including the two things we cut. The cut list is the part people share.</p>
-
-  - key: migration-teardown
+      publish_at: '{{today-21d}}'
+      owner: '@user:tomas.ruiz@loomwork.example'
+      campaign: '@campaigns.retrospective'
+      brief: 'An honest ledger, including the two things we cut. The cut list is the part people share.'
+  - key: migrating
     fields:
-      title: Migrating 40,000 rows off a spreadsheet
+      title: 'Migrating 40,000 rows off a spreadsheet'
       content_type: Blog post
       channels: [Website, LinkedIn]
+      channel: Website
       status: Published
-      publish_date: '{{today-12d}}'
-      campaign: '@campaigns.always-on'
-      brief: <p>A real migration, timed, with the two places it went wrong left in.</p>
-
-  - key: launch-announcement
+      publish_at: '{{today-14d}}'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'One real migration, step by step, with the three columns that did not map cleanly.'
+  - key: shortcuts
     fields:
-      title: The new workspace is live
-      content_type: Newsletter
-      channels: [Email, Website]
-      status: Published
-      publish_date: '{{today-5d}}'
-      campaign: '@campaigns.q-launch'
-      brief: <p>Short. Links to the install page and nothing else.</p>
-
-  # ── Scheduled ───────────────────────────────────────────────────────
-  - key: install-walkthrough
-    fields:
-      title: Install in four minutes (screen recording)
-      content_type: Video
-      channels: [YouTube, Website, LinkedIn]
-      status: Scheduled
-      publish_date: '{{today+2d}}'
-      campaign: '@campaigns.q-launch'
-      brief: <p>No narration for the first minute. Let the terminal do the talking.</p>
-
-  - key: conference-cfp-post
-    fields:
-      title: Speak at the annual conference — CFP is open
+      title: 'Weekly tip: keyboard shortcuts in the grid'
       content_type: Social post
       channels: [LinkedIn, X]
+      channel: LinkedIn
+      status: Published
+      publish_at: '{{today-9d}}'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'Five shortcuts, one short clip each. No more than one line of text per shortcut.'
+  - key: live
+    fields:
+      title: 'The new workspace is live'
+      content_type: Newsletter
+      channels: [Email, Website]
+      channel: Email
+      status: Published
+      publish_at: '{{today-7d}}'
+      owner: '@user:tomas.ruiz@loomwork.example'
+      campaign: '@campaigns.launch'
+      brief: 'What changed, why, and the one link to try it. Sent to everyone on the beta list.'
+  - key: highlights
+    fields:
+      title: 'Office-hours highlights, cut to 90 seconds'
+      content_type: Social post
+      channels: [Instagram, LinkedIn]
+      channel: Instagram
+      status: Draft
+      publish_at: '{{today-2d}}'
+      time_label: '11:00'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.conference'
+      brief: 'The three best questions from office hours, one per clip, captions on.'
+  - key: comment
+    fields:
+      title: 'Weekly tip: comment on any record'
+      content_type: Social post
+      channels: [LinkedIn]
+      channel: LinkedIn
       status: Scheduled
-      publish_date: '{{today+4d}}'
-      campaign: '@campaigns.conference-push'
-      brief: <p>Deadline in the first line. Nobody reads the second line.</p>
-
-  - key: weekly-tip-08
+      publish_at: '{{today}}'
+      time_label: '09:00'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'One screenshot of a thread on a record, and the sentence that explains why it beats email.'
+  - key: install
+    fields:
+      title: 'Install in four minutes (screen recording)'
+      content_type: Video
+      channels: [YouTube, Website]
+      channel: YouTube
+      status: Scheduled
+      publish_at: '{{today+1d}}'
+      time_label: '10:00'
+      owner: '@user:tomas.ruiz@loomwork.example'
+      campaign: '@campaigns.launch'
+      brief: 'No narration — captions only, so it works muted in a feed. Start on the empty terminal, end on the running app. Under four minutes or it is not the promise.'
+      thumbnail: '@asset:thumbnail-install.png'
+      assets: ['@asset:thumbnail-install.png']
+      asset_names: thumbnail-install.png
+  - key: cfp
+    fields:
+      title: 'Speak at the annual conference — CFP is open'
+      content_type: Social post
+      channels: [LinkedIn, X]
+      channel: LinkedIn
+      status: Scheduled
+      publish_at: '{{today+4d}}'
+      time_label: '09:30'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.conference'
+      brief: 'The deadline, the three tracks, and one line on what a good talk looks like.'
+  - key: views
     fields:
       title: 'Weekly tip: saved views beat filters you retype'
       content_type: Social post
-      channels: [LinkedIn, X]
+      channels: [LinkedIn]
+      channel: LinkedIn
       status: Scheduled
-      publish_date: '{{today+9d}}'
-      campaign: '@campaigns.always-on'
-      brief: <p>One screenshot, one sentence, no link.</p>
-
-  # ── Review ──────────────────────────────────────────────────────────
-  - key: self-hosting-guide
+      publish_at: '{{today+7d}}'
+      time_label: '09:00'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'Before and after: the same filter typed five times, then one saved view.'
+  - key: agenda
     fields:
-      title: Self-hosting without a platform team
-      content_type: Blog post
-      channels: [Website, LinkedIn, Email]
-      status: Review
-      publish_date: '{{today+16d}}'
-      campaign: '@campaigns.always-on'
-      brief: >-
-        <p>Second draft back from legal. The backup section still overclaims —
-        soften or cite.</p>
-
-  - key: conference-agenda
-    fields:
-      title: The full conference agenda
+      title: 'The full conference agenda'
       content_type: Newsletter
-      channels: [Email, Website]
+      channels: [Email]
+      channel: Email
       status: Review
-      publish_date: '{{today+23d}}'
-      campaign: '@campaigns.conference-push'
-      brief: <p>Blocked on two unconfirmed speakers. Ship with placeholders if they slip past Friday.</p>
-
-  # ── Draft ───────────────────────────────────────────────────────────
-  - key: pricing-explainer
+      publish_at: '{{today+8d}}'
+      time_label: '08:00'
+      owner: '@user:tomas.ruiz@loomwork.example'
+      campaign: '@campaigns.conference'
+      brief: 'Every talk with its speaker and room. Link each title to its abstract.'
+  - key: selfhost
     fields:
-      title: Why the engine is free and the hosting is not
+      title: 'Self-hosting without a platform team'
       content_type: Blog post
       channels: [Website, LinkedIn]
+      channel: Website
+      status: Review
+      publish_at: '{{today+14d}}'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'What it takes to run it yourself, in plain words: one server, backups, updates.'
+  - key: free
+    fields:
+      title: 'Why the engine is free and the hosting is not'
+      content_type: Blog post
+      channels: [Website]
+      channel: Website
       status: Draft
-      publish_date: '{{today+30d}}'
-      campaign: '@campaigns.q-launch'
-      brief: <p>Half-written. Needs the licensing paragraph checked before it goes to review.</p>
-
-  - key: customer-story-cardinal
+      publish_at: '{{today+20d}}'
+      owner: '@user:tomas.ruiz@loomwork.example'
+      campaign: '@campaigns.launch'
+      brief: 'The model in four paragraphs. No pricing table; link to the page that has one.'
+  - key: cardinal
     fields:
       title: 'How Cardinal Freight replaced six spreadsheets'
       content_type: Podcast
-      channels: [Website, YouTube]
+      channels: [YouTube, Website]
+      channel: YouTube
       status: Draft
-      publish_date: '{{today+37d}}'
-      campaign: '@campaigns.always-on'
-      brief: <p>Recorded, untranscribed. 52 minutes; the usable part starts at 08:10.</p>
-
-  # ── Idea (deliberately undated — see the note above) ────────────────
-  - key: idea-field-types-tour
+      publish_at: '{{today+27d}}'
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'Thirty minutes with their operations lead. Ask what they would not do again.'
+  - key: fields
     fields:
-      title: A tour of all forty field types
+      title: 'A tour of all forty field types'
       content_type: Video
       channels: [YouTube]
+      channel: YouTube
       status: Idea
-      campaign: '@campaigns.always-on'
-      brief: <p>Probably too long to be one video. Consider a series.</p>
-
-  - key: idea-benchmark-post
+      owner: '@user:nadia.brandt@loomwork.example'
+      campaign: '@campaigns.education'
+      brief: 'One field per ten seconds, grouped by what people use them for.'
+  - key: benchmarks
     fields:
-      title: Benchmarks against the hosted alternatives
+      title: 'Benchmarks against the hosted alternatives'
       content_type: Blog post
       channels: [Website, X]
+      channel: Website
       status: Idea
-      brief: <p>Only worth writing if the numbers are good AND reproducible. Park until both.</p>
-
-  - key: idea-office-hours-clip
-    fields:
-      title: Office-hours highlights, cut to 90 seconds
-      content_type: Social post
-      channels: [LinkedIn, Instagram]
-      status: Idea
-      campaign: '@campaigns.conference-push'
-      brief: <p>Needs someone to actually watch the recordings first.</p>
+      owner: '@user:tomas.ruiz@loomwork.example'
+      brief: 'Only numbers we can reproduce, with the scripts published beside them.'

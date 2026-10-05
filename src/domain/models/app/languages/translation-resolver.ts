@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  DEFAULT_INTERPRETER_LANG,
+  ENGINE_KEY_PREFIX,
+  INTERPRETER_UI_STRINGS,
+  LEGACY_BARE_ENGINE_KEYS,
+} from './interpreter-ui-strings'
 import type { Languages } from '@/domain/models/app/languages'
 
 /**
@@ -43,101 +49,25 @@ export function normalizeLanguageCode(
 }
 
 /**
- * Built-in catalog of INTERPRETER-provided UI strings — chrome Sovrium renders
- * itself (not app-author content). Keyed by translation key, then by 2-letter
- * language code. English is the platform default; French ships the string that
- * used to be hard-coded in the island source. Author `languages.translations`
- * entries override these (see {@link resolveInterpreterString}).
- *
- *.
- */
-const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  'datatable.newRecord': {
-    en: 'New record',
-    fr: 'Nouvel enregistrement',
-  },
-  /** Create-record dialog footer + inline editor commit (data-table island). */
-  'datatable.save': {
-    en: 'Save',
-    fr: 'Enregistrer',
-  },
-  /**
-   * Create-record dialog footer + inline-editor dismissal.
-   *
-   * NOT the destructive confirm gate — that has its own `confirmGate.*` keys
-   * below, so an author can rename "cancel the edit I was making" without also
-   * renaming "do not delete this record". The two read alike and mean different
-   * things; sharing one key would leave the second un-nameable.
-   */
-  'datatable.cancel': {
-    en: 'Cancel',
-    fr: 'Annuler',
-  },
-  /**
-   * Destructive-confirm gate — the AFFIRM affordance. Used when the gate's
-   * `confirm` config declares no `confirmLabel` and the trigger carries no text
-   * to borrow. Sites: `presentation/islands/shared/confirm-gate-runtime.ts`,
-   * `presentation/client.ts`, `presentation/islands/shared/inline-confirm-dialog.tsx`.
-   */
-  'confirmGate.confirm': {
-    en: 'Confirm',
-    fr: 'Confirmer',
-  },
-  /**
-   * Destructive-confirm gate — the DISMISS affordance. This is the string that
-   * was a hard-coded French `'Annuler'` on every console confirm dialog in an
-   * app of any language, rendered beside an English confirm label the author
-   * HAD supplied.
-   */
-  'confirmGate.cancel': {
-    en: 'Cancel',
-    fr: 'Annuler',
-  },
-  /**
-   * Destructive-confirm gate — the default PROMPT, used when an action declares
-   * `confirm: true` rather than a message of its own
-   * (`presentation/islands/shared/action-executor.ts`).
-   */
-  'confirmGate.message': {
-    en: 'Confirm this action?',
-    fr: 'Confirmer cette action ?',
-  },
-  /** Record-drawer default accessible name (when the author declares no title). */
-  'recordDrawer.title': {
-    en: 'Record details',
-    fr: "Détail de l'enregistrement",
-  },
-  'recordDrawer.save': {
-    en: 'Save',
-    fr: 'Enregistrer',
-  },
-  /** Record-drawer close affordance — an icon button, so this IS its whole name. */
-  'recordDrawer.close': {
-    en: 'Close',
-    fr: 'Fermer',
-  },
-  /** A related section's inline create, refused by the records endpoint. */
-  'recordDrawer.relatedCreateFailed': {
-    en: 'The record could not be created.',
-    fr: "L'enregistrement n'a pas pu être créé.",
-  },
-}
-
-/** Platform default language for interpreter strings when none is resolved. */
-const DEFAULT_INTERPRETER_LANG = 'en'
-
-/**
  * Resolve an INTERPRETER-provided UI string against the active language.
  *
  * Precedence (highest first):
- *   1. Author override — `languages.translations[<lang>][key]` (via {@link resolveTranslation}).
+ *   1. Author override in the ACTIVE language — `languages.translations[<lang>]['sovrium.<key>']`.
  *   2. Built-in catalog entry for the active language (exact, then base code).
- *   3. Built-in English default.
- *   4. The key itself (last resort — a key with no catalog entry).
+ *   3. Author override in the fallback / default language.
+ *   4. Built-in English default.
+ *   5. The key itself (last resort — a key with no catalog entry).
  *
- * This lets an app show interpreter chrome in its own language (English by
- * default, French built-in) and still override any string via centralized
- * translations — the same rule that governs app content.
+ * An author override is read under the reserved `sovrium.` prefix only: a bare
+ * key is the author's own `$t:` vocabulary and never renames engine chrome. The
+ * ten {@link LEGACY_BARE_ENGINE_KEYS} a release read bare are still read bare
+ * when the prefixed spelling is absent in the same language.
+ *
+ * Unlike app content, an author string written for ANOTHER language does not
+ * beat the built-in string for the page's own language: an English-only
+ * `sovrium.datatable.columns: Fields` renames the English grid and leaves a
+ * French page reading « Colonnes », rather than dropping English chrome onto it
+ * — the defect this catalog exists to remove.
  *
  * @param key - Interpreter string key (e.g. `datatable.newRecord`)
  * @param currentLang - Active language code (e.g. `en-US`, `fr-FR`); defaults to English
@@ -150,21 +80,88 @@ export function resolveInterpreterString(
   languages?: Languages
 ): string {
   const lang = currentLang ?? DEFAULT_INTERPRETER_LANG
+  return (
+    authoredInLanguage(key, lang, languages) ??
+    builtInInLanguage(key, lang) ??
+    authoredInFallbackLanguage(key, lang, languages) ??
+    INTERPRETER_UI_STRINGS[key]?.[DEFAULT_INTERPRETER_LANG] ??
+    key
+  )
+}
 
-  // 1. Author override wins — resolveTranslation returns the key unchanged when
-  //    no author translation matches.
-  const authored = resolveTranslation(key, lang, languages)
-  if (authored !== key) {
-    return authored
-  }
+const LEGACY_BARE_KEYS: ReadonlySet<string> = new Set(LEGACY_BARE_ENGINE_KEYS)
 
-  // 2/3. Built-in catalog: exact language, then base code, then English default.
+/**
+ * The author's override of an engine key in one language's dictionary: the
+ * prefixed spelling, else — for a legacy key only — the bare one.
+ */
+const engineOverrideIn = (
+  key: string,
+  dictionary: Readonly<Record<string, string>> | undefined
+): string | undefined => {
+  if (dictionary === undefined) return undefined
+  const prefixed = dictionary[`${ENGINE_KEY_PREFIX}${key}`]
+  if (prefixed) return prefixed
+  return LEGACY_BARE_KEYS.has(key) ? dictionary[key] || undefined : undefined
+}
+
+/** The author's string for exactly the active language (exact, then base code), if any. */
+const authoredInLanguage = (
+  key: string,
+  lang: string,
+  languages: Languages | undefined
+): string | undefined => {
+  const translations = languages?.translations
+  if (translations === undefined) return undefined
+  return engineOverrideIn(key, translations[normalizeLanguageCode(lang, translations)])
+}
+
+/** The author's string for the fallback (else default) language, when it is not the active one. */
+const authoredInFallbackLanguage = (
+  key: string,
+  lang: string,
+  languages: Languages | undefined
+): string | undefined => {
+  const translations = languages?.translations
+  if (languages === undefined || translations === undefined) return undefined
+  const fallback = normalizeLanguageCode(languages.fallback || languages.default, translations)
+  if (fallback === normalizeLanguageCode(lang, translations)) return undefined
+  return engineOverrideIn(key, translations[fallback])
+}
+
+/** The built-in catalog string for the active language (exact, then base code), if any. */
+const builtInInLanguage = (key: string, lang: string): string | undefined => {
   const catalog = INTERPRETER_UI_STRINGS[key]
-  if (!catalog) {
-    return key
-  }
-  const baseLang = lang.split('-')[0] ?? lang
-  return catalog[lang] ?? catalog[baseLang] ?? catalog[DEFAULT_INTERPRETER_LANG] ?? key
+  if (catalog === undefined) return undefined
+  return catalog[lang] ?? catalog[lang.split('-')[0] ?? lang]
+}
+
+/**
+ * Resolve every interpreter string whose key starts with `prefix`, keeping only
+ * those that DIFFER from the built-in English default.
+ *
+ * This is the payload an island receives: each surface keeps its English
+ * literal as the fallback, so an English app with no author overrides gets
+ * `undefined` — nothing serialized, and a page byte-identical to one rendered
+ * before the catalog grew — while a French page, or an author override in any
+ * language, gets exactly the strings that change.
+ *
+ * @param prefixes - Key prefixes to include (e.g. `['datatable.']`)
+ * @param currentLang - Active language code; defaults to English
+ * @param languages - App languages configuration (author overrides)
+ * @returns The differing strings keyed by catalog key, or `undefined` when none differ
+ */
+export function resolveInterpreterStringOverrides(
+  prefixes: readonly string[],
+  currentLang: string | undefined,
+  languages?: Languages
+): Readonly<Record<string, string>> | undefined {
+  const entries = Object.entries(INTERPRETER_UI_STRINGS).flatMap(([key, catalog]) => {
+    if (!prefixes.some((prefix) => key.startsWith(prefix))) return []
+    const resolved = resolveInterpreterString(key, currentLang, languages)
+    return resolved === catalog[DEFAULT_INTERPRETER_LANG] ? [] : [[key, resolved] as const]
+  })
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined
 }
 
 /**

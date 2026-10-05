@@ -10,6 +10,7 @@ import { type Hono } from 'hono'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getOpenAPIDocument } from '@/presentation/api/openapi/document'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import {
   resolveCallerTier,
   type ReadUserRole,
@@ -34,8 +35,7 @@ const unauthorizedResponse = (c: GuardContext) =>
     401
   )
 
-const notFoundResponse = (c: GuardContext) =>
-  c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+const notFoundResponse = (c: GuardContext) => notFound(c, 'Not Found')
 
 /**
  * The role lookup, bound to this request's domain runtime. Lazily imported so

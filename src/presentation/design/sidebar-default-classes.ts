@@ -154,9 +154,12 @@ const SIDEBAR_SUB_ENTRY_CURRENT_CLASS = [
  * The marker beside an entry label: a literal ("Beta") or a fetched count.
  * Small, muted and bordered so it reads as metadata rather than as a second
  * label competing with the entry's own.
+ *
+ * On a 14px line, as the shared badge recipe is (`navbar-default-classes.ts`):
+ * the 1.3 leading drew it 18.3px tall and left the entry row on a fraction.
  */
 const SIDEBAR_ENTRY_BADGE_CLASS = [
-  'ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs leading-[1.3]',
+  'ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs leading-[14px]',
   `text-[${v('sv-fg-subtle', T.fgSubtle)}]`,
   `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
 ].join(' ')

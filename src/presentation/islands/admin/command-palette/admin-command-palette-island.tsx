@@ -14,7 +14,7 @@
  * affordance) open the dialog; typing a query (debounced ~200ms) hits
  * `GET /api/admin/search?q=` and renders the matches GROUPED BY TYPE with a
  * per-type badge. Selecting a result navigates to its deep-link through the SPA
- * content-swap path (`navigateAdminSpa`); a record result deep-links to
+ * content-swap path (`requestSpaNavigation`); a record result deep-links to
  * `/_admin/tables/{name}?record={id}`, which auto-opens the record drawer.
  * `Escape` closes without navigating. The palette shows three calm states: the
  * empty prompt (no query), a loading hint, and a no-results status.
@@ -25,8 +25,8 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleHref } from '@/presentation/islands/runtime/mount-base-path'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
+import { requestSpaNavigation } from '../../navigation/spa-nav-request'
 import { nullable, READ_ONCE_QUERY_OPTIONS } from '../../runtime/query-client'
-import { navigateAdminSpa } from '../spa-nav/admin-spa-nav'
 import { fetchAdminSearch, type AdminSearchGroup } from './admin-command-palette-data'
 import {
   GroupedResults,
@@ -314,7 +314,7 @@ export default function AdminCommandPaletteIsland({
       // Route the selection through the SPA content-swap path so the persistent
       // sidebar + palette stay mounted; the nav island falls back to a full
       // navigation itself if the partial is unavailable.
-      navigateAdminSpa(consoleHref(href))
+      requestSpaNavigation(consoleHref(href))
     },
     [close]
   )

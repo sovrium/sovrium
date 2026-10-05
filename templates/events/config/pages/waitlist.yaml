@@ -1,0 +1,88 @@
+# The waitlist of a full event, `/waitlist/<event>`. The card of an event with
+# no seat left links here. The page is bound to that one event, so it names
+# it and hands it to the form (config/forms/join-waitlist.yaml): the visitor
+# gives a name and an email, nothing else.
+name: waitlist
+path: /waitlist/:id
+dataSource:
+  table: events
+  mode: single
+  param: id
+meta:
+  title: Join the waitlist · Fieldday
+  description: This Fieldday event is full. Join its waitlist and we email you if a seat frees up.
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: main
+        props:
+          className: mx-auto flex w-full max-w-[1100px] flex-1 items-start gap-10 px-6 pt-12 pb-16 max-md:flex-col-reverse max-md:gap-6 max-md:px-4 max-md:pt-6
+        children:
+          - type: container
+            props:
+              className: flex min-w-0 flex-1 flex-col gap-4
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[30px] font-semibold leading-tight tracking-tight text-foreground max-md:text-2xl
+                content: $record.name is full
+              - type: container
+                props:
+                  role: status
+                  className: flex items-start gap-2.5 rounded-lg border border-warning px-3 py-2.5 text-sm text-foreground
+                children:
+                  - type: icon
+                    props:
+                      name: clock
+                      size: 16
+                      className: mt-0.5 flex-none text-warning
+                  - type: text
+                    element: p
+                    content: All $record.capacity seats are taken and $record.on_waitlist people are waiting. Join the waitlist, and if a seat frees up we email you.
+              # The form's own title and description repeat the heading above, so
+              # they are left out of this page.
+              - type: form
+                formRef: join-waitlist
+                props:
+                  className: '[&_h1]:hidden [&_h1+p]:hidden'
+                inlinePrefill:
+                  prefill:
+                    event: $parent.id
+                  lockPrefill: true
+          # What the visitor is waiting for.
+          - type: card
+            props:
+              aria-label: The event
+              className: flex w-[300px] flex-none flex-col gap-2.5 rounded-lg border border-border bg-background-raised p-4 text-left max-md:w-full
+            children:
+              - type: container
+                props:
+                  aria-hidden: 'true'
+                  className: flex h-[60px] w-14 flex-col items-center justify-center rounded-md bg-primary-subtle text-primary-subtle-foreground
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: text-[22px] font-semibold leading-none
+                    content: $record.day_label
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-[11px] uppercase tracking-wider
+                    content: $record.month_label
+              - type: text
+                element: h2
+                props:
+                  className: text-[17px] font-semibold text-foreground
+                content: $record.name
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted
+                content: $record.card_when · $record.place
+      - $ref: ./_site-footer.yaml

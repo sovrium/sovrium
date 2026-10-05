@@ -123,34 +123,4 @@ export const chartFields = {
 // Re-export all sub-schemas
 // ---------------------------------------------------------------------------
 
-export {
-  AxisFormatSchema,
-  AxisScaleSchema,
-  ChartAxisSchema,
-  type AxisFormat,
-  type AxisScale,
-  type ChartAxis,
-} from './axis'
-
-export {
-  ChartDbDataSourceSchema,
-  ChartSystemSourceSchema,
-  ChartDataSourceSchema,
-  type ChartSystemSource,
-} from './data-source'
-
-export {
-  LegendPositionSchema,
-  ChartLegendSchema,
-  type LegendPosition,
-  type ChartLegend,
-} from './legend'
-
-export {
-  ChartAggregateFunctionSchema,
-  ChartDateIntervalSchema,
-  ChartAggregateSchema,
-  type ChartAggregateFunction,
-  type ChartDateInterval,
-  type ChartAggregate,
-} from './aggregate'
+export type { ChartSystemSource } from './data-source'

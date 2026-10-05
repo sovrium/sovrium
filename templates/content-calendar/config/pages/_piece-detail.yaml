@@ -1,0 +1,23 @@
+# One piece, opened over the page: when and where it goes out, who owns it,
+# which campaign it serves, its brief and its files. Opened by a click on the
+# calendar or a row of the grid, or directly with `?record=<id>`.
+type: drawer
+id: piece-detail
+drawerSide: right
+drawerSize: md
+canEdit: false
+dataSource:
+  table: content
+props:
+  title: Piece
+recordFields:
+  - { name: title, type: single-line-text, label: Piece }
+  - { name: status, type: status, label: Status }
+  - { name: publish_at, type: date, label: Goes out }
+  - { name: time_label, type: single-line-text, label: At }
+  - { name: channels, type: multi-select, label: Channels }
+  - { name: owner, type: user, label: Owner }
+  - { name: campaign, type: relationship, label: Campaign }
+  - { name: content_type, type: single-select, label: Type }
+  - { name: brief, type: long-text, label: Brief }
+  - { name: asset_names, type: single-line-text, label: Files }

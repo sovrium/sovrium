@@ -26,6 +26,15 @@ export interface EmailVerificationData {
   readonly expiresIn?: string
 }
 
+/** What the confirmation-link email for an immediate account deletion is built from. */
+export interface AccountDeletionEmailData {
+  /** The operator's app name, printed as the email header. */
+  readonly appName?: string
+  readonly userName?: string
+  readonly confirmUrl: string
+  readonly expiresIn?: string
+}
+
 /**
  * Email CSS styles
  */
@@ -278,6 +287,63 @@ If you didn't create an account with ${brand}, you can safely ignore this email.
 
   return {
     subject: `Verify your ${brand} email address`,
+    html: emailLayout(content, { appName: data.appName }),
+    text,
+  }
+}
+
+/**
+ * The confirmation-link email for an immediate account deletion.
+ *
+ * Sent by Better Auth's `sendDeleteAccountVerification` when a signed-in person
+ * asks to delete their account; following the link, signed in as that account,
+ * erases it for good. The subject names the deletion, so the person can tell
+ * this mail from every other one the app sends.
+ */
+export function accountDeletionEmail(data: AccountDeletionEmailData): {
+  readonly subject: string
+  readonly html: string
+  readonly text: string
+} {
+  const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
+  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
+  const expiry = data.expiresIn ?? '24 hours'
+  const brand = resolveBrand(data.appName)
+  const htmlBrand = escapeHtml(brand)
+
+  const content = `
+    <div class="content">
+      <p>${htmlGreeting}</p>
+      <p>We received a request to delete your ${htmlBrand} account.</p>
+      <p>Following the link below erases your account and everything in it, for good. This cannot be undone.</p>
+      <p style="text-align: center;">
+        <a href="${escapeHtml(data.confirmUrl)}" class="button">Delete my account</a>
+      </p>
+      <p class="link-fallback">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        ${escapeHtml(data.confirmUrl)}
+      </p>
+      <div class="warning">
+        This link will expire in ${expiry} and works only while you are signed in to this account. If you didn't ask to delete your account, ignore this email: nothing changes.
+      </div>
+    </div>
+  `
+
+  const text = `
+${greeting}
+
+We received a request to delete your ${brand} account.
+
+Following this link erases your account and everything in it, for good. This cannot be undone:
+${data.confirmUrl}
+
+This link will expire in ${expiry} and works only while you are signed in to this account.
+
+If you didn't ask to delete your account, ignore this email: nothing changes.
+`.trim()
+
+  return {
+    subject: `Confirm the deletion of your ${brand} account`,
     html: emailLayout(content, { appName: data.appName }),
     text,
   }

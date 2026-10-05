@@ -14,7 +14,8 @@ import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
 import {
   isRateLimitExceeded,
@@ -170,7 +171,7 @@ const applyAdminRoleCheckMiddleware = (
       // not admin-EQUIVALENT for this app (including undefined) is rejected
       // with 404 per S1.
       if (role === undefined || !isAdminEquivalent(role, app)) {
-        return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+        return notFound(c, 'Not Found')
       }
 
       await next()
@@ -179,7 +180,7 @@ const applyAdminRoleCheckMiddleware = (
       // Errors during role resolution collapse to 404 (S1) — the safer
       // posture is "endpoint does not exist for you" rather than leaking
       // the auth subsystem state.
-      return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+      return notFound(c, 'Not Found')
     }
   })
 }
@@ -190,7 +191,7 @@ const applyAdminRoleCheckMiddleware = (
  */
 const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
-    const ip = getRequestClientIp(c)
+    const ip = getRequestRateLimitKey(c)
 
     // No `Retry-After`: this endpoint has never sent one, and the 1-second
     // admin window makes the hint near-worthless anyway. Kept as-is so this
@@ -229,7 +230,7 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
 
   const result = endpoints.reduce((app, endpoint) => {
     return app.use(endpoint, async (c, next) => {
-      const ip = getRequestClientIp(c)
+      const ip = getRequestRateLimitKey(c)
       const { path } = c.req
 
       if (isAuthRateLimitExceeded(path, ip)) {
@@ -726,42 +727,72 @@ export function setupAuthRoutes(
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
   //
-  // S1 anti-enumeration: Better Auth's organization/team plugin endpoints
-  // return 403 for non-admin/non-owner callers. Rewrite those specific 403
-  // responses to the canonical 404 envelope so the admin/owner permission
-  // boundary is not discoverable.
-  //
-  // **Scope deliberately narrow**: this rewrite must NOT apply to `/sign-in`,
-  // `/verify-email`, `/csrf`, etc. — those return 403 for state errors
-  // (CSRF rejection, unverified-email block) where the 403 is semantically
-  // correct and the spec contract preserves it. The `/admin/*` paths are
-  // already covered by `applyAdminRoleCheckMiddleware`; this catch-all
-  // adds coverage for the `organization/*` and `oauth*` plugin surfaces.
+  // S1 anti-enumeration: a Better Auth 403 that refuses the CALLER's
+  // permission is rewritten to the canonical 404 envelope, so the permission
+  // boundary is not discoverable — see `rewritesForbiddenToNotFound` for which
+  // 403s qualify and which are kept.
   return appWithTeamRoutes.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     const response = await authInstance.handler(c.req.raw)
-    if (response.status === 403 && isS1RewritablePath(c.req.path)) {
-      return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+    if (
+      response.status === 403 &&
+      rewritesForbiddenToNotFound(c.req.path, response.status, await readErrorCode(response))
+    ) {
+      return notFound(c, 'Not Found')
     }
     return response
   })
 }
 
+/** The `code` of a Better Auth error body, read from a copy so the response stays readable. */
+const readErrorCode = async (response: Readonly<Response>): Promise<string | undefined> => {
+  try {
+    const body = (await response.clone().json()) as { code?: unknown } | null
+    return typeof body?.code === 'string' ? body.code : undefined
+  } catch {
+    // A body that is not JSON carries no code.
+    return undefined
+  }
+}
+
 /**
- * Determine whether a Better Auth 403 on this path should be rewritten to
- * a 404 per S1 anti-enumeration.
- *
- * Returns true ONLY for admin-only plugin routes that lack a Sovrium-level
- * role guard (organization plugin teams/members, oauth2 admin client mgmt).
- *
- * Excludes:
- * - `/api/auth/admin/*`: `applyAdminRoleCheckMiddleware` already converts
- *   the non-admin case to 404 BEFORE Better Auth runs. If a request reaches
- *   Better Auth (caller is admin) and STILL gets 403, that is a downstream
- *   state error (e.g. impersonating a banned user) — NOT an authz denial —
- *   and the 403 must be preserved.
- * - `/api/auth/sign-in`, `/verify-email`, `/csrf`: 403 here is a state error
- *   (CSRF rejection, unverified email) and must be preserved.
+ * The Better Auth error codes that refuse the caller's own permission on the
+ * admin plane — `YOU_ARE_NOT_ALLOWED_TO_CHANGE_USERS_ROLE`, `…_TO_BAN_USERS`,
+ * `…_TO_LIST_USERS` and the rest of the family. `YOU_CANNOT_…` codes
+ * (`YOU_CANNOT_IMPERSONATE_ADMINS`) and `BANNED_USER` are about the TARGET and
+ * are not part of it.
  */
-const isS1RewritablePath = (path: string): boolean => {
-  return path.startsWith('/api/auth/organization/') || path.startsWith('/api/auth/oauth2/')
+const CALLER_PERMISSION_DENIAL = /^YOU_ARE_NOT_ALLOWED_TO_/
+
+/**
+ * Whether a Better Auth response must be rewritten to the canonical 404 per S1
+ * anti-enumeration. Only a 403 qualifies:
+ *
+ * - `/api/auth/organization/*` and `/api/auth/oauth2/*`: every 403. These
+ *   admin-only plugin routes have no Sovrium-level role guard, so a 403 there
+ *   is the plugin refusing a non-admin or non-owner caller.
+ * - `/api/auth/admin/*`: only a 403 whose code refuses the caller's own
+ *   permission. `applyAdminRoleCheckMiddleware` answers a non-admin 404 before
+ *   Better Auth runs, but a caller demoted after that check and before Better
+ *   Auth's own permission check — by a request of their own in flight — is
+ *   refused by Better Auth with `YOU_ARE_NOT_ALLOWED_TO_…`. That caller is no
+ *   longer an admin, so the answer is the 404 any non-admin gets. The code
+ *   decides, not a second read of the caller's role, which would reopen the
+ *   same window. A 403 about the target stands: `YOU_CANNOT_IMPERSONATE_ADMINS`
+ *   and impersonating a banned user are refusals an admin receives, and the
+ *   caller already sees the target.
+ * - Everything else (`/sign-in`, `/verify-email`, `/csrf`, …): a 403 there is
+ *   a state error (CSRF rejection, unverified email) and is kept.
+ */
+export const rewritesForbiddenToNotFound = (
+  path: string,
+  status: number,
+  code: string | undefined
+): boolean => {
+  if (status !== 403) return false
+  if (path.startsWith('/api/auth/organization/') || path.startsWith('/api/auth/oauth2/')) {
+    return true
+  }
+  return (
+    path.startsWith('/api/auth/admin/') && code !== undefined && CALLER_PERMISSION_DENIAL.test(code)
+  )
 }

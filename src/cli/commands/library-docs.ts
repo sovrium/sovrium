@@ -106,7 +106,7 @@ const envRows = (entry: LibraryEntry): readonly string[] =>
     : [
         '## Environment variables',
         '',
-        `The entry reads ${entry.env.map((name) => `\`${name}\``).join(' and ')}. Installing it adds the names (never a value) to \`.env.example\`; set the values in your environment or in \`.env\`.`,
+        `The entry reads ${entry.env.map((name) => `\`${name}\``).join(' and ')}. Declare ${entry.env.length === 1 ? 'it' : 'them'} under \`env\` in your config first: \`library add\` refuses until you do, and prints the lines to add. Installing it then adds the names (never a value) to \`.env.example\`; set the values in your environment or in \`.env\`.`,
         '',
       ]
 

@@ -6,31 +6,15 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- Activity logs are a cross-cutting concern, not phase-specific
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
 import {
   ActivityLogRepository,
   type ActivityLog,
   type ActivityLogDatabaseError,
+  type ActivityLogPageQuery,
+  type LiveRecordsQuery,
 } from '@/application/ports/repositories/analytics/activity-log-repository'
-import {
-  AuthRepository,
-  type AuthDatabaseError,
-} from '@/application/ports/repositories/auth/auth-repository'
 import type { UserMetadata } from '@/application/ports/contracts/user-metadata'
-
-/**
- * Forbidden error when user lacks permission to access activity logs
- */
-export class ActivityLogForbiddenError extends Data.TaggedError('ActivityLogForbiddenError')<{
-  readonly message: string
-}> {}
-
-/**
- * Input for ListActivityLogs use case
- */
-export interface ListActivityLogsInput {
-  readonly userId: string
-}
 
 /**
  * Activity log output type for presentation layer
@@ -68,47 +52,42 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
 /**
  * List Activity Logs Use Case
  *
- * Application layer use case that:
- * 1. Checks user role (viewers are forbidden)
- * 2. Lists activity logs
- * 3. Maps to presentation-friendly format
- *
- * Follows layer-based architecture:
- * - Application Layer: This file (orchestration + business logic)
- * - Infrastructure Layer: ActivityLogRepository, UserRoleRepository
- * - Domain Layer: Business rules (viewer restriction)
+ * One page of the activity of the last year, mapped to a presentation-friendly
+ * format, with the count of every entry the query admits. Who reads which
+ * entry is not decided here: the route resolves, once per table, what the
+ * records API lets the caller read (`query.admission`), and the repository
+ * selects, pages and counts only those entries in the database.
  */
 export const ListActivityLogs = (
-  input: ListActivityLogsInput
+  query: ActivityLogPageQuery
 ): Effect.Effect<
-  readonly ActivityLogOutput[],
-  ActivityLogForbiddenError | ActivityLogDatabaseError | AuthDatabaseError,
-  ActivityLogRepository | AuthRepository
+  { readonly activities: readonly ActivityLogOutput[]; readonly total: number },
+  ActivityLogDatabaseError,
+  ActivityLogRepository
 > =>
   Effect.gen(function* () {
-    const authRepo = yield* AuthRepository
     const activityLogRepo = yield* ActivityLogRepository
-
-    // Get user role to enforce permissions
-    const role = yield* authRepo.getUserRole(input.userId)
-
-    // If user has no role, deny access
-    if (!role) {
-      return yield* new ActivityLogForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // Domain rule: Viewers cannot access activity logs
-    if (role === 'viewer') {
-      return yield* new ActivityLogForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // List all activity logs
-    const logs = yield* activityLogRepo.listAll
-
-    // Map to presentation-friendly format
-    return logs.map(mapActivityLog)
+    const page = yield* activityLogRepo.listPage(query)
+    return { activities: page.rows.map(mapActivityLog), total: page.total }
   }).pipe(Effect.withSpan('list-activity-logs.list-activity-logs'))
+
+/**
+ * The live rows of one table an activity gate judges in memory, read in one
+ * statement — the records the activity log names for the table, or the ones
+ * listed.
+ */
+export const ListActivityGateRecords = (
+  query: LiveRecordsQuery
+): Effect.Effect<
+  readonly Readonly<Record<string, unknown>>[],
+  ActivityLogDatabaseError,
+  ActivityLogRepository
+> =>
+  Effect.gen(function* () {
+    const activityLogRepo = yield* ActivityLogRepository
+    return yield* activityLogRepo.liveRecords(query)
+  }).pipe(
+    Effect.withSpan('list-activity-logs.list-activity-gate-records', {
+      attributes: { 'table.name': query.tableName },
+    })
+  )

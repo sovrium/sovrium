@@ -122,14 +122,12 @@ const sendOnce = (
     catch: (error) =>
       new ConnectionCallError({ message: error instanceof Error ? error.message : String(error) }),
   }).pipe(
-    Effect.flatMap((answer) =>
-      answer.oversize
-        ? Effect.fail(
-            new ConnectionCallError({
-              message: `the response body exceeds ${String(RESPONSE_BODY_LIMIT)} characters`,
-            })
-          )
-        : Effect.succeed(answer)
+    Effect.filterOrFail(
+      (answer) => !answer.oversize,
+      () =>
+        new ConnectionCallError({
+          message: `the response body exceeds ${String(RESPONSE_BODY_LIMIT)} characters`,
+        })
     )
   )
 }

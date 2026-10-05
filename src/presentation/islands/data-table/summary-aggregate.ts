@@ -64,10 +64,11 @@ import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/
  */
 export interface SummaryAggregations {
   readonly count?: string | number
-  readonly sum?: Readonly<Record<string, number>>
-  readonly avg?: Readonly<Record<string, number>>
-  readonly min?: Readonly<Record<string, number>>
-  readonly max?: Readonly<Record<string, number>>
+  /** `null` is the server's answer over no values; the footer keeps its placeholder. */
+  readonly sum?: Readonly<Record<string, number | null>>
+  readonly avg?: Readonly<Record<string, number | null>>
+  readonly min?: Readonly<Record<string, number | null>>
+  readonly max?: Readonly<Record<string, number | null>>
 }
 
 const NUMERIC_FUNCTIONS = ['sum', 'avg', 'min', 'max'] as const
@@ -194,5 +195,5 @@ export const readSummaryValue = (
   if (item.function === 'count') {
     return aggregations.count === undefined ? undefined : Number(aggregations.count)
   }
-  return aggregations[item.function]?.[item.field]
+  return aggregations[item.function]?.[item.field] ?? undefined
 }

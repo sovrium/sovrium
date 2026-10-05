@@ -27,13 +27,14 @@
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context } from 'hono'
 
 /**
@@ -55,6 +56,8 @@ export interface TargetLinkView {
 /** What the handler needs from the analytics route config. */
 export interface TargetsHandlerConfig {
   readonly appName: string
+  /** The live app's role ladder; its top role reads the split beside `admin`. */
+  readonly resolveApp?: () => AdminRoleResolvable
   readonly resolveLinks?: () => ReadonlyArray<TargetLinkView>
 }
 
@@ -69,7 +72,7 @@ export async function handleTargets(c: Context, config: TargetsHandlerConfig): P
   const session = getSessionContext(c)
   if (!session) return c.notFound()
   const role = await runDomainPromise(c, getUserRole(session.userId))
-  if (!isAdminRole(role)) return c.notFound()
+  if (!isAdminEquivalent(role, config.resolveApp?.() ?? {})) return c.notFound()
 
   const eventName = c.req.query('event_name')
   const fromStr = c.req.query('from')

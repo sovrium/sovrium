@@ -67,6 +67,23 @@ A single-record create refused by the database populates the same array, naming 
 
 That attribution is limited to the single-record create path. A partial update, or a batch write refused by the same constraint, answers the identical status and code with the class-level message and no field.
 
+### A missing record
+
+Every records route answers a record or a table that does not exist — or one you may not see — with the same `404` body, whichever route you called:
+
+```json
+{
+  "success": false,
+  "error": "Not Found",
+  "message": "Resource not found",
+  "code": "NOT_FOUND"
+}
+```
+
+A read, an update, a delete, a restore, the history, the comment thread and the form routes all answer it, as does a malformed id or an unknown table, so one handler covers them all.
+
+Every 404 the API answers is `{ success: false, error: "Not Found", message, code: "NOT_FOUND" }`; `message` may say what was not found. That holds beyond the records routes — automations, forms, buckets, AI, auth and the admin routes, a route a caller is denied, and an `/api/` path no route matches, which answers this JSON rather than a page. The one exception is an unknown path under `/api/auth/`, which the authentication library answers itself with an empty `404`.
+
 ### The status map
 
 | Status | `code`                | Meaning                                                                       |
@@ -87,7 +104,7 @@ That attribution is limited to the single-record create path. A partial update, 
 | `504`  | `GATEWAY_TIMEOUT`     | An upstream did not answer in time                                            |
 | `507`  | `QUOTA_EXCEEDED`      | Storing this would exceed the total-storage cap                               |
 
-**`errors[]` is optional on a validation failure, not guaranteed.** It appears when the failure attaches to a field of the request and is omitted when the refusal is about a query parameter instead. On the record-list routes an out-of-range `limit` or `offset`, an unknown `timezone`, and an unrecognised `fields` or `groupBy` name all answer `400` with the message alone; `sort` is the one that does carry `errors[]`. The shape follows the handler rather than the status, so decode `errors[]` as optional everywhere and rely on `message`, which is always present.
+**`errors[]` is optional on a validation failure, not guaranteed.** It appears when the failure attaches to a field of the request and is omitted when the refusal is about a query parameter instead. On the record-list routes an out-of-range `limit` or `offset` and an unknown `timezone` answer `400` with the message alone. A field name the table does not have is not a validation failure there: in `filter`, `sort`, `groupBy` or `aggregate` it answers the same `404` as a field the caller may not read, and in `fields` it selects nothing. The shape follows the handler rather than the status, so decode `errors[]` as optional everywhere and rely on `message`, which is always present.
 
 Batch size failures split across two codes: exceeding the per-operation maximum is a `400`, while a payload over the hard 1000-id guard is a `413`.
 

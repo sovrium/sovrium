@@ -20,6 +20,7 @@
  * 404 rather than 401/403, so a probe cannot even confirm the route exists.
  */
 
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { constantTimeEqual } from './constant-time-equal'
 import type { Context } from 'hono'
 
@@ -38,5 +39,4 @@ export function isInternalSchedulerRequest(c: Context): boolean {
 }
 
 /** The answer a trigger route gives a caller without the token. */
-export const internalSchedulerNotFound = (c: Context): Response =>
-  c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+export const internalSchedulerNotFound = (c: Context): Response => notFound(c, 'Not Found')

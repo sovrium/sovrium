@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { isEmptyDateValue } from '@/domain/models/app/tables/empty-date-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { translateFormula } from '../formula/formula-translation'
 import {
@@ -44,12 +46,13 @@ const formatDefaultValue = (defaultValue: unknown): string => {
  * auto-increment a non-rowid column).
  */
 const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string => {
+  const column = quoteSqlIdentifier(fieldName)
   if (isSqliteRuntime()) {
     return isPrimaryKey
-      ? `${fieldName} INTEGER PRIMARY KEY AUTOINCREMENT`
-      : `${fieldName} INTEGER NOT NULL`
+      ? `${column} INTEGER PRIMARY KEY AUTOINCREMENT`
+      : `${column} INTEGER NOT NULL`
   }
-  return isPrimaryKey ? `${fieldName} SERIAL PRIMARY KEY` : `${fieldName} SERIAL NOT NULL`
+  return isPrimaryKey ? `${column} SERIAL PRIMARY KEY` : `${column} SERIAL NOT NULL`
 }
 
 /**
@@ -95,7 +98,10 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
   // NOW() — Postgres function; SQLite's CURRENT_TIMESTAMP yields a non-ISO
   // "YYYY-MM-DD HH:MM:SS" string that fails the ISO-8601 response validator, so
   // SQLite uses the ISO-emitting strftime form (SQLITE_ISO_NOW) instead.
-  if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+  // The bare word `now` is the spelling the datetime default documents; stored
+  // as a literal it wrote the text "now" (SQLite) or one instant frozen at
+  // CREATE TABLE (PostgreSQL parses the literal once), never the write time.
+  if (typeof defaultValue === 'string' && ['NOW()', 'NOW'].includes(defaultValue.toUpperCase())) {
     return isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT NOW()'
   }
   // Duration fields: Postgres uses INTERVAL; SQLite stores seconds as INTEGER.
@@ -125,7 +131,8 @@ const autoTimestampDefaultClause = (): string =>
 /**
  * Generate DEFAULT clause
  */
-const generateDefaultClause = (field: Fields[number]): string => {
+/** The DEFAULT a field type implies whatever its config says, or `undefined`. */
+const typeImpliedDefaultClause = (field: Fields[number]): string | undefined => {
   // Auto-timestamp fields (created-at, created-time, last-modified-time, …).
   if (isAutoTimestampField(field)) {
     return autoTimestampDefaultClause()
@@ -142,6 +149,23 @@ const generateDefaultClause = (field: Fields[number]): string => {
   if (field.type === 'ai-tag') {
     return isSqliteRuntime() ? " DEFAULT '[]'" : " DEFAULT '[]'::jsonb"
   }
+
+  // A `user` field's only default is `$currentUser`: the signed-in person,
+  // filled in by the application on create — never a column default, which
+  // would store the token itself in a column that references accounts.
+  if (field.type === 'user') return ''
+
+  // `default: ''` on a date, datetime or time is "no date": the column gets no
+  // DEFAULT, so a new record stores null — never the empty text SQLite would
+  // keep, nor a literal PostgreSQL refuses at boot.
+  if ('default' in field && isEmptyDateValue(field.type, field.default)) return ''
+
+  return undefined
+}
+
+const generateDefaultClause = (field: Fields[number]): string => {
+  const implied = typeImpliedDefaultClause(field)
+  if (implied !== undefined) return implied
 
   // Explicit default values
   if ('default' in field && field.default !== undefined) {
@@ -213,7 +237,7 @@ const generateFormulaColumn = (
       : 'TEXT'
 
   if (formulaEmitsPlainColumn(field, allFields)) {
-    return `${field.name} ${baseResultType}`
+    return `${quoteSqlIdentifier(field.name)} ${baseResultType}`
   }
 
   // Auto-detect array return type for functions like STRING_TO_ARRAY
@@ -237,7 +261,7 @@ const generateFormulaColumn = (
   const triggerFields = allFields ? getFormulaFieldsNeedingTrigger(allFields) : new Set<string>()
   if (isFormulaVolatile(translatedFormula) || triggerFields.has(field.name)) {
     // Create regular column - trigger will populate it
-    return `${field.name} ${resultType}`
+    return `${quoteSqlIdentifier(field.name)} ${resultType}`
   }
 
   // Immutable formulas can use GENERATED ALWAYS AS. Cast numeric `/` division
@@ -248,7 +272,7 @@ const generateFormulaColumn = (
   const castFormula = allFields
     ? castFormulaDivisionOperands(translatedFormula, allFields)
     : translatedFormula
-  return `${field.name} ${resultType} GENERATED ALWAYS AS (${castFormula}) ${generatedColumnStorage()}`
+  return `${quoteSqlIdentifier(field.name)} ${resultType} GENERATED ALWAYS AS (${castFormula}) ${generatedColumnStorage()}`
 }
 
 /**
@@ -314,5 +338,5 @@ export const generateColumnDefinition = (
       : mapFieldTypeToDialect(field)
   const notNull = generateNotNullConstraint(field, isPrimaryKey, hasAuthConfig)
   const defaultValue = generateDefaultClause(field)
-  return `${field.name} ${columnType}${notNull}${defaultValue}`
+  return `${quoteSqlIdentifier(field.name)} ${columnType}${notNull}${defaultValue}`
 }

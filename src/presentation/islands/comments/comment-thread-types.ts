@@ -42,6 +42,12 @@ export interface CommentRecord {
    * of the wire type — it is reader-private.
    */
   readonly guestName?: string | null
+  /**
+   * The people the body's `@[<user id>]` markup names, resolved server-side
+   * among the record's readers. A token absent from this list renders as the
+   * unknown-user placeholder.
+   */
+  readonly mentions?: ReadonlyArray<{ readonly id: string; readonly name: string }>
 }
 
 export interface CommentsListResponse {
@@ -75,6 +81,11 @@ export interface CommentThreadIslandProps {
    * parent. Single-level only — replies themselves never expose Reply.
    */
   readonly threading?: boolean
+  /**
+   * The thread's interface strings (`comments.*`), resolved server-side and
+   * sent only where they differ from English — absent on an English page.
+   */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly 'data-testid'?: string
 }
 

@@ -17,8 +17,9 @@ import type { Effect } from 'effect'
  *   - `GET  /api/account/export` (GDPR Art. 15 + 20) → the three auth-table
  *     reads ({@link loadProfile} / {@link loadSessions} / {@link loadAccounts})
  *     plus the authored-record collection ({@link tablesWithCreatedBy} +
- *     {@link readAuthoredRecords}) and the caller's form-submission ledger rows
- *     ({@link loadFormSubmissions}).
+ *     {@link readAuthoredRecords}), the caller's form-submission ledger rows
+ *     ({@link loadFormSubmissions}) and the audit entries they made
+ *     ({@link loadAuditTrail}).
  *   - `POST /api/account/delete` (GDPR Art. 17) → {@link cancelErasure} and the
  *     transactional {@link scheduleErasure}.
  *
@@ -120,6 +121,19 @@ export interface AccountFormSubmissionRow {
 }
 
 /**
+ * One `audit_log` row the caller made (`actor_id` = caller), reduced to the
+ * act: no metadata, no transport, no actor block. `createdAt` stays
+ * dialect-native; the use case owns ISO normalization.
+ */
+export interface AccountAuditEntryRow {
+  readonly action: string
+  readonly createdAt: Date
+  readonly resourceType: string
+  readonly resourceId: string
+  readonly result: string
+}
+
+/**
  * One app table plus the authorship columns it MIGHT carry, resolved from the
  * table's declared `created-by` field types unioned with the literal
  * `created_by` (engine-generated scope tables carry the literal with no
@@ -171,6 +185,19 @@ export class AccountRepository extends Context.Service<
     readonly loadFormSubmissions: (
       userId: string
     ) => Effect.Effect<readonly AccountFormSubmissionRow[], AccountDatabaseError>
+
+    /**
+     * Load every admin audit-log entry the caller made — the `audit_log` rows
+     * whose `actor_id` equals `userId` — newest first.
+     *
+     * Scoped by ACTOR: an entry in which the caller is only the resource acted
+     * upon is somebody else's act and is not returned. Only the act's columns
+     * are read; the free-form metadata, which can describe another person, is
+     * never selected.
+     */
+    readonly loadAuditTrail: (
+      userId: string
+    ) => Effect.Effect<readonly AccountAuditEntryRow[], AccountDatabaseError>
 
     /**
      * Read the caller's pending scheduled-erasure instant, or `undefined` when

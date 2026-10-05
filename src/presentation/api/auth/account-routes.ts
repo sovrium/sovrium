@@ -14,6 +14,7 @@ import {
 } from '@/application/use-cases/account'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
@@ -154,8 +155,13 @@ async function handlePendingErasure(c: Context): Promise<Response> {
  * Body is a union: `{ confirm: true }` schedules an erasure 7 days out
  * and revokes every caller session; `{ cancel: true }` clears a pending
  * erasure. A body matching neither shape is rejected 400.
+ *
+ * The last admin who can sign in cannot schedule their own erasure: it is
+ * refused with 409 and the rail's own message, before anything is written or
+ * any session revoked — the same rule the immediate deletion door and every
+ * demotion apply.
  */
-async function handleDelete(c: Context): Promise<Response> {
+async function handleDelete(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
   if (session === undefined) return unauthorized(c)
   const { userId } = session
@@ -172,6 +178,11 @@ async function handleDelete(c: Context): Promise<Response> {
   if ('cancel' in parsed.data) {
     const body = await runRequestEffect(c, provideDomain(c, CancelAccountDeletion(userId)))
     return c.json(body, 200)
+  }
+
+  const refusal = await runDomainPromise(c, accountRemovalRefusal(userId, app))
+  if (refusal !== undefined) {
+    return c.json({ success: false, message: refusal, code: 'CONFLICT' }, 409)
   }
 
   // { confirm: true } — schedule the erasure (transactional write inside the use case).
@@ -235,7 +246,8 @@ async function handlePurgeDue(c: Context, app: App): Promise<Response> {
   // column; matching by literal name deleted nothing for such a config while
   // still reporting `purgedCount: 1`.
   const purgedCount = await purgeDueAccounts(
-    (app.tables ?? []).map((t) => resolvePurgeTableAuthorship(app.tables, t.name))
+    (app.tables ?? []).map((t) => resolvePurgeTableAuthorship(app.tables, t.name)),
+    app
   )
   return c.json({ status: 'ok', purgedCount }, 200)
 }
@@ -292,7 +304,7 @@ export function chainAccountRoutes<T extends Hono>(
   return chainAccountAvatarRoutes(honoApp, app, avatarStore)
     .get('/api/account/export', async (c) => handleExport(c, app))
     .get('/api/account/pending-erasure', async (c) => handlePendingErasure(c))
-    .post('/api/account/delete', async (c) => handleDelete(c))
+    .post('/api/account/delete', async (c) => handleDelete(c, app))
     .post('/api/account/purge-due', async (c) => handlePurgeDue(c, app))
     .post('/api/account/retention-due', async (c) => handleRetentionDue(c)) as T
 }

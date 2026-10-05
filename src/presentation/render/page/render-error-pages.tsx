@@ -81,12 +81,19 @@ function injectBadgeIntoErrorPage(
  *
  * @param app - Optional validated application data from AppSchema
  * @param detectedLanguage - Optional detected language from Accept-Language header
+ * @param requestPath - The decoded path the visitor asked for, without its query
  * @returns Complete HTML document as string with DOCTYPE
  */
-export async function renderNotFoundPage(app?: App, detectedLanguage?: string): Promise<string> {
-  // Try to render custom 404 page first if app is provided
+export async function renderNotFoundPage(
+  app?: App,
+  detectedLanguage?: string,
+  requestPath?: string
+): Promise<string> {
+  // Try to render custom 404 page first if app is provided. `requestPath` is
+  // the address that had nothing, for `$app.path` — never the page's own
+  // `/404`, and left unanswered when no single address was asked for.
   if (app) {
-    const custom404 = await renderPageByPath(app, '/404', { detectedLanguage })
+    const custom404 = await renderPageByPath(app, '/404', { detectedLanguage, requestPath })
     if (typeof custom404 === 'string') {
       return custom404
     }

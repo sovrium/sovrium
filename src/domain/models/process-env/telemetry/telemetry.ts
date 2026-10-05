@@ -176,7 +176,8 @@ const parseDsnOrThrow = (rawDsn: string): SentryDsn => {
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements -- fail-loud: name SENTRY_DSN so the boot error is actionable
     throw new Error(
-      `SENTRY_DSN is invalid: ${error instanceof Error ? error.message : String(error)}`
+      `SENTRY_DSN is invalid: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     )
   }
 }

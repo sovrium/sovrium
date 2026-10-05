@@ -11,20 +11,33 @@ import { resolvePageLocale } from '../runtime/page-locale'
 import { KanbanFormatContext, type KanbanFormat } from './use-kanban-format'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 
-/** Supplies the page language and the footer columns' currency treatment to every card. */
+/**
+ * Supplies the page language, the footer columns' currency treatment, the
+ * colour-field hues, the board's bound table and its drag gate to every card.
+ */
 export function KanbanFormatProvider({
   fieldMeta,
+  table,
+  colorFieldColors,
+  draggableEnabled,
   children,
 }: {
   readonly fieldMeta: FieldMetaMap | undefined
+  readonly table: string | undefined
+  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
+  readonly draggableEnabled: boolean
   readonly children: ReactNode
 }): ReactElement {
   const value = useMemo<KanbanFormat>(
     () => ({
       locale: resolvePageLocale(),
       currencyOptionsFor: (field) => resolveCurrencyOptions(fieldMeta?.[field]),
+      fieldMeta,
+      ...(table ? { table } : {}),
+      ...(colorFieldColors ? { colorFieldColors } : {}),
+      draggableEnabled,
     }),
-    [fieldMeta]
+    [fieldMeta, table, colorFieldColors, draggableEnabled]
   )
   return <KanbanFormatContext.Provider value={value}>{children}</KanbanFormatContext.Provider>
 }

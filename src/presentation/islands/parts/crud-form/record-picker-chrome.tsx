@@ -180,6 +180,14 @@ export function PickerCombobox(props: {
   readonly expanded: boolean
   readonly locked: boolean
   readonly invalid?: boolean
+  /**
+   * The `data-component-type` the combobox names itself with, where the picker
+   * is drawn inside a surface that names its parts (a record drawer). A page
+   * `record-picker` is named on its host, so the combobox inside it is not.
+   */
+  readonly componentType?: string
+  /** The search box's surface, where the host draws its controls to its own recipe. */
+  readonly controlClassName?: string
   readonly onTerm: (term: string) => void
   readonly onOpen: () => void
   readonly onClose: () => void
@@ -191,12 +199,13 @@ export function PickerCombobox(props: {
       name={field.name}
       type="text"
       role="combobox"
+      data-component-type={props.componentType}
       aria-expanded={props.expanded}
       aria-autocomplete="list"
       aria-controls={`${props.inputId}-listbox`}
       autoComplete="off"
       value={props.value}
-      className={`${CONTROL_CLASS} w-full`}
+      className={props.controlClassName ?? `${CONTROL_CLASS} w-full`}
       {...(props.locked && { readOnly: true })}
       {...(field.required && { required: true, 'data-required': 'true' })}
       {...(field.placeholder && { placeholder: field.placeholder })}
@@ -254,6 +263,10 @@ export function PickerControl(props: {
   readonly picker: RecordPicker
   readonly allowMultiple: boolean
   readonly invalid?: boolean
+  /** See `PickerCombobox`'s `componentType`. */
+  readonly componentType?: string
+  /** See `PickerCombobox`'s `controlClassName`. */
+  readonly controlClassName?: string
 }): ReactElement {
   const { picker, inputId } = props
   const expanded = picker.open && !picker.atCap
@@ -271,6 +284,10 @@ export function PickerControl(props: {
         // that precedes it.
         onClose={() => setTimeout(picker.closePopup, BLUR_CLOSE_DELAY_MS)}
         {...(props.invalid !== undefined && { invalid: props.invalid })}
+        {...(props.componentType !== undefined && { componentType: props.componentType })}
+        {...(props.controlClassName !== undefined && {
+          controlClassName: props.controlClassName,
+        })}
       />
       {expanded && (
         <SuggestionsPopup

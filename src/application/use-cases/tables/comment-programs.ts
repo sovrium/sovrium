@@ -9,10 +9,13 @@ import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { ForbiddenError, NotFoundError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { belongsToAddress } from '@/domain/models/app/tables/comment-address-service'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
+import type { CommentAddress } from '@/domain/models/app/tables/comment-address-service'
 
 /**
  * Create comment on a record
@@ -143,7 +146,7 @@ function formatCommentResponse(comment: {
   readonly updatedAt?: Date
   readonly user?: UserMetadataWithOptionalImage | undefined
   readonly guestName?: string | null
-  readonly status?: 'approved' | 'pending' | 'rejected'
+  readonly status: 'approved' | 'pending' | 'rejected'
 }): { readonly comment: CreatedComment } {
   return {
     comment: {
@@ -159,10 +162,9 @@ function formatCommentResponse(comment: {
       user: toCommentDisplayUser(comment.user),
       // eslint-disable-next-line unicorn/no-null -- public wire contract: null when not a guest comment
       guestName: comment.guestName ?? null,
-      // Reader-safe moderation status. Defaults to `'approved'` for read
-      // paths (list/get/update) whose row projections do not yet surface a
-      // status column; the create path merges the persisted value in.
-      status: comment.status ?? 'approved',
+      // The stored moderation status — every read path projects the column,
+      // so the label is the truth, never a default.
+      status: comment.status,
     },
   }
 }
@@ -257,9 +259,12 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
  * Delete comment configuration
  */
 interface DeleteCommentConfig {
+  /** The app's role ladder: its top role moderates like the built-in `admin`. */
+  readonly app: AdminRoleResolvable
   readonly session: Readonly<UserSession>
   readonly commentId: string
   readonly tableName: string
+  readonly address: CommentAddress
 }
 
 /**
@@ -267,7 +272,7 @@ interface DeleteCommentConfig {
  *
  * Authorization:
  * - Comment author can delete their own comments
- * - Admins can delete any comment
+ * - Admin-equivalent callers (the built-in `admin`, the app's top role) can delete any comment
  * - Returns 404 for non-existent comments, already deleted comments, or unauthorized access
  */
 export function deleteCommentProgram(
@@ -275,12 +280,12 @@ export function deleteCommentProgram(
 ): Effect.Effect<void, DatabaseError | ForbiddenError | NotFoundError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, commentId, tableName } = config
+    const { session, commentId, tableName, address } = config
 
     // Get comment for authorization check
     const comment = yield* comments.getForAuth({ session, commentId })
 
-    if (!comment) {
+    if (!comment || !belongsToAddress(comment, address)) {
       return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
@@ -291,9 +296,10 @@ export function deleteCommentProgram(
       return yield* Effect.fail(new NotFoundError('User not found'))
     }
 
-    // Check authorization: user is comment author OR user is admin
+    // Check authorization: user is comment author OR user is admin-equivalent
+    // (the built-in `admin` or the app's top role)
     const isAuthor = comment.userId === session.userId
-    const isAdmin = isAdminRole(currentUser.role)
+    const isAdmin = isAdminEquivalent(currentUser.role ?? '', config.app)
 
     // Check record exists (admins can access all records, non-admins only their own)
     const hasRecordAccess = yield* comments.checkRecordExists({
@@ -325,36 +331,37 @@ interface GetCommentConfig {
   readonly session: Readonly<UserSession>
   readonly commentId: string
   readonly tableName: string
+  readonly address: CommentAddress
+  /**
+   * Moderation visibility, the thread's rule:
+   * `true` reads every status; `false`/omitted reads an approved comment only,
+   * and a pending or rejected one fails exactly as a missing one. Fail-closed.
+   */
+  readonly viewerIsAdmin?: boolean
 }
 
 /**
  * Get comment by ID program
  */
-export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
-  {
-    readonly comment: {
-      readonly id: string
-      readonly tableId: string
-      readonly recordId: string
-      readonly userId: string | null
-      readonly parentCommentId: string | null
-      readonly content: string
-      readonly createdAt: string
-      readonly updatedAt: string
-      readonly user?: CommentDisplayUser | undefined
-    }
-  },
+export function getCommentProgram(
+  config: GetCommentConfig
+): Effect.Effect<
+  { readonly comment: CreatedComment },
   DatabaseError | NotFoundError,
   CommentRepository
 > {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, commentId, tableName } = config
+    const { session, commentId, tableName, address, viewerIsAdmin } = config
 
     // Get comment with user metadata
     const comment = yield* comments.getWithUser({ session, commentId })
 
-    if (!comment) {
+    // A comment the thread would hide from this reader is, to her, a comment
+    // that does not exist: the same failure, so the same 404.
+    const hiddenByModeration = comment?.status !== 'approved' && viewerIsAdmin !== true
+
+    if (!comment || !belongsToAddress(comment, address) || hiddenByModeration) {
       return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
@@ -431,6 +438,7 @@ function formatCommentsList(
     readonly updatedAt: Date
     readonly user?: UserMetadataWithOptionalImage | undefined
     readonly guestName?: string | null
+    readonly status: 'approved' | 'pending' | 'rejected'
   }[]
 ): readonly CreatedComment[] {
   return comments.map((comment) => formatCommentResponse(comment).comment)
@@ -490,6 +498,7 @@ interface UpdateCommentConfig {
   readonly commentId: string
   readonly tableName: string
   readonly content: string
+  readonly address: CommentAddress
 }
 
 /**
@@ -519,12 +528,12 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
 > {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, commentId, tableName, content } = config
+    const { session, commentId, tableName, content, address } = config
 
     // Get comment for authorization check
     const comment = yield* comments.getForAuth({ session, commentId })
 
-    if (!comment) {
+    if (!comment || !belongsToAddress(comment, address)) {
       return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 

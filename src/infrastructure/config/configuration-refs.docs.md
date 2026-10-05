@@ -2,7 +2,7 @@
 
 > One file stops being readable somewhere around the third table. `$ref` splits a YAML or JSON config across as many files as you like, with no change to the resulting object.
 
-Any object whose **only** key is `$ref`, and whose value is a relative path, is replaced by the parsed contents of that file.
+Any object whose **only** key is `$ref`, and whose value is a **path** — it contains a `/`, a `\` or a `.`, like `./config/auth.yaml` or `footer.yaml` — is replaced by the parsed contents of that file.
 
 ```yaml
 name: crm-workspace
@@ -37,14 +37,15 @@ fields:
 
 ## The rules
 
-| Rule              | Behaviour                                                                                                                |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Path resolution   | Paths resolve relative to the file that contains them, not the working directory                                         |
-| Mixed formats     | A YAML root may reference a JSON partial and the reverse; each file is parsed by its own extension                       |
-| Array elements    | A reference can stand in for a whole array element or a whole object value                                               |
-| Resolution timing | Every reference is resolved into one object **before** validation                                                        |
-| Cycles            | A file that references itself, directly or through a chain, is refused with `Circular $ref detected` rather than looping |
-| Containment       | When `SOVRIUM_PROJECT_DIR` is set, no reference may resolve outside it — see below                                       |
+| Rule               | Behaviour                                                                                                                                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path resolution    | Paths resolve relative to the file that contains them, not the working directory                                                                                                                                                                                            |
+| Mixed formats      | A YAML root may reference a JSON partial and the reverse; each file is parsed by its own extension                                                                                                                                                                          |
+| Array elements     | A reference can stand in for a whole array element or a whole object value                                                                                                                                                                                                  |
+| Resolution timing  | Every reference is resolved into one object **before** validation                                                                                                                                                                                                           |
+| Cycles             | A file that references itself, directly or through a chain, is refused with `Circular $ref detected` rather than looping                                                                                                                                                    |
+| Containment        | When `SOVRIUM_PROJECT_DIR` is set, no reference may resolve outside it — see below                                                                                                                                                                                          |
+| Paths versus names | A bare name with no `/` or `.` (`plan-card`) is never read from disk: it places the component template of that name from `app.components`. A bare name that matches no template is refused, and the error shows how to write the file include instead (`./plan-card.yaml`). |
 
 **Resolving before validation is what makes splitting safe.** A rule such as "a record automation must reference an existing table" is still checked across the whole app, even when the automation and the table live in different files. Splitting a config therefore costs nothing in checking — the validator never sees the seams.
 

@@ -26,6 +26,7 @@ import {
   buildActionToolDescription,
   buildAutomationToolDescription,
   buildTableToolDescription,
+  buildTableToolName,
   isAiAccessEnabled,
 } from '@/domain/models/app/auth/ai-access'
 import type { App } from '@/domain/models/app'
@@ -120,7 +121,7 @@ const compileTableTools = (
 
   const operations = resolveOperations(access)
   return operations.map((operation) => ({
-    name: `${appName}_${table.name}_${operation}`,
+    name: buildTableToolName(appName, table.name, operation),
     description: buildTableToolDescription(table.name, operation, access),
     inputSchema: buildToolInputSchema(operation, table, access),
     annotations: buildTableToolAnnotations({ operation, operations, access, confirmDestructive }),

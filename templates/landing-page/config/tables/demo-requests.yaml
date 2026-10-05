@@ -1,0 +1,40 @@
+# Every demo request the form on the page receives, one row each. Visitors
+# write here only through the form, with the form's own authority; nobody but
+# an admin reads, edits or deletes a row.
+id: 1
+name: demo_requests
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: restaurant
+    type: single-line-text
+    required: true
+  # An email field refuses an address with no domain before anything is saved.
+  - id: 3
+    name: email
+    type: email
+    required: true
+  - id: 4
+    name: covers
+    type: single-select
+    options:
+      - 1–40
+      - 40–80
+      - 80–150
+      - 150+
+  - id: 5
+    name: received_at
+    type: created-at
+
+permissions:
+  read:
+    - admin
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

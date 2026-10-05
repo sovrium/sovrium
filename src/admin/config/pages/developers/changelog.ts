@@ -104,7 +104,8 @@
 // families, and the whole redacted config as a JSON string (config has no
 // `JSON.stringify`). `/api/admin/config/declarations` publishes the first as
 // rows, one family at a time; `/api/admin/config/reflection` publishes the
-// second as `appJson` — admitted under [internal ref] because a pretty-printed
+// second as `appJson` — admitted although endpoints publish facts rather than
+// words, because a pretty-printed
 // serialization of an object the platform already publishes carries no word, no
 // label and no ordering meant to be read, and a caller could recompute it
 // byte-for-byte while this console cannot.
@@ -241,20 +242,17 @@ const fact = (value: string, noun: string, nounFirst = false): PageComponent =>
 /**
  * Render a value only where the record HAS one.
  *
- * `notIn: ['undefined', '', 'null']` rather than an `exists` operator, because
- * there is no `exists` operator. `matchesConditionOperators` coerces with
- * `String(value)` before it compares, so an OMITTED key arrives as the literal
- * `'undefined'` and an explicit JSON `null` as `'null'`. This ledger uses BOTH —
- * `version` is `null` on a config that declares none, and `previousUnavailable`
- * is omitted rather than false — so all three spellings of "there is no value
- * here" belong in one list.
+ * `isNotEmpty: true` reads the one empty rule every surface shares: a missing
+ * key, `null`, `''`, `[]` and `{}` are all "no value here". This ledger needs
+ * several of them — `version` is `null` on a config that declares none,
+ * `previousUnavailable` is omitted rather than false, and the detail's
+ * `schemaChanges` / `engineMigrations` are lists that may be empty — and one
+ * operator covers every spelling.
  */
-const whereSet = (field: string) =>
-  ({ record: { field, notIn: ['undefined', '', 'null'] } }) as const
+const whereSet = (field: string) => ({ record: { field, isNotEmpty: true } }) as const
 
-/** Render a value only where the record has NONE — the mirror of the above. */
-const whereUnset = (field: string) =>
-  ({ record: { field, in: ['undefined', '', 'null'] } }) as const
+/** Render a value only where the record has NONE — the exact complement of the above. */
+const whereUnset = (field: string) => ({ record: { field, isEmpty: true } }) as const
 
 // ─── THE TIMELINE ──────────────────────────────────────────────────────────
 
@@ -975,7 +973,7 @@ const schemaChangesSection = (): PageComponent =>
       },
       // The array is EMPTY-gated below rather than here: `emptyMessage` belongs
       // to `table`, and a `list` whose rows resolve to none deletes its template.
-      visibility: { record: { field: 'schemaChanges', neq: '' } },
+      visibility: whereSet('schemaChanges'),
       children: [
         {
           type: 'container',
@@ -988,11 +986,8 @@ const schemaChangesSection = (): PageComponent =>
         } as PageComponent,
       ],
     } as PageComponent,
-    // The other half of the gate. `matchesConditionOperators` coerces with
-    // `String(value)` before comparing, and `String([])` is the empty string
-    // while `String([{…}])` is `'[object Object]'` — so these two predicates are
-    // exact complements over an array field, which is the only presence test
-    // `visibility.record` has (there is no `exists` operator).
+    // The other half of the gate: `whereUnset` is the exact complement of
+    // `whereSet`, so exactly one of the list and this sentence renders.
     {
       ...(text(
         'p',
@@ -1003,7 +998,7 @@ const schemaChangesSection = (): PageComponent =>
         className: 'text-foreground-muted max-w-2xl text-md leading-relaxed',
         'data-testid': 'changelog-schema-changes-empty',
       },
-      visibility: { record: { field: 'schemaChanges', eq: '' } },
+      visibility: whereUnset('schemaChanges'),
     } as PageComponent,
   ])
 
@@ -1035,7 +1030,7 @@ const engineMigrationsSection = (): PageComponent =>
           idKey: 'folder',
         },
       },
-      visibility: { record: { field: 'engineMigrations', neq: '' } },
+      visibility: whereSet('engineMigrations'),
       children: [
         {
           type: 'container',
@@ -1058,7 +1053,7 @@ const engineMigrationsSection = (): PageComponent =>
         className: 'text-foreground-muted max-w-2xl text-md leading-relaxed',
         'data-testid': 'changelog-engine-migrations-empty',
       },
-      visibility: { record: { field: 'engineMigrations', eq: '' } },
+      visibility: whereUnset('engineMigrations'),
     } as PageComponent,
   ])
 

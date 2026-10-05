@@ -1,0 +1,21 @@
+# The line under the page: the product, its city, the year — and what it is
+# built with, on the same row.
+type: container
+element: footer
+props:
+  role: contentinfo
+  className: flex h-[52px] items-center border-t border-border bg-background px-10 text-[12.5px] text-foreground-subtle max-md:px-3.5
+children:
+  - type: text
+    element: p
+    props:
+      className: text-[12.5px] text-foreground-subtle
+    content: $t:footer.line
+  - type: container
+    props:
+      className: grow
+  - type: link
+    props:
+      href: https://sovrium.com
+      className: font-mono text-[12px] text-foreground-subtle no-underline hover:text-foreground
+    content: Built with Sovrium

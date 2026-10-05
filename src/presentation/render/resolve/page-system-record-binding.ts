@@ -52,7 +52,10 @@
  * two-path contract is isolated.
  */
 
-import { localizeRunRecord } from '@/domain/models/app/pages/automation-run-status'
+import {
+  localizeRunRecordInLanguage,
+  type RunStatusTranslator,
+} from '@/domain/models/app/pages/automation-run-status-language'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import {
@@ -192,6 +195,16 @@ export type SystemRecordFetcher = (
   recordKey: string | undefined
 ) => Promise<Readonly<Record<string, unknown>> | undefined>
 
+/**
+ * What the `{ system }` arm reads with: the record fetcher (absent in a render
+ * with no HTTP context) and the reader's-language translator a run's statuses
+ * are relabelled through (absent for an app with no dictionary).
+ */
+export interface SystemRecordReaders {
+  readonly fetchSystemRecord?: SystemRecordFetcher | undefined
+  readonly translate?: RunStatusTranslator | undefined
+}
+
 /** The page as bound, or the page's own 404. */
 export type PageRecordBinding =
   { readonly kind: 'page'; readonly page: Page } | { readonly kind: 'not-found' }
@@ -207,7 +220,7 @@ async function bindSystemRecord(
   page: Page,
   system: SystemDetailSource,
   routeParams: Readonly<Record<string, string>>,
-  fetchSystemRecord: SystemRecordFetcher | undefined
+  { fetchSystemRecord, translate }: SystemRecordReaders
 ): Promise<PageRecordBinding> {
   if (fetchSystemRecord === undefined) {
     const marker = buildPageSystemMarker(system, routeParams)
@@ -221,8 +234,9 @@ async function bindSystemRecord(
   if (record === undefined) return { kind: 'not-found' }
   // The same relabelling the browser applies to a system detail read
   // (`parseSystemDetailEnvelope`), from the same shared table: a run page must
-  // print the words of the grid that links to it, not the engine's.
-  const localized = localizeRunRecord(system.endpoint, record)
+  // print the words of the grid that links to it, not the engine's — in the
+  // reader's language, from the keys that grid translates its words under.
+  const localized = localizeRunRecordInLanguage(system.endpoint, record, translate)
   return {
     kind: 'page',
     page: { ...page, components: substitutePageComponents(page.components, localized, undefined) },
@@ -267,11 +281,11 @@ export async function applyPageLevelRecordBinding(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   hostRecord: Readonly<Record<string, unknown>> | undefined,
-  fetchSystemRecord?: SystemRecordFetcher
+  readers: SystemRecordReaders = {}
 ): Promise<PageRecordBinding> {
   const ds = page.dataSource as PageLevelDataSource | undefined
   if (ds?.system !== undefined) {
-    return bindSystemRecord(page, ds.system, routeParams, fetchSystemRecord)
+    return bindSystemRecord(page, ds.system, routeParams, readers)
   }
   if (ds?.mode === 'single' && hostRecord !== undefined) {
     const components = substitutePageComponents(page.components, hostRecord, ds.table)

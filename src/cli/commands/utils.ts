@@ -10,6 +10,7 @@ import { resolve } from 'node:path'
 import { classifyConfigChange } from '@/application/use-cases/config/classify-config-change'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
+import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { printJournalWarning } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { computeConfigHash } from '@/infrastructure/server/lock-file'
@@ -17,6 +18,7 @@ import type { ConfigChangeVerdict } from '@/application/use-cases/config/classif
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 import type { App, AppEncoded } from '@/domain/models/app'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { SimpleServer } from '@/index'
 
 /**
@@ -217,8 +219,8 @@ const needsSearchIndex = (rawApp: AppEncoded): boolean =>
  * Build the page-search index for a config, reporting failures to `onError`.
  *
  * The index is a BUILD ARTIFACT, not a lazily-computed response: it is written
- * into the public directory and the static-asset route then serves it as an
- * ordinary file. The BOOT emission belongs to `startServer` now, so this is
+ * under the data directory (`searchIndexDir`, never the app's `public/`
+ * folder) and the static-asset route then serves it as an ordinary file. The BOOT emission belongs to `startServer` now, so this is
  * the RELOAD half only — a `--watch` developer who adds a page would otherwise
  * watch it render correctly and stay unfindable, silently, because the search
  * box keeps working and simply returns nothing. It runs before the watcher
@@ -231,7 +233,7 @@ const needsSearchIndex = (rawApp: AppEncoded): boolean =>
  */
 const buildSearchIndex = async (
   rawApp: AppEncoded,
-  publicDir: string,
+  searchDir: string,
   onError: (error: unknown) => void
 ): Promise<void> => {
   const { prebuildSearchIndex } = await lazyImportIndex()
@@ -239,13 +241,13 @@ const buildSearchIndex = async (
   // deliberately does not surface, and returning `.catch(onError)` directly
   // would widen the result to `boolean | void`.
   // eslint-disable-next-line functional/no-expression-statements -- CLI side effect: emit the search artifacts
-  await prebuildSearchIndex(rawApp, publicDir).catch(onError)
+  await prebuildSearchIndex(rawApp, searchDir).catch(onError)
 }
 
 /** Rebuild the page-search index for a reloaded config. */
-const rebuildSearchIndex = async (rawApp: AppEncoded, publicDir: string): Promise<void> => {
+const rebuildSearchIndex = async (rawApp: AppEncoded, searchDir: string): Promise<void> => {
   if (!needsSearchIndex(rawApp)) return
-  return buildSearchIndex(rawApp, publicDir, (error) => {
+  return buildSearchIndex(rawApp, searchDir, (error) => {
     // A WARNING, not an error (T41): the reload itself succeeded and the pages
     // are live — only the search index behind them is stale. A multi-line cause
     // is split into stamped continuation rows by the printer.
@@ -413,7 +415,7 @@ export const reloadServer = async (params: ReloadServerParams): Promise<ReloadOu
   const loaded = await loadAndDecode(params)
   if ('failure' in loaded) return loaded.failure
 
-  const { rawApp, files, app, anchor, verdict } = loaded
+  const { rawApp, files, app, authoredTableIds, anchor, verdict } = loaded
   if (verdict.kind === 'hot') {
     await params.currentServer.reload(app, anchor.configHash)
     return finishReload(params, { server: params.currentServer, files, app, rawApp, anchor })
@@ -423,7 +425,7 @@ export const reloadServer = async (params: ReloadServerParams): Promise<ReloadOu
   // still bound, BEFORE touching it — a refusal here costs the operator a log
   // line, where the same refusal one step later costs them their port.
   const { preflightRestartReload } = await import('./reload-preflight')
-  const refusals = await preflightRestartReload(app)
+  const refusals = await preflightRestartReload(app, authoredTableIds)
   if (refusals.length > 0) {
     // A pre-flight refusal is prose with no position — it relates declarations
     // the decoder already accepted individually — so each one is published
@@ -483,6 +485,8 @@ type LoadedConfig =
       readonly rawApp: AppEncoded
       readonly files: ReadonlyArray<string>
       readonly app: App
+      /** The ids the author WROTE, from the same decode — the pre-flight reads renames from them. */
+      readonly authoredTableIds: AuthoredTableIds
       readonly anchor: ConfigAnchor
       readonly verdict: ConfigChangeVerdict
     }
@@ -541,7 +545,14 @@ const loadAndDecode = async (params: ReloadServerParams): Promise<LoadedConfig> 
   const anchor = await resolveConfigAnchor(filePath, rawApp)
   const verdict = classifyConfigChange(currentApp, decoded.app)
   announce(verdict)
-  return { rawApp, files, app: decoded.app, anchor, verdict }
+  return {
+    rawApp,
+    files,
+    app: decoded.app,
+    authoredTableIds: decoded.authoredTableIds,
+    anchor,
+    verdict,
+  }
 }
 
 /** Rebuild the derived artifacts a reloaded config owns, and report success. */
@@ -549,8 +560,8 @@ const finishReload = async (
   params: ReloadServerParams,
   success: Omit<ReloadSuccess, 'ok'>
 ): Promise<ReloadSuccess> => {
-  if (params.options.publicDir) {
-    await rebuildSearchIndex(success.rawApp, params.options.publicDir)
+  if (!params.options.publicDirOptOut) {
+    await rebuildSearchIndex(success.rawApp, searchIndexDir())
   }
   return { ok: true, ...success }
 }

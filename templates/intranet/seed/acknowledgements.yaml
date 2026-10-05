@@ -1,0 +1,189 @@
+# Who has confirmed the security training: thirty-one of the forty-six, so
+# the must-read reads "31 of 46" on Home. Jules has not yet — the Home the
+# demo opens on still asks him to.
+records:
+  - key: ack-1
+    fields:
+      post: '@posts.security-training'
+      member: '@members.anna'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-2
+    fields:
+      post: '@posts.security-training'
+      member: '@members.priya'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-3
+    fields:
+      post: '@posts.security-training'
+      member: '@members.dan'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-4
+    fields:
+      post: '@posts.security-training'
+      member: '@members.mateo'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-5
+    fields:
+      post: '@posts.security-training'
+      member: '@members.hannah'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-6
+    fields:
+      post: '@posts.security-training'
+      member: '@members.sofia'
+      acknowledged_at: '{{today-1d}}'
+
+  - key: ack-7
+    fields:
+      post: '@posts.security-training'
+      member: '@members.omar'
+      acknowledged_at: '{{today}}'
+
+  - key: ack-8
+    fields:
+      post: '@posts.security-training'
+      member: '@members.keiko'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-9
+    fields:
+      post: '@posts.security-training'
+      member: '@members.lena'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-10
+    fields:
+      post: '@posts.security-training'
+      member: '@members.felix'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-11
+    fields:
+      post: '@posts.security-training'
+      member: '@members.marcus'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-12
+    fields:
+      post: '@posts.security-training'
+      member: '@members.claire'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-13
+    fields:
+      post: '@posts.security-training'
+      member: '@members.tom'
+      acknowledged_at: '{{today-1d}}'
+
+  - key: ack-14
+    fields:
+      post: '@posts.security-training'
+      member: '@members.nadia'
+      acknowledged_at: '{{today}}'
+
+  - key: ack-15
+    fields:
+      post: '@posts.security-training'
+      member: '@members.pablo'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-16
+    fields:
+      post: '@posts.security-training'
+      member: '@members.ines'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-17
+    fields:
+      post: '@posts.security-training'
+      member: '@members.erik'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-18
+    fields:
+      post: '@posts.security-training'
+      member: '@members.grace'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-19
+    fields:
+      post: '@posts.security-training'
+      member: '@members.oliver'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-20
+    fields:
+      post: '@posts.security-training'
+      member: '@members.ruth'
+      acknowledged_at: '{{today-1d}}'
+
+  - key: ack-21
+    fields:
+      post: '@posts.security-training'
+      member: '@members.samuel'
+      acknowledged_at: '{{today}}'
+
+  - key: ack-22
+    fields:
+      post: '@posts.security-training'
+      member: '@members.alba'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-23
+    fields:
+      post: '@posts.security-training'
+      member: '@members.noah'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-24
+    fields:
+      post: '@posts.security-training'
+      member: '@members.maya'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-25
+    fields:
+      post: '@posts.security-training'
+      member: '@members.lucas'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-26
+    fields:
+      post: '@posts.security-training'
+      member: '@members.amira'
+      acknowledged_at: '{{today-2d}}'
+
+  - key: ack-27
+    fields:
+      post: '@posts.security-training'
+      member: '@members.daniel'
+      acknowledged_at: '{{today-1d}}'
+
+  - key: ack-28
+    fields:
+      post: '@posts.security-training'
+      member: '@members.chloe'
+      acknowledged_at: '{{today}}'
+
+  - key: ack-29
+    fields:
+      post: '@posts.security-training'
+      member: '@members.jonas'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-30
+    fields:
+      post: '@posts.security-training'
+      member: '@members.carmen'
+      acknowledged_at: '{{today-3d}}'
+
+  - key: ack-31
+    fields:
+      post: '@posts.security-training'
+      member: '@members.arjun'
+      acknowledged_at: '{{today-3d}}'

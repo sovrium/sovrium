@@ -38,7 +38,7 @@ export const CurrencyCodeSchema = Schema.String.pipe(
     description: 'ISO 4217 three-letter currency code (e.g., USD, EUR, GBP)',
     examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
   }),
-  Schema.check(Schema.isLengthBetween(3, 3), Schema.isPattern(/^[A-Z]{3}$/))
+  Schema.check(Schema.isBetweenLength(3, 3), Schema.isPattern(/^[A-Z]{3}$/))
 )
 
 /** Number of decimal places rendered. */

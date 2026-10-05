@@ -1,0 +1,9 @@
+# Sign-in exists for one person: the owner, who reads the demo requests in the
+# admin (`/_admin`). Visitors never sign in, and nobody can open an account:
+# the owner comes from `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first
+# start (see `.env.example`).
+allowSignUp: false
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

@@ -29,6 +29,7 @@ forms:
 | ----------------------- | -------------------------------------------------------------- | -------------------------------------- |
 | `$query.<name>`         | The named query-string parameter of the rendering request      | Entry dropped; the field renders empty |
 | `$user.<prop>`          | A property of the signed-in user, such as `$user.email`        | Entry dropped; the field renders empty |
+| `$now`                  | The date and time the form was rendered                        | —                                      |
 | String, number, boolean | Itself, verbatim — a plain default the submitter can overwrite | —                                      |
 
 An unresolvable reference is removed from the map rather than rendered, so the literal text `$query.utm_campaign` never leaks into the HTML.
@@ -58,6 +59,60 @@ That tolerance is specific to this map. A per-field `defaultValue` referencing t
 The schema accepts them, but this map is resolved against the **request** — the query string and the session — and knows nothing about a host record. A token it does not recognise passes through as a literal string, so a parent reference written here renders its own characters into the field.
 
 Parent-record prefill belongs on the page's form control, where a host record actually exists.
+
+## Prefill from a record page
+
+A page that shows one record — `dataSource: { mode: single }` — can hand that record to a form placed on it. The form control's `inlinePrefill` maps field names to values, and `$parent.<field>` (or `$record.<field>`) reads the page's record while the page renders. With `lockPrefill: true` the prefilled fields ride in hidden inputs on that page, so the visitor does not see or edit them there. The lock is presentational: it shapes this page, and a form embedded with `formRef` is also served on its own page with those fields visible. To hold a link or an account to the value the server fills in, declare the field `hidden: true` on the form — see below.
+
+It works on both kinds of page form: one that embeds a top-level form with `formRef`, and one declared in place with its own `dataSource`, `fields` and a `crud` create action. And it works wherever the form sits — directly on the page, inside a tab panel, or inside a dialog: the parent is the page's record in all three.
+
+```yaml
+pages:
+  - name: person-detail
+    path: /people/:id
+    dataSource: { table: people, mode: single, param: id }
+    components:
+      - type: button
+        content: New interaction
+        props:
+          interactions: { click: { modal: log-interaction } }
+      - type: dialog
+        props: { id: log-interaction, title: Log an interaction }
+        children:
+          - type: form
+            dataSource: { table: interactions }
+            fields:
+              - { field: summary, label: Summary }
+              - { field: person }
+            inlinePrefill:
+              prefill: { person: $parent.id }
+              lockPrefill: true
+            action: { type: crud, operation: create, table: interactions }
+```
+
+A hidden relationship field that nothing fills is stored empty: the record is created with no link, never with a reference to a record that does not exist.
+
+Beside the record tokens, the map accepts the request tokens:
+
+| Token                                | Resolves to                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `$parent.<field>`, `$record.<field>` | A field of the page's record                                                                |
+| `$now`                               | The date and time the page was rendered — just the day when the column stores a date only   |
+| `$user.<prop>`                       | A property of the signed-in viewer, such as `$user.email`; dropped when nobody is signed in |
+
+A form embedded with `formRef` keeps its own starting values — its fields' `defaultValue`s and its `prefill` map — exactly as it starts on its own page. The inline prefill overrides only the keys it names, and `lockPrefill` hides only those keys: every other field keeps its default and stays editable.
+
+## A hidden link or account holds what the server put in it
+
+A form field declared `hidden: true` on the form and bound to a `relationship` or `user` column accepts only a value the server itself would have rendered into it for the person submitting, worked out again when the form is submitted:
+
+- the form's own starting value — a literal is itself, and `$user.<prop>` is the submitter's own (nothing when nobody is signed in); a field with no prefill uses its `defaultValue` under the same rules;
+- the `inlinePrefill` of each page that embeds the form and names the field, when that page's `access` admits the submitter — `$parent.id` / `$record.id` any record that page reads for them, through the same read rules the page applies (the table's read grant, their groups and assigned roles, its row-level rule, records not deleted); `$parent.<field>` / `$record.<field>` a value that field holds on such a record, when they may read the field;
+- an empty value, which stores the record with no link.
+
+Anything else is answered exactly as a record or an account that does not exist — the same error on the same field — and nothing is stored. The check runs at submission, so a page left open after the submitter lost access to its record no longer files under it.
+
+Two cases stay open on purpose. A field the form fills from the query string (`$query.<name>`) is not held: the visitor writes the URL, so the value is theirs to choose, and the link is only held to the rows the form offers. And a field the form shows is not held, even where a page locks it, because the same form is served on its own page with that field visible. A value that must not be the visitor's choice belongs in a hidden field filled from a record page, a literal or the session.
 
 ## Prefill or `defaultValue`
 

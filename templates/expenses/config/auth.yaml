@@ -1,8 +1,30 @@
-# Email + password auth. First registered user becomes admin (Better Auth
-# firstUserAdmin); subsequent sign-ups get the default `member` role. Members
-# file expenses; admins review them (and bypass the row-level scoping below).
-allowSignUp: true
+# Email and password sign-in, closed to strangers.
+#
+# Claims carry what people spent and who they spent it with, so nobody signs
+# themselves up: the first administrator comes from `AUTH_ADMIN_EMAIL` /
+# `AUTH_ADMIN_PASSWORD` on the first start (see `.env.example`), and everyone
+# else is added by an admin with `sovrium admin create <email>`. The demo
+# accounts come from `seed/users.yaml`.
+#
+# Two roles: `member` for everyone who files claims, and `admin` for finance,
+# who reads every claim, decides and repays. The expenses table's
+# `permissions` block says which is which.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword
     minPasswordLength: 8
+
+# Where each person lands after signing in. The sign-in form sends everyone to
+# `/home`; from there finance is sent on to the review queue, and anyone the
+# rule below does not match — every member — to their own claims on `/`.
+#
+# The built-in roles cannot carry a landing, so the rule sits on a named
+# `finance` entry. A landing with no `$currentUser.assignments` token matches
+# an unrestricted session — an admin — and nobody needs to hold the role.
+landingPath: /home
+noAccessPath: /
+roles:
+  - name: finance
+    description: Where an admin lands after signing in — the review queue.
+    defaultLanding: /review

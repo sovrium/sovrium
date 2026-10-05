@@ -7,20 +7,15 @@
 
 import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
-import {
-  createValidationLayer,
-  sanitizeRichTextFields,
-  validateAttachmentReferences,
-  validateFieldFormats,
-  validateMultiSelectOptions,
-  validateMultiSelectSelectionLimits,
-  validateRelationshipLinkLimits,
-} from '@/presentation/api/tables/validation'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { checkRecordUpdateValues, findReadonlyUpdateField } from './record-rules'
+import { createValidationLayer, sanitizeRichTextFields } from './validation'
 import type { App, Table } from '@/domain/models/app'
-import type { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import type {
   FieldFormatError,
   FieldStorageError,
@@ -81,152 +76,16 @@ export function validateUpdateReadonlyFields(
   fields: Record<string, unknown>,
   c: Context
 ): Response | undefined {
-  const READONLY_FIELDS = new Set(['id', 'created_at', 'updated_at'])
-  const attempted = Object.keys(fields).filter((field) => READONLY_FIELDS.has(field))
-  if (attempted.length === 0) return undefined
+  const attempted = findReadonlyUpdateField(fields)
+  if (attempted === undefined) return undefined
   return c.json(
     {
       success: false,
-      message: `Cannot write to readonly field '${attempted[0]!}'`,
+      message: `Cannot write to readonly field '${attempted}'`,
       code: 'VALIDATION_ERROR',
     },
     400
   )
-}
-
-/**
- * Detect an update carrying a value that violates its column's declared format
- * (`email`, `url`). Returns the violation, or `undefined` when every supplied
- * value is well-formed.
- *
- * Unlike its sibling guards this returns the ERROR rather than a `Response`:
- * the caller renders it through the shared `formatValidationError`, which is
- * what pins the status at 422 and emits the `code`/`field`/`errors` envelope
- * the crud-form island decodes. Keeping the rendering in one place is why the
- * update path cannot drift from the create path's wire shape.
- *
- * This runs the SAME rule as the create path — `validateFieldFormats` over
- * `findColumnFormatViolations` — rather than a second copy. That is the whole
- * point: `POST /api/tables/:t/records` refused a malformed address while
- * `PATCH /api/tables/:t/records/:id` accepted it, so one resource enforced two
- * different contracts depending on the verb, and the malformed value reached
- * the column anyway. Neither `email` nor `url` compiles to a CHECK constraint
- * (`sql-type-mappings.ts` emits a bare VARCHAR(255)/TEXT), so nothing
- * downstream refused it either.
- *
- * Only columns the payload SUPPLIES are inspected — that property lives in the
- * shared rule and is what makes it safe on a PARTIAL update. A row already
- * holding a malformed legacy value stays editable through its other columns;
- * validating absent columns would escalate old data into a hard write outage
- * on every row that predates the rule.
- *
- * Ordering: this runs AFTER the role/field-permission gates, matching the
- * create path, so an unauthorized caller still gets the S1 anti-enumeration
- * 404 and never learns whether their value would have been well-formed.
- *
- */
-async function validateUpdateFieldFormats(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fields: Record<string, unknown>
-): Promise<FieldFormatError | undefined> {
-  const result = await Effect.runPromise(
-    validateFieldFormats(fields).pipe(
-      Effect.provide(createValidationLayer(app, tableName, userRole)),
-      Effect.result
-    )
-  )
-  return result._tag === 'Failure' ? result.failure : undefined
-}
-
-/**
- * Detect an update carrying a `multi-select` value that is not a declared
- * option, or that selects more options than `maxSelections` permits. Returns
- * the violation, or `undefined` when every supplied selection is admissible.
- *
- * Like {@link validateUpdateFieldFormats} this returns the ERROR rather than a
- * `Response`, so the caller renders it through the shared
- * `formatValidationError` — which is what keeps the update path's wire shape
- * from drifting from the create path's, and what assigns each violation its
- * status: 422 for membership (`FieldFormatError`), 400 for cardinality
- * (`FieldValidationError`).
- *
- * This runs the SAME rules as the create path rather than a second copy. That
- * is the whole point: the update path needed its own explicit call because
- * `PATCH` does not traverse `validateRecordCreation`, so fixing create alone
- * left this hole open — exactly as it did for `email`/`url` before. Before this
- * guard existed, `PATCH` with an undeclared option returned 200 and OVERWROTE
- * the column on SQLite, which carries no member CHECK; on PostgreSQL it reached
- * the driver and was answered from the DB seam, naming no column.
- *
- * Refusing HERE is what makes the two engines agree, and it is deliberately a
- * pre-validation rather than a nicer rendering of the driver's complaint: a
- * value the operator never declared is a client error, so it should never
- * become a database error in the first place.
- *
- * Cardinality is enforced on this verb too, though only the create path has a
- * dedicated spec: `maxSelections` a `PATCH` could exceed at will would be no
- * cap at all.
- *
- * Only columns the payload SUPPLIES are inspected — that property lives in the
- * shared rule and is what makes it safe on a PARTIAL update. A row already
- * holding an undeclared legacy value stays editable through its other columns.
- *
- * Ordering: this runs AFTER the role/field-permission gates, matching the
- * create path, so an unauthorized caller still gets the S1 anti-enumeration
- * 404 and never learns whether their selection would have been accepted.
- *
- */
-async function validateUpdateMultiSelectValues(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fields: Record<string, unknown>
-): Promise<FieldFormatError | FieldValidationError | undefined> {
-  const layer = createValidationLayer(app, tableName, userRole)
-  const membership = await Effect.runPromise(
-    validateMultiSelectOptions(fields).pipe(Effect.provide(layer), Effect.result)
-  )
-  if (membership._tag === 'Failure') return membership.failure
-  const cardinality = await Effect.runPromise(
-    validateMultiSelectSelectionLimits(fields).pipe(Effect.provide(layer), Effect.result)
-  )
-  return cardinality._tag === 'Failure' ? cardinality.failure : undefined
-}
-
-/**
- * Reject a `PATCH` linking more records than a `relationship` column's declared
- * `maxLinked` permits.
- *
- * Runs the SAME rule as the create path rather than a second copy, for the
- * reason the sibling guard above already had to learn twice: `PATCH` does not
- * traverse `validateRecordCreation`, so a cap enforced on create alone is no
- * cap at all — a caller creates a row at the ceiling and then PATCHes it past
- * the ceiling.
- *
- * Only columns the payload SUPPLIES are inspected — that property lives in the
- * shared rule, and it is what keeps a row that already exceeds a later-lowered
- * cap editable through its other columns.
- *
- * Ordering: after the role/field-permission gates, matching the create path, so
- * an unauthorized caller still gets the S1 anti-enumeration 404 and never
- * learns what the cap would have been.
- *
- */
-async function validateUpdateRelationshipLinks(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fields: Record<string, unknown>
-): Promise<FieldValidationError | undefined> {
-  const outcome = await Effect.runPromise(
-    validateRelationshipLinkLimits(fields).pipe(
-      Effect.provide(createValidationLayer(app, tableName, userRole)),
-      Effect.result
-    )
-  )
-  return outcome._tag === 'Failure' ? outcome.failure : undefined
 }
 
 /** The request and payload a per-value update rule is evaluated against. */
@@ -239,57 +98,35 @@ export interface UpdateValueCheck {
 }
 
 /**
- * Reject an update whose attachment columns reference a file outside the
- * column's bucket or outside the writer's download reach.
- *
- * The SAME rule as the create path (`record-rules.ts` step 9), for the reason
- * every guard in this file exists: `PATCH` does not traverse
- * `validateRecordCreation`, so a rule enforced on create alone would let a
- * caller create a clean row and then PATCH the foreign key onto it. Unlike its
- * siblings it needs the storage catalog, so it runs on the request's domain
- * runtime rather than a bare `Effect.runPromise`.
- *
- * Only columns the payload SUPPLIES are inspected, so a row already holding a
- * seeded reference stays editable through its other columns.
- */
-export async function validateUpdateAttachmentReferences(
-  input: Readonly<UpdateValueCheck>
-): Promise<FieldValidationError | FieldStorageError | undefined> {
-  const { c, app, tableName, userRole, fields } = input
-  const outcome = await Effect.runPromise(
-    provideDomain(
-      c,
-      validateAttachmentReferences(fields).pipe(
-        Effect.provide(createValidationLayer(app, tableName, userRole))
-      )
-    ).pipe(Effect.result)
-  )
-  return outcome._tag === 'Failure' ? outcome.failure : undefined
-}
-
-/**
- * Every per-VALUE rule the update path enforces, in create-path order: column
- * formats first, then `multi-select` membership, then `multi-select`
- * cardinality, then a `relationship` column's `maxLinked` cap, then the
- * attachment-reference confinement. Returns the first violation, or
+ * Every per-VALUE rule the update path enforces — `checkRecordUpdateValues`,
+ * the one composition the MCP update tool runs too — on the request's domain
+ * runtime (attachment confinement reads the storage catalog). Returns the first
+ * violation for the caller to render through the shared
+ * `formatValidationError`, which is what keeps the update path's wire shape and
+ * statuses (422 format, 400 cardinality) from drifting from the create path's;
  * `undefined` when the update may proceed.
  *
- * Exposed as ONE call so the route handler cannot acquire a new value rule
- * without acquiring its update-path enforcement at the same time — which is the
- * failure mode this whole seam exists to prevent, twice over now (`email`/`url`
- * once, `multi-select` again).
+ * @see [internal ref],
  */
 export async function validateUpdateFieldValues(
   input: Readonly<UpdateValueCheck>
 ): Promise<FieldFormatError | FieldValidationError | FieldStorageError | undefined> {
-  const { app, tableName, userRole, fields } = input
-  const formatError = await validateUpdateFieldFormats(app, tableName, userRole, fields)
-  if (formatError) return formatError
-  const selectionError = await validateUpdateMultiSelectValues(app, tableName, userRole, fields)
-  if (selectionError) return selectionError
-  const linkError = await validateUpdateRelationshipLinks(app, tableName, userRole, fields)
-  if (linkError) return linkError
-  return validateUpdateAttachmentReferences(input)
+  const { c, app, tableName, userRole, fields } = input
+  const outcome = await Effect.runPromise(
+    provideDomain(
+      c,
+      checkRecordUpdateValues(fields).pipe(
+        Effect.provide(
+          createValidationLayer(app, tableName, {
+            role: userRole,
+            groups: getTableContext(c).userGroups,
+            signedOut: isGuestSession(getTableContext(c).session.userId),
+          })
+        )
+      )
+    ).pipe(Effect.result)
+  )
+  return outcome._tag === 'Failure' ? outcome.failure : undefined
 }
 
 /**
@@ -327,12 +164,12 @@ export async function validateUpdateFieldValues(
 export async function sanitizeUpdateRichTextFields(
   app: App,
   tableName: string,
-  userRole: string,
+  writer: Parameters<typeof createValidationLayer>[2],
   fields: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   return Effect.runPromise(
     sanitizeRichTextFields(fields).pipe(
-      Effect.provide(createValidationLayer(app, tableName, userRole))
+      Effect.provide(createValidationLayer(app, tableName, writer))
     )
   )
 }
@@ -351,12 +188,5 @@ export function validateUpdateForbiddenFields(
   const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
   const attempted = forbiddenFields.filter((field) => !SYSTEM_PROTECTED_FIELDS.has(field))
   if (attempted.length === 0) return undefined
-  return c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
+  return notFound(c)
 }

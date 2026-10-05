@@ -98,7 +98,7 @@ const findRelatedFieldType = (params: {
   readonly relationshipField: string
   readonly relatedField: string
   readonly tablesByName: ReadonlyMap<string, TableWithFields>
-}): string | undefined => {
+}): { readonly type: string; readonly numericFormula: boolean } | undefined => {
   const { table, relationshipField, relatedField, tablesByName } = params
 
   const relationshipFieldObj = table.fields.find((f) => f.name === relationshipField)
@@ -118,16 +118,53 @@ const findRelatedFieldType = (params: {
       ? { name: 'id', type: 'integer' }
       : relatedTable.fields.find((f) => f.name === relatedField)
 
-  return relatedFieldObj?.type
+  if (!relatedFieldObj) return undefined
+  // A formula whose result is a number aggregates as a number.
+  const { resultType } = relatedFieldObj as { resultType?: unknown }
+  return {
+    type: relatedFieldObj.type,
+    numericFormula:
+      relatedFieldObj.type === 'formula' &&
+      typeof resultType === 'string' &&
+      NUMERIC_FORMULA_RESULT_TYPES.has(resultType.toLowerCase()),
+  }
 }
 
-const isNumericFieldType = (fieldType: string): boolean => {
-  const numericTypes = ['integer', 'decimal', 'currency', 'percentage', 'duration']
-  return numericTypes.includes(fieldType)
-}
+/** Formula result types that store a number (`formulaResultTypeMap`). */
+const NUMERIC_FORMULA_RESULT_TYPES: ReadonlySet<string> = new Set([
+  'number',
+  'decimal',
+  'numeric',
+  'integer',
+  'int',
+])
 
-const validateNumericAggregation = (aggregation: string, fieldType: string): string | undefined => {
-  if (!isNumericFieldType(fieldType)) {
+/**
+ * Field types `SUM` / `AVG` may be rolled up over: every type that stores a
+ * number a sum means something for. `autonumber` is deliberately absent —
+ * summing or averaging a sequence has no meaning — and a numeric-result
+ * `formula` is admitted beside them.
+ */
+const SUMMABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'integer',
+  'decimal',
+  'number',
+  'currency',
+  'percentage',
+  'duration',
+  'rating',
+  'progress',
+])
+
+const isNumericFieldType = (fieldType: string, numericFormula: boolean): boolean =>
+  SUMMABLE_FIELD_TYPES.has(fieldType) || numericFormula
+
+const validateNumericAggregation = (
+  aggregation: string,
+  fieldType: string,
+  numericFormula: boolean
+): string | undefined => {
+  if (!isNumericFieldType(fieldType, numericFormula)) {
     return `aggregation function "${aggregation}" is incompatible with field type "${fieldType}" - numeric field required`
   }
   return undefined
@@ -228,14 +265,15 @@ const validateMinMaxAggregation = (aggregation: string, fieldType: string): stri
  */
 const checkAggregationCompatibility = (
   aggregation: string,
-  fieldType: string
+  fieldType: string,
+  numericFormula: boolean
 ): string | undefined => {
   const aggregationLower = aggregation.toLowerCase()
 
   switch (aggregationLower) {
     case 'sum':
     case 'avg':
-      return validateNumericAggregation(aggregation, fieldType)
+      return validateNumericAggregation(aggregation, fieldType, numericFormula)
     case 'min':
     case 'max':
       return validateMinMaxAggregation(aggregation, fieldType)
@@ -270,7 +308,11 @@ const validateRollupAggregation = (params: {
 
   if (!relatedFieldType) return undefined
 
-  const error = checkAggregationCompatibility(aggregation, relatedFieldType)
+  const error = checkAggregationCompatibility(
+    aggregation,
+    relatedFieldType.type,
+    relatedFieldType.numericFormula
+  )
   if (error) {
     return { table: table.name, field: fieldName, error }
   }

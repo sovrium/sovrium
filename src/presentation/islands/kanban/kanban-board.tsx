@@ -42,15 +42,12 @@ interface KanbanBoardProps {
   readonly collapsedColumns: readonly string[] | undefined
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
-  readonly draggableEnabled: boolean
   /**
    * Applies a settled drop. `overId` is dnd-kit's own drop target read after it
    * has caught up with the pointer — see {@link SettledDropTarget} for why the
    * one on the event cannot be trusted.
    */
   readonly onDragEnd: (event: DragEndEvent, overId: UniqueIdentifier | undefined) => void
-  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
-  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -64,16 +61,12 @@ function KanbanColumnRow({
   columns,
   card,
   emptyColumnMessage,
-  draggableEnabled,
-  colorFieldColors,
   collapsedColumns,
   idPrefix,
 }: {
   readonly columns: readonly KanbanColumnData[]
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
-  readonly draggableEnabled: boolean
-  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   readonly collapsedColumns: readonly string[] | undefined
   readonly idPrefix: string
 }): ReactElement {
@@ -87,8 +80,6 @@ function KanbanColumnRow({
           column={column}
           emptyMessage={emptyColumnMessage}
           card={card}
-          draggableEnabled={draggableEnabled}
-          colorFieldColors={colorFieldColors}
           expanded={foldable ? !folded.has(column.value) : undefined}
           onToggle={foldable ? toggle : undefined}
           idPrefix={idPrefix}
@@ -116,9 +107,7 @@ export function KanbanBoard({
   collapsedColumns,
   card,
   emptyColumnMessage,
-  draggableEnabled,
   onDragEnd,
-  colorFieldColors,
 }: KanbanBoardProps): ReactElement {
   const sensors = useKanbanSensors()
   const settleDrop = grid !== undefined
@@ -147,8 +136,6 @@ export function KanbanBoard({
           grid={grid}
           card={card}
           emptyColumnMessage={emptyColumnMessage}
-          draggableEnabled={draggableEnabled}
-          colorFieldColors={colorFieldColors}
           initiallyCollapsed={swimlanes?.collapsed}
           idPrefix={idPrefix}
         />
@@ -157,8 +144,6 @@ export function KanbanBoard({
           columns={columns}
           card={card}
           emptyColumnMessage={emptyColumnMessage}
-          draggableEnabled={draggableEnabled}
-          colorFieldColors={colorFieldColors}
           collapsedColumns={collapsedColumns}
           idPrefix={idPrefix}
         />

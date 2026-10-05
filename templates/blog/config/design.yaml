@@ -1,116 +1,159 @@
-# Blog theming — purple.
+# The design system of Field Notes, a publication a small studio owns.
 #
-# This template previously shipped no `design` block at all, so it rendered in
-# the achromatic OKLCH neutral baseline: correct, but indistinguishable from
-# every other themeless demo in the gallery. Purple is assigned centrally and
-# sits clear of the CRM's indigo, the landing page's amber and the docs site's
-# teal, so a visitor comparing four demos sees four products.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Two registers share it: a public reading surface — an
+# index of essays and one essay at a time — and a desk behind `/admin` where
+# the editor works. The first is set like a page, roomy and quiet; the second
+# like a tool, denser, read many times a day.
 #
-# WHY THESE KEY NAMES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens every prestyled island consumes. Everything
-#   else emits `--color-*` and does nothing until something cites it — which is
-#   how a template can declare two dozen colours and still render grey.
-#
-#   The mapping is NOT identity, and the surprises are worth naming: `muted`
-#   maps to `bg-subtle`, `background-raised` to `bg-raised`,
-#   `background-overlay` to `bg-overlay`, `ring` to `focus-ring`, `success` to
-#   `success-solid`. And `foreground-muted`
-#   maps to `fg-muted`, which the baseline has already registered as
-#   `--color-muted-foreground` — so the `text-muted-foreground` utility class
-#   the index page uses picks this up without a second declaration.
-#
-#   Every page in this template styles through utility classes
-#   (`bg-background`, `text-foreground`, `text-primary`) rather than inline
-#   hexes, so declaring the role keys repaints the whole surface — the public
-#   index, the post pages, the data tables and the admin space — with no class
-#   changes anywhere in the config.
-#
-#   Sovrium's own apps under `apps/` may not touch these keys without a BRAND.md
-#   permit, because repainting the roles there would reinstate the coloured ramp
-#   ADR-024 deleted from the Sovrium identity. That lock is repo-local and does
-#   not extend here: a template exists to look like the product a customer is
-#   building, not like sovrium.com.
-#
-#
-# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
-#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
-#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
-#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
-#   `<key>-foreground: #ffffff` companion whenever the base key is declared
-#   without one. On a white card that companion is white text on white. Worse,
-#   the derivation runs over the LIGHT block only and is never mirrored into
-#   `darkColors`, so it is a light-surface guess that silently persists into
-#   dark mode. The `background-*` spellings carry no such companion.
-#
-# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
-#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
-#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
-#   lightens and white-on-light is unreadable. The derived companion is not
-#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
-#   in both schemes is to name it twice, which is what happens below.
-# NO `fonts` BLOCK, DELIBERATELY
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, which drops the page onto the OS default AND pushes the
-#   shipped face out of its own stack. A reading surface is exactly where that
-#   hurts most, so this template inherits the served type as-is.
+# Type stays on the two faces the platform self-hosts (IBM Plex Sans and
+# JetBrains Mono): a face pulled from a font CDN would hand every reader's
+# address to a third party. A serif for the headings is a good next step —
+# serve its woff2 from `public/` and name it under `typeScale.families`.
 baseline: extend
 
+# Follow the reader's operating system: light by day, dark by night.
+# `darkColors` below is what the dark scheme paints.
+colorScheme: system
+
+# One accent, a purple, marks what a reader or an editor acts on: a link in an
+# essay, the Publish button, the current entry of the desk, the focus ring. The
+# neutrals lean toward the same hue at a whisper of chroma, a cool paper sheet.
+#
+# Every role is spelled out in BOTH schemes: a key missing from `darkColors`
+# keeps its light value, and a pale dark-mode accent needs a dark label, so the
+# dark block names every companion itself.
+#
+# `success`, `warning` and `error` each carry a consequence: a published post,
+# a post scheduled for later or a draft waiting for approval, and a slug that
+# is already taken. Tags are never coloured.
 colors:
-  primary: '#7c3aed'
-  primary-hover: '#6d28d9'
-  primary-foreground: '#ffffff'
-  primary-subtle: '#ede9fe'
-  ring: '#8b5cf6'
-  background: '#ffffff'
-  background-subtle: '#faf7ff'
-  foreground: '#1b1229'
-  foreground-muted: '#584a6b'
-  foreground-subtle: '#8878a0'
-  background-raised: '#ffffff'
-  background-overlay: '#ffffff'
-  border: '#e9e0f7'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.17 293)
+  primary-hover: oklch(0.46 0.159 293)
+  primary-active: oklch(0.42 0.15 293)
+  primary-foreground: oklch(0.985 0.003 293)
+  primary-subtle: oklch(0.95 0.03 293)
+  primary-subtle-foreground: oklch(0.38 0.128 293)
+  ring: oklch(0.6 0.17 293)
+  background: oklch(0.985 0.003 293)
+  background-subtle: oklch(0.967 0.005 293)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 293)
+  foreground: oklch(0.21 0.008 293)
+  foreground-muted: oklch(0.45 0.012 293)
+  foreground-subtle: oklch(0.51 0.012 293)
+  foreground-disabled: oklch(0.71 0.012 293)
+  foreground-inverse: oklch(0.985 0.003 293)
+  border: oklch(0.925 0.008 293)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 293)
 
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way, under
-# `html:is(.dark, [data-theme='dark'])`.
 darkColors:
-  primary: '#a78bfa'
-  primary-hover: '#c4b5fd'
-  primary-foreground: '#1b1229'
-  primary-subtle: '#2e1065'
-  ring: '#8b5cf6'
-  background: '#100b18'
-  background-subtle: '#191122'
-  foreground: '#ece5f7'
-  foreground-muted: '#b7a8cd'
-  foreground-subtle: '#8b7ba3'
-  background-raised: '#191122'
-  background-overlay: '#191122'
-  border: '#2a1e3a'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.128 293)
+  primary-hover: oklch(0.83 0.096 293)
+  primary-active: oklch(0.87 0.074 293)
+  primary-foreground: oklch(0.16 0.006 293)
+  primary-subtle: oklch(0.28 0.064 293)
+  primary-subtle-foreground: oklch(0.9 0.064 293)
+  ring: oklch(0.72 0.138 293)
+  background: oklch(0.16 0.006 293)
+  background-subtle: oklch(0.19 0.007 293)
+  background-raised: oklch(0.21 0.008 293)
+  background-overlay: oklch(0.23 0.008 293)
+  background-inset: oklch(0.13 0.005 293)
+  foreground: oklch(0.95 0.005 293)
+  foreground-muted: oklch(0.75 0.01 293)
+  foreground-subtle: oklch(0.68 0.012 293)
+  foreground-disabled: oklch(0.45 0.01 293)
+  foreground-inverse: oklch(0.16 0.006 293)
+  border: oklch(0.3 0.01 293)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 293)
 
+# Editorial proportions: a large h1, body text at 17 px with a long line
+# height, so an essay reads at an even rhythm; mono for the small overline.
+typeScale:
+  families:
+    sans:
+      family: IBM Plex Sans Variable
+      fallback: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    heading:
+      family: IBM Plex Sans Variable
+      fallback: "'IBM Plex Sans', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 3rem, lineHeight: 1.05, weight: 600, letterSpacing: -0.025em }
+    h1: { size: 2.5rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h2: { size: 1.5rem, lineHeight: 1.25, weight: 600, letterSpacing: -0.01em }
+    h3: { size: 1.1875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 1.25rem, lineHeight: 1.55 }
+    body: { size: 1.0625rem, lineHeight: 1.75 }
+    bodySmall: { size: 0.875rem, lineHeight: 1.55 }
+    caption: { size: 0.8125rem, lineHeight: 1.4 }
+    overline: { size: 0.75rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# One Shiki theme for the code an essay quotes.
+codeBlock:
+  theme: github-dark
+
+# Standard corners: neither a ledger nor a toy.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
 
-# The design system, in the config the running app reads.
-#
-# This blog has two registers and a hard line between them: a public reading
-# surface anyone can reach, and an admin space behind auth where an editor
-# works. `zones` is where that line is DECLARED rather than implied by the
-# `/admin` prefix — which is what lets the platform hold it.
+# Flat: an essay is a page, not a card floating over one. Only the overlays
+# (a menu, a dialog) lift.
+elevation:
+  none: none
+  sm: none
+  md: 0 1px 2px 0 rgb(0 0 0 / 0.05)
+  lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)
 
-# How the blog sounds by default — the constant half of the voice/tone pair.
+# A post's state is an outlined chip with a dot of its colour, so a column of
+# states stays quiet and only the colour of the dot changes.
+badgeForm: outline-dot
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Links in an essay, the Publish button, the current entry of the desk, the focus ring.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The current entry of the desk and the tag a reader has picked.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A published post.
+    pairsWith: foreground
+  warning:
+    usage: A post scheduled for later, and a draft the assistant proposed that waits for approval.
+    pairsWith: foreground
+  error:
+    usage: A slug already taken, a required field left empty, an essay that is not here.
+    pairsWith: foreground
+
+# Two steps, one per zone: the desk runs at `cozy`, the public pages at
+# `roomy` (the `marketing` zone below). The three steps are the platform's own
+# values, written out so one number can be tuned.
+density:
+  default: cozy
+  byZone:
+    marketing: roomy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the publication speaks. Nothing reads these at runtime; they are the
+# brief anyone writing a label, an empty state or an error message follows.
 voice:
   personality:
     - warm
@@ -118,41 +161,37 @@ voice:
     - never breathless
   pronoun: you
   prefer:
-    - 'Lead a CTA with its verb: Publish, Save, Delete.'
+    - 'Lead a call to action with its verb: Publish, Schedule, Save.'
     - Every empty state names the one next action.
   avoid:
     - No exclamation marks in product chrome.
     - No unverifiable claims about reach or reading time.
   tone:
     empty: Say what this list will hold, then the action that fills it.
+    loading: Name what is loading — the essays, the draft — never a bare spinner.
     error: State what stopped, then the one thing that unblocks it. Never accuse.
+    success: Say what happened and where it now lives.
     destructive: Name what is deleted and whether it can be recovered.
 
-# The zone map. Order does not decide the winner — specificity does — so
-# `/admin/*` governs the admin space and the catch-all takes everything else.
+# Where the line between the two registers runs. Order does not decide the
+# winner — the most specific pattern does — so `/admin/*` governs the desk and
+# the catch-all takes the public pages.
 zones:
-  # Behind auth. The working budget: no persuasion, no marketing weight, and a
-  # register that addresses a colleague rather than a visitor.
+  # Behind sign-in: the working budget, and two more refusals for its voice.
   - pattern: /admin/*
     zone: product
     accentBudget: product
     voice:
-      # Per-FIELD override: only `avoid` departs. `personality`, `pronoun`,
-      # `prefer` and `tone` are inherited from `voice` above unchanged — which
-      # is the whole point of the per-field rule. Whole-object replacement would
-      # make this entry mean "the admin space has no preferred patterns and no
-      # tone guidance", which is not what an author writing four extra refusals
-      # is asking for.
-      #
-      # `pronoun` is deliberately NOT restated here: it is already `you`, and a
-      # zone override identical to the app value is refused at decode time — a
-      # second spelling of the same value drifts the moment one of them changes.
       avoid:
-        - No marketing superlatives behind auth.
+        - No marketing superlatives behind sign-in.
         - Never call a destructive action "cleanup".
-
-  # The public reading surface. `marketing` carries the PUBLIC accent budget by
-  # convention, and declaring anything other than `public` here is refused.
+  # The public reading surface, with the accent budget of a page anyone reads.
   - pattern: everything else
     zone: marketing
     accentBudget: public
+
+principles:
+  - A reader reaches a full essay from the index in one click.
+  - Every essay says who wrote it, when, and what it is about, before its first paragraph.
+  - Colour means a post's state — published, scheduled, waiting — or it is not used.
+  - Nothing the assistant writes is published without a person approving it.

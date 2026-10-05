@@ -38,11 +38,30 @@ export type ParseFilterResult =
  * @param config - Configuration object with filter details
  * @returns ParseFilterResult indicating success with filter or failure with error response
  */
+/** The boolean a checkbox shorthand value names, or the value itself otherwise. */
+const CHECKBOX_SHORTHAND: Readonly<Record<string, boolean>> = {
+  true: true,
+  false: false,
+  '1': true,
+  '0': false,
+}
+
+const shorthandValue = (fieldType: string | undefined, value: string): unknown =>
+  fieldType === 'checkbox' && value.toLowerCase() in CHECKBOX_SHORTHAND
+    ? CHECKBOX_SHORTHAND[value.toLowerCase()]
+    : value
+
 export function parseFilterParameter(config: {
   filterParam: string | undefined
   c: Context
+  /**
+   * The declared type of a field, so the `field:value` shorthand can read a
+   * checkbox's `true` / `false` as the boolean it names — compared as text, it
+   * matched no row on SQLite.
+   */
+  fieldTypeOf?: (field: string) => string | undefined
 }): ParseFilterResult {
-  const { filterParam, c } = config
+  const { filterParam, c, fieldTypeOf } = config
 
   if (!filterParam) {
     return { success: true, filter: undefined }
@@ -55,7 +74,7 @@ export function parseFilterParameter(config: {
     const colonIdx = filterParam.indexOf(':')
     if (colonIdx > 0) {
       const field = filterParam.substring(0, colonIdx)
-      const value = filterParam.substring(colonIdx + 1)
+      const value = shorthandValue(fieldTypeOf?.(field), filterParam.substring(colonIdx + 1))
       return { success: true, filter: { and: [{ field, operator: 'equals', value }] } }
     }
 

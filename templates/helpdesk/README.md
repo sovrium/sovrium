@@ -1,6 +1,6 @@
-# Sovrium Helpdesk
+# Tallyline Support
 
-> A public support form feeding a triage kanban.
+> A small team's helpdesk: a public ticket form, one queue, and a rating once it is solved.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,10 +19,23 @@ sovrium init my-helpdesk --template helpdesk
 
 ## What's inside
 
-A public intake form feeds a triage kanban and a ticket grid, with automations confirming receipt and closing the loop.
+- **Contact support** (`/`, public) — one form with a screenshot or a file, no account, and
+  what happens after sending beside it. A ticket arrives as New, stamped with when its first
+  reply is due, and the requester gets a copy by email.
+- **Queue** (`/triage`) — every ticket by status with who asked, its priority and who holds
+  it. Four counts on top, one filter bar, and three tabs: the tickets nobody holds yet, yours,
+  and all of them. Resolved and closed tickets fold away until you open them; drag a card to
+  change its status.
+- **All tickets** — every ticket ever filed, newest first. Open one and it slides in over the
+  grid with its details and its conversation: what the requester wrote, the replies and the
+  internal notes.
+- **Reports** (admin) — where the tickets stand, and the volume by topic.
+- **Rate this answer** (`/rate`, public) — when a ticket is marked Resolved, the requester is
+  emailed a link to rate the answer, one rating per ticket.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Sign-up is closed: an admin adds each agent. Everything is declared in
+[`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+config, restart, done.
 
 ## Run locally
 
@@ -32,10 +45,32 @@ sovrium start app.yaml
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+email, demo data).
 
-> Email flows (sign-in links, notifications) need `SMTP_*` variables. Without them the app
-> runs with email disabled.
+## What to try
+
+Load the demo data first. It creates two accounts — the support team of Tallyline, a small
+software company — and fourteen tickets from the last two weeks, dated relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+Sign in as **clara.dumas@tallyline.example** (admin, leads the team) or
+**yann.kerbrat@tallyline.example** (member), with the password you chose. Then:
+
+1. Land on the **Queue**: nine open tickets, two that nobody holds, one urgent.
+2. Open the public page `/` in a private window and send a ticket with a screenshot. It
+   appears in New on the Queue.
+3. Pick **Mine** to see only the tickets you hold, then drag one to Waiting on customer.
+4. On **All tickets**, open the VAT invoice ticket to read its conversation, including
+   Clara's internal note.
+5. Mark a ticket Resolved: the requester is emailed a link to rate the answer (with email
+   configured). **Reports** shows the week in four counts.
+
+A ticket takes one rating. The rating page needs no account, because the requester has
+none; anyone holding the link can rate that ticket once.
 
 ## Deploy
 

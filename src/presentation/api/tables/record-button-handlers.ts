@@ -38,14 +38,18 @@ import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { hasUpdatePermission } from '@/domain/models/app/auth/permission-evaluator-service'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { enforceFormMutationGate, resolveGuardForTable } from './row-level-guard'
+import {
+  enforceFormMutationGate,
+  passesUnguardedTableGate,
+  resolveGuardForTable,
+} from './row-level-guard'
 import type {
   RunAutomationError,
   RunAutomationResult,
@@ -55,8 +59,7 @@ import type { Context } from 'hono'
 
 type SessionContext = ReturnType<typeof getTableContext>['session']
 
-const notFoundResponse = (c: Context): Response =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+const notFoundResponse = (c: Context): Response => notFound(c)
 
 /**
  * The narrow shape this route dispatches on. Checked structurally rather than
@@ -99,16 +102,19 @@ async function enforceButtonWriteGate(input: {
     readonly tableName: string
     readonly recordId: string
     readonly userRole: string
+    readonly userGroups: readonly string[]
   }
 }): Promise<Response | undefined> {
   const { c, app, table, session } = input
-  const { tableName, recordId, userRole } = input.context
+  const { tableName, recordId, userRole, userGroups } = input.context
 
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
   if (guard) {
     return enforceFormMutationGate({ c, table, session, tableName, recordId, guard, op: 'write' })
   }
-  return hasUpdatePermission(table, userRole, app.tables) ? undefined : notFoundResponse(c)
+  return passesUnguardedTableGate(app, table, { userRole, userGroups }, 'write')
+    ? undefined
+    : notFoundResponse(c)
 }
 
 /**
@@ -168,7 +174,7 @@ async function recordButtonInvocation(input: {
 }
 
 export async function handleInvokeRecordButton(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
   const recordId = c.req.param('recordId')!
   const fieldName = c.req.param('fieldName')!
 
@@ -181,7 +187,7 @@ export async function handleInvokeRecordButton(c: Context, app: App) {
     app,
     table,
     session,
-    context: { tableName, recordId, userRole },
+    context: { tableName, recordId, userRole, userGroups },
   })
   if (gateError) return gateError
 

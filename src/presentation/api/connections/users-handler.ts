@@ -8,7 +8,7 @@
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
@@ -106,13 +106,14 @@ const deriveAdminStatus = (expiresAt: Date | undefined): 'connected' | 'expired'
  */
 const dropAdminUsers = async <T extends { readonly userId: string }>(
   c: Context,
+  app: App,
   entries: readonly T[]
 ): Promise<readonly T[]> => {
   const roles = await resolveUserRoles(
     c,
     entries.map((entry) => entry.userId)
   )
-  return entries.filter((entry) => roles.get(entry.userId) !== 'admin')
+  return entries.filter((entry) => !isAdminEquivalent(roles.get(entry.userId) ?? '', app))
 }
 
 export async function handleListUsers(c: Context, app: App) {
@@ -132,7 +133,7 @@ export async function handleListUsers(c: Context, app: App) {
   // of the connection's `scope` (per-user roster is sensitive even for
   // user-scope connections — a member should not enumerate peers).
   const role = await resolveUserRole(c, session.userId)
-  if (!isAdminRole(role)) return notFound(c, 'Connection not found')
+  if (!isAdminEquivalent(role, app)) return notFound(c, 'Connection not found')
 
   // [internal ref]: only OAuth2 connections have per-user token rows. Returning
   // `{users: []}` for apiKey/basic/bearer is misleading — it looks like
@@ -169,7 +170,7 @@ export async function handleListUsers(c: Context, app: App) {
     logError('[connections] list users failed', result.failure)
     return connectionError(c, 500, 'list_users_failed')
   }
-  const memberEntries = await dropAdminUsers(c, result.success)
+  const memberEntries = await dropAdminUsers(c, app, result.success)
   const users = memberEntries.map((entry) => ({
     userId: entry.userId,
     status: deriveAdminStatus(entry.expiresAt),

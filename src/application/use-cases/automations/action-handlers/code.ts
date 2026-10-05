@@ -8,8 +8,10 @@
 import vm from 'node:vm'
 import { Effect } from 'effect'
 import ts from 'typescript'
+import { authoredReferenceRoots } from '../authored-references'
 import { resolveCodeInputData } from './code-input-resolution'
 import { createCodeLogCollector } from './code-log-collector'
+import { authoredActionProps } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -158,6 +160,7 @@ const buildResolutionContext = (input: {
   readonly triggerData: Readonly<Record<string, unknown>>
   readonly previousSteps: Readonly<Record<string, Readonly<Record<string, unknown>>>>
   readonly env: Readonly<Record<string, string>>
+  readonly templateVars: Readonly<Record<string, unknown>> | undefined
   readonly inputData: Readonly<Record<string, unknown>>
   readonly actions: Readonly<Record<string, unknown>>
   readonly log: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => void>>
@@ -176,6 +179,8 @@ const buildResolutionContext = (input: {
     inputData: input.inputData,
     actions: input.actions,
     log: input.log,
+    // The values an authored `$env.X` / template `$name` reference inserts.
+    ...authoredReferenceRoots({ envLookup: input.env, vars: input.templateVars }),
   }
 }
 
@@ -478,11 +483,17 @@ const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutc
     triggerData: input.runContext.triggerData,
     previousSteps: input.runContext.previousSteps,
     env: input.runContext.envLookup,
+    templateVars: input.runContext.templateVars,
     inputData: {},
     actions: actionsProxy,
     log: NOOP_LOG,
   })
-  const resolvedInputData = resolveCodeInputData(input.rawInputData, resolutionContext)
+  // Final props (a code action another step dispatched with values) arrive as
+  // given: what a step handed over is never rendered as a template again.
+  const resolvedInputData =
+    input.runContext.propsFinal === true
+      ? input.rawInputData
+      : resolveCodeInputData(input.rawInputData, resolutionContext)
 
   // The user-facing context: `inputData`, `actions`, `env`, `log`, `run`.
   // Every value the user code reaches flows through `inputData` (resolved
@@ -549,11 +560,12 @@ export const handleCodeRun: ActionHandler = (action, _app, _automation, runConte
         ? (props['timeout'] as number)
         : DEFAULT_TIMEOUT_MS
 
-    // Resolve `inputData` against the code-specific context. We use the raw
-    // (pre-substitution) inputData from `runContext.rawAction` because the
-    // global engine cannot see `steps.<name>` and uses a different
-    // `trigger.data` shape.
-    const rawProps = (runContext.rawAction['props'] as Record<string, unknown> | undefined) ?? {}
+    // Resolve `inputData` against the code-specific context. We use the
+    // pre-template inputData (the authored props, `$env.X` already resolved in
+    // the text as written) because the global engine cannot see `steps.<name>`
+    // and uses a different `trigger.data` shape. A value the templates then
+    // bring in is never read for `$env.`.
+    const rawProps = authoredActionProps(runContext)
     const rawInputData = (rawProps['inputData'] as Record<string, unknown> | undefined) ?? {}
 
     // effect-promise: total -- `runCodeActionAsync` returns an `ActionOutcome`; both a compile error and a thrown user script are caught inside and returned as `{ status: 'failure' }`. Running untrusted code is the whole point, so a throw is an expected VALUE here, never a rejection.

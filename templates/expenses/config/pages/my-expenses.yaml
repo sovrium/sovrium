@@ -1,85 +1,181 @@
+# My expenses: the claims of whoever is signed in, and nobody else's. What is
+# owed first, then every claim with its receipt and its decision. The table's
+# row-level rule scopes every read to its owner on the server; the filters
+# below narrow finance's own view to the claims finance filed.
 name: my-expenses
 path: /
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: My expenses
-  description: File an expense with its receipt and follow the approval
+  title: My expenses · Halden Expenses
+  description: Your claims, what you are owed, and the decision each one waits for.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-4xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: My expenses
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: You only see your own expenses here — row-level permissions scope the table to you, server-side. Admins see everything on the Review page.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: File an expense
-          - type: text
-            element: p
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: font-mono text-[15px] font-semibold text-foreground
+                content: My expenses
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add expense
+                props:
+                  data-testid: add-expense
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-expense-dialog
+          # The claim form. It asks for the receipt and what was paid, never
+          # for the person: the server stamps whoever is signed in.
+          - type: dialog
+            formRef: add-expense
             props:
-              className: text-sm mb-4
-            content: New expenses start Pending — an approval automation asks the admins and stamps the outcome.
-          - type: form
+              id: add-expense-dialog
+              title: Add expense
+              description: Finance decides, and the claim waits on this page until then.
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Four figures, each summed from your own claims on every visit.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Waiting on a decision
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: filer, operator: eq, value: $currentUser.id }
+                        - { field: status, operator: eq, value: Pending }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Approved, to be repaid
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: filer, operator: eq, value: $currentUser.id }
+                        - { field: status, operator: eq, value: Approved }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Repaid this quarter
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: filer, operator: eq, value: $currentUser.id }
+                        - { field: status, operator: eq, value: Reimbursed }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Rejected
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: filer, operator: eq, value: $currentUser.id }
+                        - { field: status, operator: eq, value: Rejected }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+              - type: container
+                props:
+                  className: flex items-center gap-2 text-[13px] text-foreground-muted
+                children:
+                  - type: icon
+                    props:
+                      name: lock
+                      size: 14
+                  - type: text
+                    element: span
+                    content: Only you and finance see your claims.
+              - type: filter-bar
+                publishes:
+                  bindTo: my-claims-filter
+                fields:
+                  - { name: description, label: Search your claims, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Pending, label: Pending }
+                      - { value: Approved, label: Approved }
+                      - { value: Reimbursed, label: Reimbursed }
+                      - { value: Rejected, label: Rejected }
+                  - name: category
+                    label: Category
+                    kind: select
+                    options:
+                      - { value: Software, label: Software }
+                      - { value: Travel, label: Travel }
+                      - { value: Meals, label: Meals }
+                      - { value: Equipment, label: Equipment }
+                      - { value: Other, label: Other }
+              # Bound to the `my_claims` view, newest first, and read-only: a
+              # claim is changed by finance, not by editing a cell.
+              - type: table
+                props:
+                  id: my-claims
+                  # A stored receipt name carries a unique prefix; the
+                  # cell shows its start and the link opens the file. The
+                  # category (third column) is a neutral outlined word: its
+                  # option colours are kept for the spend chart on Review.
+                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle [&_td:nth-child(3)_span]:!bg-transparent [&_td:nth-child(3)_span]:!text-foreground-muted [&_td:nth-child(3)_span]:!border-border'
+                dataSource:
+                  table: expenses
+                  view: my_claims
+                  bindTo: my-claims-filter
+                  sharedFilter: {}
+                  filter:
+                    - { field: filer, operator: eq, value: $currentUser.id }
+                columns:
+                  - { field: expense_date, label: Date, format: short-date }
+                  - { field: description, label: Description }
+                  - { field: category, label: Category }
+                  - { field: receipt, label: Receipt }
+                  - { field: status, label: Status }
+                  - { field: decision_reason, label: Why }
+                  - { field: amount, label: Amount, format: currency }
+                onRowClick:
+                  action: openDrawer
+                  component: my-claim
+                pagination:
+                  pageSize: 25
+                emptyMessage: No expenses yet. Add what you paid for the company with its receipt; once finance approves it, you are repaid in the next monthly transfer.
+          # One claim, from `/?record=<id>` or a click on its row: the amount,
+          # the receipt, and where the decision stands.
+          - type: drawer
+            id: my-claim
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
             dataSource:
               table: expenses
-            fields:
-              - field: description
-              - field: amount
-              - field: category
-              - field: expense_date
-              - field: receipt
-            action:
-              type: crud
-              operation: create
-              table: expenses
-              onSuccess:
-                navigate: /
-                toast:
-                  message: Expense filed — sent for approval
-                  variant: success
-
-      - type: table
-        dataSource:
-          table: expenses
-          sort:
-            - field: created_at
-              direction: desc
-        columns:
-          - field: description
-            label: Description
-          - field: amount
-            label: Amount
-            format: currency
-            sortable: true
-          - field: category
-            label: Category
-            filterable: true
-          - field: expense_date
-            label: Date
-            format: short-date
-            sortable: true
-          - field: status
-            label: Status
-            filterable: true
-        pagination:
-          pageSize: 10
-        emptyMessage: Nothing filed yet — add your first expense above.
+            props:
+              title: Claim
+            recordFields:
+              - { name: description, type: single-line-text, label: Description }
+              - { name: amount, type: currency, label: Amount }
+              - { name: category, type: single-select, label: Category }
+              - { name: expense_date, type: date, label: Date }
+              - { name: status, type: status, label: Decision }
+              - { name: receipt_name, type: single-line-text, label: Receipt }
+              - { name: kind, type: single-select, label: Backed by }
+              - { name: decision_reason, type: long-text, label: Why it was rejected }
+              - { name: reimbursed_at, type: date, label: Repaid on }

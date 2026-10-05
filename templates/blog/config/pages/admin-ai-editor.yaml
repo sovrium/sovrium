@@ -1,46 +1,45 @@
+# The editorial assistant: ask it for a draft, an edit or a review. Everything
+# it writes is held until you approve it, and a draft it creates arrives on the
+# desk marked Awaiting approval.
 name: admin-ai-editor
 path: /admin/ai-editor
 access:
-  require: authenticated
+  require: [admin]
   redirectTo: /admin/login
 meta:
-  title: Admin · AI editor
-  description: Draft, revise, and review posts with the AI editorial assistant
+  title: Assistant · Field Notes
+  description: Ask the editorial assistant for a draft, an edit or a review.
 components:
   - type: container
-    element: section
     props:
-      className: bg-background min-h-screen py-10 px-6
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: max-w-3xl mx-auto
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: link
-            props:
-              href: /admin
-              className: text-md mb-6 inline-block text-primary hover:underline
-            content: ← Back to posts
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-2 text-foreground
-            content: AI editor
-          - type: text
-            element: p
-            props:
-              className: text-md mb-6 text-muted-foreground
-            content: >-
-              Ask the assistant to draft a new post, revise a draft, or review an
-              article. It proposes changes as drafts — you approve before anything
-              is saved or published.
-
           - type: container
             props:
-              className: rounded-lg border border-border bg-card p-2
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
             children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Assistant
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: text
+                element: p
+                props:
+                  className: max-w-[640px] text-[14px] text-foreground-muted
+                content: Ask for a draft, an edit or a review. The assistant proposes; nothing it writes is saved or published until you approve it.
               - type: ai-chat
                 agent: blog-editor
-                placeholder: e.g. "Draft a 600-word post titled 'Why we self-host' and tag it Engineering"
-                chatHeight: 640
+                placeholder: Draft a 600-word essay titled "Why we self-host" and tag it Engineering
+                chatHeight: 560
                 showHistory: true

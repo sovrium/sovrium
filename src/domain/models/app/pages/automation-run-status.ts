@@ -8,8 +8,8 @@
 /**
  * The automation-run status vocabulary, spoken the operator's way.
  *
- * The runs API surfaces the engine's terminal status verbatim
- * (`completed` / `failed` / `completed-with-errors`). Wherever a page reads that
+ * The runs API surfaces the engine's status verbatim (`completed`, `failed`,
+ * `waiting-approval`, `rejected` …). Wherever a page reads that
  * API, the `status` field is mapped to its operator-facing label here, so a run
  * reads `Success` rather than `completed` without a server change or a
  * per-column value map in config. A generic system source keeps its raw values:
@@ -34,6 +34,16 @@ export const RUN_STATUS_LABELS: Readonly<Record<string, string>> = {
   completed: 'Success',
   failed: 'Failed',
   'completed-with-errors': 'Partial',
+  'waiting-approval': 'Waiting for approval',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  exhausted: 'Retries exhausted',
+  'timed-out': 'Timed out',
+  queued: 'Queued',
+  running: 'Running',
+  skipped: 'Skipped',
+  // A step a `filter` stopped — the run itself reads `Skipped`.
+  filtered: 'Filtered out',
 }
 
 /**

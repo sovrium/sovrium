@@ -13,13 +13,13 @@
  * other module here exists to make these four correct.
  */
 
-import { Schema } from 'effect'
 import { withComponents } from './components-registry'
-import { documentedSides } from './document-sides'
+import { apiJsonSchemaDocument, documentedSides } from './document-sides'
 import { emptyToNullable, inlineDefs, normalize } from './normalize'
 import { convert } from './schema-to-json'
 import type { JsonSchema } from './markers'
 import type { RouteSpec } from './route-spec'
+import type { Schema } from 'effect'
 
 /**
  * Convert an Effect Schema to a JSON-Schema object for a response or request
@@ -82,7 +82,7 @@ export const effectParameters = (
   // the wire — that is the whole point of the default — while the decoded value
   // it produces is always present. Reading `required` off the decoded side
   // would publish every defaulted query parameter as mandatory.
-  const encodedRequired = Schema.toJsonSchemaDocument(schema as never).schema['required']
+  const encodedRequired = apiJsonSchemaDocument(schema).schema['required']
   const requiredNames = Array.isArray(encodedRequired) ? (encodedRequired as readonly string[]) : []
   return Object.entries(properties as Record<string, JsonSchema>).map(([name, propertySchema]) => {
     const { description } = propertySchema

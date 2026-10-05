@@ -138,7 +138,7 @@ export const createApiRoutes = <T extends Hono>(
   const honoWithSharedViews = chainSharedViewRoute(honoWithTables, resolveLiveApp)
 
   // Chain activity routes (activity log access)
-  const honoWithActivity = chainActivityRoutes(honoWithSharedViews)
+  const honoWithActivity = chainActivityRoutes(honoWithSharedViews, resolveLiveApp)
 
   // Chain analytics routes only when analytics is enabled (not undefined, not false)
   // When analytics is not configured, all /api/analytics/* endpoints return 404 (no routes registered)
@@ -160,6 +160,8 @@ export const createApiRoutes = <T extends Hono>(
             slug: link.slug,
             destinations: linkTargets(link).map((target) => target.to),
           })),
+        // The read endpoints admit the live app's top role beside `admin`.
+        resolveApp: resolveLiveApp,
       })
     : honoWithActivity
 
@@ -310,10 +312,10 @@ export const createApiRoutes = <T extends Hono>(
   // Always registered; the handler returns 401 when no session is attached
   // (the `/api/realtime/presence` auth chain is installed above when
   // `app.auth` is configured).
-  const honoWithRealtime = chainRealtimeRoutes(honoWithCommandSearch, app)
+  const honoWithRealtime = chainRealtimeRoutes(honoWithCommandSearch, app, getSession)
 
   // Chain auth routes (role manipulation prevention)
-  return chainAuthRoutes(honoWithRealtime, auth)
+  return chainAuthRoutes(honoWithRealtime, app, auth)
 }
 
 /**

@@ -32,6 +32,9 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # BASE_URL=http://localhost:3000
 # DATABASE_URL=postgresql://user:password@localhost:5432/dbname   # omit → SQLite
 # SOVRIUM_TIMEZONE=UTC                   # IANA zone for schedules and displayed dates; TZ is ignored
+# SOVRIUM_DEV_CLOCK=                    # development only: ISO 8601 instant every "today" answers at
+# API_IP_RATE_LIMIT=1200                 # API requests per client address per window; raise when many users share one address
+# RATE_LIMIT_WINDOW_SECONDS=60           # seconds in every per-address rate-limit window; a whole number above zero
 
 # ── Running under a supervisor ─────────────────────────────────────────
 # A supervising process — the Sovrium desktop app, a systemd unit, a CI step —

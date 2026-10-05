@@ -34,7 +34,6 @@
  * fast-refresh `only-export-components` rule).
  */
 
-import { deriveOptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import {
@@ -59,6 +58,11 @@ import {
   computeUserNameClasses,
   computeUserPillClasses,
 } from '../../design/cell-affordances-default-classes'
+import {
+  resolveOptionChipPaint,
+  type BadgeForm,
+  type OptionChipPaint,
+} from '../../design/option-chip-paint'
 import { readsAsList } from '../runtime/cell-value-semantics'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
@@ -113,24 +117,16 @@ export interface CellFieldOptions {
  */
 function resolveChipPaint(
   display: string,
-  options: readonly SelectOptionLike[] | undefined
-): React.CSSProperties | undefined {
+  options: readonly SelectOptionLike[] | undefined,
+  form?: BadgeForm
+): OptionChipPaint | undefined {
   const match = options?.find((option) => optionValue(option) === display)
-  const declared = match ? optionColor(match) : undefined
-  if (declared === undefined) return undefined
-
-  const derived = deriveOptionChipColors(declared)
-  if (!derived) return undefined
-
   // The declared hue is the FILL and never the text (ruling 4): `darkColors` is
   // inert, so one hex is the author's whole vocabulary and a hue used as text
-  // would be unreadable on one of the two surfaces. Inline styles carry the
-  // pair, so the chip reads identically in light and dark mode.
-  return {
-    backgroundColor: derived.fill,
-    color: derived.foreground,
-    border: `1px solid ${derived.border}`,
-  }
+  // would be unreadable on one of the two surfaces. The paint itself — and the
+  // outline-and-dot form `design.badgeForm` may pick — is decided in ONE place
+  // for the grid, the list and the board (`option-chip-paint.ts`).
+  return resolveOptionChipPaint(match ? optionColor(match) : undefined, form, 'grid')
 }
 
 /** Common renderer signature consumed by the dispatch map. */
@@ -163,6 +159,7 @@ export function UserPillCell({ value }: { value: unknown }): React.ReactNode {
     <span className={computeUserPillClasses()}>
       <span
         aria-hidden="true"
+        data-component-type="avatar"
         className={computeUserAvatarClasses()}
       >
         {initialsOf(display)}
@@ -246,13 +243,25 @@ export function StatusPillCell({
   if (isMissing(value)) return EMPTY_VALUE
 
   const display = String(value)
-  const paint = resolveChipPaint(display, fieldOptions?.selectOptions)
+  const paint = resolveChipPaint(
+    display,
+    fieldOptions?.selectOptions,
+    fieldOptions?.display?.badgeForm
+  )
 
   return (
     <span
+      data-component-type="badge"
       className={computeStatusPillClasses()}
-      style={paint}
+      style={paint?.style}
     >
+      {paint?.dot && (
+        <span
+          data-badge-dot=""
+          className={paint.dot.className}
+          style={paint.dot.style}
+        />
+      )}
       {display}
     </span>
   )
@@ -479,7 +488,7 @@ export function ArrayChipsCell({
         <span
           key={`chip-${String(i)}`}
           className={computeArrayChipClasses()}
-          style={resolveChipPaint(item, fieldOptions?.selectOptions)}
+          style={resolveChipPaint(item, fieldOptions?.selectOptions)?.style}
         >
           {item}
         </span>

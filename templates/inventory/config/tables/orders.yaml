@@ -47,6 +47,14 @@ fields:
     name: units
     type: integer
     min: 0
+  # The line under the order on the board card, counted in words: "1 line",
+  # "3 lines". A formula keeps the grammar in one place instead of in every
+  # card that prints it.
+  - id: 21
+    name: card_summary
+    type: formula
+    formula: "CASE WHEN lines IS NULL THEN '' ELSE CAST(lines AS TEXT) || CASE WHEN lines = 1 THEN ' line' ELSE ' lines' END || ' · ' || CAST(COALESCE(units, 0) AS TEXT) || CASE WHEN units = 1 THEN ' unit' ELSE ' units' END END"
+    resultType: string
   - id: 19
     name: total
     type: currency
@@ -68,6 +76,15 @@ fields:
   - id: 16
     name: updated_at
     type: updated-at
+
+views:
+  # The orders still to ship — drafted, confirmed or being picked. The
+  # sidebar counts them beside Orders.
+  - id: open_orders
+    name: Open orders
+    filters:
+      and:
+        - { field: status, operator: in, value: [Draft, Confirmed, Picking] }
 
 aiAccess:
   description: >-

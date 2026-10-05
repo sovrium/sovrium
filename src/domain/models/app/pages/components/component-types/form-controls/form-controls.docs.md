@@ -129,7 +129,7 @@ Bind the select to a table and let each row become an option. `table` and `displ
 
 `options` and `dataSource` are **mutually exclusive** — both answer "what are the choices", so declaring the two together is refused at startup. `displayField` has no default on purpose: guessing would silently produce a dropdown of blank rows on any table that did not happen to match.
 
-The rows are read on the **server**, before the page is sent, so the choices are in the first response — no empty flash on arrival, and crawlers see them. That also means the table's read permission gates the binding: a visitor who may not read the table gets an empty dropdown, and not one of its row values reaches the page. Filters accept `$currentUser.*` references, resolved per request, so a per-user option list is a supported binding.
+The rows are read on the **server**, before the page is sent, so the choices are in the first response — no empty flash on arrival, and crawlers see them. That also means the binding answers the records API's read rules for the visitor: one who may not read the table gets an empty dropdown, and not one of its row values reaches the page; one who may read it is offered only the rows the table's row-level read rule shows them. Filters accept `$currentUser.*` references, resolved per request, so a per-user option list is a supported binding.
 
 Because the whole list is rendered into the page, `limit` caps it at 1000. A picker over a table larger than that is a different control — one that searches the table as you type — and is `record-picker` rather than this.
 

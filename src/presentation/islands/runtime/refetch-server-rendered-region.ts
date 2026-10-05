@@ -36,7 +36,7 @@
  * warns about.
  *
  * So the server re-renders and the client swaps a subtree, which is the shape
- * the admin shell's SPA navigation already uses (`admin-spa-nav-swap.ts`). Two
+ * the admin shell's SPA navigation already uses (`navigation/spa-nav-swap.ts`). Two
  * properties make it faithful rather than clever:
  *
  *  - a page whose component tree carries a `dataSource` classifies as
@@ -177,7 +177,7 @@ function swapRegion(swap: RegionSwap): void {
  * await. It does not throw and it logs nothing: the whole page renders with
  * every island un-mounted. Measured here, it failed every data-table criterion
  * in this feature's own spec file while leaving the new one green, which is the
- * signature to recognise. `admin-spa-nav-swap.ts` can dynamically import it only
+ * signature to recognise. `navigation/spa-nav-swap.ts` can dynamically import it only
  * because it lives in a LAZY island chunk, outside that closure.
  *
  * So a region holding a mounted island is LEFT ALONE rather than swapped. That

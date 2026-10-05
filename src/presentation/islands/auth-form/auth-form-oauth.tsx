@@ -67,6 +67,7 @@ export function OAuthSignInForm(props: OAuthSignInFormProps): React.ReactElement
     >
       <button
         type="submit"
+        data-component-type="button"
         disabled={isPending}
         data-oauth-provider={provider}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}

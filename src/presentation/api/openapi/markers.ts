@@ -144,6 +144,14 @@ export const STRICT_KEYS_MARKER = 'sovrium:strict-keys'
  */
 export const OPEN_KEYS_MARKER = 'sovrium:open-keys'
 
+/** `{ type: 'object', additionalProperties: … }` and nothing else: a rest signature. */
+const isRestSignatureBranch = (branch: unknown): boolean =>
+  typeof branch === 'object' &&
+  branch !== null &&
+  Object.keys(branch).length === 2 &&
+  (branch as JsonSchema)['type'] === 'object' &&
+  'additionalProperties' in branch
+
 /**
  * Drop `additionalProperties: false`, which Effect emits for every Struct.
  *
@@ -182,8 +190,19 @@ export const stripAdditionalProperties = (schema: JsonSchema): JsonSchema => {
   // the keyword on a component that rejects nothing and claims nothing. So the
   // intent is marked at the source, like {@link STRICT_KEYS_MARKER} next door.
   if (schema['title'] === OPEN_KEYS_MARKER) {
-    const { title: _open, ...opened } = schema
-    return { ...opened, additionalProperties: { nullable: true } }
+    const { title: _open, allOf, ...opened } = schema
+    // Effect 4.0.0 renders the rest signature of a struct that also names
+    // properties as `allOf: [{ type: 'object', additionalProperties: <rest> }]`.
+    // The keyword set below already says "any further key", so those branches
+    // are dropped rather than published twice; any other branch is kept.
+    const kept = Array.isArray(allOf)
+      ? allOf.filter((branch) => !isRestSignatureBranch(branch))
+      : []
+    return {
+      ...opened,
+      ...(kept.length > 0 ? { allOf: kept } : {}),
+      additionalProperties: { nullable: true },
+    }
   }
   if (base['additionalProperties'] !== false) return base
   // A schema that really DOES reject unknown keys keeps the keyword. An Effect

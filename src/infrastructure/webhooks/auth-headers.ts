@@ -5,16 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveEnvInString } from '@/domain/models/app/env-reference-service'
 import { computeHmacSignature } from './signature'
 import type { Webhook } from '@/domain/models/app/tables/webhooks'
-
-/**
- * Resolve a `$env.` reference to its environment-variable value. A bare
- * string (no `$env.` prefix) is returned verbatim. Unset variables resolve
- * to an empty string so a missing secret never crashes delivery.
- */
-const resolveEnvRef = (value: string): string =>
-  value.startsWith('$env.') ? (process.env[value.slice('$env.'.length)] ?? '') : value
 
 /**
  * Build the authentication headers for an outgoing webhook delivery from the
@@ -27,17 +20,23 @@ const resolveEnvRef = (value: string): string =>
  *   (default `X-Api-Key`).
  * - `bearer`: places `Bearer <token>` under `Authorization`.
  *
- * Secrets/keys/tokens support `$env.` references, resolved at delivery time.
+ * Secrets/keys/tokens support `$env.` references, resolved at delivery time
+ * against `envLookup` — the lookup `buildEnvLookup` builds from `app.env`, so
+ * only DECLARED variables resolve (operator value first, declared `default`
+ * second), exactly as every other `$env` in the configuration. Boot refuses a
+ * reference to an undeclared variable, so none reaches this point.
  * A webhook with no `auth` produces no headers.
  *
  * @public
  */
 export const buildAuthHeaders = async (
   webhook: Webhook,
-  body: string
+  body: string,
+  envLookup: Readonly<Record<string, string>>
 ): Promise<Record<string, string>> => {
   const { auth } = webhook
   if (!auth) return {}
+  const resolveEnvRef = (value: string): string => resolveEnvInString(value, envLookup)
 
   if (auth.type === 'hmac') {
     const algorithm = auth.algorithm ?? 'sha256'

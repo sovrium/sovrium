@@ -11,10 +11,12 @@ import { useSaveStatusState } from './use-save-status'
 import { useSaveTokens } from './use-save-tokens'
 import { useUpdateRecord } from './use-table-mutations'
 import type { RecordButtonConfig } from '../runtime/record-button'
+import type { CalendarWeekday } from '@/domain/kernel/format/calendar-date'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
+import type { BadgeForm, OptionChipPaint } from '@/presentation/design/option-chip-paint'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,6 +73,10 @@ export interface FieldDisplayMeta extends CurrencyDisplayOptions {
   readonly displayFormat?: DurationDisplayFormat
   /** `formula` — the declared result kind (`text`, `number`, `date`, …). */
   readonly resultType?: string
+  /** An option field's chip form, from `design.badgeForm` — present only for `outline-dot`. */
+  readonly badgeForm?: BadgeForm
+  /** `date` / `datetime` — the day of the week printed before the date. */
+  readonly weekday?: CalendarWeekday
 }
 
 /**
@@ -178,6 +184,17 @@ export interface FieldMeta {
    * predicate that decides which rows show it.
    */
   readonly button?: RecordButtonConfig
+  /**
+   * An option field's chip paints, by value — resolved on the server for a
+   * board's `badge` footer so it draws the grid's chip (`option-badge-paints.ts`).
+   */
+  readonly paints?: Readonly<Record<string, OptionChipPaint>>
+  /**
+   * The grid's reader may read this field but not write it — marked on the
+   * server from her permission map (`caller-table-inputs.ts`). No surface of
+   * the grid offers an input for it.
+   */
+  readonly readOnly?: boolean
 }
 
 export type FieldMetaMap = Readonly<Record<string, FieldMeta>>

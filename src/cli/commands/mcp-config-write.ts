@@ -78,6 +78,7 @@ import type {
   ConfigWriteRequest,
 } from '@/application/use-cases/config/config-mcp-tools'
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 /** What the stdio verb knows and this module needs. */
 export interface ConfigWriteContext {
@@ -270,10 +271,13 @@ const isServerRunning = async (): Promise<boolean> => {
  * answer has refused nothing, and turning that into a refusal here would strand an
  * edit on an obstruction the write itself cannot hit.
  */
-const preflightRefusal = async (app: App): Promise<ConfigToolOutcome | undefined> => {
+const preflightRefusal = async (
+  app: App,
+  authoredTableIds: AuthoredTableIds
+): Promise<ConfigToolOutcome | undefined> => {
   if (!(await isServerRunning())) return undefined
   const { planDatabaseRefusals } = await import('./app-prelude')
-  const planned = await planDatabaseRefusals(app)
+  const planned = await planDatabaseRefusals(app, authoredTableIds)
   if (planned.kind === 'unanswerable') return undefined
   const { refusals } = planned
   if (refusals.length === 0) return undefined
@@ -344,7 +348,7 @@ const judgeCandidate = async (
 
   const blocked =
     (await postDecodeRefusal(decoded, candidate.refSources)) ??
-    (await preflightRefusal(decoded.app)) ??
+    (await preflightRefusal(decoded.app, decoded.authoredTableIds)) ??
     destructiveRefusal(before?.parsed, candidate.parsed, request.acknowledgeDataLoss) ??
     fieldIdRefusal(before?.parsed, candidate.parsed)
 

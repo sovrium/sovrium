@@ -63,6 +63,7 @@ import {
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 
 /**
  * Width of every per-table fan-out in this file.
@@ -146,7 +147,7 @@ async function aggregateOneTable(tableName: string): Promise<TableAggregateRow> 
   try {
     const rows = await executeRawTyped<AggregateQueryRow>(
       db,
-      sql`SELECT SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS live_count, SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END) AS soft_deleted_count, MAX(updated_at) AS last_write FROM ${sql.identifier(tableName)}`
+      sql`SELECT SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS live_count, SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END) AS soft_deleted_count, MAX(updated_at) AS last_write FROM ${tableIdentifier(tableName)}`
     )
     const row = rows[0]
     return {
@@ -175,7 +176,7 @@ const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOvervi
       try {
         const result = await executeRawTyped<{ readonly count: number | string }>(
           db,
-          sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE deleted_at IS NULL`
+          sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE deleted_at IS NULL`
         )
         return toFiniteCount(result[0]?.count)
       } catch {
@@ -200,7 +201,7 @@ async function countWritesInWindow(
   try {
     const result = await executeRawTyped<{ readonly count: number | string }>(
       db,
-      sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
+      sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
     )
     return toFiniteCount(result[0]?.count)
   } catch {
@@ -247,7 +248,7 @@ async function countWritesPerBucketOneTable(
 
     const rows = await executeRawTyped(
       db,
-      sql`SELECT ${sql.join(bucketColumns, sql.raw(', '))} FROM ${sql.identifier(tableName)} WHERE updated_at >= ${windowStart.toISOString()} AND updated_at < ${windowEnd.toISOString()}`
+      sql`SELECT ${sql.join(bucketColumns, sql.raw(', '))} FROM ${tableIdentifier(tableName)} WHERE updated_at >= ${windowStart.toISOString()} AND updated_at < ${windowEnd.toISOString()}`
     )
     const row = rows[0]
     return buckets.map((_bucket, index) => toFiniteCount(row?.[bucketAlias(index)]))
@@ -265,40 +266,40 @@ async function countWritesPerBucketOneTable(
  */
 export const TablesOverviewRepositoryLive = Layer.succeed(TablesOverviewRepository, {
   aggregateTables: (tableNames) =>
-    Effect.all(
-      tableNames.map((name) =>
+    Effect.forEach(
+      tableNames,
+      (name) =>
         Effect.tryPromise({
           try: () => aggregateOneTable(name),
           catch: (cause) => new TablesOverviewError({ cause }),
-        })
-      ),
+        }),
       { concurrency: TABLE_FANOUT_CONCURRENCY }
     ),
 
   countLiveRows: (tableNames) =>
-    Effect.all(tableNames.map(countLiveRowsOne), { concurrency: TABLE_FANOUT_CONCURRENCY }),
+    Effect.forEach(tableNames, countLiveRowsOne, { concurrency: TABLE_FANOUT_CONCURRENCY }),
 
   countWritesPerTable: (tableNames, windowStart, windowEnd) =>
-    Effect.all(
-      tableNames.map((name) =>
+    Effect.forEach(
+      tableNames,
+      (name) =>
         Effect.tryPromise({
           try: () => countWritesInWindow(name, windowStart, windowEnd),
           catch: (cause) => new TablesOverviewError({ cause }),
-        })
-      ),
+        }),
       { concurrency: TABLE_FANOUT_CONCURRENCY }
     ),
 
   countWritesPerBucket: (tableNames, buckets) =>
     buckets.length === 0
       ? Effect.succeed([])
-      : Effect.all(
-          tableNames.map((name) =>
+      : Effect.forEach(
+          tableNames,
+          (name) =>
             Effect.tryPromise({
               try: () => countWritesPerBucketOneTable(name, buckets),
               catch: (cause) => new TablesOverviewError({ cause }),
-            })
-          ),
+            }),
           { concurrency: TABLE_FANOUT_CONCURRENCY }
         ).pipe(
           // Transpose: one row per table, each holding one count per bucket →

@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { type Context } from 'hono'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   mcpResourceIdentifier,
   mcpResourceServerCredentials,
@@ -16,6 +16,7 @@ import {
 } from '@/infrastructure/auth/better-auth/mcp-resource-identity'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { JWTPayload } from 'jose'
 
@@ -61,6 +62,17 @@ export type McpCallerRole = 'admin' | 'member' | 'viewer'
  * optional because `readCallerFromAuthInfo`'s fail-closed fallback constructs
  * a caller without one.
  */
+/** The MCP tier an admin-equivalent account role maps to. */
+const MCP_ADMIN_TIER: McpCallerRole = 'admin'
+
+/**
+ * Is this caller on the MCP `admin` tier — the tier every admin-equivalent
+ * account role maps to ({@link mapUserRoleToMcpRole})? The admin-only tools
+ * (internals, audit list, config) ask this, never the raw account role.
+ */
+export const isAdminTierCaller = (caller: Readonly<Pick<McpCaller, 'role'>>): boolean =>
+  caller.role === MCP_ADMIN_TIER
+
 export interface McpCaller {
   readonly role: McpCallerRole
   readonly userId: string | undefined
@@ -127,11 +139,12 @@ export type McpAuthOutcome =
  */
 export const authenticateMcpRequest = async (
   c: Readonly<Context>,
-  authInstance: McpAuthInstance | undefined
+  authInstance: McpAuthInstance | undefined,
+  app: AdminRoleResolvable
 ): Promise<McpAuthOutcome> => {
   const presentedKey = c.req.header('x-api-key')
   if (presentedKey !== undefined && presentedKey.length > 0) {
-    return authenticateWithApiKey(c, authInstance)
+    return authenticateWithApiKey(c, authInstance, app)
   }
 
   // eslint-disable-next-line functional/no-let -- the verified claims are handed to an inner callback by the upstream handler; there is no return channel for them
@@ -161,7 +174,7 @@ export const authenticateMcpRequest = async (
     return { ok: false, response: guardResponse }
   }
 
-  const caller = await bridgeClaimsToCaller(c, verifiedClaims)
+  const caller = await bridgeClaimsToCaller(c, verifiedClaims, app)
   if (caller === undefined) return { ok: false, response: buildUnauthenticatedResponse() }
   return { ok: true, caller }
 }
@@ -193,7 +206,8 @@ export const authenticateMcpRequest = async (
  */
 const authenticateWithApiKey = async (
   c: Readonly<Context>,
-  authInstance: McpAuthInstance | undefined
+  authInstance: McpAuthInstance | undefined,
+  app: AdminRoleResolvable
 ): Promise<McpAuthOutcome> => {
   // Unreachable once mounted: boot refuses `MCP_ENABLED=true` without
   // `app.auth`, and the instance exists whenever `app.auth` does. Failing
@@ -206,7 +220,11 @@ const authenticateWithApiKey = async (
     const user = session.user as { readonly id: string; readonly role?: string }
     return {
       ok: true,
-      caller: { role: mapUserRoleToMcpRole(user.role), userId: user.id, accountRole: user.role },
+      caller: {
+        role: mapUserRoleToMcpRole(user.role, app),
+        userId: user.id,
+        accountRole: user.role,
+      },
     }
   } catch {
     return { ok: false, response: buildUnauthenticatedResponse() }
@@ -262,7 +280,8 @@ const buildResourceServerOptions = (c: Readonly<Context>) => {
  */
 const bridgeClaimsToCaller = async (
   c: Readonly<Context>,
-  claims: Readonly<JWTPayload>
+  claims: Readonly<JWTPayload>,
+  app: AdminRoleResolvable
 ): Promise<McpCaller | undefined> => {
   const subject = typeof claims.sub === 'string' && claims.sub.length > 0 ? claims.sub : undefined
   if (subject === undefined) return undefined
@@ -290,7 +309,7 @@ const bridgeClaimsToCaller = async (
   // No user row for this subject: reject. Do NOT fall back to a role.
   if (row === undefined) return undefined
   return {
-    role: mapUserRoleToMcpRole(row.role ?? undefined),
+    role: mapUserRoleToMcpRole(row.role ?? undefined, app),
     userId: subject,
     accountRole: row.role ?? undefined,
   }
@@ -324,8 +343,20 @@ export const readBearerToken = (c: Readonly<Context>): string | undefined => {
   return bearerMatch?.[1]
 }
 
-const mapUserRoleToMcpRole = (role: string | undefined): McpCallerRole => {
-  if (isAdminRole(role)) return 'admin'
+/**
+ * Collapse an account role onto the three MCP tiers.
+ *
+ * The `admin` tier is every ADMIN-EQUIVALENT role — the built-in `admin` and
+ * the app's top role (`isAdminEquivalent`) — so the app's highest operator is
+ * offered the admin-only internals, audit and config tools exactly as the
+ * built-in `admin` is. Every other custom role still reads as `member`; a
+ * table's own grants are judged on `accountRole`, never on this tier.
+ */
+const mapUserRoleToMcpRole = (
+  role: string | undefined,
+  app: AdminRoleResolvable
+): McpCallerRole => {
+  if (role !== undefined && isAdminEquivalent(role, app)) return MCP_ADMIN_TIER
   if (role === 'viewer') return 'viewer'
   // 'member' is the default Better Auth role; any unknown role on an EXISTING
   // user row falls back to member rather than 401-ing the request, matching

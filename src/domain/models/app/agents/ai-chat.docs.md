@@ -4,7 +4,11 @@
 
 Users ask questions and issue commands in natural language; the platform translates them into permitted queries, mutations and automation triggers, then returns a structured reply. It is available both as a REST endpoint and as an embeddable page component.
 
-Chat is **native** once a provider is configured: every table and field is detected automatically, so nothing has to be declared per table. Everything done through chat is governed by the requesting user's roles and field permissions, and is written to the activity log.
+Chat is **native** once a provider is configured: every table and field is detected automatically, so nothing has to be declared per table. Everything done through chat is governed by the requesting user's roles and field permissions, and is written to the activity log. A create, update or delete asked through chat admits exactly the callers the records API admits: the user's role, her groups and, on a table with row-level rules, the roles her assignments give her.
+
+An update or delete asked through chat reaches exactly the records the records API would let the same user change. Each record is checked against the table's row-level rules: the `read` rule and the `write` rule for an update (on the record as it stands and as the change would leave it), the `read` rule and the `delete` rule for a delete. A record either rule keeps from her, a record in the trash, and a record that does not exist are all answered the same way, as not found, and nothing is written. A delete through chat moves the records to the trash, exactly as the records API's delete does, so they can be restored.
+
+A question asked through chat answers only what the records API would answer the same user. A record query (a list, a count, a total or an average) and a table the model looks up through a tool both read the tables the records API lets her read, with the same roles, groups and assignment roles, and only the rows the table's row-level read rule shows her: a row the rule hides from her is not listed, not counted and not summed. A row in the trash is left out the same way, as the records API leaves it out of a list — an agent declared in the app does not read it either. A table the records API would refuse her is neither offered to the model nor queried. An agent declared in the app reads under the role it declares instead.
 
 ## What it can and cannot do
 
@@ -65,6 +69,8 @@ The reply carries the text, the actions taken, and the session id to continue wi
 
 `POST /api/ai/transcriptions` turns a recording into text for chat dictation. Send `multipart/form-data` with a `file` part and optional `language` and `quality` fields; the answer is `{ text, language?, durationSeconds?, model }`. It needs a signed-in user when the app declares `auth` (otherwise 404). It refuses a missing, non-audio or over-25 MB file with 400, answers 429 when rate-limited (under the same `AI_CHAT_RATE_LIMIT` settings as chat messages, counted separately) and 503 when no speech provider is configured, and never stores the recording.
 
+The speech engine receives the recording under a file name whose extension comes from its audio type (`audio/webm` → `.webm`, `audio/mp4` → `.m4a`), so a browser recording named `.weba` is still accepted by engines that pick their decoder from the file name. A name that already matches its type is sent unchanged.
+
 `POST /api/ai/transcriptions` is bounded by `STT_TIMEOUT_MS`, not `API_TIMEOUT_MS`; a speech engine that does not answer in time returns 504, and one that fails returns 502. On an app without `auth`, anonymous callers are limited to `AI_ANON_RATE_LIMIT` transcriptions and chat messages per `AI_ANON_RATE_WINDOW` seconds per client address (default 10 per 60 s); the next request gets 429 with `Retry-After`.
 
 ## Everything happens through tool calls
@@ -73,7 +79,7 @@ The model is presented with a set of tool definitions — query, mutate, trigger
 
 That structure is what keeps chat grounded and auditable. A model asked to answer from its own memory will produce a plausible number; a model that must ask for one produces either the real number or an error.
 
-A destructive operation additionally requires confirmation before it executes.
+A destructive operation additionally requires confirmation before it executes. The number of records the confirmation says it will affect counts only the records the operation may reach for that user — her row-level rules apply, and records in the trash are left out — so the prompt never reveals that rows hidden from her exist. Confirming writes exactly those records.
 
 ## Streaming
 

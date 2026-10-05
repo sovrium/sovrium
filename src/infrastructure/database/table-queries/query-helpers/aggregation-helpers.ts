@@ -7,14 +7,13 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 import { INTRINSIC_ID_COLUMN } from '@/domain/models/app/tables/system-fields'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { cachedColumnExists } from '@/infrastructure/database/sql/catalog-request-cache'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
-import { isValidColumnName, validateColumnName } from '../statement/validation'
+import { isValidColumnName, validateColumnName, databaseTableName } from '../statement/validation'
 
 /**
  * `COUNT(*)` cast to a text type for the active dialect — Postgres uses the
@@ -123,20 +122,54 @@ function parseCountAggregation(
   return aggregate.count && row['count'] !== undefined ? { count: String(row['count']) } : {}
 }
 
+/** An aggregate over no values: `null` on the wire, where `undefined` would drop the key. */
+// eslint-disable-next-line unicorn/no-null -- JSON wire contract: the records API answers null for an aggregate over no values
+const NO_VALUES = null
+
 /**
- * Parse numeric aggregation fields (sum, avg, min, max)
+ * Parse numeric aggregation fields (sum, avg). SQL's `NULL` — the sum or the
+ * average of no values — answers `null`, never `0`; a non-numeric result is
+ * left out.
  */
 function parseNumericAggregation(
   row: Readonly<Record<string, unknown>>,
   fields: readonly string[],
   prefix: string
-): Readonly<Record<string, number>> {
-  return fields.reduce<Record<string, number>>((acc, field) => {
-    const key = `${prefix}_${field}`
-    if (row[key] !== null && row[key] !== undefined) {
-      return { ...acc, [field]: Number(row[key]) }
-    }
-    return acc
+): Readonly<Record<string, number | null>> {
+  return fields.reduce<Record<string, number | null>>((acc, field) => {
+    const raw = row[`${prefix}_${field}`]
+    if (raw === undefined) return acc
+    if (raw === null) return { ...acc, [field]: NO_VALUES }
+    const value = Number(raw)
+    return Number.isFinite(value) ? { ...acc, [field]: value } : acc
+  }, {})
+}
+
+/**
+ * A `min`/`max` answer: a number as a number, a date as its ISO string (a
+ * PostgreSQL date or timestamp arrives as a `Date`; SQLite stores the ISO text
+ * already), and SQL's `NULL` — the extreme of no values — as `null`, never
+ * `Number(null)`'s `0`. Anything else — text, which the records API refuses to
+ * order before the query runs — is left out.
+ */
+function orderedValue(value: unknown): number | string | null | undefined {
+  if (value === null) return NO_VALUES
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value.toISOString()
+  const numeric = Number(value)
+  if (Number.isFinite(numeric) && !(typeof value === 'string' && value.trim() === ''))
+    return numeric
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? value : undefined
+}
+
+/** Parse `min`/`max` aggregation fields: numbers, dates as ISO strings, `null` over no values. */
+function parseOrderedAggregation(
+  row: Readonly<Record<string, unknown>>,
+  fields: readonly string[],
+  prefix: string
+): Readonly<Record<string, number | string | null>> {
+  return fields.reduce<Record<string, number | string | null>>((acc, field) => {
+    const value = orderedValue(row[`${prefix}_${field}`])
+    return value === undefined ? acc : { ...acc, [field]: value }
   }, {})
 }
 
@@ -154,10 +187,10 @@ export function parseAggregationResult(
   }
 ): {
   readonly count?: string
-  readonly sum?: Readonly<Record<string, number>>
-  readonly avg?: Readonly<Record<string, number>>
-  readonly min?: Readonly<Record<string, number>>
-  readonly max?: Readonly<Record<string, number>>
+  readonly sum?: Readonly<Record<string, number | null>>
+  readonly avg?: Readonly<Record<string, number | null>>
+  readonly min?: Readonly<Record<string, number | string | null>>
+  readonly max?: Readonly<Record<string, number | string | null>>
 } {
   const countAgg = parseCountAggregation(row, aggregate)
 
@@ -173,12 +206,12 @@ export function parseAggregationResult(
 
   const minAgg =
     aggregate.min && aggregate.min.length > 0
-      ? { min: parseNumericAggregation(row, aggregate.min, 'min') }
+      ? { min: parseOrderedAggregation(row, aggregate.min, 'min') }
       : {}
 
   const maxAgg =
     aggregate.max && aggregate.max.length > 0
-      ? { max: parseNumericAggregation(row, aggregate.max, 'max') }
+      ? { max: parseOrderedAggregation(row, aggregate.max, 'max') }
       : {}
 
   return {
@@ -211,7 +244,7 @@ export function checkDeletedAtColumn(
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => cachedColumnExists(tx, tableName, 'deleted_at'),
+    try: () => cachedColumnExists(tx, databaseTableName(tableName), 'deleted_at'),
     catch: (error) =>
       new DatabaseError(`Failed to check deleted_at column for ${tableName}`, error),
   })
@@ -227,7 +260,7 @@ export interface FilterLeaf {
 }
 
 /**
- * Nestable filter node (GAP-3): a leaf, an `and` group, or an `or` group.
+ * Nestable filter node: a leaf, an `and` group, or an `or` group.
  * Row-level composite predicates project to this tree; the WHERE builder
  * renders `( … AND … )` / `( … OR … )` groups recursively.
  */
@@ -277,7 +310,7 @@ function renderFilterNode(node: FilterNode): Readonly<SQL> {
  * Column names are validated via validateColumnName and rendered via
  * sql.identifier() inside generateSqlConditionFragment.
  *
- * Each top-level `and` entry may itself be a nested AND/OR group (GAP-3
+ * Each top-level `and` entry may itself be a nested AND/OR group ([internal ref]
  * composite row-level predicates); `renderFilterNode` recurses through them.
  */
 export function buildUserFilterConditions(filter?: {
@@ -341,17 +374,25 @@ function findFieldDefinition(
 }
 
 /**
- * Build CASE expression for single-select field sorting
+ * Build CASE expression for single-select field sorting.
+ *
+ * Each option value is BOUND as a parameter, never spliced into the statement:
+ * an option is author config, and a value such as `x' THEN 0 END, (SELECT 1) --`
+ * must reach the database as data (standing rule S3). The column name was
+ * validated by {@link buildSortClause} before it reaches here.
  */
 function buildSingleSelectCaseExpression(
   field: string,
   options: readonly string[],
   direction: string
-): string {
-  const caseWhen = options
-    .map((opt, idx) => `WHEN "${field}" = '${escapeSqlString(opt)}' THEN ${idx}`)
-    .join(' ')
-  return `CASE ${caseWhen} END ${direction}`
+): Readonly<SQL> {
+  const caseWhen = sql.join(
+    options.map(
+      (opt, idx) => sql`WHEN ${sql.identifier(field)} = ${opt} THEN ${sql.raw(String(idx))}`
+    ),
+    sql.raw(' ')
+  )
+  return sql`CASE ${caseWhen} END ${sql.raw(direction)} NULLS LAST`
 }
 
 /**
@@ -362,7 +403,7 @@ function buildSortClause(
   direction: string | undefined,
   app?: OrderByAppView,
   tableName?: string
-): string {
+): Readonly<SQL> {
   validateColumnName(field)
   const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
 
@@ -375,7 +416,10 @@ function buildSortClause(
     }
   }
 
-  return `"${field}" ${dir}`
+  // An empty value sorts last in both directions, on both engines: PostgreSQL
+  // defaults NULL to last ascending and first descending, SQLite the reverse,
+  // and SQLite (since 3.30) honours the same explicit clause.
+  return sql.raw(`"${field}" ${dir} NULLS LAST`)
 }
 
 /**
@@ -484,16 +528,13 @@ export function buildOrderByClause(
   if (!sort) return sql.raw(defaultOrderByClause(primaryKey))
 
   const sortParts = sort.split(',').map((part) => part.trim())
-  const orderClauses = sortParts
-    .map((part) => {
-      const [field, direction] = part.split(':')
-      if (!field) return ''
-      return buildSortClause(field, direction, app, tableName)
-    })
-    .filter((c) => c !== '')
+  const orderClauses = sortParts.flatMap((part) => {
+    const [field, direction] = part.split(':')
+    return field ? [buildSortClause(field, direction, app, tableName)] : []
+  })
 
   return orderClauses.length > 0
-    ? sql.raw(` ORDER BY ${orderClauses.join(', ')}`)
+    ? sql`${sql.raw(' ORDER BY ')}${sql.join(orderClauses, sql.raw(', '))}`
     : sql.raw(defaultOrderByClause(primaryKey))
 }
 
@@ -575,7 +616,7 @@ export function buildSelectListClause(
   if (columns === undefined || columns.length === 0) return Effect.succeed(sql.raw('*'))
   return Effect.tryPromise({
     try: async () => {
-      const existing = await getExistingColumnNames(tx, tableName, columns)
+      const existing = await getExistingColumnNames(tx, databaseTableName(tableName), columns)
       const projected = columns.filter((name) => existing.has(name))
       return projected.length === 0
         ? sql.raw('*')
@@ -626,7 +667,7 @@ export function checkAuthorshipColumns(
 > {
   return Effect.tryPromise({
     try: async () => {
-      const columns = await getExistingColumnNames(tx, tableName, [
+      const columns = await getExistingColumnNames(tx, databaseTableName(tableName), [
         'created_by',
         'updated_by',
         'deleted_by',

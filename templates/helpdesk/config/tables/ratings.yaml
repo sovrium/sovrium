@@ -1,0 +1,38 @@
+# How requesters rated the answer they got, one row per ticket. The link in
+# the resolution email opens the rating page on its ticket.
+id: 3
+name: ratings
+fields:
+  # One rating per ticket: a second one for the same ticket is refused, so a
+  # link passed around cannot pile up scores.
+  - id: 1
+    name: ticket
+    type: relationship
+    relatedTable: tickets
+    relationType: many-to-one
+    displayField: subject
+    required: true
+    unique: true
+  - id: 2
+    name: score
+    type: rating
+    max: 5
+    required: true
+  - id: 3
+    name: comment
+    type: long-text
+  - id: 4
+    name: rated_at
+    type: created-at
+
+# Written by anyone through the rating page (config/forms/rate-answer.yaml);
+# read by the team only.
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin

@@ -1,6 +1,6 @@
 {
-  "name": "Sovrium Blog",
-  "description": "A self-hostable blog CMS — a WordPress alternative.",
+  "name": "Field Notes — a Sovrium blog",
+  "description": "A publication: essays with covers, moderated comments, RSS, and a desk that schedules posts.",
   "repository": "https://github.com/sovrium/blog-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/blog",
@@ -18,6 +18,11 @@
     "BASE_URL": {
       "description": "Public URL of this app (e.g. https://my-blog.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
       "required": true
+    },
+    "STORAGE_DEFAULT_ACCESS": {
+      "description": "Serves stored files without a session, so readers see the covers and the author portraits. This app stores no other file.",
+      "value": "public",
+      "required": false
     },
     "AUTH_ADMIN_EMAIL": {
       "description": "Bootstrap the first admin account on first start (optional — you can also run `sovrium admin create <email>` later).",

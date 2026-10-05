@@ -98,7 +98,7 @@ export const submissionResponseSchema = Schema.Struct({
   linkedRecord: Schema.NullOr(
     Schema.Struct({
       table: Schema.String,
-      id: Schema.Union([Schema.String, Schema.Finite]),
+      id: Schema.String,
     }).annotate({
       description: 'Bound-table row reference when submitTo.table was set; null otherwise',
     })

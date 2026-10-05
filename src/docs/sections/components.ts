@@ -16,6 +16,7 @@ import displayComponentsBody from '@/domain/models/app/pages/components/componen
 import feedbackComponentsBody from '@/domain/models/app/pages/components/component-types/feedback/feedback.docs.md' with { type: 'file' }
 import interactiveComponentsBody from '@/domain/models/app/pages/components/component-types/interactive/interactive.docs.md' with { type: 'file' }
 import layoutComponentsBody from '@/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
+import sidebarClientNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
 import sidebarNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md' with { type: 'file' }
 import componentModulesBody from '@/domain/models/app/pages/components/component-types/modules/modules.docs.md' with { type: 'file' }
 import navigationComponentsBody from '@/domain/models/app/pages/components/component-types/navigation/navigation.docs.md' with { type: 'file' }
@@ -133,13 +134,24 @@ export const section = defineSection({
         'US-PAGES-LAYOUT-APP-SHELL-PATTERN-001',
         'US-PAGES-LAYOUT-APP-SHELL-PATTERN-002',
         'US-PAGES-LAYOUT-APP-SHELL-SIDEBAR',
-        'US-PAGES-NAVIGATION-SIDEBAR-CLIENT-CURRENT',
         'US-PAGES-NAVIGATION-SIDEBAR-DISCLOSURE',
         'US-PAGES-NAVIGATION-SIDEBAR-DRAWER',
         'US-PAGES-NAVIGATION-SIDEBAR-ENTRY-PROPS',
         'US-PAGES-NAVIGATION-SIDEBAR-GROUPS',
         'US-PAGES-NAVIGATION-SIDEBAR-SECTIONS',
       ],
+    }),
+    defineArticle({
+      slug: 'sidebar-client-navigation',
+      title: 'Client-side Navigation',
+      description:
+        'Moving between pages without a reload — clientSideNavigation swaps the content region on a sidebar link click and keeps loaded data on screen, and trackNavigation keeps the current-entry mark true after a swap.',
+      keywords: ['sovrium', 'sidebar', 'navigation', 'client-side navigation', 'spa', 'no reload'],
+      order: 3213,
+      sidebarLabel: 'Client-side Navigation',
+      body: sidebarClientNavigationBody,
+      documents: [],
+      stories: ['US-PAGES-NAVIGATION-SIDEBAR-CLIENT-CURRENT', 'US-PAGES-NAVIGATION-SPA-NAVIGATION'],
     }),
     defineArticle({
       slug: 'structural-components',

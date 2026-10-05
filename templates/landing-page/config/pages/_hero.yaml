@@ -1,0 +1,94 @@
+# One sentence about what the product does, the two ways on, and the product
+# itself: Friday's dinner as Tablée shows it. The page claims no figure it
+# cannot prove — the product view is the proof.
+type: container
+element: section
+props:
+  id: top
+  className: flex flex-col items-center gap-7 px-10 py-[72px] text-center max-md:gap-5 max-md:px-4 max-md:py-10
+children:
+  - type: container
+    props:
+      className: flex max-w-[820px] flex-col items-center gap-[18px]
+    children:
+      - type: text
+        element: p
+        props:
+          className: font-mono text-[12px] font-medium tracking-[0.06em] text-foreground-subtle uppercase
+        content: $t:hero.over
+      - type: text
+        element: h1
+        props:
+          className: text-[48px] leading-[1.08] font-semibold tracking-[-0.02em] text-foreground max-md:text-[34px]
+        content: $t:hero.title
+      - type: text
+        element: p
+        props:
+          className: max-w-[640px] text-[19px] leading-[1.55] text-foreground-muted
+        content: $t:hero.lead
+      - type: container
+        props:
+          className: flex flex-wrap justify-center gap-2.5
+        children:
+          - type: link
+            props:
+              href: '#demo'
+              className: inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground no-underline hover:bg-primary-hover
+            children:
+              - type: icon
+                props:
+                  name: calendar
+                  size: 14
+              - type: text
+                element: span
+                content: $t:hero.cta
+          - type: link
+            props:
+              href: '#how-it-works'
+              className: inline-flex h-9 items-center rounded-md border border-border bg-background-raised px-[11px] text-[13px] font-medium text-foreground no-underline hover:bg-background-subtle
+            content: $t:hero.cta2
+  # The product view. Two tables share it: five columns from a tablet up,
+  # three on a phone, so nothing runs off a narrow screen.
+  - type: container
+    props:
+      # The time in mono and the covers right-aligned, as a booking sheet
+      # reads; the classes reach the cells of the two tables below.
+      className: >-
+        w-full max-w-[960px] overflow-hidden rounded-lg border border-border bg-background-raised text-left shadow-lg
+        [&_td:first-child]:font-mono [&_td:nth-child(3)]:text-right [&_th:nth-child(3)]:text-right
+        [&_thead]:bg-background-subtle
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-2.5 border-b border-border px-4 py-3 max-md:px-3.5
+        children:
+          - type: text
+            element: p
+            props:
+              className: text-[20px] leading-[1.35] font-semibold text-foreground max-md:text-[17px]
+            content: $t:shot.title
+          - type: container
+            props:
+              className: grow
+          - type: badge
+            badgeVariant: outline
+            content: $t:shot.seats
+      - type: table
+        props:
+          className: max-md:hidden
+        caption: $t:shot.caption
+        tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers, $t:shot.table, $t:shot.status]
+        tableRows:
+          - ['19:00', Camille Roux, '2', T4, $t:shot.confirmed]
+          - ['19:30', Hugo Martin, '6', T9 + T10, $t:shot.confirmed]
+          - ['20:00', Inès Fabre, '4', T2, $t:shot.notConfirmed]
+          - ['20:45', $t:shot.walkIn, '2', T6, $t:shot.seated]
+      - type: table
+        props:
+          className: md:hidden
+        caption: $t:shot.caption
+        tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers]
+        tableRows:
+          - ['19:00', Camille Roux, '2']
+          - ['19:30', Hugo Martin, '6']
+          - ['20:00', Inès Fabre, '4']

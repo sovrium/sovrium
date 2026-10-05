@@ -70,7 +70,7 @@ Step 7 in one line: `GET /api/tables/<table>/records` for each table you touched
 ## Invariants
 
 - **Explicit field `id`s, always.** An omitted id is the field's position, so inserting a field above it re-points the data behind every later field. Never reuse, renumber or delete-and-recreate an id; a field keeps its data across a rename only because its `id` stays.
-- **Secrets live in the environment.** Write `$env.NAME` in the config and the value in `.env`; `sovrium secret generate` prints fresh auth and encryption secrets. Never a key, token or password inline, in a record, or in a commit.
+- **Secrets live in the environment.** Write `$env.NAME` in the config, declare `NAME` in its top-level `env` block (an undeclared one refuses to boot and to validate), and put the value in `.env`; `sovrium secret generate` prints fresh auth and encryption secrets. Never a key, token or password inline, in a record, or in a commit.
 - **A denied read answers 404, and that is correct.** Sovrium answers 404, never 403, to a caller who may not see a record, a table or a route. Do not "fix" it; test it.
 - **A table with no `permissions` block stays open to every non-viewer role.** Declaring any one operation denies every operation you leave out to non-admins. Decide which you mean (`sovrium docs tables/table-permissions`).
 - **`/_admin` never edits configuration.** It shows data and runs; configuration changes happen in the file.

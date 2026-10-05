@@ -35,21 +35,33 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
-      # Row metrics tuned to a short navigation: 30px rows, 13.5px labels, the
+      # Row metrics tuned to a short navigation: 32px rows, 13.5px labels, the
       # current page on the accent's quiet ground, and the HR heading as a
       # small monospace overline.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-[30px] [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3 [&_h2]:pb-1 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:tracking-wider [&_h2]:text-foreground-subtle
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:tracking-wider [&_h2]:text-foreground-subtle [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
     groups:
       - landmark: Workspace
         items:
-          - { label: Directory, href: /, icon: users }
+          - label: Directory
+            href: /
+            icon: users
+            badge:
+              endpoint: /api/tables/employees/records?limit=1
+              valuePath: pagination.total
           - { label: Time off, href: /time-off, icon: calendar }
       - label: HR
         landmark: Workspace
         headingLevel: 2
         items:
-          - { label: Requests, href: /requests, icon: inbox }
+          - label: Requests
+            href: /requests
+            icon: inbox
+            badge:
+              endpoint: /api/tables/time_off_requests/records?limit=1&filter=status:Pending
+              valuePath: pagination.total
           - { label: Overview, href: /overview, icon: chart-column }
   - type: sidebar
     visibility:
@@ -59,12 +71,19 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-[30px] [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
     groups:
       - landmark: Workspace
         items:
-          - { label: Directory, href: /, icon: users }
+          - label: Directory
+            href: /
+            icon: users
+            badge:
+              endpoint: /api/tables/employees/records?limit=1
+              valuePath: pagination.total
           - { label: Time off, href: /time-off, icon: calendar }
   - type: container
     props:

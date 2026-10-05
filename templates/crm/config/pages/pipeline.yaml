@@ -162,7 +162,7 @@ components:
                     - type: text
                       element: h3
                       props:
-                        className: text-[13px] font-medium leading-snug text-foreground
+                        className: text-[13px] font-medium leading-[18px] text-foreground
                       content: $record.name
                     - type: text
                       element: p
@@ -188,7 +188,7 @@ components:
                 dataSource:
                   table: deals
                 props:
-                  title: Deal
+                  title: $record.name
                 recordFields:
                   - { name: name, type: single-line-text, label: Deal }
                   - { name: company, type: relationship, label: Company }

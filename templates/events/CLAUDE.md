@@ -1,27 +1,33 @@
-# events
+# fieldday-events
 
-Event management — publish a public events page, take registrations through a public form, confirm each attendee by email, and run the schedule from a calendar and a registrations grid.
+Fieldday Events — a community's workshops and meetups across France. Visitors see what is on,
+when, where and how many seats are left, and register with no account; a full event offers its
+waitlist. The organizers read the month and the seats taken on one Overview, find everyone
+grouped by event, and check people in at the door.
 
 ## This app at a glance
 
-- **Tables** (2): events, registrations
-- **Pages** (5): home, thanks, sign-in, calendar, registrations
-- **Forms** (1): register
-- **Automations** (1): confirm-registration
-- **Singletons**: auth, design
+- **Tables** (2): events (seats taken and waitlist are counted from the registrations by an
+  automation, and seats left is computed from them), registrations
+- **Forms** (3): register (rendered on `/register`), join-waitlist (rendered on `/waitlist/<event>`),
+  new-event (opened in a dialog on the Overview)
+- **Pages** (9): calendar (`/calendar`, the Overview), registrations, home (`/`, public),
+  register, waitlist, thanks, thanks-event (`/thanks/<event>`), on-the-waitlist, sign-in
+- **Automations** (2): confirm-registration, recount-seats
+- **Singletons**: auth, design, env
+- **Seed data**: `seed/` — two sign-in accounts, seven events and their registrations, dated
+  relative to the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, keep
+one accent, and keep colour for the outcomes (confirmed, few seats left, full). The public
+pages never use the organizers' words — no "status", no "capacity".
 
 ---
 

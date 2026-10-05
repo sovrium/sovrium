@@ -25,7 +25,7 @@
  * either.
  *
  * The predicate itself is `FieldConditionSchema` from
- * `@/domain/models/shared/condition-operators`, matched by the shared
+ * `@/domain/models/app/tables/condition-operators`, matched by the shared
  * `satisfiesFieldCondition` — the same pair a `table` action item's
  * `visibleWhen` and a `button` field's `visibleWhen` already spend, so the three
  * ways of saying "show this on some records and not others" cannot drift apart.

@@ -6,6 +6,7 @@
  */
 
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
+import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import {
   SITEMAP_MAX_URLS,
@@ -255,10 +256,12 @@ const expandPagePaths = async (
   if (recordPaths !== undefined) return recordPaths
   if (page.contentDir) {
     const entries = await enumerateContentDir(page.contentDir, page.path)
-    return entries.map((entry) => ({
-      path: entry.path,
-      lastmod: toSitemapLastmod(entry.modifiedAt),
-    }))
+    return entries
+      .filter((entry) => isPublicArticle(entry.access))
+      .map((entry) => ({
+        path: entry.path,
+        lastmod: toSitemapLastmod(entry.modifiedAt),
+      }))
   }
   const withoutLang = page.path.replace(/(^|\/):lang(\/|$)/, '$1$2')
   if (/:[a-zA-Z0-9_]+/.test(withoutLang)) return []
@@ -631,7 +634,8 @@ const collectContentEntries = async (
       page.contentDir ? enumerateContentDir(page.contentDir, page.path) : Promise.resolve([])
     )
   )
-  return perPage.flat()
+  // A public artefact carries no article gated by its own front matter.
+  return perPage.flat().filter((entry) => isPublicArticle(entry.access))
 }
 
 /**
@@ -712,7 +716,10 @@ export const generateLlmsFullTxtContent = async (app: App, language?: string): P
       page.contentDir ? readContentDirBodies(page.contentDir, page.path) : Promise.resolve([])
     )
   )
-  const bodies = perPage.flat().map(({ body }) => body.trim())
+  const bodies = perPage
+    .flat()
+    .filter(({ entry }) => isPublicArticle(entry.access))
+    .map(({ body }) => body.trim())
   return bodies.join('\n\n').concat('\n')
 }
 

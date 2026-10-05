@@ -23,6 +23,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState, type ReactElement } from 'react'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { nullable, READ_ONCE_QUERY_OPTIONS } from './query-client'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
@@ -141,16 +142,15 @@ export interface ObjectConfirmDialogProps {
   readonly fallbackCancelLabel?: string
 }
 
-/** Resolve `$record.<field>` references in a `matchValue` against the row record. */
+/**
+ * Resolve `$record.<field>` references in a `matchValue` against the row record,
+ * through the one shared reader — an escaped `\$record.x` is the phrase itself.
+ */
 function resolveRecordTemplate(
   template: string,
   record: Record<string, unknown> | undefined
 ): string {
-  if (record === undefined || !template.includes('$record.')) return template
-  return template.replaceAll(/\$record\.(\w+)/g, (_full, field: string) => {
-    const cell = record[field]
-    return cell === undefined || cell === null ? '' : String(cell)
-  })
+  return record === undefined ? template : substituteRecordVars(template, record)
 }
 
 /**

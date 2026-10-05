@@ -46,6 +46,7 @@ import {
   BuildSubmissionsList,
 } from '@/application/use-cases/admin/forms-overview'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   bodyCaptureDisabledErrorSchema,
@@ -57,13 +58,14 @@ import {
 } from '@/domain/models/api/admin/forms/submissions-bulk'
 import { formsSubmissionsListQuerySchema } from '@/domain/models/api/admin/forms/submissions-list'
 import { decodeOrThrow, decodeSafe } from '@/domain/models/api/combinators/decode'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -165,7 +167,7 @@ async function handleFormDetail(c: FormsRouteContext, resolveApp: () => App): Pr
   const outcome = await runRequestEffect(c, provideDomain(c, BuildFormDetail(app, formName)))
   if (outcome._tag === 'NotFound') {
     // Anti-enumeration 404 — unknown form name within an authorized tier.
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   if (outcome._tag === 'ValidationFailed') {
     logError(
@@ -213,7 +215,7 @@ async function handleListSubmissions(
   // endpoint above).
   const form = (app.forms ?? []).find((f) => f.name === formName)
   if (!form) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
 
   // Parse the query string against the canonical schema (so the cursor,
@@ -305,13 +307,17 @@ async function handleSubmissionDetail(
   // Form must exist — anti-enum 404 otherwise.
   const form = (app.forms ?? []).find((f) => f.name === formName)
   if (!form) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
 
   // Resolve actor role for the D7 reveal gate (env-var + admin-role predicates
   // are HTTP/auth concerns resolved here; the use case consumes the booleans).
   const actor = await runDomainPromise(c, resolveActor(session.userId))
-  const isAdmin = isAdminRole(actor.role)
+  // Judged on the ACCOUNT role, not the audit actor's coerced tier (which
+  // reads every non-`admin` role as `operator`): the built-in `admin` and the
+  // app's top role both reveal; nobody else does.
+  const accountRole = await runDomainPromise(c, getUserRole(session.userId))
+  const isAdmin = isAdminEquivalent(accountRole, app)
   const captureAllowed = process.env['ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED'] === 'true'
 
   const outcome = await runRequestEffect(
@@ -329,7 +335,7 @@ async function handleSubmissionDetail(
   )
 
   if (outcome._tag === 'NotFound') {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   if (outcome._tag === 'RevealDenied') {
     // 403 OK: operator-level feature gate (env-var policy) or admin-only
@@ -410,7 +416,7 @@ async function handleSubmissionsBulk(
   // Form must exist — anti-enum 404 otherwise.
   const form = (app.forms ?? []).find((f) => f.name === formName)
   if (!form) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
 
   const outcome = await runRequestEffect(

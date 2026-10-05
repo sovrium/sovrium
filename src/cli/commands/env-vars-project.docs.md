@@ -8,12 +8,12 @@ The variables in **Env Vars: Core** are values — a port, a URL, a connection s
 
 A supervisor knows which folder holds the app but does not get to choose the working directory the binary is launched from. These let it say so without a `cd`.
 
-| Variable                          | Default                                   | Description                                                                                                         |
-| --------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `SOVRIUM_PROJECT_DIR`             | unset (the working directory)             | The project root: where `start` and `build` look for a config, and the jail the whole config graph must stay inside |
-| `SOVRIUM_CONFIG_FILE`             | unset (`app.yaml` → `app.yml` → `app.ts`) | The config file **within** that root, instead of probing for candidates                                             |
-| `SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE` | unset                                     | `1` makes end-of-file on stdin stop the server, the way a signal does                                               |
-| `SOVRIUM_INSTALL_METHOD`          | detected                                  | How Sovrium was installed. `desktop` hands updating to the app — see **Admin & Maintenance**                        |
+| Variable                          | Default                                   | Description                                                                                                                                                    |
+| --------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_PROJECT_DIR`             | unset (the working directory)             | The project root: where `start` and `build` look for a config, and the jail the whole config graph must stay inside                                            |
+| `SOVRIUM_CONFIG_FILE`             | unset (`app.yaml` → `app.yml` → `app.ts`) | The config file **within** that root, instead of probing for candidates                                                                                        |
+| `SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE` | unset                                     | `1` makes end-of-file on stdin stop the server, the way a signal does                                                                                          |
+| `SOVRIUM_INSTALL_METHOD`          | detected                                  | How Sovrium was installed. `desktop` hands updating to the app; `docker`, which the official image sets, prints the pull command — see **Admin & Maintenance** |
 
 ### The project directory
 

@@ -114,3 +114,26 @@ export const buildUpdateAuthorshipOverrides = (
   const names = updatedByFieldNames(tables, tableName)
   return Object.fromEntries(names.map((name) => [name, actorId]))
 }
+
+/**
+ * The `user` fields of the named table that default to the signed-in person
+ * (`default: $currentUser`), filled with `actorId` where a new record leaves
+ * them empty. Unlike a `created-by` stamp this is a DEFAULT: a value the
+ * caller supplies wins, and the field stays editable afterwards.
+ */
+export const buildCurrentUserDefaults = (
+  tables: ReadonlyArray<AuthorshipTableShape> | undefined,
+  tableName: string,
+  actorId: string,
+  fields: Readonly<Record<string, unknown>>
+): Readonly<Record<string, string>> => {
+  const names = (findTable(tables, tableName)?.fields ?? [])
+    .filter(
+      (field) =>
+        field.type === 'user' &&
+        (field as { readonly default?: unknown }).default === '$currentUser'
+    )
+    .map((field) => field.name)
+    .filter((name) => fields[name] === undefined || fields[name] === null || fields[name] === '')
+  return Object.fromEntries(names.map((name) => [name, actorId]))
+}

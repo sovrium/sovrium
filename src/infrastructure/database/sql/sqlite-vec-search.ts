@@ -46,6 +46,7 @@
 
 import { resolveRagAcceleration } from '@/domain/models/app/agents/rag-acceleration'
 import {
+  chunkFieldsOf,
   cosineSimilarity,
   deserializeEmbedding,
 } from '@/infrastructure/database/sql/ai-embedding-vector-math'
@@ -61,12 +62,15 @@ interface CandidateRow {
   readonly source_ref: string | null
   readonly content: string
   readonly embedding: unknown
+  readonly metadata: unknown
 }
 
 interface SearchInput {
   readonly embedding: ReadonlyArray<number>
   readonly query: string
   readonly agentName: string | undefined
+  /** With `agentName`, also read the global (agent-less) document chunks. */
+  readonly includeGlobal: boolean
   readonly minSimilarity: number
   readonly maxResults: number
 }
@@ -84,13 +88,14 @@ const toVecLiteral = (embedding: ReadonlyArray<number>): string => `[${embedding
  */
 const loadCandidateRows = (
   client: BunSqlite,
-  agentName: string | undefined
+  agentName: string | undefined,
+  includeGlobal: boolean
 ): ReadonlyArray<CandidateRow> => {
-  const where =
-    agentName !== undefined
-      ? 'WHERE embedding IS NOT NULL AND agent_name = ?'
-      : 'WHERE embedding IS NOT NULL'
-  const sql = `SELECT rowid, agent_name, source_ref, content, embedding FROM system_ai_embeddings ${where}`
+  const agentClause = includeGlobal
+    ? ' AND (agent_name = ? OR agent_name IS NULL)'
+    : ' AND agent_name = ?'
+  const where = `WHERE embedding IS NOT NULL${agentName !== undefined ? agentClause : ''}`
+  const sql = `SELECT rowid, agent_name, source_ref, content, embedding, metadata FROM system_ai_embeddings ${where}`
   const stmt = client.query(sql)
   // This runs on the separate raw sqlite-vec handle, invisible to the Drizzle
   // countingLogger — record the statement against the per-request query-count
@@ -208,7 +213,7 @@ export const searchSqliteVec = (
   const client = getSqliteVecClient()
   if (client === undefined) return undefined
 
-  const rows = loadCandidateRows(client, input.agentName)
+  const rows = loadCandidateRows(client, input.agentName, input.includeGlobal)
   const denseIds = denseCandidateRowids(client, rows, input)
   const lexicalIds = accel.fts5Hybrid
     ? lexicalCandidateRowids(client, rows, input.query)
@@ -224,6 +229,7 @@ export const searchSqliteVec = (
     sourceRef: row.source_ref,
     content: row.content,
     similarity: cosineSimilarity(input.embedding, deserializeEmbedding(row.embedding)),
+    fields: chunkFieldsOf(row.metadata),
     lexical: lexicalIds.has(row.rowid),
   }))
 
@@ -233,10 +239,11 @@ export const searchSqliteVec = (
   return kept
     .toSorted((a, b) => b.similarity - a.similarity)
     .slice(0, input.maxResults)
-    .map(({ agentName, sourceRef, content, similarity }) => ({
+    .map(({ agentName, sourceRef, content, similarity, fields }) => ({
       agentName,
       sourceRef,
       content,
       similarity,
+      fields,
     }))
 }

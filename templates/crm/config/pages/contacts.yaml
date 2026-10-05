@@ -110,7 +110,7 @@ components:
                 dataSource:
                   table: contacts
                 props:
-                  title: Contact
+                  title: $record.name
                 recordFields:
                   - { name: name, type: single-line-text, label: Name }
                   - { name: title, type: single-line-text, label: Title }

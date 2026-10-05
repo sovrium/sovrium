@@ -148,9 +148,18 @@ function buildFormShellRules(): string {
          name and quietly became 24px; \`APP-THEME-COMP-008\` is the spec that
          caught it. Neither carries a \`leading-*\` class any more, for the reason
          the prose recipes do not: a rung emits its own line-height, and a
-         leading class WINS the merge and replaces it. */
+         leading class WINS the merge and replaces it.
+
+         The display size is scoped to \`.form-page\`: only there is the title
+         the page's h1. An embedded form's title is a section of its host page
+         (\`props.headingLevel\` demotes it to h2/h3), so it keeps the size of
+         the heading level it renders as instead of outsizing the page's own
+         h1. */
       .form-title {
-        @apply text-foreground text-4xl font-semibold tracking-tight;
+        @apply text-foreground font-semibold tracking-tight;
+      }
+      .form-page .form-title {
+        @apply text-4xl;
       }
       .form-description {
         @apply text-foreground-muted max-w-prose text-xl;
@@ -251,6 +260,24 @@ function buildSelectRules(): string {
 }
 
 /**
+ * The controls of a form field (`.form-field`, the wrapper every `app.forms[]`
+ * field renders in) that hold ONE line of text: every `<input>` but the ones
+ * that draw a mark, a slider, a swatch or a button, and a dropdown `<select>`.
+ *
+ * They take the `input` component's height (`h-9`, 36px — the canvas `.input`
+ * and `density.controlH`), so a form's controls and an input written as a
+ * component beside it are one size. The shared padding alone drew them at
+ * 33px. A `<textarea>` and a list-box select grow with their content and keep
+ * no fixed height. Scoped to the form field rather than every bare element:
+ * the compact controls islands draw (a pager's page box, a grid cell editor)
+ * carry their own padding and no height, and must not grow to 36px.
+ */
+const SINGLE_LINE_CONTROL_SELECTOR = [
+  '.form-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="image"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
+  '.form-field select:not([multiple]):not([size])',
+].join(', ')
+
+/**
  * The bare-ELEMENT rule. Unlike every class rule that used to sit beside it,
  * this one has no recipe to be overpainted by: it is what a plain `<input>`
  * looks like when nobody styled it, which is exactly the case a component
@@ -259,6 +286,7 @@ function buildSelectRules(): string {
 function generateElementRules(): string {
   return `
       input, select, textarea { @apply ${buildInputClasses()}; }
+      ${SINGLE_LINE_CONTROL_SELECTOR} { @apply h-9; }
 ${buildFormShellRules()}`
 }
 

@@ -20,6 +20,7 @@
  * exporting it from the wrapper instead would point the dependency backwards.
  */
 
+import { resolveTranslation } from '@/domain/models/app/languages/translation-resolver'
 import { resolveFormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
 import { resolveComponentTranslationTokens } from '@/presentation/render/i18n/translation-handler'
 import { foldCodeContentFrom } from '@/presentation/render/resolve/code-content-fold-resolver'
@@ -42,11 +43,12 @@ import {
   type SpecimenTemplates,
 } from '@/presentation/render/resolve/specimen-subject-resolver'
 import { expandSystemRowTemplates } from '@/presentation/render/resolve/system-rows-template-resolver'
-import { applyPageComponentFilters } from './page-component-filters'
+import { applyPageComponentFilters, gatePageComponents } from './page-component-filters'
 import { resolvePageLanguage } from './page-lang-resolver'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
+import type { RunStatusTranslator } from '@/domain/models/app/pages/automation-run-status-language'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
@@ -97,7 +99,7 @@ interface ResolveAndFilterInput {
    */
   readonly detectedLanguage?: string
   /**
-   * GAP-3 / [internal ref]: the host page's request query string, threaded into
+   * [internal ref]: the host page's request query string, threaded into
    * `applyPageComponentFilters` so an embedded `formRef`'s `$query` prefill
    * resolves against the host page URL.
    */
@@ -253,6 +255,26 @@ function componentLocalizerFor(
   return (component) => resolveComponentTranslationTokens(component, lang, languages)
 }
 
+/**
+ * The key translator a run page's server-side read relabels its statuses
+ * through, or `undefined` for an app with no dictionary. The same language
+ * precedence as {@link componentLocalizerFor}, so a status reads in the
+ * language of the label beside it. A key the app does not translate answers
+ * `undefined`, and the English word stands.
+ */
+function keyTranslatorFor(
+  page: Page,
+  input: ResolveAndFilterInput
+): RunStatusTranslator | undefined {
+  const { languages } = input.app
+  if (!languages?.translations) return undefined
+  const { lang } = resolvePageLanguage(page, languages, input.detectedLanguage, input.urlLanguage)
+  return (key) => {
+    const word = resolveTranslation(key, lang, languages)
+    return word === key ? undefined : word
+  }
+}
+
 async function applyRowScopedPasses(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
@@ -283,13 +305,7 @@ async function filterComponents(
   input: ResolveAndFilterInput
 ): Promise<Page> {
   const { app, session, cookies, db } = input
-  const formOptions = await resolveFormRefOptionSets(boundPage.components, {
-    app,
-    db,
-    session,
-    cookies,
-  })
-  return applyPageComponentFilters({
+  const request = {
     rawPage: boundPage,
     app,
     session,
@@ -297,9 +313,18 @@ async function filterComponents(
     detectedLanguage: input.detectedLanguage,
     requestQuery: input.requestQuery,
     urlLanguage: input.urlLanguage,
-    formOptions,
     ...definedOnly({ hostApp: input.hostApp, callerCapabilities: input.callerCapabilities }),
+  }
+  // The choices are read over the GATED tree: a form inside an overlay this
+  // viewer has no trigger for is not on their page, so its choices are not read.
+  const gatedComponents = gatePageComponents(request)
+  const formOptions = await resolveFormRefOptionSets(gatedComponents, {
+    app,
+    db,
+    session,
+    cookies,
   })
+  return applyPageComponentFilters({ ...request, formOptions, gatedComponents })
 }
 
 /**
@@ -368,12 +393,10 @@ export async function resolveAndFilterPage(
   // system record this caller cannot read is the page's own 404, exactly as an
   // unresolvable DB row already is. Without a fetcher (a static build) the arm
   // falls back to the client-side `page-record-system` enhancer marker.
-  const binding = await applyPageLevelRecordBinding(
-    rawPage,
-    routeParams,
-    hostRecord,
-    input.fetchSystemRecord
-  )
+  const binding = await applyPageLevelRecordBinding(rawPage, routeParams, hostRecord, {
+    fetchSystemRecord: input.fetchSystemRecord,
+    translate: keyTranslatorFor(rawPage, input),
+  })
   if (binding.kind === 'not-found') return undefined
   const boundPage = binding.page
 

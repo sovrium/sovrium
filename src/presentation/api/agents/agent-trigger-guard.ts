@@ -57,11 +57,13 @@ import {
   permits,
   SESSION_WITH_UNRESOLVED_ROLE,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { agentNotFound } from '@/presentation/api/runtime/agent-lookup'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context } from 'hono'
 
 /**
@@ -94,10 +96,15 @@ const TRIGGER_POLICY = {
 const decide = (
   permission: PermissionValue,
   session: { readonly userId: string } | undefined,
-  role: string | undefined
+  role: string | undefined,
+  app: AdminRoleResolvable | undefined
 ): boolean => {
   if (!session) return permits(evaluatePermission(permission, undefined, TRIGGER_POLICY))
-  const caller = role === undefined ? SESSION_WITH_UNRESOLVED_ROLE : { role }
+  // The app's top role outranks a role list exactly as the built-in `admin` does.
+  const caller =
+    role === undefined
+      ? SESSION_WITH_UNRESOLVED_ROLE
+      : { role, adminEquivalent: app !== undefined && isAdminEquivalent(role, app) }
   return permits(evaluatePermission(permission, caller, TRIGGER_POLICY))
 }
 
@@ -117,8 +124,12 @@ const needsRole = (permissions: readonly PermissionValue[]): boolean =>
  * The `getUserRole` round-trip is deferred until the ladder will actually read
  * a role — see {@link needsRole}.
  */
-const isPermitted = async (c: Readonly<Context>, permission: PermissionValue): Promise<boolean> => {
-  const [verdict] = await evaluateAll(c, [permission])
+const isPermitted = async (
+  c: Readonly<Context>,
+  permission: PermissionValue,
+  app: AdminRoleResolvable | undefined
+): Promise<boolean> => {
+  const [verdict] = await evaluateAll(c, [permission], app)
   return verdict === true
 }
 
@@ -140,14 +151,15 @@ const isPermitted = async (c: Readonly<Context>, permission: PermissionValue): P
  */
 const evaluateAll = async (
   c: Readonly<Context>,
-  permissions: readonly PermissionValue[]
+  permissions: readonly PermissionValue[],
+  app: AdminRoleResolvable | undefined
 ): Promise<readonly boolean[]> => {
   const session = getSessionContext(c as Context)
   const role =
     session && needsRole(permissions)
       ? await runDomainPromise(c as Context, getUserRole(session.userId))
       : undefined
-  return permissions.map((permission) => decide(permission, session, role))
+  return permissions.map((permission) => decide(permission, session, role, app))
 }
 
 /** The `trigger` grant an agent effectively declares, undeclared normalised. */
@@ -155,8 +167,11 @@ const triggerGrantOf = (agent: Agent): PermissionValue =>
   agent.permissions?.trigger ?? UNDECLARED_TRIGGER
 
 /** May this request's caller invoke or read back this agent? */
-export const mayTriggerAgent = (c: Readonly<Context>, agent: Agent): Promise<boolean> =>
-  isPermitted(c, triggerGrantOf(agent))
+export const mayTriggerAgent = (
+  c: Readonly<Context>,
+  agent: Agent,
+  app: AdminRoleResolvable | undefined
+): Promise<boolean> => isPermitted(c, triggerGrantOf(agent), app)
 
 /**
  * May this request's caller reach each of these agents? One verdict per agent,
@@ -164,8 +179,9 @@ export const mayTriggerAgent = (c: Readonly<Context>, agent: Agent): Promise<boo
  */
 export const mayTriggerAgents = (
   c: Readonly<Context>,
-  agents: readonly Agent[]
-): Promise<readonly boolean[]> => evaluateAll(c, agents.map(triggerGrantOf))
+  agents: readonly Agent[],
+  app: AdminRoleResolvable | undefined
+): Promise<readonly boolean[]> => evaluateAll(c, agents.map(triggerGrantOf), app)
 
 /**
  * The gate itself: a 404 refusal when the caller may not reach the agent,
@@ -183,9 +199,10 @@ export const mayTriggerAgents = (
  */
 export const checkTriggerPermission = async (
   c: Readonly<Context>,
-  agent: Agent
+  agent: Agent,
+  app: AdminRoleResolvable | undefined
 ): Promise<Response | undefined> =>
-  (await mayTriggerAgent(c, agent)) ? undefined : agentNotFound(c)
+  (await mayTriggerAgent(c, agent, app)) ? undefined : agentNotFound(c)
 
 /**
  * The gate for the agent COLLECTION (`GET /api/agents`), which names no agent
@@ -198,6 +215,7 @@ export const checkTriggerPermission = async (
  * gate still see only the agents they may individually trigger.
  */
 export const checkAgentListPermission = async (
-  c: Readonly<Context>
+  c: Readonly<Context>,
+  app: AdminRoleResolvable | undefined
 ): Promise<Response | undefined> =>
-  (await isPermitted(c, UNDECLARED_TRIGGER)) ? undefined : agentNotFound(c)
+  (await isPermitted(c, UNDECLARED_TRIGGER, app)) ? undefined : agentNotFound(c)

@@ -1,25 +1,37 @@
-# intranet
+# halden-intranet
 
-A company intranet — public pages plus an auth-gated employee hub with announcements, a people directory, and shared resources
+Halden — a company intranet. A public welcome page, sign-in by a link emailed to a work
+address (a password on its own page as the fallback), and behind it the hub everyone opens
+in the morning: the must-read on top with how many colleagues have acknowledged it, the
+latest news with who wrote it, what is coming up, who joined in the last 30 days, a
+searchable directory and the company's resources. Managers publish from their own page;
+nobody else is offered it.
 
 ## This app at a glance
 
-- **Tables** (3): members, posts, resources
-- **Pages** (3): home, sign-in, portal
+- **Tables** (6): company (one row; its `headcount` counts the directory), members (the
+  directory, with a `manager` link to the same table), posts (announcements; `must_read_by`
+  makes one a must-read, `ack_line` reads "31 of 46"), acknowledgements, events, resources
+- **Forms** (1): publish-announcement (rendered on `/publish`)
+- **Pages** (8): portal (`/portal`, Home), news, people, resources, publish (managers only),
+  home (`/`), sign-in (the link), sign-in-password (the fallback)
+- **Automations** (1): sign-new-announcement (signs, dates and addresses a new announcement)
 - **Singletons**: auth, design
+- **Seed data**: `seed/` — eight sign-in accounts, forty-six colleagues (thirty-eight of them
+  invented), six announcements, thirty-one acknowledgements, three dates and ten resources,
+  dated relative to the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, keep
+one accent, and keep colour for the outcomes of an announcement (acknowledged, due, a link
+that expired). Never call an announcement or a colleague a "record" or a "row" in the
+interface, and never tell someone they lack a role — leave out what they cannot use.
 
 ---
 

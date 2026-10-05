@@ -83,13 +83,11 @@ export const parseAdminConfig = (authConfig?: Auth): AdminPluginConfig | undefin
  *   - everything else → `userAc` (empty), which `authorize()` refuses exactly as
  *     the previous `undefined` lookup did.
  *
- * The one role whose grant can NARROW is the built-in `admin` in an app that
- * declares a custom role above level 80, where `isAdminEquivalent('admin', app)`
- * is false. That is unobservable: `applyAdminRoleCheckMiddleware` already 404s
- * that caller on the same predicate, so the door is shut before the permission
- * is ever read. Aligning the inner map onto the outer gate's predicate is the
- * whole point — the plugin can no longer disagree with Sovrium about who is an
- * admin.
+ * The built-in `admin` is always admin-equivalent (the app's highest role, and
+ * the built-in admin), so no role's grant narrows below the shipped defaults.
+ * Aligning the inner map onto the outer gate's predicate
+ * (`applyAdminRoleCheckMiddleware`) is the whole point — the plugin can no
+ * longer disagree with Sovrium about who is an admin.
  *
  * `impersonate-admins` is absent from `adminAc` upstream and stays absent here,
  * so the vendored impersonation-of-admins refusal is untouched.

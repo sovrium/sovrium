@@ -55,6 +55,7 @@
  */
 
 import { join, resolve } from 'node:path'
+import { PassThrough } from 'node:stream'
 import {
   ProtocolError,
   Server,
@@ -371,24 +372,31 @@ const resolveWriteGate = (declared: boolean, configPath: string | undefined): bo
 /**
  * `StdioServerTransport` plus the two things EOF needs.
  *
- * The SDK's transport listens for `data` and `error` on stdin and NOTHING
- * else, so end-of-input is invisible to it: a client that stops writing leaves
- * the server waiting forever. Worse, exiting the moment stdin ends would
- * truncate the session — a client that writes every request and closes the pipe
- * in one breath (which is exactly what a piped `printf` does, and what the E2E
- * harness does) would lose every answer still in flight.
+ * The SDK's transport treats end-of-input as the end of the session: since
+ * 2.3.0 it listens for `end`/`close` on stdin and closes itself on the spot,
+ * and `serveStdio` answers that by closing the server instance — which aborts
+ * every request still in flight, unanswered. That truncates exactly the session
+ * a client is entitled to: one that writes every request and closes the pipe in
+ * one breath (which is what a piped `printf` does, and what the E2E harness
+ * does). JSON-RPC owes a response to every request received, so EOF has to mean
+ * "no more requests", not "drop the ones you have".
  *
- * So this counts inbound REQUESTS against outbound RESPONSES and resolves
- * {@link whenDrained} only once stdin has ended AND nothing is outstanding.
- * A class, not a closure over `let`s: `functional/immutable-data` exempts
- * classes precisely so a small piece of protocol bookkeeping can be written
- * plainly.
+ * So the inner transport never sees EOF. It reads from a {@link PassThrough}
+ * that stdin is piped into with `end: false`; stdin's own `end`/`close` are
+ * observed HERE. This counts inbound REQUESTS against outbound RESPONSES and
+ * resolves {@link whenDrained} only once stdin has ended AND nothing is
+ * outstanding; the caller then closes the handle, which closes the inner
+ * transport. A class, not a closure over `let`s: `functional/immutable-data`
+ * exempts classes precisely so a small piece of protocol bookkeeping can be
+ * written plainly.
  */
 /* eslint-disable functional/no-expression-statements -- a transport is protocol
    bookkeeping: installing the inner handlers, counting a request against its
    response and resolving the drain latch are each a side effect by definition. */
 class DrainingStdioTransport implements Transport {
-  private readonly inner = new StdioServerTransport()
+  // stdin reaches the SDK through this, never directly: see the class comment.
+  private readonly feed = new PassThrough()
+  private readonly inner = new StdioServerTransport(this.feed)
   private pending = 0
   private ended = false
   private settled = false
@@ -412,11 +420,13 @@ class DrainingStdioTransport implements Transport {
       if (isJSONRPCRequest(message)) this.pending += 1
       this.onmessage?.(message)
     }
-    // The SDK transport listens for `data` and `error` and nothing else, so
-    // EOF is ours to observe. Both events are registered because a pipe that
-    // is destroyed rather than ended emits only `close`.
+    // EOF is ours to observe, and never reaches the inner transport: `end:
+    // false` keeps the feed open after stdin ends. Both events are registered
+    // because a pipe that is destroyed rather than ended emits only `close`.
+    process.stdin.on('error', (error: Error) => this.onerror?.(error))
     process.stdin.on('end', () => this.markEnded())
     process.stdin.on('close', () => this.markEnded())
+    process.stdin.pipe(this.feed, { end: false })
     await this.inner.start()
   }
 
@@ -437,6 +447,7 @@ class DrainingStdioTransport implements Transport {
 
   async close(): Promise<void> {
     this.markEnded()
+    process.stdin.unpipe(this.feed)
     await this.inner.close()
   }
 

@@ -71,6 +71,7 @@ export function ChildBadge({ badge }: { readonly badge: LeafBadge | undefined })
   return (
     <span
       aria-hidden="true"
+      data-component-type="badge"
       className={computeSidebarEntryBadgeClasses()}
     >
       {typeof badge === 'string' ? (

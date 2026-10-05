@@ -50,11 +50,12 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
-const NOT_FOUND = { success: false, message: 'Not found', code: 'NOT_FOUND' } as const
+const NOT_FOUND = notFoundBody('Not found')
 const INTERNAL_ERROR = {
   success: false,
   message: 'Internal error',

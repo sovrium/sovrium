@@ -129,6 +129,10 @@ elevation:
   md: 0 4px 12px rgb(24 22 48 / 0.08)
   lg: 0 12px 32px rgb(24 22 48 / 0.14)
 
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
 # A rep scans many rows, so every page runs at the compact step. The three steps
 # are the platform's own values, written out so one number can be tuned.
 density:

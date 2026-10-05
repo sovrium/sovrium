@@ -96,6 +96,45 @@ const COMMON_TOKEN_COLORS: Readonly<Record<string, string>> = {
 }
 
 /**
+ * Where a theme's own token colour falls under 4.5:1 on the block it is drawn
+ * on, the colour it is drawn in instead — the nearest tone of the same hue that
+ * reaches it. Keyed by theme, then by the token's `tok-XXXXXX` hex.
+ *
+ * The same hex can need opposite fixes in two themes: `#6A737D`, the comment
+ * of both GitHub themes, reads 4.04:1 on `github-dark`'s near-black chrome and
+ * 4.35:1 on `github-light`'s light one, so it is lightened in the first and
+ * darkened in the second. A theme with no entry draws its palette unchanged.
+ */
+const THEME_CONTRAST_FLOORS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  'github-dark': {
+    '6A737D': '#7D8590', // comments: 4.04 → 5.21 on #0d0d0d
+    // a carriage return (`^M`) and the light theme's text share this hex; the
+    // theme draws it over a fill the block does not carry: 1.32 → the text tone
+    '24292E': '#E1E4E8',
+  },
+  'github-light': {
+    '6A737D': '#59636E', // comments: 4.35 → 5.52 on the light chrome
+    D73A49: '#CF222E', // keywords and operators: 4.13 → 4.84
+    '22863A': '#197532', // tags and keys: 4.18 → 5.22
+  },
+}
+
+/** A token's colour under `themeName`, raised to the contrast floor where the theme falls under it. */
+const tokenColorUnder = (themeName: string, hex: string, color: string): string =>
+  THEME_CONTRAST_FLOORS[themeName]?.[hex] ?? color
+
+/**
+ * The active theme's contrast-floor rules, scoped to its own `pre.shiki.<theme>`
+ * so they outrank the theme-agnostic `.tok-XXXXXX` rules and touch no other
+ * theme. The theme class sits in `:where()` so the rules stay BELOW the dark
+ * arm's span reset, which must still win in the dark scheme.
+ */
+const generateContrastFloorRules = (themeName: string): string =>
+  Object.entries(THEME_CONTRAST_FLOORS[themeName] ?? {})
+    .map(([hex, color]) => `  pre.shiki:where(.${themeName}) .tok-${hex} { color: ${color}; }`)
+    .join('\n')
+
+/**
  * The chrome background + foreground colours for a code block, resolved from
  * the active Shiki design. Dark themes get a fixed near-black chrome with light
  * text (so their light token colours stay legible); light themes defer to the
@@ -365,7 +404,7 @@ const generateDarkSchemeArm = (darkThemeName: string): string => {
   const tokenRules = Object.entries(COMMON_TOKEN_COLORS)
     .map(
       ([hex, color]) =>
-        `  ${DARK_SCHEME_ROOT} pre.shiki code span.tok-dark-${hex} { color: ${color}; }`
+        `  ${DARK_SCHEME_ROOT} pre.shiki code span.tok-dark-${hex} { color: ${tokenColorUnder(darkThemeName, hex, color)}; }`
     )
     .join('\n')
   return `/* Sovrium code-block dark design: ${darkThemeName} */
@@ -407,5 +446,6 @@ export const generateCodeBlockStyles = (design?: Design): string => {
   const themeHook = generateThemeScopedHook(themeName, chromeColors)
   const darkThemeName = design?.codeBlock?.darkTheme
   const darkArm = darkThemeName === undefined ? '' : `\n${generateDarkSchemeArm(darkThemeName)}`
-  return `${chrome}\n${FRAME_CHROME}\n${LINE_NUMBER_GUTTER}\n${tokenRules}\n${themeHook}${darkArm}`
+  const floors = generateContrastFloorRules(themeName)
+  return `${chrome}\n${FRAME_CHROME}\n${LINE_NUMBER_GUTTER}\n${tokenRules}\n${themeHook}${floors === '' ? '' : `\n${floors}`}${darkArm}`
 }

@@ -1,3 +1,7 @@
+# Announcements. A manager writes one on the Publish page; it reaches every
+# colleague's Home at once. Giving it an "acknowledge by" date turns it into a
+# must-read: it goes on top of Home with the number of people who have
+# acknowledged it so far.
 id: 2
 name: posts
 fields:
@@ -5,25 +9,145 @@ fields:
     name: title
     type: single-line-text
     required: true
+  - id: 7
+    name: topic
+    type: single-select
+    options:
+      - Company
+      - Security
+      - Offices
+      - Policy
+      - People
+      - Engineering
+    default: Company
+  # One or two sentences for the cards; the full text is the body.
+  - id: 8
+    name: excerpt
+    type: long-text
   - id: 2
     name: body
     type: long-text
     required: true
-  - id: 3
-    name: status
-    type: single-select
-    options:
-      - draft
-      - published
-      - archived
+  # The colleague who signs it. Left empty on the Publish page, it is filled
+  # with whoever published (see config/automations/sign-new-announcement.yaml).
   - id: 4
     name: author
     type: relationship
     relatedTable: members
     relationType: many-to-one
+    displayField: name
+  - id: 18
+    name: author_name
+    type: lookup
+    relationshipField: author
+    relatedField: name
+  - id: 9
+    name: published_at
+    type: date
+  - id: 10
+    name: must_read_by
+    type: date
+  - id: 3
+    name: status
+    type: single-select
+    options:
+      - Draft
+      - Published
+    default: Published
+  # Who is asked to read it: the whole company, today. A post addressed to one
+  # team or one office is not something a record can be limited to yet.
+  - id: 13
+    name: audience
+    type: relationship
+    relatedTable: company
+    relationType: many-to-one
+    displayField: name
+  - id: 14
+    name: audience_size
+    type: lookup
+    relationshipField: audience
+    relatedField: headcount
+
+  # ── Acknowledgements, computed ──────────────────────────────────────
+  - id: 11
+    name: acknowledgements
+    type: relationship
+    relatedTable: acknowledgements
+    relationType: one-to-many
+  - id: 12
+    name: ack_count
+    type: rollup
+    relationshipField: acknowledgements
+    relatedField: id
+    aggregation: COUNT
+  # "31 of 46" — acknowledged so far, beside the people asked.
+  - id: 15
+    name: ack_line
+    type: formula
+    formula: "ack_count || ' of ' || audience_size"
+    resultType: string
+  # 1 for a must-read, so Home can put it on top and the news below it.
+  - id: 16
+    name: is_must_read
+    type: formula
+    formula: 'CASE WHEN must_read_by IS NULL THEN 0 ELSE 1 END'
+    resultType: number
+  # "Acknowledge by 30 Sep", spelled with plain string functions so the same
+  # formula runs on SQLite and PostgreSQL.
+  - id: 17
+    name: due_label
+    type: formula
+    formula: "CASE WHEN must_read_by IS NULL THEN '' ELSE 'Acknowledge by ' || CAST(substr(CAST(must_read_by AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(must_read_by AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END END"
+    resultType: string
+  # "21 Sep" — the day it was published, as the cards print it.
+  - id: 19
+    name: published_label
+    type: formula
+    formula: "CAST(substr(CAST(published_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(published_at AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END"
+    resultType: string
+  # "Omar Haddad · 21 Sep · Security" — the line under a title in the drawer.
+  - id: 20
+    name: byline
+    type: formula
+    formula: "author_name || ' · ' || published_label || ' · ' || topic"
+    resultType: string
+  # "Halden · 46 people" — who it is addressed to, and how many that is.
+  - id: 21
+    name: audience_line
+    type: formula
+    formula: "'Everyone · ' || audience_size || ' people'"
+    resultType: string
   - id: 5
     name: created_by
     type: created-by
   - id: 6
     name: created_at
     type: created-at
+
+# Everyone reads the news; managers publish and correct it; only IT (the
+# admin) deletes an announcement. A member asking to delete one is answered
+# 404, and the announcement stays.
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - managers
+  update:
+    - admin
+    - managers
+  delete:
+    - admin
+
+# A draft stays with the person writing it: everyone else reads only what is
+# published. Admins are unrestricted and read every announcement.
+rowLevelPermissions:
+  read:
+    when:
+      logic: or
+      conditions:
+        - field: status
+          operator: eq
+          value: Published
+        - field: created_by
+          operator: eq
+          value: $currentUser.id

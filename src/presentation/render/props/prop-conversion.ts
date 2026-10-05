@@ -73,10 +73,24 @@ export const RESERVED_PROPS = new Set([
 ])
 
 /**
+ * A resolver-to-renderer marker (`_record`, `_unreadableFields`,
+ * `_callerTable`, ...): underscore-prefixed by construction
+ * (`internal-marker-props.ts`) and never markup. Converted, it reached the page
+ * as a `data-_*` attribute carrying what the resolver withheld, such as the
+ * names of the fields a reader may not read.
+ */
+const isInternalMarker = (key: string): boolean => key.startsWith('_')
+
+/**
  * Checks if a prop should be skipped during conversion
  */
 function shouldSkipProp(key: string, _value: unknown): boolean {
-  return RESERVED_PROPS.has(key) || key.startsWith('data-') || key.startsWith('aria-')
+  return (
+    RESERVED_PROPS.has(key) ||
+    key.startsWith('data-') ||
+    key.startsWith('aria-') ||
+    isInternalMarker(key)
+  )
 }
 
 /**

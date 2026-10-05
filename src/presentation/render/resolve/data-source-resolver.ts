@@ -20,7 +20,10 @@
  * page-level walk, and nothing else.
  */
 
+import { utcCalendarDay } from '@/domain/models/app/pages/components/relative-date-filter'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import { withCallerTableView } from './caller-table-stamp'
 import { resolveCurrentUserFiltersInTree } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import {
@@ -42,6 +45,7 @@ import {
 } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
 import { bindRouteParams } from './route-param-binding'
+import { isDroppedWithheld } from './withheld-component'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type {
@@ -111,7 +115,7 @@ async function resolveComponent(
   // binding, or a `record-field` self-binding to a system DETAIL endpoint) is
   // stamped for its island and SKIPS server-side resolution + app.tables
   // cross-validation — the island owns the fetch.
-  const islandStamped = resolveIslandShortCircuit(component, routeParams)
+  const islandStamped = resolveIslandShortCircuit(component, routeParams, app)
   if (islandStamped) return islandStamped
 
   const { table: tableName, fields: requestedFields } = component.dataSource
@@ -122,7 +126,9 @@ async function resolveComponent(
   // serves. The table's read plan is therefore not this binding's gate: asking
   // it would empty a public view's grid for exactly the reader it exists for.
   // Nothing is resolved here either; the island owns the fetch, read-only.
-  if (readsThroughDeclaredView(component, matchedTable)) return component
+  // The page still names only what the view's route serves its reader: the
+  // stamp carries that route's answer (`caller-table-stamp.ts`).
+  if (readsThroughDeclaredView(component, matchedTable)) return withCallerTableView(component, ctx)
   const plan = resolveRenderPlan({
     matchedTable: matchedTable as TableLike | undefined,
     app,
@@ -152,7 +158,7 @@ async function resolveComponent(
   // system sibling, deliberately: a table binding names a declared table, so
   // "table not found", the read-permission gate and the field check all still
   // apply. Only the per-record resolution is skipped.
-  if (component.type === 'drawer') return component
+  if (component.type === 'drawer') return withCallerTableView(component, ctx)
 
   // Z-1 / P-6: `$currentUser.*` filters were resolved for the whole tree
   // before this walk began (`resolveCurrentUserFiltersInTree`), so the
@@ -205,6 +211,28 @@ function isRecordBound(node: Component, routeParams: Readonly<Record<string, str
   )
 }
 
+/**
+ * A section whose rows are drawn HERE, from its per-row `children` template —
+ * a container of cards bound to a table. At the top of a page the walk above
+ * expands it; one container down it used to ship its template once, with the
+ * raw `$record.` text, so it is resolved the same way wherever it sits. A grid
+ * (gated by `gateNestedTableBinding`), a drawer and an island binding (whose
+ * island owns the fetch) are not.
+ */
+function drawsRowsOnServer(node: Component, ctx: ResolveContext): boolean {
+  const binding = node.dataSource as { readonly mode?: string; readonly table?: unknown }
+  const children = node.children as readonly unknown[] | undefined
+  return (
+    node.type !== 'table' &&
+    node.type !== 'drawer' &&
+    (binding.mode === undefined || binding.mode === 'list') &&
+    typeof binding.table === 'string' &&
+    children !== undefined &&
+    children.length > 0 &&
+    resolveIslandShortCircuit(node, ctx.routeParams, ctx.app) === undefined
+  )
+}
+
 type NestedChild = Component | ComponentReference | string
 type NestedResult = DataSourceSectionResult | string
 type PageSentinel = typeof UNAUTHORIZED | typeof SINGLE_RECORD_NOT_FOUND
@@ -218,8 +246,9 @@ async function resolveNestedChild(child: NestedChild, ctx: ResolveContext): Prom
   const node = child as Component
   if (!node.dataSource) return resolveNestedSingleRecords(node, ctx)
   if (isRecordBound(node, ctx.routeParams)) return resolveComponent(node, ctx)
+  if (drawsRowsOnServer(node, ctx)) return resolveComponent(node, ctx)
   if (holdsInheritedRecord(node)) return gateNestedInheritedRecord(node, ctx)
-  return gateNestedTableBinding(node, ctx)
+  return withCallerTableView(gateNestedTableBinding(node, ctx), ctx)
 }
 
 /**
@@ -233,7 +262,8 @@ async function resolveNestedList(
   const resolved = await Promise.all(children.map((child) => resolveNestedChild(child, ctx)))
   const sentinel = resolved.find(isSentinel)
   if (sentinel !== undefined) return sentinel
-  return resolved.some((child, index) => child !== children[index]) ? resolved : children
+  if (!resolved.some((child, index) => child !== children[index])) return children
+  return resolved.filter((child) => !isDroppedWithheld(child))
 }
 
 /**
@@ -267,10 +297,16 @@ async function resolveNestedResponsive(
   return { ...host, responsive: next } as unknown as Component
 }
 
+/**
+ * A node with no binding of its own. A form that creates a record is stamped
+ * with the table it creates in, as its reader may see it, wherever it sits —
+ * its inputs are drawn from that answer (`buildCreateFieldDefs`).
+ */
 async function resolveNestedSingleRecords(
-  host: Component,
+  unbound: Component,
   ctx: ResolveContext
 ): Promise<DataSourceSectionResult> {
+  const host = unbound.type === 'form' ? await withCallerTableView(unbound, ctx) : unbound
   const children = host.children as ReadonlyArray<NestedChild> | undefined
   const own = children && children.length > 0 ? await resolveNestedList(children, ctx) : children
   if (isSentinel(own)) return own
@@ -305,6 +341,9 @@ export async function resolvePageDataSources(
   // becomes a concrete value here — before the island stamps serialise a
   // binding for the browser. An anonymous request whose page needs one is 401.
   const components = await resolveCurrentUserFiltersInTree(page.components, {
+    // [internal ref]: relative date tokens in a filter name a day of THIS request.
+    // `SOVRIUM_DEV_CLOCK` pins it on a development server.
+    today: utcCalendarDay(serverNow()),
     session: ctx.session,
     cookies: ctx.cookies,
     db: ctx.db,
@@ -330,7 +369,7 @@ export async function resolvePageDataSources(
     ...page,
     components: resolvedComponents.filter(
       (s): s is Component | SimpleComponentReference | ComponentReference =>
-        s !== SINGLE_RECORD_NOT_FOUND && s !== UNAUTHORIZED
+        s !== SINGLE_RECORD_NOT_FOUND && s !== UNAUTHORIZED && !isDroppedWithheld(s)
     ),
   }
 }

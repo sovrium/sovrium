@@ -165,7 +165,7 @@ const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
     )
     .catch(() => [])
 
-/** Read automation runs into index rows. */
+/** Read automation runs into index rows — never a run whose values were erased with an account. */
 const readRuns = (): Promise<readonly AdminSearchUpsertRow[]> =>
   executeRaw(
     db,
@@ -173,6 +173,7 @@ const readRuns = (): Promise<readonly AdminSearchUpsertRow[]> =>
                COALESCE(r.error, '') AS error
         FROM ${systemTableRef('automation_runs')} AS r
         LEFT JOIN ${systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
+        WHERE r.values_erased_at IS NULL
         LIMIT 500`
   )
     .then((rows) =>
@@ -308,8 +309,9 @@ const readAllTableRecords = (
     readonly textColumns: readonly string[]
   }>
 ) =>
-  Effect.all(
-    tables.map((table) => wrap(() => readTableRecords(table.displayName, table.textColumns))),
+  Effect.forEach(
+    tables,
+    (table) => wrap(() => readTableRecords(table.displayName, table.textColumns)),
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   )
 
@@ -386,10 +388,9 @@ const readFixedSources = () =>
  * the freshness marker `indexStaleness` reads.
  */
 const upsertAllRows = (rows: readonly AdminSearchUpsertRow[]) =>
-  Effect.all(
-    rows.map((row) => wrap(() => upsertRow(row))),
-    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
-  ).pipe(Effect.asVoid)
+  Effect.forEach(rows, (row) => wrap(() => upsertRow(row)), {
+    concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
+  }).pipe(Effect.asVoid)
 
 // ─── FTS query helpers ────────────────────────────────────────────────────────
 

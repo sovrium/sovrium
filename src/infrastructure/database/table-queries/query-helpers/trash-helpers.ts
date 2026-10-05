@@ -6,53 +6,26 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
-import type { FilterNode, FilterLeaf } from './aggregation-helpers'
+import { buildUserFilterConditions, type FilterNode } from './aggregation-helpers'
 import type { SQL } from 'drizzle-orm'
-
-const isLeafFilter = (node: FilterNode): node is FilterLeaf => 'field' in node && 'operator' in node
 
 /**
  * Build filter conditions for trash list query.
  *
- * Only flat leaf clauses are meaningful for trash search; any nested
- * AND/OR groups (GAP-3 composite row-level predicates never reach the trash
- * path, but the shared {@link FilterNode} type permits them) are skipped.
+ * The trash takes the live listing's `filter` and answers the same rows: each
+ * condition is compiled by the live listing's own compiler
+ * ({@link buildUserFilterConditions}), so every operator the live listing
+ * applies — `in`, `startsWith`, `isEmpty`, `isTrue` and the rest — narrows the
+ * trash too, never silently skipped.
  */
 export function buildTrashFilters(
   baseQuery: Readonly<SQL>,
   filters?: readonly FilterNode[]
 ): Readonly<SQL> {
-  return (filters ?? []).filter(isLeafFilter).reduce((query, condition) => {
-    const { field, operator, value } = condition
-    const fieldIdentifier = sql.identifier(field)
-
-    switch (operator) {
-      case 'equals':
-        return sql`${query} AND ${fieldIdentifier} = ${value}`
-      case 'notEquals':
-        return sql`${query} AND ${fieldIdentifier} != ${value}`
-      case 'contains':
-        // Dialect-aware case-insensitive match, via the one shared spelling
-        // (`containsInsensitive` — PG has `ILIKE`, SQLite does not). The helper
-        // owns the wildcards AND the metacharacter escaping, so a deleted row
-        // whose name contains `%` or `_` stays findable by that text rather than
-        // matching everything. PG loses the `gin_trgm_ops` index opportunity in
-        // exchange for portability (acceptable — trash search is a low-traffic
-        // admin operation).
-        return sql`${query} AND ${containsInsensitive(fieldIdentifier, String(value))}`
-      case 'greaterThan':
-        return sql`${query} AND ${fieldIdentifier} > ${value}`
-      case 'lessThan':
-        return sql`${query} AND ${fieldIdentifier} < ${value}`
-      case 'greaterThanOrEqual':
-        return sql`${query} AND ${fieldIdentifier} >= ${value}`
-      case 'lessThanOrEqual':
-        return sql`${query} AND ${fieldIdentifier} <= ${value}`
-      default:
-        return query
-    }
-  }, baseQuery)
+  return buildUserFilterConditions({ and: filters ?? [] }).reduce(
+    (query, condition) => sql`${query} AND ${condition}`,
+    baseQuery
+  )
 }
 
 /**

@@ -107,7 +107,7 @@ export function pageHeading(
           type: 'text',
           element: 'p',
           content: blurb,
-          props: { className: 'text-muted-foreground max-w-3xl text-sm' },
+          props: { className: 'text-foreground-muted max-w-3xl text-sm' },
         },
       ],
     } as PageComponent

@@ -7,9 +7,10 @@
 
 import { evaluateFormAccess } from '@/domain/models/app/forms/form-access-flow'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { isArticleReadable } from './content-dir-access'
 import { extractMatchExcerpt, stripMarkdownToPlainText } from './content-dir-excerpt'
 import { readEmbeddedFormRef } from './embedded-form-ref'
-import { checkPageAccess } from './page-access-check'
+import type { PageAccess } from './access'
 import type { Page } from './page'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -49,6 +50,11 @@ export interface PageSearchDocument {
   readonly text: string
   /** The owning page's `access`; an article inherits its page's. */
   readonly access: Page['access']
+  /**
+   * An article's own `access`, from its front matter, answered after
+   * the page's. Absent for a page, and for an article that declares none.
+   */
+  readonly articleAccess?: PageAccess
   /**
    * Every form the owning page embeds by `formRef` — an article inherits its
    * page's. Each one's own `access` must admit the reader, as on a visit.
@@ -188,7 +194,12 @@ export const declaredPageDocuments = (app: App): readonly PageSearchDocument[] =
 export const articleDocument = (
   app: App,
   page: Page,
-  article: { readonly path: string; readonly title: string; readonly slug: string },
+  article: {
+    readonly path: string
+    readonly title: string
+    readonly slug: string
+    readonly access?: PageAccess
+  },
   markdownBody: string
 ): PageSearchDocument => ({
   kind: 'article',
@@ -197,6 +208,7 @@ export const articleDocument = (
   name: article.slug,
   text: capText(stripMarkdownToPlainText(markdownBody)),
   access: page.access,
+  ...(article.access === undefined ? {} : { articleAccess: article.access }),
   formRefs: pageFormRefs(page, app),
 })
 
@@ -227,11 +239,11 @@ const embeddedFormsAdmit = (
 
 /** The router's whole verdict on opening a document's page: access, then embedded forms. */
 const isReadableBy = (
-  document: Pick<PageSearchDocument, 'access' | 'formRefs'>,
+  document: Pick<PageSearchDocument, 'access' | 'articleAccess' | 'formRefs'>,
   app: App,
   session: SessionInfo | undefined
 ): boolean =>
-  checkPageAccess(document.access, app, session).allowed &&
+  isArticleReadable(document.access, document.articleAccess, app, session) &&
   embeddedFormsAdmit(document.formRefs, app, session)
 
 /**
@@ -246,17 +258,24 @@ export const documentsReadableBy = (
 ): readonly PageSearchDocument[] =>
   documents.filter((document) => isReadableBy(document, app, session))
 
-/** Whether any declared page is closed to a reader with no session. */
+/**
+ * Whether a page search could answer a signed-in reader differently from a
+ * visitor: some declared page is closed to a reader with no session, or some
+ * page lists articles — any of which may gate itself in its front matter
+ *, out of the config's sight. Only then is the session read.
+ */
 export const hasGatedPage = (app: App): boolean =>
   (app.pages ?? []).some(
     (page) =>
+      page.contentDir !== undefined ||
       !isReadableBy({ access: page.access, formRefs: pageFormRefs(page, app) }, app, undefined)
   )
 
 /**
  * Match `query` (case-insensitive substring) against title + name, and against
  * the text unless `matchText` excludes that kind. A text match carries an
- * excerpt around it; a title-only match carries none. Declaration order, capped.
+ * excerpt around it; a title-only match carries none. Declaration order —
+ * title matches first under `titleFirst` — capped.
  */
 export const searchPageDocuments = (
   documents: readonly PageSearchDocument[],
@@ -264,6 +283,11 @@ export const searchPageDocuments = (
   options: {
     readonly matchText: (kind: PageSearchDocument['kind']) => boolean
     readonly limit?: number
+    /**
+     * Rank a document whose TITLE holds the query before those that only
+     * mention it, keeping declaration order within each rank.
+     */
+    readonly titleFirst?: boolean
   }
 ): readonly PageSearchHit[] => {
   const needle = query.trim().toLowerCase()
@@ -285,5 +309,12 @@ export const searchPageDocuments = (
     const titleMatch = `${document.title} ${document.name}`.toLowerCase().includes(needle)
     return titleMatch ? [base] : []
   })
-  return hits.slice(0, options.limit ?? PAGE_SEARCH_RESULT_CAP)
+  const ranked =
+    options.titleFirst === true
+      ? [
+          ...hits.filter((hit) => hit.title.toLowerCase().includes(needle)),
+          ...hits.filter((hit) => !hit.title.toLowerCase().includes(needle)),
+        ]
+      : hits
+  return ranked.slice(0, options.limit ?? PAGE_SEARCH_RESULT_CAP)
 }

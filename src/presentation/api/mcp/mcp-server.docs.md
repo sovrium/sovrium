@@ -14,7 +14,7 @@ Nothing is exposed by default. An entity appears only when its schema declares `
 | Admin internals    | `{app}_auth_*` / `{app}_system_*` | Read-only views of auth and system tables, admin role only                                 |
 | Configuration      | `{app}_config_*`                  | Read-only views of the config, its findings, its schema and its run state, admin role only |
 
-The tool list is filtered per connection, so a viewer credential is never even told that a delete tool exists. Only manual-trigger automations qualify: a cron or record-change automation has no caller to expose.
+A table name keeps its capitals and hyphens in its tool names, and any other character — a space, most often — becomes `_`, because MCP clients refuse a tool name with a space in it: `Open Deals` in an app named `crm` gives `crm_Open_Deals_list`. The tool list is filtered per connection, so a viewer credential is never even told that a delete tool exists. Only manual-trigger automations qualify: a cron or record-change automation has no caller to expose.
 
 ### The configuration tools
 
@@ -32,7 +32,7 @@ surface for the same reason 'auth_*' and 'system_*' are.
 
 The refusal fires when the route actually mounts — `MCP_ENABLED=true` on the default transport. A table called `config` is fine on an app that does not serve MCP over HTTP.
 
-**Only the exact name is reserved.** `auth_*` and `system_*` are refused as table-name _prefixes_, so no table of yours can produce those names at all; the configuration family is not comparable, because it is four exact names. A table called `config_backup` is an ordinary table of yours, its tools are ordinary data tools, and every role that may call them sees them.
+**Only the exact name is reserved.** `auth_*` and `system_*` are refused as table-name _prefixes_ — judged on the name the table is stored under, so `System Activity Logs` is refused as `system_activity_logs` would be — and no table of yours can produce those names at all; the configuration family is not comparable, because it is four exact names. A table called `config_backup` is an ordinary table of yours, its tools are ordinary data tools, and every role that may call them sees them.
 
 ## Declaring eligibility
 
@@ -75,6 +75,8 @@ Automations and action templates accept the same block but ignore `operations`: 
 Every caller is shown the same tool schema. The catalogue is compiled once from the config, so the per-connection step decides _which_ tools a role sees, not what shape each one has.
 
 That is why `permissioned` names no fields and why it is the default: it is the one mode that reveals nothing about your columns to a role that could not use them. Enforcement lands at call time instead — a read omits fields the caller may not read, and a write to a field it may not write is refused. Reach for `all` or `whitelist` when a real argument hint is worth more than the reticence, and for `whitelist` in particular when a table holds columns a role may read but that are simply not the model's business.
+
+With `whitelist`, each record's `fields` carries exactly the whitelisted fields; its timestamps appear at the record's top level as `createdAt` and `updatedAt`.
 
 ## Risk hints
 

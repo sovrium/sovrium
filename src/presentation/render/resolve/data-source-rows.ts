@@ -25,6 +25,7 @@ import {
 } from '@/presentation/render/registry/system-detail-mode'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { desugarSystemSourceRef } from './data-source-contracts'
+import { resolveListIslandInputs } from './list-island-inputs'
 import {
   expandRepeat,
   isRepeating,
@@ -165,6 +166,46 @@ export interface RowExpansionOptions {
   readonly rowWrapper?: RowWrapperElement
 }
 
+/**
+ * The pagination markers a `list` reads to draw its page control
+ * (`special-components.tsx`). Only a `list` draws one: on any other node the
+ * markers would reach the served HTML as attributes nobody reads.
+ */
+function paginationMarkers(
+  component: Component,
+  paginationMeta: PaginationMeta | undefined
+): Readonly<Record<string, unknown>> {
+  if (paginationMeta === undefined || component.type !== 'list') return {}
+  return {
+    _paginationPageSize: paginationMeta.pageSize,
+    _paginationTotalCount: paginationMeta.totalCount,
+    _paginationStyle: paginationMeta.style,
+  }
+}
+
+/** A data-bound component with no row to draw: no template, and a list's empty message. */
+function withNoRows(
+  component: Component,
+  paginationProps: Readonly<Record<string, unknown>>
+): Component {
+  const { listDisplay } = component as {
+    readonly listDisplay?: { readonly emptyMessage?: unknown }
+  }
+  const emptyMessage = listDisplay?.emptyMessage
+  return {
+    ...component,
+    children: [],
+    props: {
+      ...(component.props ?? {}),
+      _dataSourceBound: true,
+      ...paginationProps,
+      ...(component.type === 'list' && typeof emptyMessage === 'string'
+        ? { _listEmptyMessage: emptyMessage }
+        : {}),
+    },
+  } as Component
+}
+
 export function expandDataSourceChildren(
   component: Component,
   records: readonly Record<string, unknown>[],
@@ -172,20 +213,17 @@ export function expandDataSourceChildren(
   expansion: RowExpansionOptions = {}
 ): Component {
   const { substitution = 'deep', rowWrapper = 'li' } = expansion
-  const paginationProps = paginationMeta
-    ? {
-        _paginationPageSize: paginationMeta.pageSize,
-        _paginationTotalCount: paginationMeta.totalCount,
-        _paginationStyle: paginationMeta.style,
-      }
-    : {}
+  const paginationProps = paginationMarkers(component, paginationMeta)
 
-  if (!component.children || component.children.length === 0 || records.length === 0) {
+  if (!component.children || component.children.length === 0) {
     return {
       ...component,
       props: { ...(component.props ?? {}), _dataSourceBound: true, ...paginationProps },
     }
   }
+  // No row: the per-row template is drawn zero times — never once with its raw
+  // `$record.` text — and a list says its `listDisplay.emptyMessage` instead.
+  if (records.length === 0) return withNoRows(component, paginationProps)
 
   const expandedChildren: readonly (Component | string)[] = records.flatMap((record) => {
     const kept = filterChildrenForRecord(component.children!, record)
@@ -233,13 +271,17 @@ export function expandDataSourceChildren(
  * renderer emits a `data-island="list"` host and the island owns the fetch. No
  * server-side records query runs for this binding.
  */
-function buildListIslandProps(component: Component): Record<string, unknown> {
+function buildListIslandProps(component: Component, app: App | undefined): Record<string, unknown> {
   const { listDisplay } = component as { listDisplay?: unknown }
   return {
     ...(component.props ?? {}),
     _listIslandMode: true,
     _listDataSource: JSON.stringify(component.dataSource),
-    ...(listDisplay !== undefined ? { _listDisplay: JSON.stringify(listDisplay) } : {}),
+    _listInputs: JSON.stringify(resolveListIslandInputs(component, app)),
+    // Kept an OBJECT, not a JSON string: the props pass that resolves `$t:`
+    // walks nested objects but reads a string whole, so a serialised
+    // `emptyMessage: '$t:…'` reached the page as the raw key.
+    ...(listDisplay !== undefined ? { _listDisplay: listDisplay } : {}),
   }
 }
 
@@ -280,10 +322,11 @@ function buildRecordFieldSystemProps(
  */
 export function resolveIslandShortCircuit(
   component: Component,
-  routeParams: Readonly<Record<string, string>>
+  routeParams: Readonly<Record<string, string>>,
+  app?: App
 ): Component | undefined {
   if (isListIslandMode(component)) {
-    return { ...component, props: buildListIslandProps(component) }
+    return { ...component, props: buildListIslandProps(component, app) }
   }
   if (isRecordFieldSystemMode(component)) {
     return { ...component, props: buildRecordFieldSystemProps(component, routeParams) }
@@ -396,7 +439,7 @@ function stampNestedChild(
   // Not an island binding — hand back the ORIGINAL child, with neither the
   // desugaring nor the route binding above applied, so a nested server-resolved
   // binding passes through this walk exactly as it did before it existed.
-  return resolveIslandShortCircuit(bound, ctx.routeParams) ?? child
+  return resolveIslandShortCircuit(bound, ctx.routeParams, ctx.app) ?? child
 }
 
 /**

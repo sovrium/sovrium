@@ -66,6 +66,18 @@ Every one of those except the schedule is a **caller**, and every caller passes 
 
 Because each agent is a distinct virtual user with its own role and allowlist, several can coexist at different privilege levels — a read-only analyst beside a write-capable triage agent — without either inheriting the other's reach.
 
+### An agent never shows you more than you may read
+
+The agent's role is a ceiling, not a grant to whoever talks to it. When a signed-in person chats with a declared agent, the agent's record tools — looking records up and counting them — read the **intersection** of the agent's reach and hers:
+
+- **Rows** must pass both the agent's and her row-level read rules, and a row in the trash is never read.
+- **Fields** are the ones both may read. The tools advertise only those columns; asking to see another one simply leaves it out of the answer.
+- **Filtering or sorting** on a field outside that set is refused, and the refusal reads the same whatever value was asked for — so a filter cannot reveal what a field she may not read contains.
+
+An admin-role agent is therefore safe to open to members: each member gets the answer her own permissions allow, and only a caller whose own access covers the agent's gets its full reach.
+
+A visitor signed in to nothing, using an agent whose trigger grant is `all`, is narrowed the same way to what the records API serves a signed-out visitor: only the tables whose `read` is `all`, only the fields she may read there, and only live rows. An admin-role agent open to everyone therefore answers staff with its full reach and a visitor with the public part of it. The agent's own schedule has no caller, so a scheduled run reads with the agent's declared reach.
+
 ## The built-in System Agent
 
 Every app has one agent it never declares: `system`. It exists as soon as a provider is configured, even in an app that declares no agents, no AI fields and no AI actions — so an operator who sets `AI_PROVIDER` gets an assistant with nothing else to write.

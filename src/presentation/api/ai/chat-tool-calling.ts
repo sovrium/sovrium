@@ -52,21 +52,21 @@ import {
   type ChatToolDefinition,
   type AiError,
 } from '@/application/ports/services/ai-service'
-import {
-  countDynamicRecords,
-  listDynamicRecords,
-} from '@/application/use-cases/ai/dynamic-record-query'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
-import { type ReadPrincipal } from '@/domain/models/app/tables/read-access-plan-service'
+import { toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistChatTurnDurably } from './chat-durable-memory'
 import {
-  projectAppTables,
-  readableColumnsForTable,
-  type ProjectedField,
-} from './chat-table-projection'
+  chatReadableColumns,
+  passesChatTableGate,
+  readScopeOf,
+  resolveChatRowScope,
+  type ChatReader,
+  type ChatRowScope,
+} from './chat-read-scope'
+import { projectAppTables, type ProjectedField } from './chat-table-projection'
+import { toolCountProgram, toolQueryProgram } from './chat-tool-lookup-scope'
 import {
   buildStructuredCount,
   buildStructuredQuery,
@@ -89,6 +89,12 @@ export interface ToolCallTable {
   readonly fields: ReadonlyArray<ProjectedField>
   /** Column names the acting role may READ (field-level RBAC applied). */
   readonly readableColumns: ReadonlyArray<string>
+  /**
+   * Columns a declared agent reads but the person it answers may not. Never
+   * advertised and never returned; a `select` naming one is narrowed away, a
+   * filter or sort naming one is refused like any unknown field.
+   */
+  readonly withheldColumns?: ReadonlyArray<string>
 }
 
 /**
@@ -102,33 +108,26 @@ export interface ToolCallTable {
  */
 export const toToolCallTables = (
   app: App | undefined,
-  userRole: string,
-  effectiveRoles: ReadonlyArray<string>
+  reader: ChatReader
 ): ReadonlyArray<ToolCallTable> => {
   const tables = projectAppTables(app)
-  // The caller resolves group memberships, so the principal carries the full
-  // effective-role set. A `group:<name>` entry can never match a bare role
-  // string, so passing `[userRole]` here would leave BOTH the table gate below
-  // and the field-level column projection group-blind.
-  const principal: ReadPrincipal = {
-    role: userRole,
-    effectiveRoles,
-    isAuthenticated: userRole !== '',
-  }
-  return tables
-    .filter((table) =>
-      hasReadPermissionForRoles(
-        table as { name: string; permissions?: { read?: unknown } },
-        effectiveRoles,
-        tables as ReadonlyArray<{ name: string; permissions?: never }>
-      )
-    )
-    .map((table) => ({
-      name: table.name,
-      fields: table.fields,
-      readableColumns: readableColumnsForTable(app, table, principal),
-      ...(table.permissions !== undefined && { permissions: table.permissions }),
-    }))
+  return tables.flatMap((table) => {
+    // The records route's own effective roles for this table: the account role,
+    // a `group:<name>` entry per group (a bare role can never match one,
+    // [internal ref]) and, under row-level rules, every assignment role —
+    // so a table the records API lists for her is advertised to her.
+    // An agent answering a person passes only where she passes too, and its
+    // columns are the ones both may read (`chatReadableColumns`).
+    if (!passesChatTableGate(app, tables, table, reader)) return []
+    return [
+      {
+        name: table.name,
+        fields: table.fields,
+        ...chatReadableColumns(app, table, reader),
+        ...(table.permissions !== undefined && { permissions: table.permissions }),
+      },
+    ]
+  })
 }
 
 /** Inputs for running the tool-calling loop after an initial AI reply. */
@@ -143,14 +142,13 @@ export interface ToolCallingInput {
   readonly tools: ReadonlyArray<ChatToolDefinition>
   /** Tables the acting principal may reach — drives per-table RBAC. */
   readonly tables: ReadonlyArray<ToolCallTable>
-  /** The acting user's role — table-level read RBAC. */
-  readonly userRole: string
+  /** The app the tables come from — the records gates read its declarations. */
+  readonly app: App | undefined
   /**
-   * The acting user's role plus their `group:<name>` memberships. A `group:`
-   * permission entry can never match a bare role string, so the per-tool table
-   * gate consults this rather than {@link ToolCallingInput.userRole}.
+   * Who the tools read as: the table gate asks the records route's effective
+   * roles for each table, and the row-level read rule narrows every call.
    */
-  readonly effectiveRoles: ReadonlyArray<string>
+  readonly reader: ChatReader
   /** The acting user's identifier — written to the activity log. */
   readonly actorName: string
   /** The session this turn belongs to — used for durable conversation persistence. */
@@ -271,10 +269,13 @@ const executeToolCall = async (
   input: ToolCallingInput
 ): Promise<ToolExecution> => {
   const parsed = parseToolName(call.name)
-  const table = input.tables.find((candidate) => candidate.name === parsed.table)
+  // The tool carries the table's tool-safe name (`query_Open_Deals`); the
+  // action and every message name the table as the config does.
+  const table = input.tables.find((candidate) => toolSafeTableName(candidate.name) === parsed.table)
+  const tableName = table?.name ?? parsed.table
   const action: ChatAction = {
     type: 'query',
-    ...(parsed.table !== undefined && { table: parsed.table }),
+    ...(tableName !== undefined && { table: tableName }),
     description: `Tool ${call.name} executed.`,
   }
 
@@ -286,36 +287,54 @@ const executeToolCall = async (
   // RBAC gate — the role must be able to read the target table
   //. An unknown table or a denied role both yield an
   // error tool result; no query is run.
-  if (
-    table === undefined ||
-    !hasReadPermissionForRoles(
-      table as { name: string; permissions?: { read?: unknown } },
-      input.effectiveRoles,
-      input.tables as ReadonlyArray<{ name: string; permissions?: never }>
-    )
-  ) {
+  const scope = await toolRowScope(table, input)
+  if (table === undefined || scope.kind === 'refused') {
     return {
-      content: `Error: permission denied — you cannot access the "${parsed.table ?? call.name}" data.`,
+      content: `Error: permission denied — you cannot access the "${tableName ?? call.name}" data.`,
       action,
       denied: true,
     }
   }
 
+  const run = { services: input.services, app: input.app, reader: input.reader }
   return parsed.kind === 'count'
-    ? executeCount(input.services, call, table, action)
-    : executeQuery(input.services, call, table, action)
+    ? executeCount({ ...run, call, table, action, scope })
+    : executeQuery({ ...run, call, table, action, scope })
+}
+
+/**
+ * The rows of the tool's table the reader may read: refused without the
+ * table's read grant (over the records route's effective roles), otherwise the
+ * records read gate's row-level answer.
+ */
+const toolRowScope = async (
+  table: ToolCallTable | undefined,
+  input: ToolCallingInput
+): Promise<ChatRowScope> =>
+  table !== undefined && passesChatTableGate(input.app, input.tables, table, input.reader)
+    ? resolveChatRowScope(input.services, input.app, table.name, input.reader)
+    : { kind: 'refused' }
+
+/** One validated tool call, with the rows its reader may read. */
+interface ToolCallRun {
+  readonly services: DomainContext
+  /** The app the table comes from — its lookups are judged by its declarations. */
+  readonly app: App | undefined
+  /** Who the call reads as — the lookups are judged for the person it answers. */
+  readonly reader: ChatReader
+  readonly call: ChatToolCall
+  readonly table: ToolCallTable
+  readonly action: ChatAction
+  readonly scope: ChatRowScope
 }
 
 /** Execute a validated structured `query_<table>` call. */
-const executeQuery = async (
-  services: DomainContext,
-  call: ChatToolCall,
-  table: ToolCallTable,
-  action: ChatAction
-): Promise<ToolExecution> => {
+const executeQuery = async (run: ToolCallRun): Promise<ToolExecution> => {
+  const { call, table, action, scope } = run
   const validation: StructuredQueryValidation = buildStructuredQuery(
     callArgs(call),
-    table.readableColumns
+    table.readableColumns,
+    table.withheldColumns
   )
   if (!validation.ok) {
     return {
@@ -325,42 +344,50 @@ const executeQuery = async (
     }
   }
   const { inputs } = validation
-  // Run the structured query via the safe, parameterized builder. `Effect.either`
-  // turns a DB failure into a Left → the same error tool-result fed back to the
+  // A row-level rule that admits no row answers no row, as the records API does.
+  if (scope.kind === 'nothing') {
+    return { content: JSON.stringify({ rows: [] }), action, denied: false }
+  }
+  // `Effect.result` turns a failure into the error tool-result fed back to the
   // model (never throws / never 500s, [internal ref]).
   const result = await Effect.runPromise(
-    listDynamicRecords({
-      table: table.name,
-      ...(inputs.columns !== undefined && { columns: inputs.columns }),
-      conditions: inputs.conditions,
-      ...(inputs.sortColumn !== undefined && { sortColumn: inputs.sortColumn }),
-      ...(inputs.sortDirection !== undefined && { sortDirection: inputs.sortDirection }),
-      limit: inputs.limit,
-    }).pipe(Effect.provide(services), Effect.result)
+    toolQueryProgram({
+      app: run.app,
+      tableName: table.name,
+      reader: run.reader,
+      readScope: readScopeOf(scope),
+      inputs,
+    }).pipe(Effect.provide(run.services), Effect.result)
   )
   if (result._tag === 'Failure') {
-    const { cause } = result.failure
     return {
-      content: `Error: query execution failed — ${
-        cause instanceof Error ? cause.message : String(cause)
-      }`,
+      content: `Error: query execution failed — ${failureMessage(result.failure)}`,
       action,
       denied: false,
     }
   }
-  // Project every returned row to the role-readable columns (field-level
-  // scoping defence-in-depth) before handing it to the model.
-  const rows = result.success.map((row) => projectRow(row, table.readableColumns))
+  // Project every returned row to the columns asked for (or every readable
+  // one), the role-readable columns only — field-level scoping
+  // defence-in-depth — before handing it to the model.
+  const shown = (inputs.columns ?? table.readableColumns).filter((column) =>
+    table.readableColumns.includes(column)
+  )
+  const rows = result.success.map((row) => projectRow(row, shown))
   return { content: JSON.stringify({ rows }), action, denied: false }
 }
 
+/** The text of a failed tool read: its cause's message, else the failure itself. */
+const failureMessage = (failure: unknown): string => {
+  const cause =
+    failure !== null && typeof failure === 'object' && 'cause' in failure
+      ? (failure as { readonly cause: unknown }).cause
+      : failure
+  return cause instanceof Error ? cause.message : String(cause)
+}
+
 /** Execute a validated structured `count_<table>` call. */
-const executeCount = async (
-  services: DomainContext,
-  call: ChatToolCall,
-  table: ToolCallTable,
-  action: ChatAction
-): Promise<ToolExecution> => {
+const executeCount = async (run: ToolCallRun): Promise<ToolExecution> => {
+  const { services, call, table, action, scope } = run
   const validation = buildStructuredCount(callArgs(call), table.readableColumns)
   if (!validation.ok) {
     return {
@@ -369,18 +396,21 @@ const executeCount = async (
       denied: false,
     }
   }
+  if (scope.kind === 'nothing') {
+    return { content: JSON.stringify({ count: 0 }), action, denied: false }
+  }
   const result = await Effect.runPromise(
-    countDynamicRecords({ table: table.name, conditions: validation.inputs.conditions }).pipe(
-      Effect.provide(services),
-      Effect.result
-    )
+    toolCountProgram({
+      app: run.app,
+      tableName: table.name,
+      reader: run.reader,
+      readScope: readScopeOf(scope),
+      conditions: validation.inputs.conditions,
+    }).pipe(Effect.provide(services), Effect.result)
   )
   if (result._tag === 'Failure') {
-    const { cause } = result.failure
     return {
-      content: `Error: count execution failed — ${
-        cause instanceof Error ? cause.message : String(cause)
-      }`,
+      content: `Error: count execution failed — ${failureMessage(result.failure)}`,
       action,
       denied: false,
     }
@@ -449,9 +479,10 @@ const executeToolCalls = async (
   // calls address different tables with different filters and projections, so
   // there is no single query that answers all of them.
   const executions = await Effect.runPromise(
-    Effect.all(
+    Effect.forEach(
+      toolCalls,
       // effect-promise: total -- every branch of `executeToolCall` returns a `ToolExecution` as a VALUE: an unknown tool, a denied role and a failed query all resolve through `Effect.result` into an error tool-result fed back to the model. It has no rejection path.
-      toolCalls.map((call) => Effect.promise(() => executeToolCall(call, input))),
+      (call) => Effect.promise(() => executeToolCall(call, input)),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
   )
@@ -466,9 +497,10 @@ const executeToolCalls = async (
   // connection while it ran.
   // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect; the void result is discarded
   await Effect.runPromise(
-    Effect.all(
-      executions.map((execution) =>
-        // effect-promise: total -- `recordActivityLogRow` resolves its write through `Effect.result` + `Effect.asVoid`, so a database failure becomes a discarded value rather than a rejection. Converting it to `tryPromise` would put that failure in the E channel of the `Effect.all` above, and the outer `runPromise` would then throw — breaking the chat turn this write exists to stay out of the way of.
+    Effect.forEach(
+      executions,
+      (execution) =>
+        // effect-promise: total -- `recordActivityLogRow` resolves its write through `Effect.result` + `Effect.asVoid`, so a database failure becomes a discarded value rather than a rejection. Converting it to `tryPromise` would put that failure in the E channel of the `Effect.forEach` above, and the outer `runPromise` would then throw — breaking the chat turn this write exists to stay out of the way of.
         Effect.promise(() =>
           recordActivityLogRow(input.services, {
             actorType: 'user',
@@ -476,8 +508,7 @@ const executeToolCalls = async (
             action: 'ai.chat.tool',
             ...(execution.action.table !== undefined && { targetTable: execution.action.table }),
           })
-        )
-      ),
+        ),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
   )

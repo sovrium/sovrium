@@ -66,6 +66,7 @@ export function AuthFieldRow({
         <span className={computeFormFieldLabelClasses()}>{field.label}</span>
         <input
           type={field.inputType}
+          data-component-type="input"
           name={field.name}
           autoComplete={autoComplete}
           defaultValue={defaultValue}

@@ -23,8 +23,8 @@
  */
 
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
+import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { parseMutationIntent } from '@/domain/models/app/agents/ai-chat-mutation-parser'
 import {
   applyMutation,
@@ -93,15 +93,11 @@ export const resolveUserEmail = async (
   services: DomainContext,
   userId: string
 ): Promise<string> => {
-  const program = Effect.gen(function* () {
-    const repo = yield* AuthRepository
-    return yield* repo.findUserEmailById(userId)
-  })
-  // Defensive: the chat route is `requireAuth`-gated, so a lookup miss / DB
-  // error falls back to the raw user id rather than failing the chat turn.
-  const result = await Effect.runPromise(Effect.provide(program.pipe(Effect.result), services))
-  if (result._tag === 'Failure') return userId
-  return result.success ?? userId
+  // The shared lookup logs a failure with its cause and reads it as no email;
+  // the chat route is `requireAuth`-gated, so a miss falls back to the raw
+  // user id rather than failing the chat turn.
+  const email = await Effect.runPromise(Effect.provide(findUserEmailById(userId), services))
+  return email ?? userId
 }
 
 /** Affirmative / negative confirmation-reply detection. */
@@ -150,8 +146,9 @@ export const evaluateMutationTurn = async (
   }
 
   // ── intent path ────────────────────────────────────────────────────────
-  const tables = toMutationTables(input.app)
-  if (tables.length === 0) return { kind: 'none' }
+  const { app } = input
+  const tables = toMutationTables(app)
+  if (app === undefined || tables.length === 0) return { kind: 'none' }
   const intent = parseMutationIntent(input.message, tables)
   if (intent === undefined) return { kind: 'none' }
 
@@ -165,20 +162,26 @@ export const evaluateMutationTurn = async (
   // The confirmation branch above deliberately does NOT re-resolve them: a
   // stashed confirmation commits on the identity captured when it was issued,
   // bounded by `AI_CONFIRMATION_TTL_MS`.
-  const [userEmail, userGroups] = await Promise.all([
+  // Assignment roles too: the records route counts them on a table with
+  // row-level rules, so the AI door admits the same callers.
+  const [userEmail, userGroups, userAccessRoles] = await Promise.all([
     resolveUserEmail(input.services, input.userId),
     // The same services `resolveUserEmail` uses: this flow is reached from a
     // turn evaluator several frames beneath the handler, so the server's set
     // travels down with the turn rather than being rebound here.
     Effect.runPromise(Effect.provide(getUserGroups(input.userId), input.services)),
+    Effect.runPromise(Effect.provide(getUserAccessRoles(input.userId), input.services)),
   ])
   const outcome = await applyMutation({
     services: input.services,
     intent,
+    userId: input.userId,
     userRole: input.userRole,
     userGroups,
+    userAccessRoles,
     userEmail,
     tables,
+    app,
   })
   return toTurnResult(outcome)
 }

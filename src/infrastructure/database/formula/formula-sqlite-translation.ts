@@ -143,6 +143,16 @@ const rejectUnsupportedSqliteFunctions = (formula: string): void => {
   })
 }
 
+/**
+ * `CAST(<value> AS DATE)` as SQLite's `date(<value>)`. SQLite has no DATE type:
+ * the cast took NUMERIC affinity, so `CAST('2026-09-30T14:00:00.000Z' AS DATE)`
+ * read `2026` — the leading number. `date()` reads the day of an ISO date-time,
+ * in UTC, which is what PostgreSQL's cast of a UTC-pinned datetime reads.
+ * Only a cast whose operand holds no parenthesis is rewritten.
+ */
+const castAsDateToDateCall = (formula: string): string =>
+  formula.replace(/\bCAST\s*\(\s*([^()]+?)\s+AS\s+DATE\s*\)/gi, 'date($1)')
+
 /** Rename a Postgres function token to its SQLite equivalent, arguments intact. */
 const applyScalarEquivalents = (formula: string): string =>
   Object.entries(SQLITE_SCALAR_EQUIVALENTS).reduce(
@@ -177,5 +187,5 @@ export const translateFormulaToSqlite = (
   // Checked against the formula AS WRITTEN so the error names the function the
   // author typed, not one an intermediate pass introduced.
   rejectUnsupportedSqliteFunctions(formula)
-  return escapeReservedFieldNames(applyScalarEquivalents(formula), allFields)
+  return escapeReservedFieldNames(castAsDateToDateCall(applyScalarEquivalents(formula)), allFields)
 }

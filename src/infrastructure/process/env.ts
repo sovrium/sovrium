@@ -99,7 +99,7 @@ export const isLiveReloadEligible = (): boolean => isLocalDevDefault(getNodeEnv(
 
 /**
  * Whether form-submission analytics events should be written to
- * `system.analytics_events`. Per the locked F-04 scope, defaults to ON
+ * `system.analytics_events`. Per the locked [internal ref] scope, defaults to ON
  * (frugal-by-default — eco posture is opt-OUT). Operators can opt-out
  * with `ECO_FORM_ANALYTICS=off` for an ultra-frugal posture. Per-form
  * `analytics.enabled: false` is a separate, finer-grained gate

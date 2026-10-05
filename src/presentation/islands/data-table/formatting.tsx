@@ -485,7 +485,10 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableCo
     accessorKey: field,
     header,
     enableSorting: true,
-    meta: { field, ...(options.editable === true && { editable: true }) },
+    meta: {
+      field,
+      ...(options.editable === true && meta?.readOnly !== true && { editable: true }),
+    },
     ...(cellRenderer && { cell: cellRenderer }),
   } satisfies DataTableColumnDef
 }

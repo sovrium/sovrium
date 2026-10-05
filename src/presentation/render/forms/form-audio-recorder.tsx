@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+
 /**
  * Server-rendered half of the `recordAudio` recorder on an attachment field.
  *
@@ -14,10 +16,17 @@
  * removed when it ends, so none of them exists in the DOM at rest. The
  * button is `type="button"` so pressing it never submits the form.
  *
+ * The button wears the design system's secondary button recipe, so it reads as
+ * a button on the theme rather than the browser's bare control. The runtime
+ * copies these classes onto the Stop button it creates, so both share one look
+ * without the class list being written twice.
+ *
  * The page's `microphone=(self)` Permissions-Policy grant is decided from
  * the form's CONFIG (`presentation/api/runtime/microphone-permission.ts`),
  * never from this markup; without it the browser refuses `getUserMedia`.
  */
+const RECORD_BUTTON_CLASSES = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
+
 export function AudioRecorderControls({
   fieldName,
   maxSeconds,
@@ -33,7 +42,7 @@ export function AudioRecorderControls({
     >
       <button
         type="button"
-        className="form-audio-record"
+        className={`form-audio-record ${RECORD_BUTTON_CLASSES}`}
         data-testid={`record-audio-${fieldName}`}
         data-form-record-audio={fieldName}
       >

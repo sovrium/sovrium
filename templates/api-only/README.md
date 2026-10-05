@@ -1,9 +1,10 @@
-# Sovrium Task API
+# Task API — a headless API
 
-> A headless REST API — tables and auth, no pages.
+> Projects and tasks behind a REST API, called with an API key, with per-role rules on every
+> table and one page that says how to call it.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
-file in, a complete self-hosted web application out. This is a headless template — its surface is the REST API, not web pages.
+file in, a complete self-hosted web application out.
 
 [![Deploy on Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://dashboard.scalingo.com/create/app?source=https://github.com/sovrium/api-only-template)
 
@@ -14,38 +15,95 @@ history, yours to modify), or scaffold it locally:
 
 ```bash
 curl -fsSL https://sovrium.com/install | sh
-sovrium init my-api-only --template api-only
+sovrium init my-api --template api-only
 ```
 
 ## What's inside
 
-Projects and tasks tables exposed only through the auto-generated REST API — no `pages` at all. Auth guards every endpoint.
+The Task API, the backlog of a fictional engineering team: five projects and ten tasks behind
+the REST API the engine generates from two tables — list, filter, sort and page, create,
+update, soft delete and restore, and the history of every record. Scripts call it with an API
+key on the `x-api-key` header.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Each table says who may do what: an **admin** reads, writes and deletes; a **member** reads,
+creates and updates; a **viewer** only reads. A call that is not allowed answers **404**, never
+403, so the API does not confirm what it refuses. Nobody can open an account: the admin comes
+from `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD`, the demo member and viewer from
+`seed/users.yaml`.
+
+The one page, at `/`, gives the command, the call and the tables. The reference of every
+endpoint (`/api/scalar`) and the admin console (`/_admin`) open for an admin.
+
+Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
+application code. Replace the tables in `config/tables/`, the backlog in `seed/`.
 
 ## Run locally
 
 ```bash
-sovrium start app.yaml
+sovrium seed app.yaml        # needs SOVRIUM_SEED_PASSWORD, see .env.example
+sovrium start app.yaml --watch
 ```
 
-Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
-[`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+Zero-config otherwise: embedded SQLite, local file storage. The seed creates three accounts,
+one per role, all with the password in `SOVRIUM_SEED_PASSWORD`:
 
-Load the sample data — five projects and ten tasks linked to them, with due dates that
-straddle today so date filters have something to filter:
+| Account                          | Role   |
+| -------------------------------- | ------ |
+| `nora.lindqvist@taskapi.example` | admin  |
+| `samir.haddad@taskapi.example`   | member |
+| `julia.weber@taskapi.example`    | viewer |
+
+## Call it
+
+A key is minted by a signed-in person and carries their role. Sign in as the member and ask
+for one (the value is shown once):
 
 ```bash
-sovrium seed app.yaml
+curl -c jar -H "content-type: application/json" \
+  -d '{"email":"samir.haddad@taskapi.example","password":"<SOVRIUM_SEED_PASSWORD>"}' \
+  localhost:3000/api/auth/sign-in/email
+curl -b jar -H "content-type: application/json" -d '{"name":"my script"}' \
+  localhost:3000/api/auth/api-key/create      # → { "key": "…" }
+export TASK_API_KEY=<the key>
 ```
 
-There are no pages, so the REST API is the only way to see it:
+An admin can also create keys in the console, at `/_admin/api-keys`. Then the call — the open
+tasks, the one due soonest first:
 
 ```bash
-curl -s localhost:3000/api/tables/tasks/records
+curl -H "x-api-key: $TASK_API_KEY" \
+  "localhost:3000/api/tables/tasks/records?filter=done:false&sort=due_date:asc"
 ```
+
+It answers 200 with the eight open tasks; "Chase the vendor for sandbox credentials", three
+days late, comes first.
+
+## What to try
+
+- **Without a key**, the same call answers `401`.
+- **With Julia's key** (the viewer), create a task — it answers `404` and nothing is written:
+
+  ```bash
+  curl -X POST -H "x-api-key: $VIEWER_KEY" -H "content-type: application/json" \
+    -d '{"fields":{"title":"Book the cutover window","priority":"High"}}' \
+    localhost:3000/api/tables/tasks/records
+  ```
+
+  The same call with Samir's key answers `201`.
+
+- **Mark the overdue task done** with Samir's key, then read its history. The history is
+  addressed by the table's id (`tasks` is table `2`):
+
+  ```bash
+  curl -X PATCH -H "x-api-key: $TASK_API_KEY" -H "content-type: application/json" \
+    -d '{"fields":{"done":true}}' localhost:3000/api/tables/tasks/records/1
+  curl -H "x-api-key: $TASK_API_KEY" localhost:3000/api/tables/2/records/1/history
+  ```
+
+- **Delete a task** with Samir's key: `404`. Only an admin deletes, and a deleted task goes to
+  the trash (`POST /api/tables/tasks/records/:id/restore` brings it back).
+- `GET /api/tables` lists both tables for every role; a table that names no reader in its
+  `permissions` is left out of it.
 
 ## Deploy
 

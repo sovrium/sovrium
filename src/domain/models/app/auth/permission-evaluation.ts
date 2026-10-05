@@ -89,19 +89,6 @@ const isGroupReference = (entry: string): boolean => entry.startsWith(GROUP_REFE
 /** Strip the `group:` prefix, yielding the bare group name. */
 const stripGroupPrefix = (entry: string): string => entry.slice(GROUP_REFERENCE_PREFIX.length)
 
-/**
- * Split an effective-roles list into real role names and bare group names.
- *
- * Mirrors `splitGroupReferences` in the group-reference module — see
- * {@link GROUP_REFERENCE_PREFIX} for why it is not imported.
- */
-const splitGroupReferences = (
-  entries: readonly string[]
-): { readonly roles: readonly string[]; readonly groups: readonly string[] } => ({
-  roles: entries.filter((entry) => !isGroupReference(entry)),
-  groups: entries.filter(isGroupReference).map(stripGroupPrefix),
-})
-
 // ---------------------------------------------------------------------------
 // Caller
 // ---------------------------------------------------------------------------
@@ -126,6 +113,16 @@ export interface PermissionCaller {
   readonly role?: string
   /** Group names the caller belongs to, matched by `group:<name>` entries. */
   readonly groups?: readonly string[]
+  /**
+   * The caller is admin-equivalent for the app — the built-in `admin` or the
+   * app's top role (`isAdminEquivalent(role, app)` in `roles/role.ts`, which
+   * this module cannot import: the role module imports it). Computed by the
+   * call site that holds the app, and read wherever this ladder lets `admin`
+   * through: the admin override and the `admin-only` undeclared policy.
+   * Absent means "the built-in `admin` only", the reading of a site that does
+   * not know the app.
+   */
+  readonly adminEquivalent?: boolean
 }
 
 /** A session whose role has not been resolved. See {@link PermissionCaller.role}. */
@@ -283,6 +280,13 @@ export interface PermissionPolicy {
 export const isAdminRole = (role: string | undefined): boolean => role === ROLE_ADMIN
 
 /**
+ * True when the caller is admin-equivalent: the built-in `admin`, or a caller
+ * its call site marked {@link PermissionCaller.adminEquivalent}.
+ */
+const callerOutranksGrants = (caller: PermissionCaller | undefined): boolean =>
+  caller?.adminEquivalent === true || isAdminRole(caller?.role)
+
+/**
  * True only for the `'all'` rung — anonymously readable.
  *
  * A deliberately NARROW question, distinct from "is this permitted": a page or
@@ -366,10 +370,11 @@ const decideCallerIndependent = (policy: UndeclaredPolicy): PermissionDecision |
  */
 const decideRoleShaped = (
   policy: UndeclaredPolicy,
-  role: string | undefined
+  caller: PermissionCaller | undefined
 ): PermissionDecision => {
+  const role = caller?.role
   if (role === undefined) return DENIED
-  if (policy.kind === 'admin-only') return isAdminRole(role) ? ALLOW : DENIED
+  if (policy.kind === 'admin-only') return callerOutranksGrants(caller) ? ALLOW : DENIED
   if (policy.kind === 'member-only') return role === ROLE_MEMBER ? ALLOW : DENIED
   return role === ROLE_VIEWER ? DENIED : ALLOW
 }
@@ -378,7 +383,7 @@ const decideRoleShaped = (
 const decideUndeclared = (
   policy: UndeclaredPolicy,
   caller: PermissionCaller | undefined
-): PermissionDecision => decideCallerIndependent(policy) ?? decideRoleShaped(policy, caller?.role)
+): PermissionDecision => decideCallerIndependent(policy) ?? decideRoleShaped(policy, caller)
 
 /**
  * Evaluate one permission value against one caller under an explicit policy.
@@ -400,7 +405,7 @@ export const evaluatePermission = (
   caller: PermissionCaller | undefined,
   policy: PermissionPolicy
 ): PermissionDecision => {
-  const callerIsAdmin = isAdminRole(caller?.role)
+  const callerIsAdmin = callerOutranksGrants(caller)
   if (policy.adminOverride === 'admin-outranks-everything' && callerIsAdmin) return ALLOW
   return permission === undefined
     ? decideUndeclared(policy.whenUndeclared, caller)
@@ -421,39 +426,4 @@ const evaluateDeclared = (
   if (permission === RUNG_ANY_SESSION) return ALLOW
   if (adminOverride !== 'no-admin-override' && callerIsAdmin) return ALLOW
   return matchesRoleList(permission, caller) ? ALLOW : DENIED
-}
-
-/**
- * Most-permissive-wins evaluation across a caller's EFFECTIVE roles.
- *
- * A caller can hold more than one role at once — a global Better Auth role plus
- * `system.user_access` overlay roles plus `group:<name>` memberships. The
- * combining rule is union, not intersection: any one of them granting access
- * grants access. Applying the undeclared policy per-role is deliberate and
- * preserves the pre-existing semantics of `passesTableRoleGate`.
- *
- * A `group:<name>` entry is NOT a role and is never put in the role slot. It
- * names a MEMBERSHIP, and {@link matchesRoleList} matches a `group:`-prefixed
- * grant entry against `caller.groups` alone — so folding the pseudo-role
- * `'group:ops'` into `{ role }` could never satisfy the grant `'group:ops'`,
- * and every group grant on this path was inert. The list is therefore split
- * first: the real roles become the role slot, the memberships ride alongside on
- * every evaluation.
- *
- * The two degenerate inputs are distinguished on purpose. An EMPTY list is a
- * caller with no entitlement at all and evaluates nothing, which fails closed
- * exactly as before. A list of memberships ONLY still deserves one evaluation,
- * with an unresolved role — the group half can grant, the role half cannot.
- */
-export const evaluatePermissionForRoles = (
-  permission: PermissionValue | undefined,
-  effectiveRoles: readonly string[],
-  policy: PermissionPolicy
-): PermissionDecision => {
-  const { roles, groups } = splitGroupReferences(effectiveRoles)
-  const roleSlots: readonly (string | undefined)[] =
-    roles.length > 0 ? roles : groups.length > 0 ? [undefined] : []
-  return roleSlots.some((role) => permits(evaluatePermission(permission, { role, groups }, policy)))
-    ? ALLOW
-    : DENIED
 }

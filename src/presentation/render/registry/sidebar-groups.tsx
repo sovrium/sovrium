@@ -141,8 +141,11 @@ export function renderSidebarGroups(
     trackNavigation = false,
     rail,
     drawer,
+    componentType,
   }: {
     readonly trackNavigation?: boolean
+    /** The sidebar's name, written once on the navigation root (never on each `nav`). */
+    readonly componentType?: string | undefined
     readonly rail?: SidebarRailBreakpoint | undefined
     /** A drawer declared beside the rail, which narrows the rail to the range above it. */
     readonly drawer?: SidebarRailBreakpoint | undefined
@@ -166,6 +169,7 @@ export function renderSidebarGroups(
         rail === undefined ? '' : ` ${computeSidebarRailNavClasses(rail, drawer)}`
       }`}
       data-sidebar-root=""
+      data-component-type={componentType}
     >
       {trackNavigation && (
         <span

@@ -63,7 +63,7 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
-import { requireSession } from '@/presentation/api/runtime/auth-helpers'
+import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { connectionError } from './error-envelopes'
 import {
   buildAuthorizeUrl,
@@ -105,7 +105,7 @@ const gateAdminForAppScope = async (
   if (effectiveScope(conn.props) !== 'app') return undefined
   const role = await resolveUserRole(c, userId)
   if (isAdminTier(role, app)) return undefined
-  return connectionError(c, 404, 'connection_not_found')
+  return notFound(c, 'Connection not found')
 }
 
 /**
@@ -127,7 +127,7 @@ async function handleAuthorize(c: Context, app: App) {
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
-  if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
+  if (conn === undefined) return notFound(c, 'Connection not found')
   if (!isOAuth2(conn)) return connectionError(c, 400, 'connection_not_oauth2')
 
   const scopeGate = await gateAdminForAppScope(c, conn, auth.session.userId, app)
@@ -231,7 +231,7 @@ const resolveCallbackContext = async (
 
   const conn = findConnection(app, inputs.name)
   if (conn === undefined || !isOAuth2(conn)) {
-    return { response: connectionError(c, 404, 'connection_not_found') }
+    return { response: notFound(c, 'Connection not found') }
   }
 
   // Resolve `$env.VAR` placeholders before the /token exchange so the
@@ -314,7 +314,7 @@ async function handleStatus(c: Context, app: App) {
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
-  if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
+  if (conn === undefined) return notFound(c, 'Connection not found')
   const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
@@ -347,7 +347,7 @@ async function handleDisconnect(c: Context, app: App) {
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
-  if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
+  if (conn === undefined) return notFound(c, 'Connection not found')
   const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 

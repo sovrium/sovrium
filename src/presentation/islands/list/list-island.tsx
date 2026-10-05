@@ -9,16 +9,25 @@ import {
   computeListLoadMoreClasses,
   computeListShellClasses,
 } from '@/presentation/design/list-default-classes'
+import {
+  renderEmptyList,
+  renderItemTemplate,
+  type ItemTemplate,
+  type ListRowInputs,
+} from '../parts/list-item-rows'
 import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding } from '../runtime/data-binding'
-import { renderResultsBody, type ItemTemplate } from '../search/search-list-renderers'
+import { isRateLimitedRead, RateLimitedNotice } from '../runtime/read-failure'
+import { useListRowClick } from './list-row-click'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { ReactElement } from 'react'
 
 /** The list's load-more footer. Pure: resolved once, not per page loaded. */
 const LIST_LOAD_MORE_CLASSES = computeListLoadMoreClasses()
 
-interface ListIslandProps {
+interface ListIslandProps extends ListRowInputs {
+  /** What a click on an item does — a grid row's `onRowClick`. */
+  readonly onRowClick?: unknown
   readonly dataSource?: ListRecordsDataSource
   /**
    * Declarative item template (title / subtitle / image / badge / metadata) —
@@ -48,6 +57,37 @@ interface ListIslandProps {
    * arrival and the button would appear to do nothing.
    */
   readonly maxItems?: number
+  /**
+   * The loading, failure and rate-limit chrome in the page language
+   * (`list.loading`, `list.loadFailed`, `rateLimit.*`), sent only where it
+   * differs from English. Read directly rather than through a shared strings
+   * helper: this island's mount budget has no room for another module.
+   */
+  readonly uiStrings?: Readonly<Record<string, string>>
+}
+
+/**
+ * The list's rows, or its empty message. One handler on the list answers a
+ * click or an Enter on any item (`inputs.onItemEvent`, from `onRowClick`).
+ */
+function renderRows(input: {
+  readonly records: readonly Record<string, unknown>[]
+  readonly emptyMessage: string | undefined
+  readonly itemTemplate: ItemTemplate | undefined
+  readonly inputs: ListRowInputs
+}): ReactElement | undefined {
+  const { records, emptyMessage, itemTemplate, inputs } = input
+  if (records.length === 0 && emptyMessage) return <>{renderEmptyList(emptyMessage)}</>
+  if (itemTemplate === undefined) return undefined
+  return (
+    <ul
+      className={computeListShellClasses()}
+      onClick={inputs.onItemEvent}
+      onKeyDown={inputs.onItemEvent}
+    >
+      {records.map((record, i) => renderItemTemplate(itemTemplate, record, `item-${i}`, inputs))}
+    </ul>
+  )
 }
 
 /** Missing-binding fallback — neither `table` nor `system` configured. */
@@ -68,11 +108,15 @@ function ListMissing(): ReactElement {
  * bordered surface is already drawn while the fetch is in flight and the box
  * does not appear from nothing when the records land.
  */
-function ListLoading(): ReactElement {
+function ListLoading({
+  strings,
+}: {
+  readonly strings: ListIslandProps['uiStrings']
+}): ReactElement {
   return (
     <div
       role="status"
-      aria-label="Loading list..."
+      aria-label={strings?.['list.loading'] ?? 'Loading list...'}
       className={`${computeListShellClasses()} space-y-2 p-2`}
     >
       {Array.from({ length: 3 }).map((_, i) => (
@@ -85,14 +129,55 @@ function ListLoading(): ReactElement {
   )
 }
 
-function ListError({ error }: { readonly error: unknown }): ReactElement {
+/** A rate-limited read offers a Retry; any other failure says what went wrong. */
+function ListError({
+  error,
+  onRetry,
+  strings,
+}: {
+  readonly error: unknown
+  readonly onRetry: () => void
+  readonly strings: ListIslandProps['uiStrings']
+}): ReactElement {
+  if (isRateLimitedRead(error))
+    return (
+      <RateLimitedNotice
+        onRetry={onRetry}
+        strings={strings}
+      />
+    )
+  const template = strings?.['list.loadFailed'] ?? 'Failed to load list items: {error}'
   return (
     <p
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       role="alert"
     >
-      Failed to load list items: {error instanceof Error ? error.message : String(error)}
+      {template.replace('{error}', () => (error instanceof Error ? error.message : String(error)))}
     </p>
+  )
+}
+
+/**
+ * What the list shows INSTEAD of its rows — a missing binding, the fetch in
+ * flight, or its failure — or `undefined` once there are rows to draw.
+ */
+function renderListStatus(input: {
+  readonly dataSource: ListRecordsDataSource | undefined
+  readonly isLoading: boolean
+  readonly isError: boolean
+  readonly error: unknown
+  readonly onRetry: () => void
+  readonly strings: ListIslandProps['uiStrings']
+}): ReactElement | undefined {
+  if (!hasDataBinding(input.dataSource)) return <ListMissing />
+  if (input.isLoading) return <ListLoading strings={input.strings} />
+  if (!input.isError) return undefined
+  return (
+    <ListError
+      error={input.error}
+      onRetry={input.onRetry}
+      strings={input.strings}
+    />
   )
 }
 
@@ -105,6 +190,15 @@ function ListError({ error }: { readonly error: unknown }): ReactElement {
  * READ source: the island offers NO create/edit/delete affordances and no saved
  * views — it renders items only. The `data-component="list"` marker lives on the
  * SSR host wrapper (single match); this island root never re-emits it.
+ *
+ * The "load more" control is offered only when all three hold: the config asked
+ * for one, there is something behind the page on screen, and the list has not
+ * already drawn everything it is allowed to. Rendering it on a fully loaded list
+ * would be a button that does nothing; rendering it on a capped one would fetch
+ * rows the cap then discards, which looks exactly the same to the reader. The
+ * cap binds as soon as the drawn rows fill it — including when the page size
+ * equals the cap and nothing has been sliced off yet, which is why it asks
+ * whether the cap is reached rather than whether it clipped anything.
  */
 export default function ListIsland({
   dataSource,
@@ -112,6 +206,9 @@ export default function ListIsland({
   loadMore,
   emptyMessage,
   maxItems,
+  onRowClick,
+  uiStrings,
+  ...rowInputs
 }: ListIslandProps): ReactElement {
   const {
     records,
@@ -121,32 +218,35 @@ export default function ListIsland({
     hasMore,
     isLoadingMore,
     loadMore: fetchMore,
+    retry,
   } = useListRecords(dataSource)
-
-  if (!hasDataBinding(dataSource)) return <ListMissing />
-  if (isLoading) return <ListLoading />
-  if (isError) return <ListError error={error} />
-
   // The declared cap, applied to what is DRAWN. The fetch is left alone: a page
   // is a transport concern and the cap is a display one, and conflating them
   // would make the last visible row depend on the page boundary.
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
+  const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table)
 
-  // The control is offered only when all three hold: the config asked for one,
-  // there is something behind the page on screen, and the list has not already
-  // drawn everything it is allowed to. Rendering it on a fully loaded list would
-  // be a button that does nothing; rendering it on a capped one would fetch rows
-  // the cap then discards, which looks exactly the same to the reader.
-  //
-  // The cap binds as soon as the drawn rows fill it — including when the page
-  // size equals the cap and nothing has been sliced off yet, which is why this
-  // asks whether the cap is reached rather than whether it clipped anything.
+  const status = renderListStatus({
+    dataSource,
+    isLoading,
+    isError,
+    error,
+    onRetry: retry,
+    strings: uiStrings,
+  })
+  if (status !== undefined) return status
+
   const atCap = maxItems !== undefined && drawn.length >= maxItems
   const showLoadMore = loadMore === 'button' && hasMore && !atCap
 
   return (
     <>
-      {renderResultsBody({ records: drawn, emptyMessage, itemTemplate, childTemplate: [] })}
+      {renderRows({
+        records: drawn,
+        emptyMessage,
+        itemTemplate,
+        inputs: { ...rowInputs, onItemEvent },
+      })}
       {showLoadMore ? (
         <LoadMoreButton
           onClick={fetchMore}

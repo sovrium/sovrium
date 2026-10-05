@@ -9,7 +9,7 @@
  * Approval Repository Implementation (Drizzle).
  *
  * Mirrors AI agent approval requests into `system.automation_approval_requests`
- * and resolves the approver's email. The column mapping is preserved verbatim
+ * and resolves the approver's email and name. The column mapping is preserved verbatim
  * from the former `approval-db.ts` presentation module. The `run_id` column is
  * left null for agent approvals — the automation-approval table was made
  * `run_id`-nullable in migration 0006 to carry both automation-step and
@@ -68,6 +68,7 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
         ...(record.executedAs !== undefined && { executedAs: record.executedAs }),
         ...(record.escalatedTo !== undefined && { escalatedTo: record.escalatedTo }),
         expiresAt: new Date(record.expiresAtMs),
+        ...(record.requestedById !== undefined && { requestedById: record.requestedById }),
       })
     }),
 
@@ -87,16 +88,16 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
         .where(eq(automationApprovalRequests.id, record.id))
     }),
 
-  lookupUserEmail: (userId) =>
+  lookupUserIdentity: (userId) =>
     wrap(async () => {
       // Resolve the dialect-correct auth users table per call — `auth.user` on
       // Postgres, `auth_user` on SQLite.
       const users = authUsersTable()
       const rows = await db
-        .select({ email: users.email })
+        .select({ email: users.email, name: users.name })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1)
-      return rows[0]?.email ?? ''
+      return { email: rows[0]?.email ?? '', name: rows[0]?.name ?? '' }
     }),
 })

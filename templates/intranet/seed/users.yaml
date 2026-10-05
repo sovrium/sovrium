@@ -1,0 +1,32 @@
+# The eight colleagues who can sign in to the demo, created as accounts before
+# any table is filled, so the directory can link each one to their row.
+#
+# Omar runs IT, so he is the admin; Priya manages people and publishes, so
+# she has the `managers` role; everyone else is a member. No password is
+# written here: every account takes `SOVRIUM_SEED_PASSWORD` from the
+# environment, so a password never lands in a file you might commit.
+users:
+  - email: omar.haddad@halden.example
+    name: Omar Haddad
+    role: admin
+  - email: priya.raghunathan@halden.example
+    name: Priya Raghunathan
+    role: managers
+  - email: jules.marchand@halden.example
+    name: Jules Marchand
+    role: member
+  - email: dan.whitfield@halden.example
+    name: Dan Whitfield
+    role: member
+  - email: mateo.ferrer@halden.example
+    name: Mateo Ferrer
+    role: member
+  - email: hannah.okonkwo@halden.example
+    name: Hannah Okonkwo
+    role: member
+  - email: sofia.lindqvist@halden.example
+    name: Sofia Lindqvist
+    role: member
+  - email: keiko.tanaka@halden.example
+    name: Keiko Tanaka
+    role: member

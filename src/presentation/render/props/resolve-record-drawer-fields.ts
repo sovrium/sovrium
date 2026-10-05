@@ -6,11 +6,15 @@
  */
 
 import { declaredFieldDescription, declaredFieldLabel } from '@/presentation/design/field-display'
+import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { resolveOptionBadgePaints, type OptionBadgePaints } from './option-badge-paints'
 import { resolveValueCurrency } from './resolve-chart-field-context'
 import { resolveSourceTable } from './type-specific-props-builder'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
+import type { BadgeForm } from '@/presentation/design/option-chip-paint'
 
 /** One control per declared field — the shape the record-drawer binds inputs to. */
 export type DerivedRecordField = {
@@ -22,6 +26,131 @@ export type DerivedRecordField = {
   readonly description?: string
   /** The bound column's declared currency display; absent when it declares none. */
   readonly currency?: CurrencyDisplayOptions
+  /** A date / datetime column's `weekday`, printed before the date it reads. */
+  readonly weekday?: 'short' | 'long'
+  /** A datetime column's own `timeZone`, which the drawer reads before the operator zone. */
+  readonly timeZone?: string
+  /** A status / single-select column's options, for the editable drawer's choice. */
+  readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>
+  /**
+   * A status / single-select column's `value → paint` map, resolved here as
+   * the grid's pill paints them, so a read-only drawer draws the same badge.
+   * Only options that declare a colour are listed.
+   */
+  readonly paints?: OptionBadgePaints
+  /** An attachment column's upload target and constraints, for the editable drawer's picker. */
+  readonly bucket?: string
+  readonly allowedFileTypes?: readonly string[]
+  readonly maxFileSize?: number
+  /** A single-valued relationship's related table, searched by the drawer's picker. */
+  readonly relatedTable?: string
+  /** The related table's field the picker names each linked record by. */
+  readonly displayField?: string
+  /**
+   * Whether the column must hold a value: the editable drawer refuses it blank,
+   * and an optional link offers a Clear control.
+   */
+  readonly required?: boolean
+}
+
+/**
+ * The `relationship` overlay of one entry: a single-valued link's related
+ * table and `displayField`, so an editable drawer offers the link as a search
+ * over the related records named by that field — the control the form draws —
+ * rather than a text box holding the linked key. Nothing for any other column,
+ * nor for a multi-valued link, which keeps its plain control.
+ */
+const relationshipOverlay = (
+  column: Readonly<Record<string, unknown>> | undefined
+): Pick<DerivedRecordField, 'relatedTable' | 'displayField' | 'required'> => {
+  if (column?.['type'] !== 'relationship' || column['allowMultiple'] === true) return {}
+  const { relatedTable, displayField } = column
+  if (typeof relatedTable !== 'string') return {}
+  return {
+    relatedTable,
+    ...(typeof displayField === 'string' ? { displayField } : {}),
+    ...(column['required'] === true ? { required: true } : {}),
+  }
+}
+
+/**
+ * The `required` overlay of one entry: a column that must hold a value, so the
+ * editable drawer refuses to save it blank — and only such a column.
+ */
+const requiredOverlay = (
+  column: Readonly<Record<string, unknown>> | undefined
+): Pick<DerivedRecordField, 'required'> => (column?.['required'] === true ? { required: true } : {})
+
+/** The `weekday` and `timeZone` overlay of one entry: the bound date column's, when it declares them. */
+const weekdayOverlay = (
+  column: Readonly<Record<string, unknown>> | undefined
+): Pick<DerivedRecordField, 'weekday' | 'timeZone'> => {
+  const weekday = column?.['weekday']
+  const timeZone = column?.['type'] === 'datetime' ? column['timeZone'] : undefined
+  return {
+    ...(weekday === 'short' || weekday === 'long' ? { weekday } : {}),
+    ...(typeof timeZone === 'string' && timeZone !== '' ? { timeZone } : {}),
+  }
+}
+
+/**
+ * The page language an entry's option labels resolve against, and the app's
+ * `design.badgeForm` its option badges are painted in.
+ */
+export interface DrawerFieldLocale {
+  readonly languages?: Languages | undefined
+  readonly currentLang?: string | undefined
+  readonly badgeForm?: BadgeForm | undefined
+}
+
+/** The `paints` overlay of one entry: its option colours, painted as the grid's pill. */
+const paintsOverlay = (
+  table: Tables[number] | undefined,
+  fieldName: unknown,
+  locale: DrawerFieldLocale
+): Pick<DerivedRecordField, 'paints'> => {
+  if (table === undefined || typeof fieldName !== 'string') return {}
+  const paints = resolveOptionBadgePaints(table, fieldName, locale.badgeForm, 'grid')
+  return paints === undefined || Object.keys(paints).length === 0 ? {} : { paints }
+}
+
+/** Attachment column types, whose editable control is a file picker. */
+const ATTACHMENT_TYPES: ReadonlySet<unknown> = new Set([
+  'single-attachment',
+  'multiple-attachments',
+])
+
+/**
+ * The `bucket` / constraints overlay of one entry: what an attachment column
+ * declares, so the editable drawer's file picker uploads where the form's does
+ * and refuses what the form refuses. Nothing for any other column.
+ */
+const attachmentOverlay = (
+  column: Readonly<Record<string, unknown>> | undefined
+): Pick<DerivedRecordField, 'bucket' | 'allowedFileTypes' | 'maxFileSize'> => {
+  if (!ATTACHMENT_TYPES.has(column?.['type'])) return {}
+  const { bucket, allowedFileTypes, maxFileSize } = column ?? {}
+  return {
+    ...(typeof bucket === 'string' && bucket !== '' ? { bucket } : {}),
+    ...(Array.isArray(allowedFileTypes)
+      ? { allowedFileTypes: allowedFileTypes as readonly string[] }
+      : {}),
+    ...(typeof maxFileSize === 'number' ? { maxFileSize } : {}),
+  }
+}
+
+/**
+ * The `options` overlay of one entry: a `single-select` or `status` column's
+ * declared options, labels in the page language, so an editable drawer offers
+ * the same choice the form does. Nothing for any other column.
+ */
+const optionsOverlay = (
+  column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined,
+  locale: DrawerFieldLocale
+): Pick<DerivedRecordField, 'options'> => {
+  if (column?.type !== 'single-select' && column?.type !== 'status') return {}
+  const options = readColumnOptions(column, locale.languages, locale.currentLang)
+  return options === undefined ? {} : { options }
 }
 
 /** The `currency` overlay of one entry: the bound column's declared display, or nothing. */
@@ -69,7 +198,8 @@ function withResolvedFieldDisplay(
 function enrichDeclaredFields(
   declared: readonly unknown[],
   component: Component | undefined,
-  tables: Tables | undefined
+  tables: Tables | undefined,
+  locale: DrawerFieldLocale
 ): readonly unknown[] {
   const table = component ? resolveSourceTable(component, tables) : undefined
   const tableFields = table?.fields
@@ -81,6 +211,12 @@ function enrichDeclaredFields(
     return {
       ...withResolvedFieldDisplay(record, boundField),
       ...currencyOverlay(table, record['name']),
+      ...optionsOverlay(boundField, locale),
+      ...paintsOverlay(table, record['name'], locale),
+      ...weekdayOverlay(boundField),
+      ...relationshipOverlay(boundField),
+      ...requiredOverlay(boundField),
+      ...attachmentOverlay(boundField),
     }
   })
 }
@@ -105,7 +241,8 @@ function enrichDeclaredFields(
  */
 export function resolveRecordDrawerFields(
   component: Component | undefined,
-  tables: Tables | undefined
+  tables: Tables | undefined,
+  locale: DrawerFieldLocale = {}
 ): ReadonlyArray<DerivedRecordField> | undefined {
   if (!component) return undefined
   const table = resolveSourceTable(component, tables)
@@ -120,6 +257,12 @@ export function resolveRecordDrawerFields(
       ...(label === undefined ? {} : { label }),
       ...(description === undefined ? {} : { description }),
       ...currencyOverlay(table, field.name),
+      ...optionsOverlay(declared, locale),
+      ...paintsOverlay(table, field.name, locale),
+      ...weekdayOverlay(declared),
+      ...relationshipOverlay(declared),
+      ...requiredOverlay(declared),
+      ...attachmentOverlay(declared),
     }
   })
 }
@@ -135,9 +278,10 @@ export function resolveRecordDrawerFields(
 export function resolveRecordDrawerFieldProp(
   declared: unknown,
   component: Component | undefined,
-  tables: Tables | undefined
+  tables: Tables | undefined,
+  locale: DrawerFieldLocale = {}
 ): unknown {
-  if (declared === undefined) return resolveRecordDrawerFields(component, tables)
+  if (declared === undefined) return resolveRecordDrawerFields(component, tables, locale)
   if (!Array.isArray(declared)) return declared
-  return enrichDeclaredFields(declared, component, tables)
+  return enrichDeclaredFields(declared, component, tables, locale)
 }

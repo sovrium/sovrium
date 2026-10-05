@@ -83,10 +83,12 @@ export function SidebarDrawerFrame({
       <span
         data-island="sidebar-drawer"
         data-island-props="{}"
+        data-component-type="drawer"
       />
       <button
         type="button"
         disabled
+        data-component-type="button"
         data-sidebar-drawer-trigger=""
         aria-haspopup="dialog"
         aria-expanded="false"

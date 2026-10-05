@@ -116,3 +116,18 @@ export function hasIslandComponents(page: Page, components?: Components): boolea
     itemSelfNeedsIslands(item as Component)
   )
 }
+
+/**
+ * Whether a page's navigation opts into client-side navigation: a `sidebar`
+ * anywhere in its tree (referenced templates included) declaring
+ * `clientSideNavigation: true`. Such a page mounts the `spa-nav` island beside
+ * its main region, and its island runtime is already shipped through
+ * `isSourcedSidebar`.
+ */
+export function hasClientSideNavigation(page: Page, components?: Components): boolean {
+  return someComponentInTree(
+    page.components,
+    components,
+    (item) => item.type === 'sidebar' && item.clientSideNavigation === true
+  )
+}

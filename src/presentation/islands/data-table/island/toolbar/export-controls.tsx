@@ -13,6 +13,7 @@ import {
   getNonSelectColumnCount,
   getVisibleColumnIds,
 } from '../export-helpers'
+import { useGridString } from '../grid-strings'
 import { ExportMenu } from '../toolbar-menus'
 import type { DataTableInstance } from '../table-features'
 import type { ActiveFilter } from '../use-ui-state'
@@ -57,6 +58,7 @@ export function ExportControl({
   onToggleExportMenu,
   onCloseExportMenu,
 }: ExportControlProps) {
+  const exportLabel = useGridString('datatable.export', 'Export')
   const onSystemExportClick = useCallback(() => {
     if (!systemExportEndpoint) return
     const separator = systemExportEndpoint.includes('?') ? '&' : '?'
@@ -71,10 +73,10 @@ export function ExportControl({
       <button
         type="button"
         className={computeTableToolbarButtonClasses()}
-        aria-label="Export"
+        aria-label={exportLabel}
         onClick={onSystemExportClick}
       >
-        Export
+        {exportLabel}
       </button>
     )
   }
@@ -84,12 +86,12 @@ export function ExportControl({
       <button
         type="button"
         className={computeTableToolbarButtonClasses({ active: exportMenuOpen })}
-        aria-label="Export"
+        aria-label={exportLabel}
         aria-haspopup="true"
         aria-expanded={exportMenuOpen}
         onClick={onToggleExportMenu}
       >
-        Export
+        {exportLabel}
       </button>
       {exportMenuOpen && (
         <ExportMenu
@@ -140,6 +142,7 @@ export function ExportSelectedButton({
   selectedCount,
   systemExportEndpoint,
 }: ExportSelectedButtonProps) {
+  const exportSelectedLabel = useGridString('datatable.exportSelected', 'Export selected')
   const onExportSelectedClick = useCallback(() => {
     if (systemExportEndpoint) {
       const { csv, filename } = buildSelectionCsvDownload(table, systemExportEndpoint, new Date())
@@ -165,11 +168,11 @@ export function ExportSelectedButton({
     <button
       type="button"
       className={computeTableToolbarButtonClasses({ disabled: selectedCount === 0 })}
-      aria-label="Export selected"
+      aria-label={exportSelectedLabel}
       disabled={selectedCount === 0}
       onClick={onExportSelectedClick}
     >
-      Export selected
+      {exportSelectedLabel}
     </button>
   )
 }

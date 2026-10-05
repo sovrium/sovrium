@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { formAddressCheck } from './form-address-validation'
 
 /**
  * Form Availability
@@ -76,8 +77,9 @@ export const FormAvailabilitySchema = Schema.Struct({
             description: 'Text of the link offered on the closed-form page. Accepts a `$t:` key.',
           }).pipe(Schema.check(Schema.isMinLength(1))),
           href: Schema.String.annotate({
-            description: 'Where that link goes.',
-          }).pipe(Schema.check(Schema.isMinLength(1))),
+            description:
+              'Where that link goes. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+          }).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(formAddressCheck)),
         }).annotate({
           description:
             'An optional link offered to a visitor who arrives while the form is closed.',

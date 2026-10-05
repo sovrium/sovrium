@@ -20,6 +20,7 @@
  */
 
 import { Effect } from 'effect'
+import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import {
   replayAutomationRun,
@@ -30,24 +31,86 @@ import {
   type ResolveApprovalError,
 } from '@/application/use-cases/automations/resolve-automation-approval'
 import { signalCancellation } from '@/application/use-cases/automations/run/scheduler'
+import {
+  findReadableRun,
+  loadRunAccess,
+  type ReadableRun,
+  type RunAccess,
+} from '@/application/use-cases/automations/run-access'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { forbidden, notFound, requireSession } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { resolveApprovalCaller } from './approvals-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
+/** A gate's verdict: go on with the value, or send the response instead. */
+type Gated<T> =
+  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly response: Response }
+
 /**
- * Effect program that loads the run + its steps from the DB-backed
- * repository. Duplicated minimally from `index.ts::loadDbRunDetail` so
- * this module remains a leaf import (no cycle back to `index.ts`).
+ * The run `id` when the signed-in caller may read it (an admin, the person who
+ * started it by hand, an approver a request on it names). No session → 401; a
+ * run they may not read → the same 404 an unknown id gets; a store that did
+ * not answer → the sanitized error, never a 404 that would claim absence.
  */
-const loadRunForReplay = (id: string) =>
-  Effect.gen(function* () {
-    const repo = yield* AutomationRunRepository
-    const run = yield* repo.findById(id)
-    return run
-  })
+export const gateReadableRun = async (
+  c: Context,
+  app: App,
+  id: string
+): Promise<Gated<ReadableRun>> => {
+  const auth = requireSession(c)
+  if (!auth.ok) return { ok: false, response: auth.response }
+  const program = findReadableRun({ runId: id, userId: auth.session.userId, app })
+  const found = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
+  if (found._tag === 'Failure') return { ok: false, response: toErrorResponse(c, found.failure) }
+  if (found.success === undefined) return { ok: false, response: notFound(c, 'Run not found') }
+  return { ok: true, value: found.success }
+}
+
+/**
+ * The trigger data a replay body carries, when it carries one — or the refusal
+ * when the caller may not supply it.
+ *
+ * Replaying a run with its OWN payload is acting on the run, so whoever may
+ * read the run may do it. Replaying it with a NEW payload is starting the
+ * automation over with input nobody checked: no manual trigger's input schema,
+ * no filter or approval the original already passed (a replay skips the steps
+ * that ran — an approval granted for 100 EUR would be reused for 100 000). Only
+ * a caller who reads every run — an admin — may supply one; anyone else is
+ * refused with 403, which discloses nothing: they may read the run.
+ */
+export const replayTriggerData = (
+  c: Context,
+  access: ReadableRun,
+  body: { readonly triggerData?: unknown } | undefined
+): Gated<Record<string, unknown> | undefined> => {
+  const supplied =
+    body !== undefined && body.triggerData !== undefined && body.triggerData !== null
+      ? (body.triggerData as Record<string, unknown>)
+      : undefined
+  if (supplied !== undefined && !access.readsEveryRun) {
+    return {
+      ok: false,
+      response: forbidden(c, 'Only an admin can replay a run with new trigger data'),
+    }
+  }
+  return { ok: true, value: supplied }
+}
+
+/**
+ * What the signed-in caller may read, for the run lists. Mounted behind the
+ * session gate, so a missing session is answered 401 here too.
+ */
+export const gateRunAccess = async (c: Context, app: App): Promise<Gated<RunAccess>> => {
+  const auth = requireSession(c)
+  if (!auth.ok) return { ok: false, response: auth.response }
+  const program = loadRunAccess({ userId: auth.session.userId, app })
+  const loaded = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
+  if (loaded._tag === 'Failure') return { ok: false, response: toErrorResponse(c, loaded.failure) }
+  return { ok: true, value: loaded.success }
+}
 
 /**
  * Translate a replay error into the appropriate HTTP response. Mirrors
@@ -63,7 +126,7 @@ const replayErrorResponse = (c: Context, error: ReplayAutomationRunError) => {
     error._tag === 'AutomationRunNotFound' ||
     error._tag === 'AutomationRunMismatch'
   ) {
-    return c.json({ success: false, message: 'Run not found' }, 404)
+    return notFound(c, 'Run not found')
   }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json({ success: false, message: 'Failed to register automation in the database' }, 500)
@@ -90,18 +153,15 @@ export async function handleReplayRunById(c: Context, app: App) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
 
-  const lookup = await runRequestEffect(c, Effect.result(provideDomain(c, loadRunForReplay(id))))
-  if (lookup._tag === 'Failure' || lookup.success === undefined) {
-    return c.json({ success: false, message: 'Run not found' }, 404)
-  }
-  const name = lookup.success.automationName
+  const gate = await gateReadableRun(c, app, id)
+  if (!gate.ok) return gate.response
+  const name = gate.value.run.automationName
 
   const body = (await c.req.json().catch(() => undefined)) as
-    { triggerData?: Record<string, unknown>; fromStep?: string } | undefined
-  const overrideTriggerData =
-    body !== undefined && body.triggerData !== undefined && body.triggerData !== null
-      ? (body.triggerData as Record<string, unknown>)
-      : undefined
+    { triggerData?: unknown; fromStep?: string } | undefined
+  const supplied = replayTriggerData(c, gate.value, body)
+  if (!supplied.ok) return supplied.response
+  const overrideTriggerData = supplied.value
 
   const program = replayAutomationRun({
     name,
@@ -127,6 +187,20 @@ export async function handleReplayRunById(c: Context, app: App) {
 }
 
 /**
+ * The statuses a run can still be cancelled from: it waits for a slot, runs,
+ * or waits for an approval (`pending` and `retrying` are never written by the
+ * engine; a client that reads one may still cancel it). Every other status is
+ * an ended run.
+ */
+const CANCELLABLE_RUN_STATUSES: ReadonlySet<string> = new Set([
+  'queued',
+  'running',
+  'waiting-approval',
+  'pending',
+  'retrying',
+])
+
+/**
  * Handle POST /api/automations/runs/:id/cancel
  *
  * Mark a run as `'cancelled'` in `system.automation_runs` AND fire the
@@ -140,11 +214,24 @@ export async function handleReplayRunById(c: Context, app: App) {
  *      `'cancelled'` immediately.
  *   2. Scheduler controller aborted so a long-running action's finaliser
  *      cannot race the cancel and overwrite the row back to `'completed'`.
+ *
+ * A run that already ended — completed, failed, rejected, stopped by a filter,
+ * timed out, or cancelled before — is not cancelled: 409, saying so, and the
+ * row keeps its status. Replay is the road for a finished run. A run that
+ * waits for an approval has its pending request rejected FIRST, so the
+ * approver no longer finds it and a later answer resumes nothing.
  */
-export async function handleCancelRun(c: Context, _app: App) {
+export async function handleCancelRun(c: Context, app: App) {
   const id = c.req.param('id')
   if (id === undefined) {
     return c.json({ success: false, message: 'Run id required' }, 400)
+  }
+  // BEFORE the abort: a caller who may not read the run must not stop it.
+  const gate = await gateReadableRun(c, app, id)
+  if (!gate.ok) return gate.response
+  const current = gate.value.run.status
+  if (!CANCELLABLE_RUN_STATUSES.has(current)) {
+    return c.json({ success: false, message: `Run already ${current}`, status: current }, 409)
   }
 
   // Fire the in-memory abort first so any concurrent finaliser sees the
@@ -156,13 +243,18 @@ export async function handleCancelRun(c: Context, _app: App) {
   signalCancellation(id)
 
   const program = Effect.gen(function* () {
+    const approvals = yield* AutomationApprovalRepository
+    const pendingId = yield* approvals.findPendingIdByRunId(id)
+    if (pendingId !== undefined) {
+      yield* approvals.resolvePending({ id: pendingId, status: 'rejected' })
+    }
     const repo = yield* AutomationRunRepository
     return yield* repo.updateStatus({ id, status: 'cancelled' })
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (result._tag === 'Failure' || result.success === undefined) {
-    return c.json({ success: false, message: 'Run not found' }, 404)
-  }
+  // A store that did not answer is not a run that does not exist (E5).
+  if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
+  if (result.success === undefined) return notFound(c, 'Run not found')
   return c.json({ id, status: 'cancelled' }, 200)
 }
 
@@ -185,7 +277,7 @@ const resolveApprovalErrorResponse = (c: Context, error: ResolveApprovalError) =
       409
     )
   }
-  return c.json({ success: false, message: 'Approval not found' }, 404)
+  return notFound(c, 'Approval not found')
 }
 
 /**

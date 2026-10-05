@@ -65,9 +65,23 @@ Every user-lifecycle operation runs through it. Each endpoint needs an authentic
 
 Creating a user answers `400` for a missing or malformed address, a missing password, or an address that already exists.
 
-An assigned role must be one the app knows about — a built-in, an operator role, or a name declared in the roles array — and anything else is refused with the valid roles listed, rather than stored verbatim.
+An assigned role must be one the app knows about — a built-in, an operator role, or a name declared in the roles array — and anything else is refused with the valid roles listed, rather than stored verbatim. A user holds exactly one role, spelled exactly: a comma-separated list, a list of several roles, surrounding spaces, a different letter case, or an empty value are refused the same way.
 
 A role change that would remove the last admin able to sign in is refused outright. That refusal is the one worth knowing about before you need it: it is what stops a routine demotion from locking everybody out of the instance.
+
+Two demotions that land at the same moment cannot both pass: the count is taken again after the write, and a change that leaves no admin is put back and refused with `409`.
+
+`PATCH /api/auth/admin/users/:id` hands the write to set-role: it admits the same callers, refuses an undeclared role with `400` and the removal of the last admin with `409`, and answers `404` for an id that matches no account.
+
+### What gets recorded
+
+Every role change, impersonation, ban, lifted ban and admin-set password leaves an entry in the audit log (`GET /api/admin/audit-log`): `user.role.changed` with the previous and the new role, `user.impersonation.started` and `user.impersonation.stopped`, `user.banned` with when the ban ends (`expiresAt`, `null` for a ban without an end), `user.unbanned`, and `user.password.set`. Each names the admin who acted and the account by its id. A request that is refused — a self-ban, an unknown user, a password that is too short or too long — records nothing, and so does a write that changes nothing: setting the role a user already holds, or lifting a ban from an account that was not banned. Re-banning a banned account does record, since its end and reason were rewritten.
+
+The ban reason is never on the audit log: it is free text written about the person, it stays on the account, and it goes when the account is erased. Nothing derived from a password is ever recorded either.
+
+The entries stay when the account they name is erased — they record what an admin did — and they carry no email address or name, only an id that then resolves to no one. When the admin who acted is erased, their entries stay too, as acts with the admin's tier, and lose both their id and their address.
+
+A refused password set changes nothing at all: the target's sessions are only ended when the new password was actually written.
 
 ## Creating a user is not onboarding one
 

@@ -33,6 +33,17 @@ export class CronScheduler extends Context.Service<
       }
     ) => Effect.Effect<string, CronSchedulerError>
     readonly cancel: (jobId: string) => Effect.Effect<void, CronSchedulerError>
+    /**
+     * Start `callback` once, now, in the background, and return at once. The
+     * run belongs to the scheduler's scope, so stopping the server interrupts
+     * it exactly as it interrupts the scheduled jobs; a failure or defect is
+     * logged under `jobId` and absorbed. For boot work that must not hold the
+     * boot up — a catch-up sweep — but must not outlive the server either.
+     */
+    readonly runOnce: (
+      callback: () => Effect.Effect<void, unknown>,
+      options: { readonly jobId: string }
+    ) => Effect.Effect<void>
     readonly listJobs: Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError>
   }
 >()('CronScheduler') {}

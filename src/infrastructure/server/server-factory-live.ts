@@ -41,9 +41,10 @@ export const ServerFactoryLive = Layer.effect(
     // shape the port declares. `phases` is the infrastructure array verbatim;
     // `StartupPhaseRow` is a narrower view of the same objects, not a copy.
     startDatabase: (app, options) =>
-      runDatabaseStartup(app, parseDatabaseDialectConfig(), options?.ephemeral ?? false).pipe(
-        Effect.map((phases) => ({ phases }))
-      ),
+      runDatabaseStartup(app, parseDatabaseDialectConfig(), {
+        ephemeral: options?.ephemeral ?? false,
+        authoredTableIds: options?.authoredTableIds,
+      }).pipe(Effect.map((phases) => ({ phases }))),
     runDeferredMaintenance: (app) => runDeferredStartupMaintenance(app),
     // No socket, no banner, neither boot chain — see `createRenderApp`. The
     // config arrives already narrowed to what a render reads, so this adapter

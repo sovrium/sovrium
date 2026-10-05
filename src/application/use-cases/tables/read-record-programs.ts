@@ -38,13 +38,20 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { buildAiComputeProjection } from '@/application/use-cases/ai-compute/status-projection'
+import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
 import { NotFoundError, ValidationError } from '@/domain/errors'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
 import { formatFieldForDisplay } from './display-formatter'
+import {
+  omitHiddenColumnLookups,
+  omitHiddenLookups,
+  omitHiddenRecordLookups,
+} from './hidden-lookup-omission'
+import { relatedReaderOf } from './linked-row-visibility'
 import { processRecords, applyPagination } from './list-helpers'
+import { lookupReadMasks } from './lookup-read-masks'
 import { preserveIdType } from './preserve-id-type'
 import {
   enrichRecordsWithRelatedLabels,
@@ -55,6 +62,7 @@ import { transformRecord } from './record-transformer'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse, GetRecordResponse } from '@/domain/models/api/tables/tables'
@@ -65,6 +73,8 @@ interface ListTrashConfig {
   readonly tableName: string
   readonly app: App
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups?: readonly string[]
   readonly filter?: QueryFilter
   readonly sort?: string
   readonly limit?: number
@@ -86,13 +96,24 @@ function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): s
 
 export function createListTrashProgram(
   config: ListTrashConfig
-): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository> {
+): Effect.Effect<
+  ListRecordsResponse,
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, app, userRole, filter, sort, limit, offset } = config
 
-    // Query soft-deleted records with session context (RLS policies apply automatically)
-    const records = yield* repo.listTrash({ session, tableName, filter, sort })
+    // Query soft-deleted records with session context (RLS policies apply
+    // automatically). A lookup through a linked row the reader may not read is
+    // evaluated as empty wherever the filter or the sort names it.
+    const reader = { session, role: userRole, groups: config.userGroups ?? [] }
+    const lookupMasks = yield* lookupReadMasks(app, tableName, reader, { filter, sort })
+    const trashed = yield* repo.listTrash({ session, tableName, filter, sort, lookupMasks })
+    // A lookup through a link to a row the reader may not read is left out,
+    // on the raw rows as the live list does.
+    const records = yield* omitHiddenLookups(app, tableName, trashed, reader)
 
     // Process records (field-level filtering, transformations)
     const processedRecords = processRecords({
@@ -100,28 +121,20 @@ export function createListTrashProgram(
       app,
       tableName,
       userRole,
+      userGroups: config.userGroups ?? [],
     })
 
-    // Preserve numeric IDs and attach deletedBy user object from joined query results
-    const recordsWithPreservedIds = processedRecords.map((record) => {
-      // Try to parse ID as number if it's a numeric string, otherwise keep as-is
+    // Attach the deletedBy user from the joined query results. The id stays the
+    // string `transformRecord` produced, as on every records-API response.
+    const recordsWithDeletedBy = processedRecords.map((record) => {
       const rawRecord = records.find((r) => String(r.id) === String(record.id))
-      const originalId = rawRecord?.id
-      const id = typeof originalId === 'number' ? originalId : record.id
-
-      // Extract deletedBy user ID from the raw record's join result
       const deletedBy = rawRecord ? extractDeletedByUserId(rawRecord) : undefined
-
-      return {
-        ...record,
-        id,
-        ...(deletedBy ? { deletedBy } : {}),
-      }
+      return deletedBy ? { ...record, deletedBy } : record
     })
 
     // Apply pagination
     const { paginatedRecords, pagination } = applyPagination(
-      recordsWithPreservedIds,
+      recordsWithDeletedBy,
       records.length,
       limit,
       offset
@@ -146,26 +159,19 @@ interface GetRecordConfig {
   readonly timezone?: string
   /** See `ListRecordsConfig.origin` in `list-records-program.ts`. */
   readonly origin?: string
-  /** The caller's groups, which decide which relationship labels they may read. */
+  /** The caller's groups, which decide which fields and relationship labels they may read. */
   readonly userGroups?: readonly string[]
+  /**
+   * Whether the caller's row-level read rule admits the STORED row — asked
+   * before any column she may not read is stripped, so a rule on such a column
+   * judges the value the list judges in SQL. A row it refuses answers exactly
+   * as a missing one.
+   */
+  readonly admits?: (stored: Readonly<Record<string, unknown>>) => boolean
 }
 
-/**
- * The `_display` block of ONE record — the same relationship and account labels
- * a list row carries, so a drawer opened on a row names what the grid
- * cell beside it names.
- */
-const readRecordDisplay = (
-  config: GetRecordConfig,
-  id: string | number,
-  fields: Readonly<TransformedRecord['fields']>
-): Effect.Effect<unknown, DatabaseError, TableRepository | AuthRepository> =>
-  enrichRecordsWithRelatedLabels(
-    config.app,
-    config.tableName,
-    [{ id, fields, createdAt: '', updatedAt: '' }],
-    { reader: { role: config.userRole, groups: config.userGroups ?? [] } }
-  ).pipe(Effect.map((records) => (records[0] as { readonly _display?: unknown })._display))
+/** What shaping a stored row needs to know about its reader — no address of its own. */
+type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 'admits'>
 
 /**
  * Collapse the single-record read's fields to FLAT display strings.
@@ -183,7 +189,7 @@ const readRecordDisplay = (
  */
 const toDisplayFields = (
   fields: Readonly<TransformedRecord['fields']>,
-  config: GetRecordConfig
+  config: RecordReaderConfig
 ): Readonly<TransformedRecord['fields']> =>
   Object.fromEntries(
     Object.entries(fields).map(
@@ -233,74 +239,166 @@ export const refuseWhenNoSingleIdAddress = (
   )
 }
 
+/**
+ * The raw row a single read answers from, with every lookup through a key
+ * column to a row the reader may not read left out — judged here, before field
+ * permissions can drop the key the lookup is judged by.
+ */
+const readRawRecord = (config: GetRecordConfig) =>
+  Effect.gen(function* () {
+    const { session, tableName, recordId, app, userRole, includeDeleted } = config
+    const repo = yield* TableRepository
+    const found = yield* repo.getRecord(session, tableName, recordId, includeDeleted)
+    if (!found || config.admits?.(found) === false) {
+      return yield* Effect.fail(new NotFoundError('Record not found'))
+    }
+    const [record = found] = yield* omitHiddenColumnLookups(app, tableName, [found], {
+      session,
+      role: userRole,
+      groups: config.userGroups ?? [],
+    })
+    return record
+  })
+
+/** One stored row, filtered to its reader's fields and transformed — the pure half of the shape. */
+const transformForReader = (
+  config: RecordReaderConfig,
+  record: Readonly<Record<string, unknown>>
+) => {
+  const { tableName, app, userRole } = config
+  const caller = { role: userRole, groups: config.userGroups ?? [] }
+  const filteredRecord = filterReadableFields({ app, tableName, caller, record })
+  const transformedRaw = transformRecord(filteredRecord, {
+    app,
+    tableName,
+    format: config.format,
+    timezone: config.timezone,
+  })
+  // B-01: same attachment-URL enrichment as the list path.
+  const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
+    app,
+    tableName,
+    origin: config.origin ?? '',
+  })
+  const fields =
+    config.format === 'display' ? toDisplayFields(transformed.fields, config) : transformed.fields
+  // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`) as
+  // strings; only coerce when the value *looks* numeric. Avoids NaN for opaque
+  // string ids.
+  return { transformed, fields, id: preserveIdType(record['id'] as string | number) }
+}
+
+/** Assemble one records-API single-record answer from its already-read parts. */
+const toGetRecordResponse = (parts: {
+  readonly id: string | number
+  readonly transformed: TransformedRecord
+  readonly fields: Readonly<TransformedRecord['fields']>
+  readonly aiCompute: unknown
+  readonly display: unknown
+}): GetRecordResponse => {
+  const { id, transformed, fields, aiCompute, display } = parts
+  // Fields at the root as flat aliases too (the same pattern as
+  // `createRecordProgram`), so `record.fieldName` reads as `record.fields.fieldName`.
+  return {
+    ...fields,
+    // A record id reads as a string on every records-API response.
+    id: String(id),
+    fields,
+    createdAt: transformed.createdAt,
+    updatedAt: transformed.updatedAt,
+    ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+    ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+    ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+    ...(aiCompute ? { _aiCompute: aiCompute } : {}),
+    ...(display === undefined ? {} : { _display: display }),
+  }
+}
+
+/**
+ * The records API's single-record answer for each stored row, as `config`'s
+ * reader sees it: the fields they may read, transformed and flattened to the
+ * top level as well as under `fields`, their many-to-many links (narrowed to
+ * the linked rows they may read, without the lookups through a link they may
+ * not read — [internal ref]), the `_display` labels and the timestamps. The
+ * rows are expected to have been judged already — their row-level rule and
+ * their lookups through a key column.
+ *
+ * Shared by `GET /records/:id` (one row) and the automation read and list
+ * steps (every row a step returns), which hand a run each record exactly as
+ * this route would answer the run's caller. The reads behind the links, the
+ * lookups, the labels and the AI-compute block are each ONE query for the
+ * whole set, never one per row: a list step of N records costs what a list
+ * route page of N records costs.
+ */
+export const shapeRecordsForReader = (
+  config: RecordReaderConfig,
+  records: readonly Readonly<Record<string, unknown>>[]
+): Effect.Effect<
+  readonly GetRecordResponse[],
+  DatabaseError,
+  TableRepository | AuthRepository | DataSourceRepository
+> =>
+  Effect.gen(function* () {
+    if (records.length === 0) return []
+    const { app, tableName } = config
+    const reader = {
+      session: config.session,
+      role: config.userRole,
+      groups: config.userGroups ?? [],
+    }
+    const shaped = records.map((record) => transformForReader(config, record))
+    const ids = shaped.map(({ id }) => id)
+
+    const links = yield* readManyToManyLinks(app, tableName, ids, { reader })
+    const linked = shaped.map(({ id, fields }) => ({
+      id,
+      fields: mergeManyToManyFields(fields, id, links),
+    }))
+    // A lookup through a many-to-many link to a row the reader may not read is
+    // left out; one through a key column was judged on the raw row.
+    const narrowed = yield* omitHiddenRecordLookups(app, tableName, linked, reader)
+    const enriched = narrowed.map(({ fields }) => fields as TransformedRecord['fields'])
+
+    // [internal ref] Phase 2: the gated top-level `_aiCompute` block — omitted for
+    // non-AI tables (no read) and for records with no status rows yet.
+    const aiCompute = yield* buildAiComputeProjections(app, tableName, ids)
+    const labelled = yield* enrichRecordsWithRelatedLabels(
+      app,
+      tableName,
+      ids.map((id, index) => ({
+        id: String(id),
+        fields: enriched[index] ?? {},
+        createdAt: '',
+        updatedAt: '',
+      })),
+      { reader: relatedReaderOf(reader), linkReader: reader }
+    )
+
+    return shaped.map(({ transformed, id }, index) =>
+      toGetRecordResponse({
+        id,
+        transformed,
+        fields: enriched[index] ?? {},
+        aiCompute: aiCompute.get(String(id)),
+        display: (labelled[index] as { readonly _display?: unknown } | undefined)?._display,
+      })
+    )
+  }).pipe(Effect.withSpan('tables.shape-records-for-reader'))
+
 export function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<
   GetRecordResponse,
   DatabaseError | NotFoundError | ValidationError,
-  TableRepository | AuthRepository
+  TableRepository | AuthRepository | DataSourceRepository
 > {
   return Effect.gen(function* () {
-    const repo = yield* TableRepository
-    const { session, tableName, recordId, app, userRole, includeDeleted } = config
-
-    yield* refuseWhenNoSingleIdAddress(app, tableName)
-
-    const record = yield* repo.getRecord(session, tableName, recordId, includeDeleted)
-    if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
-
-    const filteredRecord = filterReadableFields({ app, tableName, userRole, record })
-    const transformedRaw = transformRecord(filteredRecord, {
-      app,
-      tableName,
-      format: config.format,
-      timezone: config.timezone,
-    })
-    // B-01: same attachment-URL enrichment as the list path.
-    const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
-      app,
-      tableName,
-      origin: config.origin ?? '',
-    })
-
-    const fields =
-      config.format === 'display' ? toDisplayFields(transformed.fields, config) : transformed.fields
-
-    // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`)
-    // as strings; only coerce when the value *looks* numeric. Avoids NaN
-    // for opaque string ids.
-    const id = preserveIdType(record.id)
-
-    // [internal ref]: resolve many-to-many relationship fields from their junction
-    // tables (they have no base column, so `SELECT *` never returns them). A
-    // record with no links leaves the field absent — no empty-array injection.
-    const m2mLinks = yield* readManyToManyLinks(app, tableName, [id])
-    const enrichedFields = mergeManyToManyFields(fields, id, m2mLinks)
-
-    // [internal ref] Phase 2: surface the AI-compute refinement signal as a gated
-    // top-level `_aiCompute` block. `undefined` (omitted) for non-AI tables
-    // and for records with no status rows yet — non-AI tables skip the read.
-    const aiCompute = yield* buildAiComputeProjection(app, tableName, id)
-    const display = yield* readRecordDisplay(
-      config,
-      id,
-      enrichedFields as TransformedRecord['fields']
-    )
-
-    // Spread fields at root level as flat aliases (same pattern as createRecordProgram).
-    // Lets callers access record.fieldName in addition to record.fields.fieldName.
-    return {
-      ...enrichedFields,
-      id,
-      fields: enrichedFields,
-      createdAt: transformed.createdAt,
-      updatedAt: transformed.updatedAt,
-      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
-      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
-      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
-      ...(aiCompute ? { _aiCompute: aiCompute } : {}),
-      ...(display === undefined ? {} : { _display: display }),
-    }
+    yield* refuseWhenNoSingleIdAddress(config.app, config.tableName)
+    const record = yield* readRawRecord(config)
+    const [shaped] = yield* shapeRecordsForReader(config, [record])
+    // One row in, one record out — `shapeRecordsForReader` maps row for row.
+    if (shaped === undefined) return yield* Effect.fail(new NotFoundError('Record not found'))
+    return shaped
   }).pipe(Effect.withSpan('tables.create-get-record-program'))
 }
 

@@ -261,14 +261,19 @@ const buildSidebarEntries = (
  * Note: deliberately scans every `.md` file (no `include` narrowing) — the
  * sidebar has always listed the full directory; keep that behavior.
  */
-const loadFilteredFiles = async (contentDir: ContentDir): Promise<readonly ContentDirFile[]> => {
+const loadFilteredFiles = async (
+  contentDir: ContentDir,
+  isReadable: ((frontmatter: Readonly<Record<string, string>>) => boolean) | undefined
+): Promise<readonly ContentDirFile[]> => {
   const corpus = await loadContentDirCorpus(normaliseDirectory(contentDir.directory))
   const presentFiles = corpus.map((file) => ({
     slug: filePathToSlug(file.relativePath),
     frontmatter: file.frontmatter,
   }))
-  const filteredFiles = presentFiles.filter((file) =>
-    matchesContentDirFilter(contentDir.filter, file.frontmatter)
+  const filteredFiles = presentFiles.filter(
+    (file) =>
+      matchesContentDirFilter(contentDir.filter, file.frontmatter) &&
+      (isReadable === undefined || isReadable(file.frontmatter))
   )
   return sortFiles(filteredFiles, contentDir.sort)
 }
@@ -306,9 +311,14 @@ const buildPrevNext = (
 export const listContentDir = async (
   contentDir: ContentDir,
   pagePath: string,
-  currentSlug: string | undefined
+  currentSlug: string | undefined,
+  /**
+   * [internal ref] — the articles this reader may open, by their front matter
+   * `access`. An article outside it leaves the sidebar and previous/next.
+   */
+  isReadable?: (frontmatter: Readonly<Record<string, string>>) => boolean
 ): Promise<CollectionNavData> => {
-  const files = await loadFilteredFiles(contentDir)
+  const files = await loadFilteredFiles(contentDir, isReadable)
   const sidebar = buildSidebarEntries(files, contentDir, pagePath, currentSlug)
   const collapsed = contentDir.nav?.collapsed === true
   const tabs = contentDir.nav?.tabs

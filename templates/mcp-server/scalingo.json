@@ -1,6 +1,6 @@
 {
   "name": "Sovrium MCP Server",
-  "description": "Expose your tables to an LLM over MCP.",
+  "description": "A team knowledge base served over MCP: documents an assistant reads and adds to with an API key.",
   "repository": "https://github.com/sovrium/mcp-server-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/mcp-server",
@@ -28,9 +28,14 @@
       "required": false
     },
     "MCP_ENABLED": {
-      "description": "Activates the MCP endpoint — the whole point of this template.",
+      "description": "Switches the MCP endpoint on at /mcp — the whole point of this template.",
       "value": "true",
       "required": true
+    },
+    "MCP_TRANSPORT": {
+      "description": "How /mcp is served. streamable-http serves it over HTTP to a client anywhere; stdio switches the route off.",
+      "value": "streamable-http",
+      "required": false
     }
   },
   "addons": [

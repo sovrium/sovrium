@@ -41,7 +41,7 @@ export function isSharedViewAccessDenied(
   app: App,
   path: string,
   query: string,
-  session: { readonly role: string; readonly effectiveRoles?: readonly string[] } | undefined
+  session: SharedViewReader | undefined
 ): boolean {
   if (!hasUserViewParam(query)) return false
   const matchedPage = findPageForPath(app, path)
@@ -55,17 +55,28 @@ export function isSharedViewAccessDenied(
   // This closes the asymmetry with the share-API path
   // (`src/application/use-cases/tables/user-views/get-shared-view.ts`) so a
   // user the API would 200 cannot get a page-level 404 for the same view.
+  // A reader that knows its roles per table (`rolesForTable`) answers for each
+  // table on the page: the roles an assignment gives count only on a table
+  // with row-level rules, exactly as the records route counts them.
   const effectiveRoles = resolveEffectiveRoles(session)
   return tableNames.some((tableName) => {
     const table = findTable(app, tableName)
     if (!table) return false
-    return !hasReadPermissionForRoles(table, effectiveRoles, app.tables)
+    const roles = session?.rolesForTable?.(table) ?? effectiveRoles
+    return !hasReadPermissionForRoles(table, roles, app)
   })
 }
 
-function resolveEffectiveRoles(
-  session: { readonly role: string; readonly effectiveRoles?: readonly string[] } | undefined
-): readonly string[] {
+/** Who opens a shared-view link, as the page gate sees her. */
+export interface SharedViewReader {
+  readonly role: string
+  /** The account role and a `group:<name>` entry per group. */
+  readonly effectiveRoles?: readonly string[]
+  /** The roles the records route counts for her on one table, when known. */
+  readonly rolesForTable?: (table: Table) => readonly string[]
+}
+
+function resolveEffectiveRoles(session: SharedViewReader | undefined): readonly string[] {
   if (session?.effectiveRoles && session.effectiveRoles.length > 0) {
     return session.effectiveRoles
   }

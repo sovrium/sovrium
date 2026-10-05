@@ -6,32 +6,8 @@
  */
 
 import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
-import { resolvePageLocale } from '../../../runtime/page-locale'
+import { useGridString } from '../grid-strings'
 import { GroupMenu } from '../group-menu'
-
-interface QueryCaptions {
-  readonly importRows: string
-  readonly filter: string
-  readonly sort: string
-}
-
-/**
- * The captions the grid writes ITSELF, by primary language subtag of the page
- * (`<html lang>` ← `meta.lang`). Everything else on a grid — column labels, the
- * search placeholder, the empty message — is authored, so it is already in the
- * page's language; these three words are the grid's own, and on a French page
- * they read « Importer · Filtrer · Trier » rather than English above French
- * headers. A language not listed keeps the English captions.
- */
-const QUERY_CAPTIONS: Readonly<Record<string, QueryCaptions>> = {
-  en: { importRows: 'Import', filter: 'Filter', sort: 'Sort' },
-  fr: { importRows: 'Importer', filter: 'Filtrer', sort: 'Trier' },
-}
-
-function resolveQueryCaptions(): QueryCaptions {
-  const language = resolvePageLocale().split('-')[0]?.toLowerCase() ?? 'en'
-  return QUERY_CAPTIONS[language] ?? QUERY_CAPTIONS['en']!
-}
 
 interface BadgeButtonProps {
   /** Doubles as the button's visible text and its accessible name. */
@@ -103,8 +79,18 @@ export interface QueryControlsProps {
   readonly onSelectRuntimeGroupBy: (field: string | null) => void
 }
 
+/**
+ * The three captions below are the grid's own words, not the author's, so they
+ * come from the interpreter catalog in the page's language
+ * (`datatable.import` / `.filter` / `.sort`) — « Importer · Filtrer · Trier »
+ * on a French page — through the same channel as the rest of the toolbar.
+ */
 export function QueryControls(props: QueryControlsProps) {
-  const captions = resolveQueryCaptions()
+  const captions = {
+    importRows: useGridString('datatable.import', 'Import'),
+    filter: useGridString('datatable.filter', 'Filter'),
+    sort: useGridString('datatable.sort', 'Sort'),
+  }
   return (
     <>
       {props.canImport && (

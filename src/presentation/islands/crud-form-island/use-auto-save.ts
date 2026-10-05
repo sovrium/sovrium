@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { type FieldDef } from '../parts/crud-form/fields'
-import { toWireFields } from '../parts/crud-form/wire-values'
+import { clearMarkOf, isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 /** Default debounce delay (ms) for `saveMode: 'auto'` when not configured. */
@@ -31,7 +31,11 @@ function diffChangedFields(
         const originalStr = original !== undefined && original !== null ? String(original) : ''
         return current !== originalStr
       })
-      .map((f) => [f.name, values[f.name] ?? ''])
+      .flatMap((f) => [
+        [f.name, values[f.name] ?? ''] as const,
+        // A cleared field carries its mark, so the save sends it as `null`.
+        ...(isMarkedCleared(values, f.name) ? [[clearMarkOf(f.name), '1'] as const] : []),
+      ])
   )
 }
 

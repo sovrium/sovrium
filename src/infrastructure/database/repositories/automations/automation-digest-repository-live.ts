@@ -11,7 +11,6 @@ import {
   AutomationDigestDatabaseError,
   AutomationDigestRepository,
 } from '@/application/ports/repositories/automations/automation-digest-repository'
-import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -142,13 +141,15 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
       // keyword must live INSIDE the `sql` fragment — wrapping a `sql`
       // expression with Drizzle's `desc()`/`asc()` helper does not emit
       // the keyword reliably for a `jsonb ->> key` expression, so the
-      // rows come back in physical (insertion) order. The field name is
-      // inlined as a single-quoted SQL literal (it is a JSONB key, not a
-      // table column) with embedded quotes escaped to prevent injection.
+      // rows come back in physical (insertion) order. The key is a JSON key,
+      // not a column, and it may come from the release request: it is BOUND
+      // as a parameter, never spliced into the statement (S3). The cast
+      // settles which `->>` PostgreSQL applies — the text-key one, not the
+      // array-index one — and is plain SQL on both engines.
       const orderClause =
         sort === undefined
           ? asc(automationDigestItems.collectedAt)
-          : sql`${automationDigestItems.item} ->> ${sql.raw(`'${escapeSqlString(sort.field)}'`)} ${sql.raw(sort.direction === 'desc' ? 'DESC' : 'ASC')}`
+          : sql`${automationDigestItems.item} ->> CAST(${sort.field} AS TEXT) ${sql.raw(sort.direction === 'desc' ? 'DESC' : 'ASC')}`
 
       const itemsQuery = db
         .select({ item: automationDigestItems.item })

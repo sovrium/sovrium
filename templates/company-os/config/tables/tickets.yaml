@@ -64,6 +64,14 @@ fields:
     relationshipField: company
     relatedField: name
 
+views:
+  # The tickets not resolved yet: the count beside Tickets in the sidebar.
+  - id: open_tickets
+    name: Open tickets
+    filters:
+      and:
+        - { field: status, operator: notEquals, value: Resolved }
+
 aiAccess:
   description: >-
     Support tickets, each raised by a client's contact. Use this when the user

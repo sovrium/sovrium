@@ -43,6 +43,9 @@ import { useArmedConfirm } from './armed-confirm'
 import type { TableRecord } from '../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
+/** A plain button, named `button` as the page's own button component is. */
+const NAMED_BUTTON = { type: 'button', 'data-component-type': 'button' } as const
+
 /** Per-row action click handler (mirrors `RowActionHandler` in formatting.tsx). */
 export type ActionClickHandler = (
   action: ActionColumnItem,
@@ -113,7 +116,7 @@ function ConfirmDialog({
     >
       <span className={computeTablePanelCaptionClasses()}>{prompt}</span>
       <button
-        type="button"
+        {...NAMED_BUTTON}
         data-action-type={actionTypeAttr(action)}
         className={computeTableActionButtonClasses({ tone: 'destructive' })}
         onClick={() => {
@@ -124,7 +127,7 @@ function ConfirmDialog({
         {action.label}
       </button>
       <button
-        type="button"
+        {...NAMED_BUTTON}
         aria-label={labels.cancel}
         className={computeTableActionButtonClasses()}
         onClick={onCancel}
@@ -166,17 +169,17 @@ function EditSelectEditor({
   return (
     <div className={computeTableInlineConfirmClasses()}>
       <select
+        data-component-type="select"
         aria-label={editSelect.label}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         className={computeTablePanelControlClasses()}
       >
         {/*
-          `options` became optional when `optionsSource` arrived, but is never
-          absent HERE: an option source is resolved server-side and REPLACED
-          with a concrete array before the grid's props are serialised, so an
-          island receiving neither would be a resolver bug, not a config one.
-          An empty listbox is the honest degradation for that.
+          `options` is optional since `optionsSource`, but never absent HERE: a
+          source is resolved server-side and REPLACED with an array before the
+          grid's props are serialised, so an island receiving neither is a
+          resolver bug, not a config one — an empty listbox is the honest answer.
         */}
         {(editSelect.options ?? []).map((option) => (
           <option
@@ -188,7 +191,7 @@ function EditSelectEditor({
         ))}
       </select>
       <button
-        type="button"
+        {...NAMED_BUTTON}
         data-action-type={actionTypeAttr(action)}
         className={computeTableActionButtonClasses({ tone: 'primary' })}
         onClick={() => onCommit(value)}
@@ -196,7 +199,7 @@ function EditSelectEditor({
         {editSelect.saveLabel ?? labels.save}
       </button>
       <button
-        type="button"
+        {...NAMED_BUTTON}
         aria-label={labels.cancel}
         className={computeTableActionButtonClasses()}
         onClick={onCancel}
@@ -245,7 +248,7 @@ function ActionTriggerButton({
   const tone = triggerTone(action.variant)
   return (
     <button
-      type="button"
+      {...NAMED_BUTTON}
       className={computeTableActionButtonClasses({
         disabled: !onActionClick,
         ...(tone === undefined ? {} : { tone }),

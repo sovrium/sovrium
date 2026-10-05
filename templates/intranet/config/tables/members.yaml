@@ -1,3 +1,5 @@
+# The directory: one row per colleague, with their title, team, office and
+# manager. Everyone can read it; only IT (the admin) keeps it current.
 id: 1
 name: members
 fields:
@@ -5,16 +7,84 @@ fields:
     name: name
     type: single-line-text
     required: true
+  # The first name a colleague goes by, used to greet them on Home.
+  - id: 13
+    name: known_as
+    type: single-line-text
+  - id: 6
+    name: title
+    type: single-line-text
+  - id: 7
+    name: team
+    type: single-select
+    options:
+      - Operations
+      - Finance
+      - Platform
+      - People
+      - Support
+      - Product
+      - Data
+      - Sales
+      - Marketing
+      - Leadership
+  - id: 4
+    name: office
+    type: single-select
+    options:
+      - London
+      - Manchester
+      - Lyon
+      - Barcelona
+      - Stockholm
+      - Berlin
   - id: 2
     name: email
     type: email
     required: true
+  # A colleague's manager is another row of this same table. `displayField`
+  # names the column a person should see instead of the link's number.
+  - id: 8
+    name: manager
+    type: relationship
+    relatedTable: members
+    relationType: many-to-one
+    displayField: name
+  - id: 9
+    name: joined_on
+    type: date
+  # "Sep 2026" — the month someone joined, as the directory prints it.
+  - id: 15
+    name: joined_label
+    type: formula
+    formula: "CASE substr(CAST(joined_on AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END || ' ' || substr(CAST(joined_on AS TEXT), 1, 4)"
+    resultType: string
   - id: 3
     name: bio
     type: long-text
-  - id: 4
-    name: location
-    type: single-line-text
-  - id: 5
-    name: joined_at
-    type: created-at
+  - id: 10
+    name: photo
+    type: single-attachment
+  # The sign-in account of this colleague, when they have one. It is how Home
+  # greets the person signed in, and how an announcement they publish is
+  # signed with their name.
+  - id: 11
+    name: account
+    type: user
+  - id: 12
+    name: company
+    type: relationship
+    relatedTable: company
+    relationType: many-to-one
+    displayField: name
+
+# Everyone signed in reads the directory. A member asking to change or delete a
+# colleague is answered 404.
+permissions:
+  read: authenticated
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

@@ -61,9 +61,12 @@ import {
 } from '@/domain/models/app/design/console-design-cascade'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
 import {
+  callerReaderFromSession,
+  tableReadPrincipal,
+} from '@/domain/models/app/tables/caller-record-gate-service'
+import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
-  readPrincipalFromSession,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { withDesignSystemScope } from '@/infrastructure/css/design-system-scope'
@@ -471,7 +474,7 @@ const readableTableProjection = (
   const plan = buildReadAccessPlan({
     app: operatorApp,
     table: table as TableLike,
-    principal: readPrincipalFromSession(session),
+    principal: tableReadPrincipal(table, callerReaderFromSession(session, operatorApp)),
     policy: CANONICAL_READ_POLICY,
     // No `rowContext`: `restrictedColumns` is computed from FIELD permissions
     // alone and never consults it — only `rowPredicate` does, and this

@@ -26,9 +26,13 @@ Most of what a field validates comes from its own properties rather than from a 
 
 - Field names and field ids are unique within a table.
 - Field and table names match `^[a-z][a-z0-9_]*` after sanitisation and stay within 63 characters.
+- A field may be named after a SQL keyword, such as `values` or `window`: the engine quotes the name in every statement it generates, so the table boots and its lookups and formulas read the field the same way on SQLite and PostgreSQL. A short list of words, `order` among them, is still refused.
+- A table name starts with a letter and holds letters, digits, underscores, hyphens and plain spaces; a tab, a line break or any other whitespace is refused.
+- Two tables may not be stored under the same database name. `Open Deals`, `open_deals` and `open-deals` all become `open_deals`, so declaring two of them is refused, with a message naming both.
+- A table is refused when its stored name — or a many-to-many link table's — is one the engine serves itself (`user_access`, `design_system_specimens`) or one another table also takes. A link table is named from the two tables it joins, source first: `orders` linked to `clients` keeps its links in `orders_clients`.
 - Index names and constraint names are unique within the table and match the same identifier pattern.
 - A primary key names real fields.
-- Indexes, permissions, views and webhooks name real fields.
+- Indexes, top-level `unique` entries, permissions, views and webhooks name real fields.
 - `count`, `rollup` and `lookup` name an existing `relationship` field in the same table.
 - Formula fields reference fields that exist.
 - Webhook names are unique, and a `payload` selector names a real field — the implicit `id` always counts as one.

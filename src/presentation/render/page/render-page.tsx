@@ -22,6 +22,7 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { frontmatterAccess, isArticleReadable } from '@/domain/models/app/pages/content-dir-access'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { evaluateEmbeddedFormRefsAccess } from '@/presentation/render/forms/form-ref-access-check'
@@ -46,16 +47,18 @@ import { routeParamsAreServed } from '@/presentation/render/resolve/route-param-
 import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/sidebar-current-resolver'
 import { resolvePageSidebar } from '@/presentation/render/resolve/sidebar-resolver'
 import { resolveSidebarScopedEntries } from '../resolve/sidebar-scope-resolver'
+import { rootRelativeFavicons, servedBelowRoot } from './favicon-address'
 import {
   noopDb,
-  renderPermissionBlockedPage,
   resolveOverlayedSession,
   resolvePreRenderRedirect,
   toAccessDeniedResult,
 } from './page-access-gating'
 import { resolveCollectionAndFilter } from './page-collection-resolver'
 import { renderPageHtml, resolveIslandAssets, type IslandBuilder } from './page-document-assembly'
+import { pagePayloadForReader } from './page-payload-for-reader'
 import { definedOnly } from './page-row-scope-resolver'
+import { absolutizeSharingImage } from './sharing-image-address'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -64,6 +67,18 @@ import type { CallerCapability } from '@/domain/models/app/pages/components/visi
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
+
+/**
+ * [internal ref]: whether an article gated by its own front matter admits the reader
+ * — answered as for a page they may not open, after the page access passed.
+ */
+const articleAdmits = (
+  markdownPayload: { readonly frontmatter: Readonly<Record<string, string>> } | undefined,
+  app: App,
+  session: SessionInfo | undefined
+): boolean =>
+  markdownPayload === undefined ||
+  isArticleReadable(undefined, frontmatterAccess(markdownPayload.frontmatter), app, session)
 
 /**
  * Renders a page by path to HTML string for server-side rendering
@@ -84,7 +99,7 @@ export async function renderPageByPath(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
-    /** GAP-3 / [internal ref]: host request query for embedded `$query` prefill. */
+    /** [internal ref]: host request query for embedded `$query` prefill. */
     readonly requestQuery?: Readonly<Record<string, string>>
     /**
      * G1: the scheme + host this request arrived on, feeding `$app.origin`.
@@ -143,6 +158,12 @@ export async function renderPageByPath(
      * `holdsCapability` (`visibility-filter.ts`).
      */
     readonly callerCapabilities?: readonly CallerCapability[]
+    /**
+     * The path the visitor asked for, feeding `$app.path`. Absent, it is the
+     * path being rendered; passed as `undefined`, the request named no single
+     * address (a static 404) and the token is left verbatim.
+     */
+    readonly requestPath?: string | undefined
   }
 ): Promise<PageRenderResult> {
   const {
@@ -241,17 +262,11 @@ export async function renderPageByPath(
       requestQuery,
       urlLanguage,
       callerCapabilities,
+      requestPath: options !== undefined && 'requestPath' in options ? options.requestPath : path,
     }),
   })
   if (resolvedPage === undefined) return undefined
   if ('unauthorized' in resolvedPage) return { unauthorized: true }
-  // Bug 2 / [internal ref]: the slug existed but row-level read
-  // perms exclude it for this user. Render a minimal 200 access-denied
-  // page (the spec accepts either 200 with an access marker OR 403; 200 +
-  // marker matches the existing PageRenderResult shape).
-  if ('permissionBlocked' in resolvedPage) {
-    return renderPermissionBlockedPage(app, matchedPage.path)
-  }
   // P5: turn every `derive: 'path'` breadcrumb into a concrete trail while the
   // REQUEST path is still in hand — the component dispatcher never sees it.
   // G2 then G3: both need the REQUEST path, which the component dispatcher
@@ -270,15 +285,19 @@ export async function renderPageByPath(
   // when the reader actually carries it, so a page's `query` DEFAULTS must not
   // reach this pass or every filter row would mark itself on the unfiltered
   // page. G2b needs none of it: `showWhen.section` is a path.
-  const page: Page = resolveSidebarCurrentEntries(
-    resolveSidebarScopedEntries(
-      resolveDerivedBreadcrumbs(resolvedPage, path, basePath),
+  const page: Page = rootRelativeFavicons(
+    resolveSidebarCurrentEntries(
+      resolveSidebarScopedEntries(
+        resolveDerivedBreadcrumbs(resolvedPage, path, basePath),
+        path,
+        basePath
+      ),
       path,
-      basePath
+      basePath,
+      requestQuery
     ),
-    path,
-    basePath,
-    requestQuery
+    basePath ?? '',
+    servedBelowRoot({ path, urlLanguage, basePath })
   )
 
   // [internal ref]..033 / [internal ref]: highlight every `code`
@@ -294,7 +313,9 @@ export async function renderPageByPath(
   ] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),
     resolveIslandAssets(page, app.components, islandBuilder),
-    resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern),
+    resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern, (fm) =>
+      isArticleReadable(undefined, frontmatterAccess(fm), app, session)
+    ),
     resolvePageCodeHighlights(
       page.components,
       app.design?.codeBlock?.theme,
@@ -316,7 +337,10 @@ export async function renderPageByPath(
   // (instead of as a pre-flight read) so the hot path reads the article file
   // once; the discriminator only re-reads on the rare no-payload branch, and
   // is a constant `false` for non-contentDir pages.
-  if (markdownPayload === undefined && (await isContentDirSlugNotFound(page, routeParams)))
+  if (
+    (markdownPayload === undefined && (await isContentDirSlugNotFound(page, routeParams))) ||
+    !articleAdmits(markdownPayload, app, session)
+  )
     return undefined
   const pageHtml = renderPageHtml({
     app,
@@ -336,8 +360,11 @@ export async function renderPageByPath(
   // `renderToString`). This async pass splices in the Shiki class-based markup,
   // reading the palette from `design.codeBlock` — both halves of it, when the
   // app named a dark counterpart. A no-op for pages without `code` components.
+  // The one filter over every island payload: nothing names a field the
+  // reader may not read, whichever renderer serialised it.
+  const readerHtml = await pagePayloadForReader(pageHtml, { app, session, db })
   return highlightComponentCodeBlocks(
-    pageHtml,
+    absolutizeSharingImage(readerHtml, requestOrigin),
     app.design?.codeBlock?.theme,
     app.design?.codeBlock?.darkTheme
   )
@@ -364,7 +391,7 @@ export async function renderPage(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
-    /** GAP-3 / [internal ref]: host request query for embedded `$query` prefill. */
+    /** [internal ref]: host request query for embedded `$query` prefill. */
     readonly requestQuery?: Readonly<Record<string, string>>
     /** G1: scheme + host this request arrived on, feeding `$app.origin`. */
     readonly requestOrigin?: string
@@ -392,6 +419,12 @@ export async function renderPage(
      * `holdsCapability` (`visibility-filter.ts`).
      */
     readonly callerCapabilities?: readonly CallerCapability[]
+    /**
+     * The path the visitor asked for, feeding `$app.path`. Absent, it is the
+     * path being rendered; passed as `undefined`, the request named no single
+     * address (a static 404) and the token is left verbatim.
+     */
+    readonly requestPath?: string | undefined
   }
 ): Promise<PageRenderResult> {
   const result = await renderPageByPath(app, path, options)

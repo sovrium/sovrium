@@ -305,6 +305,7 @@ const FIELD_TYPE_SAMPLE_OVERRIDES: Readonly<Record<string, string>> = {
   // numeric — the family default is an integer; four types are not
   currency: '1250.00',
   decimal: '3.14',
+  number: '3.14',
   percentage: '75',
   rating: '4',
   progress: '60',

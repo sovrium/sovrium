@@ -49,9 +49,11 @@ import {
   OPEN_WHEN_UNDECLARED,
   permits,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistTurnDurably } from './chat-durable-memory'
 import { resolveUserEmail } from './chat-mutation-flow'
@@ -109,13 +111,17 @@ const toAutomationCandidates = (app: App | undefined): ReadonlyArray<AutomationC
  * trigger` defaults to permissive — automations are triggerable by any
  * authenticated user unless the schema author restricts them.
  */
-const triggerRoleAllowed = (permission: PermissionValue | undefined, userRole: string): boolean =>
+const triggerRoleAllowed = (
+  permission: PermissionValue | undefined,
+  userRole: string,
+  app: App
+): boolean =>
   permits(
-    // An admin always satisfies a role-array gate — admin subsumes every
-    // custom role, mirroring `runManualAutomation`'s role hierarchy.
+    // An admin-equivalent caller (the built-in `admin` or the app's top role)
+    // always satisfies a role-array gate, mirroring `runManualAutomation`.
     evaluatePermission(
       permission,
-      { role: userRole },
+      { role: userRole, adminEquivalent: isAdminEquivalent(userRole, app) },
       {
         whenUndeclared: OPEN_WHEN_UNDECLARED,
         adminOverride: 'admin-outranks-role-list',
@@ -282,7 +288,7 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
   // Per-automation trigger RBAC gate. The
   // schema's `permissions.trigger` is matched against the acting role BEFORE
   // the run starts so a denied caller never triggers a run.
-  if (!triggerRoleAllowed(declared?.permissions?.trigger, input.userRole)) {
+  if (!triggerRoleAllowed(declared?.permissions?.trigger, input.userRole, input.app)) {
     return {
       kind: 'forbidden',
       message: `You do not have permission to trigger the "${name}" automation.`,
@@ -356,7 +362,7 @@ export const completeTriggerTurn = async (
     // S1 anti-enumeration: automation-trigger authz denials return 404 so the
     // user cannot discover which automations exist but are admin-only.
     // `trigger.message` is intentionally discarded from the response envelope.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Resource not found')
   }
 
   const { reply } = trigger

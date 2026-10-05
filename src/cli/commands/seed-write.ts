@@ -41,7 +41,7 @@ import {
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
-import { validateTableName } from '@/infrastructure/database/table-queries/statement/validation'
+import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { emptyKeyIndex, idOfKey, resolveSeedFields, withKey } from './seed-resolve'
 import type { Resolved, SeedKeyIndex, SeedResolveContext } from './seed-resolve'
@@ -72,16 +72,14 @@ type TableOutcome = Resolved<readonly string[]>
 
 /** Total rows in a table, INCLUDING soft-deleted ones. */
 const countRows = (tableName: string): Promise<number> => {
-  validateTableName(tableName)
-  return executeRaw(db, sql`SELECT COUNT(*) AS n FROM ${sql.identifier(tableName)}`).then((rows) =>
+  return executeRaw(db, sql`SELECT COUNT(*) AS n FROM ${tableIdentifier(tableName)}`).then((rows) =>
     Number(rows[0]?.n ?? 0)
   )
 }
 
 /** Hard-delete every row of a table, soft-deleted ones included. */
 const deleteAllRows = (tableName: string): Promise<void> => {
-  validateTableName(tableName)
-  return executeRaw(db, sql`DELETE FROM ${sql.identifier(tableName)}`).then(() => undefined)
+  return executeRaw(db, sql`DELETE FROM ${tableIdentifier(tableName)}`).then(() => undefined)
 }
 
 /**
@@ -115,7 +113,12 @@ const createOne = async (step: {
   readonly record: PlannedSeedTable['records'][number]
 }): Promise<SeedKeyIndex> => {
   const { input, context, index, table, record } = step
-  const resolved = await resolveSeedFields(context, index, withoutSelfLinks(table, record.fields))
+  const resolved = await resolveSeedFields(
+    context,
+    index,
+    withoutSelfLinks(table, record.fields),
+    table.name
+  )
   const result = await runTableProgram(
     createRecordProgram({
       session: input.session,
@@ -176,7 +179,8 @@ const writeSelfLinks = (
           const resolved = await resolveSeedFields(
             context,
             carried,
-            selfLinksOf(table, record.fields)
+            selfLinksOf(table, record.fields),
+            table.name
           )
           const id = idOfKey(resolved.index, table.name, record.key)
           if (id === undefined) {
@@ -234,12 +238,11 @@ const indexUpsertedKeys = (
   table: PlannedSeedTable,
   resolved: readonly Record<string, unknown>[]
 ): Promise<SeedKeyIndex> => {
-  validateTableName(table.name)
   const matches = (
     row: Readonly<Record<string, unknown>>,
     fields: Readonly<Record<string, unknown>>
   ): boolean => table.mergeOn.every((column) => String(row[column]) === String(fields[column]))
-  return executeRaw(db, sql`SELECT * FROM ${sql.identifier(table.name)}`).then((rows) =>
+  return executeRaw(db, sql`SELECT * FROM ${tableIdentifier(table.name)}`).then((rows) =>
     table.records.reduce<SeedKeyIndex>((carried, record, position) => {
       const fields = resolved[position]
       const row = fields === undefined ? undefined : rows.find((one) => matches(one, fields))
@@ -273,7 +276,8 @@ const upsertAll = async (
         const one = await resolveSeedFields(
           context,
           carried.index,
-          withoutSelfLinks(table, record.fields)
+          withoutSelfLinks(table, record.fields),
+          table.name
         )
         return { value: [...carried.value, one.value], index: one.index }
       }),

@@ -17,7 +17,6 @@ import {
   computeTimelineMarkerLabelClasses,
   computeTimelineRowClasses,
   computeTimelineScaleAxisClasses,
-  computeTimelineShellClasses,
 } from '@/presentation/design/timeline-default-classes'
 import { resolvePageLocale } from '../runtime/page-locale'
 import {
@@ -351,10 +350,7 @@ export function TimelineView({
     : NO_DEPENDENCY_LINKS
 
   return (
-    <div
-      data-component="data-timeline"
-      className={computeTimelineShellClasses()}
-    >
+    <div>
       {/* The positioning context for the today rule. It spans the rows AND the
        * axis, so the marker runs the full height of the plot and meets the
        * ruler it is a position on — which is why the wrapper is here rather

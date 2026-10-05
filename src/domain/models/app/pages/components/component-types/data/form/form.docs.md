@@ -8,6 +8,8 @@
 
 `dataSource` is table-only by design, since writes go to a table and never to a read endpoint; `mode: single` supplies current values for an edit form. `layout` is `single-column` by default, with `two-column` and `custom` beside it. `fieldGroups` divides the form into `{ label, fields }` sections.
 
+`props.id` and `data-testid` name the `<form>` element itself, before and after the page's script has run, so a selector such as `form#new-client` or a test id finds the form and nothing around it.
+
 ```yaml
 tables:
   - name: contacts
@@ -27,9 +29,38 @@ pages:
           - { field: notes, control: textarea }
 ```
 
+## A form offers only what its reader may write
+
+A form that creates or edits a record draws an input only for a field its reader may write — whether the form lists its `fields` or lists none and draws one per field of the table. A field she may not read is not named anywhere on her page: not its input, not its label, not its options, not an attribute, neither in the controls drawn before the page's script runs nor in the configuration handed to it. A signed-out visitor on a public form is held to the fields the table lets a visitor write.
+
+On an edit form, a field she may read but not write is offered no input, and saving leaves it as it was. When the table does not let her update the record at all, the form shows the fields she may read, disabled, with no save button.
+
 ## A bound column renders its own control
 
 On a table-bound form, every field takes its control from the column it is bound to, the same control the data table uses to edit that column. A `decimal`, `integer` or `currency` column is a number input stepped by its `precision`, and `currency` shows its symbol beside the input; a `percentage` column is a number input with a `%` sign; a `date` column is a date input and a `datetime` column a date-and-time input, read in the column's `timeZone`; a `rating` column is a row of choices from 1 to its `max`; a `multi-select` column is one checkbox per option; a `user` column is a people picker that searches accounts by name. What the form sends is the column's own kind of value — a number, an ISO date or timestamp, a list, an account id — never the text typed into a box, so a form never posts an empty string into a column that cannot hold one.
+
+Pressing the form's submit saves what changed: an optional field left empty stays as it was. To clear one, press its **Clear** control — offered on an optional date, number, choice or relationship that holds a value, never on a required field — and save: the form sends the field as cleared (`<field>__clear` when posted without scripts, `null` otherwise), and the records API stores it empty; clearing a to-many relationship removes every link its reader can see. A file input left untouched keeps the stored file, and a relationship saves the record it names. An edit form opens with the record's links — only the linked records its reader may read; links it hides are kept when the form is saved. A to-many relationship shows each linked record by name, and its count against `maxLinked` when the column declares one ("3 of 5 linked"). A to-one relationship shows the linked record's name.
+
+## Embedding a declared form
+
+`formRef` draws a form you declared in `forms[]` inside a page, with its fields, layout, steps and submission behaviour. On its own page at `/forms/<name>` the form's title is that page's `<h1>` and takes the display size. Embedded, the title is a section of the host page: `props.headingLevel` (`h1`, `h2` or `h3`, default `h1`) sets the heading it renders as, so a page with its own hero heading keeps a single `<h1>`. An embedded title's size follows that heading level; the display size is only for the standalone form page.
+
+```yaml
+pages:
+  - name: Pricing
+    path: /pricing
+    components:
+      - { type: text, element: h1, content: Pricing }
+      - type: form
+        formRef: contact
+        props: { headingLevel: h3 }
+```
+
+## Before the page's script has run
+
+A form with a submit target never sends its values in the page address. It is always drawn as a `POST` form, so no way of submitting it — a click, or Enter in a field — can put an email address or a password in the URL, where it would stay in the browser history and in every server log on the way.
+
+An edit form and a form drawn from `forms[]` submit straight to their own route, so they work before the page's script has run and without it. A form that can only send through that script — one bound to your own `endpoint`, a sign-in or sign-up form, a create form, and a form that runs an automation — draws its submit disabled until the script is ready, then enables it. On a slow connection the button is briefly greyed out rather than appearing to accept a submit it cannot send. A button elsewhere on the page that submits the form with `interactions.click.submitForm` waits the same way: while the submit is disabled, pressing it does nothing.
 
 ## Submitting to your own endpoint
 

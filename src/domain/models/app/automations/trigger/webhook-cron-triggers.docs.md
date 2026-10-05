@@ -7,6 +7,7 @@
 Exposes an HTTP endpoint at `/api/automations/{name}/webhook` that starts the automation when it is hit.
 
 ```yaml
+# Requires env: [{ key: STRIPE_SIGNING_SECRET }] at the top of the app
 trigger:
   type: webhook
   method: [POST]
@@ -22,6 +23,51 @@ trigger:
 ### The caller waits unless you say otherwise
 
 `respondImmediately` is off by default, which takes the **synchronous** path: the HTTP request stays open until the run completes, so a slow automation becomes a slow response for the sender. Set it to `true` for a fire-and-forget receiver that only needs a fast `202` — most payment and repository providers are exactly that, and several will retry a slow delivery as though it had failed.
+
+### What the caller gets back
+
+On the synchronous path, the default answer names the run and nothing it read:
+
+```json
+{ "id": "550e8400-e29b-41d4-a716-446655440000", "status": "completed" }
+```
+
+`status` is `completed`, `completed-with-errors` (a step failed under `continueOnError` and the run went on), `failed`, `skipped`, `cancelled` or `waiting-approval` (the run is paused on an approval request). A run whose step failed is answered `500`, with the same two keys. No step's output and no step's error is ever part of this answer, whatever the last step was: a webhook's caller is whoever holds its URL, often a service signed in to nothing, while the steps read under the run's own authority. The run's steps, their outputs and its error stay in its run history (`GET /api/automations/runs/{id}`) for whoever may read the run.
+
+To send data back, say so with a `webhook/response` action. It answers exactly the status, headers and body it declares, with nothing merged in, and its templates see every earlier step:
+
+```yaml
+automations:
+  - name: lookup-contact
+    trigger: { type: webhook, method: POST }
+    actions:
+      - name: lookup
+        type: record
+        operator: read
+        props: { table: contacts, id: '{{trigger.data.contactId}}' }
+      - name: answer
+        type: webhook
+        operator: response
+        props:
+          status: 200
+          headers: { X-Lookup: contacts }
+          body: { found: true, name: '{{steps.lookup.record.name}}' }
+```
+
+A body value that is exactly one template keeps the type of what it names: `'{{steps.lookup.record}}'` returns the whole record as a JSON object, a number field arrives as a number, a checkbox as `true` or `false`, and an empty field as `null`. A template that names nothing leaves its key out of the body. A value that mixes text with a template is always a string:
+
+```yaml
+body:
+  contact: '{{steps.lookup.record}}' # the record, as a JSON object
+  score: '{{steps.lookup.record.score}}' # 42, a number
+  summary: 'Contact {{steps.lookup.record.name}} scores {{steps.lookup.record.score}}' # a string
+```
+
+A whole record carries every field the step read, so name the fields to return when some of them are not the caller's to see.
+
+`trigger.response` shapes the answer too, but its `body` and `headers` templates see `{{run.id}}` and `{{trigger.data.*}}` only. A `{{steps.*}}` path is not in their reach and renders empty, so step data goes through the `webhook/response` action, which wins when both are present. Setting `trigger.response.status` also keeps that status when a step fails, instead of the `500`. With `respondImmediately: true` the caller gets `202` and `{ "id", "runId" }`, both the run's id, and nothing else.
+
+The manual trigger (`POST /api/automations/{name}/trigger`) answers differently, on purpose: it also returns the last step's `output` and a failed step's `error`. Its caller is signed in and started the run herself, and every step of a run started by hand reads within what she may read, so its answer shows her nothing beyond her own reach.
 
 ### Inbound authentication
 
@@ -48,6 +94,7 @@ An `hmac` webhook checks a signature the way its `scheme` says the provider writ
 Some providers check an endpoint before they deliver anything to it. Meta — Facebook Pages and Lead Ads, Instagram, WhatsApp Cloud — sends a `GET` with `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`, and subscribes only an endpoint that answers the challenge back. Declare `verification` and Sovrium answers it:
 
 ```yaml
+# Requires env: [{ key: META_VERIFY_TOKEN }, { key: META_APP_SECRET }] at the top of the app
 trigger:
   type: webhook
   method: POST

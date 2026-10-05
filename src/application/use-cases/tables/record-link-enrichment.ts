@@ -44,6 +44,7 @@ import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { DatabaseError } from '@/domain/errors'
+import { filterReadableLinks, readableKeys, type LinkReader } from './linked-row-visibility'
 import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './many-to-many-fields'
 import {
   buildRecordDisplayLabels,
@@ -57,6 +58,7 @@ import {
   type RequestedLabel,
 } from './relationship-display-fields'
 import type { TransformedRecord } from './record-transformer'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
 
 type ManyToManyWriteLink = {
@@ -129,17 +131,24 @@ export const readManyToManyLinks = (
   app: App | undefined,
   tableName: string,
   ids: readonly (string | number)[],
-  fields?: string
-): Effect.Effect<ManyToManyLinkMap, DatabaseError, TableRepository> =>
+  options: { readonly fields?: string; readonly reader?: LinkReader } = {}
+): Effect.Effect<
+  ManyToManyLinkMap,
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
-    const specs = selectedManyToManySpecs(app, tableName, fields)
+    const specs = selectedManyToManySpecs(app, tableName, options.fields)
     if (specs.length === 0 || ids.length === 0) return {}
     const repo = yield* TableRepository
-    return yield* repo.readManyToMany({
+    const links = yield* repo.readManyToMany({
       sourceTable: tableName,
       sourceIds: ids,
       fields: specs.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
     })
+    // A reader sees only the linked rows the related table lets them read.
+    const readable = yield* filterReadableLinks(app, specs, links, options.reader)
+    return readable as ManyToManyLinkMap
   }).pipe(Effect.withSpan('tables.read-many-to-many-links'))
 
 /**
@@ -166,7 +175,15 @@ export function mergeManyToManyFields<V>(
   linkMap: Readonly<ManyToManyLinkMap>
 ): Readonly<Record<string, V | readonly (string | number)[]>> {
   const links = linkMap[String(recordId)]
-  return links ? { ...fields, ...links } : { ...fields }
+  // Each linked id reads as a string, as every record id does.
+  return links
+    ? {
+        ...fields,
+        ...Object.fromEntries(
+          Object.entries(links).map(([field, ids]) => [field, ids.map(String)] as const)
+        ),
+      }
+    : { ...fields }
 }
 
 /** Write a create's many-to-many junction rows (no-op when there are none). */
@@ -181,19 +198,73 @@ export const writeManyToManyLinks = (
     : repo.linkManyToMany({ sourceTable: tableName, sourceId, links })
   ).pipe(Effect.withSpan('tables.write-many-to-many-links'))
 
+/**
+ * The many-to-many fields an update CLEARS: present in the change as `null` or
+ * as an empty list. Any other value keeps its add-only meaning — the links it
+ * names are added, none are removed.
+ */
+export const clearedManyToManySpecs = (
+  fields: Readonly<Record<string, unknown>>,
+  specs: readonly ManyToManyFieldSpec[]
+): readonly ManyToManyFieldSpec[] =>
+  specs.filter((spec) => {
+    if (!Object.hasOwn(fields, spec.fieldName)) return false
+    const value = fields[spec.fieldName]
+    return value === null || (Array.isArray(value) && value.length === 0)
+  })
+
+/**
+ * Remove every link of the cleared fields that the writer may read. A link to
+ * a row the related table hides from the writer is kept: they never saw it, so
+ * clearing the field cannot mean it. A writer with no reader identity (an
+ * automation) clears every link.
+ */
+export const clearManyToManyLinks = (input: {
+  readonly app: App | undefined
+  readonly tableName: string
+  readonly recordId: string | number
+  readonly cleared: readonly ManyToManyFieldSpec[]
+  readonly reader: LinkReader | undefined
+}): Effect.Effect<void, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+  Effect.gen(function* () {
+    const { app, tableName, recordId, cleared, reader } = input
+    if (cleared.length === 0) return
+    const repo = yield* TableRepository
+    const stored = yield* repo.readManyToMany({
+      sourceTable: tableName,
+      sourceIds: [recordId],
+      fields: cleared.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
+    })
+    const readable = yield* filterReadableLinks(app, cleared, stored, reader)
+    const lists = readable[String(recordId)] ?? {}
+    yield* repo.unlinkManyToMany({
+      sourceTable: tableName,
+      sourceId: recordId,
+      links: cleared.map((spec) => ({
+        relatedTable: spec.relatedTable,
+        relatedIds: lists[spec.fieldName] ?? [],
+        hasReciprocal: spec.hasReciprocal,
+      })),
+    })
+  }).pipe(Effect.withSpan('tables.clear-many-to-many-links'))
+
 /** Enrich a page of records with their many-to-many field values from junctions. */
 export const enrichRecordsWithManyToMany = (
   app: App | undefined,
   tableName: string,
   records: readonly TransformedRecord[],
-  fields?: string
-): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository> =>
+  options: { readonly fields?: string; readonly reader?: LinkReader } = {}
+): Effect.Effect<
+  readonly TransformedRecord[],
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const linkMap = yield* readManyToManyLinks(
       app,
       tableName,
       records.map((r) => r.id),
-      fields
+      options
     )
     return records.map(
       (record) =>
@@ -204,16 +275,62 @@ export const enrichRecordsWithManyToMany = (
     )
   }).pipe(Effect.withSpan('tables.enrich-records-with-many-to-many'))
 
+/** Who a page's labels are resolved for, and which ones the request asked for. */
+interface LabelAudience {
+  readonly reader: LabelReader
+  readonly requested?: readonly RequestedLabel[]
+  /**
+   * The reader as a session, so a related ROW they may not read is not named:
+   * its key stays on the record — it is the record's own value — but its label
+   * is never looked up. Absent, only the table and field grants narrow.
+   */
+  readonly linkReader?: LinkReader
+}
+
+type LabelRequest = ReturnType<typeof collectReferencedKeys>[number]
+
+/** Each label request narrowed to the related rows the reader may read. */
+const readableLabelRequests = (
+  app: App | undefined,
+  requests: readonly LabelRequest[],
+  linkReader: LinkReader | undefined
+): Effect.Effect<
+  readonly LabelRequest[],
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
+  Effect.forEach(requests, (request) => {
+    const related = app?.tables?.find((t) => t.name === request.relatedTable)
+    if (app === undefined || related === undefined || linkReader === undefined) {
+      return Effect.succeed(request)
+    }
+    return readableKeys(app, related, request.ids.map(String), linkReader).pipe(
+      Effect.map((readable) =>
+        readable === undefined
+          ? request
+          : { ...request, ids: request.ids.filter((id) => readable.has(String(id))) }
+      )
+    )
+  }).pipe(
+    Effect.map((narrowed) => narrowed.filter((request) => request.ids.length > 0)),
+    Effect.withSpan('tables.readable-label-requests')
+  )
+
 /** The relationship part of each record's labels, keyed by record id (empty when none). */
 const readRelationshipLabels = (
   app: App | undefined,
   tableName: string,
   records: readonly TransformedRecord[],
-  audience: { readonly reader: LabelReader; readonly requested?: readonly RequestedLabel[] }
-): Effect.Effect<ReadonlyMap<string, RecordDisplayLabels>, DatabaseError, TableRepository> =>
+  audience: LabelAudience
+): Effect.Effect<
+  ReadonlyMap<string, RecordDisplayLabels>,
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const specs = getRelationshipDisplaySpecs(app, tableName, audience.reader, audience.requested)
-    const requests = specs.length === 0 ? [] : collectReferencedKeys(specs, records)
+    const collected = specs.length === 0 ? [] : collectReferencedKeys(specs, records)
+    const requests = yield* readableLabelRequests(app, collected, audience.linkReader)
     if (requests.length === 0) return new Map<string, RecordDisplayLabels>()
     const repo = yield* TableRepository
     const labels = yield* repo.readRelatedLabels(requests)
@@ -276,11 +393,12 @@ export const enrichRecordsWithRelatedLabels = (
   app: App | undefined,
   tableName: string,
   records: readonly TransformedRecord[],
-  audience: {
-    readonly reader: LabelReader
-    readonly requested?: readonly RequestedLabel[]
-  }
-): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository | AuthRepository> =>
+  audience: LabelAudience
+): Effect.Effect<
+  readonly TransformedRecord[],
+  DatabaseError,
+  TableRepository | AuthRepository | DataSourceRepository
+> =>
   Effect.gen(function* () {
     if (records.length === 0) return records
     const [related, users] = yield* Effect.all(

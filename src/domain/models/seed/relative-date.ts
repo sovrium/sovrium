@@ -17,14 +17,17 @@
  * ## Grammar
  *
  * ```
- * token  := '{{' WS? anchor WS? offset? WS? '}}'
+ * token  := '{{' WS? anchor WS? offset? (WS time)? WS? '}}'
  * anchor := 'today' | 'now'
  * offset := ('+' | '-') WS? INT WS? unit
  * unit   := 'd' | 'w' | 'h' | 'm'      // days, weeks, hours, minutes
+ * time   := HH ':' MM                  // `today` only, 00:00 to 23:59
  * ```
  *
  * `today` renders a date-only `YYYY-MM-DD`; `now` renders a full ISO 8601
- * instant. Both are computed **in UTC**, deliberately: the demo host runs in
+ * instant. `today` followed by a time of day — `{{today+6d 14:00}}` — renders
+ * the instant of that time on the resolved day, so an event seeded for the
+ * afternoon starts in the afternoon whenever the seed runs. Both are computed **in UTC**, deliberately: the demo host runs in
  * Europe/Paris and CI runs in UTC, and a local-time `today` would render a
  * different date on each — the seeded data would stop being a pure function of
  * its input, and a "why is this row a day off" bug would only reproduce on one
@@ -57,6 +60,8 @@ export interface RelativeDateToken {
   /** Signed offset; `0` when the token carries no offset at all. */
   readonly amount: number
   readonly unit: RelativeDateUnit
+  /** Minutes after midnight (UTC) of the resolved day, for `today HH:MM`. */
+  readonly minuteOfDay?: number
 }
 
 /**
@@ -64,7 +69,8 @@ export interface RelativeDateToken {
  *
  * Anchored at both ends on purpose — see rule 1 above.
  */
-const TOKEN_PATTERN = /^\{\{\s*(today|now)\s*(?:([+-])\s*(\d+)\s*([dwhm]))?\s*\}\}$/
+const TOKEN_PATTERN =
+  /^\{\{\s*(today|now)\s*(?:([+-])\s*(\d+)\s*([dwhm]))?(?:\s+(\d{2}):(\d{2}))?\s*\}\}$/
 
 /** Any `{{…}}` sequence, used only to detect a malformed token. */
 const ANY_TOKEN_PATTERN = /\{\{/
@@ -92,13 +98,30 @@ export const parseRelativeDateToken = (raw: string): RelativeDateToken | undefin
   const sign = match[2]
   const digits = match[3]
   const unit = match[4] as RelativeDateUnit | undefined
+  const time = timeOfDay(match[5], match[6])
+  // A time of day belongs to a day: `now` already names a moment.
+  if (time === 'invalid' || (time !== undefined && anchor !== 'today')) return undefined
+  const withTime = time === undefined ? {} : { minuteOfDay: time }
 
   if (sign === undefined || digits === undefined || unit === undefined) {
-    return { anchor, amount: 0, unit: 'd' }
+    return { anchor, amount: 0, unit: 'd', ...withTime }
   }
 
   const magnitude = Number.parseInt(digits, 10)
-  return { anchor, amount: sign === '-' ? -magnitude : magnitude, unit }
+  return { anchor, amount: sign === '-' ? -magnitude : magnitude, unit, ...withTime }
+}
+
+/**
+ * Minutes after midnight of an `HH:MM`, `undefined` when there is none, and
+ * `'invalid'` when it is not a time of day (`25:00`, `09:60`).
+ */
+const timeOfDay = (
+  hours: string | undefined,
+  minutes: string | undefined
+): number | 'invalid' | undefined => {
+  if (hours === undefined || minutes === undefined) return undefined
+  const [h, m] = [Number(hours), Number(minutes)]
+  return h < 24 && m < 60 ? h * 60 + m : 'invalid'
 }
 
 /**
@@ -121,7 +144,12 @@ export const looksLikeToken = (raw: string): boolean =>
 export const expandRelativeDate = (token: RelativeDateToken, runAt: Readonly<Date>): string => {
   const shifted = new Date(runAt.getTime() + token.amount * MS_PER_UNIT[token.unit])
   const iso = shifted.toISOString()
-  return token.anchor === 'today' ? iso.slice(0, 10) : iso
+  if (token.anchor !== 'today') return iso
+  const day = iso.slice(0, 10)
+  if (token.minuteOfDay === undefined) return day
+  return new Date(
+    Date.parse(`${day}T00:00:00.000Z`) + token.minuteOfDay * MS_PER_UNIT.m
+  ).toISOString()
 }
 
 /** Outcome of expanding one string-valued seed field. */
@@ -148,7 +176,8 @@ export const expandSeedStringValue = (raw: string, runAt: Readonly<Date>): Expan
       reason:
         `Unrecognised template token in "${raw}". ` +
         `Expected {{today}}, {{now}}, or an offset like {{today+7d}} / {{now-2h}} ` +
-        `(units: d, w, h, m) as the entire value. ` +
+        `(units: d, w, h, m), optionally a time of day like {{today+6d 14:00}}, ` +
+        `as the entire value. ` +
         `To store this text literally, escape it as "\\${raw}".`,
     }
   }

@@ -41,18 +41,24 @@ Shows author name, avatar, content and a relative timestamp; hidden when the rea
 
 The comment form is shown to authenticated users with that permission, and hidden from unauthenticated visitors — who instead see a sign-in prompt when the table's comment setting is `authenticated`. Authors can edit and delete their own comments; admins can delete any. Content is limited to 10,000 characters, matching the API.
 
+Typing `@` in the comment or reply box opens a picker of the people who can read the record, other than the writer, narrowed by what follows the `@`. ArrowDown and ArrowUp move through it, Enter or Tab picks the highlighted person, a click picks too, and Escape closes it and leaves the text as typed. A picked person reads as `@<name>` in the box and is saved as a mention, so a comment automation filtered on `mentionsOnly` hears of it. A name typed by hand without picking it stays plain text. In the thread, every mention shows as the person's current name, and a mention the reader may not be shown — someone who cannot read the record, or an account that no longer exists — shows as `@unknown user`. Editing a comment shows its mentions as names and keeps them. Mentions are on wherever the composer is; there is no option to set.
+
 ### Public and guest comments
 
 When the table's comment config enables guest comments, the form also accepts a guest name and email, and supports moderation, threading and spam protection:
 
-| Concern         | Behaviour                                                                                                                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Guest fields    | Name required, 1–100 characters; email required when guest email is required (the default), validated as an email. Stored with a null user id.                                                                                        |
-| Threading       | On, a single-level Reply appears on top-level comments and replies store a parent id. Off — the default — the thread is flat.                                                                                                         |
-| Moderation      | `manual` creates new comments as pending for an admin to approve or reject; `auto` publishes immediately; `auth-required` publishes immediately but accepts comments only from signed-in users. Auto-approve rules bypass moderation. |
-| Spam protection | A honeypot field, IP rate limiting (default 5 per minute, then 429), a link threshold that sends a comment to moderation, and blocked-word auto-reject — all enforced server-side.                                                    |
+| Concern         | Behaviour                                                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guest fields    | Name required, 1–100 characters; email required when guest email is required (the default), validated as an email. Stored with a null user id.                                                                                                                                         |
+| Threading       | On, a single-level Reply appears on top-level comments and replies store a parent id. Off — the default — the thread is flat.                                                                                                                                                          |
+| Moderation      | `manual` creates new comments as pending for an admin (the built-in `admin` or the app's highest role) to approve or reject; `auto` publishes immediately; `auth-required` publishes immediately but accepts comments only from signed-in users. Auto-approve rules bypass moderation. |
+| Spam protection | A honeypot field, IP rate limiting (default 5 per minute, then 429), a link threshold that sends a comment to moderation, and blocked-word auto-reject — all enforced server-side.                                                                                                     |
 
 Write `manual` where a config used `true`, and `auto` where it used `false`.
+
+Guest comments open a thread only where the record itself is open to a signed-out visitor: the table's gate wins. Reading the thread needs the table's `read` to be `all`, and posting needs, on top, a `comment` grant of `all` (or none). On a table whose `read` or `comment` is `authenticated` or a role list, a signed-out visitor gets on the thread the same `401` she gets on the record, and nothing is written.
+
+The guest form sends nothing until the page's script has run: its Post button waits for it, so a comment, a name or an email never travels in the page address.
 
 ### Count display
 

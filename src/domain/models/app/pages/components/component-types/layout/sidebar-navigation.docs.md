@@ -1,6 +1,6 @@
 # Sidebar Navigation
 
-> The `sidebar` layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, and the icon rail.
+> The `sidebar` layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, and the icon rail. Moving between pages without a reload has its own article.
 
 A vertical navigation panel, usually paired with a `container` main region to form an app shell. Compose it statically from `children`, or declare its shape with `groups` and let it render as one navigation landmark of real links.
 
@@ -39,7 +39,7 @@ Use `prefix` on a section entry so it stays marked while a visitor is inside it 
 
 ### Badging an entry
 
-`badge` takes either a literal string — a status word your config can state truthfully, like `Beta` — or `{ endpoint, valuePath }` for a count it cannot. `valuePath` is a dot path into the response, defaulting to `total`.
+`badge` takes either a literal string — a status word your config can state truthfully, like `Beta` — or `{ endpoint, valuePath }` for a count it cannot. `valuePath` is a dot path into the response, defaulting to `total`. An entry badge, written or fetched, is marked `data-component-type="badge"`, like a `badge` component anywhere else on the page.
 
 ### Sections inside one landmark
 
@@ -125,24 +125,9 @@ A gated entry is **removed from the document**, not hidden. A navigation that sh
 
 `showWhen` is available at any of the three levels. Pair it with a third level unless that list belongs in the chrome of every page — a third level that is always present is a sidebar that has become a site map.
 
-## `trackNavigation`
+## Moving between pages without a reload
 
-`aria-current="page"` is resolved on the server, which is right and sufficient for an app whose every navigation is a page load. An app that swaps its content region in place leaves the sidebar mounted and the server's mark frozen on the page the reader has already left — so the one element that answers "where am I" becomes the one element that is wrong.
-
-`trackNavigation: true` re-derives the mark on the client after a same-document navigation. It is opt-in because it costs a client island, and an app doing only full page loads gains nothing from it.
-
-The mark moves on two signals. **`popstate`** — browser back and forward — needs nothing from your app. The other is **`sovrium:navigated`**, the event an in-app swapper announces. Update `window.location` first, then dispatch a `CustomEvent` on `document`:
-
-```ts
-history.pushState({}, '', '/products/widgets')
-document.dispatchEvent(
-  new CustomEvent('sovrium:navigated', { detail: { path: '/products/widgets' } })
-)
-```
-
-That order is the contract, not a convention: the sidebar reads `window.location` itself, so `detail.path` is informational, and dispatching before the location is updated re-derives the mark onto the page the reader is leaving.
-
-`activeMatch` is re-evaluated by the same rule on the client as on the server, so a `prefix` entry keeps its mark across a drill-in. A disclosure whose section becomes current opens with it — but is never re-opened after the reader has deliberately collapsed it.
+Two options change what happens when a reader follows one of the sidebar's links: `clientSideNavigation` swaps only the page's content region instead of loading a new document, and `trackNavigation` keeps the current-entry mark true when something else does the swapping. Both have their own article, **Client-side Navigation**.
 
 ## `rail` — an icon rail on a narrow screen
 

@@ -14,16 +14,23 @@ Seven field types store dates, times, durations and system-managed audit timesta
 | `updated-at` | System-updated timestamp refreshed on every modification. |
 | `deleted-at` | Soft-delete timestamp; `NULL` means the record is active. |
 
+An empty string, or one holding only spaces, written to a date, a datetime or a time — through the API, as a default, or in a seed file — stores no value: the field reads null.
+
 ## `date`
 
 Calendar dates, optionally carrying a time component.
 
 A date is shown in the page's language and on its own calendar day for every reader, whatever their time zone.
 
+A `date` field reads as its day, `YYYY-MM-DD`, on every database: on a record, on a list, in an export, as the name of a group, in what an automation reads, and in a webhook's previous values.
+
+`weekday: short` prints the day of the week before the date — "Thu 24 Sept 2026" — and `weekday: long` writes both out — "Thursday, 24 September 2026" — in the page language — in the grid, a drawer, a list item's metadata and a card. A date without it prints exactly as before. A `datetime` accepts the same key.
+
 <!-- sovrium:options DateFieldSchema -->
 
 ```yaml
 - { id: 1, name: due_date, type: date }
+- { id: 3, name: starts_on, type: date, weekday: short }
 ```
 
 ## `datetime`
@@ -36,6 +43,10 @@ A date and time together, stored timezone-aware so a value means the same instan
 - { id: 2, name: starts_at, type: datetime }
 ```
 
+`default: now` stamps each row with the moment it is written.
+
+A datetime is stored as an instant and reads back in UTC, as ISO 8601 ending in `Z`; a value with no zone is taken as UTC. `CAST(<datetime> AS DATE)` in a formula reads the UTC day.
+
 ## `time`
 
 A time of day with no date attached — opening hours, a daily cut-off.
@@ -45,6 +56,10 @@ A time of day with no date attached — opening hours, a daily cut-off.
 ```yaml
 - { id: 3, name: opens_at, type: time }
 ```
+
+A time reads back as `HH:MM:SS`, however it was typed: `8:05` reads `08:05:00`.
+
+On SQLite, a datetime or a time an earlier version stored as it was typed is rewritten into these forms once, the next time the app starts. The rewrite does not change the record's `updatedAt`.
 
 ## `duration`
 

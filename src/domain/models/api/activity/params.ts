@@ -29,10 +29,18 @@ export const activityIdParamSchema = Schema.Struct({
 export const activityQuerySchema = Schema.Struct({
   page: optionalField(Schema.String.annotate({ description: 'Page number' })),
   pageSize: optionalField(Schema.String.annotate({ description: 'Items per page' })),
-  tableId: optionalField(Schema.String.annotate({ description: 'Filter by table ID' })),
+  tableName: optionalField(Schema.String.annotate({ description: 'Filter by table name' })),
   action: optionalField(
-    Schema.Literals(['create', 'update', 'delete', 'restore']).annotate({
+    Schema.Literals(['create', 'update', 'delete', 'restore', 'permanent_delete']).annotate({
       description: 'Filter by action',
     })
+  ),
+  userId: optionalField(
+    Schema.String.annotate({
+      description: 'Filter to one actor; a non-admin may name only herself',
+    })
+  ),
+  startDate: optionalField(
+    Schema.String.annotate({ description: 'Only entries created at or after this ISO 8601 date' })
   ),
 })

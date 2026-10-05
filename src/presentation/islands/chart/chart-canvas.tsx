@@ -258,6 +258,8 @@ interface AggregatedChartArgs {
   readonly records: readonly TableRecord[]
   readonly chartType: ChartType | undefined
   readonly chartAggregate: ChartAggregateConfig
+  /** The chart's `series` — its one entry, when declared, styles the aggregate. */
+  readonly series?: readonly ChartSeriesConfig[] | undefined
   readonly xAxis: ChartAxisConfig | undefined
   readonly yAxis: ChartAxisConfig | undefined
   readonly tooltip: ChartTooltipConfig | undefined
@@ -278,7 +280,12 @@ interface AggregatedChartArgs {
  * over.
  */
 function renderAggregatedChart(args: AggregatedChartArgs): ReactElement {
-  const { records, chartAggregate, fields } = args
+  const { records, chartAggregate, fields, series } = args
+  // ONE series styles the aggregated value: its label names it in the
+  // legend, its colour paints the marks. A second entry is refused at boot.
+  if (hasSeries(series) && !isArcChart(args.chartType)) {
+    return renderStyledAggregate({ ...args, series })
+  }
   return renderCategoryChart({
     ...args,
     xField: chartAggregate.groupBy,
@@ -289,6 +296,35 @@ function renderAggregatedChart(args: AggregatedChartArgs): ReactElement {
       fields.categoryOptions,
       isArcChart(args.chartType) ? PIE_DEFAULT_ORDER : 'label'
     ),
+  })
+}
+
+/** The row field a styled aggregate's value is drawn from — never a table field. */
+const AGGREGATE_VALUE_FIELD = '__aggregate'
+
+/**
+ * An aggregated chart styled by its one series: each group becomes a row
+ * `{ <groupBy>: <category name>, __aggregate: <value> }`, drawn by the series
+ * chart with the series' label and colour.
+ */
+function renderStyledAggregate(
+  args: AggregatedChartArgs & { readonly series: readonly ChartSeriesConfig[] }
+): ReactElement {
+  const { records, chartAggregate, fields, series } = args
+  const groups = decorateCategories(
+    aggregateRecords(records, chartAggregate, fields.categoryOptions, 'label'),
+    fields.categoryOptions
+  )
+  const rows = groups.map((group) => ({
+    [chartAggregate.groupBy]: group.label ?? group.key,
+    [AGGREGATE_VALUE_FIELD]: group.value,
+  }))
+  const [styled] = series
+  return renderSeriesChart({
+    ...args,
+    records: rows,
+    xAxis: { field: chartAggregate.groupBy },
+    series: [{ ...styled, field: AGGREGATE_VALUE_FIELD }],
   })
 }
 
@@ -348,6 +384,23 @@ export function ChartCanvas({
   accessibleName,
   fields = NO_FIELD_CONTEXT,
 }: ChartCanvasProps): ReactElement {
+  // When `chartAggregate` is declared, aggregate records into a `{ key, value }`
+  // series — styled by its one `series` entry when it has one.
+  if (chartAggregate) {
+    return renderAggregatedChart({
+      records,
+      chartType,
+      chartAggregate,
+      series,
+      xAxis,
+      yAxis,
+      tooltip,
+      legend,
+      fields,
+      accessibleName,
+    })
+  }
+
   // A declared `series` array routes to the multi-series chart.
   if (hasSeries(series)) {
     // One value axis over every series: it prints the currency the series'
@@ -362,21 +415,6 @@ export function ChartCanvas({
       series,
       legend,
       tooltip,
-      accessibleName,
-    })
-  }
-
-  // When `chartAggregate` is declared, aggregate records into a `{ key, value }` series.
-  if (chartAggregate) {
-    return renderAggregatedChart({
-      records,
-      chartType,
-      chartAggregate,
-      xAxis,
-      yAxis,
-      tooltip,
-      legend,
-      fields,
       accessibleName,
     })
   }

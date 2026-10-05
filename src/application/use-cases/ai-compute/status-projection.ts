@@ -114,21 +114,3 @@ export const buildAiComputeProjections = (
       })
     )
   }).pipe(Effect.withSpan('ai-compute.build-ai-compute-projections'))
-
-/**
- * Build the `_aiCompute` projection for ONE record. Returns `undefined` when
- * the table has no AI-compute fields (gated — skips the status read), or when
- * no status rows exist yet (the worker has not enqueued — caller omits the
- * block). The returned Effect never fails (best-effort read).
- *
- * A thin specialization of {@link buildAiComputeProjections} so the single- and
- * list-record paths cannot drift apart on the gate or on the omit contract.
- */
-export const buildAiComputeProjection = (
-  app: App,
-  tableName: string,
-  recordId: string | number
-): Effect.Effect<AiComputeProjection | undefined, never> =>
-  Effect.map(buildAiComputeProjections(app, tableName, [recordId]), (byRecord) =>
-    byRecord.get(String(recordId))
-  ).pipe(Effect.withSpan('ai-compute.build-ai-compute-projection'))

@@ -1,0 +1,20 @@
+# The four people of Halden, created as sign-in accounts before any claim is
+# written, so each claim can name the person whose money it is.
+#
+# Camille runs finance and is the admin; Léa, Karim and Jonas travel and buy
+# things and are members. No password is written here: every account takes
+# `SOVRIUM_SEED_PASSWORD` from the environment, so a password never lands in a
+# file you might commit.
+users:
+  - email: camille.roux@halden.example
+    name: Camille Roux
+    role: admin
+  - email: lea.morel@halden.example
+    name: Léa Morel
+    role: member
+  - email: karim.benali@halden.example
+    name: Karim Benali
+    role: member
+  - email: jonas.weber@halden.example
+    name: Jonas Weber
+    role: member

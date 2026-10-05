@@ -57,6 +57,13 @@ export interface UserDirectoryEntry {
 export interface UserDirectoryQuery {
   readonly term?: string | undefined
   readonly limit: number
+  /**
+   * Keyset cursor: the last entry of the previous page. When present, the page
+   * starts strictly after it in the directory's `(lower(name), id)` order, so a
+   * caller that narrows each page (the comment mention picker) can keep reading
+   * without re-reading or skipping anyone.
+   */
+  readonly after?: Pick<UserDirectoryEntry, 'id' | 'name'> | undefined
 }
 
 /** Database error for user-directory reads. */
@@ -83,6 +90,20 @@ export class UserDirectoryRepository extends Context.Service<
      */
     readonly listPickableUsers: (
       query: UserDirectoryQuery
+    ) => Effect.Effect<readonly UserDirectoryEntry[], UserDirectoryDatabaseError>
+    /**
+     * The pickable accounts among `ids`, in ONE query — the same exclusions as
+     * {@link listPickableUsers}, so an account a picker would never offer
+     * resolves to nothing here either. Ids naming no pickable account are
+     * absent from the answer; an empty `ids` answers an empty list without
+     * touching the store.
+     *
+     * The read behind comment mentions: naming the people a comment's
+     * `@[<user id>]` markup points at, and narrowing them to the record's
+     * readers. `email` is never selected, as for the page read.
+     */
+    readonly findPickableUsersByIds: (
+      ids: readonly string[]
     ) => Effect.Effect<readonly UserDirectoryEntry[], UserDirectoryDatabaseError>
   }
 >()('UserDirectoryRepository') {}

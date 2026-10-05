@@ -85,7 +85,25 @@ export interface CalendarToolbarProps {
   readonly onViewChange: (view: CalendarView) => void
   /** The words the toolbar writes itself, already resolved for the page language. */
   readonly captions: CalendarCaptions
+  /**
+   * On a phone the month is drawn as an agenda by default, so the switch
+   * carries `Agenda` as a view of its own ahead of Month — pressed while the
+   * agenda is drawn ({@link agenda}), Month pressed only for the month grid.
+   */
+  readonly phone?: boolean
+  /** Whether the agenda is the view drawn (a phone, on the month). */
+  readonly agenda?: boolean
+  /** Draw the agenda; given with {@link phone}. */
+  readonly onAgenda?: () => void
 }
+
+type ViewItem = CalendarView | 'agenda'
+
+/**
+ * The phone's switch: the agenda in the month's place, then week and day. A
+ * month grid is not offered at phone width — the agenda is the phone's month.
+ */
+const PHONE_VIEW_ITEMS: readonly ViewItem[] = ['agenda', 'week', 'day']
 
 /** Narrow an arbitrary dataset string back to the view vocabulary. */
 const isCalendarView = (value: string | undefined): value is CalendarView =>
@@ -109,6 +127,7 @@ function CalendarNavGroup({
     <div className={NAV_GROUP_CLASSES}>
       <button
         type="button"
+        data-component-type="button"
         className={NAV_PREV_CLASSES}
         aria-label={captions.previousPeriod}
         onClick={onPrev}
@@ -117,6 +136,7 @@ function CalendarNavGroup({
       </button>
       <button
         type="button"
+        data-component-type="button"
         className={NAV_NEXT_CLASSES}
         aria-label={captions.nextPeriod}
         onClick={onNext}
@@ -132,11 +152,20 @@ function CalendarViewSwitch({
   activeView,
   onViewChange,
   captions,
-}: Pick<CalendarToolbarProps, 'activeView' | 'onViewChange' | 'captions'>): ReactElement {
+  phone,
+  agenda,
+  onAgenda,
+}: Pick<
+  CalendarToolbarProps,
+  'activeView' | 'onViewChange' | 'captions' | 'phone' | 'agenda' | 'onAgenda'
+>): ReactElement {
   const handleViewClick = (event: MouseEvent<HTMLButtonElement>): void => {
     const next = event.currentTarget.dataset['calendarView']
-    if (isCalendarView(next)) onViewChange(next)
+    if (next === 'agenda') onAgenda?.()
+    else if (isCalendarView(next)) onViewChange(next)
   }
+  const pressed = (view: ViewItem): boolean =>
+    view === 'agenda' ? agenda === true : view === activeView && !(agenda === true)
 
   return (
     <div
@@ -144,19 +173,20 @@ function CalendarViewSwitch({
       role="group"
       aria-label={captions.viewGroup}
     >
-      {VIEW_ITEMS.map((view, index) => (
+      {(phone === true ? PHONE_VIEW_ITEMS : VIEW_ITEMS).map((view, index) => (
         <button
           key={view}
           type="button"
+          data-component-type="button"
           data-calendar-view={view}
           className={computeCalendarSegmentedItemClasses({
-            active: view === activeView,
+            active: pressed(view),
             divider: index > 0,
           })}
-          aria-pressed={view === activeView}
+          aria-pressed={pressed(view)}
           onClick={handleViewClick}
         >
-          {captions.views[view]}
+          {view === 'agenda' ? captions.agenda : captions.views[view]}
         </button>
       ))}
     </div>
@@ -171,6 +201,9 @@ export function CalendarToolbar({
   onToday,
   onViewChange,
   captions,
+  phone,
+  agenda,
+  onAgenda,
 }: CalendarToolbarProps): ReactElement {
   return (
     <div
@@ -184,6 +217,7 @@ export function CalendarToolbar({
       />
       <button
         type="button"
+        data-component-type="button"
         className={TODAY_BUTTON_CLASSES}
         onClick={onToday}
       >
@@ -199,6 +233,9 @@ export function CalendarToolbar({
         activeView={activeView}
         onViewChange={onViewChange}
         captions={captions}
+        phone={phone}
+        agenda={agenda}
+        onAgenda={onAgenda}
       />
     </div>
   )

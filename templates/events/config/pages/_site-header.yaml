@@ -1,0 +1,44 @@
+# The bar on every public page: the community's name, what is on, and the way
+# in for the organizers. No organizer words here — a visitor never sees the
+# Overview.
+type: container
+element: header
+props:
+  className: border-b border-border bg-background
+children:
+  - type: container
+    props:
+      className: mx-auto flex h-14 max-w-[1100px] items-center gap-6 px-6 max-md:px-4
+    children:
+      - type: link
+        props:
+          href: /
+          className: flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: ticket
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: Fieldday
+      - type: container
+        props:
+          className: grow
+      - type: container
+        element: nav
+        props:
+          aria-label: Site
+          className: flex items-center gap-5 text-sm
+        children:
+          - type: link
+            props:
+              href: /
+              className: font-medium text-foreground max-md:hidden
+            content: Events
+          - type: link
+            props:
+              href: /sign-in
+              className: whitespace-nowrap text-foreground-muted hover:text-foreground
+            content: Organizer sign-in

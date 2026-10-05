@@ -124,6 +124,28 @@ export const fieldOptionSource = (
   return field.optionsSource ?? relationshipDefaultSource(column)
 }
 
+/** One plan per field `sourceOf` gives a source, keyed by its submit identifier. */
+const planFormSources = (
+  form: Readonly<FormShape>,
+  tables: ReadonlyArray<TableShape>,
+  sourceOf: (
+    field: Readonly<FieldShape>,
+    column: Readonly<ColumnShape> | undefined
+  ) => SelectOptionSource | undefined
+): readonly FormOptionSourcePlan[] => {
+  const target = tables.find((table) => table.name === form.submitTo.table)
+  return form.fields.flatMap((field) => {
+    const id = field.kind === 'table-field' ? field.column : field.name
+    if (id === undefined) return []
+    const column =
+      field.kind === 'table-field'
+        ? target?.fields?.find((candidate) => candidate.name === field.column)
+        : undefined
+    const source = sourceOf(field, column)
+    return source === undefined ? [] : [{ field: id, source }]
+  })
+}
+
 /**
  * Every field of `form` whose choices come from a table. A config-hidden field
  * is skipped: it renders a hidden input carrying its prefill, never a choice
@@ -132,17 +154,42 @@ export const fieldOptionSource = (
 export const collectFormOptionSources = (
   form: Readonly<FormShape>,
   tables: ReadonlyArray<TableShape>
-): readonly FormOptionSourcePlan[] => {
-  const target = tables.find((table) => table.name === form.submitTo.table)
-  return form.fields.flatMap((field) => {
-    if (field.hidden === true) return []
-    const id = field.kind === 'table-field' ? field.column : field.name
-    if (id === undefined) return []
-    const column = target?.fields?.find((candidate) => candidate.name === field.column)
-    const source = fieldOptionSource(field, field.kind === 'table-field' ? column : undefined)
-    return source === undefined ? [] : [{ field: id, source }]
-  })
-}
+): readonly FormOptionSourcePlan[] =>
+  planFormSources(form, tables, (field, column) =>
+    field.hidden === true ? undefined : fieldOptionSource(field, column)
+  )
+
+/** The related table's rows, named and valued by id — a hidden link's fallback. */
+const relatedRowsById = (
+  column: Readonly<ColumnShape> | undefined
+): SelectOptionSource | undefined =>
+  column?.type === 'relationship' && typeof column.relatedTable === 'string'
+    ? {
+        table: column.relatedTable,
+        displayField: SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
+        valueField: SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
+      }
+    : undefined
+
+/**
+ * The rows every field of `form` may name on SUBMISSION, under its submit
+ * identifier. A visible field may name what it offers
+ * ({@link collectFormOptionSources}). A config-hidden field draws no list yet
+ * still posts a value — a prefill carried in a hidden input, which the
+ * submitter can change — so it is judged by the set it WOULD offer: its
+ * `optionsSource`, else its relationship column's rows. A hidden relationship
+ * column with no `displayField` has no label to draw, only keys, so its rows
+ * are named by id.
+ */
+export const collectSubmittableSources = (
+  form: Readonly<FormShape>,
+  tables: ReadonlyArray<TableShape>
+): readonly FormOptionSourcePlan[] =>
+  planFormSources(form, tables, (field, column) =>
+    field.hidden === true
+      ? (fieldOptionSource(field, column) ?? relatedRowsById(column))
+      : fieldOptionSource(field, column)
+  )
 
 /**
  * The most accounts one `user` picker offers. The list is served inside the

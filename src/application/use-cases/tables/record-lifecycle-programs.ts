@@ -29,12 +29,56 @@ import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { NotFoundError, ValidationError } from '@/domain/errors'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
+import { announceRecordWrites } from './record-change-announcement'
 import { transformRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { RestoreRecordResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
+
+/**
+ * The restored row as its caller may read it — groups included — or as stored
+ * when the caller is not named (an automation's restore).
+ */
+const readableEcho = (
+  tableName: string,
+  record: Readonly<Record<string, unknown>>,
+  params:
+    | { readonly app?: App; readonly userRole?: string; readonly userGroups?: readonly string[] }
+    | undefined
+): Readonly<Record<string, unknown>> => {
+  const { app, userRole, userGroups = [] } = params ?? {}
+  if (!app || !userRole) return record
+  return filterReadableFields({
+    app,
+    tableName,
+    caller: { role: userRole, groups: userGroups },
+    record,
+  })
+}
+
+/**
+ * The restored row less what its caller's read of it would leave out — judged
+ * on the raw row, before the field filter can drop a lookup's key.
+ */
+const restoredEcho = (
+  session: Readonly<UserSession>,
+  tableName: string,
+  record: Readonly<Record<string, unknown>>,
+  params:
+    | { readonly app?: App; readonly userRole?: string; readonly userGroups?: readonly string[] }
+    | undefined
+) =>
+  omitFromWriteEcho(
+    params?.app,
+    tableName,
+    [record],
+    writeEchoReaderOf(session, params ?? {})
+  ).pipe(Effect.map(([echoed]) => echoed ?? record))
 
 export function restoreRecordProgram(
   session: Readonly<UserSession>,
@@ -43,11 +87,13 @@ export function restoreRecordProgram(
   params?: {
     readonly app?: App
     readonly userRole?: string
+    /** The caller's groups: a field read grant may name a group. */
+    readonly userGroups?: readonly string[]
   }
 ): Effect.Effect<
   RestoreRecordResponse,
   DatabaseError | NotFoundError | ValidationError,
-  TableRepository
+  TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
@@ -57,6 +103,7 @@ export function restoreRecordProgram(
     if (record && '_error' in record && record._error === 'not_deleted')
       return yield* Effect.fail(new ValidationError('Record is not deleted'))
     if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
+    const restored = yield* restoredEcho(session, tableName, record, params)
 
     // The restore echo is a record-bearing response and must strip fields the
     // caller may not read, exactly like the GET/PATCH/POST echoes. The only
@@ -65,15 +112,14 @@ export function restoreRecordProgram(
     // back in the echo. `restoreRecordProgram` previously took no `app` and no
     // `userRole` and therefore structurally could not filter. Its batch sibling
     // returns a count and has no such shape, which is why the leak survived.
-    const { app, userRole } = params ?? {}
-    const readable =
-      app && userRole ? filterReadableFields({ app, tableName, userRole, record }) : record
-
     return {
       success: true as const,
-      record: transformRecord(readable, app ? { app, tableName } : undefined),
+      record: transformRecord(
+        readableEcho(tableName, restored, params),
+        params?.app ? { app: params.app, tableName } : undefined
+      ),
     }
-  }).pipe(Effect.withSpan('tables.restore-record-program'))
+  }).pipe(announceRecordWrites(params?.app), Effect.withSpan('tables.restore-record-program'))
 }
 
 /** Soft-delete a record. Wraps Infrastructure for layer architecture. */
@@ -91,17 +137,18 @@ export function deleteRecordProgram(
     const repo = yield* TableRepository
     yield* refuseWhenNoSingleIdAddress(app, tableName)
     return yield* repo.deleteRecord(session, tableName, recordId, app)
-  }).pipe(Effect.withSpan('tables.delete-record-program'))
+  }).pipe(announceRecordWrites(app), Effect.withSpan('tables.delete-record-program'))
 }
 
 /** Permanently delete a record. Wraps Infrastructure for layer architecture. */
 export function permanentlyDeleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  app?: App
 ): Effect.Effect<boolean, DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.permanentlyDeleteRecord(session, tableName, recordId)
-  }).pipe(Effect.withSpan('tables.permanently-delete-record-program'))
+  }).pipe(announceRecordWrites(app), Effect.withSpan('tables.permanently-delete-record-program'))
 }

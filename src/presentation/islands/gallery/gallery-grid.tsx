@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import { computeGalleryGridClasses } from '@/presentation/design/gallery-default-classes'
 import { GalleryCardView } from './gallery-card'
 import { buildGridClasses, resolveActiveColumns } from './grid-class-builder'
@@ -18,6 +18,8 @@ import type {
 interface GalleryGridProps {
   readonly records: readonly TableRecord[]
   readonly card: GalleryCard | undefined
+  /** The gallery's bound table, which a card's drawer binds its record to. */
+  readonly table?: string
   readonly gridColumns: GalleryGridColumns | undefined
   readonly layout?: 'grid' | 'masonry'
 }
@@ -46,6 +48,7 @@ function getViewportWidth(): number {
 export function GalleryGrid({
   records,
   card,
+  table,
   gridColumns,
   layout,
 }: GalleryGridProps): ReactElement {
@@ -73,16 +76,19 @@ export function GalleryGrid({
     resolvedLayout === 'masonry'
       ? computeGalleryGridClasses({ layout: 'masonry' })
       : `${computeGalleryGridClasses()} ${responsiveClasses}`
+  // The active column count describes the gallery, so it is written on the
+  // element that NAMES it — the island host, or the wrapper a data-table's view
+  // switcher draws — which already carries the declared layout from the server.
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    ref.current
+      ?.closest('[data-component="gallery"]')
+      ?.setAttribute('data-columns', String(activeColumns))
+  }, [activeColumns])
 
   return (
     <div
-      data-component="gallery"
-      data-columns={String(activeColumns)}
-      data-layout={resolvedLayout}
-      // The component-scoped twin of `data-layout`. `data-layout` is a generic
-      // name several views answer to; a page composing two of them needs to ask
-      // for THIS view's arrangement without matching the other's.
-      data-gallery-layout={resolvedLayout}
+      ref={ref}
       className={layoutClasses}
     >
       {records.map((record) => (
@@ -90,6 +96,7 @@ export function GalleryGrid({
           key={String(record['id'] ?? Math.random())}
           record={record}
           card={card}
+          table={table}
         />
       ))}
     </div>

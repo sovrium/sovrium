@@ -102,15 +102,22 @@ export const runScheduledAgentTask = async (
     agentName,
     actor: { type: 'agent', name: agentName },
     targetTable: undefined,
+    recordId: undefined,
     createdAt: new Date().toISOString(),
+    runStartedById: undefined,
   })
 
   if (!scheduleRequiresApproval(agent)) return { kind: 'completed' }
 
-  const record = buildApprovalRecord(agent, SCHEDULE_ACTION, {
-    action: SCHEDULE_ACTION,
-    taskPrompt,
-  })
+  const record = buildApprovalRecord(
+    agent,
+    SCHEDULE_ACTION,
+    {
+      action: SCHEDULE_ACTION,
+      taskPrompt,
+    },
+    undefined
+  )
   putApproval(record)
   await runApprovalMirror(services, MirrorApprovalCreate(toMirrorRecord(record)))
   return { kind: 'pending_approval', approvalId: record.id }

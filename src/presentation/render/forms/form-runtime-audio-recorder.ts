@@ -101,7 +101,9 @@ export const FORM_RUNTIME_AUDIO_RECORDER_SCRIPT = `
       })
       var stopBtn = document.createElement('button')
       stopBtn.type = 'button'
-      stopBtn.className = 'form-audio-stop'
+      // The Stop button wears the Record button's button recipe (rendered on
+      // the server), with its own marker class in place of the Record one.
+      stopBtn.className = recordBtn.className.replace('form-audio-record', 'form-audio-stop')
       stopBtn.setAttribute('data-testid', 'stop-recording-' + name)
       stopBtn.textContent = 'Stop recording'
       stopBtn.addEventListener('click', finish)

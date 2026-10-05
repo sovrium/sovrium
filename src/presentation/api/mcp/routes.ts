@@ -13,10 +13,8 @@ import {
   findConfigToolTableCollision,
   isConfigToolName,
 } from '@/application/use-cases/config/config-mcp-tools'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import {
   MCP_CONFIG_WRITE_IGNORED_NOTICE,
-  MCP_ENV_DEFAULTS,
   McpEnvSchema,
   parseMcpConfigWrite,
   resolveMcpEnv,
@@ -32,11 +30,16 @@ import {
 } from '@/presentation/api/mcp/audit'
 import {
   authenticateMcpRequest,
+  isAdminTierCaller,
   readBearerToken,
   type McpAuthInstance,
+  type McpAuthOutcome,
   type McpCaller,
-  type McpCallerRole,
 } from '@/presentation/api/mcp/auth'
+import {
+  automationToolIsOffered,
+  loadPausedAutomations,
+} from '@/presentation/api/mcp/automation-call'
 import {
   handleHttpConfigToolCall,
   type HttpConfigToolsDeps,
@@ -56,6 +59,7 @@ import {
 } from '@/presentation/api/mcp/rate-limit'
 import { handleToolsCall } from '@/presentation/api/mcp/tool-call'
 import { compileMcpTools, type CompiledTool } from '@/presentation/api/mcp/tool-compiler'
+import { applyMcpIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpToolResult } from '@/presentation/api/mcp/tool-call-helpers'
@@ -153,7 +157,7 @@ export function setupMcpRoutes(
   deps: McpMountDeps,
   env: NodeJS.ProcessEnv = process.env
 ): Readonly<Hono> {
-  const { domainContext, authInstance } = deps
+  const authenticate: McpAuthenticate = (c) => authenticateMcpRequest(c, deps.authInstance, app)
   // BEFORE the env decode and before the `enabled` gate, so the notice reaches
   // an operator whatever else their MCP configuration says. A8 bound 2 is about
   // tool REGISTRATION rather than about booting: an HTTP-served instance boots
@@ -207,7 +211,7 @@ export function setupMcpRoutes(
     serverInfo,
     app,
     auditEnabled: config.auditEnabled,
-    domainContext,
+    domainContext: deps.domainContext,
     configToolsDeps: {
       app,
       processEnv: env,
@@ -228,12 +232,15 @@ export function setupMcpRoutes(
     { legacy: 'reject' }
   )
 
-  return honoApp
+  // The per-address ceiling, ahead of authentication: an API key is a database
+  // lookup and an OAuth token an introspection call, so both count against the
+  // HTTP API's budget first. `MCP_RATE_LIMIT_PER_*` still apply, per caller.
+  return applyMcpIpCeiling(honoApp as Hono, config.mountPath)
     .post(config.mountPath, async (c) =>
-      handleMcpRequest(c as unknown as Readonly<Context>, config, mcpHandler, authInstance)
+      handleMcpRequest(c as unknown as Readonly<Context>, config, mcpHandler, authenticate)
     )
     .get(config.mountPath, async (c) =>
-      handleMcpSseGet(c as unknown as Readonly<Context>, authInstance)
+      handleMcpSseGet(c as unknown as Readonly<Context>, authenticate)
     )
 }
 
@@ -263,12 +270,15 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
     capabilities: { tools: { listChanged: false } },
   })
 
-  server.setRequestHandler('tools/list', async () => ({
-    // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
-    // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
-    // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
-    tools: filterToolsForRole(dispatch.tools, caller.role, dispatch.app.name) as unknown as never,
-  }))
+  server.setRequestHandler('tools/list', async () => {
+    const paused = await loadPausedAutomations(dispatch.domainContext)
+    return {
+      // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
+      // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
+      // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
+      tools: filterToolsForRole(dispatch.tools, caller, dispatch.app, paused) as unknown as never,
+    }
+  })
 
   server.setRequestHandler(
     'tools/call',
@@ -293,6 +303,13 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
  * role — rather than defaulting to `member`, because a widened tool surface is
  * exactly the failure mode [internal ref] names as its riskiest gap.
  */
+/**
+ * The credential gate bound to one app: a request in, a caller or a refusal
+ * out. Bound to the app because the role bridge reads its ladder, so the app's
+ * top role maps onto the MCP admin tier beside the built-in `admin`.
+ */
+type McpAuthenticate = (c: Readonly<Context>) => Promise<McpAuthOutcome>
+
 const readCallerFromAuthInfo = (authInfo: { readonly extra?: unknown } | undefined): McpCaller => {
   const extra = authInfo?.extra as { readonly caller?: McpCaller } | undefined
   return extra?.caller ?? { role: 'viewer', userId: undefined }
@@ -300,9 +317,9 @@ const readCallerFromAuthInfo = (authInfo: { readonly extra?: unknown } | undefin
 
 const handleMcpSseGet = async (
   c: Readonly<Context>,
-  authInstance: McpAuthInstance | undefined
+  authenticate: McpAuthenticate
 ): Promise<Response> => {
-  const auth = await authenticateMcpRequest(c, authInstance)
+  const auth = await authenticate(c)
   if (!auth.ok) return auth.response
   // Minimal SSE body: comment line opens the stream and prevents proxy
   // buffering; no events are pushed until downstream specs add notifications.
@@ -360,12 +377,12 @@ const handleMcpRequest = async (
   config: ResolvedMcpEnvConfig,
 
   mcpHandler: McpHttpHandler,
-  authInstance: McpAuthInstance | undefined
+  authenticate: McpAuthenticate
 ): Promise<Response> => {
   // Credential gate. An `x-api-key` is verified as a Better Auth API key; an
   // `Authorization: Bearer` goes to the MCP resource server. Either way the
   // outcome is a caller with a real `userId`.
-  const auth = await authenticateMcpRequest(c, authInstance)
+  const auth = await authenticate(c)
   if (!auth.ok) return auth.response
   const { caller } = auth
 
@@ -583,7 +600,7 @@ const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
     // verbose schema diff that Effect renders for parse errors.
     const message = error instanceof Error ? error.message : String(error)
     // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
-    throw new Error(`MCP env validation failed: ${message}`)
+    throw new Error(`MCP env validation failed: ${message}`, { cause: error })
   }
 }
 
@@ -600,20 +617,29 @@ const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
  * The `MCP_EXPOSE_INTERNALS=false` switch upstream removes the tools
  * entirely; this filter is the per-role gate for the remaining surface.
  *
- * `appName` is threaded through for the config family alone: theirs is the one
- * group whose membership is decided by an EXACT name rather than an infix, and
- * that name cannot be recognised without knowing the app.
+ * Manual automations are offered by the run's own role decision rather than by
+ * tier ({@link automationToolIsOffered}): a role sees exactly the automations
+ * `tools/call` would run for it — a viewer the ones naming `viewer`, a member
+ * none it would be refused.
+ *
+ * The app is threaded through for the config family (decided by an EXACT name
+ * rather than an infix) and for the automation decision, which reads the
+ * automation's trigger and the app's connections.
  */
 const filterToolsForRole = (
   tools: ReadonlyArray<CompiledTool>,
-  role: McpCallerRole,
-  appName: string
+  caller: Readonly<McpCaller>,
+  app: App,
+  pausedNames: ReadonlySet<string>
 ): ReadonlyArray<CompiledTool> => {
-  const withoutInternals = isAdminRole(role)
-    ? tools
-    : tools.filter((tool) => !isInternalTool(tool.name, appName))
-  if (role !== 'viewer') return withoutInternals
-  return withoutInternals.filter((tool) => !isMutatingTool(tool.name))
+  const { role } = caller
+  const offered = tools.filter(
+    (tool) =>
+      (isAdminTierCaller(caller) || !isInternalTool(tool.name, app.name)) &&
+      automationToolIsOffered(app, tool.name, caller, pausedNames)
+  )
+  if (role !== 'viewer') return offered
+  return offered.filter((tool) => !isMutatingTool(tool.name))
 }
 
 const isInternalTool = (toolName: string, appName: string): boolean => {
@@ -650,14 +676,5 @@ const isMutatingTool = (toolName: string): boolean => {
   // workflow); withhold from viewer until per-template annotations are
   // honored in M-6.
   if (toolName.includes('_action_')) return true
-  // Manual-trigger automations execute side-effecting workflows by
-  // design (M-8); withhold from viewer for the same reason as action
-  // templates. The trigger's `requiredRole` provides the finer per-role
-  // gate at tools/call time.
-  if (toolName.includes('_automation_')) return true
   return false
 }
-
-// Re-export defaults so a future audit/tests can introspect the keystone
-// configuration without re-deriving the values.
-export { MCP_ENV_DEFAULTS }

@@ -15,9 +15,9 @@
 // could compute none of that, so the surface was 406 lines of TypeScript.
 //
 // Two mechanisms closed the gap, and neither is a rendered string crossing the
-// wire:
+// wire — an endpoint publishes facts, and the words stay in config:
 //
-// - the page-level `{ system }` record resolves `/api/admin/instance`
+//   - the page-level `{ system }` record resolves `/api/admin/instance`
 //     SERVER-side on the caller's own credentials, so `$record.origin` and
 //     `$record.exampleTable` are in the first response rather than filled in by
 //     an island after the document shipped;

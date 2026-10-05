@@ -1,0 +1,18 @@
+# What is coming up, listed on Home soonest first. Dates are relative to the
+# day the seed runs.
+records:
+  - key: training-closes
+    fields:
+      title: Security training closes
+      starts_at: '{{today+6d}}'
+      place: Online
+  - key: all-hands
+    fields:
+      title: All-hands · Q3 review
+      starts_at: '{{today+8d}}'
+      place: London and on video
+  - key: office-move
+    fields:
+      title: London office move
+      starts_at: '{{today+20d}}'
+      place: Third floor

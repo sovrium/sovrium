@@ -104,6 +104,30 @@ export function extractParamNames(pattern: string): readonly string[] {
 }
 
 /**
+ * The concrete address a route pattern names for these parameters — the
+ * inverse of {@link matchRoute}: each `:name` (or trailing `:name*`) segment
+ * takes its parameter's value, as `matchRoute` captured it. A segment whose
+ * parameter is absent, and an unnamed `*`, are left as written.
+ *
+ * @example
+ * ```typescript
+ * fillRoutePattern('/orders/:id', { id: '42' }) // '/orders/42'
+ * fillRoutePattern('/docs/:path*', { path: 'guides/setup' }) // '/docs/guides/setup'
+ * ```
+ */
+export function fillRoutePattern(pattern: string, params: RouteParams): string {
+  return pattern
+    .split('/')
+    .map((segment) => {
+      if (!segment.startsWith(':')) return segment
+      const body = segment.slice(1)
+      const name = body.endsWith('*') ? body.slice(0, -1) : body
+      return params[name] ?? segment
+    })
+    .join('/')
+}
+
+/**
  * Matches a URL path against a route pattern and extracts parameters
  *
  * Pure function with no side effects

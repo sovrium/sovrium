@@ -1,19 +1,52 @@
-name: intranet
-version: 1.0.0
-description: A company intranet — public pages plus an auth-gated employee hub with announcements, a people directory, and shared resources
+# Halden — a company intranet in one config.
+#
+# A public door, and behind it the hub everyone opens in the morning: the
+# must-read on top with how many have acknowledged it, the latest news with
+# who wrote it, what is coming up, who joined, the directory and the tools.
+# Managers publish from their own page; nobody else is offered it. This is
+# the file you diff, fork and redeploy.
+name: halden-intranet
+version: 2.0.0
+description: >-
+  A company intranet: a public welcome page, sign-in by emailed link with a
+  password fallback, and a hub with the must-read first, the news, a
+  searchable people directory, the company's resources, and a Publish page
+  for managers.
 
 auth:
   $ref: ./config/auth.yaml
 
-tables:
-  - $ref: ./config/tables/members.yaml
-  - $ref: ./config/tables/posts.yaml
-  - $ref: ./config/tables/resources.yaml
-
 design:
   $ref: ./config/design.yaml
 
+tables:
+  - $ref: ./config/tables/company.yaml
+  - $ref: ./config/tables/members.yaml
+  - $ref: ./config/tables/posts.yaml
+  - $ref: ./config/tables/acknowledgements.yaml
+  - $ref: ./config/tables/events.yaml
+  - $ref: ./config/tables/resources.yaml
+
+# The one form: an announcement, on the Publish page.
+forms:
+  - $ref: ./config/forms/publish-announcement.yaml
+
+# Automations run on the server, with their history kept in your own database.
+automations:
+  - $ref: ./config/automations/sign-new-announcement.yaml
+
+# Listed in the order of the navigation, then the public pages.
 pages:
+  - $ref: ./config/pages/portal.yaml
+  - $ref: ./config/pages/news.yaml
+  - $ref: ./config/pages/people.yaml
+  - $ref: ./config/pages/resources.yaml
+  - $ref: ./config/pages/publish.yaml
   - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/portal.yaml
+  - $ref: ./config/pages/sign-in-password.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the news.
+badge:
+  placement: footer

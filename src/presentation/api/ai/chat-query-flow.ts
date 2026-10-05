@@ -31,6 +31,7 @@
 import { parseQueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
 import { runQuery, type QueryTableWithPerms } from './chat-query'
 import { projectAppTables } from './chat-table-projection'
+import type { ChatReader } from './chat-read-scope'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
@@ -53,10 +54,8 @@ export interface QueryTurnInput {
   readonly app: App | undefined
   readonly message: string
   readonly sessionId: string
-  /** The acting user's role — drives table-level read RBAC. */
-  readonly userRole: string
-  /** Role + `group:<name>` overlay the read gate is actually evaluated against. */
-  readonly effectiveRoles: readonly string[]
+  /** Who the query reads as — see `ChatReader`. */
+  readonly reader: ChatReader
   /** Optional page scope narrowing the visible table list (allowedTables). */
   readonly pageContext?: ContextPageScope | undefined
 }
@@ -109,8 +108,8 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
   const outcome = await runQuery({
     services: input.services,
     intent,
-    userRole: input.userRole,
-    effectiveRoles: input.effectiveRoles,
+    app: input.app,
+    reader: input.reader,
     tables,
   })
   if (outcome.status === 'forbidden') {

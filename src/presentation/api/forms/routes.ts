@@ -49,7 +49,7 @@ import {
   mergeStepDraftIntoBody,
   type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
@@ -396,14 +396,14 @@ function respondAvailability403(c: Context, failure: unknown): Response | undefi
  * `FieldValidationError`) to its 400 `respondValidation400` response. Returns
  * `undefined` when `failure` is not one of these so the caller falls through
  * to the upload / 422 branches. Extracted to keep `respondSubmissionFailure`
- * under the complexity cap as the field-error family grew with Bug 3 + Bug 5.
+ * under the complexity cap as the field-error family grew with [internal ref].
  */
 function respondFieldValidation400(
   c: Context,
   isJsonClient: boolean,
   failure: unknown
 ): Response | undefined {
-  // F-11 / required-field semantics: a field-level validation failure
+  // [internal ref] / required-field semantics: a field-level validation failure
   // (form `required: true`, column `required: true`, or any other
   // field-rule rejection) is a 400 with a `fieldErrors` envelope. The
   // catch-all 422 branch is kept for genuine server-side rejections
@@ -411,11 +411,11 @@ function respondFieldValidation400(
   if (failure instanceof FormFieldRequiredError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
-  // Bug 5 / [internal ref]: server-side format validation (email).
+  // [internal ref]: server-side format validation (email).
   if (failure instanceof FormFieldFormatError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
-  // Bug 3 / [internal ref]: FK violation on user-typed (or any FK) column.
+  // [internal ref]: FK violation on user-typed (or any FK) column.
   if (failure instanceof FormFieldForeignKeyError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
@@ -494,7 +494,7 @@ function respondSubmissionSuccess(
 }
 
 /**
- * F-11: multipart submissions from the inline form runtime AND from
+ * [internal ref]: multipart submissions from the inline form runtime AND from
  * programmatic clients (test fixtures, third-party API consumers) want a
  * JSON response. Detect them alongside the application/json branch so
  * the Referer-based redirect is reserved for `<form action>` posts that
@@ -531,7 +531,6 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   if (!name) return formNameRequired(c)
   const form = findFormByName(app, name)
   if (!form) return formNotFound(c)
-
   // [internal ref]: enforce the form access gate before reading the
   // body. `authenticated` denial → 401; role denial → 404 (anti-enumeration).
   const { decision, session } = await evaluateFormAccessForRequest(c, form)
@@ -552,7 +551,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     session,
   })
   if (referenceError) return respondSubmissionFailure(c, isJsonClient, referenceError)
-  // F-11 (file-uploads): Multipart bodies may carry `File` instances on
+  // [internal ref] (file-uploads): Multipart bodies may carry `File` instances on
   // attachment fields. Upload each one to the form's resolved bucket and
   // replace the raw File with canonical `{ url, name, size, mimeType }`
   // metadata BEFORE the inline-prefill revalidation pass and the bound-
@@ -569,7 +568,6 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   // deleted parent record short-circuits the submission AFTER the file
   // bytes have been persisted (acceptable: the pre-uploaded files become
   // orphaned but the audit ledger row never lands).
-  const referer = c.req.header('referer')
   const revalidation = await runRequestEffect(
     c,
     provideDomain(
@@ -577,7 +575,8 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
       revalidateInlinePrefillParent({
         app,
         formName: name,
-        ...(referer !== undefined ? { referer } : {}),
+        referer: c.req.header('referer'),
+        submitterUserId: session?.userId,
       })
     )
   )
@@ -594,7 +593,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     // single-page forms and for any caller that posts a complete payload.
     body: mergeStepDraftIntoBody(c, form, name, uploadResult.success),
     isJsonClient,
-    ...(session !== undefined ? { submitterUserId: session.userId } : {}),
+    session,
   })
 }
 
@@ -604,8 +603,12 @@ interface RunSubmitProgramConfig {
   readonly formName: string
   readonly body: Record<string, unknown>
   readonly isJsonClient: boolean
-  /** Authenticated submitter id; captured on the ledger row. */
-  readonly submitterUserId?: string
+  /**
+   * The signed-in submitter, if any: their id is captured on the ledger row
+   *, and the form's choice filters resolve `$currentUser`
+   * for them as the page did.
+   */
+  readonly session: Parameters<typeof resolveFormOptionVisitor>[1]
 }
 
 /**
@@ -614,7 +617,9 @@ interface RunSubmitProgramConfig {
  * functions under the project's complexity caps.
  */
 async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promise<Response> {
-  const { c, app, formName, body, isJsonClient, submitterUserId } = config
+  const { c, app, formName, body, isJsonClient, session } = config
+  const submitterUserId = session?.userId
+  const visitor = await resolveFormOptionVisitor(c, session)
   const ipAddress = getRequestClientIp(c)
   const userAgent = c.req.header('user-agent')
   const query = c.req.query() as Record<string, string>
@@ -633,8 +638,11 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     query,
     processEnv: process.env,
     submitterIpHash,
+    // The anti-spam bucket counts an IPv6 client by its /64; the ledger keeps the full digest.
+    rateLimitKeyHash: hashIp(resolveIpHashSalt(), getRequestRateLimitKey(c)),
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(submitterUserId !== undefined ? { submitterUserId } : {}),
+    ...(visitor !== undefined ? { visitor } : {}),
   })
   const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
   if (result._tag === 'Failure') {

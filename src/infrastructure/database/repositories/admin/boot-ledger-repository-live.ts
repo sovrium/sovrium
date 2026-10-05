@@ -181,10 +181,9 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
     // a UUID) and the order is what makes a repeated hash resolve to its
     // newest row rather than to whichever twin an id scan reached first.
     newestWhere(and(eq(bootLedger.appName, appName), eq(bootLedger.configHash, address))).pipe(
-      Effect.flatMap((byHash) =>
-        byHash === undefined
-          ? newestWhere(and(eq(bootLedger.appName, appName), eq(bootLedger.id, address)))
-          : Effect.succeed(byHash)
+      Effect.filterOrElse(
+        (byHash) => byHash !== undefined,
+        () => newestWhere(and(eq(bootLedger.appName, appName), eq(bootLedger.id, address)))
       )
     ),
 

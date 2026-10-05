@@ -136,7 +136,8 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
     } catch (error) {
       // eslint-disable-next-line functional/no-throw-statements
       throw new Error(
-        `Invalid JSON in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+        `Invalid JSON in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
       )
     }
   }
@@ -152,7 +153,8 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
-      `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+      `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     )
   }
 }

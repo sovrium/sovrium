@@ -226,7 +226,7 @@ const kanban: TypePageBody = {
             {
               type: 'code',
               props: { language: 'yaml' },
-              content: 'card:\n  coverImage: $record.thumbnail',
+              content: 'card:\n  coverImage: \\$record.thumbnail',
             } as PageComponent,
           ],
         },

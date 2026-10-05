@@ -1,10 +1,26 @@
-# The approval flow. Filing an expense PAUSES this run at the approval step —
-# admins get an email and the run waits. On approve, the run resumes and the
-# record.update flips the expense to Approved. On reject (or the 14-day
-# timeout), the run terminates and the expense stays Pending for follow-up.
+# A new claim, from the person who filed it to finance's decision.
+#
+# 1. The claim is stamped with its filer — the account that filed it — and
+#    its receipt's file name, so the review queue and the drawer name the
+#    person and the receipt from the moment it lands.
+# 2. The run then PAUSES on the approval step. Finance finds it on the Review
+#    page and approves or rejects it; the person who filed it cannot resolve
+#    it, and neither can another member.
+# 3. `onReject: continue` resumes the run on every outcome, and the approval
+#    step says who decided: `resolvedBy` is `user` when a person answered and
+#    `timeout` when fourteen days passed without an answer. So each outcome
+#    writes its own reason:
+#    - approved: the claim is marked Approved;
+#    - no answer: the claim is marked Rejected, and the reason says nobody
+#      decided in time;
+#    - rejected by finance: the claim is marked Rejected, and the reason sends
+#      the person to finance. A rejection that needs its policy spelled out
+#      goes through Reject on the claim's row, which asks why first.
+# Every write only touches a claim still waiting, so a claim finance already
+# decided from the Review grid keeps that decision and its typed reason.
 name: approve-expense
-label: Expense — request approval
-description: Ask an admin to approve each new expense, then stamp the outcome.
+label: Expense — ask finance to decide
+description: Stamp a new claim with its filer, ask finance to decide, and record the outcome with its reason — a person's answer or fourteen days without one.
 enabled: true
 trigger:
   type: record
@@ -12,18 +28,20 @@ trigger:
   events:
     - create
 actions:
-  - name: askAdmins
-    type: approval
-    operator: request
+  # A claim filed through the Add expense form reaches the trigger with the
+  # answers only, so the stored row is read back for its server stamp.
+  - name: findClaim
+    type: record
+    operator: list
     props:
-      approvers: all-admins
-      message: >-
-        Expense "{{trigger.data.record.description}}" for
-        {{trigger.data.record.amount}} ({{trigger.data.record.category}}).
-        Approve?
-      timeout: 14d
-      onTimeout: reject
-  - name: markApproved
+      table: expenses
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      limit: 1
+  - name: stampFiler
     type: record
     operator: update
     props:
@@ -34,4 +52,93 @@ actions:
             operator: equals
             value: '{{trigger.data.record.id}}'
       data:
-        status: Approved
+        filer: '{{findClaim.result.record.submitted_by}}'
+        receipt_name: '{{findClaim.result.record.receipt.name}}'
+  - name: askFinance
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: >-
+        "{{trigger.data.record.description}}", €{{trigger.data.record.amount}}.
+        Approve?
+      timeout: 14d
+      onTimeout: reject
+      onReject: continue
+  - name: decide
+    type: path
+    operator: branch
+    props:
+      mode: first-match
+      paths:
+        - name: approved
+          condition:
+            conditions:
+              - field: '{{askFinance.result.decision}}'
+                operator: equals
+                value: approved
+          actions:
+            - name: markApproved
+              type: record
+              operator: update
+              props:
+                table: expenses
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Pending
+                data:
+                  status: Approved
+        - name: timedOut
+          condition:
+            conditions:
+              - field: '{{askFinance.result.resolvedBy}}'
+                operator: equals
+                value: timeout
+          actions:
+            - name: markTimedOut
+              type: record
+              operator: update
+              props:
+                table: expenses
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Pending
+                data:
+                  status: Rejected
+                  decision_reason: No decision within 14 days — resubmit or contact finance
+        - name: rejectedByFinance
+          condition:
+            conditions:
+              - field: '{{askFinance.result.resolvedBy}}'
+                operator: equals
+                value: user
+          actions:
+            - name: markRejected
+              type: record
+              operator: update
+              props:
+                table: expenses
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Pending
+                data:
+                  status: Rejected
+                  decision_reason: Rejected by finance — ask finance why before you resubmit

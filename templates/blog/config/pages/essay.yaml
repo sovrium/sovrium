@@ -1,0 +1,189 @@
+# One essay: its title, the byline, the cover, the body, the comments the
+# editor approved, a box to add one, and the essay published before it.
+#
+# One page serves every essay (`collection`), read at /blog/<slug>. Only a
+# Published post has a page: a draft's or a scheduled post's address answers
+# 404, with the page at /404.
+name: essay
+path: /blog/:slug
+collection:
+  table: posts
+  slugField: slug
+  filter:
+    - field: status
+      operator: eq
+      value: Published
+# The feed at /feed.xml, newest first, named after the publication rather
+# than after one essay.
+rss:
+  limit: 20
+  title: Field Notes
+  description: Essays on building and running software a small team owns — config, backups, licences and the first five minutes.
+meta:
+  title: $record.title · Field Notes
+  description: $record.excerpt
+  # `./` is read from the essay's own address, /blog/<slug>: `./../`
+  # reaches the icon at the root of `public/`.
+  favicon: ./../favicon.svg
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: article
+        props:
+          className: mx-auto flex w-full max-w-[624px] flex-1 flex-col gap-3.5 px-10 pt-[88px] pb-12 max-md:px-3.5 max-md:py-6
+        children:
+          # Where the reader is: back to the essays in one click.
+          - type: container
+            element: nav
+            props:
+              aria-label: Breadcrumb
+              className: flex items-center gap-1.5 text-[12.5px] text-foreground-muted
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: text-foreground-muted no-underline hover:text-foreground
+                content: Essays
+              - type: text
+                element: span
+                props:
+                  className: text-foreground-subtle
+                content: /
+              - type: text
+                element: span
+                props:
+                  className: text-foreground
+                content: Essay
+          - type: text
+            element: h1
+            props:
+              className: text-[40px] leading-[1.15] font-semibold tracking-tight text-foreground max-md:text-[30px]
+            content: $record.title
+          # The byline: who wrote it, and when.
+          - type: container
+            props:
+              className: flex flex-wrap items-center gap-2 text-[13px] text-foreground-muted
+            children:
+              # The author's portrait, drawn as an image: the portrait's address
+              # is a value of this essay's record.
+              - type: image
+                props:
+                  src: $record.author_avatar_url
+                  alt: ''
+                  className: size-6 rounded-full border border-border object-cover
+              - type: text
+                element: span
+                props:
+                  className: font-medium text-foreground
+                content: $record.author_name
+              - type: text
+                element: span
+                props:
+                  aria-hidden: 'true'
+                  className: text-foreground-subtle
+                content: ·
+              - type: text
+                element: span
+                content: $record.date_label
+              - type: text
+                element: span
+                props:
+                  aria-hidden: 'true'
+                  className: text-foreground-subtle
+                content: ·
+              # What the essay is about.
+              - type: text
+                element: span
+                props:
+                  className: rounded-sm border border-border px-1.5 py-px text-[11.5px] font-medium text-foreground-muted
+                content: $record.tag_names
+          - type: image
+            props:
+              src: $record.cover_url
+              alt: ''
+              className: my-1 aspect-video w-full rounded-lg border border-border bg-background-inset object-cover
+          # The essay itself: the stored HTML, sanitised and rendered as prose.
+          - type: record-field
+            props:
+              field: body
+              className: >-
+                flex flex-col gap-3 text-[16px] leading-[1.7] text-foreground
+                [&_h2]:mt-3 [&_h2]:text-[24px] [&_h2]:leading-[1.3] [&_h2]:font-semibold [&_h2]:tracking-tight
+                [&_h3]:mt-1 [&_h3]:text-[19px] [&_h3]:font-semibold
+                [&_ul]:m-0 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1 [&_ul]:pl-[22px] [&_ol]:list-decimal [&_ol]:pl-[22px]
+                [&_blockquote]:my-1 [&_blockquote]:border-l-[3px] [&_blockquote]:border-border [&_blockquote]:py-1 [&_blockquote]:pl-[18px] [&_blockquote]:text-[18px] [&_blockquote]:leading-[1.6]
+                [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-[3px]
+                [&_code]:rounded-sm [&_code]:bg-background-inset [&_code]:px-[5px] [&_code]:py-px [&_code]:font-mono [&_code]:text-[13px]
+                [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-background-inset [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0
+          # The essay published just before this one. The first essay has none,
+          # and the link is left out.
+          - type: container
+            element: nav
+            props:
+              aria-label: Previous essay
+              className: mt-2 grid grid-cols-2 gap-3 border-t border-border pt-3.5 max-md:grid-cols-1
+            children:
+              - type: link
+                props:
+                  href: /blog/$collection.previous.slug
+                  className: flex flex-col gap-0.5 rounded-lg border border-border bg-background-raised px-3.5 py-2.5 no-underline hover:border-primary
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: text-[12px] text-foreground-muted
+                    content: ← Previous
+                  - type: text
+                    element: span
+                    props:
+                      className: text-[14px] font-medium text-primary-subtle-foreground
+                    content: $collection.previous.title
+          # What readers said, once the editor approved it. A held comment is
+          # not in this list: the comments table only ever answers Approved
+          # comments to a reader.
+          - type: container
+            element: section
+            props:
+              aria-label: Comments
+              className: mt-2 flex flex-col gap-3.5 border-t border-border pt-[18px]
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-[19px] font-semibold text-foreground
+                content: Comments
+              - type: list
+                props:
+                  className: >-
+                    [&_ul]:!border-0 [&_ul]:!bg-transparent [&_li]:!border-0 [&_li]:!px-0 [&_li]:!py-1.5
+                    [&_[data-list-title]]:!text-[12.5px] [&_[data-list-title]]:!font-medium [&_[data-list-subtitle]]:!whitespace-normal [&_[data-list-subtitle]]:!text-[14px] [&_[data-list-subtitle]]:!leading-[1.55] [&_[data-list-subtitle]]:!text-foreground
+                dataSource:
+                  table: comments
+                  filter:
+                    - field: post
+                      operator: eq
+                      value: $record.id
+                  sort:
+                    - field: posted_at
+                      direction: asc
+                listDisplay:
+                  itemTemplate:
+                    title: $record.author_name
+                    subtitle: $record.body
+                    metadata:
+                      - { field: date_label }
+                  emptyMessage: No comments yet. Be the first — it appears here once the author approves it.
+              - type: form
+                formRef: comment
+                props:
+                  headingLevel: h3
+                  className: '[&_h3]:text-[15px] [&_h3]:font-semibold [&_h3+p]:text-[13px] [&_h3+p]:text-foreground-muted'
+                inlinePrefill:
+                  prefill:
+                    post: $parent.id
+                  lockPrefill: true
+      - $ref: ./_site-footer.yaml

@@ -14,9 +14,4 @@
  *
  * @see {@link ComponentPropsSchema} from `../../components/props`
  */
-export {
-  ComponentPropsSchema,
-  ComponentPropValueSchema,
-  type ComponentProps,
-  type ComponentPropValue,
-} from '../../components/props'
+export { ComponentPropsSchema, ComponentPropValueSchema } from '../../components/props'

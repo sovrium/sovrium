@@ -25,7 +25,7 @@ All it needs is the connection: `DATABASE_URL` for PostgreSQL, or nothing at all
 "Migration" names two independent systems, and this command owns both.
 
 - **The shipped migrations** — the migration files bundled with the binary, covering authentication, system and internal tables, decided by the migration journal recorded in your database.
-- **The config tables** — the `tables` in your configuration, covering your own tables, views and indexes, decided by a checksum of your table definitions.
+- **The config tables** — the `tables` in your configuration, covering your own tables, views and indexes, decided by a checksum of your table definitions. A lookup, rollup or count view is also rebuilt whenever the version you run would write it differently, so an upgrade reaches your lookups without a config change. On PostgreSQL that comparison creates a temporary view; a database role without the `TEMP` privilege cannot, so every start then runs the full migration and logs a warning saying so. On SQLite, a table whose stored CHECK rules (a single-select's options, a length or range limit) are not the ones its definition declares is rebuilt with its rows the same way, without a config change. An earlier version left the old rules in place when one edit both added or renamed a field and changed such a rule on the same table, so the first start after the upgrade repairs it.
 
 The shipped migrations run **first**, always. A `user` field emits a real foreign key into the authentication tables, so your own tables cannot be created before the migrations that build them. Running only half would leave `sovrium start` doing schema work inside the web process — the coupling this command exists to break.
 
@@ -70,11 +70,13 @@ Names every pending migration and every statement it would run against your own 
 
 The plan names the object that will really change. A table carrying a `lookup`, `rollup` or `count` field is stored as `<name>_base` behind a `<name>` view, so a new column is reported as `would alter table <name>_base (N statement(s))`. A computed field is never planned as a stored column, and an edit to another table plans nothing against `<name>_base`.
 
-Every full migration rebuilds the view of **every** table with lookup, rollup or count fields, whichever table the change touched, so a `would rebuild view <name>` line appears for each of them whenever the tables in your config have changed since the last migration. Pending migrations alone do not rebuild them. It changes no rows. The line summarises the rebuild (`DROP VIEW IF EXISTS <name>`, then `CREATE VIEW <name>` over its computed fields) rather than printing the view's full definition.
+Every full migration rebuilds the view of **every** table with lookup, rollup or count fields, whichever table the change touched, so a `would rebuild view <name>` line appears for each of them whenever the tables in your config have changed since the last migration, or the version you run would write one of those views differently. Pending migrations alone do not rebuild them. It changes no rows. The line summarises the rebuild (`DROP VIEW IF EXISTS <name>`, then `CREATE VIEW <name>` over its computed fields) rather than printing the view's full definition.
 
 Adding a table's first lookup, rollup or count field, or removing its last one, changes which object holds its rows. The migration does this by renaming the table, so the rows, the id sequence and the foreign keys pointing at it move with it, and nothing is copied or created empty. The plan says so: `would rename table <name> to <name>_base (rows kept)`, with the view rebuilt afterwards, or, in the other direction, `would rename table <name>_base to <name> (rows kept)`, whose statements first drop the view that holds the name.
 
 A few changes rebuild a table and copy its rows across. The exact statements for those depend on the state of the table at the moment they run, so they cannot be rendered in advance. They are **named and labelled as unsimulated rather than left out** — a preview that quietly under-reports is worse than none, because you use it to decide whether the change needs a maintenance window.
+
+After an upgrade to a version of Sovrium that computes formulas differently, the next migration recomputes each stored formula once, for the rows already in its table. The plan names every table it touches: `would recompute the formulas of table <name> (rows and their modification times kept)`, followed by the statements. No automation runs, and no row's modification time moves.
 
 ## Pre-flight with `--check`
 
@@ -109,7 +111,7 @@ It applies the drops the plan named, and nothing else. An empty table removed fr
 
 `--allow-destructive` is a different consent from a table's `allowDestructive: true`. The table setting lets a migration drop a **column** the config no longer declares on a table that is still there. The command-line flag lets one run drop a whole **table** the config no longer declares. Neither implies the other.
 
-Renaming a table with lookup, rollup or count fields currently leaves its old `<old>_base` behind, and the migration reports it as a table the config no longer declares, with its rows. Do not apply that drop with `--allow-destructive`, because it would delete the renamed table's rows. Revert the rename in the config instead.
+A table is renamed only when its `id` is written in the config: keep the `id` and change the `name`, and the migration renames the table in place, with its rows. That includes a table with lookup, rollup or count fields, whose `<name>_base` moves with it. Its many-to-many link tables move with it, links kept, whichever side of the link the renamed table is on — a table linked to itself included. Without a written `id`, a new name reads as one table removed and another added. If the old table still holds rows, the migration refuses, as it does for any populated table the config no longer declares, and the refusal names the `id` that keeps it (`declare it with id: 3`). Add that `id` to the renamed table instead of applying the drop with `--allow-destructive`, which would delete the rows. `--dry-run`, `--check` and the `--watch` reload read the rename the same way: the plan says `would rename table <old> to <new> (rows kept)`.
 
 ## In a deploy pipeline
 

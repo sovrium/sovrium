@@ -1,0 +1,6 @@
+# The company itself, as one row: every colleague and every announcement
+# points at it, so an announcement can count the people it is addressed to.
+records:
+  - key: halden
+    fields:
+      name: Halden

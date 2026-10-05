@@ -9,16 +9,28 @@
  * Record change-event publisher — the Wave-1 publish side of live realtime
  * delivery.
  *
- * Record CRUD handlers call {@link publishRecordChange} after a mutation
- * commits. The event is fanned out to every open SSE connection on the table's
- * channel via the in-memory channel-manager. The matching consumer side is the
- * SSE stream in `subscribe-handlers.ts`.
+ * Every record write reaches {@link publishRecordChanges} once it commits —
+ * through `RecordChangeFeedLive`, which the write programs announce to — and
+ * its events are fanned out to every open SSE stream and WebSocket on the
+ * table's channel via the in-memory channel-manager. The matching consumer
+ * side is `subscribe-handlers.ts`.
  *
- * The published payload is shaped by the canonical `realtimeChangeEventSchema`
- * (`src/domain/models/api/realtime/realtime.ts`) so a subscriber can apply it
- * directly without shape translation.
+ * The published payload follows the canonical `realtimeChangeEventSchema`
+ * (`src/domain/models/api/realtime/realtime.ts`), but it is the UNSCOPED
+ * event: each subscriber's transport translates it before anything is sent —
+ * the row is judged against that subscriber's row-level read rule, its fields
+ * are cut to the columns they may read and then to their own `?fields=`
+ * selection, relationship values are sent as strings, and a WebSocket frame is
+ * reshaped into the wire message. A subscriber therefore never receives this
+ * payload as published.
  */
 
+import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
+import {
+  planAnnouncements,
+  type AnnouncedRowChange,
+} from '@/domain/models/app/tables/realtime-announcement-service'
+import { RESYNC_ROWS_KEY } from '@/domain/models/app/tables/realtime-row-scope-service'
 import { publishToChannel } from './channel-manager'
 
 /**
@@ -61,7 +73,11 @@ interface PublishRecordChangeInput {
   readonly recordId: string | number
   /** Full (permission-agnostic) record payload — present for insert/update. */
   readonly record?: Record<string, unknown> | undefined
-  /** Previous record values — present for update (filter enter/exit detection). */
+  /**
+   * Previous record values — present for update (filter enter/exit detection)
+   * and for delete (the row each subscriber's read rule is judged on; stripped
+   * before delivery).
+   */
   readonly oldRecord?: Record<string, unknown> | undefined
   /** Who produced the change. Defaults to `'user'`; the AI refinement write-back passes `'ai-refine'`. */
   readonly origin?: RecordChangeOrigin
@@ -73,23 +89,20 @@ interface PublishRecordChangeInput {
  * column becomes a `fields` entry.
  */
 const toRecordPayload = (
-  recordId: string | number,
+  recordId: string,
   raw: Readonly<Record<string, unknown>> | undefined
-): Readonly<{ id: string | number; fields: Readonly<Record<string, unknown>> }> | undefined => {
+): Readonly<{ id: string; fields: Readonly<Record<string, unknown>> }> | undefined => {
   if (!raw) return undefined
   const { id: _id, ...rest } = raw
   return { id: recordId, fields: rest }
 }
 
-/**
- * Publish a record change event to the table's realtime channel.
- *
- * Fire-and-forget and synchronous: pushing onto the in-memory listener set
- * cannot fail in a way that should block the HTTP response, so callers invoke
- * this without awaiting. A table with zero open subscribers is a cheap no-op.
- */
-export const publishRecordChange = (input: PublishRecordChangeInput): void => {
-  const { appId, tableName, event, recordId, record, oldRecord, origin } = input
+/** Publish one row's change event on its table's channel. */
+const publishRowChange = (input: PublishRecordChangeInput): void => {
+  const { appId, tableName, event, record, oldRecord, origin } = input
+  // The id as the records API names it — a string on every event, whether the
+  // caller handed over the API record (create) or a driver row (delete).
+  const recordId = String(input.recordId)
   const changeEvent: Readonly<Record<string, unknown>> = {
     type: 'change',
     event,
@@ -101,4 +114,63 @@ export const publishRecordChange = (input: PublishRecordChangeInput): void => {
     ...(origin !== undefined ? { origin } : {}),
   }
   publishToChannel(tableChannel(appId, tableName), changeEvent)
+}
+
+/**
+ * Publish everything one write changed, on each touched table's channel — the
+ * single publishing point every record write reaches.
+ *
+ * Per table, a write that changed at most
+ * `REALTIME_TRANSPORT_CONFIG.maxChangeEventsPerWrite` rows is announced one
+ * `change` event per row; past that, one `resync` notice carrying the changed
+ * rows for each subscriber's read rule to be judged on (the subscription
+ * strips them before anything reaches the wire). See `planAnnouncements`.
+ *
+ * Fire-and-forget and synchronous: pushing onto the in-memory listener set
+ * cannot fail in a way that should block the write's response. A table with
+ * zero open subscribers is a cheap no-op.
+ */
+export const publishRecordChanges = (input: {
+  readonly appId: string
+  readonly changes: readonly AnnouncedRowChange[]
+  readonly origin?: RecordChangeOrigin
+}): void => {
+  const { appId, changes, origin } = input
+  const plan = planAnnouncements(changes, REALTIME_TRANSPORT_CONFIG.maxChangeEventsPerWrite)
+  plan.forEach((entry) => {
+    if (entry.kind === 'resync') {
+      publishToChannel(tableChannel(appId, entry.tableName), {
+        type: 'resync',
+        table: entry.tableName,
+        reason: 'bulk-change',
+        timestamp: new Date().toISOString(),
+        [RESYNC_ROWS_KEY]: entry.rows,
+      })
+      return
+    }
+    entry.changes.forEach((change) =>
+      publishRowChange({
+        appId,
+        tableName: change.tableName,
+        event: change.event,
+        recordId: change.recordId,
+        record: change.record,
+        oldRecord: change.oldRecord,
+        ...(origin === undefined ? {} : { origin }),
+      })
+    )
+  })
+}
+
+/**
+ * Publish a single row's change — a write of one row, through the same
+ * publishing point as every other write.
+ */
+export const publishRecordChange = (input: PublishRecordChangeInput): void => {
+  const { appId, tableName, event, record, oldRecord, origin } = input
+  publishRecordChanges({
+    appId,
+    changes: [{ tableName, event, recordId: String(input.recordId), record, oldRecord }],
+    ...(origin === undefined ? {} : { origin }),
+  })
 }

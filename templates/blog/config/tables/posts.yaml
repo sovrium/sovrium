@@ -1,29 +1,39 @@
+# The essays. A post moves Draft → Scheduled → Published: a draft is private,
+# a scheduled post goes live on its `publish_at` (the hourly
+# `publish-scheduled` automation flips it), and only a published post is on
+# the public pages.
+#
+# Everyone may read the table, because the public pages read it — but the
+# row-level rule below narrows every read to Published posts, so a draft or a
+# scheduled post is invisible to readers, to the RSS feed and to the records
+# API alike, and its address answers 404. The editor, an admin, sees them all.
+# Only the editor writes.
 id: 3
 name: posts
-# The heart of the CMS. Public visitors read posts; editors and admins author
-# and publish them; only admins can delete. The `author` relationship is the
-# public byline, while `created_by` records which logged-in account wrote it.
 permissions:
   read: all
-  create:
-    - admin
-    - editor
-  update:
-    - admin
-    - editor
-  delete:
-    - admin
+  create: [admin]
+  update: [admin]
+  delete: [admin]
+rowLevelPermissions:
+  read:
+    when:
+      field: status
+      operator: eq
+      value: Published
 fields:
   - id: 1
     name: title
     type: single-line-text
     required: true
+  # The address of the essay: /blog/<slug>.
   - id: 2
     name: slug
     type: single-line-text
     required: true
     unique: true
     indexed: true
+  # One or two sentences, shown under the title on the index.
   - id: 3
     name: excerpt
     type: long-text
@@ -41,19 +51,30 @@ fields:
       - blockquote
       - code-block
       - image
-    placeholder: Write your post...
+    placeholder: Write the essay…
+  # The image at the top of the essay and on its card, at 16:9.
   - id: 5
-    name: cover_image
+    name: cover
     type: single-attachment
+    bucket: images
+    allowedFileTypes:
+      - image/png
+      - image/jpeg
+      - image/webp
+      - image/avif
   - id: 6
     name: status
     type: single-select
     required: true
+    default: Draft
     options:
-      - draft
-      - published
+      - Draft
+      - Scheduled
+      - Published
+  # When the post went, or goes, live. Setting it on a draft schedules the
+  # post (config/automations/schedule-on-date.yaml).
   - id: 7
-    name: published_at
+    name: publish_at
     type: datetime
     indexed: true
   - id: 8
@@ -71,8 +92,8 @@ fields:
     displayField: name
     reciprocalField: posts
     allowMultiple: true
-    # A cap on the picker. Past five tags the search closes rather than
-    # inviting a selection it would refuse, and the count reads "5 of 5".
+    # Past five tags the picker closes rather than inviting a selection it
+    # would refuse.
     maxLinked: 5
   - id: 10
     name: created_at
@@ -83,3 +104,48 @@ fields:
   - id: 12
     name: created_by
     type: created-by
+  # Ticked on a draft the editorial assistant wrote: it waits for a person to
+  # read it before anything else happens to it.
+  - id: 13
+    name: proposed_by_assistant
+    type: checkbox
+    default: false
+  # The author's name, for the byline.
+  - id: 14
+    name: author_name
+    type: lookup
+    relationshipField: author
+    relatedField: name
+  # The tags' names, for the line under the byline.
+  - id: 15
+    name: tag_names
+    type: lookup
+    relationshipField: tags
+    relatedField: name
+  # The date as a reader reads it — "20 September 2026" — spelled out with
+  # plain string functions so it reads the same on SQLite and PostgreSQL.
+  - id: 16
+    name: date_label
+    type: formula
+    formula: "CASE WHEN publish_at IS NULL THEN '' ELSE CAST(substr(CAST(publish_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(publish_at AS TEXT), 6, 2) WHEN '01' THEN 'January' WHEN '02' THEN 'February' WHEN '03' THEN 'March' WHEN '04' THEN 'April' WHEN '05' THEN 'May' WHEN '06' THEN 'June' WHEN '07' THEN 'July' WHEN '08' THEN 'August' WHEN '09' THEN 'September' WHEN '10' THEN 'October' WHEN '11' THEN 'November' WHEN '12' THEN 'December' END || ' ' || substr(CAST(publish_at AS TEXT), 1, 4) END"
+    resultType: string
+  # The state the desk shows: a draft the assistant proposed reads "Awaiting
+  # approval", every other post its status.
+  - id: 17
+    name: state
+    type: formula
+    formula: "CASE WHEN status = 'Draft' AND proposed_by_assistant THEN 'Awaiting approval' ELSE status END"
+    resultType: string
+  # The cover's address in the public `images` bucket, for the top of the
+  # essay (an index card reads the attachment itself).
+  - id: 18
+    name: cover_url
+    type: formula
+    formula: "CASE WHEN cover IS NULL THEN '' ELSE '/api/buckets/images/files/' || cover END"
+    resultType: string
+  # The author's portrait, for the byline.
+  - id: 19
+    name: author_avatar_url
+    type: lookup
+    relationshipField: author
+    relatedField: avatar_url

@@ -1,0 +1,29 @@
+# A comment that arrives without a date — every comment sent from the box under
+# an essay — is stamped with the moment it arrived, so the desk lists the
+# newest first and the essay prints the day it was written.
+name: stamp-new-comment
+label: New comment — record when it arrived
+description: Set a new comment's date to the moment it arrived, when none was given.
+enabled: true
+trigger:
+  type: record
+  table: comments
+  events:
+    - create
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.posted_at}}'
+        operator: isEmpty
+actions:
+  - name: stamp
+    type: record
+    operator: update
+    props:
+      table: comments
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        posted_at: '{{now}}'

@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { castDivisionOperands, isNumericFieldRef, numericCastType } from './formula-numeric-cast'
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { castDivisionOperands } from './formula-numeric-cast'
+import { formulaIsStableOnPostgres } from './formula-postgres-stability'
 
 /**
  * Reserved SQL keywords that require escaping when used in identifiers
@@ -102,8 +105,13 @@ const SQL_RESERVED_KEYWORDS = new Set([
  */
 const containsReservedWord = (identifier: string): boolean => {
   const lowerIdentifier = identifier.toLowerCase()
-  // Check if the identifier itself is a reserved word
-  if (SQL_RESERVED_KEYWORDS.has(lowerIdentifier)) {
+  // Check if the identifier itself is a reserved word — on this list, or on
+  // the keyword list the column DDL quotes by (`values`, `window`, …), so a
+  // formula names a keyword column exactly as its table declares it
+  if (
+    SQL_RESERVED_KEYWORDS.has(lowerIdentifier) ||
+    quoteSqlIdentifier(lowerIdentifier) !== lowerIdentifier
+  ) {
     return true
   }
   // Split by underscores and check each token
@@ -232,13 +240,19 @@ export const getFormulaFieldsNeedingTrigger = (
 
   if (formulaFields.length === 0) return new Set()
 
-  // Find formula fields that reference other formula fields
+  // Find formula fields that reference other formula fields — and, on
+  // PostgreSQL, those that engine marks STABLE — a date/datetime/time read as
+  // text, a datetime converted through the time zone, `CONCAT`/`FORMAT` — which
+  // it refuses as a generated column (see `formula-postgres-stability.ts`).
+  const onPostgres = !isSqliteRuntime()
   const directlyNeedsTrigger = new Set(
     formulaFields
-      .filter((f) =>
-        formulaFields.some(
-          (other) => other.name !== f.name && formulaReferencesField(f.formula, other.name)
-        )
+      .filter(
+        (f) =>
+          formulaFields.some(
+            (other) => other.name !== f.name && formulaReferencesField(f.formula, other.name)
+          ) ||
+          (onPostgres && formulaIsStableOnPostgres(f.formula, allFields))
       )
       .map((f) => f.name)
   )
@@ -560,83 +574,6 @@ export const translateFormulaToPostgres = (
   const withRoundCast = addNumericCastsToRound(withSubstring)
   return escapeReservedFieldNames(withRoundCast, allFields)
 }
-
-/**
- * EXTRACT date/time field keywords that should not be qualified
- * These are valid arguments to EXTRACT() function and not column references
- */
-const EXTRACT_KEYWORDS = new Set([
-  'year',
-  'month',
-  'day',
-  'hour',
-  'minute',
-  'second',
-  'dow',
-  'doy',
-  'week',
-  'quarter',
-  'decade',
-  'century',
-  'millennium',
-  'epoch',
-  'timezone',
-  'timezone_hour',
-  'timezone_minute',
-])
-
-/**
- * Re-export the numeric-cast primitives so existing importers of
- * `./formula-utils` (e.g. the VIEW generator) keep a stable surface. The
- * definitions live in `./formula-numeric-cast` (single source of truth across
- * the GENERATED / TRIGGER / VIEW paths).
- */
-export { isNumericFieldRef, numericCastType }
-
-/**
- * Qualify column references in a formula with a prefix
- * Used by trigger functions to reference columns from subqueries or NEW/OLD records
- *
- * Pure qualification only — the numeric-division CAST is applied as a separate
- * post-pass (`castDivisionOperands`) so it operates on the already-qualified
- * `t.<field>` references without disturbing EXTRACT keywords or function args.
- *
- * @example
- * qualifyColumnReferences('NOT paid AND due_date < CURRENT_DATE', fields, 't')
- * // Returns: 'NOT t.paid AND t.due_date < CURRENT_DATE'
- *
- * @example
- * qualifyColumnReferences('EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)', fields, 't')
- * // Returns: 'EXTRACT(HOUR FROM t.timestamp_value::TIMESTAMP)' (HOUR not qualified)
- */
-export const qualifyColumnReferences = (
-  formula: string,
-  allFields: readonly { name: string; type: string }[],
-  prefix: string
-): string =>
-  allFields.reduce((acc, field) => {
-    // Don't qualify EXTRACT keywords (e.g., HOUR, MINUTE, DAY)
-    if (EXTRACT_KEYWORDS.has(field.name.toLowerCase())) {
-      // Check if this field name appears as an EXTRACT keyword
-      const extractPattern = new RegExp(`\\bEXTRACT\\s*\\(\\s*${field.name}\\s+FROM\\b`, 'gi')
-      if (extractPattern.test(acc)) {
-        // This is an EXTRACT keyword, only qualify non-keyword occurrences
-        // Match the field name but exclude it when preceded by EXTRACT(
-        const fieldRegex = new RegExp(
-          `(?<!EXTRACT\\s{0,10}\\(\\s{0,10})(?<![."])\\b${field.name}\\b(?!["'(]|\\s+FROM)`,
-          'gi'
-        )
-        return acc.replace(fieldRegex, `${prefix}.${field.name}`)
-      }
-    }
-
-    // Create regex that matches field name as a whole word
-    // Use word boundaries (\b) and negative lookbehind for dots (avoid double-qualifying)
-    // Use negative lookahead for '(' to avoid qualifying SQL function names that match field names
-    // Example: field "age" should not turn AGE(...) into t.AGE(...) which causes "schema t does not exist"
-    const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'(])`, 'gi')
-    return acc.replace(fieldRegex, `${prefix}.${field.name}`)
-  }, formula)
 
 /**
  * Wrap numeric column references that are `/` division operands in a numeric

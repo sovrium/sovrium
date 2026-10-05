@@ -43,14 +43,20 @@ import type { ColumnFormat } from '@/domain/models/app/pages/components/componen
 // Date formatting helpers
 // ---------------------------------------------------------------------------
 
+/** A value read as a date; `undefined` when it names none. */
+function toDate(value: unknown): Readonly<Date> | undefined {
+  const date = value instanceof Date ? value : new Date(String(value))
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
 function formatDate(
   value: unknown,
   locale: string,
   options: Readonly<Intl.DateTimeFormatOptions>,
   timeZone: string | undefined
 ): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
+  const date = toDate(value)
+  if (date === undefined) return String(value)
   const zoned = timeZone === undefined ? options : { ...options, timeZone }
   try {
     return date.toLocaleDateString(locale, zoned)
@@ -61,6 +67,31 @@ function formatDate(
   }
 }
 
+/** The month and the day; with {@link YEAR}, the three date formats' common ground. */
+const MONTH_DAY = { month: 'short', day: 'numeric' } as const
+const YEAR = { year: 'numeric' } as const
+
+/**
+ * A `short-date`: the day and the short month in the page language's order
+ * ("Sep 22", « 22 sept. »), and the year only when the date falls in another
+ * year than today — both years read in the operator time zone, so a date near
+ * New Year is compared on the calendar the reader sees.
+ */
+const formatShortDate = (
+  value: unknown,
+  locale: string,
+  timeZone: string | undefined,
+  now: Readonly<Date> = new Date()
+): string =>
+  formatDate(
+    value,
+    locale,
+    formatDate(value, 'en', YEAR, timeZone) === formatDate(now, 'en', YEAR, timeZone)
+      ? MONTH_DAY
+      : { ...MONTH_DAY, ...YEAR },
+    timeZone
+  )
+
 /**
  * Past-only elapsed time, phrased in the page's language: "3 days ago" in
  * English, « il y a 3 jours » in French. The buckets are unchanged — whole
@@ -70,8 +101,8 @@ function formatDate(
  * a month or a year keeps its number ("1 month ago", not "last month").
  */
 function formatRelativeDate(value: unknown, locale: string): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
+  const date = toDate(value)
+  if (date === undefined) return String(value)
   const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
   if (diffDays < 30) {
     return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-diffDays, 'day')
@@ -113,8 +144,8 @@ function formatYesNo(value: unknown, locale: string): string {
  * date reads as a countdown) and negative for the past.
  */
 function formatRelativeTime(value: unknown, locale: string): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
+  const date = toDate(value)
+  if (date === undefined) return String(value)
   const diffDays = Math.round((date.getTime() - Date.now()) / 86_400_000)
   return new Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')
 }
@@ -129,6 +160,12 @@ export interface CellFormatOptions {
   readonly currency?: CurrencyDisplayOptions
   /** IANA zone the three date formats render in (the operator timezone). */
   readonly timeZone?: string
+  /**
+   * The instant `short-date` reads "this year" at; the runtime's clock when
+   * unset. The server passes its own `now` so a development clock
+   * (`SOVRIUM_DEV_CLOCK`) decides the year there too; a browser's clock is its own.
+   */
+  readonly now?: Readonly<Date>
 }
 
 /**
@@ -168,7 +205,7 @@ export function formatCellValue(
   locale: string,
   options: CellFormatOptions = {}
 ): string {
-  const { currency: currencyOptions, timeZone } = options
+  const { currency: currencyOptions, timeZone, now } = options
   if (value === undefined || value === null) return ''
   const str = String(value)
   const tag = usableLocale(locale)
@@ -199,21 +236,13 @@ export function formatCellValue(
     // a future date renders "dans 5 j" (fr) and a past one "il y a 5 j" via
     // `Intl.RelativeTimeFormat(<page locale>, { style: 'short' })`.
     'relative-time': () => formatRelativeTime(value, tag),
-    'short-date': () =>
-      formatDate(value, tag, { month: 'short', day: 'numeric', year: 'numeric' }, timeZone),
-    'long-date': () =>
-      formatDate(value, tag, { month: 'long', day: 'numeric', year: 'numeric' }, timeZone),
+    'short-date': () => formatShortDate(value, tag, timeZone, now),
+    'long-date': () => formatDate(value, tag, { ...MONTH_DAY, ...YEAR, month: 'long' }, timeZone),
     datetime: () =>
       formatDate(
         value,
         tag,
-        {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        },
+        { ...MONTH_DAY, ...YEAR, hour: '2-digit', minute: '2-digit' },
         timeZone
       ),
     'yes-no': () => formatYesNo(value, tag),

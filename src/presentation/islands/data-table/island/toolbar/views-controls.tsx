@@ -9,6 +9,7 @@ import {
   computeTablePanelCaptionClasses,
   computeTableToolbarButtonClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from '../grid-strings'
 import { ViewsMenu, type ViewsMenuEntry } from '../views-menu'
 
 /**
@@ -33,17 +34,18 @@ export interface ViewsControlsProps {
 }
 
 export function ViewsControls(props: ViewsControlsProps) {
+  const saveViewLabel = useGridString('datatable.saveView', 'Save view')
   return (
     <>
       {/* Save view — disabled until at least one filter / sort / group is active. */}
       <button
         type="button"
-        aria-label="Save view"
+        aria-label={saveViewLabel}
         disabled={!props.canSaveCurrentView}
         onClick={props.onOpenSaveViewDialog}
         className={computeTableToolbarButtonClasses({ disabled: !props.canSaveCurrentView })}
       >
-        Save view
+        {saveViewLabel}
       </button>
       <ViewsMenu
         views={props.viewEntries}

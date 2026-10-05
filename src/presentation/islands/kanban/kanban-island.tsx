@@ -237,6 +237,14 @@ function useBoardRecords(
 }
 
 /**
+ * The board's column field. An EMPTY `kanbanGroupBy` is a board whose column
+ * field its reader may not read (the server drops it for her): `''`, under
+ * which one column holds every card. An absent one is a missing configuration.
+ */
+const columnFieldOf = (groupBy: KanbanGroupBy | undefined): string | undefined =>
+  groupBy === undefined ? undefined : (groupBy.field ?? '')
+
+/**
  * The placeholder a board renders INSTEAD of itself, or `undefined` when there
  * is a board to draw.
  *
@@ -249,12 +257,19 @@ function resolveBoardState(input: {
   readonly isError: boolean
   readonly error: unknown
 }): ReactElement | undefined {
-  if (!input.groupByField) return <KanbanMissingGroupBy />
+  if (input.groupByField === undefined) return <KanbanMissingGroupBy />
   if (input.isLoading) return <KanbanLoading />
   if (input.isError) return <KanbanError error={input.error} />
   return undefined
 }
 
+/**
+ * The board. Its bound table reaches every card through the format context
+ * (`format.table`), so a card's `openDrawer` names it as a grid row's does and
+ * the drawer binds the card's record only to the forms editing that table. The
+ * colour-field hues and the drag gate travel the same way: only the card reads
+ * them, so no column, lane or cell between here and it carries them.
+ */
 export default function KanbanIsland({
   dataSource,
   records,
@@ -272,13 +287,14 @@ export default function KanbanIsland({
   const { boardRecords, localRecords, setLocalRecords, isLoading, isError, error } =
     useBoardRecords(dataSource, records)
 
-  const groupByField = kanbanGroupBy?.field
+  const groupByField = columnFieldOf(kanbanGroupBy)
   const laneField = swimlanes?.field
-  const tableName = dataSource?.table
   const gate = useKanbanDragGate(dataSource, drag, [groupByField, laneField])
+  const { draggableEnabled, persistEnabled } = gate
+  const format = { fieldMeta, table: dataSource?.table, colorFieldColors, draggableEnabled }
 
   const state = resolveBoardState({ groupByField, isLoading, isError, error })
-  if (state || !groupByField) return state ?? <KanbanMissingGroupBy />
+  if (state || groupByField === undefined) return state ?? <KanbanMissingGroupBy />
 
   const columns = groupRecords(boardRecords, groupByField, columnOptions, columnColors)
   const grid = resolveGrid({
@@ -295,12 +311,12 @@ export default function KanbanIsland({
     groupByField,
     laneField,
     drag,
-    tableName,
-    persist: gate.persistEnabled,
+    tableName: format.table,
+    persist: persistEnabled,
   })
 
   return (
-    <KanbanFormatProvider fieldMeta={fieldMeta}>
+    <KanbanFormatProvider {...format}>
       <KanbanBoard
         columns={columns}
         grid={grid}
@@ -308,9 +324,7 @@ export default function KanbanIsland({
         collapsedColumns={kanbanGroupBy?.collapsed}
         card={card}
         emptyColumnMessage={emptyColumnMessage}
-        draggableEnabled={gate.draggableEnabled}
         onDragEnd={handleDragEnd}
-        colorFieldColors={colorFieldColors}
       />
     </KanbanFormatProvider>
   )

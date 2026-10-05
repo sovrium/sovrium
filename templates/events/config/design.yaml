@@ -1,92 +1,194 @@
-# Events theming — magenta.
+# Fieldday Events — the design system of this app.
 #
-# This is the only template in the gallery with a public front door: `/` and
-# `/register` are reachable without signing in, so the palette is doing marketing
-# work the internal tools' palettes are not. Magenta earns its place there —
-# it reads as an invitation rather than as software, and it is far enough from
-# the CRM's indigo that nobody mistakes the two for one product with two skins.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# WHY THESE KEY NAMES AND NOT PRETTIER ONES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
-#   prestyled island already reads, so declaring them repaints the public event
-#   list, the registration form, the calendar and the grid with no class changes
-#   anywhere in this config. A non-role key such as `magenta-500` would emit
-#   `--color-*` only and paint nothing until something cited it — and this
-#   template cites no colour by name, because it carries no inline styles.
+# Two people meet here. A visitor opens an invitation, sees what is on and
+# registers in under a minute; an organizer reads the month, the seats taken
+# and the door. The public side is roomy and welcoming; the organizer side is
+# a working surface that spends its colour on the one event that is full.
 #
-#   The mapping is NOT identity, which is the part that bites: `ring` →
-#   `focus-ring` and `success` → `success-solid`. `foreground-muted` and
-#   `foreground-subtle` are role keys; `text-secondary` and `text-muted` are not.
-#
-#   TWO KEYS FOR ONE ROLE. `muted` and `background-subtle` both map to
-#   `--sv-bg-subtle`; so do `card`/`background-raised` (→ `--sv-bg-raised`) and
-#   `popover`/`background-overlay` (→ `--sv-bg-overlay`). Declaring both names of
-#   a pair is a silent collision resolved by key order, so this file uses the
-#   `background-*` spelling throughout and never the aliases. That also dodges a
-#   trap: `muted`, `card` and `popover` sit in COLORS_NEEDING_FOREGROUND, which
-#   auto-derives a `#ffffff` companion — invisible on the pale surface it is
-#   meant to sit on, and NOT mirrored into `darkColors`, since it is a guess
-#   made for the light surface only. Name `primary-foreground` explicitly if a
-#   companion is ever genuinely needed.
-#
-#   `ring` is worth spending a thought on here and not elsewhere: the public
-#   `/register` form is the one surface in this template a stranger will tab
-#   through, and `--sv-focus-ring` is what they will see when they do.
-#
-# NO `fonts` BLOCK, ON PURPOSE
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, which drops the page onto the OS default AND locks the shipped
-#   face out of its own stack. Distinctiveness comes from COLOUR, not type.
-#
-#   The status `color:` hexes in config/tables/events.yaml stay as they are:
-#   those are record data, not chrome, and ADR-024 A7 keeps that channel
-#   coloured on purpose — Sold out reading amber is the information.
+# One accent, a magenta. Colour otherwise means an outcome — a registration
+# confirmed, few seats left, an event full — and error sits 45° away from the
+# accent, so a full event never reads as the brand.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (the event cards, the calendar,
+# the grid, the KPI cards, buttons and the public forms) with no class changes
+# anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 colors:
-  primary: '#a81b76'
-  primary-hover: '#86145d'
-  primary-subtle: '#fbe4f2'
-  ring: '#d33d9d'
-  background: '#fffcfe'
-  background-subtle: '#fdf1f8'
-  foreground: '#1d0e18'
-  foreground-muted: '#5c3c50'
-  foreground-subtle: '#8d6a7f'
-  background-raised: '#ffffff'
-  border: '#f2dbe8'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.16 340)
+  primary-hover: oklch(0.46 0.15 340)
+  primary-active: oklch(0.42 0.141 340)
+  primary-foreground: oklch(0.985 0.003 340)
+  primary-subtle: oklch(0.95 0.03 340)
+  primary-subtle-foreground: oklch(0.38 0.12 340)
+  ring: oklch(0.6 0.16 340)
+  background: oklch(0.985 0.003 340)
+  background-subtle: oklch(0.967 0.005 340)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 340)
+  foreground: oklch(0.21 0.008 340)
+  foreground-muted: oklch(0.45 0.012 340)
+  foreground-subtle: oklch(0.51 0.012 340)
+  foreground-disabled: oklch(0.71 0.012 340)
+  foreground-inverse: oklch(0.985 0.003 340)
+  border: oklch(0.925 0.008 340)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 340)
 
-# Emitted into the stylesheet unconditionally under
-# `html:is(.dark, [data-theme='dark'])`; it renders once the app declares
-# `design.colorScheme` or ships a `theme-toggle`, neither of which this template
-# does yet. `primary-foreground` is deliberately NOT declared in either block:
-# the light path derives `#ffffff` for text on the fill, and the dark path
-# inherits the platform's dark companion, which is the dark neutral a pale pink
-# fill needs. Declaring white here would put white on `#f07bc4`.
 darkColors:
-  primary: '#f07bc4'
-  primary-hover: '#f7a5d7'
-  primary-subtle: '#3d0a2a'
-  ring: '#e05bb0'
-  background: '#160a11'
-  background-subtle: '#21101a'
-  foreground: '#f8ebf3'
-  foreground-muted: '#d1b0c3'
-  foreground-subtle: '#a5859a'
-  background-raised: '#1e0e18'
-  border: '#33192a'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.12 340)
+  primary-hover: oklch(0.83 0.09 340)
+  primary-active: oklch(0.87 0.07 340)
+  primary-foreground: oklch(0.16 0.006 340)
+  primary-subtle: oklch(0.28 0.06 340)
+  primary-subtle-foreground: oklch(0.9 0.06 340)
+  ring: oklch(0.72 0.13 340)
+  background: oklch(0.16 0.006 340)
+  background-subtle: oklch(0.19 0.007 340)
+  background-raised: oklch(0.21 0.008 340)
+  background-overlay: oklch(0.23 0.008 340)
+  background-inset: oklch(0.13 0.005 340)
+  foreground: oklch(0.95 0.005 340)
+  foreground-muted: oklch(0.75 0.01 340)
+  foreground-subtle: oklch(0.68 0.012 340)
+  foreground-disabled: oklch(0.45 0.01 340)
+  foreground-inverse: oklch(0.16 0.006 340)
+  border: oklch(0.3 0.01 340)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 340)
 
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a status colour, and an outcome colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. The Register button, the date tile of an event, the current nav entry, the focus ring. Never a status.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The date tile's ground, selected and current states, the event being edited.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A registration confirmed, an attendee checked in, and nothing else.
+    pairsWith: foreground
+  warning:
+    usage: Few seats left (under 10), a place on the waitlist.
+    pairsWith: foreground
+  error:
+    usage: An event full, a registration that did not go through, a destructive action.
+    pairsWith: foreground
+
+# Sans for every sentence, mono for times, counts and overlines, so a column
+# of figures lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Soft corners: an invitation, not a ledger.
 radius:
-  sm: 0.25rem
-  md: 0.5rem
-  lg: 0.75rem
+  sm: 0.5rem
+  md: 0.75rem
+  lg: 1rem
   full: 9999px
+
+# Cards carry a one-pixel lift; overlays float clearly above the page.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# Who sees which page. The two organizer pages are the product; everything
+# else — the public list, the forms, the confirmations and sign-in — is the
+# public side, which also refuses organizer words. The most specific pattern
+# wins, and `everything else` comes last.
+zones:
+  - pattern: /calendar
+    zone: product
+    accentBudget: product
+  - pattern: /registrations
+    zone: product
+    accentBudget: product
+  - pattern: everything else
+    zone: marketing
+    accentBudget: public
+    voice:
+      avoid:
+        - No organizer vocabulary on the public side — no "status", no "capacity", no "record".
+
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
+# An organizer reads a row for three facts — who, which event, arrived or not
+# — so the organizer pages run at `cozy`; a visitor reads the public page
+# once, so the public side runs at `roomy`. The three steps are the
+# platform's own values, written out so one number can be tuned.
+density:
+  default: cozy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+  byZone:
+    product: cozy
+    marketing: roomy
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - welcoming
+    - clear
+    - punctual
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Register, Join the waitlist, Check in, New event.'
+    - Say when and where, and how many seats are left.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "Oops", no countdown pressure ("Hurry").
+    - Never promise a reply channel the app does not have ("reply to cancel").
+    - Never "record" or "row" in front of an attendee.
+  tone:
+    empty: Say what will appear here, then the one action that fills it.
+    loading: Name what is loading — the events, the guest list — never a bare spinner.
+    error: State what did not go through and the one thing that fixes it; keep what the person typed.
+    success: Confirm in past tense what happened, for which event, when and where.
+    destructive: Name the event or the attendee and whether it comes back.
+
+principles:
+  - A visitor sees what is on, when, where and how full, and registers in under a minute.
+  - Every registration confirms the event, the date and the place.
+  - Colour means an outcome — confirmed, few seats, full — or it is not used.
+  - The door runs without a tour.

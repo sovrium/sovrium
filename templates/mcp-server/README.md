@@ -1,104 +1,115 @@
-# Sovrium MCP Server
+# Team knowledge base — an MCP server
 
-> Expose your tables to an LLM over MCP.
+> A team's runbooks and decisions, readable by the assistant you already use: documents and tags
+> served over MCP, called with an API key, within what the key's owner may do.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
-file in, a complete self-hosted web application out. This is a headless template — its surface is the REST API and the MCP endpoint, not web pages.
+file in, a complete self-hosted web application out.
 
 [![Deploy on Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://dashboard.scalingo.com/create/app?source=https://github.com/sovrium/mcp-server-template)
 
-## Use this template
+## Connect a client
 
-Click **Use this template** on GitHub to copy this app into your own repository (clean
-history, yours to modify), or scaffold it locally:
+Switch the server on, seed the knowledge base, and start:
 
 ```bash
-curl -fsSL https://sovrium.com/install | sh
-sovrium init my-mcp-server --template mcp-server
+sovrium seed app.yaml        # needs SOVRIUM_SEED_PASSWORD, see .env.example
+MCP_ENABLED=true MCP_TRANSPORT=streamable-http sovrium start app.yaml
 ```
+
+A key is minted by a signed-in person and carries their role. Sign in as the editor and ask for
+one (the value is shown once):
+
+```bash
+curl -c jar -H "content-type: application/json" \
+  -d '{"email":"marco.bianchi@teamkb.example","password":"<SOVRIUM_SEED_PASSWORD>"}' \
+  localhost:3000/api/auth/sign-in/email
+curl -b jar -H "content-type: application/json" -d '{"name":"my assistant"}' \
+  localhost:3000/api/auth/api-key/create      # → { "key": "…" }
+```
+
+An admin can also create keys in the console, at `/_admin/api-keys`. Then give your client the
+server's address and the key:
+
+```json
+{
+  "mcpServers": {
+    "team-kb": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": { "x-api-key": "<your key>" }
+    }
+  }
+}
+```
+
+The server speaks MCP protocol revision 2026-07-28 over streamable HTTP. A client that signs in
+through the browser can use OAuth instead: `/mcp` also accepts an access token on
+`Authorization: Bearer`, and the key's owner is then whoever signed in.
+
+Then ask: "How do I rotate the database credentials?" The assistant lists the documents, reads
+the runbook of that name, and answers with its four steps.
 
 ## What's inside
 
-Tables with per-entity `aiAccess` exposure, served to LLM clients over the Model Context Protocol when `MCP_ENABLED=true`.
+The knowledge base of a fictional engineering team: eight documents — runbooks, decisions, an
+incident write-up, onboarding notes — under four tags. The page at `/` says how to switch the
+server on and connect a client, and lists the tools. The admin console at `/_admin` is where
+keys, roles and documents are managed.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
+application code. Replace the tables in `config/tables/` and the documents in `seed/`.
 
-## Run locally
+### The tools
 
-```bash
-sovrium start app.yaml
-```
+Each table's `aiAccess` block says which tools exist and which fields they return. The names
+below are the ones `tools/list` returns; each carries the app's `name` as its prefix, so they
+follow when you rename the app:
 
-Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
-[`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+| Tool                                  | Kind      | Who may call it        |
+| ------------------------------------- | --------- | ---------------------- |
+| `mcp-server-example_documents_list`   | read-only | every role             |
+| `mcp-server-example_documents_read`   | read-only | every role             |
+| `mcp-server-example_documents_create` | writes    | an editor and an admin |
+| `mcp-server-example_tags_list`        | read-only | every role             |
+| `mcp-server-example_tags_read`        | read-only | every role             |
 
-Load the sample knowledge base — eight documents across four tags, written to be worth
-retrieving rather than to fill a grid:
+The documents tools return `title`, `body`, `tag` and `status` — the author and the timestamps
+stay on the server. There is no update or delete tool: adding a document is easy to review and
+undo, a silent edit is not.
 
-```bash
-sovrium seed app.yaml
-```
+### The seeded accounts
 
-## Turning MCP on
+Nobody can open an account from outside. The admin comes from `AUTH_ADMIN_EMAIL` and
+`AUTH_ADMIN_PASSWORD`; the editor and the viewer from `seed/users.yaml`, with the password in
+`SOVRIUM_SEED_PASSWORD`:
 
-There is **no top-level `mcp:` block** in a Sovrium config, and there is nothing you can
-put in `config/` to create one. Exposure is declared per table via `aiAccess` (see
-[`config/tables/`](./config/tables)), and the server itself is switched on by the operator
-through the environment:
+| Account                        | Role   | What their key may do                              |
+| ------------------------------ | ------ | -------------------------------------------------- |
+| `priya.nair@teamkb.example`    | admin  | everything, drafts included; the admin console     |
+| `marco.bianchi@teamkb.example` | editor | list and read documents and tags, create documents |
+| `elin.sundberg@teamkb.example` | viewer | list and read documents and tags                   |
 
-```bash
-MCP_ENABLED=true
-MCP_TRANSPORT=streamable-http   # or "stdio" for a client on the same machine
-```
+A tool call runs as the key's owner, with their role read afresh on every call: the assistant
+can never write what its owner could not.
 
-There is **no credential variable**. `/mcp` authenticates on the header a request carries:
-an API key on `x-api-key`, or an OAuth access token on `Authorization: Bearer`. Both are
-live at once, and both are issued by the auth layer — which is why `MCP_ENABLED=true`
-requires an `auth` block and refuses to boot without one. This template ships one, with
-`apiKeys: true` already set (see [`config/auth.yaml`](./config/auth.yaml)).
+## What to try
 
-For a non-interactive client, sign in as the user whose role it should inherit, mint a key
-at `POST /api/auth/api-key/create`, and send it on `x-api-key`. The key acts as **its
-owner**, resolved live on every call — so granting that user the `editor` role below is
-what unlocks the write tools, and demoting them narrows the same key without re-issuing it.
-
-The split is the point: the **schema author declares intent**, the **operator activates
-it**. A config file has no business switching on a network listener in someone else's
-deployment.
-
-### Tools this app exposes
-
-Derived from the `aiAccess` declarations in `config/tables/`, so this list moves when
-those do:
-
-| Tool                                  | Kind                              |
-| ------------------------------------- | --------------------------------- |
-| `mcp-server-example_documents_list`   | read-only, idempotent             |
-| `mcp-server-example_documents_get`    | read-only, idempotent             |
-| `mcp-server-example_documents_create` | write, requires the `editor` role |
-| `mcp-server-example_tags_list`        | read-only, idempotent             |
-| `mcp-server-example_tags_get`         | read-only, idempotent             |
-
-### Notes for schema authors
-
-- **Read-only by default.** A table opts _into_ writes by naming them in
-  `aiAccess.operations`; omit `create` / `update` / `delete` and it stays readable and
-  nothing else.
-- **Field exposure defaults to `permissioned`** — the model sees what its role may read.
-  Use `fieldExposure: whitelist` with `whitelistFields: [...]` when you want a narrower
-  projection than the role's read permission gives. `documents` does; `tags` does not.
-- **The `description` on each `aiAccess` block is the single biggest lever you have over
-  model behaviour.** Write it for the LLM, not for a human reading the config.
+- **Without a key**, `/mcp` answers `401` and names no tool.
+- **With Elin's key** (the viewer), the client lists four tools, and a call to
+  `mcp-server-example_documents_create` is refused — nothing is written.
+- **With Marco's key**, ask the assistant to record a postmortem draft ("Postmortem — disk
+  full"). Sign in to `/_admin` as Priya and it is there, as a draft.
+- **The draft on MCP transports** is in the seed but not in what the list tool returns to Elin:
+  a draft is read by its author and by an admin only.
 
 ## Deploy
 
 The **Deploy on Scalingo** button above provisions the app with a PostgreSQL addon
 (Scalingo's filesystem is ephemeral — the database keeps your data across deploys; file
-uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
-`BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
-(see the [deployment guides](https://sovrium.com/en/docs/installation)).
+uploads are stored in Postgres too). Secrets are generated automatically, and `MCP_ENABLED=true` and
+`MCP_TRANSPORT=streamable-http` come preset; you only fill in `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config (see the
+[deployment guides](https://sovrium.com/en/docs/installation)).
 
 ## About this repository
 

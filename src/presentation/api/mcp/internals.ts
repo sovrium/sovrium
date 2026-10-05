@@ -55,12 +55,12 @@
 
 import { Effect } from 'effect'
 import { McpInternalsRepository } from '@/application/ports/repositories/mcp/mcp-internals-repository'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import {
   InternalTableRegistry,
   type InternalTableEntry,
 } from '@/domain/models/app/tables/internal-tables'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
+import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller } from '@/presentation/api/mcp/auth'
@@ -228,7 +228,7 @@ export const handleInternalToolCall = async (input: {
   readonly args: Record<string, unknown>
   readonly domainContext: DomainContext
 }): Promise<McpToolResult> => {
-  if (!isAdminRole(input.caller.role)) {
+  if (!isAdminTierCaller(input.caller)) {
     return toolFailure(
       -32_603,
       `Internal tool ${input.resolved.entry.schema}.${input.resolved.entry.name} is admin-only`

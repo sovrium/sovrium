@@ -1,40 +1,70 @@
-name: blog
-version: 1.0.0
+# Field Notes — a publication a small studio owns, in one config.
+#
+# Readers get an index of essays with their covers, one page per essay with a
+# byline, the body, the comments the editor approved and a way back to the
+# essay before it, and an RSS feed. Behind `/admin`, the editor has a desk:
+# every post with its state, an edit page that schedules a post for a date,
+# the comments waiting to be read, and an assistant that drafts. A scheduled
+# post goes live on its own at the hour its date comes.
+#
+# Field Notes is a fictional publication; rename it, replace the essays, and
+# it is yours. This is the file you diff, fork and redeploy.
+name: field-notes
+version: 2.0.0
 description: >-
-  A self-hostable blog CMS — a WordPress / Webflow alternative. Public reading
-  experience plus an authenticated admin space to create, edit, and publish
-  articles. The first account registered at /admin/register becomes the admin;
-  later sign-ups are editors.
+  A publication: an index of essays with covers, one page per essay with its
+  byline and approved comments, an RSS feed, and a desk behind sign-in where
+  the editor schedules posts and an assistant proposes drafts.
 
 auth:
   $ref: ./config/auth.yaml
 
-# The design system: the blog's tokens, how it sounds, and the line between the
-# public reading surface and the admin space behind auth.
 design:
   $ref: ./config/design.yaml
 
-# Runtime AI agents. The blog-editor assistant drafts, edits, and reviews posts
-# under the `editor` role, with every write held for human approval. Requires an
-# AI provider at runtime (set AI_PROVIDER — defaults to a local Ollama).
+# The editorial assistant. It proposes drafts and edits, and every write it
+# asks for waits for the editor's approval. It needs an AI provider at run
+# time (see `.env.example`); without one the rest of the app works and the
+# assistant stays silent.
 agents:
   - $ref: ./config/agents/blog-editor.yaml
+
+# The covers and the author portraits. The bucket is public, so a reader's
+# browser loads them with no session; nothing else is stored in it.
+buckets:
+  - name: images
+    public: true
 
 tables:
   - $ref: ./config/tables/authors.yaml
   - $ref: ./config/tables/tags.yaml
   - $ref: ./config/tables/posts.yaml
+  - $ref: ./config/tables/comments.yaml
 
+# The comment box under an essay, and the New post dialog of the desk.
+forms:
+  - $ref: ./config/forms/comment.yaml
+  - $ref: ./config/forms/new-post.yaml
+
+# Automations run on the server, with their history kept in your own database.
+automations:
+  - $ref: ./config/automations/schedule-on-date.yaml
+  - $ref: ./config/automations/publish-scheduled.yaml
+  - $ref: ./config/automations/stamp-new-comment.yaml
+
+# The public pages first, then the desk in the order of its navigation.
 pages:
-  # Public site
   - $ref: ./config/pages/index.yaml
-  - $ref: ./config/pages/post-detail.yaml
-  # Admin space
-  - $ref: ./config/pages/admin-login.yaml
-  - $ref: ./config/pages/admin-register.yaml
-  - $ref: ./config/pages/admin-dashboard.yaml
-  - $ref: ./config/pages/admin-post-new.yaml
+  - $ref: ./config/pages/essay.yaml
+  - $ref: ./config/pages/not-found.yaml
+  - $ref: ./config/pages/admin-posts.yaml
   - $ref: ./config/pages/admin-post-edit.yaml
+  - $ref: ./config/pages/admin-comments.yaml
   - $ref: ./config/pages/admin-tags.yaml
   - $ref: ./config/pages/admin-authors.yaml
   - $ref: ./config/pages/admin-ai-editor.yaml
+  - $ref: ./config/pages/admin-login.yaml
+
+# The public footer carries its own "Built with Sovrium" line on the same row
+# as the publication's name, so the engine's badge is switched off.
+badge: false

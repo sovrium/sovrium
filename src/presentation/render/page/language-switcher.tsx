@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ReactElement } from 'react'
+import { type HTMLAttributes, type ReactElement } from 'react'
 import {
   computeLanguageSwitcherDropdownClasses,
   computeLanguageSwitcherOptionClasses,
@@ -15,6 +15,36 @@ import type { Languages } from '@/domain/models/app/languages'
 
 /** Stable identity for `style={{ display: 'none' }}` reuse to satisfy react-perf. */
 const HIDDEN_STYLE = { display: 'none' } as const
+
+/**
+ * The HTML attributes an author gave the switcher in `props` — its
+ * `data-component-type` stamp among them — already stripped of the display
+ * options the switcher reads itself. They land on the switcher's OUTER element
+ * whichever variant draws it, so the control is named by its type exactly once
+ * and a `className` such as `ml-auto` places it in the row it sits in.
+ */
+export type LanguageSwitcherWrapperAttributes = Readonly<
+  HTMLAttributes<HTMLDivElement> & Record<string, unknown>
+>
+
+/**
+ * Spread the author's attributes onto a wrapper, then its own: the author's
+ * `className` joins the wrapper's class rather than replacing it, and the
+ * wrapper's `data-testid` and `data-variant` stay what the client script reads.
+ */
+function wrapperAttributes(
+  attributes: LanguageSwitcherWrapperAttributes | undefined,
+  own: { readonly variant: string; readonly fallbackLanguage: string | undefined }
+): Record<string, unknown> {
+  const authorClass = typeof attributes?.className === 'string' ? attributes.className : ''
+  return {
+    ...attributes,
+    'data-testid': 'language-switcher',
+    className: ['relative', authorClass].filter((part) => part !== '').join(' '),
+    'data-variant': own.variant,
+    'data-fallback-language': own.fallbackLanguage,
+  }
+}
 
 /**
  * Helper to check if flag is an image path (starts with /)
@@ -70,6 +100,39 @@ function LanguageSwitcherButton({
 }
 
 /**
+ * The `toggle` variant, for an app with exactly two languages: one link to the
+ * same page in the other language, reading its code and named by its label.
+ *
+ * Its `href` is the other language's root, which is where it leads without
+ * JavaScript; `language-switcher.js` retargets it to the same page in that
+ * language once the page loads, since only the browser holds the full address.
+ */
+function LanguageToggle({
+  other,
+  fallbackLanguage,
+  attributes,
+}: {
+  readonly other: Languages['supported'][number]
+  readonly fallbackLanguage: string | undefined
+  readonly attributes: LanguageSwitcherWrapperAttributes | undefined
+}): ReactElement {
+  return (
+    <div {...wrapperAttributes(attributes, { variant: 'toggle', fallbackLanguage })}>
+      <a
+        href={`/${other.code}/`}
+        hrefLang={other.code}
+        lang={other.locale ?? other.code}
+        aria-label={other.label}
+        data-language-toggle
+        className={computeLanguageSwitcherTriggerClasses()}
+      >
+        {other.code.toUpperCase()}
+      </a>
+    </div>
+  )
+}
+
+/**
  * LanguageSwitcher component - Server-side rendered language switcher
  *
  * This component renders the static HTML structure for the language switcher.
@@ -89,6 +152,8 @@ function LanguageSwitcherButton({
  * @param props.languages - Languages configuration from AppSchema
  * @param props.variant - Display variant (dropdown, inline, tabs) - defaults to dropdown
  * @param props.showFlags - Whether to show flag emojis - defaults to false
+ * @param props.attributes - The author's HTML attributes from `props`, display
+ *   options already removed; spread onto the outer element of either variant.
  * @param props.currentLang - The page's active language, as `resolvePageLanguage`
  *   answered it. Matched against either declared spelling because it arrives as
  *   the locale while `languages.default` is the short code. Absent — or naming a
@@ -101,23 +166,31 @@ export function LanguageSwitcher({
   variant = 'dropdown',
   showFlags = false,
   currentLang,
+  attributes,
 }: {
   readonly languages: Languages
   readonly variant?: string
   readonly showFlags?: boolean
   readonly currentLang?: string
+  readonly attributes?: LanguageSwitcherWrapperAttributes
 }): Readonly<ReactElement> {
   const activeLanguage =
     languages.supported.find((lang) => lang.code === currentLang || lang.locale === currentLang) ??
     languages.supported.find((lang) => lang.code === languages.default)
+  const other = languages.supported.find((lang) => lang.code !== activeLanguage?.code)
+
+  if (variant === 'toggle' && languages.supported.length === 2 && other !== undefined) {
+    return (
+      <LanguageToggle
+        other={other}
+        fallbackLanguage={languages.fallback}
+        attributes={attributes}
+      />
+    )
+  }
 
   return (
-    <div
-      data-testid="language-switcher"
-      className="relative"
-      data-variant={variant}
-      data-fallback-language={languages.fallback}
-    >
+    <div {...wrapperAttributes(attributes, { variant, fallbackLanguage: languages.fallback })}>
       <LanguageSwitcherButton
         activeLanguage={activeLanguage}
         activeCode={activeLanguage?.code ?? languages.default}

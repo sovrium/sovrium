@@ -26,6 +26,12 @@ There is **one upsert endpoint and it is inherently multi-record** — the body 
 
 `records` is populated only when `returnRecords` is true. A body shaped as a single `{ "fields": … }` with no `records` array is refused with `400`.
 
+A `default: $currentUser` fills the rows an upsert creates, never the rows it updates.
+
+An upsert reads the table to find the rows it matches, so it requires reading the table: a caller who may not read it gets the `404` of a table that does not exist, on either branch, and nothing is written. (Answering a match `404` and a miss `200` would tell her which values are on file.)
+
+A relationship value naming a row the caller may not read — a related table their role may not read, or a row a row-level rule hides from them — counts as a foreign-key failure on both branches, exactly as a row that does not exist: `400`, the same body, and the whole upsert rolls back with nothing written. As on an update, a many-to-one value equal to the key the matched row already holds is not a new link and is accepted.
+
 ## Delete
 
 `DELETE` is a **soft delete** by default: it stamps `deletedAt` and `deletedBy` and leaves the row recoverable.
@@ -36,17 +42,19 @@ DELETE /api/tables/contacts/records/42?permanent=true
 DELETE /api/tables/contacts/records/42?purge=true
 ```
 
-| Mode              | Behaviour                                                | Success        |
-| ----------------- | -------------------------------------------------------- | -------------- |
-| Default           | Trashes the row; recoverable by restore                  | `204`, no body |
-| `?permanent=true` | Removes the row irreversibly. **Admin only**             | `200`          |
-| `?purge=true`     | Deletes the attached storage files, then removes the row | `204`          |
+| Mode              | Behaviour                                                                           | Success        |
+| ----------------- | ----------------------------------------------------------------------------------- | -------------- |
+| Default           | Trashes the row; recoverable by restore                                             | `204`, no body |
+| `?permanent=true` | Removes the row irreversibly. **Admin-equivalent only**                             | `200`          |
+| `?purge=true`     | Deletes the attached storage files, then removes the row. **Admin-equivalent only** | `200`          |
 
-`?permanent=true` is gated on the caller being an admin, and a non-admin receives **404** rather than `403` — the same anti-enumeration rule the rest of the records path follows. `?purge=true` is not admin-gated: it needs only the ordinary delete permission, and it is the mode to reach for when the row owns uploaded files that should not be left orphaned. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
+Both irreversible modes are reserved for an admin-equivalent role (see Roles & RBAC). Any other caller, even one the table grants `delete`, receives **404** rather than `403` — the same anti-enumeration rule the rest of the records path follows — and nothing is deleted. `?purge=true` is the mode to reach for when the row owns uploaded files that should not be left orphaned. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
 
 **A soft delete answers `204` with no body, except when a `set-null` cascade ran** — that case answers `200` with a body, because dependent rows were rewritten and the call did more than trash one row. A client must therefore treat both as success on the same route rather than matching on `204`. A `restrict` policy blocking the delete answers `400`.
 
 **Every authorization denial on this endpoint answers `404`.** A missing record, an invisible record, and a visible record the caller may not delete are indistinguishable by design.
+
+A delete requires reading the table, as an update does. On a table whose `read` refuses the caller, a delete — by `DELETE`, the delete form, either batch delete route or bulk-delete — answers the `404` of a missing record even where her `delete` grant admits her, and nothing is deleted.
 
 ## Raw values and display values
 

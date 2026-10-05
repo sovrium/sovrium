@@ -199,13 +199,11 @@ function extractActualError(error: unknown): ErrorObject {
 function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedError | undefined {
   switch (errorTag) {
     case 'ForbiddenError':
-    case 'ActivityLogForbiddenError':
       // S1 anti-enumeration: authorization denials are returned as 404 so the
       // caller cannot distinguish "exists but forbidden" from "doesn't exist".
       // All ForbiddenError throw sites in src/ are authz-related (verified by
       // domain/errors/index.ts docstring and audit of throw sites in
-      // application/use-cases/tables/table-operations.ts and
-      // application/use-cases/list-activity-logs.ts).
+      // application/use-cases/tables/table-operations.ts).
       return {
         error: 'Not Found',
         code: 'NOT_FOUND',
@@ -220,6 +218,12 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
         // and the wire contract is `string[]` — see `toClientDetails`.
         details: toClientDetails(actualError.details),
       }
+    // A reference to a row that does not exist — raised by the driver's foreign
+    // key, or before the write by the link target check, which answers a row
+    // the caller may not read exactly as a missing one. Mapped by tag so both
+    // producers get one answer whether or not a driver error sits beneath.
+    case 'ForeignKeyViolationError':
+      return constraintAnswer('foreign-key', actualError)
     case 'UniqueConstraintViolationError':
       return {
         error: 'Conflict',
@@ -300,6 +304,30 @@ const SANITIZED_ERROR_TITLES = {
 } satisfies Partial<Record<ErrorCode, string>>
 
 /**
+ * The answer to a constraint rejection of the caller's value.
+ *
+ * The offending column is named when the write path could attribute it to one
+ * the caller actually submitted. Read structurally rather than by class so any
+ * producer that recovers a column surfaces it the same way; absent means "not
+ * attributed", and the class-level wording answers alone. Never derived from
+ * the driver's own text — `message` is the client-safe constant the class always
+ * answers with, so nothing here can echo the constraint name, the CHECK
+ * expression, or the caller's bound values (standing rule S4).
+ */
+function constraintAnswer(violation: ConstraintViolationClass, error: unknown): SanitizedError {
+  const code = CONSTRAINT_ERROR_CODES[violation]
+  const message = CONSTRAINT_MESSAGES[violation]
+  const { fieldName } = (error ?? {}) as { readonly fieldName?: unknown }
+  const field = typeof fieldName === 'string' && fieldName.length > 0 ? fieldName : undefined
+  return {
+    error: SANITIZED_ERROR_TITLES[code],
+    code,
+    message,
+    ...(field ? { field, errors: [{ field, message }] } : {}),
+  }
+}
+
+/**
  * Map a database-driver failure to a sanitized response, or `undefined` when
  * the error never came from the driver (so the caller falls through to its own
  * semantic handling).
@@ -316,24 +344,7 @@ function mapDriverFailure(error: unknown): SanitizedError | undefined {
   const failure = classifyDriverFailure(error)
   switch (failure.origin) {
     case 'constraint': {
-      const code = CONSTRAINT_ERROR_CODES[failure.violation]
-      const message = CONSTRAINT_MESSAGES[failure.violation]
-      // The offending column, when the write path could attribute it to one the
-      // caller actually submitted. Read structurally rather than by class so
-      // any producer that recovers a column surfaces it the same way; absent
-      // means "not attributed", and the class-level wording answers alone.
-      const { fieldName } = error as { readonly fieldName?: unknown }
-      const field = typeof fieldName === 'string' && fieldName.length > 0 ? fieldName : undefined
-      return {
-        error: SANITIZED_ERROR_TITLES[code],
-        code,
-        message,
-        // Never derived from the driver's own text — `message` is the same
-        // client-safe constant the class always answered with, so nothing here
-        // can echo the constraint name, the CHECK expression, or the caller's
-        // bound values (standing rule S4).
-        ...(field ? { field, errors: [{ field, message }] } : {}),
-      }
+      return constraintAnswer(failure.violation, error)
     }
     case 'caller-input':
       return {

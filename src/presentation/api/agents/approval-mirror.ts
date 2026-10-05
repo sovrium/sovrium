@@ -14,9 +14,9 @@
  *     DISCARDS any failure, so a DB write error never breaks the agent runtime
  *     (the authoritative state is the in-memory store; the DB write is
  *     fire-and-forget for spec readback).
- *   - `runApproverEmailLookup` runs the email lookup the same way and defaults
- *     to `''` on any failure, so the decision flow never throws on a
- *     missing/unreadable user.
+ *   - `runApproverIdentityLookup` runs the email-and-name lookup the same way
+ *     and defaults to `''` on any failure, so the decision flow never throws
+ *     on a missing/unreadable user.
  */
 
 /**
@@ -33,16 +33,17 @@
  * What survives here is the best-effort RUN POLICY, which is a real decision
  * and belongs in one place: a mirror failure is discarded so the agent runtime
  * is never affected (the authoritative state is the in-memory store), and an
- * approver-email lookup defaults to `''` so the decision flow cannot throw on a
+ * approver-identity lookup defaults to `''` so the decision flow cannot throw on a
  * missing user row.
  */
 
 import { Effect } from 'effect'
-import { LookupApproverEmail } from '@/application/use-cases/agents/approval'
+import { LookupApproverIdentity } from '@/application/use-cases/agents/approval'
 import type { ApprovalRecord } from './approval-store'
 import type {
   ApprovalMirrorRecord,
   ApprovalRepository,
+  ApprovalUserIdentity,
 } from '@/application/ports/repositories/ai/approval-repository'
 import type { Context } from 'effect'
 
@@ -62,6 +63,7 @@ export const toMirrorRecord = (record: Readonly<ApprovalRecord>): ApprovalMirror
   executedAs: record.executedAs,
   escalatedTo: record.escalatedTo,
   expiresAtMs: record.expiresAtMs,
+  requestedById: record.requestedById,
 })
 
 /** The one service both entry points need, as a value the caller supplies. */
@@ -81,16 +83,16 @@ export const runApprovalMirror = async (
 }
 
 /**
- * Resolve the approving user's email by id, defaulting to `''` on any failure.
- * Preserves the former `lookupUserEmail` semantics: the decision flow must
- * never throw on a missing or unreadable user row.
+ * Resolve the approving user's email and name by id, each defaulting to `''`
+ * on any failure: the decision flow must never throw on a missing or
+ * unreadable user row.
  */
-export const runApproverEmailLookup = async (
+export const runApproverIdentityLookup = async (
   services: ApprovalServices,
   userId: string
-): Promise<string> => {
+): Promise<ApprovalUserIdentity> => {
   const result = await Effect.runPromise(
-    Effect.provide(LookupApproverEmail(userId).pipe(Effect.result), services)
+    Effect.provide(LookupApproverIdentity(userId).pipe(Effect.result), services)
   )
-  return result._tag === 'Success' ? result.success : ''
+  return result._tag === 'Success' ? result.success : { email: '', name: '' }
 }

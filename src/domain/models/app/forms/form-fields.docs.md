@@ -52,6 +52,8 @@ Typed inline, and not written to a column. This is the kind for a form that rout
 
 `inputType` is one of `short-text`, `long-text`, `email`, `url`, `phone`, `number`, `date`, `datetime`, `select`, `multi-select`, `checkbox`, `radio`, `rating` or `attachment`. `name` is unique within the form.
 
+A standalone `phone` field draws a telephone input, a `datetime` field a date-and-time picker, and an `attachment` field a file picker.
+
 ```yaml
 fields:
   - kind: standalone
@@ -77,13 +79,17 @@ That empty choice is what makes the two obvious behaviours actually hold:
 - A **required** dropdown refuses to submit until the visitor picks something. Without it, `required` could never bite.
 - An **optional** dropdown left alone stores **no value at all**, rather than its first option.
 
-A value that already resolves — a default, or a prefill arriving from a query parameter — still wins outright and is never asked for twice. A free-text field is unaffected: an empty text box still stores an empty string.
+A value that already resolves — a default, or a prefill arriving from a query parameter — still wins outright and is never asked for twice. A free-text field is unaffected: an empty text box still stores an empty string. An empty email, link or phone number is no answer, and stores no value.
 
 ## Choices read from a table
 
 A choice field whose options live in a table — programmes, channels, campuses — names that table with `optionsSource` instead of copying the rows into `options`. It works on a standalone `select`, `multi-select` or `radio` field, in place of `options` (the two are mutually exclusive), and on a `table-field` over a `relationship` column, where it overrides the related table's rows. `displayField` is the column shown and `valueField` (default `id`) the column stored; `filter`, `sort` and `limit` (default 100, at most 1000) narrow the list. The rows are read on the server every time the form is served — on its own page, on each step of a multi-step form, and wherever a page or a dialog embeds it with `formRef` — so a row added to the table is offered on the next load, and the browser never calls the records API for them.
 
 The rows are read with the form's own authority, not the visitor's, so a public form needs no read permission on the table — and should not be given one, since that would open every column through the records API. What the form exposes instead is exactly the `displayField` and `valueField` of the rows its `filter` selects, readable by anyone who can open the form. That exposure is checked at load: a column whose read the table restricts in `permissions.fields` is refused, as is a column of a sensitive type (`email`, `phone-number`, `long-text`, `rich-text`, an attachment, `user`, or a `created-by` / `updated-by` / `deleted-by` stamp), and a `filter` referencing `$currentUser` is refused on a form without `access.require`, because nobody is signed in to resolve it. Unknown tables and columns, and `optionsSource` on an input that offers no choices, are refused too, each naming the form and the field. The refusal follows lookup, rollup and formula columns to the column they read: a lookup or rollup of an email address, of a column the related table restricts, or a formula naming a phone number is refused just as the column itself would be, and the error names both. A table that declares no `permissions.fields` is still held to the engine's built-in read rules — a column they hide from a signed-in `member` or `viewer` is refused as a label or a value (unless the form's `access.require` admits neither role); declaring the table's own `permissions.fields` replaces those rules. A relationship field's default choices (its `relatedTable` and `displayField`) are held to the same checks as an explicit `optionsSource`.
+
+The table's row-level read rule is the one part of the read that stays the visitor's: a choice is a row, and each visitor is offered only the rows the rule shows them, exactly as the records API lists them — on the form's own page, on each step and in a `formRef` embedding alike. A rule naming no one, such as `status = published`, applies to a visitor who is not signed in as to anyone else; a rule naming the signed-in person (`$currentUser.…`) shows such a visitor no row. So a public form whose choices come from a table with a rule like `owner_id = $currentUser.id` offers an anonymous visitor no choice at all; to offer them rows, give the table a read rule that admits those rows without naming the visitor, or take the choices from a table without one. Publishing a form publishes its choices, even from a table its visitor may not otherwise read, and the table's row-level read rule still filters them, for the choices offered and the links submitted alike.
+
+A submission is held to the same rows. A value submitted for a relationship field that names a row outside the rows the form offers its submitter — those its `filter` selects, under the related table's row-level read rule for the submitter, signed in or not; evaluated when the form is submitted, a `$currentUser` reference resolved for the signed-in submitter — is answered exactly as a row that does not exist, with the field's error, and nothing is stored. A row the rule hides from the submitter and a row that was never there get the same answer. The `sort` and `limit` shape the list drawn on the page; they do not narrow what may be submitted. A hidden relationship field draws no list, but its value is submitted like any other, so it is held to the rows it would offer: its `optionsSource`, else every live row of the related table. A field declared `hidden: true` on the form is held more tightly still: it accepts only a value the server would have filled in for the person submitting — the form's own literal or `$user` prefill, or the record of a page that embeds the form and that they may open — and anything else is answered as a missing row. The exception is a field the form fills from the query string (`$query.<name>`): the visitor writes the URL, so that link is held only to the rows it would offer. The prefill page describes the rule in full.
 
 ```yaml
 fields:
@@ -145,7 +151,7 @@ The top-level `prefill` map does the same job with the wiring kept in one block.
 
 ## Inline relationship create
 
-When a form is embedded in a parent record's page — a "new ticket" button on a project page — a parent reference ties the new child back to its parent automatically. It is configured on the page's form control.
+When a form is placed on a parent record's page — a "new ticket" button on a project page — a parent reference ties the new child back to its parent automatically. It is configured on the page's form control, whether that control embeds a top-level form with `formRef` or declares its own `crud` create form in place, and whether it sits on the page, in a tab panel or in a dialog.
 
 <!-- sovrium:options InlinePrefillSchema -->
 
@@ -166,4 +172,4 @@ pages:
           lockPrefill: true
 ```
 
-On submit the engine revalidates that the parent still exists, which is what defends against a stale reference in a page left open. Both single and multi-relationship columns are supported.
+On submit the engine revalidates that the parent still exists, is not in the trash and may still be read by the person submitting, which is what defends against a stale reference in a page left open. A parent that fails any of the three is answered `422`, exactly as one that does not exist. Both single and multi-relationship columns are supported.

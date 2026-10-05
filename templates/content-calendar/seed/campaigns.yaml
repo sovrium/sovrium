@@ -1,44 +1,46 @@
-# Sample campaigns.
+# Loomwork's four campaigns. Three run through September and October; the
+# winter retrospective closed at the start of the month. Every date is
+# relative to the day the seed runs, so the demo never ages; `--today
+# <YYYY-MM-DD>` pins them to one day.
 #
-# `key` is file-local — it exists so content.yaml can name a campaign before
-# either row has a database id. It is never written to a column.
-#
-# Three of the four campaigns are live right now (their window straddles
-# `{{today}}`) and one has already closed, so the grid shows both a running
-# programme and an archive rather than one uniform state.
+# `key` is file-local: it lets content.yaml name a campaign before either row
+# has an id. It is never written to a column.
 records:
-  - key: q-launch
+  - key: launch
     fields:
       name: Platform launch
-      start_date: '{{today-21d}}'
-      end_date: '{{today+35d}}'
+      starts: '{{today-20d}}'
+      ends: '{{today+17d}}'
+      budget: 12000
+      status: Live
       goal: >-
-        Get the new workspace in front of teams already running the beta.
+        Put the new workspace in front of teams already running the beta.
         Success is fifty self-serve installs, not impressions.
-
-  - key: always-on
-    fields:
-      name: Always-on education
-      start_date: '{{today-90d}}'
-      end_date: '{{today+180d}}'
-      goal: >-
-        One useful thing a week, forever. No campaign end date because there
-        isn't one — consistency is the whole strategy.
-
-  - key: conference-push
+  - key: conference
     fields:
       name: Conference push
-      start_date: '{{today-7d}}'
-      end_date: '{{today+48d}}'
+      starts: '{{today-6d}}'
+      ends: '{{today+32d}}'
+      budget: 8000
+      status: Live
       goal: >-
-        Fill the annual conference. Everything published in this window ends
-        with the same registration link.
-
-  - key: winter-retro
+        Fill the call for papers and the room. Every piece ends on the
+        conference page.
+  - key: education
+    fields:
+      name: Always-on education
+      starts: '{{today-23d}}'
+      ends: '{{today+37d}}'
+      budget: 3000
+      status: Live
+      goal: >-
+        One useful thing a week, so people learn the product without a tour.
+  - key: retrospective
     fields:
       name: Winter retrospective
-      start_date: '{{today-120d}}'
-      end_date: '{{today-30d}}'
+      starts: '{{today-54d}}'
+      ends: '{{today-19d}}'
+      budget: 2000
+      status: Closed
       goal: >-
-        Closed. Kept for the numbers — the year-in-review post outperformed
-        everything else we shipped and nobody can agree on why.
+        Look back at the year in public, including what we cut.

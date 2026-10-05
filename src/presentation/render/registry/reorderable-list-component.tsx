@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { REORDERABLE_READY_MARK } from '@/presentation/design/runtime-ready-marks'
 import {
   computeReorderableHandleClasses,
   computeReorderableListClasses,
@@ -77,8 +78,8 @@ ${INLINE_TOAST_POLICY_RUNTIME}
   }
 
   function setup(list) {
-    if (list.getAttribute('data-reorderable-ready') === 'true') return
-    list.setAttribute('data-reorderable-ready', 'true')
+    if (list.getAttribute('${REORDERABLE_READY_MARK}') === 'true') return
+    list.setAttribute('${REORDERABLE_READY_MARK}', 'true')
     var grabbedHandle = null
 
     function itemOf(handle) {

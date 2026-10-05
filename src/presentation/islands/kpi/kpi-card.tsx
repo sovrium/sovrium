@@ -8,13 +8,14 @@
 import {
   KPI_LABEL_ROW_CLASSES,
   KPI_TREND_GROUP_CLASSES,
-  computeKpiCardClasses,
+  KPI_STACK_CLASSES,
   computeKpiIconClasses,
   computeKpiLabelClasses,
   computeKpiTrendClasses,
   computeKpiValueClasses,
 } from '@/presentation/design/kpi-default-classes'
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
+import { useNamedHostAttributes } from '../hooks/use-named-host-attributes'
 import { KpiSparkline } from './kpi-sparkline'
 import type { ReactElement } from 'react'
 
@@ -112,8 +113,9 @@ function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
  * KPI card — renders the computed metric as a card with an optional label,
  * Lucide icon, and trend indicator.
  *
- * Carries `data-component="kpi"` so spec assertions on the canonical KPI
- * attribute resolve; the formatted value lives under `data-role="kpi-value"`.
+ * The card is not the element that names the KPI — the island host is — so
+ * its state is written there ({@link useNamedHostAttributes}); the formatted
+ * value lives under `data-role="kpi-value"`.
  *
  * Every class comes from `kpi-default-classes.ts`, which the SSR skeleton in
  * `island-data-components.tsx` also reads — so the card chrome is identical
@@ -134,9 +136,8 @@ export function KpiCard({
 
   return (
     <div
-      data-component="kpi"
-      data-kpi-state="ready"
-      className={computeKpiCardClasses()}
+      ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'ready' })}
+      className={KPI_STACK_CLASSES}
     >
       <div className={KPI_LABEL_ROW_CLASSES}>
         {iconNode !== undefined && (

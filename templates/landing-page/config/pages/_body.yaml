@@ -1,0 +1,78 @@
+# The page itself, rendered by config/pages/home.yaml in English and in
+# French. Every sentence is a `$t:` key filled in
+# config/languages.yaml; the page's address decides the language.
+#
+# Top to bottom: the header, one sentence and the product itself, three things
+# it does, three steps, and the demo request. The header's section links are
+# `#` anchors to the sections' ids, so each lands on a section that exists.
+- $ref: ./_site-header.yaml
+# The page's own ground, so both schemes paint it rather than the browser.
+- type: container
+  props:
+    className: bg-background text-foreground
+  children:
+    - $ref: ./_hero.yaml
+    # Three things the product does, on the subtle ground.
+    - type: container
+      element: section
+      props:
+        id: features
+        className: flex scroll-mt-4 flex-col items-center gap-7 bg-background-subtle px-10 py-[72px] text-center max-md:gap-5 max-md:px-4 max-md:py-10
+      children:
+        - type: text
+          element: h2
+          props:
+            className: text-[32px] leading-[1.2] font-semibold tracking-[-0.015em] text-foreground
+          content: $t:features.title
+        - type: container
+          props:
+            className: grid w-full max-w-[1080px] grid-cols-3 gap-5 max-md:grid-cols-1
+          children:
+            - component: feature-card
+              vars:
+                icon: calendar
+                title: $t:feature.1.title
+                text: $t:feature.1.text
+            - component: feature-card
+              vars:
+                icon: bell
+                title: $t:feature.2.title
+                text: $t:feature.2.text
+            - component: feature-card
+              vars:
+                icon: layout-grid
+                title: $t:feature.3.title
+                text: $t:feature.3.text
+    # Three steps to the first evening.
+    - type: container
+      element: section
+      props:
+        id: how-it-works
+        className: flex scroll-mt-4 flex-col items-center gap-7 px-10 py-[72px] text-center max-md:gap-5 max-md:px-4 max-md:py-10
+      children:
+        - type: text
+          element: h2
+          props:
+            className: text-[32px] leading-[1.2] font-semibold tracking-[-0.015em] text-foreground
+          content: $t:steps.title
+        - type: container
+          props:
+            className: grid w-full max-w-[1080px] grid-cols-3 gap-5 max-md:grid-cols-1
+          children:
+            - component: step-card
+              vars:
+                number: '1'
+                title: $t:step.1.title
+                text: $t:step.1.text
+            - component: step-card
+              vars:
+                number: '2'
+                title: $t:step.2.title
+                text: $t:step.2.text
+            - component: step-card
+              vars:
+                number: '3'
+                title: $t:step.3.title
+                text: $t:step.3.text
+    - $ref: ./_demo.yaml
+- $ref: ./_site-footer.yaml

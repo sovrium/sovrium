@@ -41,25 +41,29 @@ import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { Cause, Effect } from 'effect'
+import {
+  NO_AUTHORED_TABLE_IDS,
+  type AuthoredTableIds,
+} from '@/domain/models/app/tables/authored-table-ids-service'
+import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import {
   findObsoleteTables,
+  findPreviousTableDefinition,
+  formulaColumnsNeedRebuild,
   generateAlterTableStatements,
   needsTableRecreation,
   obsoleteTableDropStatement,
-  planViewTopology,
   type ObsoleteTable,
   type ViewTopologyStep,
 } from '../schema-migration'
-import { formatPopulatedDropRefusal } from '../schema-migration/table-classification'
-import { sqliteTransactionLike } from '../sql/dialect-ddl'
 import {
-  executeSQL,
-  getExistingColumns,
-  getExistingTableNames,
-  getExistingViews,
-  tableExists,
-} from '../sql/sql-execution'
+  formatPopulatedDropRefusal,
+  storedTableIdentityFor,
+} from '../schema-migration/table-classification'
+import { ambiguousRenameMessage, type TableRenameStep } from '../schema-migration/table-operations'
+import { sqliteTransactionLike } from '../sql/dialect-ddl'
+import { executeSQL, getExistingColumns, tableExists } from '../sql/sql-execution'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import {
@@ -68,12 +72,11 @@ import {
   resolveProbeIdColumn,
 } from '../table-operations/type-change-preflight'
 import { applySchemaDefaults } from './apply-schema-defaults'
-import {
-  generateSchemaChecksum,
-  getPreviousSchema,
-  getStoredChecksum,
-} from './migration-audit-trail'
+import { planFormulaRecomputes } from './formula-engine-recompute'
+import { getPreviousSchema } from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
+import { planRelationSet, type RelationPlan } from './schema-dry-run-relations'
+import { planViewRebuilds } from './schema-dry-run-views'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
@@ -85,7 +88,9 @@ import type { DatabaseDialectConfig } from '@/domain/models/process-env/database
  * `drop` is a table the config no longer declares; `view` is the rebuild of a
  * view-backed table's lookup VIEW, which every full migration performs;
  * `rename` is a table whose rows change relation because it gains its first, or
- * loses its last, lookup/rollup/count field (Step 5.5 moves them by RENAME).
+ * loses its last, lookup/rollup/count field (Step 5.5 moves them by RENAME);
+ * `recompute` is the one-time formula recompute of Step 6.5
+ * (`formula-engine-recompute.ts`).
  */
 export interface TableChange {
   /** The config name (for `drop`, the physical table the config no longer owns). */
@@ -99,7 +104,8 @@ export interface TableChange {
   readonly from?: string
   /** For `drop`: the rows the drop would delete. */
   readonly rows?: number
-  readonly kind: 'create' | 'alter' | 'recreate' | 'unchanged' | 'drop' | 'view' | 'rename'
+  readonly kind:
+    'create' | 'alter' | 'recreate' | 'unchanged' | 'drop' | 'view' | 'rename' | 'recompute'
   /** The DDL this change would run. EMPTY when {@link unsimulated} is true. */
   readonly statements: readonly string[]
   /** True when the statement list depends on runtime state and cannot be rendered. */
@@ -212,7 +218,9 @@ const planExistingTable = (params: {
     physical,
   } = params
   const named = { table: table.name, relation: physical, refusals }
-  if (needsTableRecreation(table, existingColumns) || refusals.length > 0) {
+  const previous = findPreviousTableDefinition(table, tablePrimaryKeyTypes, previousSchema)
+  const rebuilt = formulaColumnsNeedRebuild(table, existingColumns, previous) // as the apply path
+  if (needsTableRecreation(table, existingColumns) || rebuilt || refusals.length > 0) {
     return { ...named, kind: 'recreate', statements: [], unsimulated: true }
   }
 
@@ -320,7 +328,9 @@ const withReadOnlyTx = <A>(
 ): Effect.Effect<A, never> =>
   config.dialect === 'postgres'
     ? Effect.acquireUseRelease(
-        Effect.sync(() => new SQL(config.databaseUrl)),
+        // One connection: the view comparison creates a TEMPORARY probe view,
+        // which lives in its session, then reads it back.
+        Effect.sync(() => new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))),
         (client) => use({ unsafe: (sql: string) => client.unsafe(sql) }),
         // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; as the `acquireUseRelease` RELEASE arm it must also stay infallible, or a teardown failure would displace the plan this read-only transaction just produced.
         (client) => Effect.promise(() => client.close())
@@ -346,10 +356,21 @@ export interface PlanOptions {
    * table that still holds rows is planned without a refusal.
    */
   readonly allowDestructive?: boolean
+  /**
+   * The ids the author WROTE, as `decodeAppConfigObject` returned them beside
+   * the config — the same set the apply path reads a rename from, so the plan
+   * cannot name a rename the migration would not run. Omitted, no id reads as
+   * written.
+   */
+  readonly authoredTableIds?: AuthoredTableIds
 }
 
 /** A `drop` change for one obsolete table, refused when it holds rows and was not consented to. */
-const planDrop = (entry: ObsoleteTable, options: PlanOptions): TableChange => ({
+const planDrop = (
+  entry: ObsoleteTable,
+  options: PlanOptions,
+  previousSchema: { readonly tables: readonly object[] } | undefined
+): TableChange => ({
   table: entry.table,
   rows: entry.rows,
   kind: 'drop',
@@ -357,7 +378,13 @@ const planDrop = (entry: ObsoleteTable, options: PlanOptions): TableChange => ({
   unsimulated: false,
   refusals:
     entry.rows > 0 && options.allowDestructive !== true
-      ? [formatPopulatedDropRefusal(entry.table, entry.rows)]
+      ? [
+          formatPopulatedDropRefusal(
+            entry.table,
+            entry.rows,
+            storedTableIdentityFor(entry.table, previousSchema)
+          ),
+        ]
       : [],
 })
 
@@ -373,11 +400,21 @@ const planDrop = (entry: ObsoleteTable, options: PlanOptions): TableChange => ({
 const planDrops = (
   tx: TransactionLike,
   tables: readonly Table[],
-  options: PlanOptions
+  options: PlanOptions,
+  context: {
+    readonly previousSchema: { readonly tables: readonly object[] } | undefined
+    readonly renames: readonly TableRenameStep[]
+  }
 ): Effect.Effect<readonly TableChange[], never> =>
   findObsoleteTables(tx, tables).pipe(
     Effect.map((obsolete) =>
-      obsolete.filter((entry) => !entry.engineManaged).map((entry) => planDrop(entry, options))
+      obsolete
+        // A relation Step 3.5 renames is gone before Step 4 lists the leftovers.
+        .filter(
+          (entry) =>
+            !entry.engineManaged && !context.renames.some((step) => step.from === entry.table)
+        )
+        .map((entry) => planDrop(entry, options, context.previousSchema))
     ),
     Effect.catch((error) =>
       Effect.succeed([
@@ -392,40 +429,6 @@ const planDrops = (
     )
   )
 
-/**
- * The lookup VIEWs a full migration would rebuild — every view-backed table's,
- * because Step 5.5 drops them all before the base tables change.
- *
- * Empty when the migration would take the checksum fast path (the stored
- * checksum equals this config's), because nothing is rebuilt then. A stored
- * checksum that cannot be read counts as "differs": the apply path would run
- * the full migration in that case too.
- */
-const planViewRebuilds = (
-  tx: TransactionLike,
-  app: App,
-  tables: readonly Table[]
-): Effect.Effect<readonly TableChange[], never> =>
-  Effect.gen(function* () {
-    const stored = yield* getStoredChecksum(tx).pipe(
-      // effect-swallow: an unreadable stored checksum is the pre-upgrade state (the checksum table does not exist yet), and the apply path reads it the same way — as "run the full migration" — so "differs" is the faithful answer, not a hidden failure.
-      Effect.orElseSucceed(() => undefined)
-    )
-    if (stored === generateSchemaChecksum(app)) return []
-    return tables
-      .filter((table) => lookupViewGenerators.shouldUseView(table))
-      .map((table): TableChange => ({
-        table: table.name,
-        kind: 'view',
-        statements: [
-          `DROP VIEW IF EXISTS ${table.name}`,
-          lookupViewGenerators.generateLookupViewSQL(table, tables),
-        ],
-        unsimulated: false,
-        refusals: [],
-      }))
-  })
-
 /** A `rename` change for one Step 5.5 topology step that moves a table's rows. */
 const planRename = (
   step: ViewTopologyStep & { readonly rename: NonNullable<ViewTopologyStep['rename']> }
@@ -439,45 +442,45 @@ const planRename = (
   refusals: [],
 })
 
+/** A `rename` change for one Step 3.5 table rename (a name change under an authored id). */
+const planTableRename = (step: TableRenameStep): TableChange => ({
+  table: step.newName,
+  from: step.from,
+  relation: step.to,
+  kind: 'rename',
+  statements: step.statements,
+  unsimulated: false,
+  refusals: [],
+})
+
 /**
- * The Step 5.5 topology steps this migration would run, from the SAME pure
- * decision the apply path executes (`planViewTopology`), over the same live
- * table and view names — so the plan cannot name a rename the migration would
- * not run, or miss one it would.
- *
- * A failure to read the catalog is reported as a refusal rather than as "no
- * rename": the planner that could not look cannot claim the rows stay put.
+ * The changes Steps 3.5 and 5.5 report on their own: each table rename, or the
+ * refusal of a rename cycle, and a catalog that could not be read.
  */
-const planTopology = (
-  tx: TransactionLike,
-  tables: readonly Table[]
-): Effect.Effect<
-  { readonly steps: readonly ViewTopologyStep[]; readonly failure: readonly TableChange[] },
-  never
-> =>
-  Effect.gen(function* () {
-    const existingTables = new Set(yield* getExistingTableNames(tx))
-    const existingViews = new Set(yield* getExistingViews(tx))
-    return {
-      steps: planViewTopology(tables, { tables: existingTables, views: existingViews }),
-      failure: [],
-    }
-  }).pipe(
-    Effect.catch((error) =>
-      Effect.succeed({
-        steps: [],
-        failure: [
-          {
-            table: '(tables with lookup, rollup or count fields)',
-            kind: 'rename' as const,
-            statements: [],
-            unsimulated: true,
-            refusals: [`Could not read which relation holds each table's rows: ${error.message}`],
-          },
-        ],
-      })
-    )
-  )
+const relationChanges = (relations: RelationPlan): readonly TableChange[] => [
+  ...(relations.ambiguous.length > 0
+    ? [
+        {
+          table: [...relations.ambiguous].toSorted().join(', '),
+          kind: 'rename' as const,
+          statements: [],
+          unsimulated: false,
+          refusals: [ambiguousRenameMessage(relations.ambiguous)],
+        },
+      ]
+    : relations.renames.map(planTableRename)),
+  ...(relations.failure === undefined
+    ? []
+    : [
+        {
+          table: '(renamed tables, and tables with lookup, rollup or count fields)',
+          kind: 'rename' as const,
+          statements: [],
+          unsimulated: true,
+          refusals: [`Could not read which relation holds each table's rows: ${relations.failure}`],
+        },
+      ]),
+]
 
 /**
  * Plan one config table: the rename that moves its rows first, when Step 5.5
@@ -485,14 +488,20 @@ const planTopology = (
  */
 const planTableWithTopology = (
   inputs: Omit<TablePlanInputs, 'introspect'>,
-  steps: readonly ViewTopologyStep[]
+  relations: Pick<RelationPlan, 'renames' | 'steps'>
 ): Effect.Effect<readonly TableChange[], never> => {
-  const step = steps.find((candidate) => candidate.table === inputs.table.name)
+  // A table Step 3.5 renames still holds its rows under the OLD relation when
+  // the planner reads it; the statements are rendered against the new one.
+  const before = new Map(relations.renames.map((step) => [step.to, step.from]))
+  const step = relations.steps.find((candidate) => candidate.table === inputs.table.name)
   const rename = step?.rename
   if (step === undefined || rename === undefined) {
-    return planTable(inputs).pipe(Effect.map((change) => [change]))
+    const renamedFrom = before.get(lookupViewGenerators.getPhysicalTableName(inputs.table))
+    return planTable(
+      renamedFrom === undefined ? inputs : { ...inputs, introspect: renamedFrom }
+    ).pipe(Effect.map((change) => [change]))
   }
-  return planTable({ ...inputs, introspect: rename.from }).pipe(
+  return planTable({ ...inputs, introspect: before.get(rename.from) ?? rename.from }).pipe(
     Effect.map((change) => [planRename({ ...step, rename }), change])
   )
 }
@@ -546,16 +555,28 @@ export const planConfigTableChanges = (
         Effect.orElseSucceed(() => undefined)
       )
 
-      const drops = yield* planDrops(tx, tables, options)
-      const topology = yield* planTopology(tx, tables)
+      const relations = yield* planRelationSet(
+        tx,
+        tables,
+        previousSchema,
+        options.authoredTableIds ?? NO_AUTHORED_TABLE_IDS
+      )
+      const drops = yield* planDrops(tx, tables, options, { previousSchema, ...relations })
       const tableChanges = yield* Effect.forEach(tables, (table) =>
         planTableWithTopology(
           { tx, table, tablePrimaryKeyTypes, previousSchema, hasAuthConfig: !!app.auth },
-          topology.steps
+          relations
         )
       )
-      const views = yield* planViewRebuilds(tx, app, tables)
-      return [...drops, ...topology.failure, ...tableChanges.flat(), ...views]
+      const recomputes = yield* planFormulaRecomputes(tx, tables, previousSchema)
+      const views = yield* planViewRebuilds(tx, app, tables, config.dialect)
+      return [
+        ...relationChanges(relations),
+        ...drops,
+        ...tableChanges.flat(),
+        ...recomputes,
+        ...views,
+      ]
     })
   )
 }

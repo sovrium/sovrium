@@ -36,7 +36,7 @@
  */
 
 import { readdirSync, type Dirent } from 'node:fs'
-import { join, relative } from 'node:path'
+import { basename, join, relative } from 'node:path'
 import { toPosixPath } from '../posix-path'
 
 /** Repository root — this file lives at `[internal ref]`. */
@@ -113,6 +113,44 @@ export const excludeRuntimeArtefacts = (absolutePath: string): boolean => {
   return !RUNTIME_ARTEFACT_PREFIXES.some((prefix) => rel.startsWith(prefix))
 }
 
+/**
+ * Whether `name`, found inside `parent`, is a harness's NESTED-CHECKOUT
+ * directory: `worktrees` directly under `.claude`.
+ *
+ * Claude Code creates every agent worktree at `[internal ref]<id>/`, inside
+ * the primary checkout. Each one is a whole second copy of the repository at
+ * whatever commit its branch sits on. `.gitignore` excludes the directory, but
+ * this walk does not read `.gitignore` (see the module header), and the
+ * dotted-name rule does not reach it either: a caller that names `.claude` as
+ * its ROOT has already stepped past the dot, and `worktrees` is an ordinary
+ * name. So a walk over `.claude` read every live agent's snapshot of `[internal ref]` as
+ * if it were this checkout's documentation. Measured 2026-10-05, `Path
+ * Reference Drift` failed the primary checkout's build on 228 dead paths, every
+ * one of them under a single sibling agent's worktree 31 commits behind `main`
+ * — a red caused by a session that happened to be open, which the developer
+ * could neither fix nor see in `git status`.
+ *
+ * Why HERE, in the default descent, rather than in the one gate that tripped: a
+ * nested checkout is corpus for no check, so a per-gate exclusion is a rule
+ * every future walk over `.claude` must remember, and the first one that
+ * forgets is red only while somebody else's session is open — the hardest kind
+ * of red to reproduce. Why not as a {@link RUNTIME_ARTEFACT_PREFIXES} row, the
+ * obvious home for a gitignored tree: {@link excludeRuntimeArtefacts} is an
+ * opt-in FILE filter, so it would neither reach the gate that tripped nor stop
+ * the walk reading a whole second repository before discarding it; and its
+ * prefixes are relative to {@link REPO_ROOT}, which the checkout being judged
+ * is not when the gate runs from inside an agent worktree. Why a PAIR rather
+ * than the bare name `worktrees`: the `build` note on
+ * {@link DEFAULT_EXCLUDED_DIRS} records what a bare name costs, and the parent
+ * `.claude` is what makes this one unambiguous.
+ *
+ * Only what the walk DESCENDS into is tested, never the root it was handed — so
+ * a gate run from inside an agent worktree still reads that worktree in full,
+ * and only checkouts nested beneath it are pruned.
+ */
+const isNestedCheckoutDir = (parent: string, name: string): boolean =>
+  name === 'worktrees' && basename(parent) === '.claude'
+
 export interface WalkOptions {
   /** Absolute directory to walk. */
   readonly root: string
@@ -178,7 +216,13 @@ export const walkSync = (options: WalkOptions): readonly string[] => {
     for (const entry of entries) {
       const absolute = join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (!excluded.has(entry.name) && !entry.name.startsWith('.')) descend(absolute)
+        if (
+          !excluded.has(entry.name) &&
+          !entry.name.startsWith('.') &&
+          !isNestedCheckoutDir(dir, entry.name)
+        ) {
+          descend(absolute)
+        }
         continue
       }
       if (!entry.isFile()) continue

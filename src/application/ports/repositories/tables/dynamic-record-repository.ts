@@ -18,16 +18,27 @@
  * **arbitrary user-defined tables** addressed by name.
  *
  * It deliberately does NOT route through `table-queries/crud/` — those add
- * activity-logging, authorship stamping, soft-delete filtering, and cascade
- * behavior the chat routes intentionally omit. The behavior contract is
- * "exactly what the chat routes do today, just relocated."
+ * activity-logging, authorship stamping and cascade behavior the chat reads
+ * and updates omit. Which rows a call reaches is the caller's to say: every
+ * read carries the chat read scope (live rows, the caller's row-level read
+ * rule), and an update names the ids the chat write gate admitted. A chat
+ * delete is not here at all — it goes through the records API's soft delete.
  *
  * Implementation lives in the infrastructure layer
  * (`dynamic-record-repository-live.ts`).
  */
 
 import { Context, Data } from 'effect'
+import type { LookupReadMask, QueryFilterNode } from './table-repository'
 import type { Effect } from 'effect'
+
+/**
+ * The rows a caller may read, as a filter clause: the live rows (`deleted_at`
+ * unset), narrowed by the caller's row-level read rule as the records read
+ * gate projects it for SQL (`callerReadScope(...).clause`). ANDed onto a read
+ * so it answers only the rows the records API would answer the same caller.
+ */
+export type DynamicRecordReadScope = QueryFilterNode
 
 /**
  * A single-column equality filter narrowing a dynamic-record operation
@@ -52,6 +63,10 @@ export interface DynamicRecordCountInput {
    * structured `count_<table>` tool's `filters`.
    */
   readonly conditions?: ReadonlyArray<DynamicRecordCondition> | undefined
+  /** The caller's row-level read rule, ANDed on (see {@link DynamicRecordReadScope}). */
+  readonly readScope?: DynamicRecordReadScope | undefined
+  /** Lookups to evaluate as empty for this reader, as the records list takes them. */
+  readonly lookupMasks?: readonly LookupReadMask[] | undefined
 }
 
 /** Inputs for an `AVG`/`SUM` aggregate over a numeric column. */
@@ -60,6 +75,10 @@ export interface DynamicRecordAggregateInput {
   readonly fn: 'AVG' | 'SUM'
   readonly column: string
   readonly filter?: DynamicRecordFilter | undefined
+  /** The caller's row-level read rule, ANDed on (see {@link DynamicRecordReadScope}). */
+  readonly readScope?: DynamicRecordReadScope | undefined
+  /** Lookups to evaluate as empty for this reader, as the records list takes them. */
+  readonly lookupMasks?: readonly LookupReadMask[] | undefined
 }
 
 /** Inputs for a row-listing `SELECT` with an optional sort and a row cap. */
@@ -89,6 +108,10 @@ export interface DynamicRecordListInput {
   readonly sortDirection?: 'asc' | 'desc' | undefined
   /** Hard ceiling on returned rows. */
   readonly limit: number
+  /** The caller's row-level read rule, ANDed on (see {@link DynamicRecordReadScope}). */
+  readonly readScope?: DynamicRecordReadScope | undefined
+  /** Lookups to evaluate as empty for this reader, as the records list takes them. */
+  readonly lookupMasks?: readonly LookupReadMask[] | undefined
 }
 
 /**
@@ -108,30 +131,24 @@ export interface DynamicRecordInsertInput {
   readonly data: Readonly<Record<string, unknown>>
 }
 
-/** Inputs for updating a single row by its `id`. */
-export interface DynamicRecordUpdateByIdInput {
+/**
+ * Inputs for updating the rows named by `ids`. The ids are the ones the chat
+ * write gate admitted for the caller; `readScope` (the live rows) is ANDed on
+ * so a row moved to the trash since it was admitted is not written.
+ */
+export interface DynamicRecordUpdateByIdsInput {
   readonly table: string
-  readonly recordId: number
+  readonly ids: ReadonlyArray<string | number>
   readonly data: Readonly<Record<string, unknown>>
-}
-
-/** Inputs for updating every row of a table. */
-export interface DynamicRecordUpdateAllInput {
-  readonly table: string
-  readonly data: Readonly<Record<string, unknown>>
-}
-
-/** Inputs for a hard delete, optionally narrowed by an equality filter. */
-export interface DynamicRecordDeleteInput {
-  readonly table: string
-  readonly filter?: DynamicRecordFilter | undefined
+  readonly readScope?: DynamicRecordReadScope | undefined
 }
 
 /**
  * Dynamic-Record Repository Port.
  *
  * Every method targets a user-defined table by name and returns plain raw
- * result shapes — no authorship, no soft-delete, no cascade.
+ * result shapes — no authorship, no cascade. A delete is not here: the chat
+ * deletes through the records API's own soft delete.
  */
 export class DynamicRecordRepository extends Context.Service<
   DynamicRecordRepository,
@@ -159,17 +176,9 @@ export class DynamicRecordRepository extends Context.Service<
     readonly insert: (
       input: DynamicRecordInsertInput
     ) => Effect.Effect<number | string, DynamicRecordError>
-    /** Update a single row by `id`; resolves `true` when a row was affected. */
-    readonly updateById: (
-      input: DynamicRecordUpdateByIdInput
-    ) => Effect.Effect<boolean, DynamicRecordError>
-    /** Update every row; resolves the affected record ids (`RETURNING id`). */
-    readonly updateAll: (
-      input: DynamicRecordUpdateAllInput
-    ) => Effect.Effect<ReadonlyArray<number>, DynamicRecordError>
-    /** Hard-delete rows, optionally filtered; resolves the deleted ids. */
-    readonly delete: (
-      input: DynamicRecordDeleteInput
-    ) => Effect.Effect<ReadonlyArray<number>, DynamicRecordError>
+    /** Update the rows named by `ids`; resolves the affected record ids (`RETURNING id`). */
+    readonly updateByIds: (
+      input: DynamicRecordUpdateByIdsInput
+    ) => Effect.Effect<ReadonlyArray<number | string>, DynamicRecordError>
   }
 >()('DynamicRecordRepository') {}

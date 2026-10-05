@@ -31,7 +31,8 @@ export interface ActivityLogWithUser {
   readonly userId: string
   readonly action: string
   readonly tableName: string
-  readonly recordId: number
+  /** The record id as the records API names it — the text the log stores. */
+  readonly recordId: string
   readonly changes: Record<string, unknown> | null
   readonly createdAt: Date
   readonly user: {
@@ -103,10 +104,6 @@ export const getActivityById = (activityId: string) =>
 
     const row = result[0]
 
-    // Parse recordId as integer (stored as text in DB)
-    const recordIdInt = parseInt(row.recordId, 10)
-    const recordId = isNaN(recordIdInt) ? 0 : recordIdInt
-
     // Changes is already JSONB (parsed by Drizzle), cast to expected type
     // eslint-disable-next-line unicorn/no-null -- Null is intentional for JSONB columns with no data
     const changes = (row.changes as Record<string, unknown> | null) ?? null
@@ -116,7 +113,7 @@ export const getActivityById = (activityId: string) =>
       userId: row.userId ?? '',
       action: row.action,
       tableName: row.tableName,
-      recordId,
+      recordId: row.recordId,
       changes,
       createdAt: row.createdAt,
       user: {

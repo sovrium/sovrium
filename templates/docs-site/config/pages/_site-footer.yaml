@@ -1,0 +1,16 @@
+# The line under the landing page and the page-not-found page. The "Built with Sovrium" line follows it
+# (`badge.placement: footer` in app.yaml).
+type: container
+element: footer
+props:
+  className: border-t border-border
+children:
+  - type: container
+    props:
+      className: flex h-[52px] items-center px-10 max-md:px-3
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-[12.5px] text-foreground-subtle
+        content: Docs · every page is a file in the repository

@@ -32,7 +32,7 @@ const SYSTEM_FIELDS = new Set([
 /**
  * Check if field name is a system field
  */
-function isSystemField(fieldName: string): boolean {
+export function isSystemField(fieldName: string): boolean {
   return SYSTEM_FIELDS.has(fieldName)
 }
 
@@ -81,9 +81,9 @@ type FieldBearingTable = {
  * Sensitive fields (like salary) are restricted for non-admin roles.
  *
  * These rules apply ONLY when the table declares no `permissions.fields` — an
- * explicit grant always wins (see {@link isFieldReadableByRole}).
+ * explicit grant always wins (see {@link isFieldReadableByCaller}).
  *
- * Superuser handling lives in {@link isFieldReadableByRole}, which short-circuits
+ * Superuser handling lives in {@link isFieldReadableByCaller}, which short-circuits
  * on `isAdminEquivalent` before reaching here. The rules below key off the
  * built-in `viewer` / `member` role names and are inert for every other role.
  */
@@ -111,54 +111,33 @@ function isFieldExcludedByDefaultRules(
 }
 
 /**
- * Canonical predicate: may `userRole` READ `fieldName` on `tableName`?
+ * Canonical predicate: may this CALLER read `fieldName` on `tableName`?
  *
  * This is the single source of truth for field-level read access. Every surface
- * that exposes a field's values — the record response itself, and the query
- * parameters that can be used to infer them (`groupBy`, `aggregate`) — must
+ * that exposes a field's values — the record response itself, the query
+ * parameters that can be used to infer them (`filter`, `sort`, `groupBy`,
+ * `aggregate`, `search`), the table definition and the permission map — must
  * agree, or an unreadable field becomes an oracle: a caller who cannot see
  * `notes` can still enumerate its distinct values via `?groupBy=notes`.
+ *
+ * WHY IT TAKES A CALLER, NOT A ROLE: a field grant may name a group
+ * (`read: ['group:finance']`), and `evaluatePermission` matches such an entry
+ * against `caller.groups` — never against the role string. A role-only
+ * predicate cannot satisfy a group grant at all; it once made every
+ * `group:`-scoped field grant inert on the REST record read while the realtime
+ * transport honoured it. There is deliberately no role-only entry point left:
+ * a caller with no groups is `{ role, groups: [] }`, written out at the site.
  *
  * Precedence (mirrors {@link filterReadableFields}, which is built on it):
  * 1. Admin-equivalent roles (the app's resolved top role + built-in `admin`)
  *    bypass every field-level read restriction.
  * 2. System fields (id, timestamps, authorship metadata) are always readable.
  * 3. When the table declares `permissions.fields`, an entry carrying a `read`
- *    decides; a missing entry (or one without `read`) inherits the table-level
- *    permission and is readable.
+ *    decides (role and `group:` entries alike); a missing entry (or one without
+ *    `read`) inherits the table-level permission and is readable.
  * 4. Otherwise the built-in default rules apply.
  * 5. A field absent from `table.fields` is readable — existence is a separate
  *    concern, validated by the callers that need a 400.
- */
-export function isFieldReadableByRole(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fieldName: string
-): boolean {
-  return isFieldReadableByCaller(app, tableName, { role: userRole }, fieldName)
-}
-
-/**
- * The group-aware form of {@link isFieldReadableByRole}, and the one the
- * composed read plan uses.
- *
- * WHY A SEPARATE ENTRY POINT: a field grant may name a group
- * (`read: ['group:finance']`), and `evaluatePermission` matches such an entry
- * against `caller.groups` — NOT against the role string. The role-only form
- * therefore cannot satisfy a group grant at all, which made every
- * `group:`-scoped field grant inert on the REST record read.
- *
- * The realtime transport hid that: it evaluated a caller's `effectiveRoles`
- * list — which carries `group:<name>` entries as though they were roles —
- * through `hasPermission`'s literal `Array.includes`, so a group entry matched
- * by string equality. Two surfaces, two different mechanisms, one of them
- * accidental. Consolidating on the ROLE-only predicate would have silently
- * dropped the realtime behaviour; consolidating on the literal-include would
- * have carried the accident into the REST path. This carries the caller instead,
- * so both surfaces get the ONE mechanism `evaluatePermission` documents.
- *
- * Precedence is otherwise identical to {@link isFieldReadableByRole}.
  */
 export function isFieldReadableByCaller(
   app: App,
@@ -204,7 +183,7 @@ export function isFieldReadableByCaller(
  * @param params - Configuration object
  * @param params.app - Application configuration
  * @param params.tableName - Name of the table
- * @param params.userRole - User's role
+ * @param params.caller - The caller: role and group memberships
  * @param params.record - Record object to filter
  * @returns Record with only readable fields
  */
@@ -212,27 +191,61 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   params: Readonly<{
     app: App
     tableName: string
-    userRole: string
+    caller: PermissionCaller
     record: T
   }>
 ): Readonly<Record<string, unknown>> {
-  const { app, tableName, userRole, record } = params
+  const { app, tableName, caller, record } = params
 
   // One predicate, applied per field. Keeping this in step with the query-side
   // validators is the point: a field the response strips must not remain
   // queryable, and a field the response returns must remain queryable.
   return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    if (!isFieldReadableByRole(app, tableName, userRole, fieldName)) {
+    if (!isFieldReadableByCaller(app, tableName, caller, fieldName)) {
       return acc // Omit the field from the response
     }
     return { ...acc, [fieldName]: record[fieldName] }
   }, {})
 }
 
+const isValueMap = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Project a logged change set down to the fields the caller may read.
+ *
+ * A change set comes in two shapes: value maps keyed by side
+ * (`{ before: {...}, after: {...} }`) and a per-field diff
+ * (`{ status: { old, new } }`). Both are handled by the same two passes: a
+ * top-level key that is a field the caller may not read is dropped, and every
+ * value map left keeps only readable fields. Keys that name no field pass, as
+ * {@link isFieldReadableByCaller} lets an unknown name through. Anything that
+ * is not a value map (`null` for a delete) is returned as it came.
+ */
+export function filterReadableChanges(
+  params: Readonly<{
+    app: App
+    tableName: string
+    caller: PermissionCaller
+    changes: unknown
+  }>
+): unknown {
+  const { app, tableName, caller, changes } = params
+  if (!isValueMap(changes)) return changes
+  const readable = (record: Readonly<Record<string, unknown>>) =>
+    filterReadableFields({ app, tableName, caller, record })
+  return Object.fromEntries(
+    Object.entries(readable(changes)).map(([key, value]) => [
+      key,
+      isValueMap(value) ? readable(value) : value,
+    ])
+  )
+}
+
 /**
  * Check if user's role has read permission.
  *
- * No admin override here: `isFieldReadableByRole` already short-circuits on
+ * No admin override here: `isFieldReadableByCaller` already short-circuits on
  * `isAdminEquivalent` above, which is broader than the built-in `admin` role.
  */
 function hasFieldReadPermission(permission: TablePermission, caller: PermissionCaller): boolean {

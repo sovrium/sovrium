@@ -1,6 +1,6 @@
 {
   "name": "Sovrium Hello World",
-  "description": "The one-page starter. Where every app begins.",
+  "description": "The one-page starter: the first page after sovrium init.",
   "repository": "https://github.com/sovrium/hello-world-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/hello-world",

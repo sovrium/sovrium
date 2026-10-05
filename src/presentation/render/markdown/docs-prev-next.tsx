@@ -37,6 +37,7 @@ export function DocsPrevNext({
   return (
     <div
       data-component="docs-prev-next"
+      data-component-type="pagination"
       className="border-border text-md mt-12 grid grid-cols-1 gap-4 border-t pt-8 sm:grid-cols-2"
     >
       {previous ? (

@@ -11,6 +11,7 @@ import {
   computeTableMenuItemClasses,
   computeTableMenuSeparatorClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import { DROPDOWN_TRIGGER_CLASS, useDropdownState } from './use-dropdown-state'
 
 /**
@@ -118,6 +119,7 @@ export function ViewsMenu({
   const handleShare = useCallback((entry: ViewsMenuEntry) => {
     setShareTarget(`${entry.source}:${entry.id}`)
   }, [])
+  const viewsLabel = useGridString('datatable.views', 'Views')
 
   return (
     <div
@@ -126,13 +128,13 @@ export function ViewsMenu({
     >
       <button
         type="button"
-        aria-label="Views"
+        aria-label={viewsLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={onToggle}
         className={DROPDOWN_TRIGGER_CLASS}
       >
-        Views
+        {viewsLabel}
       </button>
       {open && (
         <ViewsMenuPopup
@@ -174,10 +176,11 @@ function ViewsMenuPopup({
   onShare,
   onSaveCurrent,
 }: ViewsMenuPopupProps) {
+  const viewsLabel = useGridString('datatable.views', 'Views')
   return (
     <div
       role="menu"
-      aria-label="Views"
+      aria-label={viewsLabel}
       // `min-w-48` (192px) for the arbitrary `min-w-[14rem]` it replaces: the
       // same order of width, spent as a ladder step rather than a literal.
       className={`${computeTableMenuClasses()} absolute right-0 mt-1 min-w-48`}

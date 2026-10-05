@@ -12,11 +12,12 @@ import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-e
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFilterParam } from './field-permission-validation'
 import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
-import type { App } from '@/domain/models/app'
+import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 function escapeCsvValue(value: unknown): string {
@@ -132,16 +133,19 @@ function buildCsvResponse(
   }
 ): Response {
   const { attachments, visibleFields } = opts
-  const firstRecordFields = records[0]?.fields ?? {}
-  const allFieldKeys = Object.keys(firstRecordFields)
-  // Determine ordered field names: table config order first, then any extras
+  // Columns come from EVERY record, never one: a lookup left out of the first
+  // row (its linked record hidden from this reader) must not drop the column
+  // for the rows that carry it. A readable field the request named in
+  // `fields=` keeps its column even when no row carries a value for it.
+  const present = [...new Set(records.flatMap((record) => Object.keys(record.fields)))]
+  const named = new Set(visibleFields ?? [])
   const allOrderedFields =
     tableFieldNames.length > 0
       ? [
-          ...tableFieldNames.filter((f) => allFieldKeys.includes(f)),
-          ...allFieldKeys.filter((f) => !tableFieldNames.includes(f)),
+          ...tableFieldNames.filter((f) => present.includes(f) || named.has(f)),
+          ...present.filter((f) => !tableFieldNames.includes(f)),
         ]
-      : allFieldKeys
+      : present
   // Filter to only visible fields when specified
   const orderedFields =
     visibleFields && visibleFields.length > 0
@@ -219,8 +223,8 @@ interface ExportReadGateInput {
  * Z-3 read role gate for CSV export. Mirrors the list-records contract:
  *   - row-level-enforced tables → role-gate against the overlay roles
  *   - non-row-level tables → canonical group-aware read evaluator
- * Returns 403 (FORBIDDEN) on failure — list-mode uses 403 because the
- * user explicitly requested an action they don't have authority for.
+ * A refusal answers the 404 of a table that does not exist (S1): the export
+ * must not tell a table the caller may not read apart from an absent one.
  *
  * Both branches resolve the caller's effective roles. The `else` branch — every
  * table declaring no `rowLevelPermissions`, which is the default — used to gate
@@ -231,20 +235,11 @@ interface ExportReadGateInput {
 function checkExportReadGate(input: ExportReadGateInput): Response | undefined {
   const { c, app, table, userRole, userGroups, guard } = input
   if (guard) {
-    if (passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) return undefined
-  } else if (
-    hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)
-  ) {
+    if (passesTableRoleGate(table, 'read', guard)) return undefined
+  } else if (hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)) {
     return undefined
   }
-  return c.json(
-    {
-      success: false,
-      message: 'You do not have permission to perform this action',
-      code: 'FORBIDDEN',
-    },
-    403
-  )
+  return notFound(c)
 }
 
 /**
@@ -266,7 +261,7 @@ function checkExportGates(
   const { c, app, table, tableName, userRole, userGroups, guard, filter } = input
   return (
     checkExportReadGate({ c, app, table, userRole, userGroups, guard }) ??
-    validateFilterParam(filter, { app, tableName, userRole, c })
+    validateFilterParam(filter, { app, tableName, userRole, userGroups, c })
   )
 }
 
@@ -298,6 +293,19 @@ function parseExportQuery(c: Context): {
   return { filter, format, visibleFields }
 }
 
+/**
+ * The table's columns the caller may read, judged for the CALLER — groups
+ * included, since a field grant may name a group.
+ */
+const readableColumnNames = (
+  app: App,
+  table: Table | undefined,
+  caller: Readonly<{ role: string; groups: readonly string[] }>
+): string[] =>
+  (table?.fields ?? [])
+    .map((f) => f.name)
+    .filter((name) => table !== undefined && isFieldReadableByCaller(app, table.name, caller, name))
+
 /** Build the empty-set response in the requested format. */
 function buildEmptyExportResponse(format: string, tableName: string, tableFieldNames: string[]) {
   if (format === 'json') return buildJsonResponse([], tableName, new Set())
@@ -307,7 +315,7 @@ function buildEmptyExportResponse(format: string, tableName: string, tableFieldN
 export async function handleExportTableCsv(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   const { filter, format, visibleFields } = parseExportQuery(c)
 
@@ -328,17 +336,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
   // discloses the existence of columns the caller may not read. Narrowing here
   // also covers the populated path, where the list only supplies column ORDER
   // for keys the (already filtered) records carry.
-  //
-  // Carries the CALLER, not the bare role: a field grant may name a group
-  // (`read: ['group:finance']`), and the role-only predicate cannot satisfy one
-  // at all — which would strip a column this caller is entitled to from the
-  // file they just downloaded.
-  const tableFieldNames =
-    table?.fields
-      ?.map((f) => f.name)
-      .filter((name) =>
-        isFieldReadableByCaller(app, tableName, { role: userRole, groups: userGroups }, name)
-      ) ?? []
+  const tableFieldNames = readableColumnNames(app, table, { role: userRole, groups: userGroups })
 
   // Z-3 read predicate: AND-merge the row-level read clause onto the
   // request-supplied filter. Sentinels short-circuit to an empty response
@@ -358,6 +356,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
     tableName,
     app,
     userRole,
+    userGroups,
     filter: finalFilter,
     limit: Number.MAX_SAFE_INTEGER,
   })

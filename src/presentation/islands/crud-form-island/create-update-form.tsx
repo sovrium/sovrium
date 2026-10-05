@@ -10,6 +10,8 @@ import { computeFormLayoutClasses } from '@/presentation/design/form-layout-clas
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { FormBody } from '../parts/crud-form/layout'
+import { postPickerKeys } from '../parts/crud-form/wire-values'
+import { formString } from './form-strings'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
 import { SuccessPage } from './success-page'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
@@ -31,11 +33,21 @@ function buildSubmitHandler(
       if (missing.length > 0) {
         e.preventDefault()
         ctx.setState({
-          fieldError: { field: missing[0]!, message: 'This field is required' },
+          fieldError: {
+            field: missing[0]!,
+            message: formString(ctx.uiStrings, 'form.required', 'This field is required'),
+          },
           invalidFields: missing,
           isPending: false,
         })
+        return
       }
+      // The browser builds the posted data after this handler returns.
+      e.currentTarget.addEventListener(
+        'formdata',
+        (event) => postPickerKeys((event as FormDataEvent).formData, fields, values),
+        { once: true }
+      )
     }
   }
   return (e) => {
@@ -44,11 +56,14 @@ function buildSubmitHandler(
   }
 }
 
-/** Default submit-button label for a given CRUD operation. */
-function defaultSubmitLabelFor(operation: string): string {
-  if (operation === 'create') return 'Create'
-  if (operation === 'automation') return 'Submit'
-  return 'Update'
+/** Default submit-button label for a given CRUD operation, in the page language. */
+function defaultSubmitLabelFor(
+  operation: string,
+  strings: CrudFormIslandProps['uiStrings']
+): string {
+  if (operation === 'create') return formString(strings, 'form.create', 'Create')
+  if (operation === 'automation') return formString(strings, 'form.submit', 'Submit')
+  return formString(strings, 'form.update', 'Update')
 }
 
 /**
@@ -96,7 +111,7 @@ function CrudFormElement(props: {
   const { island, values, state, ctx, onFieldChange, autoSave, useNativeForm } = props
   const { operation, table, fields, className, layout, fieldGroups } = island
   const formAction = useNativeForm ? buildNativeFormAction(table, island.recordId!) : undefined
-  const submitLabel = island.buttonLabel ?? defaultSubmitLabelFor(operation)
+  const submitLabel = island.buttonLabel ?? defaultSubmitLabelFor(operation, island.uiStrings)
   const onSubmit = buildSubmitHandler(useNativeForm, fields, values, ctx)
   // A button field runs against a row, so it is live only on an update form.
   // A create form has no record yet and the button renders disabled until one
@@ -131,10 +146,12 @@ function CrudFormElement(props: {
         redirectUrl={island.redirectUrl}
         useNativeForm={useNativeForm}
         submitLabel={submitLabel}
+        savingLabel={formString(island.uiStrings, 'form.saving', 'Saving...')}
         variant={island.variant}
         fieldGroups={fieldGroups}
         layout={layout}
         binding={binding}
+        uiStrings={island.uiStrings}
       />
     </form>
   )

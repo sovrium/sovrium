@@ -30,7 +30,6 @@ export * from './drizzle/schema'
 export {
   DatabaseError,
   NotFoundError,
-  ForbiddenError,
   ForeignKeyViolationError,
   UniqueConstraintViolationError,
   ValidationError,

@@ -107,18 +107,16 @@ const DECISION_ROWS = {
 /**
  * Render an optional lineage value only where the record HAS one.
  *
- * `notIn: ['undefined', '']` rather than an `exists` operator, because there is
- * no `exists` operator. The predicate coerces with `String(value)` before it
- * compares (`matchesConditionOperators`), so an OMITTED key arrives as the
- * literal string `'undefined'` — this endpoint omits rather than nulls, and the
- * `''` half covers a source that blanks instead. Both spellings of "there is no
- * value here" in one list.
+ * `isNotEmpty: true` is the presence test, and it reads the one empty rule every
+ * surface shares: a missing key, `null`, `''`, `[]` and `{}` all count as "no
+ * value here". This endpoint omits an absent lineage rather than nulling it, but
+ * the gate no longer depends on which spelling a source picks.
  *
  * Without it the rail prints a label over nothing, which is the failure the
  * Environment page's own row template already names: a bare `Default` with no
  * default after it is a word not doing work.
  */
-const whereSet = (field: string) => ({ record: { field, notIn: ['undefined', ''] } }) as const
+const whereSet = (field: string) => ({ record: { field, isNotEmpty: true } }) as const
 
 // ─── THE REGISTER ──────────────────────────────────────────────────────────
 
@@ -192,7 +190,7 @@ const OPEN_ACTION = {
  *
  * `touches` is an ARRAY, and it prints comma-joined: neither the cell renderer
  * nor `$record.` substitution has a separator to give it, and iterating an array
- * field is the open proposal [internal ref] rather than something this page can author.
+ * field is an open proposal rather than something this page can author.
  * It is still the most useful column on the grid — it is how an operator finds
  * the decision that explains the property they are looking at.
  */

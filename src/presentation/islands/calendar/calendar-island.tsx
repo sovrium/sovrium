@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useMemo } from 'react'
 import { resolveIslandRecords } from '../runtime/data-binding'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import { CalendarError, CalendarLoading, CalendarMissingDateField } from './calendar-states'
 import { CalendarViewComponent } from './calendar-view'
 import { recordsToCalendarEvents } from './record-to-event'
@@ -62,6 +64,10 @@ interface CalendarIslandProps {
    * keep the built-in fallback palette.
    */
   readonly colorFieldColors?: Readonly<Record<string, string>>
+  /** The fields holding a calendar day, resolved server-side. */
+  readonly dateOnlyFields?: readonly string[]
+  /** `field → zone` for the date-time fields declaring a `timeZone`, resolved server-side. */
+  readonly fieldTimeZones?: Readonly<Record<string, string>>
   readonly maxEventsPerDay?: number
   readonly calendarEvent?: CalendarEventConfig
   readonly calendarInteraction?: CalendarInteraction
@@ -92,6 +98,24 @@ function resolveInitialDate(
   return records ? earliestEventDate(events) : undefined
 }
 
+/**
+ * The zone each date-time field reads in: its declared `timeZone`, else the
+ * operator zone the server stamped on the page — the grid's rule.
+ */
+function useZones(fieldTimeZones: Readonly<Record<string, string>> | undefined): {
+  readonly pageZone: string | undefined
+  readonly zoneOf: (field: string) => string | undefined
+} {
+  const pageZone = resolvePageTimezone()
+  const zoneOf = useMemo(
+    () =>
+      (field: string): string | undefined =>
+        fieldTimeZones?.[field] ?? pageZone,
+    [fieldTimeZones, pageZone]
+  )
+  return { pageZone, zoneOf }
+}
+
 export default function CalendarIsland({
   dataSource,
   records,
@@ -101,11 +125,14 @@ export default function CalendarIsland({
   labelField,
   colorField,
   colorFieldColors,
+  dateOnlyFields,
+  fieldTimeZones,
   maxEventsPerDay,
   calendarEvent,
   calendarInteraction,
 }: CalendarIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useCalendarRecords(dataSource)
+  const { pageZone, zoneOf } = useZones(fieldTimeZones)
 
   if (!dateField) return <CalendarMissingDateField />
   if (isLoading) return <CalendarLoading />
@@ -117,6 +144,8 @@ export default function CalendarIsland({
     labelField,
     colorField,
     colorFieldColors,
+    dateOnlyFields,
+    zoneOf,
   })
   const initialDate = resolveInitialDate(records, events)
 
@@ -138,6 +167,8 @@ export default function CalendarIsland({
       tableName={dataSource?.table}
       dateField={dateField}
       endDateField={endDateField}
+      pageZone={pageZone}
+      zoneOf={zoneOf}
     />
   )
 }

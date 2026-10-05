@@ -11,6 +11,7 @@ import {
   computeTableMenuClasses,
   computeTableMenuItemClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 import type { RowDensity } from '../../hooks/use-table-preferences'
 
@@ -64,13 +65,14 @@ function DensityMenuItem({ densityKey, label, current, onSelect }: DensityMenuIt
 }
 
 export function DensityMenu({ current, onSelect }: DensityMenuProps) {
+  const densityLabel = useGridString('datatable.density', 'Density')
   return (
     <Menu.Root>
       <Menu.Trigger
         className={DROPDOWN_TRIGGER_CLASS}
-        aria-label="Density"
+        aria-label={densityLabel}
       >
-        Density
+        {densityLabel}
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={4}>

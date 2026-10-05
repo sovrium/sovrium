@@ -491,6 +491,18 @@ const ensureDir = (dir: string) =>
       }),
   })
 
+/**
+ * Write a file whole or not at all: into a sibling temporary file, then renamed
+ * over the target. A server serves these files while `--watch` rebuilds them,
+ * and a rename within one directory is atomic, so a request reads the old
+ * index or the new one — never a half-written file.
+ */
+const writeFileAtomically = async (filePath: string, contents: string): Promise<void> => {
+  const temporary = `${filePath}.${process.pid}.tmp`
+  await fs.writeFile(temporary, contents, 'utf-8')
+  return fs.rename(temporary, filePath)
+}
+
 // Generic JSON serialization sink: writes an already statically-typed value
 // (here a `SearchIndex` built by `buildIndex`) to disk. effect(preferSchemaOverJson)
 // suggests Effect Schema's JSON APIs, but the payload has no Effect Schema —
@@ -499,7 +511,7 @@ const ensureDir = (dir: string) =>
 // informational hint would duplicate the type with no validation benefit.
 const writeJsonFile = (filePath: string, data: unknown) =>
   Effect.tryPromise({
-    try: () => fs.writeFile(filePath, JSON.stringify(data), 'utf-8'),
+    try: () => writeFileAtomically(filePath, JSON.stringify(data)),
     catch: (cause) =>
       new GenerateSearchIndexError({
         cause,
@@ -509,7 +521,7 @@ const writeJsonFile = (filePath: string, data: unknown) =>
 
 const writeTextFile = (filePath: string, contents: string) =>
   Effect.tryPromise({
-    try: () => fs.writeFile(filePath, contents, 'utf-8'),
+    try: () => writeFileAtomically(filePath, contents),
     catch: (cause) =>
       new GenerateSearchIndexError({
         cause,

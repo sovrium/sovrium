@@ -258,6 +258,32 @@ const describedBy = (access: AiAccess | undefined): string | undefined => {
 }
 
 /**
+ * A table's name as it stands inside a tool name: every character outside
+ * `A-Z a-z 0-9 _ -` becomes an underscore, so `Open Deals` is `Open_Deals`.
+ *
+ * A table name may hold spaces, and an AI client refuses a tool whose name
+ * does: the MCP specification limits tool names to letters, digits, `_`, `-`
+ * and `.`, and the chat providers' function names to letters, digits, `_` and
+ * `-` — one bad name fails the whole request, not just that tool. A name
+ * without such a character is returned unchanged, so every existing tool keeps
+ * its name. Two tables can never share the result: it derives the same
+ * database table as the name itself, and two tables deriving one are refused.
+ */
+export const toolSafeTableName = (tableName: string): string =>
+  tableName.replace(/[^A-Za-z0-9_-]/g, '_')
+
+/**
+ * The MCP tool name for one `(table, operation)` pair,
+ * `{appName}_{table}_{operation}`. CANONICAL — the wire compiler, the admin
+ * listing and the call dispatcher all read it, so they cannot disagree.
+ */
+export const buildTableToolName = (
+  appName: string,
+  tableName: string,
+  operation: AiAccessOperation
+): string => `${appName}_${toolSafeTableName(tableName)}_${operation}`
+
+/**
  * The MCP tool description for one `(table, operation)` pair.
  *
  * CANONICAL. Two callers must agree on this string and previously did not:

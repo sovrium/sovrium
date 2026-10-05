@@ -56,6 +56,17 @@ function sidebarBoxProps(
 }
 
 /**
+ * The props of a box whose name moved onto its navigation. A folding sidebar's
+ * box is what a phone draws as the bar holding the menu button, so it keeps the
+ * generic `container` name; any other box is left unnamed.
+ */
+const namedBoxProps = (
+  unnamedProps: Record<string, unknown>,
+  drawer: SidebarRailBreakpoint | undefined
+): Record<string, unknown> =>
+  drawer === undefined ? unnamedProps : { ...unnamedProps, 'data-component-type': 'container' }
+
+/**
  * `sidebar` — a layout box, plus (when declared) the `groups` navigation
  * landmark. The groups render BEFORE any authored children so a sidebar that
  * carries both reads top-down as navigation first, then whatever the author
@@ -78,20 +89,30 @@ export const renderSidebarComponent: ComponentRenderer = ({
   const { groups, trackNavigation, rail, drawer } = (component ?? {}) as SidebarKeys
   const railBelow = rail?.below
   const drawerBelow = drawer?.below
-  const children =
-    groups !== undefined && groups.length > 0
-      ? [
-          renderSidebarGroups(
-            groups,
-            { currentLang, languages },
-            { trackNavigation: trackNavigation === true, rail: railBelow, drawer: drawerBelow }
-          ),
-          ...renderedChildren,
-        ]
-      : renderedChildren
+  const hasGroups = groups !== undefined && groups.length > 0
+  // With `groups`, the sidebar is named on its NAVIGATION root rather than on
+  // the box: the box also holds whatever the author put beside the navigation
+  // and usually stretches to the page, so a name on it measures the page.
+  const { 'data-component-type': componentType, ...unnamedProps } = elementProps
+  const children = hasGroups
+    ? [
+        renderSidebarGroups(
+          groups,
+          { currentLang, languages },
+          {
+            trackNavigation: trackNavigation === true,
+            rail: railBelow,
+            drawer: drawerBelow,
+            componentType: componentType as string | undefined,
+          }
+        ),
+        ...renderedChildren,
+      ]
+    : renderedChildren
+  const boxProps = hasGroups ? namedBoxProps(unnamedProps, drawerBelow) : elementProps
   return Renderers.renderHTMLElement({
     type: 'div',
-    props: sidebarBoxProps(elementProps, railBelow, drawerBelow),
+    props: sidebarBoxProps(boxProps, railBelow, drawerBelow),
     content: content,
     children:
       drawerBelow === undefined

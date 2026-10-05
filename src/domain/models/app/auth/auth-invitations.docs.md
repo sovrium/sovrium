@@ -4,6 +4,8 @@
 
 Creating a user directly makes an admin choose the new password and sends the person nothing: workable for a script, unusable for onboarding a customer. An invitation closes that gap. The admin supplies an address, a name and a role with **no password**, Sovrium emails a single-use link, and the invitee sets their own password and lands authenticated.
 
+The link names this instance: `BASE_URL` when it is set, otherwise the address the request reached — the forwarded one only behind a declared proxy (`TRUSTED_PROXY_HOPS`). The `Origin` or `Referer` the inviting browser sent is never used, so nobody issuing an invitation can point it at another domain.
+
 ```yaml
 auth:
   strategies:
@@ -29,6 +31,8 @@ auth:
 Issuing answers `401` when unauthenticated and **`404`** when the caller may not invite that role — never `403`, so the endpoint leaks nothing about which roles exist. It answers `400` for invalid input, and `422` when the address already maps to a fully onboarded user.
 
 Accepting answers `400` for an invalid token and `410` for an expired one.
+
+The accept page sends nothing until its script has run: its Accept button waits for it, so the token and the chosen password never travel in the page address.
 
 Tokens expire after `invitationTokenExpiry` — 72 hours by default — and are **single-use**, consumed on the first successful accept. A replay is refused rather than silently re-onboarding somebody.
 

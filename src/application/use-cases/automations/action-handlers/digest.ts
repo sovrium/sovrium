@@ -7,11 +7,8 @@
 
 import { Effect } from 'effect'
 import { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { digestSortKeyProblem } from '@/domain/models/app/automations/actions/digest/sort-key-validation'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionRunContext } from './shared'
 import type { DigestReleaseSort } from '@/application/ports/repositories/automations/automation-digest-repository'
@@ -34,8 +31,7 @@ const resolvedProp = (
   key: string
 ): unknown => {
   if (runContext === undefined) return fallbackProps[key]
-  const raw = rawActionProps(runContext)
-  return resolveRunContextValue(raw[key], buildRunContextView(runContext))
+  return resolveOwnProp(runContext, authoredActionProps(runContext)[key])
 }
 
 /**
@@ -57,6 +53,10 @@ const releaseSortFromProps = (raw: unknown): DigestReleaseSort | undefined => {
   const direction = sort['direction'] === 'desc' ? 'desc' : 'asc'
   return field !== undefined ? { field, direction } : undefined
 }
+
+/** The number of items a release keeps, when `props.limit` is a usable one. */
+const releaseLimitFromProps = (raw: unknown): number | undefined =>
+  typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : undefined
 
 /**
  * `digest/collect` — accumulate `props.item` into the active bucket for
@@ -117,11 +117,12 @@ export const handleDigestRelease: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: 'digest.release requires a digestKey' } as const
     }
     const sort = releaseSortFromProps(props['sort'])
-    const rawLimit = props['limit']
-    const limit =
-      typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit >= 0
-        ? Math.floor(rawLimit)
-        : undefined
+    // A key filled in from the request is held to the rule the config's own key is.
+    const sortKeyProblem = sort === undefined ? undefined : digestSortKeyProblem(sort.field)
+    if (sortKeyProblem !== undefined) {
+      return { status: 'failure', error: sortKeyProblem } as const
+    }
+    const limit = releaseLimitFromProps(props['limit'])
 
     const repo = yield* AutomationDigestRepository
     const result = yield* Effect.result(

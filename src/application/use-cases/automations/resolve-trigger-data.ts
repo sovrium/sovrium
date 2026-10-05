@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { renderTemplate } from '@/infrastructure/templates/template-engine'
+import { isTemplateHelper, renderTemplate } from '@/infrastructure/templates/template-engine'
 import { mapStringsDeep } from './value-walker'
 
 /**
@@ -118,7 +118,7 @@ export interface TriggerData {
    *
    * A sibling of `mentions` rather than a change to it: `mentions` is the
    * documented `UUID[]` payload and stays that way, but an id list is not a
-   * usable `email.send` `to`. This is the same split GAP-13 made for
+   * usable `email.send` `to`. This is the same split [internal ref] made for
    * `threadParticipants`.
    */
   readonly mentionedEmails?: readonly string[]
@@ -152,7 +152,10 @@ export interface TriggerData {
 export const lookupPath = (context: Readonly<Record<string, unknown>>, path: string): unknown =>
   path.split('.').reduce<unknown>((acc, segment) => {
     if (acc === undefined || acc === null || typeof acc !== 'object') return undefined
-    return (acc as Record<string, unknown>)[segment]
+    // Own keys only, as the engine reads them: an inherited member (`toString`,
+    // `constructor`, `__proto__`) is not a value of the context, and returning
+    // one would hand a function or `Object.prototype` to a write.
+    return Object.hasOwn(acc, segment) ? (acc as Record<string, unknown>)[segment] : undefined
   }, context)
 
 /**
@@ -174,6 +177,13 @@ export const resolveTriggerInString = (
   if (!input.includes('{{')) return input
   return renderTemplate(input, context)
 }
+
+/**
+ * Whether a whole-string `{{name}}` is a helper call (`{{now}}`, `{{today}}`)
+ * rather than a path. Unknown paths are NOT helpers: they still resolve to
+ * `undefined` where a caller looks the path up.
+ */
+export const isTemplateHelperName = (name: string): boolean => isTemplateHelper(name)
 
 /**
  * Recursively walk a value and resolve `{{path.to.value}}` references in

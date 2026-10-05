@@ -5,50 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveEnvInString } from '@/domain/models/app/env-reference-service'
 import { mapStringsDeep } from './value-walker'
-import type { EnvVar } from '@/domain/models/app/env'
 
 /**
- * Build an env-var lookup table that prefers the OS environment over the
- * schema-declared `default`. This is the resolution order required by
- * [internal ref] and -006:
- *
- *   1. `process.env[key]` (set by deployment platform / fixture)
- *   2. `default` value from schema
- *   3. `undefined` (caller decides whether that is fatal)
+ * The `$env` resolver lives in the domain (`env-reference-service.ts`) so the
+ * infrastructure that sends outgoing webhooks can share it without reaching
+ * into this layer. Re-exported here for the automation runner and the routes
+ * that already import it from this module.
  */
-export const buildEnvLookup = (
-  envVars: ReadonlyArray<EnvVar> | undefined,
-  processEnv: Readonly<Record<string, string | undefined>>
-): Readonly<Record<string, string>> => {
-  if (!envVars || envVars.length === 0) return {}
-
-  return envVars.reduce<Record<string, string>>((acc, v) => {
-    const fromOs = processEnv[v.key]
-    const value =
-      fromOs !== undefined && fromOs !== '' ? fromOs : v.default !== undefined ? v.default : ''
-    return { ...acc, [v.key]: value }
-  }, {})
-}
-
-/**
- * Pattern that matches `$env.VAR_NAME` references.
- * VAR_NAME is uppercase snake_case (matches EnvVarSchema's key pattern).
- *
- * Exported so callers can detect the presence of secret references when
- * deciding whether to redact a value (see secret-redactor).
- */
-export const ENV_REFERENCE_PATTERN = /\$env\.([A-Z][A-Z0-9_]*)/g
-
-/**
- * Resolve `$env.VAR_NAME` placeholders in a string against a precomputed
- * lookup. Unknown references are replaced with empty strings (callers can
- * choose to be stricter).
- */
-export const resolveEnvInString = (
-  input: string,
-  envLookup: Readonly<Record<string, string>>
-): string => input.replace(ENV_REFERENCE_PATTERN, (_match, key: string) => envLookup[key] ?? '')
+export {
+  buildEnvLookup,
+  ENV_REFERENCE_PATTERN,
+  resolveEnvInString,
+  resolveSecretInString,
+} from '@/domain/models/app/env-reference-service'
 
 /**
  * Recursively walk a value and resolve `$env.VAR_NAME` placeholders inside

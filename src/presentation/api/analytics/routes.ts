@@ -22,7 +22,7 @@ import {
   analyticsQuerySchema,
 } from '@/domain/models/api/analytics/analytics'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
@@ -33,9 +33,10 @@ import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timez
 import { handleClick } from '@/presentation/api/analytics/click-handlers'
 import { handleTargets } from '@/presentation/api/analytics/targets-handlers'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
-import { unauthorized, validationError } from '@/presentation/api/runtime/auth-helpers'
+import { unauthorized, validationError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -91,6 +92,9 @@ function parseAnalyticsQuery(
   }
 }
 
+/** The live app's role ladder, read by every analytics read door. */
+type Roles = AdminRoleResolvable
+
 /**
  * Per-app analytics configuration forwarded from route registration.
  */
@@ -110,6 +114,12 @@ interface AnalyticsRouteConfig {
     readonly slug: string
     readonly destinations: readonly string[]
   }>
+  /**
+   * The live app's role ladder, so the read endpoints admit its top role
+   * beside the built-in `admin`. A thunk for the same reason as
+   * `resolveLinks`; absent, only the built-in `admin` is admin-equivalent.
+   */
+  readonly resolveApp?: () => AdminRoleResolvable
 }
 
 /**
@@ -192,7 +202,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
  * infer the existence of analytics data.
  */
 function analyticsAccessDenied(c: Context): Response {
-  return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+  return notFound(c, 'Not found')
 }
 
 /**
@@ -201,13 +211,16 @@ function analyticsAccessDenied(c: Context): Response {
  * Returns `undefined` (caller should treat as success/continue) when the
  * caller is an admin, otherwise returns the appropriate error Response.
  */
-async function requireAdminSession(c: Context): Promise<Response | undefined> {
+async function requireAdminSession(c: Context, app: Roles): Promise<Response | undefined> {
   const session = getSessionContext(c)
   if (!session) {
     return unauthorized(c)
   }
   const role = await runDomainPromise(c, getUserRole(session.userId))
-  if (!isAdminRole(role)) {
+  // Admin-equivalent: the built-in `admin` and the app's top role. The route
+  // middleware in front of these handlers admits the whole console tier; this
+  // is the data door, so it asks the narrower question every data door asks.
+  if (!isAdminEquivalent(role, app)) {
     return analyticsAccessDenied(c)
   }
   return undefined
@@ -216,8 +229,8 @@ async function requireAdminSession(c: Context): Promise<Response | undefined> {
 /**
  * Handle GET /api/analytics/overview — requires admin role
  */
-async function handleOverview(c: Context, appName: string): Promise<Response> {
-  const denied = await requireAdminSession(c)
+async function handleOverview(c: Context, appName: string, app: Roles): Promise<Response> {
+  const denied = await requireAdminSession(c, app)
   if (denied) {
     return denied
   }
@@ -253,8 +266,8 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
 /**
  * Handle GET /api/analytics/pages — requires admin role
  */
-async function handlePages(c: Context, appName: string): Promise<Response> {
-  const denied = await requireAdminSession(c)
+async function handlePages(c: Context, appName: string, app: Roles): Promise<Response> {
+  const denied = await requireAdminSession(c, app)
   if (denied) {
     return denied
   }
@@ -284,8 +297,8 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
 /**
  * Handle GET /api/analytics/referrers — requires admin role
  */
-async function handleReferrers(c: Context, appName: string): Promise<Response> {
-  const denied = await requireAdminSession(c)
+async function handleReferrers(c: Context, appName: string, app: Roles): Promise<Response> {
+  const denied = await requireAdminSession(c, app)
   if (denied) {
     return denied
   }
@@ -321,8 +334,8 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
 /**
  * Handle GET /api/analytics/devices — requires admin role
  */
-async function handleDevices(c: Context, appName: string): Promise<Response> {
-  const denied = await requireAdminSession(c)
+async function handleDevices(c: Context, appName: string, app: Roles): Promise<Response> {
+  const denied = await requireAdminSession(c, app)
   if (denied) {
     return denied
   }
@@ -445,14 +458,14 @@ const readEvents = (
  * Returns analytics events with optional filtering by eventType and eventName.
  * Supports cursor-based pagination.
  */
-async function handleEvents(c: Context, appName: string): Promise<Response> {
+async function handleEvents(c: Context, appName: string, app: Roles): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return unauthorized(c)
   }
 
   const role = await runDomainPromise(c, getUserRole(session.userId))
-  if (!isAdminRole(role)) {
+  if (!isAdminEquivalent(role, app)) {
     return unauthorized(c)
   }
 
@@ -494,8 +507,8 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
 /**
  * Handle GET /api/analytics/campaigns — requires admin role
  */
-async function handleCampaigns(c: Context, appName: string): Promise<Response> {
-  const denied = await requireAdminSession(c)
+async function handleCampaigns(c: Context, appName: string, app: Roles): Promise<Response> {
+  const denied = await requireAdminSession(c, app)
   if (denied) {
     return denied
   }
@@ -546,6 +559,7 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
  */
 export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, config: AnalyticsRouteConfig): T {
   const { appName } = config
+  const adminScope = (): AdminRoleResolvable => config.resolveApp?.() ?? {}
   return honoApp
     .post('/api/analytics/collect', effectValidator('json', analyticsCollectSchema), (c) =>
       handleCollect(c, config)
@@ -553,11 +567,11 @@ export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, config: Analyti
     .post('/api/analytics/click', effectValidator('json', analyticsClickSchema), (c) =>
       handleClick(c, config)
     )
-    .get('/api/analytics/overview', (c) => handleOverview(c, appName))
-    .get('/api/analytics/pages', (c) => handlePages(c, appName))
-    .get('/api/analytics/referrers', (c) => handleReferrers(c, appName))
-    .get('/api/analytics/devices', (c) => handleDevices(c, appName))
-    .get('/api/analytics/campaigns', (c) => handleCampaigns(c, appName))
+    .get('/api/analytics/overview', (c) => handleOverview(c, appName, adminScope()))
+    .get('/api/analytics/pages', (c) => handlePages(c, appName, adminScope()))
+    .get('/api/analytics/referrers', (c) => handleReferrers(c, appName, adminScope()))
+    .get('/api/analytics/devices', (c) => handleDevices(c, appName, adminScope()))
+    .get('/api/analytics/campaigns', (c) => handleCampaigns(c, appName, adminScope()))
     .get('/api/analytics/targets', (c) => handleTargets(c, config))
-    .get('/api/analytics/events', (c) => handleEvents(c, appName)) as T
+    .get('/api/analytics/events', (c) => handleEvents(c, appName, adminScope())) as T
 }

@@ -6,14 +6,16 @@
  */
 
 import { Effect } from 'effect'
+import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
 import { db, DatabaseError } from '@/infrastructure/database'
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
+import { writeManyToManyLinksInTransaction } from '../mutation-helpers/many-to-many-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { wrapDatabaseErrorWithValidation } from '../statement/error-handling'
-import { validateTableName } from '../statement/validation'
+import { wrapDatabaseError, wrapDatabaseErrorWithValidation } from '../statement/error-handling'
 import { BATCH_FANOUT_CONCURRENCY, createSingleRecordInBatch } from './batch-helpers'
+import type { BatchCreateLink } from '@/application/ports/repositories/tables/batch-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
 
@@ -46,15 +48,71 @@ const injectAuthorshipForBatch = (
   userId: string | undefined,
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> =>
-  Effect.all(
-    recordsData.map((fields) =>
+  Effect.forEach(
+    recordsData,
+    (fields) =>
       Effect.tryPromise({
         try: () => injectCreateAuthorship(fields, userId, tx, tableName),
         catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
-      })
-    ),
+      }),
     { concurrency: BATCH_FANOUT_CONCURRENCY }
   )
+
+/**
+ * Once the batch has committed: log each created record on the activity trail,
+ * and report it to the change stream.
+ */
+function settleCreatedRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  createdRecords: readonly Record<string, unknown>[]
+): Effect.Effect<void> {
+  return Effect.gen(function* () {
+    yield* Effect.forEach(createdRecords, (record) =>
+      logActivity({
+        session,
+        tableName,
+        action: 'create',
+        recordId: String(record.id),
+        changes: { after: record },
+      })
+    ).pipe(Effect.asVoid)
+    yield* reportCommittedRows(
+      createdRecords.map((row) => ({
+        tableName,
+        event: 'insert' as const,
+        recordId: String(row['id']),
+        row,
+      }))
+    )
+  })
+}
+
+/**
+ * Write one created record's many-to-many links on the batch's transaction.
+ *
+ * Paired with the record at the moment it is created — never by its position
+ * in the returned list, which skips a record that had nothing to insert — and
+ * on the same transaction, so a link that cannot be written rolls the whole
+ * batch back rather than leaving its records unlinked.
+ */
+const linkCreatedRecord = (
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  record: Readonly<Record<string, unknown>>,
+  links: readonly BatchCreateLink[]
+): Effect.Effect<void, DatabaseError> =>
+  links.length === 0
+    ? Effect.void
+    : Effect.tryPromise({
+        try: () =>
+          writeManyToManyLinksInTransaction(tx, {
+            sourceTable: tableName,
+            sourceId: record['id'] as string | number,
+            links,
+          }),
+        catch: wrapDatabaseError(`Failed to link many-to-many records for ${tableName}`),
+      }).pipe(Effect.asVoid)
 
 /**
  * Batch create records
@@ -70,7 +128,8 @@ const injectAuthorshipForBatch = (
 export function batchCreateRecords(
   session: Readonly<Session>,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
+  recordsData: readonly Record<string, unknown>[],
+  links?: readonly (readonly BatchCreateLink[])[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
@@ -78,8 +137,6 @@ export function batchCreateRecords(
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-
           if (recordsData.length === 0) {
             return yield* Effect.fail(
               new DatabaseError('Cannot create batch with no records', undefined)
@@ -107,10 +164,15 @@ export function batchCreateRecords(
           })
 
           return yield* Effect.reduce(
-            recordsWithAuthorship,
+            recordsWithAuthorship.map((fields, index) => ({ fields, index })),
             () => [] as readonly Record<string, unknown>[],
-            (acc, fields) =>
+            (acc, { fields, index }) =>
               createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
+                Effect.tap((record) =>
+                  record === undefined
+                    ? Effect.void
+                    : linkCreatedRecord(tx, tableName, record, links?.[index] ?? [])
+                ),
                 Effect.map((record) => (record ? [...acc, record] : acc))
               )
           )
@@ -118,16 +180,7 @@ export function batchCreateRecords(
       onFailure
     )
 
-    // Log activity for each created record
-    yield* Effect.forEach(createdRecords, (record) =>
-      logActivity({
-        session,
-        tableName,
-        action: 'create',
-        recordId: String(record.id),
-        changes: { after: record },
-      })
-    ).pipe(Effect.asVoid)
+    yield* settleCreatedRecords(session, tableName, createdRecords)
 
     return createdRecords
   })

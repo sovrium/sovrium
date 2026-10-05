@@ -36,8 +36,14 @@ auth:
 | `emailOtp`             | A one-time code is issued — and see below |
 | `twoFactorBackupCodes` | Backup codes are delivered at enrolment   |
 | `welcome`              | Verification completes                    |
-| `accountDeletion`      | An account deletion is confirmed          |
+| `accountDeletion`      | An immediate account deletion is asked    |
 | `invitation`           | An admin issues an invitation             |
+
+**`accountDeletion` carries the confirmation link for an immediate account deletion.** Variables: `$url` (the link, valid 24 hours, single use), `$name`, `$email`, `$appName`. When omitted, a default is sent. Nothing is mailed after the erasure itself: the address is part of what it removes.
+
+> **Upgrade note.** Up to 0.29.1, `accountDeletion` was a notice sent after an account deletion went through, so a template written for it — « your account has been deleted » — carries no `$url`. It is now the email that asks the user to confirm, and a copy with no `$url` reaches the user with no link to follow: the deletion can never be confirmed. Before the new version starts — after `sovrium update`, while `sovrium validate` checks the config — rewrite a custom `accountDeletion` as a confirmation request that includes `$url`, or delete it to send the default.
+
+While `auth.immediateAccountDeletion` is on, a custom `accountDeletion` must carry `$url` in every part it supplies — `text`, `html` — and supply at least one; `sovrium validate` and the server's start refuse it otherwise, naming the part. With `immediateAccountDeletion: false` it is never sent, and not checked.
 
 **`emailOtp` is not merely cosmetic.** Defining it _enables_ the one-time-code sign-in flow; there is no strategy entry for it. Every other template only changes the wording of a flow you already turned on.
 

@@ -81,11 +81,11 @@ export const commonFieldProps = {
       description: 'Keeps the field out of the rendered form while still submitting its value.',
     })
   ),
-  /** Default value (literal or `$query.{name}` / `$user.{prop}` reference). */
+  /** Default value (literal, `$query.{name}` / `$user.{prop}` reference, or `$now`). */
   defaultValue: Schema.optional(
     Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
       description:
-        'Value the field starts with: a literal, `$query.{name}` to read a URL parameter, or `$user.{prop}` to read a property of the signed-in user.',
+        'Value the field starts with: a literal, `$query.{name}` to read a URL parameter, `$user.{prop}` to read a property of the signed-in user, or `$now` for the current date and time. The form starts from it wherever it is shown, embedded in a page or on its own.',
     })
   ),
   /**

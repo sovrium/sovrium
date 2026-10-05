@@ -118,10 +118,9 @@ export const executeSQLStatementsParallel = (
   statements.length === 0
     ? Effect.void
     : // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
-      Effect.all(
-        statements.map((sql) => executeSQL(tx, sql)),
-        { concurrency: 'unbounded' }
-      ).pipe(Effect.asVoid)
+      Effect.forEach(statements, (sql) => executeSQL(tx, sql), { concurrency: 'unbounded' }).pipe(
+        Effect.asVoid
+      )
 
 // ============================================================================
 // Information Schema Query Helpers

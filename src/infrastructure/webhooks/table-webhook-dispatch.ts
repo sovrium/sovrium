@@ -6,6 +6,12 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { buildEnvLookup } from '@/domain/models/app/env-reference-service'
+import {
+  relationshipFieldNames,
+  withStringRecordId,
+  withStringRelationshipValues,
+} from '@/domain/models/app/tables/record-id-service'
 import {
   computeRetryDelay,
   customizeWebhookData,
@@ -18,7 +24,21 @@ import { getDb } from '@/infrastructure/database/drizzle/db-bun'
 import { buildAuthHeaders } from './auth-headers'
 import { rowsOf } from './delivery-log-queries'
 import { deliverWebhook } from './dispatcher'
+import type { EnvVar } from '@/domain/models/app/env'
 import type { Table } from '@/domain/models/app/tables'
+
+/**
+ * The app's `env` declarations. Webhook credentials resolve `$env` against the
+ * lookup built from them, so only DECLARED variables are readable — the same
+ * rule as every other `$env` in the configuration.
+ */
+type AppEnv = ReadonlyArray<EnvVar> | undefined
+
+/** The lookup a webhook's `$env` credentials resolve against. */
+type EnvLookup = Readonly<Record<string, string>>
+
+/** Build the declared-variables lookup for one dispatch, read at send time. */
+const envLookupFor = (appEnv: AppEnv): EnvLookup => buildEnvLookup(appEnv, process.env)
 
 /** CRUD events a table webhook can subscribe to. */
 type WebhookEvent = 'create' | 'update' | 'delete'
@@ -240,10 +260,11 @@ const describeTransportError = (err: unknown): string => {
  */
 const attemptDelivery = async (
   webhook: Webhook,
-  payload: TableWebhookPayload
+  payload: TableWebhookPayload,
+  envLookup: EnvLookup
 ): Promise<DeliveryOutcomeFields> => {
   const body = JSON.stringify(payload)
-  const authHeaders = await buildAuthHeaders(webhook, body)
+  const authHeaders = await buildAuthHeaders(webhook, body, envLookup)
   // The header set we expect to send — base headers plus any auth headers.
   // `deliverWebhook` echoes the actual set back; we fall back to this if it
   // does not (e.g. transport failure before headers are assembled).
@@ -282,10 +303,11 @@ export const deliverAndLog = async (input: {
   readonly webhook: Webhook
   readonly tableName: string
   readonly payload: TableWebhookPayload
+  readonly appEnv: AppEnv
 }): Promise<{ readonly deliveryId: number | undefined; readonly success: boolean }> => {
   const { webhook, tableName, payload } = input
   const requestedAt = new Date().toISOString()
-  const outcome = await attemptDelivery(webhook, payload)
+  const outcome = await attemptDelivery(webhook, payload, envLookupFor(input.appEnv))
   const deliveryId = await logDelivery({
     webhookName: webhook.name,
     tableName,
@@ -314,22 +336,23 @@ const deliverWithRetryAndLog = async (input: {
   readonly webhook: Webhook
   readonly tableName: string
   readonly payload: TableWebhookPayload
+  readonly envLookup: EnvLookup
 }): Promise<void> => {
-  const { webhook, tableName, payload } = input
+  const { webhook, tableName, payload, envLookup } = input
   const policy: ResolvedRetryPolicy = resolveRetryPolicy(webhook.retry)
   const requestedAt = new Date().toISOString()
 
   // Initial delivery (attempt 1), then up to `maxAttempts` retries. A 2xx
   // stops the loop; the loop also stops once retries are exhausted.
   // eslint-disable-next-line functional/no-let -- accumulator for the retry loop
-  let outcome = await attemptDelivery(webhook, payload)
+  let outcome = await attemptDelivery(webhook, payload, envLookup)
   // eslint-disable-next-line functional/no-let -- attempt counter for the retry loop
   let attempts = 1
 
   /* eslint-disable functional/no-loop-statements, functional/no-expression-statements -- sequential retry loop with backoff and accumulators */
   while (outcome.status === 'failed' && attempts <= policy.maxAttempts) {
     await sleep(computeRetryDelay(policy, attempts))
-    outcome = await attemptDelivery(webhook, payload)
+    outcome = await attemptDelivery(webhook, payload, envLookup)
     attempts = attempts + 1
   }
   /* eslint-enable functional/no-loop-statements, functional/no-expression-statements */
@@ -384,6 +407,7 @@ export const deliverTestWebhook = async (input: {
   readonly webhook: Webhook
   readonly tableName: string
   readonly sampleRecord: Record<string, unknown>
+  readonly appEnv: AppEnv
 }): Promise<TestDeliveryResult> => {
   const { webhook, tableName, sampleRecord } = input
   const payload: TableWebhookTestPayload = {
@@ -394,7 +418,7 @@ export const deliverTestWebhook = async (input: {
     data: { record: sampleRecord },
   }
   const requestedAt = new Date().toISOString()
-  const outcome = await attemptDelivery(webhook, payload)
+  const outcome = await attemptDelivery(webhook, payload, envLookupFor(input.appEnv))
   // eslint-disable-next-line functional/no-expression-statements -- DB side effect: persist the test delivery row
   await logDelivery({
     webhookName: webhook.name,
@@ -426,10 +450,11 @@ const dispatchOne = async (input: {
   readonly event: WebhookEvent
   readonly record: Record<string, unknown>
   readonly previousRecord: Record<string, unknown> | undefined
+  readonly envLookup: EnvLookup
 }): Promise<void> => {
-  const { webhook, tableName, event, record, previousRecord } = input
+  const { webhook, tableName, event, record, previousRecord, envLookup } = input
   const payload = buildPayload({ webhook, table: tableName, event, record, previousRecord })
-  await deliverWithRetryAndLog({ webhook, tableName, payload })
+  await deliverWithRetryAndLog({ webhook, tableName, payload, envLookup })
 }
 
 /**
@@ -455,20 +480,33 @@ export const triggerTableWebhooks = async (input: {
    * meaningful for `'update'` events; ignored otherwise.
    */
   readonly previousRecord?: Record<string, unknown> | undefined
+  /** `app.env` — the variables a webhook credential's `$env` may read. */
+  readonly appEnv: AppEnv
 }): Promise<void> => {
-  const { table, event, record, previousRecord } = input
+  const { table, event } = input
   if (!table) return
+  // `data.record.id` is the record's id as the records API returns it — a
+  // string, on every event. The create path hands over the API record, while
+  // update and delete hand over a driver row whose serial id is a number.
+  // A relationship value is the related record's id, and reads as a string too.
+  const links = relationshipFieldNames(table)
+  const record = { ...withStringRelationshipValues(withStringRecordId(input.record), links) }
+  const previousRecord =
+    input.previousRecord === undefined
+      ? undefined
+      : { ...withStringRelationshipValues(withStringRecordId(input.previousRecord), links) }
   const webhooks = table.webhooks ?? []
   const matching = webhooks.filter(
     (webhook) => isEnabled(webhook) && webhook.events.includes(event)
   )
   if (matching.length === 0) return
+  const envLookup = envLookupFor(input.appEnv)
 
   try {
     // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget delivery dispatch
     await Promise.all(
       matching.map((webhook) =>
-        dispatchOne({ webhook, tableName: table.name, event, record, previousRecord })
+        dispatchOne({ webhook, tableName: table.name, event, record, previousRecord, envLookup })
       )
     )
   } catch {

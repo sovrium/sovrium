@@ -110,16 +110,4 @@ export const matrixFields = {
 // Re-export all sub-schemas
 // ---------------------------------------------------------------------------
 
-export {
-  MatrixAxisSchema,
-  MatrixCellFlagSchema,
-  MatrixCellSchema,
-  MatrixDataSourceSchema,
-  MatrixGlyphSchema,
-  MatrixSortDirectionSchema,
-  MatrixSystemSourceSchema,
-  type MatrixAxis,
-  type MatrixCell,
-  type MatrixCellFlag,
-  type MatrixGlyph,
-} from './schema'
+export type { MatrixAxis, MatrixCell, MatrixCellFlag, MatrixGlyph } from './schema'

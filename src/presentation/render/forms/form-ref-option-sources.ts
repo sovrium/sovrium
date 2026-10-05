@@ -17,7 +17,9 @@
  *
  * A filter's `$currentUser` reference resolves against the host page's
  * session through the shared resolver; one that cannot resolve makes that ONE
- * source offer no choices — fail closed, never the unfiltered list.
+ * source offer no choices — fail closed, never the unfiltered list. The rows
+ * are read through the page's records gate with the form's authority over the
+ * table and the visitor's row-level rule (`readRowsForCaller`).
  */
 
 import {
@@ -34,6 +36,7 @@ import {
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import { collectFromComponentTree } from '@/presentation/render/resolve/component-walker'
 import { resolveFilters, scopeTablesOf } from '@/presentation/render/resolve/current-user-resolver'
+import { readRowsForCaller } from '@/presentation/render/resolve/record-read-gate'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -80,7 +83,16 @@ async function readPlan(
   })
   if (filters.kind === 'unauthorized') return [plan.field, []]
   const query = optionSourceQuery({ ...plan.source, filter: filters.filter })
-  const rows = await ctx.db.fetchRecords(query.table, query.options)
+  // The form's authority over the table, the visitor's row-level rule — the
+  // same read the form's own route makes (`resolveFormOptionSources`).
+  const { rows } = await readRowsForCaller({
+    app: ctx.app,
+    tableName: query.table,
+    session: ctx.session,
+    db: ctx.db,
+    query: query.options,
+    authority: 'form',
+  })
   return [plan.field, rowsToOptions(rows, plan.source)]
 }
 

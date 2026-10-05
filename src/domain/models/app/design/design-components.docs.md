@@ -145,3 +145,12 @@ design:
 A reference that resolves to nothing is refused at boot, listing the ramps that do exist — an unresolved one would reach the browser as a variable nothing defines, and the surface would paint its initial value in silence.
 
 **`oklch()` yes, `var()` no.** Colour values accept hex, `rgb()`, `hsl()` and `oklch()`. Sovrium's own ramps are written in `oklch`, the only widely supported space in which a ramp can be retuned by lightness without the hue drifting underneath. `var()` and `color-mix()` are refused because they are **references**, not values: they resolve against the browser's cascade, so nothing reading your config can know what colour they name — not the contrast checker, not the token export, not an agent reading your design system. When you want a token to follow another, say so with a reference the schema understands.
+
+## One badge for an option, everywhere
+
+`design.badgeForm` draws every coloured option badge — the grid's status chip, a list item's `badge`, a kanban `format: badge` footer — as `filled` or `outline-dot`. `filled`, the default, paints the option colour as the chip's fill; `outline-dot` draws a transparent chip with an outline and a leading dot in the option colour. An option without a colour stays the same neutral chip on every surface, in either form.
+
+```yaml
+design:
+  badgeForm: outline-dot
+```

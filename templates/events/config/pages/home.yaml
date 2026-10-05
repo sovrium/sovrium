@@ -1,63 +1,183 @@
+# What's on: every open event, soonest first, as a card with its date, its
+# place and how many seats are left — and one button. A full event offers its
+# waitlist instead of registration.
+#
+# The cards are drawn on the server from the `events` table, so a visitor
+# needs no account and no script to read them. Drafts and past events are not
+# listed.
 name: home
 path: /
 meta:
-  title: Upcoming events
-  description: See what's on and grab your spot
+  title: What's on · Fieldday
+  description: Fieldday's workshops and meetups across France — when, where and how many seats are left. Registration takes a minute and is free.
+# The page is a flat list of full-width sections rather than one wrapper: a
+# data-bound section draws its rows on the server only at the top level of a
+# page. Each section pads itself to the same centred 880px column.
 components:
+  - $ref: ./_site-header.yaml
   - type: container
-    element: section
+    element: main
     props:
-      className: py-16 px-6
+      className: flex w-full flex-col bg-background pt-10 px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4 max-md:pt-6
     children:
       - type: container
         props:
-          className: max-w-4xl mx-auto
+          className: mb-2.5 flex flex-col gap-2
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-4 text-center
-            content: Upcoming events
           - type: text
             element: p
             props:
-              className: text-xl mb-8 text-center
-            content: Pick an event and register in under a minute.
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+            content: Fieldday · autumn 2026
+          - type: text
+            element: h1
+            props:
+              className: text-[40px] font-semibold leading-tight tracking-tight text-foreground max-md:text-[28px]
+            content: What's on
+          - type: text
+            element: p
+            props:
+              className: text-[17px] text-foreground-muted max-md:text-[15px]
+            content: The next events, soonest first. Registration takes a minute and is free.
+  # One card per open event. The children below are a template drawn
+  # once per event; `visibility.record` keeps, on each card, only the
+  # line and the button that fit that event.
+  - type: container
+    element: section
+    props:
+      aria-label: Events
+      className: flex w-full list-none flex-col gap-3 bg-background px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4 [&>li]:list-none
+    dataSource:
+      table: events
+      filter:
+        - { field: status, operator: eq, value: Open }
+      sort:
+        - { field: starts_at, direction: asc }
+    children:
+      - type: card
+        props:
+          className: '!flex-row flex items-center gap-5 rounded-lg border border-border bg-background-raised px-4 py-6 text-left max-md:!flex-col max-md:items-start max-md:gap-3'
+        children:
+          # The date tile.
           - type: container
             props:
-              className: flex gap-4 justify-center mb-10
+              aria-hidden: 'true'
+              className: flex h-[53px] w-[50px] flex-none flex-col items-center justify-center rounded-md bg-primary-subtle text-primary-subtle-foreground
             children:
-              - type: link
+              - type: text
+                element: span
                 props:
-                  href: /register
-                  className: inline-block px-6 py-3 rounded-lg font-medium border
-                content: Register now
-              - type: link
+                  className: text-[22px] font-semibold leading-none
+                content: $record.day_label
+              - type: text
+                element: span
                 props:
-                  href: /sign-in
-                  className: inline-block px-6 py-3 rounded-lg font-medium
-                content: Organizer sign-in
-
-          - type: table
-            dataSource:
-              table: events
-              filter:
-                - field: status
-                  operator: eq
-                  value: Open
-              sort:
-                - field: event_date
-                  direction: asc
-            columns:
-              - field: name
-                label: Event
-              - field: event_date
-                label: Date
-                format: short-date
-              - field: location
-                label: Location
-              - field: capacity
-                label: Capacity
-            pagination:
-              pageSize: 10
-            emptyMessage: Nothing scheduled right now — check back soon.
+                  className: font-mono text-[11px] uppercase tracking-wider
+                content: $record.month_label
+          - type: container
+            props:
+              className: flex min-w-0 flex-1 flex-col gap-1.5
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-[17px] font-semibold text-foreground
+                content: $record.name
+              # When, where and how full — the seats in the warning tone under
+              # ten, in the error tone when the event is full. The hidden
+              # commas keep the three facts apart for a screen reader.
+              - type: container
+                props:
+                  className: flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground-muted
+                children:
+                  - type: container
+                    props:
+                      className: flex items-center gap-1.5
+                    children:
+                      - type: icon
+                        props:
+                          name: clock
+                          size: 14
+                          className: flex-none text-foreground-subtle
+                      - type: text
+                        element: span
+                        content: $record.card_when
+                  - type: container
+                    props:
+                      className: flex items-center gap-1.5
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: sr-only
+                        content: ', '
+                      - type: icon
+                        props:
+                          name: map-pin
+                          size: 14
+                          className: flex-none text-foreground-subtle
+                      - type: text
+                        element: span
+                        content: $record.place
+                  - type: container
+                    props:
+                      className: flex items-center gap-1.5
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: sr-only
+                        content: ', '
+                      - type: icon
+                        props:
+                          name: ticket
+                          size: 14
+                          className: flex-none text-foreground-subtle
+                      - type: text
+                        element: span
+                        visibility:
+                          record: { field: seats_left, gte: 10 }
+                        content: $record.seats_left seats left
+                      - type: text
+                        element: span
+                        visibility:
+                          record: { field: seats_left, in: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+                        props:
+                          className: font-medium text-warning
+                        content: $record.seats_left seats left
+                      - type: text
+                        element: span
+                        visibility:
+                          record: { field: seats_left, eq: 0 }
+                        props:
+                          className: font-medium text-error
+                        content: Full · $record.on_waitlist on the waitlist
+          # One button. The accent goes to the event about to fill up; a full
+          # event offers its waitlist instead of registration.
+          - type: link
+            visibility:
+              record: { field: seats_left, in: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+            props:
+              href: /register?event=$record.id
+              className: inline-flex h-8 flex-none items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary-hover
+            content: Register
+          - type: link
+            visibility:
+              record: { field: seats_left, gte: 10 }
+            props:
+              href: /register?event=$record.id
+              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-background-raised px-3.5 text-sm font-medium text-foreground hover:bg-background-subtle
+            content: Register
+          - type: link
+            visibility:
+              record: { field: seats_left, eq: 0 }
+            props:
+              href: /waitlist/$record.id
+              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-background-raised px-3.5 text-sm font-medium text-foreground hover:bg-background-subtle
+            content: Join the waitlist
+  - type: text
+    element: p
+    props:
+      className: w-full bg-background pt-5 pb-16 text-xs text-foreground-muted px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4
+    content: No account needed. We only use your email for the event you register for.
+  - $ref: ./_site-footer.yaml

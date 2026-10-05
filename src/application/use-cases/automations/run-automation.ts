@@ -43,6 +43,7 @@ import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
+import { buildRecordEventChannel } from './run/record-event-channel'
 import { finaliseRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
 import {
   acquireSlot,
@@ -52,6 +53,7 @@ import {
   resolveConcurrencyLimit,
   unregisterCancellation,
 } from './run/scheduler'
+import { unlessStarterGone } from './run/starter-standing'
 import {
   cryptoRandomId,
   toResolvedRetry,
@@ -61,6 +63,7 @@ import {
   type RunRequirements,
   type StepContext,
 } from './run/types'
+import type { AutomationContext } from './action-handlers/shared'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
@@ -87,7 +90,7 @@ export type RunAutomationError =
 // ── re-exports: keep the public surface stable for external importers ────────
 
 export { MAX_ERROR_LENGTH, truncateError, type ExecuteAutomationRunInput } from './run/types'
-export type { ExecutedStep, RunAutomationResult } from './run/types'
+export type { RunAutomationResult } from './run/types'
 
 /**
  * Combined service requirement for {@link executeAutomationRun}. Exported
@@ -219,6 +222,28 @@ export const resolveAutomationId = (
   }).pipe(Effect.withSpan('automations.resolve-automation-id'))
 
 /**
+ * The identity a step's handlers see: the automation, its caller (if any), the
+ * persisted run id, and whether the caller started it by hand — the marker that
+ * makes record actions write as them.
+ */
+const toAutomationContext = (input: {
+  readonly name: string
+  readonly automationId: string
+  readonly userId: string | undefined
+  readonly runId?: string
+  readonly startedByHand?: boolean
+}): AutomationContext => ({
+  name: input.name,
+  id: input.automationId,
+  ...(input.userId !== undefined ? { userId: input.userId } : {}),
+  ...(input.runId !== undefined ? { runId: input.runId } : {}),
+  // Kept even without a caller: a hand-started run whose caller is gone (an
+  // account erased while the run waited on an approval) must write nothing,
+  // never fall back to writing as the system.
+  ...(input.startedByHand === true ? { startedByHand: true as const } : {}),
+})
+
+/**
  * Build a `StepContext` for the run loop.
  */
 const buildStepContext = (input: {
@@ -230,7 +255,10 @@ const buildStepContext = (input: {
   readonly triggerData: TriggerData
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
+  readonly startedByHand?: boolean
+  readonly propsFinal?: boolean
   readonly callDepth?: number
+  readonly recordEventDepth?: number
   readonly visitedAutomations?: ReadonlySet<string>
   /**
    * The persisted `system.automation_runs.id` for this run. Threaded into the
@@ -243,9 +271,9 @@ const buildStepContext = (input: {
   /** See `StepContext.runProgram` — captured from the running fiber. */
   readonly runProgram: StepContext['runProgram']
 }): StepContext => {
-  const { name, automationId, app, automation, processEnv, triggerData, handlers, userId } = input
-  const callDepth = input.callDepth ?? 0
-  const visited = input.visitedAutomations ?? new Set<string>()
+  const { name, automationId, app, automation, processEnv, triggerData, handlers } = input
+  const recordEventDepth = input.recordEventDepth ?? 0
+  const automationContext = toAutomationContext({ ...input, name, automationId })
   return {
     app,
     runProgram: input.runProgram,
@@ -253,16 +281,20 @@ const buildStepContext = (input: {
     processEnv,
     handlers,
     templateContext: buildAutomationContext(triggerData),
-    automation: {
-      name,
-      id: automationId,
-      ...(userId !== undefined ? { userId } : {}),
-      ...(input.runId !== undefined ? { runId: input.runId } : {}),
-    },
+    automation: automationContext,
     triggerData: triggerData as Readonly<Record<string, unknown>>,
     automationRetry: toResolvedRetry(automation.retry),
-    callDepth,
-    visitedAutomations: new Set([...visited, name]),
+    callDepth: input.callDepth ?? 0,
+    visitedAutomations: new Set([...(input.visitedAutomations ?? []), name]),
+    recordEventDepth,
+    recordEvents: buildRecordEventChannel({
+      app,
+      processEnv,
+      automation: automationContext,
+      recordEventDepth,
+      runProgram: input.runProgram,
+    }),
+    ...(input.propsFinal === true ? { propsFinal: true as const } : {}),
   }
 }
 
@@ -304,8 +336,9 @@ const enqueueAndAdmit = (
   input: ExecuteAutomationRunInput
 ): Effect.Effect<{ readonly runId: string; readonly admittedAt: Date }, never, RunRequirements> =>
   Effect.gen(function* () {
-    const { name, automation, automationId, processEnv, triggerData, userId } = input
-    const persistedQueuedId = yield* persistQueuedRun({ automationId, triggerData, userId })
+    const { name, automation, processEnv } = input
+    // The run's id, actor, hand-start marker and relay, all read off the input.
+    const persistedQueuedId = yield* persistQueuedRun(input)
     const runId = persistedQueuedId ?? cryptoRandomId()
     // The returned AbortController is intentionally discarded — the cancel
     // endpoint reads it back via `signalCancellation(runId)` rather than
@@ -340,6 +373,7 @@ const finaliseAndRelease = (input: {
   readonly startedAt: Date
   readonly finishedAt: Date
   readonly userId: string | undefined
+  readonly run: ExecuteAutomationRunInput
   /** Set once the row is finalised, so the abandon guard does not finalise it again. */
   readonly finalised: Ref.Ref<boolean>
 }): Effect.Effect<
@@ -366,6 +400,7 @@ const finaliseAndRelease = (input: {
       finishedAt: input.finishedAt,
       steps: effectiveState.steps,
       userId: input.userId,
+      source: input.run,
     })
     yield* Ref.set(input.finalised, true)
     const observedRunId = finalisedId ?? input.runId
@@ -427,11 +462,14 @@ const runAdmitted = (
     // sandbox's Promise boundary runs on the services this run already holds.
     const runProgram = runOnAutomationServices(yield* Effect.context<RunRequirements>())
     const ctx = buildStepContext({ ...input, runId, runProgram })
-    const finalState = yield* runActionsWithTimeout(rawActions, ctx, {
+    const steps = runActionsWithTimeout(rawActions, ctx, {
       timeoutMs: runTimeoutMs,
       skipActionNames,
+      ...(input.seedOutputs === undefined ? {} : { seedOutputs: input.seedOutputs }),
       automationInvoker: boundAutomationInvoker,
     })
+    // A resumed run whose starter was banned meanwhile runs no step at all.
+    const finalState = yield* unlessStarterGone(input, steps)
     const finishedAtDate = new Date()
     const { observedRunId, effectiveState } = yield* finaliseAndRelease({
       name,
@@ -442,6 +480,7 @@ const runAdmitted = (
       startedAt: admittedAt,
       finishedAt: finishedAtDate,
       userId: input.userId,
+      run: input,
       finalised,
     })
     yield* dispatchPostRunFailureEffects({

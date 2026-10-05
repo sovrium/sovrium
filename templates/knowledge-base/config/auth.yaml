@@ -1,8 +1,20 @@
-# Email + password auth. First registered user becomes admin (Better Auth
-# firstUserAdmin); subsequent sign-ups get the default `member` role. Every
-# authenticated employee can read the handbook.
-allowSignUp: true
+# Sign-in for everyone at the company, closed to strangers.
+#
+# The handbook is private, so there is no public sign-up: the first
+# administrator comes from `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the
+# first start, and everyone else is added with `sovrium admin create <email>`.
+# The demo accounts come from `seed/users.yaml`.
+#
+# Two roles on top of the built-in ones: `member` for every colleague, who
+# reads the handbook, and `managers`, who also read the managers' section
+# (config/pages/kb-managers.yaml). The `admin` who owns the handbook reads
+# everything.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword
     minPasswordLength: 8
+roles:
+  - name: managers
+    description: People managers — also read the section on hiring and pay
+    level: 60

@@ -32,23 +32,37 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { asMinMaxAnswer, minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import {
+  answerOrderedAggregations,
   computeGroupPartitions,
   reshapeShortcutAggregations,
   type AggregateConfig,
+  type OrderedAnswer,
 } from './aggregation-helpers'
 import { enrichRecordsWithAttachmentUrls } from './attachment-url-enricher'
 import { buildProjectionColumns } from './field-projection'
+import {
+  omitHiddenColumnLookups,
+  omitHiddenRecordLookups,
+  withLookupKeyColumns,
+} from './hidden-lookup-omission'
 import { processRecords, buildPaginationMeta, DEFAULT_PAGE_SIZE } from './list-helpers'
+import { lookupReadMasks } from './lookup-read-masks'
 import {
   enrichRecordsWithManyToMany,
   enrichRecordsWithRelatedLabels,
 } from './record-link-enrichment'
-import type { TransformedRecord } from './record-transformer'
+import { serializeDriverRow, type TransformedRecord } from './record-transformer'
 import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type {
+  LookupReadMask,
+  QueryFilter,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
@@ -119,16 +133,23 @@ function computeListRecordsAggregationBlock(params: {
   readonly includeDeleted?: boolean
   readonly aggregate: AggregateConfig
   readonly groupBy?: string
+  readonly lookupMasks: readonly LookupReadMask[]
+  readonly app: ListRecordsConfig['app']
 }) {
   return Effect.gen(function* () {
     const { repo, session, tableName, records, filter, includeDeleted, aggregate, groupBy } = params
-    const raw = yield* repo.computeAggregations({
+    const computed = yield* repo.computeAggregations({
       session,
       tableName,
       filter,
       includeDeleted,
       aggregate,
+      lookupMasks: params.lookupMasks,
     })
+    // A `min`/`max` over a date answers as the records API reads the date.
+    const answer: OrderedAnswer = (field, value) =>
+      asMinMaxAnswer(minMaxKindOf(params.app, tableName, field), value)
+    const raw = answerOrderedAggregations(computed, answer)
     const aggregations = aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw
     // Grouping and aggregating are two questions about the same view, not two
     // modes: a grid that both groups its rows AND summarises a column asks both
@@ -137,16 +158,42 @@ function computeListRecordsAggregationBlock(params: {
     // sending `?groupBy=`, so both blocks are returned.
     const levels = parseGroupByLevels(groupBy)
     if (levels.length > 0) {
-      return { groups: computeGroupPartitions(records, levels, aggregate), aggregations }
+      // A group is named by the value as the records API reads it: a date as
+      // its day, a timestamp as its ISO instant — never a driver `Date`'s text.
+      const readable = records.map((row) => serializeDriverRow(row, { app: params.app, tableName }))
+      return { groups: computeGroupPartitions(readable, levels, aggregate, answer), aggregations }
     }
     return { aggregations }
   })
 }
 
+/** The many-to-many read of a page: the fields asked for, narrowed to what this reader may read. */
+const linkReadOptions = (config: ListRecordsConfig) => ({
+  fields: config.fields,
+  reader: { session: config.session, role: config.userRole, groups: config.userGroups ?? [] },
+})
+
+/**
+ * A page with its many-to-many links resolved, then every lookup
+ * through such a link to a row the reader may not read left out — lookups
+ * through a key column were judged on the raw rows.
+ */
+const withReadableLinks = (config: ListRecordsConfig, records: readonly TransformedRecord[]) =>
+  enrichRecordsWithManyToMany(config.app, config.tableName, records, linkReadOptions(config)).pipe(
+    Effect.flatMap((page) =>
+      omitHiddenRecordLookups(config.app, config.tableName, page, linkReadOptions(config).reader)
+    )
+  )
+
 /** Who the relationship labels are resolved for, and which ones the request asked for. */
 const labelAudience = (config: ListRecordsConfig) => ({
-  reader: { role: config.userRole, groups: config.userGroups ?? [] },
+  reader: {
+    role: config.userRole,
+    groups: config.userGroups ?? [],
+    signedOut: isGuestSession(config.session.userId),
+  },
   requested: config.labels ?? [],
+  linkReader: linkReadOptions(config).reader,
 })
 
 /**
@@ -175,6 +222,7 @@ const buildRecordPage = (
       app: config.app,
       tableName: config.tableName,
       userRole: config.userRole,
+      userGroups: config.userGroups ?? [],
       format: config.format,
       timezone: config.timezone,
       fields: config.fields,
@@ -190,12 +238,7 @@ const buildRecordPage = (
     const paginatedRecords = page.preSliced
       ? enriched
       : enriched.slice(pagination.offset, pagination.offset + pagination.limit)
-    const withM2m = yield* enrichRecordsWithManyToMany(
-      config.app,
-      config.tableName,
-      paginatedRecords,
-      config.fields
-    )
+    const withM2m = yield* withReadableLinks(config, paginatedRecords)
     // Labels for every relationship column that declared one — or that the
     // request asked for — narrowed to what this reader may read. Enriched after
     // pagination and after the junction read, so the lookup covers ONE page of
@@ -245,6 +288,7 @@ const countMatchingRecords = (
     readonly tableName: string
     readonly filter?: QueryFilter
     readonly includeDeleted?: boolean
+    readonly lookupMasks: readonly LookupReadMask[]
   },
   fallback: number
 ): Effect.Effect<number, DatabaseError> =>
@@ -274,6 +318,20 @@ const countMatchingRecords = (
 const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service']) =>
   Effect.gen(function* () {
     const { session, tableName, filter, includeDeleted, groupBy } = config
+    // A lookup the query steers on is evaluated as empty where its linked
+    // record is hidden from this reader — in the page, the count, the
+    // aggregates and the group names.
+    const lookupMasks = yield* lookupReadMasks(
+      config.app,
+      tableName,
+      linkReadOptions(config).reader,
+      {
+        filter,
+        sort: config.sort,
+        aggregate: config.aggregate as Readonly<Record<string, unknown>> | undefined,
+        groupBy,
+      }
+    )
     const primaryKey = config.app.tables?.find((t) => t.name === tableName)?.primaryKey
     const preSliced = groupBy === undefined
     const records = yield* repo.listRecords({
@@ -281,13 +339,15 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       tableName,
       filter,
       includeDeleted,
+      lookupMasks,
       sort: config.sort,
       ...(config.sortByOptionOrder === true && { app: config.app }),
       ...(preSliced ? { limit: config.limit ?? DEFAULT_PAGE_SIZE, offset: config.offset } : {}),
       columns: buildProjectionColumns({
         app: config.app,
         tableName,
-        fields: config.fields,
+        // A selected lookup brings its key, so it can be judged below.
+        fields: withLookupKeyColumns(config.app, tableName, config.fields),
         groupBy,
       }),
       // The default sort key for a request that supplied no `sort`. A table
@@ -298,21 +358,29 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
     const total = preSliced
       ? yield* countMatchingRecords(
           repo,
-          { session, tableName, filter, includeDeleted },
+          { session, tableName, filter, includeDeleted, lookupMasks },
           records.length
         )
       : records.length
-    return { records, total, preSliced }
+    return { records, total, preSliced, lookupMasks }
   })
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
-): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository | AuthRepository> {
+): Effect.Effect<
+  ListRecordsResponse,
+  DatabaseError,
+  TableRepository | AuthRepository | DataSourceRepository
+> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 
-    const { records, total, preSliced } = yield* readListRows(config, repo)
+    const { total, preSliced, lookupMasks, ...read } = yield* readListRows(config, repo)
+    // On the RAW rows, before field permissions and `?fields=` can drop a
+    // lookup's key — and before the groups below are keyed on its value.
+    const { reader } = linkReadOptions(config)
+    const records = yield* omitHiddenColumnLookups(config.app, tableName, read.records, reader)
     const { records: pageRecords, pagination } = yield* buildRecordPage(config, records, {
       total,
       preSliced,
@@ -331,13 +399,20 @@ export function createListRecordsProgram(
           includeDeleted,
           aggregate,
           groupBy,
+          lookupMasks,
+          app: config.app,
         })
       : {}
 
     // When groupBy is specified without aggregate, compute name/count groups only
     const simpleGroupsBlock =
       groupBy && !aggregate
-        ? { groups: computeGroupPartitions(records, parseGroupByLevels(groupBy)) }
+        ? {
+            groups: computeGroupPartitions(
+              records.map((row) => serializeDriverRow(row, { app: config.app, tableName })),
+              parseGroupByLevels(groupBy)
+            ),
+          }
         : {}
 
     return {

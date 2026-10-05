@@ -11,23 +11,46 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
+import { adminRoleNamesFor } from '@/domain/models/app/auth/roles/role-write-validation'
 import {
   createdByFieldNames,
   deletedByFieldNames,
   updatedByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
-import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
+import {
+  appendAuditEntryToDb,
+  appendAuditEntryToDbTx,
+  hasAuditEntrySinceLatest,
+  shedActorEmailInDbTx,
+} from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
-import { logError, logInfo } from '@/infrastructure/logging/logger'
+import { logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
+import { closeUserConnections, SESSION_ENDED } from '@/infrastructure/realtime/connection-counter'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
+import { deleteOutstandingAccountDeletionTokens } from './account-deletion-tokens'
 import { PURGED_AUTH_TABLES, PURGED_SYSTEM_TABLES } from './account-purge-coverage'
+import {
+  eraseUnderLastAdminRail,
+  lockAdminCandidates,
+  readErasureSubject,
+  type PurgeOutcome,
+} from './account-purge-rail'
+import {
+  cascadingChildren,
+  collectErasedRecords,
+  scrubRunsReading,
+  userFieldNames,
+  type CascadingChild,
+  type ErasureReachTable,
+} from './account-purge-runs'
 import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames, systemTableExists } from './sql/dialect-introspection'
 import { authTableRef, systemTableRef } from './sql/dialect-sql'
 import type { AuditLogEntry } from '@/domain/models/api/admin/audit-log/entry'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 /**
@@ -103,7 +126,7 @@ const SHED_AUTHORSHIP_FIELDS = [AUTHORSHIP_FIELDS.UPDATED_BY, AUTHORSHIP_FIELDS.
  * deleted, silently, behind an HTTP 200 and a truthful-looking `purgedCount: 1`.
  *
  * Resolution is by FIELD TYPE, via the same `@/domain/services/authorship-fields`
- * helpers the WRITE path already uses (GAP-16/GAP-21). That the write path was
+ * helpers the WRITE path already uses. That the write path was
  * type-driven while the erasure path stayed name-driven is what made the gap
  * invisible: records were stamped into `author` correctly and then never swept.
  *
@@ -120,7 +143,20 @@ export interface PurgeTableAuthorship {
   readonly createdByColumns: readonly string[]
   /** Columns whose match means "the user ACTED ON this row" — the stamp is shed. */
   readonly shedColumns: readonly string[]
+  /** The `user` fields: a person named on somebody else's row (`ON DELETE SET NULL`). */
+  readonly userColumns?: readonly string[]
+  /** The tables whose rows the config deletes with this table's. */
+  readonly cascadedBy?: readonly CascadingChild[]
 }
+
+/** The app tables as the run scrub reads them: what names her, and what goes with her rows. */
+const erasureReach = (appTables: readonly PurgeTableAuthorship[]): readonly ErasureReachTable[] =>
+  appTables.map((table) => ({
+    name: table.name,
+    createdByColumns: table.createdByColumns,
+    namingColumns: [...table.shedColumns, ...(table.userColumns ?? [])],
+    cascadedBy: table.cascadedBy ?? [],
+  }))
 
 /** {@link PurgeTableAuthorship} narrowed to the columns that actually exist. */
 interface ProbedAuthorship {
@@ -150,6 +186,8 @@ export const resolvePurgeTableAuthorship = (
       ...deletedByFieldNames(tables, tableName),
     ]),
   ],
+  userColumns: userFieldNames(tables, tableName),
+  cascadedBy: cascadingChildren(tables, tableName),
 })
 
 /**
@@ -526,9 +564,9 @@ async function deleteAiActivityRows(
  *. `actor.id` is `null` because system actors have no
  * user identity — which is where the old shape ended up regardless, since the
  * `actor_id` FK's `ON DELETE SET NULL` null-ified it on commit one statement
- * later. The email is likewise kept OUT of the actor block: `actor_email` is
- * never cleared by erasure, so putting it there would have retained the address
- * in a column nothing sweeps, on top of the copy the metadata deliberately keeps.
+ * later. The email is likewise kept OUT of the actor block: the metadata copy is
+ * the one the erasure deliberately keeps, and the erasure clears `actor_email`
+ * on every other entry the person made.
  *
  * @param userId - The user being erased.
  * @param erasedEmail - Their email, captured before the user row is deleted.
@@ -563,6 +601,60 @@ function buildPurgeAuditEntry(
 }
 
 /**
+ * The erasure's two writes to the audit trail, inside its transaction and
+ * before the user row is deleted.
+ *
+ * First the address on every entry the user made is cleared. The entries stay
+ * — they record what was done to the instance — but `actor_email` is a plain
+ * column the `actor_id` FK never touches, so it is cleared by `actor_id` while
+ * that id still links the row to the person. Then the `account.deletion.purged`
+ * entry is appended; its `metadata.erasedEmail` is the one retained copy of the
+ * address, the proof the erasure happened. On commit the FK null-ifies the
+ * remaining `actor_id`s when the user row goes.
+ */
+async function settleAuditTrail(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string,
+  erasedEmail: string | undefined
+): Promise<void> {
+  await shedActorEmailInDbTx(tx, userId)
+  await appendAuditEntryToDbTx(tx, buildPurgeAuditEntry(userId, erasedEmail))
+}
+
+/**
+ * The erased user's `auth.verification` rows. Most are keyed by the user's
+ * email identifier; an account-deletion link is keyed by a random identifier
+ * and holds the user's ID as its value, so it is swept separately — without
+ * that a second, unused link would outlive the account it names.
+ */
+async function deleteVerificationRows(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`DELETE FROM ${authTableRef('verification')}
+        WHERE identifier IN (SELECT email FROM ${authTableRef('user')} WHERE id = ${userId})`
+  )
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(tx, deleteOutstandingAccountDeletionTokens(userId))
+}
+
+/**
+ * What follows a committed erasure. The account's live realtime connections
+ * are closed — an erased account reads nothing more, rather than until its
+ * socket happens to drop — with the session-ended code, since its sessions
+ * went with it (by cascade, so no session-delete hook saw them); and the personal-data OBJECT its avatar pointed at
+ * is shed, post-commit for the reason given on {@link removeErasedAvatarObject}.
+ */
+async function settleCommittedErasure(userId: string, image: string | null): Promise<void> {
+  // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect
+  closeUserConnections(userId, SESSION_ENDED)
+  await removeErasedAvatarObject(userId, image)
+}
+
+/**
  * Physically delete every personal-data row owned by `userId`.
  *
  * Deletion order (FK-safe — children before the `auth.user` parent), with the
@@ -582,10 +674,12 @@ function buildPurgeAuditEntry(
  *      ({@link shedGrantIssuerIdentifier}); then the `system.ai_activity_logs`
  *      rows naming the user by id or address ({@link deleteAiActivityRows})
  *   5. `system._admin_search_index` — the operator-search projection of the user
- *   6. `auth.verification` rows (matched by the user's email identifier)
+ *   6. `auth.verification` rows (matched by the user's email identifier, and
+ *      every outstanding account-deletion token holding the user's id)
  *   7. `auth.two_factor` rows
  *   8. `auth.session` rows
- *   9. `auth.account` rows
+ *   9. `auth.account` rows, then `audit_log.actor_email` cleared on every
+ *      entry the user made (the entries stay; the address goes)
  *  10. INSERT the `account.deletion.purged` audit entry. Its actor is the
  *      non-human sweep, so `actor_id` is NULL from the start; the metadata
  *      captures `erasedUserId` + `erasedEmail` so the audit trail can still
@@ -672,175 +766,273 @@ async function removeErasedAvatarObject(userId: string, image: string | null): P
   evictTransformCacheForKey(key)
 }
 
-export async function purgeAccount(
+async function eraseAccountRows(
+  tx: Readonly<DrizzleTransaction>,
   userId: string,
+  erasedEmail: string | undefined,
   appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
+  // 0. The automation runs that read her records, a record naming her, or a
+  //    record removed with hers — collected BEFORE anything below deletes or
+  //    empties them — keep their steps and lose every value (`account-purge-runs.ts`).
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await scrubRunsReading(tx, await collectErasedRecords(tx, userId, erasureReach(appTables)))
+
+  // 1. App-table records authored by the user, then the authorship stamps left
+  //    on records authored by SOMEBODY ELSE — two deliberately different
+  //    verdicts, see {@link sweepAppTableAuthorship}.
+  await sweepAppTableAuthorship(tx, userId, appTables)
+
+  // 2. Form-submission ledger rows the user submitted. PHYSICAL delete, not
+  //    a `deleted_at` tombstone and not a null-ified `submitter_user_id` —
+  //    the submitted body is itself personal data (people disclose addresses
+  //    and phone numbers in free-text fields), so orphaning the row would
+  //    leave that data in place. Rows with a NULL `submitter_user_id` are
+  //    anonymous submissions belonging to nobody and are left untouched.
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`DELETE FROM ${systemTableRef('form_submissions')} WHERE submitter_user_id = ${userId}`
+  )
+
+  // 3. Comments the user authored. BEHAVIOUR-NEUTRAL: `record_comments.user_id`
+  //    carries `ON DELETE CASCADE` on both dialects, so step 9 already removes
+  //    exactly these rows. Naming the table here is a readability contract, not
+  //    a behaviour change — the enumeration in this function is what an operator
+  //    reads to answer "what does erasure delete?", and a cascade is invisible
+  //    to that reading. `moderated_by` is deliberately NOT matched: moderating
+  //    someone else's comment is an act ON another user's content, and its FK
+  //    is `ON DELETE SET NULL` (identifier shed, comment retained).
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`DELETE FROM ${systemTableRef('record_comments')} WHERE user_id = ${userId}`
+  )
+
+  // 4. The config-gated, user-owned system rows — the per-user comment
+  //    read-state watermark and the row-level access grants. Hard DELETE, and
+  //    named here rather than given a cascade, for the reasons set out on
+  //    `USER_OWNED_GATED_SYSTEM_TABLES`.
+  await deleteUserOwnedGatedSystemRows(tx, userId)
+
+  // 4b. The grants the user ISSUED to other people. Those rows are somebody
+  //     else's live authorization, so only the issuer identifier goes.
+  await shedGrantIssuerIdentifier(tx, userId)
+
+  // 4c. The AI-interaction activity feed, which names the user by id AND by
+  //     address across two bare columns. Hard DELETE — nothing survives the
+  //     removal of the actor there.
+  await deleteAiActivityRows(tx, userId, erasedEmail)
+
+  // 4d. Every table the erasure census marks `delete` — the 2026-08-26
+  //     coverage audit's eighteen, driven straight off the manifest so the
+  //     list an operator reads is the list the engine runs.
+  await deleteCensusRows(tx, userId)
+
+  // 4e. AI tool-call transcripts, whose predicate is compound (`caller_type`
+  //     scopes the bare `caller_id`).
+  await deleteAiToolCallRows(tx, userId)
+
+  // 4f. Short links the user published. SHED, not deleted — the URL is live
+  //     third-party traffic; only the author's identifier goes.
+  await shedLinkAuthorIdentifier(tx, userId)
+
+  // 4g. Design-system share links the user minted. SHED for the same reason:
+  //     somebody outside the organisation is holding the URL, and the
+  //     document it serves carries no personal data to begin with.
+  await shedDesignSystemShareMinterIdentifier(tx, userId)
+
+  // 5. The admin-console search projection of this user. Not a cascade
+  //    candidate and not an FK candidate either: `_admin_search_index` is a
+  //    DERIVED index, rebuilt by an `INSERT … ON CONFLICT DO UPDATE` upsert
+  //    that only ever writes rows for entities that still exist and never
+  //    prunes rows whose source is gone — so without this DELETE the row is
+  //    permanent. It matters because `title` holds the user's EMAIL, which
+  //    makes the leftover row an erased address that stays searchable by every
+  //    operator, not merely a stale identifier.
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`DELETE FROM ${systemTableRef('_admin_search_index')}
+          WHERE type = 'user' AND entity_id = ${userId}`
+  )
+
+  // 6. Verification rows: by the user's email identifier, and every
+  //    outstanding account-deletion link — see {@link deleteVerificationRows}.
+  await deleteVerificationRows(tx, userId)
+
+  // 6b. Shed this user's identifier from OTHER people's sessions.
+  //     `auth.session.impersonated_by` records an ADMIN who impersonated the
+  //     session's owner, so the row belongs to the impersonated party and must
+  //     survive — only the erased admin's raw id goes. The column is a bare
+  //     TEXT with no FK on either dialect, so nothing sheds it on commit.
+  //
+  //     The census in `account-purge-coverage.ts` has asserted verdict `shed`
+  //     for this column all along, with a written reason, and no statement
+  //     performed it. The coverage drift test proves reachability only for
+  //     `delete` verdicts, so a `shed` claim was documentation rather than
+  //     behaviour — and an erased admin's user id survived in every session row
+  //     of everyone they had ever impersonated.
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`UPDATE ${authTableRef('session')} SET impersonated_by = NULL WHERE impersonated_by = ${userId}`
+  )
+
+  // 7-9. Direct child rows of auth.user.
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(tx, sql`DELETE FROM ${authTableRef('two_factor')} WHERE user_id = ${userId}`)
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(tx, sql`DELETE FROM ${authTableRef('account')} WHERE user_id = ${userId}`)
+
+  // 9b-10. The audit trail: the user's address leaves the entries they made,
+  //    and the `account.deletion.purged` entry is written — both while the
+  //    user row still exists. See {@link settleAuditTrail}.
+  await settleAuditTrail(tx, userId, erasedEmail)
+
+  // 11. The parent auth.user row — FK fires on commit, null-ifying actor_id
+  //    and shedding every `type: 'user'` assignment on records this user did
+  //    not author.
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
+}
+
+/**
+ * Physically delete every personal-data row owned by `userId`, unless it is the
+ * last account that can administer the app — see {@link eraseUnderLastAdminRail}.
+ *
+ * The one erasure behind both deletion doors: the scheduled sweep and the link
+ * `/delete-user` mails. What it deletes, and in which order, is set out on
+ * {@link eraseAccountRows}'s steps above.
+ *
+ * @param userId - The user whose account is being erased.
+ * @param appTables - App tables with their CONFIG-RESOLVED authorship columns
+ *   (see {@link PurgeTableAuthorship}); build them with
+ *   {@link resolvePurgeTableAuthorship}.
+ * @param app - The app's roles, for who can administer it.
+ * @returns `Erased`, or `Refused` with the rail's message when nothing was written.
+ */
+export async function purgeAccount(
+  userId: string,
+  appTables: readonly PurgeTableAuthorship[],
+  app: AdminRoleResolvable
+): Promise<PurgeOutcome> {
   // Read the avatar BEFORE the row is deleted — see {@link readStoredAvatarImage}.
   const storedAvatarImage = await readStoredAvatarImage(userId)
 
-  await db.transaction(async (tx) => {
-    // Capture the email BEFORE deleting the user row — it lands in the
-    // audit-event metadata so operators can answer "who was erased?" after
-    // the user row is gone (and the audit `actor_id` is null-ified).
-    const emailRows = (await executeRaw(
-      tx,
-      sql`SELECT email FROM ${authTableRef('user')} WHERE id = ${userId}`
-    )) as unknown as readonly { email: string }[]
-    const erasedEmail = emailRows[0]?.email
+  const outcome = await db.transaction(async (tx) =>
+    eraseUnderLastAdminRail(userId, app, {
+      readSubject: () => readErasureSubject(tx, userId),
+      lockAdminCandidates: () => lockAdminCandidates(tx, adminRoleNamesFor(app)),
+      // The email is captured BEFORE the user row goes: it lands in the
+      // `account.deletion.purged` metadata so operators can answer "who was
+      // erased?" once the row and the audit `actor_id`s are gone.
+      erase: (subject) => eraseAccountRows(tx, userId, subject?.email, appTables),
+    })
+  )
+  if (outcome._tag === 'Refused') return outcome
 
-    // 1. App-table records authored by the user, then the authorship stamps left
-    //    on records authored by SOMEBODY ELSE — two deliberately different
-    //    verdicts, see {@link sweepAppTableAuthorship}.
-    await sweepAppTableAuthorship(tx, userId, appTables)
-
-    // 2. Form-submission ledger rows the user submitted. PHYSICAL delete, not
-    //    a `deleted_at` tombstone and not a null-ified `submitter_user_id` —
-    //    the submitted body is itself personal data (people disclose addresses
-    //    and phone numbers in free-text fields), so orphaning the row would
-    //    leave that data in place. Rows with a NULL `submitter_user_id` are
-    //    anonymous submissions belonging to nobody and are left untouched.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(
-      tx,
-      sql`DELETE FROM ${systemTableRef('form_submissions')} WHERE submitter_user_id = ${userId}`
-    )
-
-    // 3. Comments the user authored. BEHAVIOUR-NEUTRAL: `record_comments.user_id`
-    //    carries `ON DELETE CASCADE` on both dialects, so step 9 already removes
-    //    exactly these rows. Naming the table here is a readability contract, not
-    //    a behaviour change — the enumeration in this function is what an operator
-    //    reads to answer "what does erasure delete?", and a cascade is invisible
-    //    to that reading. `moderated_by` is deliberately NOT matched: moderating
-    //    someone else's comment is an act ON another user's content, and its FK
-    //    is `ON DELETE SET NULL` (identifier shed, comment retained).
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(
-      tx,
-      sql`DELETE FROM ${systemTableRef('record_comments')} WHERE user_id = ${userId}`
-    )
-
-    // 4. The config-gated, user-owned system rows — the per-user comment
-    //    read-state watermark and the row-level access grants. Hard DELETE, and
-    //    named here rather than given a cascade, for the reasons set out on
-    //    `USER_OWNED_GATED_SYSTEM_TABLES`.
-    await deleteUserOwnedGatedSystemRows(tx, userId)
-
-    // 4b. The grants the user ISSUED to other people. Those rows are somebody
-    //     else's live authorization, so only the issuer identifier goes.
-    await shedGrantIssuerIdentifier(tx, userId)
-
-    // 4c. The AI-interaction activity feed, which names the user by id AND by
-    //     address across two bare columns. Hard DELETE — nothing survives the
-    //     removal of the actor there.
-    await deleteAiActivityRows(tx, userId, erasedEmail)
-
-    // 4d. Every table the erasure census marks `delete` — the 2026-08-26
-    //     coverage audit's eighteen, driven straight off the manifest so the
-    //     list an operator reads is the list the engine runs.
-    await deleteCensusRows(tx, userId)
-
-    // 4e. AI tool-call transcripts, whose predicate is compound (`caller_type`
-    //     scopes the bare `caller_id`).
-    await deleteAiToolCallRows(tx, userId)
-
-    // 4f. Short links the user published. SHED, not deleted — the URL is live
-    //     third-party traffic; only the author's identifier goes.
-    await shedLinkAuthorIdentifier(tx, userId)
-
-    // 4g. Design-system share links the user minted. SHED for the same reason:
-    //     somebody outside the organisation is holding the URL, and the
-    //     document it serves carries no personal data to begin with.
-    await shedDesignSystemShareMinterIdentifier(tx, userId)
-
-    // 5. The admin-console search projection of this user. Not a cascade
-    //    candidate and not an FK candidate either: `_admin_search_index` is a
-    //    DERIVED index, rebuilt by an `INSERT … ON CONFLICT DO UPDATE` upsert
-    //    that only ever writes rows for entities that still exist and never
-    //    prunes rows whose source is gone — so without this DELETE the row is
-    //    permanent. It matters because `title` holds the user's EMAIL, which
-    //    makes the leftover row an erased address that stays searchable by every
-    //    operator, not merely a stale identifier.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(
-      tx,
-      sql`DELETE FROM ${systemTableRef('_admin_search_index')}
-          WHERE type = 'user' AND entity_id = ${userId}`
-    )
-
-    // 6. Verification rows are keyed by the user's email identifier.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(
-      tx,
-      sql`DELETE FROM ${authTableRef('verification')}
-          WHERE identifier IN (SELECT email FROM ${authTableRef('user')} WHERE id = ${userId})`
-    )
-
-    // 6b. Shed this user's identifier from OTHER people's sessions.
-    //     `auth.session.impersonated_by` records an ADMIN who impersonated the
-    //     session's owner, so the row belongs to the impersonated party and must
-    //     survive — only the erased admin's raw id goes. The column is a bare
-    //     TEXT with no FK on either dialect, so nothing sheds it on commit.
-    //
-    //     The census in `account-purge-coverage.ts` has asserted verdict `shed`
-    //     for this column all along, with a written reason, and no statement
-    //     performed it. The coverage drift test proves reachability only for
-    //     `delete` verdicts, so a `shed` claim was documentation rather than
-    //     behaviour — and an erased admin's user id survived in every session row
-    //     of everyone they had ever impersonated.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(
-      tx,
-      sql`UPDATE ${authTableRef('session')} SET impersonated_by = NULL WHERE impersonated_by = ${userId}`
-    )
-
-    // 7-9. Direct child rows of auth.user.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(tx, sql`DELETE FROM ${authTableRef('two_factor')} WHERE user_id = ${userId}`)
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(tx, sql`DELETE FROM ${authTableRef('account')} WHERE user_id = ${userId}`)
-
-    // 10. Insert the audit entry while the user row still exists. The
-    //    `actor_id` FK is valid at insert time; on commit the FK fires
-    //    when step 11 deletes the user row and null-ifies `actor_id`.
-    await appendAuditEntryToDbTx(tx, buildPurgeAuditEntry(userId, erasedEmail))
-
-    // 11. The parent auth.user row — FK fires on commit, null-ifying actor_id
-    //    and shedding every `type: 'user'` assignment on records this user did
-    //    not author.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
-  })
-
-  // The row is gone; now shed the personal-data OBJECT it pointed at. Post-commit
-  // for the reason given on {@link removeErasedAvatarObject}.
-  await removeErasedAvatarObject(userId, storedAvatarImage)
+  // The row is gone: close its live connections and shed its avatar object.
+  await settleCommittedErasure(userId, storedAvatarImage)
 
   logInfo(`[account-purge] Hard-deleted account ${userId}`)
+  return outcome
+}
+
+/**
+ * The `account.deletion.deferred` entry: the sweep left a due account in place
+ * because it is the last one that can administer the app. The account is named
+ * by its id alone — no address, no name — so the entry names no one once the
+ * account is finally erased.
+ */
+export function buildDeferredErasureEntry(userId: string): Readonly<AuditLogEntry> {
+  return {
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    action: AUDIT_ACTIONS.ACCOUNT_DELETION_DEFERRED,
+    // eslint-disable-next-line unicorn/no-null -- the actor contract is `null` for system actors (nullable FK column)
+    actor: { id: null, type: 'system', role: 'system' },
+    resource: { type: 'user', id: userId },
+    severity: 'warning',
+    result: 'failure',
+    transport: 'api',
+    metadata: { reason: 'last-admin' },
+  }
+}
+
+/** Injectable for unit tests (no `mock.module()`). */
+export interface PurgeSweepDeps {
+  readonly findDueAccountIds?: () => Promise<readonly string[]>
+  readonly purge?: (userId: string) => Promise<PurgeOutcome>
+  /** `true` when this scheduled erasure's deferral is already on the audit trail. */
+  readonly deferralRecorded?: (userId: string) => Promise<boolean>
+  readonly recordDeferral?: (entry: Readonly<AuditLogEntry>) => Promise<void>
+  /** The operator warning each deferring sweep logs. */
+  readonly warn?: (message: string) => void
+}
+
+async function findDueAccountIds(): Promise<readonly string[]> {
+  const rows = (await executeRaw(
+    db,
+    sql`SELECT id FROM ${authTableRef('user')}
+        WHERE "scheduledErasureAt" IS NOT NULL AND "scheduledErasureAt" <= ${sql.raw(nowEpochMsSqlLiteral())}`
+  )) as unknown as readonly { id: string }[]
+  return rows.map((row) => row.id)
+}
+
+/**
+ * A deferral is recorded once per scheduled erasure: an earlier
+ * `account.deletion.deferred` entry for the account, written since it was last
+ * scheduled, means this one is already on the trail. A new schedule after a
+ * cancel starts over.
+ */
+const deferralRecordedSinceScheduled = (userId: string): Promise<boolean> =>
+  hasAuditEntrySinceLatest({
+    action: AUDIT_ACTIONS.ACCOUNT_DELETION_DEFERRED,
+    sinceAction: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
+    resourceId: userId,
+  })
+
+/** Leave a refused account in place: a warning each sweep, one audit entry per schedule. */
+async function deferErasure(userId: string, deps: PurgeSweepDeps | undefined): Promise<void> {
+  const warn = deps?.warn ?? logWarning
+  warn(
+    `[account-purge] erasure of ${userId} deferred: it is the last account that can administer the app`
+  )
+  const recorded = await (deps?.deferralRecorded ?? deferralRecordedSinceScheduled)(userId)
+  if (recorded) return
+  await (deps?.recordDeferral ?? appendAuditEntryToDb)(buildDeferredErasureEntry(userId))
 }
 
 /**
  * Run the erasure scheduler: hard-delete every account whose
  * `scheduledErasureAt` is in the past.
  *
+ * An account the rail refuses is deferred, not cancelled: it is left in place
+ * with its schedule as it is, it is not counted, and the sweep goes on with the
+ * next due account. Every later sweep tries again, and the first one after
+ * another account can administer the app erases it.
+ *
  * @param appTables - App tables with their CONFIG-RESOLVED authorship columns.
- * @returns The number of accounts purged.
+ * @param app - The app's roles, for who can administer it.
+ * @returns The number of accounts erased.
  */
 export async function purgeDueAccounts(
-  appTables: readonly PurgeTableAuthorship[]
+  appTables: readonly PurgeTableAuthorship[],
+  app: AdminRoleResolvable,
+  deps?: PurgeSweepDeps
 ): Promise<number> {
-  const dueRows = (await executeRaw(
-    db,
-    sql`SELECT id FROM ${authTableRef('user')}
-        WHERE "scheduledErasureAt" IS NOT NULL AND "scheduledErasureAt" <= ${sql.raw(nowEpochMsSqlLiteral())}`
-  )) as unknown as readonly { id: string }[]
+  const dueIds = await (deps?.findDueAccountIds ?? findDueAccountIds)()
+  const purge = deps?.purge ?? ((userId: string) => purgeAccount(userId, appTables, app))
 
-  // eslint-disable-next-line functional/no-loop-statements -- sequential per-account purge
-  for (const row of dueRows) {
-    await purgeAccount(row.id, appTables)
-  }
-
-  return dueRows.length
+  // Sequential on purpose: one erasure at a time, each in its own transaction.
+  return dueIds.reduce<Promise<number>>(async (previous, userId) => {
+    const erased = await previous
+    const outcome = await purge(userId)
+    if (outcome._tag === 'Erased') return erased + 1
+    await deferErasure(userId, deps)
+    return erased
+  }, Promise.resolve(0))
 }

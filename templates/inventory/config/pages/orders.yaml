@@ -81,13 +81,13 @@ components:
                         - type: text
                           element: h3
                           props:
-                            className: text-[13px] font-medium leading-snug text-foreground
+                            className: text-[13px] font-medium leading-[18px] text-foreground
                           content: '#$record.order_number · $record.customer'
                         - type: text
                           element: p
                           props:
-                            className: font-mono text-xs text-foreground-muted
-                          content: $record.lines lines · $record.units units
+                            className: text-xs text-foreground-muted
+                          content: $record.card_summary
                       footer:
                         - { field: total, format: currency }
                         - { field: placed_at, format: short-date }

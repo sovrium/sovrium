@@ -34,8 +34,10 @@ function itemNeedsIsland(item: unknown): boolean {
  * True when a `sidebar` mounts an island — a group whose entries are FETCHED
  * (`sidebar-groups`), an entry whose badge is a fetched count (`sidebar-badge`),
  * an entry that EXPANDS (`sidebar-disclosure`), a sidebar re-deriving its
- * current-entry mark after a same-document navigation (`sidebar-current`), or a
- * sidebar folding into a drawer below a breakpoint (`sidebar-drawer`).
+ * current-entry mark after a same-document navigation (`sidebar-current`), a
+ * sidebar folding into a drawer below a breakpoint (`sidebar-drawer`), or a
+ * sidebar opting the app into client-side navigation (`spa-nav`, mounted by
+ * the page beside its main region rather than by the sidebar itself).
  *
  * `sidebar` is deliberately NOT in `ISLAND_COMPONENT_TYPES`: an authored-only
  * grouped sidebar with no disclosures is entirely server-rendered, and listing
@@ -50,11 +52,16 @@ function itemNeedsIsland(item: unknown): boolean {
  */
 export function isSourcedSidebar(component: Component): boolean {
   if (component.type !== 'sidebar') return false
-  const { groups, trackNavigation, drawer } = component as {
+  const { groups, trackNavigation, drawer, clientSideNavigation } = component as {
     groups?: unknown
     trackNavigation?: unknown
     drawer?: unknown
+    clientSideNavigation?: unknown
   }
+  // The navigation island is the page's, not the sidebar's, but the bundle it
+  // ships in is the same one — so the opt-in builds and injects it like any
+  // other sidebar island.
+  if (clientSideNavigation === true) return true
   // Checked before `groups`: a drawer folds whatever the sidebar holds, authored
   // children included, and its menu button opens nothing without the island.
   if (drawer !== undefined) return true

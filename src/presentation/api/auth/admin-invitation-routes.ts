@@ -296,6 +296,8 @@ const buildAcceptInvitationScript = (minPasswordLength: number): string => `
     var passwordEl = document.getElementById('password');
     var confirmEl = document.getElementById('confirm-password');
     var submitBtn = form.querySelector('button[type="submit"]');
+    // Drawn disabled so nothing is sent before this script runs.
+    submitBtn.disabled = false;
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       errorEl.textContent = '';
@@ -373,6 +375,11 @@ const renderInvitationUnavailablePage = (): string => `<!DOCTYPE html>
  * inline script so the page works even if the Sovrium UI bundle is not
  * configured for this app. The form labels (`Password`, `Confirm
  * password`) match the spec assertions verbatim.
+ *
+ * The acceptance is sent as JSON by that script, never by the form itself, so
+ * the form is drawn `method="post"` with its button disabled until the script
+ * enables it. A press before the script ran used to fall back to a GET that put
+ * the invitation token and the chosen password in the address.
  */
 const renderAcceptInvitationPage = (token: string, minPasswordLength: number): string => {
   const escapedToken = escapeHtmlAttribute(token)
@@ -389,13 +396,13 @@ const renderAcceptInvitationPage = (token: string, minPasswordLength: number): s
   <main>
     <h1>Accept invitation</h1>
     <p>Choose a password to complete your onboarding.</p>
-    <form id="accept-form" novalidate>
+    <form id="accept-form" method="post" novalidate>
       <input type="hidden" name="token" value="${escapedToken}" />
       <label for="password">Password</label>
       <input id="password" name="password" type="password" autocomplete="new-password" required />
       <label for="confirm-password">Confirm password</label>
       <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required />
-      <button type="submit">Accept invitation</button>
+      <button type="submit" disabled>Accept invitation</button>
       <p id="error" class="error" role="alert" aria-live="polite"></p>
     </form>
   </main>

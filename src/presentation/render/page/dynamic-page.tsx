@@ -6,16 +6,21 @@
  */
 
 import { type ReactElement } from 'react'
+import { fillRoutePattern, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
-import { hasIslandComponents } from '@/presentation/render/page/page-island-detection'
+import {
+  hasClientSideNavigation,
+  hasIslandComponents,
+} from '@/presentation/render/page/page-island-detection'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
 import { PageMain } from '@/presentation/render/page/page-main'
 import { extractPageMetadata } from '@/presentation/render/page/page-metadata'
 import { groupScriptsByPosition } from '@/presentation/render/page/page-scripts'
 import { PageSidebar } from '@/presentation/render/page/page-sidebar'
+import { PageSpaNavMount } from '@/presentation/render/page/page-spa-nav-mount'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
@@ -23,7 +28,6 @@ import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-l
 // reference-aware walker so a template-hosted action button also ships client.js.
 import { DynamicPageHead } from './dynamic-page-head'
 import { hasInteractiveFeatures, mergeComponentMetaIntoPage } from './page-interactivity'
-import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Components } from '@/domain/models/app/components'
@@ -189,13 +193,21 @@ const PRESENCE_CONTAINER_STYLE = { minHeight: '1px' } as const
  * Renders the page-level presence-indicator island placeholder (Wave-6).
  *
  * Emitted on every page configured with `presence: true`. The placeholder
- * carries the page path as an island prop so the hydrated
- * `presence-indicator` island can open a page-path-scoped presence channel
- *. The visible `[data-testid="presence-indicator"]` div is
- * rendered server-side so the indicator is present even before hydration.
+ * carries the page's ADDRESS as an island prop — the pattern filled with this
+ * request's route parameters, so `/orders/:id` shown for order 42 is
+ * `/orders/42` — and the hydrated `presence-indicator` island opens that
+ * address's presence channel: two people on two records of
+ * one page are on two channels. The visible `[data-testid="presence-indicator"]`
+ * div is rendered server-side so the indicator is present even before hydration.
  */
-function PresenceIndicatorMount({ page }: { readonly page: Page }): Readonly<ReactElement> {
-  const islandProps = JSON.stringify({ pagePath: page.path })
+function PresenceIndicatorMount({
+  page,
+  routeParams,
+}: {
+  readonly page: Page
+  readonly routeParams: RouteParams | undefined
+}): Readonly<ReactElement> {
+  const islandProps = JSON.stringify({ pagePath: fillRoutePattern(page.path, routeParams ?? {}) })
   return (
     <div
       data-island="presence-indicator"
@@ -365,7 +377,13 @@ function DynamicPageBody({
         session={session}
         markdownPayload={markdownPayload}
       />
-      {page.presence === true && <PresenceIndicatorMount page={page} />}
+      {hasClientSideNavigation(page, components) && <PageSpaNavMount />}
+      {page.presence === true && (
+        <PresenceIndicatorMount
+          page={page}
+          routeParams={routeParams}
+        />
+      )}
       {page.toasts && (
         <PageToastContainer
           toasts={page.toasts}

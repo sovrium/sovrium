@@ -6,6 +6,7 @@
  */
 
 import { Moon, Sun } from 'lucide-react'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -48,6 +49,7 @@ export const themeToggleComponent: ComponentRenderer = ({
       ? (elementProps['className'] as string)
       : undefined
   const testId = elementProps['data-testid'] as string | undefined
+  const componentType = hostComponentType(elementProps)
 
   // The `'icon'` variant shows a sun/moon glyph pair instead of the text label;
   // the label is kept as the accessible name only. The flip handler keys off
@@ -62,6 +64,7 @@ export const themeToggleComponent: ComponentRenderer = ({
         aria-label={label}
         className={className}
         data-testid={testId}
+        data-component-type={componentType}
       >
         {/* Sun shows in dark mode, moon in light mode — the visible glyph is the
             scheme the click will switch TO. Both ship in the SSR HTML; the
@@ -89,6 +92,7 @@ export const themeToggleComponent: ComponentRenderer = ({
       aria-label={label}
       className={className}
       data-testid={testId}
+      data-component-type={componentType}
     >
       {label}
     </button>

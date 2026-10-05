@@ -9,15 +9,17 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
-import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import {
   parseDatabaseDialectConfig,
   resolveDatabasePoolMax,
 } from '@/domain/models/process-env/database/database-dialect'
+import { logError } from '@/infrastructure/logging/logger'
 import { recordDbQueryIssued } from '@/infrastructure/telemetry/db-query-counter'
+import { acceptsRuntimeSettings, postgresClientOptions } from '../sql/postgres-client-options'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
+import { makeSerializedSqliteClient } from './sqlite-serialized-client'
 import type { Logger } from 'drizzle-orm'
 
 /**
@@ -38,7 +40,7 @@ import type { Logger } from 'drizzle-orm'
  *
  *   - `postgres` — `drizzle-orm/bun-sql` over the `DATABASE_URL`. This is the
  *     historical behavior and is unchanged.
- *   - `sqlite` — `drizzle-orm/bun-sqlite` over a `bun:sqlite` `Database`. Selected
+ *   - `sqlite` — a drizzle SQLite client over a `bun:sqlite` `Database`. Selected
  *     when no `DATABASE_URL` is configured (the zero-config, frugal-by-default
  *     engine). WAL journaling, foreign-key enforcement, and a busy timeout are
  *     enabled before the Drizzle wrapper is built.
@@ -59,7 +61,8 @@ import type { Logger } from 'drizzle-orm'
  * / `with` / `execute`) is the contract repositories and CRUD code are written
  * to.
  *
- * In SQLite mode the runtime object is a `drizzle-orm/bun-sqlite` client. Its
+ * In SQLite mode the runtime object is a drizzle SQLite client (async result
+ * mode, transactions serialised — `sqlite-serialized-client.ts`). Its
  * query-builder surface is structurally compatible for the portable subset
  * (`select` / `insert` / `update` / `delete` / `transaction` / `query` / `$with`
  * / `with`), so it is cast to `DrizzleDB` at the seam inside `getDb()`. The two
@@ -83,11 +86,23 @@ import type { Logger } from 'drizzle-orm'
  */
 export type DrizzleDB = ReturnType<typeof drizzlePg>
 
-/** Concrete SQLite client type — kept internal to this module. */
-type SqliteDrizzleDB = ReturnType<typeof drizzleSqlite>
-
 // eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- one-shot module-level memo cache; replaces the eager const that crashed at boot when DATABASE_URL was unset
 let cached: DrizzleDB | undefined
+
+/**
+ * The PostgreSQL URL of a `cached` pool built WITHOUT the runtime settings
+ * (`postgres-client-options.ts`), because no probe had yet seen the database
+ * accept them. Something at start-up can reach `db` before the migrations run
+ * the probe; once the probe accepts, the next `getDb()` rebuilds the pool with
+ * the settings, so the requests the server serves get them. The early pool is
+ * left as it is: whatever still holds it keeps working.
+ */
+// eslint-disable-next-line functional/no-let -- module-level companion of the `cached` memo
+let builtWithoutSettings: string | undefined
+
+/** Whether `cached` was built before the database was seen to accept the runtime settings. */
+const settingsArrivedSinceBuild = (): boolean =>
+  builtWithoutSettings !== undefined && acceptsRuntimeSettings(builtWithoutSettings)
 
 /**
  * Per-request query-count tap (the keystone of the query-count seam — see
@@ -122,8 +137,12 @@ const buildClient = (): DrizzleDB => {
     // is a stated number (see `resolveDatabasePoolMax`) instead of an assumption
     // about the driver — and so an operator on a larger Postgres can raise it
     // via `DATABASE_POOL_MAX` without patching code.
+    // eslint-disable-next-line functional/no-expression-statements -- records what this pool was built with (see `builtWithoutSettings`)
+    builtWithoutSettings = acceptsRuntimeSettings(config.databaseUrl)
+      ? undefined
+      : config.databaseUrl
     const pg = drizzlePg({
-      connection: { url: config.databaseUrl, max: resolveDatabasePoolMax() },
+      connection: postgresClientOptions(config.databaseUrl, { max: resolveDatabasePoolMax() }),
       logger: countingLogger,
     })
     // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4 forces on EVERY client.
@@ -175,12 +194,12 @@ const buildClient = (): DrizzleDB => {
 
   applySqlitePragmas(client)
 
-  // eslint-disable-next-line functional/prefer-immutable-types -- upstream-mutable drizzle-orm/bun-sqlite return shape; same rationale as getDb
-  const sqliteDb: SqliteDrizzleDB = drizzleSqlite({
-    client,
-    logger: countingLogger,
-  })
-  // The bun-sqlite client exposes the same portable query-builder surface
+  // Not the stock `drizzle-orm/bun-sqlite` client: its `transaction()` is
+  // synchronous, so an async body committed at its first `await`. This client
+  // opens transactions by hand and serialises them against every other
+  // statement on the one shared connection — see `sqlite-serialized-client.ts`.
+  const sqliteDb = makeSerializedSqliteClient(client, countingLogger)
+  // The SQLite client exposes the same portable query-builder surface
   // (select/insert/update/delete/transaction/query/$with/with) the DrizzleDB
   // facade contracts. Postgres-only members (execute, materialized views) are
   // not reachable in SQLite mode — callers route through getPgDb() for those.
@@ -189,10 +208,33 @@ const buildClient = (): DrizzleDB => {
 
 // eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is the upstream return shape from drizzle-orm/bun-sql; the lint rule cannot prove our consumers don't mutate it. We don't.
 export const getDb = (): DrizzleDB => {
-  if (cached !== undefined) return cached
+  if (cached !== undefined && !settingsArrivedSinceBuild()) return cached
   // eslint-disable-next-line functional/no-expression-statements -- module-level memo cache assignment
   cached = buildClient()
   return cached
+}
+
+/**
+ * Release the driver handle of a client the memo no longer hands out.
+ *
+ * The runtime handle is a `bun:sqlite` `Database` (synchronous `close()`) or a
+ * `bun:sql` pool (`close()` resolves once the in-flight queries have finished
+ * and every connection is ended); both are idempotent. A failure to close is
+ * logged and otherwise ignored: the client is already out of the memo, so the
+ * caller has nothing left to act on, and the worst outcome is the leak this
+ * close exists to prevent.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is the upstream-mutable drizzle-orm/bun-sql return shape; same rationale as getDb
+const closeRetiredClient = (client: DrizzleDB): void => {
+  const handle: unknown = client.$client
+  Promise.resolve()
+    .then(() => (handle instanceof BunSqlite ? handle.close() : client.$client.close()))
+    .catch((cause: unknown) =>
+      logError(
+        '[database] could not close a database client dropped from the cache; its connections may stay open',
+        cause
+      )
+    )
 }
 
 /**
@@ -213,11 +255,23 @@ export const getDb = (): DrizzleDB => {
  * stale client pointing at a now-deleted temp file for the next test. Production
  * never calls this — the memo is built once at boot and reused.
  *
+ * The dropped client is CLOSED, not merely forgotten. A process that boots the
+ * server several times (an in-process test harness, one boot per story) would
+ * otherwise keep every earlier pool's connections open until its database is
+ * dropped, and run the PostgreSQL server out of connection slots part-way
+ * through. Closing is graceful: a PostgreSQL pool finishes the queries already
+ * in flight before it disconnects. The reset itself stays synchronous for its
+ * callers; the close completes in the background.
+ *
  * @internal Test-isolation hook for the module-level memo.
  */
 export const resetDbCache = (): void => {
+  const retired = cached
   // eslint-disable-next-line functional/no-expression-statements -- module-level memo reset; intentional mutation of the one-shot cache
   cached = undefined
+  if (retired !== undefined) closeRetiredClient(retired)
+  // eslint-disable-next-line functional/no-expression-statements -- reset with the memo it describes
+  builtWithoutSettings = undefined
   // Keep the Phase 2 sqlite-vec acceleration memo in lock-step: a test that
   // re-points DATABASE_URL / toggles `RAG_SQLITE_VEC` must re-resolve
   // acceleration against the new connection rather than reuse a stale handle.

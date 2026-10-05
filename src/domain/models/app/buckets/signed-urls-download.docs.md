@@ -25,15 +25,15 @@ The response carries the signed URL, its expiry and the operation. Hand the URL 
 
 ## Outcomes
 
-| Situation                                | Result                                             |
-| ---------------------------------------- | -------------------------------------------------- |
-| A valid request                          | `200` with the URL and its expiry                  |
-| An out-of-range `expiresIn`              | `400`                                              |
-| A missing or empty path                  | `400`                                              |
-| No file at that path                     | `404` — a download token must reference real bytes |
-| No session                               | `401`                                              |
-| A session lacking the signing permission | `404`                                              |
-| An unknown bucket                        | `404`                                              |
+| Situation                                | Result                                                                                                               |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| A valid request                          | `200` with the URL and its expiry                                                                                    |
+| An out-of-range `expiresIn`              | `400`                                                                                                                |
+| A missing or empty path                  | `400`                                                                                                                |
+| No file at that path                     | `404` — a download token must reference real bytes                                                                   |
+| No session                               | `401`                                                                                                                |
+| A session lacking the signing permission | `404`. The batch form applies the same check to every download entry, so a caller refused here is refused there too. |
+| An unknown bucket                        | `404`                                                                                                                |
 
 Note the existence check. Unlike upload signing, download signing refuses to mint a token for a path holding nothing — so a signed URL you are holding is a URL that resolved at least once.
 

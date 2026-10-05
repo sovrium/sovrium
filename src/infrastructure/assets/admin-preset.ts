@@ -140,7 +140,8 @@ export const resolveAdminPresetApp = (): App => {
     throw new Error(
       'Sovrium failed to start: the embedded admin console preset does not decode against this ' +
         'release’s AppSchema. This is a defect in the build, not in your configuration. ' +
-        `Cause: ${error instanceof Error ? error.message : String(error)}`
+        `Cause: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     )
   }
 }

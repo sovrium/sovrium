@@ -13,6 +13,7 @@ import { runEffect } from '@/presentation/api/runtime'
 import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import { resolveTableReadCaller } from './table-read-caller'
 import { handleListViewRecords } from './view-records-handler'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
@@ -22,10 +23,17 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
     honoApp
       .get('/api/tables/:tableId/views', async (c) => {
         // Session, tableId, and userRole are guaranteed by middleware chain
-        const { tableId, userRole } = getTableContext(c)
+        const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+        const app = resolveApp()
+        const caller = await resolveTableReadCaller(app, {
+          session,
+          tableName,
+          userRole,
+          userGroups,
+        })
 
         const program = Effect.gen(function* () {
-          const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
+          const result = yield* listViewsProgram(tableId, app, caller)
           // Return the views array directly (unwrapped) to match test expectations
           // No schema validation - test expects minimal view objects without timestamps
           return result
@@ -35,11 +43,18 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
       })
       .get('/api/tables/:tableId/views/:viewId', async (c) => {
         // Session, tableId, and userRole are guaranteed by middleware chain
-        const { tableId, userRole } = getTableContext(c)
+        const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+        const app = resolveApp()
+        const caller = await resolveTableReadCaller(app, {
+          session,
+          tableName,
+          userRole,
+          userGroups,
+        })
 
         return runEffect(
           c,
-          getViewProgram(tableId, c.req.param('viewId'), resolveApp(), userRole),
+          getViewProgram(tableId, c.req.param('viewId'), app, caller),
           getViewResponseSchema
         )
       })

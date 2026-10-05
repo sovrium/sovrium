@@ -1,39 +1,148 @@
+# The Calendar, where everyone lands: what goes out this month, coloured by
+# its channel, with the late piece among them. A filter bar narrows the month
+# to one channel or campaign; a click on a piece opens it in a drawer.
 name: calendar
 path: /
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Calendar
-  description: The publishing month at a glance
+  title: Calendar · Loomwork Content
+  description: What goes out this month, where, and what is late.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Calendar
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Every piece with a publish date, laid out on the month. Consistency beats intensity.
-
-      # `labelField` is optional in the schema but required in practice: without
-      # it every piece renders as an unlabelled block, so the month shows that
-      # something ships on the 12th but not what. `colorField` points at the
-      # workflow status, whose option colours are record data — the one channel
-      # ADR-024 A7 keeps coloured — so the calendar and the pipeline board tell
-      # the same colour story about the same piece.
-      - type: calendar
-        dataSource:
-          table: content
-        labelField: title
-        colorField: status
-        dateField: publish_date
-        defaultView: month
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Calendar
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New piece
+                props:
+                  data-testid: new-piece
+                  className: h-8 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-piece-dialog
+          - $ref: ./_new-piece-dialog.yaml
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # On a phone the month's chips are too narrow to read a title, so
+              # the piece that is late is spelled out on top of it.
+              - type: list
+                props:
+                  className: 'md:hidden [&_li>div:last-child>span:first-child]:font-medium [&_li>div:last-child>span:first-child]:text-error [&_li]:rounded-lg [&_li]:border [&_li]:border-error/40 [&_li]:bg-background-raised [&_li]:flex-wrap [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                dataSource:
+                  table: content
+                  filter:
+                    - { field: flag, operator: eq, value: Late }
+                  sort:
+                    - { field: publish_at, direction: asc }
+                listDisplay:
+                  emptyMessage: Nothing is late.
+                  itemTemplate:
+                    title: $record.title
+                    metadata:
+                      - { field: flag, format: text }
+                      - { field: status, format: text }
+                      - { field: publish_at, format: short-date }
+              - type: filter-bar
+                publishes:
+                  bindTo: calendar-filter
+                fields:
+                  - { name: title, label: Search pieces, kind: text }
+                  - name: channel
+                    label: Channel
+                    kind: select
+                    options:
+                      - { value: Website, label: Website }
+                      - { value: LinkedIn, label: LinkedIn }
+                      - { value: X, label: X }
+                      - { value: Email, label: Email }
+                      - { value: Instagram, label: Instagram }
+                      - { value: YouTube, label: YouTube }
+                  - name: campaign_name
+                    label: Campaign
+                    kind: select
+                    options:
+                      - { value: Platform launch, label: Platform launch }
+                      - { value: Conference push, label: Conference push }
+                      - { value: Always-on education, label: Always-on education }
+                      - { value: Winter retrospective, label: Winter retrospective }
+              # The key to the colours: one dot per channel, in the hue the
+              # calendar paints its pieces with.
+              - type: container
+                element: div
+                props:
+                  className: flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-foreground-muted
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: flex items-center gap-1.5 before:size-2.5 before:rounded-[2px] before:bg-chart-1 before:content-['']
+                    content: Website
+                  - type: text
+                    element: span
+                    props:
+                      className: flex items-center gap-1.5 before:size-2.5 before:rounded-[2px] before:bg-chart-2 before:content-['']
+                    content: LinkedIn · X
+                  - type: text
+                    element: span
+                    props:
+                      className: flex items-center gap-1.5 before:size-2.5 before:rounded-[2px] before:bg-chart-3 before:content-['']
+                    content: Email
+                  - type: text
+                    element: span
+                    props:
+                      className: flex items-center gap-1.5 before:size-2.5 before:rounded-[2px] before:bg-chart-4 before:content-['']
+                    content: Instagram
+                  - type: text
+                    element: span
+                    props:
+                      className: flex items-center gap-1.5 before:size-2.5 before:rounded-[2px] before:bg-chart-5 before:content-['']
+                    content: YouTube
+              # Every dated piece on its day, marked by its channel. Ideas have
+              # no date yet, so they wait on the pipeline instead.
+              #
+              # A piece is a quiet chip with its channel as a coloured edge on
+              # the left: the calendar paints the channel's colour as the
+              # chip's border, and the classes below keep only its left side,
+              # so a month of pieces reads as text, not as a wall of colour.
+              - type: calendar
+                props:
+                  className: '[&_.fc-event]:!border-l-[3px] [&_.fc-event]:!border-t-border [&_.fc-event]:!border-r-border [&_.fc-event]:!border-b-border [&_.fc-event]:!bg-background-raised [&_.fc-event_*]:!text-foreground [&_.fc-daygrid-day-frame]:min-h-[90px] [&_.fc-daygrid-day]:h-[90px] [&_.fc-col-header-cell]:font-mono [&_.fc-daygrid-day-number]:font-mono max-md:[&_.fc-daygrid-day-frame]:min-h-[64px] max-md:[&_.fc-daygrid-day]:h-auto max-md:[&_.fc-toolbar]:flex-wrap max-md:[&_.fc-toolbar]:gap-2'
+                dataSource:
+                  table: content
+                  bindTo: calendar-filter
+                  sharedFilter: {}
+                  filter:
+                    - { field: status, operator: neq, value: Idea }
+                dateField: publish_at
+                labelField: title
+                colorField: channel
+                defaultView: month
+                # A click opens the piece in the drawer below, through the
+                # same `?record=` address a link to it would use.
+                calendarEvent:
+                  onEventClick:
+                    type: navigate
+                    path: /?record=$record.id
+      - $ref: ./_piece-detail.yaml

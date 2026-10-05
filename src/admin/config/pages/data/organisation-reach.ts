@@ -119,14 +119,12 @@ export const REACH_TAB = { id: 'reach', label: '$t:admin.organisation.tabs.reach
  * 'object'` — so `nodes.length` resolves to the array's length and the tile
  * renders it. Measured live on this page, not inferred from the type.
  *
- * That is a thinner thing to stand on than a published scalar, and it is the
- * same class of mechanism as the `String([]) === ''` empty-gate `organisation.ts`
- * documents at its own two gates. The difference is the one worth naming:
- * `.length` on an array is a guarantee of the LANGUAGE and the wire contract
- * guarantees both keys are arrays, where the empty-gate rides on how JS happens
- * to stringify. It still wants replacing by a `nodeCount` / `edgeCount` scalar
- * on the body, for the same reason the `brand` endpoint publishes a `declared`
- * boolean rather than letting a gate infer one.
+ * That is a thinner thing to stand on than a published scalar: `.length` on an
+ * array is a guarantee of the LANGUAGE, and the wire contract guarantees both
+ * keys are arrays, but no contract names the count. It still wants replacing by
+ * a `nodeCount` / `edgeCount` scalar on the body, for the same reason the
+ * `brand` endpoint publishes a `declared` boolean rather than letting a gate
+ * infer one.
  *
  * Two tiles, not six. `Holds`, `Reaches`, `Writes` and `Duplicate routes` ARE
  * on the body now, and they still do not belong here: they are per-PRINCIPAL
@@ -590,11 +588,11 @@ const howToRead = (): PageComponent =>
   }) as PageComponent
 
 /**
- * The empty state, on the same `String([]) === ''` gate the findings list uses
+ * The empty state, on the same `isEmpty` presence gate the findings list uses
  * and for the same reason — a system-rows table that comes back empty draws an
  * empty bordered box, so the gate and the table are mutually exclusive rather
- * than merely ordered. The mechanism is documented at length in
- * `organisation.ts`; this is the third gate riding on it.
+ * than merely ordered. The presence rule is documented at the top of
+ * `organisation.ts`.
  *
  * It says which THREE things would have to be true, because "no relationships"
  * alone is indistinguishable from a read that failed — and a read that failed
@@ -605,7 +603,7 @@ const noRelationships = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { record: { field: 'edges', eq: '' } },
+    visibility: { record: { field: 'edges', isEmpty: true } },
     children: [
       emptyState(
         'No relationships.',

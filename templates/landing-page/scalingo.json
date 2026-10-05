@@ -1,6 +1,6 @@
 {
-  "name": "Sovrium Landing Page",
-  "description": "A bilingual marketing site with reusable components.",
+  "name": "Tablée — a Sovrium landing page",
+  "description": "A bilingual product landing page with a demo request form.",
   "repository": "https://github.com/sovrium/landing-page-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/landing-page",
@@ -18,6 +18,14 @@
     "BASE_URL": {
       "description": "Public URL of this app (e.g. https://my-landing-page.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
       "required": true
+    },
+    "AUTH_ADMIN_EMAIL": {
+      "description": "Bootstrap the first admin account on first start (optional — you can also run `sovrium admin create <email>` later).",
+      "required": false
+    },
+    "AUTH_ADMIN_PASSWORD": {
+      "description": "Password for the bootstrap admin account (used with AUTH_ADMIN_EMAIL).",
+      "required": false
     }
   },
   "addons": [

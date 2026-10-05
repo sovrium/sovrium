@@ -23,13 +23,18 @@
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   isPredicateGroup,
+  rulesNameCurrentUser,
+  signedOutContext,
   type CurrentUserContext,
 } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
 
 /**
@@ -45,21 +50,41 @@ export interface SessionProjection {
 }
 
 /**
- * Build a `CurrentUserContext` for predicate evaluation by fetching the
- * user's `user_access` rows for every scope-table referenced in the
- * predicates.
+ * Build a `CurrentUserContext` for predicate evaluation against the table's
+ * row-level rules `rlp`: the reader's `user_access` rows for every scope table
+ * the rules name, and her email when — and only when — a rule names
+ * `$currentUser.email` and the door that asks did not already know it.
  *
- * `scopeTables` should be the union of every `assignments.<tableSlug>`
- * referenced in the row-level predicates of the active table; passing the
- * full `auth.scopeTables` list is also fine (the cost is one extra small
- * query per scope).
+ * A visitor with no session gets the signed-out context and NO lookup at all:
+ * nothing about her resolves, and a rule naming the signed-in person admits no
+ * row for her (`signedOutContext`).
  */
 export const loadCurrentUserContext = (
   session: SessionProjection,
-  scopeTables: readonly string[]
+  rlp: RowLevelPermissions | undefined
+): Effect.Effect<CurrentUserContext, never, DataSourceRepository | AuthRepository> =>
+  Effect.gen(function* () {
+    if (isGuestSession(session.userId)) return signedOutContext(session.userId, session.role)
+    const email =
+      session.email ??
+      (rulesNameCurrentUser(rlp, 'email') ? yield* findUserEmailById(session.userId) : undefined)
+    return yield* loadContextWithKnownEmail({ ...session, email }, rlp)
+  }).pipe(Effect.withSpan('tables.load-current-user-context'))
+
+/**
+ * {@link loadCurrentUserContext} for a reader whose email the caller has
+ * ALREADY resolved — `undefined` meaning she has none — so nothing is looked up
+ * for it here. A door judging many people at once (the comment mention picker)
+ * reads every address in one query, then builds each context through this.
+ */
+export const loadContextWithKnownEmail = (
+  session: SessionProjection,
+  rlp: RowLevelPermissions | undefined
 ): Effect.Effect<CurrentUserContext, never, DataSourceRepository> =>
   Effect.gen(function* () {
+    if (isGuestSession(session.userId)) return signedOutContext(session.userId, session.role)
     const repo = yield* DataSourceRepository
+    const scopeTables = collectAssignmentScopeTables(rlp)
 
     // Fetch assignments for every requested scope-table in parallel. Errors
     // collapse to "no assignments" so a missing user_access table cannot
@@ -76,8 +101,9 @@ export const loadCurrentUserContext = (
     // UNEXPECTED fault (lost connection, permission error, malformed stored
     // JSON), and swallowing it meant a correctly-assigned user silently lost
     // access to every row, with nothing recorded anywhere to explain why.
-    const entries = yield* Effect.all(
-      scopeTables.map((slug) =>
+    const entries = yield* Effect.forEach(
+      scopeTables,
+      (slug) =>
         repo.fetchUserAssignments(session.userId, slug).pipe(
           Effect.catch((error) => {
             logError(
@@ -88,8 +114,7 @@ export const loadCurrentUserContext = (
             return Effect.succeed([] as readonly string[])
           }),
           Effect.map((ids) => [slug, ids] as const)
-        )
-      ),
+        ),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
 
@@ -100,7 +125,56 @@ export const loadCurrentUserContext = (
       isUnrestricted: session.isUnrestricted,
       assignments: new Map(entries),
     }
-  }).pipe(Effect.withSpan('tables.load-current-user-context'))
+  }).pipe(Effect.withSpan('tables.load-context-with-known-email'))
+
+/**
+ * {@link loadContextWithKnownEmail} for MANY readers at once: ONE
+ * `user_access` read per scope table the rules name, for all of them, never
+ * one per reader. Each reader's email is the one the caller already resolved.
+ * A lookup fault fails CLOSED for that scope table — every reader gets no
+ * assignment there — and is logged, exactly as the single form does.
+ */
+export const loadContextsWithKnownEmails = (
+  readers: readonly SessionProjection[],
+  rlp: RowLevelPermissions | undefined
+): Effect.Effect<ReadonlyMap<string, CurrentUserContext>, never, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* DataSourceRepository
+    const signedIn = readers.filter((reader) => !isGuestSession(reader.userId))
+    const ids = signedIn.map((reader) => reader.userId)
+    const bySlug = yield* Effect.forEach(
+      ids.length === 0 ? [] : collectAssignmentScopeTables(rlp),
+      (slug) =>
+        repo.fetchUsersAssignments(ids, slug).pipe(
+          Effect.tapCause((cause) =>
+            Effect.sync(() =>
+              logError(
+                '[PERMISSIONS] Row-level scope lookup failed; denying access for this scope table',
+                cause,
+                { tableSlug: slug, readers: String(ids.length) }
+              )
+            )
+          ),
+          // effect-swallow: failing closed — an empty assignment set denies access, so a lookup fault can only NARROW who reads.
+          Effect.orElseSucceed(() => new Map<string, readonly string[]>()),
+          Effect.map((byUser) => [slug, byUser] as const)
+        ),
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+    )
+    const contextOf = (reader: SessionProjection): CurrentUserContext =>
+      isGuestSession(reader.userId)
+        ? signedOutContext(reader.userId, reader.role)
+        : {
+            userId: reader.userId,
+            email: reader.email,
+            role: reader.role,
+            isUnrestricted: reader.isUnrestricted,
+            assignments: new Map(
+              bySlug.map(([slug, byUser]) => [slug, byUser.get(reader.userId) ?? []] as const)
+            ),
+          }
+    return new Map(readers.map((reader) => [reader.userId, contextOf(reader)] as const))
+  }).pipe(Effect.withSpan('tables.load-contexts-with-known-emails'))
 
 /**
  * Extract every `assignments.<tableSlug>` referenced inside a
@@ -151,7 +225,7 @@ const extractScopeTablesFromPredicate = (
   predicate: RowLevelWhen | undefined
 ): readonly string[] => {
   if (!predicate) return []
-  // GAP-3: a composite group references scope tables across ALL its
+  // [internal ref]: a composite group references scope tables across ALL its
   // conditions (e.g. `clients` AND `projets` in an OR predicate). Recurse so
   // every assignment slug is pre-fetched into the assignments map.
   if (isPredicateGroup(predicate)) {

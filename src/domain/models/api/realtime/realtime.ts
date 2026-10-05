@@ -23,8 +23,8 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * ever receives the columns its role can read.
  */
 export const realtimeRecordPayloadSchema = Schema.Struct({
-  id: Schema.Union([Schema.String, Schema.Finite]).annotate({
-    description: 'Identifier of the record',
+  id: Schema.String.annotate({
+    description: 'Identifier of the record, as the records API names it',
   }),
   fields: Schema.Record(Schema.String, Schema.Unknown).annotate({
     description: 'Field-permission-filtered record field values',
@@ -53,8 +53,8 @@ export const realtimeChangeEventSchema = Schema.Struct({
     description: 'Kind of record mutation',
   }),
   table: Schema.String.annotate({ description: 'Table where the change occurred' }),
-  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
-    description: 'Identifier of the affected record',
+  recordId: Schema.String.annotate({
+    description: 'Identifier of the affected record, as the records API names it',
   }),
   subscriptionId: optionalField(
     Schema.String.annotate({
@@ -90,8 +90,8 @@ export const realtimeChangeEventSchema = Schema.Struct({
 export const realtimeConflictEventSchema = Schema.Struct({
   type: Schema.Literal('conflict').annotate({ description: 'Event type identifier' }),
   table: Schema.String.annotate({ description: 'Table where the conflict occurred' }),
-  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
-    description: 'Identifier of the contested record',
+  recordId: Schema.String.annotate({
+    description: 'Identifier of the contested record, as the records API names it',
   }),
   overwrittenFields: Schema.Array(Schema.String)
     .annotate({ description: 'Field name(s) whose pending optimistic value was overwritten' })
@@ -104,6 +104,31 @@ export const realtimeConflictEventSchema = Schema.Struct({
     description: 'Server-authoritative record state the client must reconcile to',
   }),
   timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of the conflict' }),
+})
+
+// ---------------------------------------------------------------------------
+// Realtime resync event schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Schema for the resync notice that replaces per-row change events when one
+ * write changes more rows of a table than
+ * `REALTIME_TRANSPORT_CONFIG.maxChangeEventsPerWrite` (a large batch create,
+ * a wide cascade, an automation loop).
+ *
+ * It carries no row: a subscriber receives it when at least one of the
+ * changed rows, as it stood before or after the write, passes their row-level
+ * read rule, and answers it by reading the table again. One notice per write
+ * keeps a thousand-row import from turning into a thousand frames per
+ * subscriber, and says nothing a subscriber could not already read.
+ */
+export const realtimeResyncEventSchema = Schema.Struct({
+  type: Schema.Literal('resync').annotate({ description: 'Event type identifier' }),
+  table: Schema.String.annotate({ description: 'Table whose rows changed in bulk' }),
+  reason: Schema.Literal('bulk-change').annotate({
+    description: 'Why the subscriber should read the table again instead of applying row events',
+  }),
+  timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of the write' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -255,6 +280,7 @@ export const realtimeConnectionStatusSchema = Schema.Struct({
 export const realtimeMessageSchema = Schema.Union([
   realtimeChangeEventSchema,
   realtimeConflictEventSchema,
+  realtimeResyncEventSchema,
   realtimeHeartbeatSchema,
   realtimeSubscribedSchema,
   realtimeUnsubscribedSchema,
@@ -323,6 +349,18 @@ export const subscriptionHandshakeSchema = Schema.Struct({
  *.
  * - `maxPresenceEntriesPerPage`: presence entry cap per page path
  *.
+ * - `maxChangeEventsPerWrite`: rows one write may announce one by one; past
+ * it the write is announced as a single `resync`.
+ * - `grantRecheckIntervalMs`: how often an open connection's grant is judged
+ *   again, so a change made outside the engine's own doors is picked up
+ *.
+ * - `grantChangedCloseCode`: the WebSocket close code sent when a
+ *   subscriber's grant changed; the client reconnects and is judged again
+ *.
+ * - `sessionEndedCloseCode`: the WebSocket close code sent when the session a
+ *   connection opened with has ended — signed out, revoked or expired; a
+ *   reconnect would be refused, so the client signs in again instead
+ *.
  */
 export const webSocketTransportConfigSchema = Schema.Struct({
   reconnectBackoffMs: Schema.Array(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))).annotate(
@@ -346,6 +384,18 @@ export const webSocketTransportConfigSchema = Schema.Struct({
   maxPresenceEntriesPerPage: Schema.Int.annotate({
     description: 'Maximum concurrent presence entries per page path',
   }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  maxChangeEventsPerWrite: Schema.Int.annotate({
+    description: 'Rows one write announces one by one before it is announced as a single resync',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  grantRecheckIntervalMs: Schema.Int.annotate({
+    description: "Interval at which an open connection's grant is judged again",
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  grantChangedCloseCode: Schema.Int.annotate({
+    description: "WebSocket close code sent when the subscriber's grant changed",
+  }).pipe(Schema.check(Schema.isBetween({ minimum: 4000, maximum: 4999 }))),
+  sessionEndedCloseCode: Schema.Int.annotate({
+    description: 'WebSocket close code sent when the session the connection opened with has ended',
+  }).pipe(Schema.check(Schema.isBetween({ minimum: 4000, maximum: 4999 }))),
 })
 
 /**
@@ -363,6 +413,10 @@ export const REALTIME_TRANSPORT_CONFIG = Object.freeze({
   idleConnectionTimeoutMs: 5 * 60_000,
   presenceStaleTimeoutMs: 60_000,
   maxPresenceEntriesPerPage: 50,
+  maxChangeEventsPerWrite: 100,
+  grantRecheckIntervalMs: 30_000,
+  grantChangedCloseCode: 4001,
+  sessionEndedCloseCode: 4401,
 }) satisfies Readonly<{
   readonly reconnectBackoffMs: readonly number[]
   readonly maxReconnectDelayMs: number
@@ -371,6 +425,10 @@ export const REALTIME_TRANSPORT_CONFIG = Object.freeze({
   readonly idleConnectionTimeoutMs: number
   readonly presenceStaleTimeoutMs: number
   readonly maxPresenceEntriesPerPage: number
+  readonly maxChangeEventsPerWrite: number
+  readonly grantRecheckIntervalMs: number
+  readonly grantChangedCloseCode: number
+  readonly sessionEndedCloseCode: number
 }>
 
 // ---------------------------------------------------------------------------
@@ -380,6 +438,7 @@ export const REALTIME_TRANSPORT_CONFIG = Object.freeze({
 export type RealtimeRecordPayload = typeof realtimeRecordPayloadSchema.Type
 export type RealtimeChangeEvent = typeof realtimeChangeEventSchema.Type
 export type RealtimeConflictEvent = typeof realtimeConflictEventSchema.Type
+export type RealtimeResyncEvent = typeof realtimeResyncEventSchema.Type
 export type RealtimeHeartbeat = typeof realtimeHeartbeatSchema.Type
 export type RealtimeSubscribed = typeof realtimeSubscribedSchema.Type
 export type RealtimeUnsubscribed = typeof realtimeUnsubscribedSchema.Type

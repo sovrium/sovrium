@@ -20,6 +20,12 @@ export class AuthDatabaseError extends Data.TaggedError('AuthDatabaseError')<{
  */
 export type NotificationPreference = 'automationAlerts' | 'weeklyDigest'
 
+/** The two ban columns of an account, as the last-admin rail reads and restores them. */
+export type UserBanState = {
+  readonly banned: boolean
+  readonly banReason: string | null
+}
+
 /**
  * Auth Repository Port
  *
@@ -42,11 +48,27 @@ export class AuthRepository extends Context.Service<
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>
     /**
+     * The email of each of `userIds`, in one query, keyed by user id. An id no
+     * account holds, or whose account has no address, is absent from the map.
+     */
+    readonly findUserEmailsByIds: (
+      userIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, string>, AuthDatabaseError>
+    /**
      * A user's display name and email, by id, or `undefined` when no such user
      * exists. `name` is the account's own display name and may be empty; the
      * caller decides what to show in its place. Used by the pause and resume
      * notices, which name the operator who acted and leave them off the list.
      */
+    /**
+     * The account that holds each address, keyed by the address lowercased —
+     * an address no account holds is absent from the map. Case is ignored, as
+     * sign-in ignores it. Used to pin an approval request's approvers named by
+     * email to the accounts that held those addresses when it was made.
+     */
+    readonly findUserIdsByEmails: (
+      emails: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, string>, AuthDatabaseError>
     readonly findUserContactById: (
       userId: string
     ) => Effect.Effect<
@@ -122,6 +144,13 @@ export class AuthRepository extends Context.Service<
      */
     readonly userExists: (userId: string) => Effect.Effect<boolean, AuthDatabaseError>
     /**
+     * Whether `userId` names an account that may still act: it exists and is
+     * not banned (a ban whose expiry has passed no longer counts). A run
+     * started by hand acts as its starter only while this holds — an account
+     * deleted or banned since loses the standing its run was started with.
+     */
+    readonly isActiveUser: (userId: string) => Effect.Effect<boolean, AuthDatabaseError>
+    /**
      * This user's role, distinguishing "no such user" from "user with no role".
      *
      * {@link getUserRole} conflates them — both answer `undefined` — which is
@@ -152,6 +181,23 @@ export class AuthRepository extends Context.Service<
      */
     readonly unbanUser: (userId: string) => Effect.Effect<void, AuthDatabaseError>
     /**
+     * The ban columns of one account, or `undefined` when no row matches.
+     * `banned` is `true` only for a stored `true` — NULL and `false` are both
+     * "not banned", the rule {@link countActiveAdmins} applies — so a ban an
+     * automation is about to write can be told apart from one already there.
+     */
+    readonly findUserBanState: (
+      userId: string
+    ) => Effect.Effect<UserBanState | undefined, AuthDatabaseError>
+    /**
+     * Write back ban columns read by {@link findUserBanState}, verbatim. Used to
+     * undo a ban that left no admin able to sign in.
+     */
+    readonly restoreUserBanState: (
+      userId: string,
+      state: UserBanState
+    ) => Effect.Effect<void, AuthDatabaseError>
+    /**
      * Resolve the names of every group the given user belongs to (un-prefixed,
      * NOT `group:`-prefixed).
      *
@@ -166,9 +212,15 @@ export class AuthRepository extends Context.Service<
      * — callers that treat "no auth" as "no memberships" must catch it.
      */
     readonly getUserGroups: (userId: string) => Effect.Effect<readonly string[], AuthDatabaseError>
-    readonly getUserSessionToken: (
-      userId: string
-    ) => Effect.Effect<string | undefined, AuthDatabaseError>
+    /**
+     * {@link getUserGroups} for MANY users in ONE query: each user's group
+     * names (un-prefixed). A user in no group is absent from the map, and an
+     * empty `userIds` answers an empty map without a query. Fails as
+     * `getUserGroups` does when the team tables are absent.
+     */
+    readonly getUsersGroups: (
+      userIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, readonly string[]>, AuthDatabaseError>
     /**
      * Count rows in the Better Auth `user` table. Counts EVERY row, including
      * synthetic agent service users (`type='agent'`), so it is NOT a reliable
@@ -229,21 +281,11 @@ export class AuthRepository extends Context.Service<
      * The gap this note previously described — `applyAdminRoleCheckMiddleware`
      * gating on the LITERAL `role === 'admin'` while this count followed
      * `resolveAdminRole` — is CLOSED: that middleware now gates on
-     * `isAdminEquivalent`, of which `adminRoleNamesFor` is the list form. For an
-     * app whose top role is at or below the built-in `admin` level (80) — e.g.
-     * partner's `engineer` at 80 — door and count now agree exactly.
-     *
-     * KNOWN RESIDUAL GAP (narrower, different cause): `isAdminEquivalent` admits
-     * the built-in `'admin'` only while `80 >= topLevel`, whereas
-     * `adminRoleNamesFor` lists it unconditionally. So in an app declaring a top
-     * role ABOVE level 80 (`level` has no schema upper bound), a literal-`admin`
-     * user is counted here but 404ed at `/api/auth/admin/*` — the count
-     * over-reports by exactly those users, permitting a lockout rather than
-     * causing a spurious one. Unchanged in direction from the old gap, so the
-     * guard stays fail-safe in the same way; closing it means reconciling those
-     * two, which is a separate change from this guard. Note that this rail is
-     * explicitly NOT a security boundary (see `admin-role-guards.ts`) — both
-     * actors are already admins.
+     * `isAdminEquivalent`, of which `adminRoleNamesFor` is the list form: the
+     * app's highest role, and the built-in `admin` always — so door and count
+     * agree exactly, including in an app whose custom role outranks `admin`.
+     * Note that this rail is explicitly NOT a security boundary (see
+     * `admin-role-guards.ts`) — both actors are already admins.
      *
      * BANNED USERS ARE EXCLUDED. A banned admin still carries `role='admin'`
      * but cannot sign in, so counting it would permit exactly the lockout the

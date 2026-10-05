@@ -8,14 +8,15 @@
 import { Schema, SchemaGetter } from 'effect'
 import { TableIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
+import { validateNoLookupCycle } from '@/domain/models/app/tables/lookup-cycle-validation'
+import { validateRowRuleTypes } from '@/domain/models/app/tables/row-rule-types-validation'
+import { validateDistinctDerivedTableNames } from '@/domain/models/app/tables/table-derived-name-validation'
 import {
   validateAllRollupFields,
   validateRelationshipFieldReference,
 } from '@/domain/models/app/tables/table-field-validation'
-import {
-  SPECIAL_FIELDS,
-  validateFormulaFields,
-} from '@/domain/models/app/tables/table-formula-validation'
+import { validateCompositeForeignKeys } from '@/domain/models/app/tables/table-foreign-keys-validation'
+import { validateFormulaFields } from '@/domain/models/app/tables/table-formula-validation'
 import { validateIndexes } from '@/domain/models/app/tables/table-indexes-validation'
 import { validateTablePermissions } from '@/domain/models/app/tables/table-permission-fields-validation'
 import { validatePrimaryKey } from '@/domain/models/app/tables/table-primary-key-validation'
@@ -24,6 +25,7 @@ import {
   detectCircularPermissionInheritance,
   detectCircularRelationships,
 } from '@/domain/models/app/tables/table-transforms-service'
+import { validateUniqueConstraints } from '@/domain/models/app/tables/table-unique-validation'
 import {
   validatePublicViews,
   validateViews,
@@ -39,9 +41,6 @@ import { PrimaryKeySchema } from './primary-key'
 import { RowLevelPermissionsSchema } from './row-level-permissions'
 import { ViewSchema } from './views'
 import { WebhookSchema } from './webhooks'
-
-// Re-export SPECIAL_FIELDS for external use
-export { SPECIAL_FIELDS }
 
 /**
  * Table Schema
@@ -103,6 +102,13 @@ const validateStructure = (
     if (indexError) return indexError
   }
 
+  const unique = table.unique as
+    ReadonlyArray<{ readonly fields: ReadonlyArray<string> }> | undefined
+  if (unique && unique.length > 0) {
+    const uniqueError = validateUniqueConstraints(unique, fieldNames)
+    if (uniqueError) return uniqueError
+  }
+
   return undefined
 }
 
@@ -122,6 +128,12 @@ const validateAccessAndViews = (
     const permissionsError = validateTablePermissions(permissions, fields, fieldNames)
     if (permissionsError) return permissionsError
   }
+
+  const rowRuleError = validateRowRuleTypes(
+    table.rowLevelPermissions as Parameters<typeof validateRowRuleTypes>[0],
+    fields
+  )
+  if (rowRuleError) return rowRuleError
 
   const views = table.views as
     ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }> | undefined
@@ -679,6 +691,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       return names.length === uniqueNames.size || 'Table names must be unique within the schema'
     })
   ),
+  Schema.check(Schema.makeFilter((tables) => validateDistinctDerivedTableNames(tables) ?? true)),
   Schema.check(
     Schema.makeFilter((tables) => {
       const circularTables = detectCircularRelationships(tables)
@@ -696,6 +709,13 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       }
       return true
     })
+  ),
+  Schema.check(
+    Schema.makeFilter(
+      // Composite keys name their columns and table as plain strings; each must
+      // exist in the config (see `table-foreign-keys-validation.ts`).
+      (tables) => validateCompositeForeignKeys(tables) ?? true
+    )
   ),
   Schema.check(
     Schema.makeFilter((tables) => {
@@ -821,7 +841,10 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
 
       return true
     })
-  )
+  ),
+  // After the references resolve: two tables whose lookups read each other
+  // cannot both be computed, and the database would refuse it at start-up.
+  Schema.check(Schema.makeFilter((tables) => validateNoLookupCycle(tables)))
 )
 
 export type Tables = Schema.Schema.Type<typeof TablesSchema>

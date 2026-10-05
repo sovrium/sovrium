@@ -36,7 +36,7 @@ export function DataTableSkeleton(): ReactElement {
       </div>
       {/* Header skeleton — the same header-cell chrome the hydrated grid paints,
           so the row does not shift tone or height on hydration. */}
-      <div className={`${computeTableHeaderCellClasses()} flex gap-4`}>
+      <div className={`${computeTableHeaderCellClasses({ inTable: false })} flex gap-4`}>
         {SKELETON_BAR_WIDTHS.map((width) => (
           <div
             key={`header-bar-${width}`}

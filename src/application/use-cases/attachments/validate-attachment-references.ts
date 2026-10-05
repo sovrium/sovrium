@@ -46,6 +46,7 @@ import {
   permits,
   SESSION_WITH_UNRESOLVED_ROLE,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isFilePublic } from '@/domain/models/process-env/storage/storage-public-access'
 import {
   bucketForField,
@@ -96,7 +97,7 @@ const writerMayDownload = (
   const caller = writer.authenticated
     ? writer.role === undefined
       ? SESSION_WITH_UNRESOLVED_ROLE
-      : { role: writer.role }
+      : { role: writer.role, adminEquivalent: isAdminEquivalent(writer.role, scope.app) }
     : undefined
   return permits(
     evaluatePermission(bucket.permissions?.download, caller, {

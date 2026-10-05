@@ -20,7 +20,7 @@
  * implementation.
  */
 
-import { and, eq, like, sql } from 'drizzle-orm'
+import { and, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AiEmbeddingDatabaseError,
@@ -29,6 +29,7 @@ import {
 import { db } from '@/infrastructure/database'
 import { aiEmbeddings as aiEmbeddingsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import {
+  chunkFieldsOf,
   cosineSimilarity,
   deserializeEmbedding,
   serializeEmbedding,
@@ -74,91 +75,111 @@ const padVector = (embedding: ReadonlyArray<number>): ReadonlyArray<number> => {
 const toVectorLiteral = (embedding: ReadonlyArray<number>): string =>
   `[${padVector(embedding).join(',')}]`
 
+/** The `VALUES` tuple of one embedding chunk. */
+const embeddingValuesTuple = (row: Readonly<NewEmbedding>) => {
+  const metadata =
+    row.metadata !== undefined ? sql`${JSON.stringify(row.metadata)}::jsonb` : sql`NULL`
+  return sql`(
+    ${row.sourceType}, ${row.sourceId}, ${row.agentName}, ${row.sourceRef},
+    ${row.chunkIndex}, ${row.content},
+    ${toVectorLiteral(row.embedding)}::vector,
+    ${metadata}
+  )`
+}
+
 /**
- * Insert ONE embedding chunk.
+ * Insert a batch of embedding chunks in ONE statement, so they become visible
+ * together: a record cut into several chunk sequences (one per group of fields
+ * sharing a read grant) is never half-indexed to a concurrent search.
  *
  * Deliberately `db.execute` + a pgvector `::vector` cast rather than the
  * dialect-portable `executeRawTyped`: this implementation is the POSTGRES arm
  * (`AiEmbeddingRepositoryLive`), and pgvector has no SQLite equivalent. The
  * SQLite arm below stores the vector as a `Float32Array` BLOB instead.
  */
-const insertEmbeddingRow = (row: Readonly<NewEmbedding>): Promise<unknown> => {
-  const metadata =
-    row.metadata !== undefined ? sql`${JSON.stringify(row.metadata)}::jsonb` : sql`NULL`
-  return db.execute(
+const insertEmbeddingBatch = (batch: ReadonlyArray<NewEmbedding>): Promise<unknown> =>
+  db.execute(
     sql`
       INSERT INTO system.ai_embeddings
         (source_type, source_id, agent_name, source_ref, chunk_index, content, embedding, metadata)
-      VALUES (
-        ${row.sourceType}, ${row.sourceId}, ${row.agentName}, ${row.sourceRef},
-        ${row.chunkIndex}, ${row.content},
-        ${toVectorLiteral(row.embedding)}::vector,
-        ${metadata}
-      )
+      VALUES ${sql.join(batch.map(embeddingValuesTuple), sql`, `)}
     `
   )
-}
 
 /**
- * Persist a batch of embeddings, one statement per chunk.
+ * Rows per `INSERT`. Eight bound parameters a row keeps a batch far under
+ * PostgreSQL's 65 535-parameter limit; the pgvector text literal (a few KB a
+ * row at 1 536 dimensions) keeps a statement around a megabyte at most.
+ */
+const INSERT_BATCH_SIZE = 64
+
+/** Split `rows` into consecutive batches of at most {@link INSERT_BATCH_SIZE}. */
+const toInsertBatches = (
+  rows: ReadonlyArray<NewEmbedding>
+): ReadonlyArray<ReadonlyArray<NewEmbedding>> =>
+  Array.from({ length: Math.ceil(rows.length / INSERT_BATCH_SIZE) }, (_, index) =>
+    rows.slice(index * INSERT_BATCH_SIZE, (index + 1) * INSERT_BATCH_SIZE)
+  )
+
+/**
+ * Persist a batch of embeddings, one multi-row statement per
+ * {@link INSERT_BATCH_SIZE} chunks.
  *
  * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. Every statement runs on the
- * `db` facade — the SHARED pool — and the width is INPUT-SIZE bounded: one
- * INSERT per embedded chunk, so it grows with the size of the ingested document
- * or table. A single large document can therefore produce a fan-out far wider
- * than the ten default pool slots, which is the mechanism of the 2026-07-25
- * production 504 incident. Knowledge sync is best-effort (every caller pipes
+ * `db` facade — the SHARED pool — and the number of statements grows with the
+ * size of the ingested document or table. A wide unbounded fan-out against the
+ * ten default pool slots was the mechanism of the 2026-07-25 production 504
+ * incident. Knowledge sync is best-effort (every caller pipes
  * `Effect.catch(() => Effect.void)`), but "best-effort" bounds the
  * CONSEQUENCE of a failure, not the CONNECTIONS it holds while succeeding.
  *
- * ORDER: `Effect.all` preserves array order exactly as `Promise.all` did. Row
- * order is not semantically load-bearing here — `chunk_index` carries the
- * ordering — but nothing regresses.
+ * ATOMICITY: the rows of one batch appear together. A single record's chunks
+ * fit one batch, so a search never sees some of a record's chunk sequences and
+ * not the others.
  *
- * ERRORS: no per-row guard before or after, so one failing INSERT fails the
- * whole call and surfaces the identical `AiEmbeddingDatabaseError` with the
- * identical cause. `Effect.all` additionally stops issuing the remaining
- * statements; that only reduces the partial write a failed sync leaves behind,
- * and `deleteBySourceIdPrefix` + re-sync already own that cleanup.
+ * ERRORS: one failing statement fails the whole call and surfaces an
+ * `AiEmbeddingDatabaseError`; `Effect.all` stops issuing the remaining
+ * statements, and `deleteBySourceIdPrefix` + re-sync own the cleanup.
  *
- * An empty `rows` needs no special case — `Effect.all([])` succeeds with `[]`,
- * matching the previous early return.
- *
- * NOT collapsed into a multi-row `INSERT … VALUES (…), (…)`, which the SQLite
- * arm effectively already does via `db.insert(...).values(values)`. There is no
- * `ON CONFLICT` here so no duplicate-key hazard blocks it, but the pgvector text
- * literal makes each row's bind payload large and the batching would need a
- * chunk size chosen against the parameter limit. Worth doing; a separate change
- * from stating a width.
+ * An empty `rows` needs no special case — no batch, `Effect.all([])` succeeds.
  */
 const insertManyEffect = (rows: ReadonlyArray<NewEmbedding>) =>
-  Effect.all(
-    rows.map((row) => wrap(() => insertEmbeddingRow(row))),
-    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
-  ).pipe(Effect.asVoid)
+  Effect.forEach(toInsertBatches(rows), (batch) => wrap(() => insertEmbeddingBatch(batch)), {
+    concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
+  }).pipe(Effect.asVoid)
 
 interface SearchRow {
   readonly agent_name: string | null
   readonly source_ref: string | null
   readonly content: string
   readonly similarity: number
+  readonly metadata: unknown
+}
+
+/** The `agent_name` predicate of a search: one agent, plus global knowledge on request. */
+const agentPredicate = (agentName: string | undefined, includeGlobal: boolean | undefined) => {
+  if (agentName === undefined) return sql``
+  return includeGlobal === true
+    ? sql`AND (agent_name = ${agentName} OR agent_name IS NULL)`
+    : sql`AND agent_name = ${agentName}`
 }
 
 const searchImpl = async (input: {
   readonly embedding: ReadonlyArray<number>
   readonly agentName: string | undefined
+  readonly includeGlobal?: boolean
   readonly minSimilarity: number
   readonly maxResults: number
 }): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
   const queryVector = toVectorLiteral(input.embedding)
-  const agentFilter =
-    input.agentName !== undefined ? sql`AND agent_name = ${input.agentName}` : sql``
+  const agentFilter = agentPredicate(input.agentName, input.includeGlobal)
   const result = await db.execute(
     sql`
       SELECT
         agent_name,
         source_ref,
         content,
+        metadata,
         1 - (embedding <=> ${queryVector}::vector) AS similarity
       FROM system.ai_embeddings
       WHERE embedding IS NOT NULL
@@ -176,6 +197,7 @@ const searchImpl = async (input: {
       sourceRef: r.source_ref,
       content: r.content,
       similarity: Number(r.similarity),
+      fields: chunkFieldsOf(r.metadata),
     }))
     .filter((r) => r.similarity >= input.minSimilarity)
 }
@@ -232,12 +254,14 @@ interface CandidateRow {
   readonly sourceRef: string | null
   readonly content: string
   readonly embedding: unknown
+  readonly metadata: unknown
 }
 
 const searchSqliteImpl = async (input: {
   readonly embedding: ReadonlyArray<number>
   readonly query?: string
   readonly agentName: string | undefined
+  readonly includeGlobal?: boolean
   readonly minSimilarity: number
   readonly maxResults: number
 }): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
@@ -249,6 +273,7 @@ const searchSqliteImpl = async (input: {
     embedding: input.embedding,
     query: input.query ?? '',
     agentName: input.agentName,
+    includeGlobal: input.includeGlobal === true,
     minSimilarity: input.minSimilarity,
     maxResults: input.maxResults,
   })
@@ -260,13 +285,19 @@ const searchSqliteImpl = async (input: {
       sourceRef: aiEmbeddingsSqliteTyped.sourceRef,
       content: aiEmbeddingsSqliteTyped.content,
       embedding: aiEmbeddingsSqliteTyped.embedding,
+      metadata: aiEmbeddingsSqliteTyped.metadata,
     })
     .from(aiEmbeddingsSqliteTyped)
     .where(
       input.agentName !== undefined
         ? and(
             sql`${aiEmbeddingsSqliteTyped.embedding} IS NOT NULL`,
-            eq(aiEmbeddingsSqliteTyped.agentName, input.agentName)
+            input.includeGlobal === true
+              ? or(
+                  eq(aiEmbeddingsSqliteTyped.agentName, input.agentName),
+                  isNull(aiEmbeddingsSqliteTyped.agentName)
+                )
+              : eq(aiEmbeddingsSqliteTyped.agentName, input.agentName)
           )
         : sql`${aiEmbeddingsSqliteTyped.embedding} IS NOT NULL`
     )) as unknown as ReadonlyArray<CandidateRow>
@@ -277,6 +308,7 @@ const searchSqliteImpl = async (input: {
       sourceRef: row.sourceRef,
       content: row.content,
       similarity: cosineSimilarity(input.embedding, deserializeEmbedding(row.embedding)),
+      fields: chunkFieldsOf(row.metadata),
     }))
     .filter((row) => row.similarity >= input.minSimilarity)
   return scored.toSorted((a, b) => b.similarity - a.similarity).slice(0, input.maxResults)

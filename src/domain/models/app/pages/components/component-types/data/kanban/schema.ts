@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema, CrudActionSchema } from '../../../action'
+import { CardClickActionSchema, CrudActionSchema } from '../../../action'
 
 // ---------------------------------------------------------------------------
 // KanbanGroupBySchema
@@ -226,12 +226,13 @@ export const KanbanCardSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  /** Action triggered when the card is clicked */
-  onClick: Schema.optional(ActionSchema),
+  /** What a click on the card does — `navigate` or `openDrawer` */
+  onClick: Schema.optional(CardClickActionSchema),
   /** Field reference or $record.* variable for the cover image URL */
   coverImage: Schema.optional(
     Schema.String.annotate({
-      description: 'Image URL or $record.* variable for card cover image',
+      description:
+        'Image URL or $record.* variable for card cover image; a `$record.*` naming an attachment field draws its file',
       examples: ['$record.thumbnail', '$record.coverImage'],
     })
   ),

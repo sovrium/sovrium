@@ -101,7 +101,7 @@ export const AuthEmailTemplatesSchema = Schema.Struct({
   twoFactorBackupCodes: Schema.optional(AuthEmailTemplateSchema),
   /** Welcome email after verification */
   welcome: Schema.optional(AuthEmailTemplateSchema),
-  /** Account deletion confirmation email */
+  /** Confirmation-link email for an immediate account deletion ($url, $name, $email, $appName) */
   accountDeletion: Schema.optional(AuthEmailTemplateSchema),
   /**
    * Admin-issued invitation email (passwordless onboarding)

@@ -38,21 +38,69 @@ function toWireValue(field: FieldDef | undefined, value: string): CoercedFieldVa
     return coerced.ok ? coerced.value : value
   }
   if (widget === 'multi-select') return readLinkedIds(value, true)
+  // A picker holding a LIST of links holds it JSON-encoded; the API takes the
+  // list itself. Sent as held, the encoded string reached an integer key column
+  // and every auto-save of a form with one was refused.
+  if (widget === 'record-picker' && field.allowMultiple === true) return readLinkedIds(value, true)
   return value
 }
 
-/** Convert a map of held values into the payload a create or update sends. */
+/**
+ * The key a cleared field is marked with, in the form's value map and in a
+ * natively posted form: `<field>__clear`. Clearing is an explicit gesture —
+ * an empty control means "untouched" — so the mark travels beside the field.
+ */
+export const clearMarkOf = (name: string): string => `${name}__clear`
+
+/** Whether the held values mark `name` cleared. */
+export const isMarkedCleared = (values: Readonly<Record<string, string>>, name: string): boolean =>
+  values[clearMarkOf(name)] === '1'
+
+/**
+ * Convert a map of held values into the payload a create or update sends. A
+ * field marked cleared is sent as `null` — the records API's "store it empty",
+ * which also unlinks every link of a relationship — and the marks themselves
+ * are never sent.
+ */
 export function toWireFields(
   fields: readonly FieldDef[],
   values: Readonly<Record<string, string>>
-): Readonly<Record<string, CoercedFieldValue>> {
+): Readonly<Record<string, CoercedFieldValue | null>> {
   return Object.fromEntries(
-    Object.entries(values).map(([name, value]) => [
-      name,
-      toWireValue(
-        fields.find((f) => f.name === name),
-        value
-      ),
-    ])
+    Object.entries(values)
+      .filter(([name]) => !name.endsWith('__clear'))
+      .map(([name, value]) => [
+        name,
+        isMarkedCleared(values, name)
+          ? // eslint-disable-next-line unicorn/no-null -- `null` is the records API's "store this field empty"
+            null
+          : toWireValue(
+              fields.find((f) => f.name === name),
+              value
+            ),
+      ])
   )
+}
+
+/**
+ * Put each record picker's KEY into a natively posted form's data.
+ *
+ * A picker's visible control is its search box, and the browser posts that box
+ * under the field's name — the linked record's DISPLAY value, which the server
+ * cannot resolve to a row. The key the form holds replaces it; an empty picker
+ * posts nothing, so an untouched link is left as it is.
+ */
+export function postPickerKeys(
+  formData: FormData,
+  fields: readonly FieldDef[],
+  values: Readonly<Record<string, string>>
+): void {
+  fields
+    .filter((field) => fieldWidgetOf(field.type) === 'record-picker')
+    .forEach((field) => {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- FormData.delete removes one form entry; this is not a Drizzle query
+      formData.delete(field.name)
+      const held = (values[field.name] ?? '').trim()
+      if (held !== '') formData.set(field.name, held)
+    })
 }

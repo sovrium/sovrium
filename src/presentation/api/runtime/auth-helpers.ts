@@ -149,12 +149,26 @@ export const forbidden = (c: Context, message?: string) =>
  * so that "the resource does not exist" responses use the same envelope
  * everywhere — replaces both inline `{ error: 'not_found' }` shapes and
  * ad-hoc `c.json({ success, message, code: 'NOT_FOUND' })` returns.
+ *
+ * The body is the one `sanitizeError` answers for a `NotFoundError`, key for
+ * key, so a client reads a missing record the same way whichever route or
+ * gate refused it — a denial included (S1).
  */
-export const notFound = (c: Context, message?: string) =>
-  c.json(
-    { success: false, message: message ?? 'Resource not found', code: ApiErrorCode.NOT_FOUND },
-    404
-  )
+export const notFound = (c: Context, message?: string) => c.json(notFoundBody(message), 404)
+
+/**
+ * The 404 body {@link notFound} answers, for a site that holds no Hono
+ * `Context` or must keep a key of its own beside the four (spread it). Every
+ * 404 on `/api/*` is this body: `message` may name the missing thing, `error`
+ * and `code` never vary.
+ */
+export const notFoundBody = (message?: string) =>
+  ({
+    success: false,
+    error: 'Not Found',
+    message: message ?? 'Resource not found',
+    code: ApiErrorCode.NOT_FOUND,
+  }) as const
 
 /**
  * Canonical 413 response for a request body that exceeds a declared limit.

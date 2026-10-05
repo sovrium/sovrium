@@ -264,7 +264,11 @@ function useDebouncedAutoSave(
     return () => {
       window.removeEventListener('pagehide', flushOnHide)
       window.removeEventListener('beforeunload', flushOnHide)
-      if (timerRef.current) clearTimeout(timerRef.current)
+      // An unmount with an edit still pending is the same loss as an unload:
+      // a client-side navigation tears the grid down without unloading the
+      // document, so neither listener above ever fires for it. Flushed the
+      // same way, so the value the reader typed reaches the record.
+      flushOnHide()
     }
   }, [tableName, recordId, fieldName])
 
@@ -311,6 +315,7 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
         break
       case 'Escape':
         e.preventDefault()
+        cancelTimer() // dropped: the unmount below must not save a cancelled edit
         props.onCancel()
         break
     }

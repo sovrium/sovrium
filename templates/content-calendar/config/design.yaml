@@ -1,94 +1,203 @@
-# Content calendar theming — vermillion.
+# Loomwork Content — the design system of this app.
 #
-# Assigned "orange", pushed hard toward red, and that shove is the whole design
-# constraint: the landing page already owns burnt amber (`#c2410c`, ~20°) and two
-# templates that merely tint the same hue would read as one product in the demo
-# gallery. So this sits at ~10° — tomato rather than terracotta — and, more
-# decisively than the hue shift, it pairs that accent with COOL near-neutral
-# greys instead of the landing page's warm sand. Most of any page is background
-# and body text; changing what those are made of separates the two surfaces even
-# on the screens where the accent barely appears.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every reader's address to a third party.
 #
-# WHY THESE KEY NAMES AND NOT PRETTIER ONES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
-#   prestyled island already reads, so declaring them repaints the calendar, the
-#   editorial kanban and the create form with no class changes anywhere in this
-#   config. A non-role key such as `vermillion-500` would emit `--color-*` only
-#   and paint nothing until something cited it — and this template cites no
-#   colour by name, because it carries no inline styles.
+# A small content team reads this app every morning: what goes out this
+# month, on which channel, and what is late. The month is the product, so the
+# colour goes to the channels on it and to the three outcomes of a piece —
+# published, due this week, late — and nowhere else.
 #
-#   The mapping is NOT identity, which is the part that bites: `ring` →
-#   `focus-ring` and `success` → `success-solid`. `foreground-muted` and
-#   `foreground-subtle` are role keys; `text-secondary` and `text-muted` are not.
-#
-#   TWO KEYS FOR ONE ROLE. `muted` and `background-subtle` both map to
-#   `--sv-bg-subtle`; so do `card`/`background-raised` (→ `--sv-bg-raised`) and
-#   `popover`/`background-overlay` (→ `--sv-bg-overlay`). Declaring both names of
-#   a pair is a silent collision resolved by key order, so this file uses the
-#   `background-*` spelling throughout and never the aliases. That also dodges a
-#   trap: `muted`, `card` and `popover` sit in COLORS_NEEDING_FOREGROUND, which
-#   auto-derives a `#ffffff` companion — invisible on the pale surface it is
-#   meant to sit on, and NOT mirrored into `darkColors`, since it is a guess
-#   made for the light surface only. Name `primary-foreground` explicitly if a
-#   companion is ever genuinely needed.
-#
-# NO `fonts` BLOCK, ON PURPOSE
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, which drops the page onto the OS default AND locks the shipped
-#   face out of its own stack.
-#
-#   The five workflow `color:` hexes in config/tables/content.yaml stay as they
-#   are: those are record data, not chrome, and ADR-024 A7 keeps that channel
-#   coloured on purpose. They also carry the kanban — Idea through Published is
-#   the one place on this surface where colour is load-bearing, and they were
-#   chosen to stay legible against a vermillion accent rather than compete
-#   with it.
+# One accent, a vermillion. It sits a few degrees from the usual red of an
+# error, so `error` moves to a cooler crimson instead: "Schedule" and "this is
+# late" never read as the same colour.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (the calendar, the board, the
+# grid, the drawer, buttons and forms) with no class changes anywhere else in
+# the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
+#
+# `chart-1` … `chart-5` are the channel colours: Website, LinkedIn and X,
+# Email, Instagram, YouTube. Five hues at one lightness, none near the accent
+# or `error`, so a channel never reads as a button or an outcome. The calendar
+# paints them from the `channel` field's options, which carry the same hues.
 colors:
-  primary: '#c9331c'
-  primary-hover: '#a32815'
-  primary-subtle: '#ffe3dc'
-  ring: '#e85b3f'
-  background: '#ffffff'
-  background-subtle: '#f7f4f3'
-  foreground: '#1a1412'
-  foreground-muted: '#544946'
-  foreground-subtle: '#857a76'
-  background-raised: '#ffffff'
-  border: '#e6dedb'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.16 28)
+  primary-hover: oklch(0.46 0.15 28)
+  primary-active: oklch(0.42 0.141 28)
+  primary-foreground: oklch(0.985 0.003 28)
+  primary-subtle: oklch(0.95 0.03 28)
+  primary-subtle-foreground: oklch(0.38 0.12 28)
+  ring: oklch(0.6 0.16 28)
+  background: oklch(0.985 0.003 28)
+  background-subtle: oklch(0.967 0.005 28)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 28)
+  foreground: oklch(0.21 0.008 28)
+  foreground-muted: oklch(0.45 0.012 28)
+  foreground-subtle: oklch(0.51 0.012 28)
+  foreground-disabled: oklch(0.71 0.012 28)
+  foreground-inverse: oklch(0.985 0.003 28)
+  border: oklch(0.925 0.008 28)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 350)
+  destructive-foreground: oklch(0.985 0.003 28)
+  chart-1: oklch(0.58 0.13 250)
+  chart-2: oklch(0.58 0.13 160)
+  chart-3: oklch(0.58 0.13 305)
+  chart-4: oklch(0.58 0.13 85)
+  chart-5: oklch(0.58 0.13 205)
 
-# Emitted into the stylesheet unconditionally under
-# `html:is(.dark, [data-theme='dark'])`; it renders once the app declares
-# `design.colorScheme` or ships a `theme-toggle`, neither of which this template
-# does yet. `primary-foreground` is deliberately NOT declared in either block:
-# the light path derives `#ffffff` for text on the fill, and the dark path
-# inherits the platform's dark companion, which is the dark neutral a pale coral
-# fill needs. Declaring white here would put white on `#ff8163`.
 darkColors:
-  primary: '#ff8163'
-  primary-hover: '#ffa590'
-  primary-subtle: '#3d1109'
-  ring: '#f26a4d'
-  background: '#12100f'
-  background-subtle: '#1c1817'
-  foreground: '#f4efed'
-  foreground-muted: '#c2b8b4'
-  foreground-subtle: '#958b87'
-  background-raised: '#1a1615'
-  border: '#2b2523'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.12 28)
+  primary-hover: oklch(0.83 0.09 28)
+  primary-active: oklch(0.87 0.07 28)
+  primary-foreground: oklch(0.16 0.006 28)
+  primary-subtle: oklch(0.28 0.06 28)
+  primary-subtle-foreground: oklch(0.9 0.06 28)
+  ring: oklch(0.72 0.13 28)
+  background: oklch(0.16 0.006 28)
+  background-subtle: oklch(0.19 0.007 28)
+  background-raised: oklch(0.21 0.008 28)
+  background-overlay: oklch(0.23 0.008 28)
+  background-inset: oklch(0.13 0.005 28)
+  foreground: oklch(0.95 0.005 28)
+  foreground-muted: oklch(0.75 0.01 28)
+  foreground-subtle: oklch(0.68 0.012 28)
+  foreground-disabled: oklch(0.45 0.01 28)
+  foreground-inverse: oklch(0.16 0.006 28)
+  border: oklch(0.3 0.01 28)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 350)
+  destructive-foreground: oklch(0.16 0.006 28)
+  chart-1: oklch(0.74 0.11 250)
+  chart-2: oklch(0.74 0.11 160)
+  chart-3: oklch(0.74 0.11 305)
+  chart-4: oklch(0.74 0.11 85)
+  chart-5: oklch(0.74 0.11 205)
 
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a status colour, and a channel colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Primary action fill, the current nav entry, today on the calendar, the focus ring. Never a channel and never a status.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states — the current page, the column a piece is dragged over, the piece open in the drawer.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A piece published, and nothing else.
+    pairsWith: foreground
+  warning:
+    usage: A piece due this week that is still in Draft or Review.
+    pairsWith: foreground
+  error:
+    usage: A piece whose publish date has passed while it is not published; a destructive action.
+    pairsWith: foreground
+  chart-1:
+    usage: Channel colour — Website. Data colour on the calendar and the channel dots only.
+    pairsWith: foreground
+  chart-2:
+    usage: Channel colour — LinkedIn and X.
+    pairsWith: foreground
+  chart-3:
+    usage: Channel colour — Email.
+    pairsWith: foreground
+  chart-4:
+    usage: Channel colour — Instagram.
+    pairsWith: foreground
+  chart-5:
+    usage: Channel colour — YouTube.
+    pairsWith: foreground
+
+# Sans for every sentence, mono for dates, counts and overlines, so a column
+# of dates lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Soft corners: a planning wall, not a ledger.
 radius:
-  sm: 0.25rem
-  md: 0.5rem
-  lg: 0.75rem
+  sm: 0.5rem
+  md: 0.75rem
+  lg: 1rem
   full: 9999px
+
+# Cards carry a one-pixel lift; the drawer and the dialog float clearly above
+# the month.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
+# Every page is a working surface read many times a day, so the whole app
+# runs at `cozy`. The three steps are the platform's own values, written out
+# so one number can be tuned.
+density:
+  default: cozy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - energetic
+    - organised
+    - plain
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: New piece, Schedule, Send for review, Publish.'
+    - Name the channel and the date on every piece.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "Oops", no growth-hacking jargon.
+    - Never "record" or "row" for a piece.
+    - Never a date without its weekday on the calendar.
+  tone:
+    empty: Say what this month or column will hold, then the one action that fills it.
+    loading: Name what is loading — the month, the pipeline — never a bare spinner.
+    error: State what did not save and the one thing that fixes it; keep what the person typed.
+    success: Confirm in past tense what happened and when it goes out.
+    destructive: Name the piece and whether it comes back.
+
+principles:
+  - The month shows what goes out, where, and what is late, before anything else.
+  - Every piece has one owner, one date and its channels.
+  - Colour means an outcome — published, due, late — or a channel on the calendar, and nothing else.
+  - The calendar is understood without a tour.

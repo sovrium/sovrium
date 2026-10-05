@@ -1,0 +1,32 @@
+# The company calendar: what is coming up, listed on Home soonest first.
+id: 5
+name: events
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  - id: 2
+    name: starts_at
+    type: date
+    required: true
+  - id: 3
+    name: place
+    type: single-line-text
+  # "30 Sep" — the day, as Home prints it.
+  - id: 4
+    name: day_label
+    type: formula
+    formula: "CAST(substr(CAST(starts_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(starts_at AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END"
+    resultType: string
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - managers
+  update:
+    - admin
+    - managers
+  delete:
+    - admin

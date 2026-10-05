@@ -23,13 +23,16 @@ Its foreign key is `ON DELETE SET NULL`: deleting the account clears the referen
 
 <!-- sovrium:options UserFieldSchema -->
 
+`default: $currentUser` fills the field with the signed-in person when a record is created without a value for it — through the API, a form or a dialog. Unlike `created-by`, it is only a default: a value the author supplies is kept, and the field stays editable, so a piece its writer adds is theirs until they hand it on. A record created with no signed-in person leaves it empty.
+
 ```yaml
 - { id: 1, name: assignee, type: user }
+- { id: 2, name: owner, type: user, default: $currentUser }
 ```
 
 ## Authorship fields
 
-`created-by`, `updated-by` and `deleted-by` are written by the engine from the authenticated session. A client cannot set them: a request that tries is not refused, but the engine builds an override from the session and stamps it over whatever was sent, because the only trustworthy source for "who did this" is the session that did it.
+`created-by`, `updated-by` and `deleted-by` are written by the engine from the authenticated session. A client cannot set them: a request that tries is not refused, but the engine builds an override from the session and stamps it over whatever was sent, because the only trustworthy source for "who did this" is the session that did it. The stamp lands on the field by its type, whatever it is named, and a batch update stamps a custom-named `updated-by` field with the updating user, as a single update does.
 
 <!-- sovrium:options CreatedByFieldSchema -->
 

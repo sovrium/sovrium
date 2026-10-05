@@ -299,10 +299,9 @@ const submissionsBlock = (
   const forms = app.forms ?? []
   return Effect.gen(function* () {
     const repo = yield* AdminFormsRepository
-    const aggregates = yield* Effect.all(
-      forms.map((form) => repo.aggregateForForm(form.name)),
-      { concurrency: 2 }
-    )
+    const aggregates = yield* Effect.forEach(forms, (form) => repo.aggregateForForm(form.name), {
+      concurrency: 2,
+    })
     return { total: sumSubmissionCounts(aggregates) }
   }).pipe(
     Effect.tapCause(logBlockFailure('submissions')),

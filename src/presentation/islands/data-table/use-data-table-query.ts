@@ -13,6 +13,7 @@ import {
   fetchSystemEndpoint,
   readAppliedQuery,
 } from '../hooks/use-system-source-fetch'
+import { retryUnlessRateLimited } from '../runtime/read-failure'
 import { withSharedFilter } from '../runtime/shared-filter-param'
 import { groupPathKey } from './group-order'
 import { computeRowAggregations } from './summary-aggregate'
@@ -223,6 +224,8 @@ const DOMAIN_TO_API_OPERATOR: Record<string, string> = {
   gte: 'greaterThanOrEqual',
   lte: 'lessThanOrEqual',
   contains: 'contains',
+  isEmpty: 'isEmpty',
+  isNotEmpty: 'isNotEmpty',
 }
 
 function buildFilterParam(
@@ -232,7 +235,7 @@ function buildFilterParam(
   const conditions = (filters ?? []).map((f) => ({
     field: f.field,
     operator: DOMAIN_TO_API_OPERATOR[f.operator] ?? f.operator,
-    value: f.value,
+    ...(f.value !== undefined && { value: f.value }),
   }))
   const nodes = runtimeFilter === undefined ? conditions : [...conditions, runtimeFilter]
   return nodes.length === 0 ? undefined : JSON.stringify({ and: nodes })
@@ -332,7 +335,9 @@ async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetch
   if (!res.ok) {
     const body = await res.text()
     // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
-    throw new Error(`Failed to fetch records: ${res.status} ${body}`)
+    throw new Error(`Failed to fetch records: ${res.status} ${body}`, {
+      cause: { status: res.status },
+    })
   }
 
   const json = (await res.json()) as {
@@ -661,6 +666,7 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
     // still on screen when the failure lands, which is what lets the grid keep
     // showing data instead of an error in place of itself.
     placeholderData: keepPreviousData,
+    retry: retryUnlessRateLimited,
     queryFn: (): Promise<DataTableFetchResult> => runDataTableFetch(resolved),
   })
 

@@ -124,6 +124,17 @@ const viewLine = (change: TableChange): CliBlock => [
   },
 ]
 
+/**
+ * The line for a table whose formulas an older formula engine stored: they are
+ * recomputed once, keeping every row and its modification time.
+ */
+const recomputeLine = (change: TableChange): CliBlock => [
+  {
+    text: `would recompute the formulas of table ${change.relation ?? change.table} (rows and their modification times kept)`,
+    detail: change.statements,
+  },
+]
+
 /** The line for a table the config no longer declares, with the rows a drop would delete. */
 const dropLine = (change: TableChange): CliBlock => [
   {
@@ -173,6 +184,7 @@ export const changeLine = (change: TableChange): CliBlock => {
   if (change.kind === 'view') return viewLine(change)
   if (change.kind === 'drop') return dropLine(change)
   if (change.kind === 'rename') return renameLine(change)
+  if (change.kind === 'recompute') return recomputeLine(change)
   const relation = change.relation ?? change.table
   return change.unsimulated
     ? [

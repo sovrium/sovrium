@@ -1,177 +1,283 @@
+# Home, the page everyone lands on: the must-read first — what it asks and by
+# when, and how many have acknowledged it — then the latest news with who
+# wrote it, what is coming up, who joined in the last 30 days, and the tools.
+#
+# The page is a flat list of sections rather than one wrapper: a section
+# bound to a table draws its rows on the server only at the top level of a
+# page. Each section keeps clear of the fixed sidebar with the same left
+# margin, and the right-hand column floats beside the news.
 name: portal
 path: /portal
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Intranet home
-  description: Announcements, people, and shared resources for the whole company
+  title: Home · Halden
+  description: The must-read, the latest news, what is coming up and who joined.
 components:
+  - $ref: ./_shell.yaml
+  - type: container
+    element: header
+    props:
+      className: flex h-12 items-center gap-3 border-b border-border px-5 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-[15px] font-semibold text-foreground
+        content: Home
+  # The greeting, drawn from the signed-in colleague's own row of the
+  # directory.
   - type: container
     element: section
     props:
-      className: py-10 px-6
-      style:
-        backgroundColor: var(--color-background-subtle)
+      aria-label: Welcome
+      className: flex flex-col gap-1 px-5 pt-5 md:ml-[57px] lg:ml-[232px] [&>li]:list-none
+    dataSource:
+      table: members
+      filter:
+        - { field: account, operator: eq, value: $currentUser.id }
+      limit: 1
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-[22px] font-semibold tracking-tight text-foreground
+        content: Welcome back, $record.known_as
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-muted
+        content: The must-read comes first, then the latest news.
+  # Searches the hub's own pages — the ones this person may open.
+  - type: container
+    props:
+      className: flex items-center gap-2.5 px-5 pt-4 pb-4 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: search-input
+        scope: page
+        index: session
+        placeholder: Search the intranet
+        props:
+          aria-label: Search the intranet
+          className: w-[360px] max-w-full
+  # The right-hand column: what is coming up, who joined, and the tools.
+  - type: container
+    element: aside
+    props:
+      aria-label: Coming up, new colleagues and resources
+      className: flex flex-col gap-5 px-5 pb-5 md:ml-[57px] lg:float-right lg:ml-5 lg:w-[350px] lg:pl-0
     children:
       - type: container
         props:
-          className: max-w-5xl mx-auto
+          className: flex flex-col gap-2
         children:
           - type: text
-            element: h1
+            element: h2
             props:
-              className: text-4xl font-bold mb-2
-              style:
-                color: var(--color-foreground)
-            content: Intranet
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+            content: Coming up
+          - type: list
+            props:
+              className: rounded-lg border border-border bg-background-raised [&_li]:px-3
+            dataSource:
+              table: events
+              sort:
+                - { field: starts_at, direction: asc }
+              limit: 3
+            listDisplay:
+              emptyMessage: Dates the whole company should know about appear here.
+              itemTemplate:
+                title: $record.title
+                subtitle: $record.place
+                metadata:
+                  - { field: day_label, format: text }
+      - type: container
+        props:
+          className: flex flex-col gap-2
+        children:
+          - type: container
+            props:
+              className: flex items-center
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: New in the last 30 days
+              - type: container
+                props:
+                  className: grow
+              - type: link
+                props:
+                  href: /people
+                  className: text-xs text-foreground-muted hover:text-foreground
+                content: Everyone
+          - type: list
+            props:
+              className: rounded-lg border border-border bg-background-raised [&_li]:px-3
+            dataSource:
+              table: members
+              # A rolling window, resolved on every visit: someone who joined on
+              # the 30th is still new on the 2nd, and nobody stays "new" because
+              # of the day their row was saved. A start date still ahead is left
+              # out until it arrives.
+              filter:
+                - { field: joined_on, operator: gte, value: $today-30d }
+                - { field: joined_on, operator: lte, value: $today }
+              sort:
+                - { field: joined_on, direction: desc }
+            listDisplay:
+              emptyMessage: Colleagues who joined in the last 30 days appear here.
+              itemTemplate:
+                title: $record.name
+                subtitle: $record.title · $record.office
+      - type: container
+        props:
+          className: flex flex-col gap-2
+        children:
+          - type: container
+            props:
+              className: flex items-center
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: Resources
+              - type: container
+                props:
+                  className: grow
+              - type: link
+                props:
+                  href: /resources
+                  className: text-xs text-foreground-muted hover:text-foreground
+                content: All resources
+          - type: list
+            props:
+              className: rounded-lg border border-border bg-background-raised [&_li]:px-3
+            dataSource:
+              table: resources
+              sort:
+                - { field: category, direction: asc }
+                - { field: title, direction: asc }
+              limit: 5
+            listDisplay:
+              emptyMessage: Policies, guides and tools appear here once IT adds them.
+              itemTemplate:
+                title: $record.title
+                badge: $record.category
+  # The must-read on top: the newest announcement with an acknowledge-by date.
+  - type: container
+    element: section
+    props:
+      aria-label: Must-read
+      className: flex flex-col gap-3 px-5 md:ml-[57px] lg:ml-[232px] [&>li]:list-none
+    dataSource:
+      table: posts
+      filter:
+        - { field: is_must_read, operator: eq, value: 1 }
+        - { field: status, operator: eq, value: Published }
+      sort:
+        - { field: published_at, direction: desc }
+      pagination:
+        pageSize: 1
+    children:
+      - type: card
+        props:
+          className: flex flex-col gap-2 rounded-lg border border-foreground/80 bg-background-raised px-4 py-3.5 text-left
+        children:
           - type: text
             element: p
             props:
-              className: text-xl mb-8
-              style:
-                color: var(--color-foreground-muted)
-            content: Catch up on announcements, find colleagues, and reach the tools you use every day.
-
-          # Employee section — visible to any authenticated user
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+            content: Pinned · must read
+          - type: link
+            props:
+              href: ?record=$record.id
+              className: text-[15px] font-semibold leading-snug text-foreground hover:underline
+            content: $record.title
+          - type: text
+            element: p
+            props:
+              className: text-sm leading-relaxed text-foreground-muted
+            content: $record.excerpt
+          # Who wrote it and when, what it asks — the date in the warning
+          # tone, since it is due — and how far the company has got.
           - type: container
             props:
-              className: p-6 rounded-xl border mb-6
-              style:
-                backgroundColor: var(--color-card)
-                borderColor: var(--color-border)
-            visibility:
-              when: authenticated
+              className: flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-foreground-muted
             children:
               - type: text
-                element: h2
+                element: span
                 props:
-                  className: text-2xl font-semibold mb-3
-                content: Latest announcements
+                  className: font-medium text-foreground
+                content: $record.author_name
               - type: text
-                element: p
+                element: span
                 props:
-                  className: mb-4
-                  style:
-                    color: var(--color-foreground-muted)
-                content: What has been published across the company.
-              - type: table
-                dataSource:
-                  table: posts
-                  sort:
-                    - field: created_at
-                      direction: desc
-                columns:
-                  - field: title
-                    label: Title
-                    sortable: true
-                  - field: status
-                    label: Status
-                    sortable: true
-                  - field: author
-                    label: Author
-                pagination:
-                  pageSize: 10
-
-          # Shared resources — quick links every employee needs
-          - type: container
-            props:
-              className: p-6 rounded-xl border mb-6
-              style:
-                backgroundColor: var(--color-card)
-                borderColor: var(--color-border)
-            visibility:
-              when: authenticated
-            children:
+                  aria-hidden: 'true'
+                content: ·
               - type: text
-                element: h2
+                element: span
                 props:
-                  className: text-2xl font-semibold mb-3
-                content: Shared resources
+                  className: font-mono
+                content: $record.published_label
               - type: text
-                element: p
+                element: span
                 props:
-                  className: mb-4
-                  style:
-                    color: var(--color-foreground-muted)
-                content: Tools, policies, and guides — one bookmark for everything.
-              - type: table
-                dataSource:
-                  table: resources
-                  sort:
-                    - field: added_at
-                      direction: desc
-                columns:
-                  - field: title
-                    label: Title
-                    sortable: true
-                  - field: category
-                    label: Category
-                    sortable: true
-                  - field: url
-                    label: Link
-                pagination:
-                  pageSize: 10
-
-          # Manager tools — role-gated, only managers and admins see it
-          - type: container
-            props:
-              className: p-6 rounded-xl border mb-6
-              style:
-                backgroundColor: var(--color-warning-subtle)
-                borderColor: var(--color-warning-border)
-            visibility:
-              roles:
-                - admin
-                - managers
-            children:
+                  className: rounded-sm border border-border px-1.5 py-px text-[11px] text-foreground-muted
+                content: $record.topic
+              - type: container
+                props:
+                  className: grow
               - type: text
-                element: h2
+                element: span
                 props:
-                  className: text-2xl font-semibold mb-3
-                content: Manager tools
+                  className: inline-flex items-center gap-1.5 rounded-sm border border-warning px-2 py-0.5 text-xs font-medium text-warning before:size-1.5 before:rounded-full before:bg-warning before:content-['']
+                content: $record.due_label
               - type: text
-                element: p
+                element: span
                 props:
-                  className: mb-4
-                  style:
-                    color: var(--color-warning-strong)
-                content: Publish announcements, manage the directory, and curate resources. Only managers and admins see this section.
-              - type: table
-                dataSource:
-                  table: members
-                  sort:
-                    - field: joined_at
-                      direction: desc
-                columns:
-                  - field: name
-                    label: Name
-                    sortable: true
-                  - field: email
-                    label: Email
-                  - field: location
-                    label: Location
-                  - field: joined_at
-                    label: Joined
-                    sortable: true
-                pagination:
-                  pageSize: 20
-
-          # Sign-out button at the bottom
-          - type: container
-            props:
-              className: flex justify-end mt-8
-            children:
-              - type: button
+                  className: sr-only
+                content: ', '
+              - type: text
+                element: span
                 props:
-                  className: px-4 py-2 rounded-md border text-md font-medium
-                  style:
-                    color: var(--color-foreground)
-                    borderColor: var(--color-border)
-                    backgroundColor: var(--color-card)
-                content: Sign out
-                action:
-                  type: auth
-                  method: logout
-                  onSuccess:
-                    navigate: /
+                  className: text-xs text-foreground-muted
+                content: $record.ack_line acknowledged
+  - type: container
+    props:
+      className: flex items-center px-5 pt-5 pb-2 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: h2
+        props:
+          className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+        content: Latest news
+      - type: container
+        props:
+          className: grow
+      - type: link
+        props:
+          href: /news
+          className: text-xs text-foreground-muted hover:text-foreground
+        content: All announcements
+  # The three latest announcements that are not the must-read.
+  - type: container
+    element: section
+    props:
+      aria-label: Latest news
+      className: flex flex-col gap-3 px-5 pb-8 md:ml-[57px] lg:ml-[232px] [&>li]:list-none
+    dataSource:
+      table: posts
+      filter:
+        - { field: is_must_read, operator: eq, value: 0 }
+        - { field: status, operator: eq, value: Published }
+      sort:
+        - { field: published_at, direction: desc }
+      pagination:
+        pageSize: 3
+    children:
+      - $ref: ./_post-card.yaml
+  - $ref: ./_post-drawer.yaml

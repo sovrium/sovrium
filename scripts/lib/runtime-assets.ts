@@ -17,9 +17,79 @@
  * Dev mode builds these from `src/` at runtime instead (see static-assets.ts).
  */
 
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { basename, join } from 'node:path'
 import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
+import { THROWAWAY_RUNTIME_MANIFEST_ENV } from './throwaway-runtime-manifest'
+
+/**
+ * Why a checkout cannot produce the CANONICAL island chunk names, or `null`
+ * when it can.
+ *
+ * Bun's code splitter orders modules by their RESOLVED path, and that order
+ * decides how shared code is partitioned into chunks and which short names the
+ * minifier hands out. So the same dependency bytes reached through a different
+ * path produce a different, equally valid bundle, and every content-hashed chunk
+ * name changes. Measured 2026-09-30 in one worktree with one install, first as a
+ * real directory, then renamed and reached through a symlink: `accordion-island`
+ * came out as `4yydce0a` (9305 bytes) and `18j1sawp` (9256 bytes), with different
+ * identifiers and different shared chunks. No `Bun.build` option pins it.
+ *
+ * The committed manifest (`embedded-runtime-assets.generated.ts`) records those
+ * names, and CI builds from a real `bun install`. A manifest generated anywhere
+ * else is wrong for CI while looking like an ordinary regeneration, and this
+ * happened: the manifest alternated between `4yydce0a`, `0vb809py` and
+ * `k70h0bta` for one unchanged island across three `chore(assets)` commits.
+ *
+ * Two shapes are refused: `node_modules` is a symlink (the usual shortcut in a
+ * git worktree), or it is missing, so resolution climbs to an ENCLOSING
+ * checkout's `node_modules` (a worktree under `[internal ref]`). Packages
+ * symlinked INSIDE a real `node_modules` (Bun's isolated linker) are fine: their
+ * resolved paths are the same in every checkout.
+ */
+export function describeNonCanonicalNodeModules(root: string): string | null {
+  const nodeModules = join(root, 'node_modules')
+  if (!existsSync(nodeModules)) {
+    return (
+      `${nodeModules} does not exist, so modules resolve from an enclosing ` +
+      `checkout's node_modules. Run \`bun install\` in this checkout.`
+    )
+  }
+  if (lstatSync(nodeModules).isSymbolicLink()) {
+    return (
+      `${nodeModules} is a symlink to ${realpathSync(nodeModules)}. Bun names ` +
+      `island chunks by resolved module path, so a symlinked install produces ` +
+      `different chunk names from the real install CI uses. Replace the symlink ` +
+      `with a real \`bun install\` in this checkout.`
+    )
+  }
+  return null
+}
+
+/**
+ * {@link describeNonCanonicalNodeModules}, minus the case the caller has
+ * declared throwaway for exactly this `root` (`THROWAWAY_RUNTIME_MANIFEST_ENV`,
+ * `./throwaway-runtime-manifest`). `null` means "proceed".
+ */
+export function nonCanonicalNodeModulesRefusal(
+  root: string,
+  env: Readonly<Record<string, string | undefined>>
+): string | null {
+  const reason = describeNonCanonicalNodeModules(root)
+  if (reason === null) return null
+  const declared = env[THROWAWAY_RUNTIME_MANIFEST_ENV]
+  if (declared === undefined || declared === '' || !existsSync(declared)) return reason
+  return realpathSync(declared) === realpathSync(root) ? null : reason
+}
 
 /**
  * The static client scripts, each with the string literals that MUST survive

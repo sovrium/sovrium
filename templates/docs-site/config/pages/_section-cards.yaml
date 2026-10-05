@@ -1,0 +1,113 @@
+# Three ways into the documentation, one card per section. Each card is a
+# link: the whole card opens the section's first page.
+type: container
+element: section
+props:
+  aria-label: Sections
+  className: mx-auto mt-8 mb-14 grid w-full max-w-[880px] grid-cols-3 gap-[18px] max-lg:px-6 max-md:grid-cols-1 max-md:gap-3 max-md:px-3
+children:
+  - type: card
+    props:
+      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+    children:
+      - type: link
+        props:
+          href: /docs/introduction
+          className: flex h-full flex-col gap-2 p-[22px] text-foreground no-underline
+        children:
+          - type: icon
+            props:
+              name: book
+              size: 20
+              className: text-foreground-muted
+          - type: text
+            element: h2
+            props:
+              className: text-[24px] font-semibold text-foreground
+            content: Getting started
+          - type: text
+            element: p
+            props:
+              className: text-[15px] leading-normal text-foreground-muted
+            content: How a file becomes a page, installation, your first page in three steps.
+          - type: container
+            props:
+              className: mt-1 inline-flex items-center gap-1.5 text-[15px] font-medium text-primary-subtle-foreground
+            children:
+              - type: text
+                element: span
+                content: Read
+              - type: icon
+                props:
+                  name: arrow-right
+                  size: 13
+  - type: card
+    props:
+      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+    children:
+      - type: link
+        props:
+          href: /docs/guides/configuration
+          className: flex h-full flex-col gap-2 p-[22px] text-foreground no-underline
+        children:
+          - type: icon
+            props:
+              name: settings
+              size: 20
+              className: text-foreground-muted
+          - type: text
+            element: h2
+            props:
+              className: text-[24px] font-semibold text-foreground
+            content: Configuration
+          - type: text
+            element: p
+            props:
+              className: text-[15px] leading-normal text-foreground-muted
+            content: Design tokens, code highlighting and the collection options.
+          - type: container
+            props:
+              className: mt-1 inline-flex items-center gap-1.5 text-[15px] font-medium text-primary-subtle-foreground
+            children:
+              - type: text
+                element: span
+                content: Read
+              - type: icon
+                props:
+                  name: arrow-right
+                  size: 13
+  - type: card
+    props:
+      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+    children:
+      - type: link
+        props:
+          href: /docs/guides/deployment
+          className: flex h-full flex-col gap-2 p-[22px] text-foreground no-underline
+        children:
+          - type: icon
+            props:
+              name: upload
+              size: 20
+              className: text-foreground-muted
+          - type: text
+            element: h2
+            props:
+              className: text-[24px] font-semibold text-foreground
+            content: Deployment
+          - type: text
+            element: p
+            props:
+              className: text-[15px] leading-normal text-foreground-muted
+            content: A static build, the server, or a container.
+          - type: container
+            props:
+              className: mt-1 inline-flex items-center gap-1.5 text-[15px] font-medium text-primary-subtle-foreground
+            children:
+              - type: text
+                element: span
+                content: Read
+              - type: icon
+                props:
+                  name: arrow-right
+                  size: 13

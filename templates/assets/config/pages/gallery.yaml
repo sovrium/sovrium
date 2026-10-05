@@ -79,7 +79,7 @@ components:
                     - type: text
                       element: h2
                       props:
-                        className: text-[13px] font-medium leading-snug text-foreground
+                        className: text-[13px] font-medium leading-[18px] text-foreground
                       content: $record.name
                     - type: text
                       element: p
@@ -91,4 +91,13 @@ components:
                       props:
                         className: text-xs text-foreground
                       content: $record.flag
+                    # The same QR label the drawer shows, so a card can be
+                    # checked against the sticker on the asset. A card draws the
+                    # label at the card's width; a sticker is a small square, so
+                    # the class holds it at 72 px.
+                    - type: qr-code
+                      value: $record.asset_tag
+                      props:
+                        className: mt-2 w-18
+                        aria-label: QR label for $record.asset_tag
                 emptyMessage: Cards appear here for every asset at the chosen location. Pick another location, or register an asset here.

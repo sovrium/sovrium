@@ -1,8 +1,13 @@
-# Confirm each registration the moment it lands — whether it came from the
-# public /register form or was added by the team.
+# The moment someone registers — from the public page or added by an
+# organizer — they get an email naming the event, its date and its place. A
+# place on the waitlist gets its own words: no seat is promised.
+#
+# A registration carries the event's id, not its name, so the event is read
+# first. Times are written in Paris time; change the timezone below to your
+# own.
 name: confirm-registration
 label: New registration — confirm by email
-description: Email each attendee as soon as their registration is created.
+description: Email each attendee the event, its date and its place, or their place on the waitlist.
 enabled: true
 trigger:
   type: record
@@ -10,13 +15,35 @@ trigger:
   events:
     - create
 actions:
+  - name: findEvent
+    type: record
+    operator: list
+    props:
+      table: events
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.event}}'
+      limit: 1
   - name: emailAttendee
     type: email
     operator: send
     props:
       to: '{{trigger.data.record.email}}'
-      subject: "You're registered!"
+      subject: >-
+        {{ifValue (eq trigger.data.record.status "Waitlist") "On the waitlist" "You are registered"}}:
+        {{findEvent.result.record.name}}
       body: |
-        <p>Hi {{trigger.data.record.name}},</p>
-        <p>Your registration is confirmed. We'll see you there!</p>
-        <p>Need to cancel? Just reply to this email.</p>
+        <p>Hello {{trigger.data.record.name}},</p>
+        {{#if (eq trigger.data.record.status "Waitlist")}}
+        <p>You are on the waitlist for <strong>{{findEvent.result.record.name}}</strong>,
+        {{formatDate findEvent.result.record.starts_at "EEEE d MMMM, HH:mm" "Europe/Paris"}},
+        at {{findEvent.result.record.place}}. If a seat frees up, we email you
+        and hold it for a day.</p>
+        {{else}}
+        <p>You are registered for <strong>{{findEvent.result.record.name}}</strong>,
+        {{formatDate findEvent.result.record.starts_at "EEEE d MMMM, HH:mm" "Europe/Paris"}},
+        at {{findEvent.result.record.place}}.</p>
+        <p>The other events are on <a href="$env.BASE_URL/">the public page</a>.</p>
+        {{/if}}

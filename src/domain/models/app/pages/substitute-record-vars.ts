@@ -62,10 +62,15 @@
  * The field charset is `[a-zA-Z0-9_]`, so `$record.foo-bar` matches
  * `$record.foo` and leaves `-bar` as literal text.
  *
+ * A token with a backslash directly before it is ESCAPED (see
+ * {@link SCOPED_VAR_CHAIN}): it prints as text and references nothing, so the
+ * readers skip it — a decode rule refusing "a token nothing resolves" must not
+ * refuse the one an author wrote to be printed.
+ *
  * `/g` makes it stateful under `.exec` / `.test`, and neither is used: `.replace`
  * resets `lastIndex` when it finishes, and `.matchAll` iterates a clone.
  */
-const RECORD_REFERENCE = /\$record\.([a-zA-Z0-9_]+)/g
+const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
 
 /**
  * One token of ANY namespace, optionally continued by `|` and another token of
@@ -79,17 +84,33 @@ const RECORD_REFERENCE = /\$record\.([a-zA-Z0-9_]+)/g
  * disagree with this one about what a field name is — and what keeps the rule
  * `sovrium/no-dynamic-regexp` enforces: nothing here is built from input.
  *
- * The `\1` back-reference is what confines a chain to one namespace, so
+ * The `\2` back-reference is what confines a chain to one namespace, so
  * `$record.a|$record.b` chains while `$leg.a|$record.b` is two tokens — exactly
  * what the record-only pattern did with the second half.
  *
  * The field charset is {@link RECORD_REFERENCE}'s, `[a-zA-Z0-9_]`; a namespace
  * must start with a letter or an underscore, so `$1.50` is never a token.
+ *
+ * The FIRST alternative is the escape: a backslash directly before a
+ * token matches that one token alone — never a chain — so `\$record.a|$record.b`
+ * is an escaped token, a literal `|`, and a token that is still filled. Its
+ * namespace is capture 1; an unescaped token's is capture 2, which is the one the
+ * chain's back-reference names.
  */
-const SCOPED_VAR_CHAIN = /\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\|\$\1\.[a-zA-Z0-9_]+)*/g
+const SCOPED_VAR_CHAIN =
+  /\\\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+|\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\|\$\2\.[a-zA-Z0-9_]+)*/g
 
-/** One scoped token, namespace and field captured — the unchained reader. */
-const SCOPED_REFERENCE = /\$([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g
+/**
+ * {@link SCOPED_VAR_CHAIN} as source text, for the one reader that cannot import
+ * this module: the hosted form page's inline script, which carries the grammar
+ * as a regex literal built from this string rather than a hand-written copy. Its
+ * captures are the chain's: 1 = an escaped token's namespace, 2 = an unescaped
+ * one's.
+ */
+export const SCOPED_VAR_CHAIN_SOURCE: string = SCOPED_VAR_CHAIN.source
+
+/** One scoped token, namespace and field captured — the unchained reader; an escaped token is skipped. */
+const SCOPED_REFERENCE = /(?<!\\)\$([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g
 
 /** The namespace a bare `$record.` token names. */
 export const RECORD_NAMESPACE = 'record'
@@ -162,17 +183,51 @@ export const substituteScopedVars = (
   scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
   transformValue?: (value: string) => string
 ): string =>
-  template.replace(SCOPED_VAR_CHAIN, (match: string, namespace: string) => {
-    const record = Object.hasOwn(scopes, namespace) ? scopes[namespace] : undefined
-    if (record === undefined) return match
-    const prefix = namespace.length + 2
-    const resolved =
-      match
-        .split('|')
-        .map((token) => fieldText(record, token.slice(prefix)))
-        .find((text) => text.length > 0) ?? ''
-    return transformValue ? transformValue(resolved) : resolved
-  })
+  template.replace(
+    SCOPED_VAR_CHAIN,
+    (match: string, escaped: string | undefined, namespace: string | undefined) =>
+      escaped === undefined
+        ? substituteChain(match, namespace ?? '', scopes, transformValue)
+        : unescapeToken(match, escaped, scopes)
+  )
+
+/**
+ * An escaped token, `\$<namespace>.<field>`: printed as the token, without its
+ * backslash, in a pass that would have filled it — and left exactly as written,
+ * backslash included, in a pass that would not.
+ *
+ * The second half is what keeps the escape honest across passes. A page's own
+ * pass leaves `\$leg.from` alone, and the repeat copy that holds the `leg` scope
+ * is the pass that prints it as `$leg.from`; had the page pass already dropped
+ * the backslash, the copy would fill the token the author escaped. And a pass
+ * that DID drop it never sees the token again: one pass per string.
+ *
+ * The printed token is template text, never a value, so `transformValue` does not
+ * touch it.
+ */
+const unescapeToken = (
+  match: string,
+  namespace: string,
+  scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+): string => (Object.hasOwn(scopes, namespace) ? match.slice(1) : match)
+
+/** One unescaped token or fallback chain, resolved against its namespace's record. */
+const substituteChain = (
+  match: string,
+  namespace: string,
+  scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
+  transformValue: ((value: string) => string) | undefined
+): string => {
+  const record = Object.hasOwn(scopes, namespace) ? scopes[namespace] : undefined
+  if (record === undefined) return match
+  const prefix = namespace.length + 2
+  const resolved =
+    match
+      .split('|')
+      .map((token) => fieldText(record, token.slice(prefix)))
+      .find((text) => text.length > 0) ?? ''
+  return transformValue ? transformValue(resolved) : resolved
+}
 
 /**
  * Replace `$record.<field>` placeholders — and `|`-separated fallback chains of

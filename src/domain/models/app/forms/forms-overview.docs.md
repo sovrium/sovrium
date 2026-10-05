@@ -83,6 +83,8 @@ A top-level form renders inline inside a page through the form control's `formRe
 
 A `formRef` expands wherever it sits: a `dialog` with `formRef` inside any container, and a `form` with `formRef` inside a dialog's `children`, render the referenced form with its labels, rules and submission endpoint.
 
+A form's inputs and selects are drawn at the height of an `input` component (36 px by default), under labels on a 19 px line, so a form and an input written beside it line up.
+
 ```yaml
 pages:
   - id: 1

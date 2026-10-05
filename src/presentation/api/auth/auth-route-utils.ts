@@ -26,6 +26,7 @@
  * independent.
  */
 
+import { resolveRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import type { SlidingWindowConfig } from '@/infrastructure/process/sliding-window-limiter'
 
@@ -35,16 +36,15 @@ import type { SlidingWindowConfig } from '@/infrastructure/process/sliding-windo
 
 /**
  * Get rate limit window duration in milliseconds from environment variable.
- * Defaults to 60 seconds (production) if not set.
+ * Defaults to 60 seconds (production) if not set. Never `NaN` or zero: the
+ * boot refuses a value that is not a whole number of seconds above zero, and
+ * this falls back to the default rather than trust one.
  * Tests should set RATE_LIMIT_WINDOW_SECONDS=5 for faster execution.
  *
  * NOT used by the admin limiter — admin uses a hardcoded 1-second window
  * (see ADMIN_CONFIG below). Used by auth / tables / activity.
  */
-const getRateLimitWindowMs = (): number => {
-  const windowSeconds = process.env.RATE_LIMIT_WINDOW_SECONDS
-  return windowSeconds ? parseInt(windowSeconds, 10) * 1000 : 60 * 1000
-}
+export const getRateLimitWindowMs = (): number => resolveRateLimitWindowSeconds() * 1000
 
 interface EndpointRateLimitConfig {
   readonly windowMs: number

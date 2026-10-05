@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   distinctArrayAggExpression,
   emptyArrayLiteral,
@@ -12,6 +14,20 @@ import {
 } from '../sql/dialect-ddl'
 import { generateSqlCondition } from '../table-queries/filter-operators'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+
+/**
+ * A table as a view body names it: its derived database name (the config name
+ * in lowercase with underscores), quoted as an identifier. The CONFIG name may
+ * hold a hyphen or a space — `client-accounts`, `Open Tasks` — and spliced
+ * as it is, it broke the statement or, worse, rewrote it (`Cl --` comments out
+ * the rest of the line).
+ */
+export const relationNameOf = (table: string): string =>
+  quoteSqlIdentifier(sanitizeTableName(table))
+
+/** The alias a computed field reads a related table under, built from the derived name. */
+export const relatedAliasOf = (relatedTable: string, fieldName: string): string =>
+  quoteSqlIdentifier(`${sanitizeTableName(relatedTable)}_for_${fieldName}`)
 
 /**
  * Extract leaf conditions from a ViewFilterNode tree.
@@ -47,7 +63,7 @@ export const flattenFilterNode = (node: ViewFilterNode): readonly ViewFilterCond
  */
 export const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): string => {
   const { field, operator, value } = filter
-  const column = `${aliasPrefix}.${field}`
+  const column = `${aliasPrefix}.${quoteSqlIdentifier(field)}`
   return generateSqlCondition(column, operator, value, { useEscapeSqlString: true })
 }
 

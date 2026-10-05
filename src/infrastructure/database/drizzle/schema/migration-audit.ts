@@ -57,6 +57,12 @@ export const sovriumSchemaChecksum = systemSchema.table('schema_checksum', {
   checksum: text('checksum').notNull(),
   schema: jsonb('schema').notNull(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  /**
+   * The formula engine that last computed the stored formula values. `0` —
+   * what this column's migration leaves on an existing database — reads as
+   * older than any binary, so the next boot recomputes every formula once.
+   */
+  formulaEngineVersion: integer('formula_engine_version').notNull().default(0),
 })
 
 // Type exports for consumers

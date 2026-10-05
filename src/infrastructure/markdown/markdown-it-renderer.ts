@@ -24,7 +24,10 @@
  *    with the canonical `sanitizeRichTextHTML` upstream this preserves the
  * [internal ref] XSS guarantee under the new engine.
  *  - `linkify: true`   → bare URLs in body text autolink to `<a href=...>`
- * (GFM-style autolinks — [internal ref]).
+ * (GFM-style autolinks — [internal ref]), schemaless domains
+ *    (`example.com`, `www.example.com`) and credentialed URLs included.
+ *    `pinLinkifyBehaviour` keeps the markdown-it 14 reading, which
+ *    markdown-it 15's linkify-it 6 changed.
  *  - `breaks: false`   → CommonMark default; single line breaks do not become
  * `<br>` (matches the established [internal ref] authoring expectation).
  *  - `langPrefix: 'language-'` → fenced code blocks emit
@@ -39,7 +42,7 @@
  * supported (the shared `SHARED_RENDERER` is reused across renders).
  */
 
-import MarkdownIt from 'markdown-it'
+import MarkdownIt, { type MarkdownIt as MarkdownItInstance } from 'markdown-it'
 import container from 'markdown-it-container'
 import {
   escapeHtml,
@@ -49,6 +52,7 @@ import {
   type RenderedMarkdown,
 } from '@/domain/kernel/markdown/markdown-renderer'
 import { parseFenceInfo } from '@/domain/models/app/pages/code-frame-defaults'
+import { pinLinkifyBehaviour } from '@/infrastructure/markdown/pin-linkify-behaviour'
 
 /**
  * Minimal structural shape of a markdown-it token used by `extractHeadings`.
@@ -77,7 +81,7 @@ interface MarkdownItTokenLike extends MdToken {
  * call and read back into the returned `RenderedMarkdown` payload after
  * rendering completes.
  */
-interface RenderEnv {
+type RenderEnv = {
   readonly codeBlocks: { lang: string; code: string }[]
   readonly directives: { name: string; attrs: Record<string, string>; innerMarkdown: string }[]
 }
@@ -199,13 +203,15 @@ const directiveRender = (tokens: ReadonlyArray<ContainerToken>, idx: number): st
  * renders — markdown-it is render-state-free; per-render state lives in the
  * `env` object threaded through `parse`/`render` (see `RenderEnv`).
  */
-const createRenderer = (): MarkdownIt => {
+const createRenderer = () => {
   const md = new MarkdownIt({
     html: false,
     linkify: true,
     breaks: false,
     langPrefix: 'language-',
   })
+
+  pinLinkifyBehaviour(md)
 
   // Link-scheme allowlist. markdown-it's default
   // `validateLink` rejects `javascript:`/`data:`/`vbscript:` by DROPPING the
@@ -229,7 +235,7 @@ const createRenderer = (): MarkdownIt => {
     if (hrefIdx >= 0) {
       const { attrs } = token
       const attr = attrs?.[hrefIdx]
-      const rawHref = attr?.[1] ?? ''
+      const rawHref = String(attr?.[1] ?? '')
       const trimmed = rawHref.trim()
       const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(trimmed)
       const safeHref =
@@ -263,7 +269,9 @@ const createRenderer = (): MarkdownIt => {
   // assignment is the project-blessed pattern for in-place buffer accumulation
   // (see other renderer/streaming sites in src/).
   // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it's `renderer.rules` IS its plugin contract; per-renderer mutation, not shared state
-  md.renderer.rules.fence = (tokens, idx, _options, env: RenderEnv) => {
+  md.renderer.rules.fence = (tokens, idx, _options, renderEnv) => {
+    // markdown-it types `env` as an open bag; every render call passes a `RenderEnv`
+    const env = renderEnv as RenderEnv
     const token = tokens[idx]
     if (!token) return ''
     // The first whitespace-delimited word is the language tag; the rest of the
@@ -332,7 +340,7 @@ const safeInlineHref = (rawHref: string): string => {
  * Only inline rules run (`renderInline`), so headings, lists and fences stay
  * literal text: a help line has no room for a block.
  */
-const createInlineRenderer = (): MarkdownIt => {
+const createInlineRenderer = () => {
   const md = new MarkdownIt({ html: false, linkify: false, breaks: true }).disable(['image'])
   // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it exposes `validateLink` as a mutable hook on the instance; the anchor always renders and `link_open` below decides its href
   md.validateLink = () => true
@@ -341,7 +349,7 @@ const createInlineRenderer = (): MarkdownIt => {
     const token = tokens[idx]
     if (!token) return ''
 
-    token.attrSet('href', safeInlineHref(token.attrGet('href') ?? ''))
+    token.attrSet('href', safeInlineHref(String(token.attrGet('href') ?? '')))
 
     token.attrSet('target', '_blank')
 
@@ -398,7 +406,7 @@ export const renderMarkdownToHtml = (source: string): RenderedMarkdown => {
   const headings = extractHeadings(tokens)
   annotateHeadingIds(tokens, headings)
   const html = SHARED_RENDERER.renderer.render(
-    tokens as unknown as Parameters<MarkdownIt['renderer']['render']>[0],
+    tokens as unknown as Parameters<MarkdownItInstance['renderer']['render']>[0],
     SHARED_RENDERER.options,
     env
   )
@@ -416,9 +424,4 @@ export const renderMarkdownToHtml = (source: string): RenderedMarkdown => {
 // The CANONICAL import path for these types is `@/domain/services/markdown/markdown-renderer`;
 // these re-exports exist so a single import of the infrastructure renderer is
 // enough for typical consumer files.
-export type {
-  MarkdownHeading,
-  MarkdownDirective,
-  MarkdownCodeBlock,
-  RenderedMarkdown,
-} from '@/domain/kernel/markdown/markdown-renderer'
+export type { RenderedMarkdown } from '@/domain/kernel/markdown/markdown-renderer'

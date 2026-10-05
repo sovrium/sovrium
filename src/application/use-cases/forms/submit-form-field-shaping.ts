@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { NOW_TOKEN, resolveNowToken } from '@/domain/kernel/time/now-token'
 import { collectFieldsInHiddenGroups } from '@/domain/models/app/forms/field-groups-flow'
 import {
   buildConditionValueMap,
@@ -119,7 +120,7 @@ const resolveDefaultValue = (
   query: Readonly<Record<string, string>>
 ): string | number | boolean | undefined => {
   if (typeof value !== 'string') return value
-  if (value === '$now') return new Date().toISOString()
+  if (value === NOW_TOKEN) return resolveNowToken(new Date())
   const queryMatch = /^\$query\.([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(value)
   if (queryMatch) {
     const key = queryMatch[1]

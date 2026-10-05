@@ -36,13 +36,34 @@ function calendarDayOf(value: unknown): Readonly<Date> | undefined {
  * names and order — follows the page.
  *
  * Returns `undefined` for a value that names no calendar day, so the caller
- * shows it as it came rather than "Invalid Date".
+ * shows it as it came rather than "Invalid Date". `weekday` prints the day of
+ * the week before the date (a field's `weekday: short | long`).
  */
-export function formatCalendarDate(value: unknown, locale: string | undefined): string | undefined {
+export function formatCalendarDate(
+  value: unknown,
+  locale: string | undefined,
+  weekday?: CalendarWeekday
+): string | undefined {
   const day = calendarDayOf(value)
   if (day === undefined) return undefined
   return new Intl.DateTimeFormat(usableLocale(locale ?? 'en-US'), {
-    dateStyle: 'medium',
+    ...calendarDateStyle(weekday),
     timeZone: 'UTC',
   }).format(day)
+}
+
+/** How a date field's `weekday` prints the day of the week before its date. */
+export type CalendarWeekday = 'short' | 'long'
+
+/**
+ * The date's format parts. `dateStyle` cannot be combined with a weekday, so a
+ * date that prints one spells the parts out: `short` keeps the medium date
+ * ("Thu 24 Sept 2026"), `long` writes the month out ("Thursday, 24 September
+ * 2026") — in the page language either way.
+ */
+export function calendarDateStyle(
+  weekday: CalendarWeekday | undefined
+): Readonly<Intl.DateTimeFormatOptions> {
+  if (weekday === undefined) return { dateStyle: 'medium' }
+  return { weekday, day: 'numeric', month: weekday, year: 'numeric' }
 }

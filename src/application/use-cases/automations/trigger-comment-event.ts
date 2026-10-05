@@ -9,21 +9,21 @@ import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
-  collectAssignmentScopeTables,
   loadCurrentUserContext,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
+import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
@@ -38,9 +38,10 @@ import type { Table } from '@/domain/models/app/tables/table'
  * (`{{trigger.comment.author.email}}`); we accept it from the caller
  * rather than re-querying so the route does one fetch.
  *
- * `mentions` is an already-resolved list of user IDs. The engine does NOT
- * re-parse the body for `@<name>` markup — the spec passes the IDs
- * explicitly in the request body, so we trust the caller's list.
+ * `mentions` is an already-resolved list of user IDs: the create route derives
+ * it from the body's `@[<user id>]` markup merged with the request's
+ * `mentions` array, and keeps only people who can read the record
+ * (`comment-mention-programs.ts`). This use case trusts that list.
  *
  * `processEnv` mirrors `triggerRecordEventAutomations` so action handlers
  * can resolve `$env.VAR_NAME` and so secrets get redacted from history.
@@ -113,7 +114,7 @@ const matchesCommentTrigger = (input: {
 
 /**
  * Read the first non-empty owner user id from `record`, searching the table's
- * declared `created-by` field name(s) FIRST (GAP-21: the owner column may be
+ * declared `created-by` field name(s) FIRST ([internal ref]: the owner column may be
  * custom-named, e.g. `author`), then the literal `created_by` / `createdBy`
  * fallthrough (back-compat — keeps [internal ref] green
  * for tables whose created-by field IS literally named `created_by`).
@@ -130,10 +131,10 @@ const readOwnerId = (
 }
 
 /**
- * Resolve the record OWNER's email for the GAP-13 first-comment fallback.
+ * Resolve the record OWNER's email for the [internal ref] first-comment fallback.
  *
  * The record envelope surfaces the owner's user id in the table's declared
- * `created-by` field — which may be CUSTOM-NAMED (GAP-21, e.g. `author`) — or
+ * `created-by` field — which may be CUSTOM-NAMED ([internal ref], e.g. `author`) — or
  * the literal snake_case `created_by` (the transformed envelope's camelCase
  * `createdBy` is also accepted defensively in case the upstream shape changes).
  * When a record has no prior comment authors (the very first comment),
@@ -162,7 +163,7 @@ const resolveOwnerFallbackEmails = (
   })
 
 /**
- * Resolve `threadParticipants` for the just-posted comment (GAP-13).
+ * Resolve `threadParticipants` for the just-posted comment.
  *
  * Distinct EMAIL ADDRESSES of all (non-soft-deleted) comment authors on the
  * same record OF THE SAME TABLE, minus the new author — usable directly as an
@@ -198,10 +199,10 @@ const resolveThreadParticipants = (params: {
   })
 
 /**
- * Resolve `mentionedEmails` for the just-posted comment (GAP-22).
+ * Resolve `mentionedEmails` for the just-posted comment.
  *
  * The EMAIL ADDRESSES of the users named in `mentions`, in mention order,
- * usable directly as an `email.send` `to`. This is the exact twin of GAP-13:
+ * usable directly as an `email.send` `to`. This is the exact twin of [internal ref]:
  * `mentions` is — and stays — `UUID` ([internal ref]
  * pins that, and it is the documented payload contract), so
  * `to: '{{trigger.mentions}}'` renders a comma-joined list of ids and the
@@ -301,10 +302,10 @@ const buildCommentTriggerData = (
  * app whose RESOLVED TOP custom role is e.g. `engineer` had that author
  * evaluated against a predicate they are exempt from everywhere else, so a
  * comment they posted on a record they can genuinely read unrestricted
- * silently suppressed the automation. The `isAdminRole` disjunct is kept for
- * the same built-in-admin conservatism `row-level-guard.ts` documents: a
- * literal `admin` never loses the bypass, whatever custom hierarchy an app
- * declares. Mid-level custom roles return false and stay gated.
+ * silently suppressed the automation. `isAdminEquivalent` also admits the
+ * literal `admin` whatever custom hierarchy an app declares ([internal ref] point 75),
+ * so the built-in admin never loses the bypass. Mid-level custom roles return
+ * false and stay gated.
  */
 const passesReadPermissionGate = (input: {
   readonly app: Pick<App, 'auth'>
@@ -313,22 +314,25 @@ const passesReadPermissionGate = (input: {
   readonly session: Readonly<UserSession>
   readonly userRole: string
   readonly respectReadPermissions: boolean | undefined
-}): Effect.Effect<boolean, never, DataSourceRepository> =>
+}): Effect.Effect<boolean, never, DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
     if (input.respectReadPermissions !== true) return true
     const predicate = input.table?.rowLevelPermissions?.read?.when
     if (!predicate) return true
-    const isUnrestricted =
-      isAdminRole(input.userRole) || isAdminEquivalent(input.userRole, input.app)
+    const isUnrestricted = isAdminEquivalent(input.userRole, input.app)
     if (isUnrestricted) return true
 
     const projection = toSessionProjection(input.session, {
       role: input.userRole,
       isUnrestricted,
     })
-    const scopeTables = collectAssignmentScopeTables(input.table?.rowLevelPermissions)
-    const ctx = yield* loadCurrentUserContext(projection, scopeTables)
-    return evaluateRecordAgainstPredicate(input.record, predicate, ctx)
+    const ctx = yield* loadCurrentUserContext(projection, input.table?.rowLevelPermissions)
+    // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
+    return evaluateRecordAgainstPredicate(
+      readStoredValues(input.table, input.record),
+      predicate,
+      ctx
+    )
   })
 
 /**
@@ -396,7 +400,7 @@ const buildEnvelopeForComment = (
   record: Readonly<Record<string, unknown>>
 ): Effect.Effect<TriggerData, never, CommentRepository> =>
   Effect.gen(function* () {
-    // GAP-21: resolve the table's declared `created-by` field name(s) so the
+    // [internal ref]: resolve the table's declared `created-by` field name(s) so the
     // first-comment owner fallback reads the owner from a CUSTOM-named column
     // (e.g. `author`), not just the literal `created_by`.
     const createdByNames = createdByFieldNames(input.app.tables, input.tableName)

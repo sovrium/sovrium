@@ -30,7 +30,9 @@
  *
  * {@link mountNestedIslands} is the mount half on its own, for the islands that
  * inject their markup some other way but still owe its markers a mount and an
- * unmount: the record drawer's composed slot and the tabs island's panels. It
+ * unmount: the record drawer's composed slot and the tabs island's panels. The
+ * tabs island also owes its panels' scripts a run, so {@link runInjectedScripts}
+ * is exported for it. It
  * lives here, in a component-type directory, rather than a tier below: it has
  * to reach `island-client`, which no tier may import.
  *
@@ -56,15 +58,25 @@ const isExecutableScript = (script: HTMLScriptElement): boolean => {
 }
 
 /**
+ * Marks a script this module has already brought to life, so a host that scans
+ * the same subtree more than once (the tabs island, on every tab switch) runs
+ * each injected script once — and only a panel injected AGAIN, whose scripts are
+ * fresh copies without the mark, runs its scripts again.
+ */
+const LIVE_SCRIPT_MARK = 'data-injected-live'
+
+/**
  * Replace each executable script with a fresh copy, which the browser runs on
  * insertion. Attributes are copied so a script can still read its own markers.
+ * A script already brought to life here is skipped.
  */
-function runInjectedScripts(root: HTMLElement): void {
+export function runInjectedScripts(root: HTMLElement): void {
   Array.from(root.querySelectorAll('script'))
-    .filter(isExecutableScript)
+    .filter((script) => isExecutableScript(script) && !script.hasAttribute(LIVE_SCRIPT_MARK))
     .forEach((inert) => {
       const live = document.createElement('script')
       Array.from(inert.attributes).forEach((attr) => live.setAttribute(attr.name, attr.value))
+      live.setAttribute(LIVE_SCRIPT_MARK, '')
       // eslint-disable-next-line functional/immutable-data -- a fresh, unattached element; setting its source is how it is built
       live.textContent = inert.textContent
       inert.replaceWith(live)
@@ -72,8 +84,11 @@ function runInjectedScripts(root: HTMLElement): void {
 }
 
 /**
- * Hold back a native submit on island forms until their island takes over —
- * the same guard the page's load-time pass puts on the forms it can see.
+ * Hold back a native submit on injected island forms until their island takes
+ * over, which happens in the same pass. A create or automation skeleton cannot
+ * submit anyway (its submit is drawn disabled until the island replaces it);
+ * this keeps an injected edit skeleton from navigating the document away from
+ * the surface it opened in.
  */
 function guardIslandForms(root: HTMLElement): void {
   root

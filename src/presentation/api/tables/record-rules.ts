@@ -155,7 +155,7 @@ export function validateRecordCreation(
 
     // Step 2: Reject writes to system-managed / computed field TYPES.
     // A user-declared `default` is an overridable fallback, NOT a write-lock
-    // (GAP-10) — only computed/system field TYPES are readonly here.
+    // — only computed/system field TYPES are readonly here.
     yield* validateReadonlyComputedFields(requestedFields)
 
     // Step 3: Filter fields based on write permissions
@@ -225,6 +225,53 @@ export function validateRecordCreation(
 }
 
 /**
+ * The engine-managed columns no update may write. A create has its own rule
+ * (`validateReadonlyIdField` + the computed-type rule); an update is refused
+ * on these three names before any permission is consulted.
+ */
+const READONLY_UPDATE_FIELDS: ReadonlySet<string> = new Set(['id', 'created_at', 'updated_at'])
+
+/** The first engine-managed column an update payload names, if any. */
+export const findReadonlyUpdateField = (
+  fields: Readonly<Record<string, unknown>>
+): string | undefined => Object.keys(fields).find((field) => READONLY_UPDATE_FIELDS.has(field))
+
+/**
+ * Every per-VALUE rule an update enforces, in create-path order: column
+ * formats, `multi-select` membership then cardinality, a `relationship`
+ * column's `maxLinked` cap, then attachment-reference confinement.
+ *
+ * ONE composition for every door an update comes through — the records API's
+ * `PATCH`, its native form `POST`, and the MCP update tool. An update does not
+ * traverse {@link validateRecordCreation}, so each of these rules had to be
+ * added to the update path separately, and each time a door was missed (the
+ * `email`/`url` formats, `multi-select` options, `maxLinked`, foreign
+ * attachment keys). A new value rule belongs here, which reaches every door at
+ * once.
+ *
+ * Only columns the payload SUPPLIES are inspected — each rule's own property —
+ * so a row holding a legacy value stays editable through its other columns.
+ * Run AFTER the role and field-permission gates, so an unauthorized caller
+ * gets the S1 anti-enumeration 404 and never learns what a value would have
+ * met.
+ */
+export function checkRecordUpdateValues(
+  fields: Record<string, unknown>
+): Effect.Effect<
+  void,
+  FieldValidationError | FieldFormatError | FieldStorageError,
+  ValidationContext | StorageService
+> {
+  return Effect.gen(function* () {
+    yield* validateFieldFormats(fields)
+    yield* validateMultiSelectOptions(fields)
+    yield* validateMultiSelectSelectionLimits(fields)
+    yield* validateRelationshipLinkLimits(fields)
+    yield* validateAttachmentReferences(fields)
+  })
+}
+
+/**
  * Validate fields for record update
  * Similar to creation but without required field validation
  * @public
@@ -241,7 +288,7 @@ export function validateRecordUpdate(
     yield* validateReadonlyIdField(requestedFields)
 
     // Step 2: Reject writes to system-managed / computed field TYPES
-    // (GAP-10 — readonly is TYPE-driven, not `default`-driven).
+    // ([internal ref] — readonly is TYPE-driven, not `default`-driven).
     yield* validateReadonlyComputedFields(requestedFields)
 
     // Step 3: Filter fields based on write permissions

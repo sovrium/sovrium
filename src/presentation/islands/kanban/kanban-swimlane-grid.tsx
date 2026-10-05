@@ -20,8 +20,6 @@ export interface KanbanSwimlaneGridProps {
   readonly grid: KanbanGrid
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
-  readonly draggableEnabled: boolean
-  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   /** Lane values the author declared as starting closed (`swimlanes.collapsed`). */
   readonly initiallyCollapsed: readonly string[] | undefined
   /** The board's DOM-id scope, so each lane's `aria-controls` is unique per page. */
@@ -53,8 +51,6 @@ export function KanbanSwimlaneGrid({
   grid,
   card,
   emptyColumnMessage,
-  draggableEnabled,
-  colorFieldColors,
   initiallyCollapsed,
   idPrefix,
 }: KanbanSwimlaneGridProps): ReactElement {
@@ -80,8 +76,6 @@ export function KanbanSwimlaneGrid({
           onToggle={handleToggle}
           emptyMessage={emptyColumnMessage}
           card={card}
-          draggableEnabled={draggableEnabled}
-          colorFieldColors={colorFieldColors}
           idPrefix={idPrefix}
         />
       ))}

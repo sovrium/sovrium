@@ -1,0 +1,30 @@
+# At the top of every hour, every Scheduled post whose publish date has passed
+# becomes Published — and appears on the index, in its essay page and in the
+# feed at once. A post scheduled for 09:00 is live by 09:00 at the latest.
+#
+# The editor can also run it now from the automations API
+# (`POST /api/automations/publish-scheduled/trigger`).
+name: publish-scheduled
+label: Cron — publish the posts whose date has come
+description: Every hour, publish each scheduled post whose publish date has passed.
+enabled: true
+trigger:
+  type: cron
+  expression: '0 * * * *'
+actions:
+  - name: publish
+    type: record
+    operator: update
+    props:
+      table: posts
+      filter:
+        logic: and
+        conditions:
+          - field: status
+            operator: equals
+            value: Scheduled
+          - field: publish_at
+            operator: lessThanOrEqual
+            value: '{{now}}'
+      data:
+        status: Published

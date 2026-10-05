@@ -458,7 +458,12 @@ function RenderDirectComponent({
   // to be forwarded to the island placeholder renderer. The per-type inputs
   // (field names, field metadata, permissions, normalised views, kanban column
   // options) are resolved from `app.tables`; see `resolveTypeSpecificInputs`.
-  const resolvedTypeInputs = resolveTypeSpecificInputs(type, substitutedComponent, props.tables)
+  const resolvedTypeInputs = resolveTypeSpecificInputs(
+    type,
+    substitutedComponent,
+    props.tables,
+    props.design?.badgeForm
+  )
 
   // Build the type-specific element props forwarded to the island/component
   // renderer (keyed dispatch per component `type`; non-data types pass through

@@ -7,8 +7,8 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
+import { resolveCreatedCommentMentions } from '@/application/use-cases/tables/comment-mention-programs'
 import { createCommentProgram } from '@/application/use-cases/tables/comment-programs'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
 import {
@@ -22,12 +22,16 @@ import {
   type CommentModerationConfig,
 } from '@/domain/models/app/tables/comment-moderation-policy'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
-import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { notFoundResponse } from './comment-handler-shared'
+import { logError } from '@/infrastructure/logging/logger'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getTableContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { callerRolesOnTable, notFoundResponse } from './comment-handler-shared'
 import { applyRateLimit, classifySpam } from './comment-spam-guards'
 import { buildTriggerDispatchArgs, dispatchCommentPostedTrigger } from './comment-trigger-dispatch'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
+import { checkRecordReadGate } from './record-read-gate'
+import type { CommentMention } from '@/application/use-cases/tables/comment-mention-programs'
 import type { App } from '@/domain/models/app'
 import type { CommentSpamStatus } from '@/domain/models/app/tables/comment-spam-classification'
 import type { Context } from 'hono'
@@ -38,9 +42,9 @@ import type { Context } from 'hono'
  * Accepts either `content` (legacy) or `body` (Y-6 comment-posted trigger
  * spec) as the comment text — both validate as a non-empty string up to
  * 10,000 characters. Optional `parentCommentId` distinguishes replies
- * from top-level comments; optional `mentions[]` carries the
- * already-resolved user IDs for the trigger envelope (the engine does
- * NOT re-parse `@<name>` markup from the body).
+ * from top-level comments; optional `mentions[]` carries user IDs for the
+ * trigger envelope, merged after the `@[<user id>]` markup the body carries.
+ * Either way only people who can read the record count as mentioned.
  */
 interface CreateCommentBody {
   readonly content: string
@@ -128,7 +132,7 @@ function validateCreateCommentBody(body: unknown): CreateCommentBody | undefined
  */
 function handleCommentError(c: Context, error: unknown) {
   if (isAuthorizationError(error)) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
   return handleRouteError(c, error)
 }
@@ -243,17 +247,17 @@ function readModerationConfig(table: NonNullable<App['tables']>[number]): Commen
  * denied by the comment half — invisibly, since both denials render the same
  * 404.
  */
-function resolveCommentableTable(
+async function resolveCommentableTable(
   c: Context,
   app: App,
-  tableName: string,
-  effectiveRoles: readonly string[]
-): NonNullable<App['tables']>[number] | Response {
+  tableName: string
+): Promise<NonNullable<App['tables']>[number] | Response> {
   const table = app.tables?.find((t) => t.name === tableName)
+  if (!table) return notFoundResponse(c)
+  const effectiveRoles = await callerRolesOnTable(c, table)
   if (
-    !table ||
-    !hasReadPermissionForRoles(table, effectiveRoles, app.tables) ||
-    !hasCommentPermissionForRoles(table, effectiveRoles, app.tables)
+    !hasReadPermissionForRoles(table, effectiveRoles, app) ||
+    !hasCommentPermissionForRoles(table, effectiveRoles, app)
   ) {
     return notFoundResponse(c)
   }
@@ -337,13 +341,8 @@ function requireCommentAuthentication(input: {
 }
 
 async function checkCreateCommentGate(c: Context, app: App): Promise<CreateCommentGate> {
-  const { tableName, tableId, userRole, userGroups, session } = getTableContext(c)
-  const tableOrResponse = resolveCommentableTable(
-    c,
-    app,
-    tableName,
-    buildEffectiveRoles(userRole, userGroups)
-  )
+  const { tableName, tableId, session } = getTableContext(c)
+  const tableOrResponse = await resolveCommentableTable(c, app, tableName)
   if (tableOrResponse instanceof Response) return { ok: false, response: tableOrResponse }
   const table = tableOrResponse
 
@@ -351,8 +350,13 @@ async function checkCreateCommentGate(c: Context, app: App): Promise<CreateComme
   // pipeline by sending malformed bodies.
   const moderationConfig = readModerationConfig(table)
   const isAuthenticated = isAuthenticatedSession(session.userId)
-  const authResponse = requireCommentAuthentication({ c, moderationConfig, isAuthenticated })
-  if (authResponse !== undefined) return { ok: false, response: authResponse }
+  // Then the post joins the record's thread: it answers to the record's
+  // row-level read rule, and a record the caller may not open refuses it
+  // exactly as a missing one — before anything is parsed, classified or stored.
+  const refusal =
+    requireCommentAuthentication({ c, moderationConfig, isAuthenticated }) ??
+    (await checkRecordReadGate(c, app, table, c.req.param('recordId')!))
+  if (refusal !== undefined) return { ok: false, response: refusal }
 
   const body = await c.req.json().catch(() => undefined)
 
@@ -365,7 +369,7 @@ async function checkCreateCommentGate(c: Context, app: App): Promise<CreateComme
     return { ok: false, response: c.json({ success: true, discarded: true }, 200) }
   }
 
-  // PG-02 rate-limit: reuse F-03's in-process sliding-window limiter so
+  // PG-02 rate-limit: reuse [internal ref]'s in-process sliding-window limiter so
   // comment + form rate-limits share the same machinery and per-IP-hash
   // privacy contract. Runs AFTER honeypot (a tripped honeypot must not
   // consume a rate-limit slot) and BEFORE body validation so spammers
@@ -520,15 +524,16 @@ async function maybeFireCommentPostedTrigger(input: {
   readonly c: Context
   readonly app: App
   readonly table: NonNullable<App['tables']>[number]
-  readonly validated: CreateCommentBody
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableId: string
   readonly recordId: string
   readonly userRole: string
   readonly status: CombinedModerationStatus
   readonly result: Effect.Success<ReturnType<typeof createCommentProgram>>
+  /** The mentioned people who can read the record — the only ones the trigger hears of. */
+  readonly mentionIds: readonly string[]
 }): Promise<void> {
-  const { c, app, table, validated, session, tableId, recordId, userRole, status, result } = input
+  const { c, app, table, session, tableId, recordId, userRole, status, result } = input
   if (status !== 'approved') return
   await dispatchCommentPostedTrigger({
     ...buildTriggerDispatchArgs({
@@ -540,7 +545,7 @@ async function maybeFireCommentPostedTrigger(input: {
       session,
       comment: result.comment,
       author: result.author,
-      mentions: validated.mentions,
+      mentions: input.mentionIds,
     }),
     c,
   })
@@ -562,7 +567,7 @@ async function persistResolvedComment(input: {
    */
   readonly status: CombinedModerationStatus
 }): Promise<Response> {
-  const { c, app, table, validated, session, tableId, recordId, userRole, status } = input
+  const { c, table, validated, session, tableId, recordId, status } = input
 
   const result = await runTableProgram(
     createCommentProgram({
@@ -583,17 +588,11 @@ async function persistResolvedComment(input: {
   // a non-approved verdict is the exact inversion this path must not have.
   if (result._tag === 'Failure') return handleCommentError(c, result.failure)
 
+  const mentioned = await resolveMentionsOfCreatedComment(input)
   await maybeFireCommentPostedTrigger({
-    c,
-    app,
-    table,
-    validated,
-    session,
-    tableId,
-    recordId,
-    userRole,
-    status,
+    ...input,
     result: result.success,
+    mentionIds: mentioned.ids,
   })
 
   // Emit ONLY the display comment (no-email `user`). `result.right.author`
@@ -601,5 +600,45 @@ async function persistResolvedComment(input: {
   // serialized to the wire (B1). The top-level `status` is read back from
   // the PERSISTED row (`result.right.comment.status`), not a synthesized
   // literal — so the response reflects the verdict actually committed.
-  return c.json({ comment: result.success.comment, status: result.success.comment.status }, 201)
+  return c.json(
+    {
+      comment: { ...result.success.comment, mentions: mentioned.mentions },
+      status: result.success.comment.status,
+    },
+    201
+  )
+}
+
+/**
+ * The people the new comment mentions who can read the record: the ids the
+ * comment trigger receives, and the names the create response carries.
+ *
+ * The comment is already committed when this runs, so a failed lookup must not
+ * turn a successful post into an error. It fails CLOSED instead — nobody is
+ * mentioned — and says so in the log, because a silent empty list would make a
+ * `mentionsOnly` automation look as though it had simply not matched.
+ */
+async function resolveMentionsOfCreatedComment(input: {
+  readonly c: Context
+  readonly app: App
+  readonly table: NonNullable<App['tables']>[number]
+  readonly session: ReturnType<typeof getTableContext>['session']
+  readonly recordId: string
+  readonly validated: CreateCommentBody
+}): Promise<{ readonly ids: readonly string[]; readonly mentions: readonly CommentMention[] }> {
+  const { c, app, table, session, recordId, validated } = input
+  const resolved = await runTableProgram(
+    resolveCreatedCommentMentions(
+      { app, table, recordId, session },
+      validated.content,
+      validated.mentions
+    )
+  )
+  if (resolved._tag === 'Success') return resolved.success
+  logError(
+    '[comments] mention audience lookup failed; the comment mentions nobody',
+    resolved.failure,
+    requestLogAttributes(c)
+  )
+  return { ids: [], mentions: [] }
 }

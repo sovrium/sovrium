@@ -1,0 +1,107 @@
+# A piece moved to Review waits for the lead.
+#
+# 1. The run PAUSES on the approval step. An admin finds it on the Pipeline,
+#    under the board (or by email, when SMTP is configured); the person who
+#    wrote the piece cannot resolve it.
+# 2. `onReject: continue` resumes the run whatever the lead decides, and the
+#    step records which in `decision`: approved or rejected. Seven days
+#    without an answer counts as a rejection.
+# 3. Approved, the piece moves to Scheduled. Rejected, it goes back to Draft
+#    for its writer to rework.
+# 4. A scheduled piece records when it was approved in `approved_at`; a piece
+#    sent back loses the date of any earlier approval.
+#
+# Both writes only touch a piece still in Review, so a piece moved by hand in
+# the meantime is left where it is. The run writes `status`, the field its
+# trigger watches, and does not start itself again: the trigger only fires
+# for a piece that arrives in Review, and neither write puts one there.
+name: approve-for-scheduling
+label: Review — ask the lead to approve a piece
+description: When a piece is moved to Review, ask an admin to approve it, then schedule it or send it back to Draft.
+enabled: true
+trigger:
+  type: record
+  table: content
+  events:
+    - update
+  watchFields:
+    - status
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: Review
+actions:
+  - name: askLead
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: '{{trigger.data.record.title}}'
+      timeout: 7d
+      onTimeout: reject
+      onReject: continue
+  - name: decide
+    type: path
+    operator: branch
+    props:
+      mode: first-match
+      paths:
+        - name: approved
+          condition:
+            conditions:
+              - field: '{{askLead.decision}}'
+                operator: equals
+                value: approved
+          actions:
+            - name: schedule
+              type: record
+              operator: update
+              props:
+                table: content
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Review
+                data:
+                  status: Scheduled
+        - name: rejected
+          actions:
+            - name: sendBack
+              type: record
+              operator: update
+              props:
+                table: content
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Review
+                data:
+                  status: Draft
+                  approved_at: null
+  - name: recordApproval
+    type: record
+    operator: update
+    props:
+      table: content
+      filter:
+        logic: and
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+          - field: status
+            operator: equals
+            value: Scheduled
+      data:
+        approved_at: '{{now}}'

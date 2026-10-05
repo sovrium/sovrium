@@ -133,6 +133,7 @@ function FormSummaryScreen({
       </dl>
       <button
         type="submit"
+        data-component-type="button"
         className="form-summary-submit"
       >
         Submit
@@ -243,6 +244,7 @@ export function FormBodyOneQuestion({
       />
       <button
         type="button"
+        data-component-type="button"
         className="form-previous"
         data-form-previous="true"
       >

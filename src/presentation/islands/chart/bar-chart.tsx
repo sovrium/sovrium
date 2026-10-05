@@ -23,7 +23,7 @@ import {
   computeChartShellClasses,
 } from '@/presentation/design/chart-default-classes'
 import { BarPlot } from './bar-chart-hover'
-import { formatAxisLabel, formatAxisValue } from './chart-format'
+import { formatAxisLabel, formatAxisValue, monthKeyLabeller } from './chart-format'
 import { buildCategoryData, buildValueScale, minPositiveInCategories } from './chart-series-shared'
 import type { ChartTooltipDisplay } from './bar-chart-hover'
 import type { CategoryDatum, ChartAxisDisplay, ChartValueScale } from './chart-series-shared'
@@ -144,6 +144,7 @@ function XAxisLabels({
   readonly axis: ChartAxisDisplay | undefined
 }): ReactElement {
   const bandwidth = xScale.bandwidth()
+  const monthLabel = axis?.format === 'date' ? undefined : monthKeyLabeller(data.map((d) => d.key))
   return (
     <g>
       <line
@@ -164,7 +165,9 @@ function XAxisLabels({
             fill={CHART_TICK_FILL}
             textAnchor="middle"
           >
-            {formatAxisLabel(d.label ?? d.key, axis?.format)}
+            {d.label === undefined && monthLabel !== undefined
+              ? monthLabel(d.key)
+              : formatAxisLabel(d.label ?? d.key, axis?.format)}
           </text>
         )
       })}
@@ -367,10 +370,7 @@ export function BarChartCanvas({
     [yAxis, valueCurrency]
   )
   return (
-    <div
-      data-component="chart"
-      className={CHART_CANVAS_CLASSES}
-    >
+    <div className={CHART_CANVAS_CLASSES}>
       <div className={CHART_CANVAS_BODY_CLASSES}>
         <ParentSize>
           {({ width, height }) => {

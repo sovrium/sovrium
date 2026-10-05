@@ -127,7 +127,7 @@ const list: TypePageBody = {
               type: 'code',
               props: { language: 'yaml' },
               content:
-                'listDisplay:\n  itemTemplate:\n    image: $record.avatar\n    title: $record.name',
+                'listDisplay:\n  itemTemplate:\n    image: \\$record.avatar\n    title: \\$record.name',
             } as PageComponent,
           ],
         },

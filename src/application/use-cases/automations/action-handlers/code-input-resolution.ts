@@ -5,7 +5,41 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveTriggerInString, resolveTriggerInValue } from '../resolve-trigger-data'
+import { isAuthoredValueReference } from '../authored-references'
+import { lookupPath, resolveTriggerInString, resolveTriggerInValue } from '../resolve-trigger-data'
+
+/** A string that is exactly one `{{ path.to.value }}` reference — no helper, no text. */
+const SINGLE_REFERENCE = /^\s*\{\{\s*([\w.]+)\s*\}\}\s*$/
+
+/**
+ * A copy of a list or an object handed to user code, so the code cannot mutate
+ * the prior step's output (or the trigger payload) that later steps and the
+ * persisted run still read. `undefined` when the value cannot be copied — a
+ * function-bearing object such as the `actions` proxy — and the caller then
+ * renders as before.
+ */
+const detachedCopy = (found: object): unknown => {
+  try {
+    return structuredClone(found)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The value a lone `{{path}}` names, when it is one rendering would lose: a
+ * list, an object, a number or a boolean arrives as itself (`{{step.records}}`
+ * is the array, not its text) — a list or an object as a detached copy. A
+ * string, an absent path or a helper name (`{{now}}`) answers `undefined`, and
+ * the caller renders as before.
+ */
+const referencedValue = (value: string, context: Readonly<Record<string, unknown>>): unknown => {
+  const reference = SINGLE_REFERENCE.exec(value)
+  if (reference === null) return undefined
+  const found = lookupPath(context, reference[1] as string)
+  if (typeof found === 'object' && found !== null) return detachedCopy(found)
+  return typeof found === 'number' || typeof found === 'boolean' ? found : undefined
+}
 
 /**
  * Pattern matching a string that is *exactly* a single `{{...}}` template
@@ -63,7 +97,9 @@ const coerceTrimmedScalar = (trimmed: string): unknown => {
  * require user code to defensively check for it.
  */
 const reTypeRenderedValue = (original: string, rendered: string): unknown => {
-  if (!PURE_TEMPLATE_PATTERN.test(original)) return rendered
+  // An authored `$env.X` / template `$name` is a value inserted as it is: an
+  // env var reads as text, exactly as it did when it was filled in as text.
+  if (!PURE_TEMPLATE_PATTERN.test(original) || isAuthoredValueReference(original)) return rendered
   const trimmed = rendered.trim()
   if (trimmed === '') return rendered
   if (trimmed === 'true') return true
@@ -75,7 +111,8 @@ const reTypeRenderedValue = (original: string, rendered: string): unknown => {
 /**
  * Resolve a code action's `inputData` map against the code-specific
  * substitution context with typed unwrapping for pure-template
- * values. Behaves like `resolveTriggerInValue` for nested objects / arrays /
+ * values. A value that is exactly one `{{path}}` reference to a list, an
+ * object, a number or a boolean arrives as that value, unrendered. Behaves like `resolveTriggerInValue` for nested objects / arrays /
  * strings, but extra post-processing converts `'{{number ...}}'`-style
  * values back to numbers / booleans / objects so user code receives native
  * primitives instead of stringified ones.
@@ -87,6 +124,8 @@ export const resolveCodeInputData = (
   Object.fromEntries(
     Object.entries(rawInputData).map(([key, value]) => {
       if (typeof value === 'string') {
+        const referenced = referencedValue(value, context)
+        if (referenced !== undefined) return [key, referenced] as const
         const rendered = resolveTriggerInString(value, context)
         return [key, reTypeRenderedValue(value, rendered)] as const
       }

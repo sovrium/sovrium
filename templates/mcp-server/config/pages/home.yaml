@@ -1,0 +1,436 @@
+# The one page of a headless app: a signpost, not a product surface.
+#
+# It answers the questions in the order a developer asks them — what does this
+# give my assistant, how do I switch it on, how do I get a key, what do I paste
+# into my client, what can I ask — and lists the tools the server publishes.
+# The tool calls are the product.
+#
+# `$app.origin` prints the address this request arrived on, so the client
+# configuration shown here points at this very server, on any port and any
+# host.
+name: home
+path: /
+meta:
+  title: Team knowledge base
+  description: A team's runbooks and decisions, readable by the assistant you already use, over MCP. Every call carries a key and the role of its owner.
+  favicon: ./favicon.svg
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      # The header: the app, its version, and the places a developer goes next.
+      - type: container
+        element: header
+        props:
+          role: banner
+          className: flex h-14 shrink-0 items-center gap-3.5 border-b border-border px-8 max-md:h-[52px] max-md:gap-2 max-md:px-3
+        children:
+          - type: container
+            props:
+              className: flex h-9 items-center gap-2.5 px-2 text-[14px] font-semibold
+            children:
+              - type: container
+                props:
+                  className: inline-flex size-[22px] shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground
+                  aria-hidden: 'true'
+                children:
+                  - type: icon
+                    props:
+                      name: plug
+                      size: 14
+              - type: text
+                element: span
+                content: Team knowledge base
+          - type: text
+            element: span
+            props:
+              className: rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-foreground-muted
+            content: v$app.version
+          - type: container
+            props:
+              className: grow
+          - type: container
+            element: nav
+            props:
+              aria-label: On this page
+              className: flex items-center gap-3.5 max-md:hidden
+            children:
+              - type: link
+                props:
+                  href: '#tools'
+                  className: text-[14px] text-foreground hover:text-primary
+                content: Tools
+              - type: link
+                props:
+                  href: '#connect'
+                  className: text-[14px] text-foreground hover:text-primary
+                content: Clients
+              - type: link
+                props:
+                  href: /_admin
+                  className: text-[14px] text-foreground hover:text-primary
+                content: Admin
+          # The one action: the configuration a client needs.
+          - type: link
+            props:
+              href: '#connect'
+              className: inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground hover:bg-primary-hover max-md:size-7 max-md:bg-transparent max-md:px-0 max-md:justify-center max-md:text-foreground-muted
+              aria-label: Connect a client
+            children:
+              - type: icon
+                props:
+                  name: braces
+                  size: 14
+              - type: text
+                element: span
+                props:
+                  className: max-md:sr-only
+                content: Connect a client
+
+      # The body: four steps on the left, and a rail with the tools, the
+      # credentials and the roles on the right.
+      - type: container
+        props:
+          className: flex flex-1 justify-center gap-10 px-12 py-10 max-md:flex-col max-md:justify-start max-md:gap-[18px] max-md:px-4 max-md:py-5
+        children:
+          - type: container
+            props:
+              className: flex min-w-0 flex-[0_1_760px] flex-col gap-[18px] max-md:flex-none
+            children:
+              - type: container
+                props:
+                  className: flex flex-col gap-2.5
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: flex h-[22px] items-center font-mono max-md:h-auto text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: MCP server · 2 tables · 5 tools
+                  - type: text
+                    element: h1
+                    props:
+                      className: font-mono text-[36px] leading-[1.1] font-semibold tracking-[-0.01em] text-foreground max-md:text-[28px]
+                    content: Team knowledge base
+                  - type: text
+                    element: p
+                    props:
+                      className: max-w-[620px] text-[17px] leading-[1.6] text-foreground-muted max-md:text-[15px]
+                    content: Your runbooks and decisions, readable by the assistant you already use. It reads what the key's owner may read; it writes only if their role allows it.
+
+              # 1 · Turn it on. The operator's switch, not the config's: the
+              # code blocks keep one dark theme in both schemes, and the wrapper
+              # paints their file bar in the same ground.
+              - type: container
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 1 · Turn it on
+                  - type: container
+                    props:
+                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
+                    children:
+                      - type: code
+                        props:
+                          language: bash
+                        filename: terminal
+                        content: |-
+                          MCP_ENABLED=true MCP_TRANSPORT=streamable-http \
+                            sovrium start app.yaml
+
+              # 2 · Create a key. A key carries its owner's role, so the person
+              # who creates it decides what the assistant may do.
+              - type: container
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 2 · Create a key
+                  - type: text
+                    element: p
+                    props:
+                      format: markdown
+                      className: text-[13px] text-foreground-muted [&_p]:text-[13px] [&_a]:text-primary-subtle-foreground [&_a:hover]:underline
+                    content: Sign in as the person whose role the assistant should have, then [create a key in the admin](/_admin/api-keys). A viewer's key reads; an editor's key can also add documents.
+
+              # 3 · Connect your client. The configuration most MCP clients
+              # read; the address is this server's own.
+              - type: container
+                props:
+                  id: connect
+                  className: flex scroll-mt-4 flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 3 · Connect your client
+                  - type: container
+                    props:
+                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
+                    children:
+                      - type: code
+                        props:
+                          language: json
+                        filename: client configuration
+                        content: |-
+                          { "mcpServers": { "team-kb": { "type": "http",
+                            "url": "$app.origin/mcp",
+                            "headers": { "x-api-key": "<your key>" } } } }
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[12px] text-foreground-muted
+                    content: The server speaks protocol revision 2026-07-28.
+
+              # 4 · Ask. The first question the seeded documents answer, and
+              # the two calls an assistant makes to answer it.
+              - type: container
+                element: section
+                props:
+                  aria-label: A first question
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: 4 · Ask
+                  - type: container
+                    props:
+                      className: flex flex-col gap-2 text-[14px] leading-[1.55]
+                    children:
+                      - type: container
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: you
+                          - type: text
+                            element: span
+                            content: How do I rotate the database credentials?
+                      - type: container
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: tool
+                          - type: text
+                            element: span
+                            props:
+                              className: min-w-0 font-mono text-[13px] break-words text-foreground-muted
+                            content: 'mcp-server-example_documents_list → 7 documents · mcp-server-example_documents_read {"id": "1"}'
+                      - type: container
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: answer
+                          - type: text
+                            element: span
+                            props:
+                              format: markdown
+                              className: '[&_p]:text-[14px] [&_p]:leading-[1.55] [&_code]:font-mono [&_code]:text-[1em]'
+                            content: Issue the new credential first and keep the old one valid, update `DATABASE_URL` and restart, confirm the app serves on the new one, then revoke the old. From the runbook "Rotate the database credentials".
+
+          # The rail: the tools the server lists for an editor, how a client
+          # proves who it is, and what each role may do.
+          - type: container
+            element: aside
+            props:
+              aria-label: About the server
+              className: flex flex-[0_0_280px] flex-col gap-3.5 pt-1.5 max-md:hidden
+            children:
+              - type: container
+                props:
+                  id: tools
+                  className: flex scroll-mt-4 flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: mb-0.5 font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Tools for an editor
+                  - type: container
+                    props:
+                      role: list
+                      aria-label: Tools
+                      className: flex flex-col gap-1
+                    children:
+                      - type: container
+                        props:
+                          role: listitem
+                          className: flex items-center gap-2 font-mono text-[13px]
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: grow
+                            content: documents_list
+                          - type: text
+                            element: span
+                            props:
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: read-only
+                      - type: container
+                        props:
+                          role: listitem
+                          className: flex items-center gap-2 font-mono text-[13px]
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: grow
+                            content: documents_read
+                          - type: text
+                            element: span
+                            props:
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: read-only
+                      - type: container
+                        props:
+                          role: listitem
+                          className: flex items-center gap-2 font-mono text-[13px]
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: grow
+                            content: documents_create
+                          - type: text
+                            element: span
+                            props:
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: writes
+                      - type: container
+                        props:
+                          role: listitem
+                          className: flex items-center gap-2 font-mono text-[13px]
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: grow
+                            content: tags_list
+                          - type: text
+                            element: span
+                            props:
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: read-only
+                      - type: container
+                        props:
+                          role: listitem
+                          className: flex items-center gap-2 font-mono text-[13px]
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: grow
+                            content: tags_read
+                          - type: text
+                            element: span
+                            props:
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                            content: read-only
+                  - type: text
+                    element: p
+                    props:
+                      format: markdown
+                      className: text-[12px] text-foreground-muted [&_p]:text-[12px] [&_code]:font-mono [&_code]:text-[1em]
+                    content: Each name carries the app's prefix, `mcp-server-example_`. A viewer's key lists four, and the create tool refuses it.
+              - type: container
+                props:
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: mb-0.5 font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Access
+                  - type: container
+                    props:
+                      className: flex items-center gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: key-round
+                          size: 14
+                      - type: text
+                        element: span
+                        props:
+                          format: markdown
+                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        content: API key on `x-api-key`
+                  - type: container
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: lock
+                          size: 14
+                          className: mt-[3px] shrink-0
+                      - type: text
+                        element: span
+                        props:
+                          format: markdown
+                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        content: or an OAuth token on `Authorization`
+              - type: container
+                props:
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: mb-0.5 font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Roles
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px]
+                    content: viewer — reads documents and tags
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px]
+                    content: editor — also creates documents
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px]
+                    content: admin — everything, drafts included
+
+      - type: container
+        element: footer
+        props:
+          role: contentinfo
+          className: flex h-12 shrink-0 items-center gap-2.5 border-t border-border px-8 text-[12.5px] text-foreground-subtle max-md:hidden
+        children:
+          - type: text
+            element: span
+            content: Team knowledge base · tables served over MCP
+          - type: container
+            props:
+              className: grow
+          - type: link
+            props:
+              href: https://sovrium.com
+              className: font-mono text-foreground-subtle hover:text-foreground
+            content: Built with Sovrium

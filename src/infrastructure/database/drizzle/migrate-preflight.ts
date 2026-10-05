@@ -44,6 +44,7 @@ import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { Effect } from 'effect'
+import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import {
   detectPostgresAccountCollisions,
@@ -173,7 +174,7 @@ const postgresPreflight = async (
   databaseUrl: string,
   migrationsFolder: string
 ): Promise<MigrationPreflightReport> => {
-  const client = new SQL(databaseUrl)
+  const client = new SQL(postgresClientOptions(databaseUrl))
   try {
     const query = (sql: string): Promise<unknown> => client.unsafe(sql)
     return {

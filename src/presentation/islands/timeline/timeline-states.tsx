@@ -5,28 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTimelineShellClasses } from '@/presentation/design/timeline-default-classes'
 import type { ReactElement } from 'react'
 
 /**
- * Non-chart timeline render states. Every state emits
- * `data-component="data-timeline"` so spec assertions on the canonical
- * timeline attribute resolve in every branch.
+ * Non-chart timeline render states. None carries `data-component`: the
+ * island host names the timeline once, whatever state is drawn inside it.
  *
- * The LOADING state shares the populated view's shell recipe
- * ({@link computeTimelineShellClasses}), so the frame the skeleton draws is the
- * frame the records arrive into and the chrome never re-draws under them. The
- * error / missing-binding / empty states deliberately do NOT: those are
- * semantic status surfaces on the `error` and `warning` tones, and giving them
- * the neutral data-view shell would make a misconfiguration look like a
- * successfully-rendered timeline that happens to be empty.
+ * The LOADING state draws no frame: the host's shell
+ * (`computeTimelineShellClasses`) frames it — the same frame the records arrive
+ * into, so the chrome never re-draws under them. The error / missing-binding /
+ * empty states are semantic status surfaces on the `error` and `warning` tones,
+ * and the host's shell steps out of the box around them: the neutral data-view
+ * frame would make a misconfiguration look like a successfully-rendered
+ * timeline that happens to be empty.
  */
 
 export function TimelineLoading(): ReactElement {
   return (
     <div
-      className={computeTimelineShellClasses()}
-      data-component="data-timeline"
       data-timeline-state="loading"
       role="status"
       aria-label="Loading timeline..."
@@ -45,7 +41,6 @@ export function TimelineError({ error }: { readonly error: unknown }): ReactElem
   return (
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
-      data-component="data-timeline"
       data-timeline-state="error"
       role="alert"
     >
@@ -61,7 +56,6 @@ export function TimelineMissingTable(): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="data-timeline"
       data-timeline-state="missing-table"
       role="alert"
     >
@@ -74,7 +68,6 @@ export function TimelineMissingStartField(): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
-      data-component="data-timeline"
       data-timeline-state="missing-start-field"
       role="alert"
     >
@@ -87,7 +80,6 @@ export function TimelineEmpty({ message }: { readonly message?: string }): React
   return (
     <div
       className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
-      data-component="data-timeline"
       data-timeline-state="empty"
       role="status"
     >

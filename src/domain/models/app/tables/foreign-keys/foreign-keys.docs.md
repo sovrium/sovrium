@@ -78,6 +78,8 @@ Inline create is offered in the grid today, in a cell and in the trailing add-ro
 
 A single-column foreign key is created for you from every `relationship` field. `foreignKeys` exists for the other case: a reference spanning **several columns at once**, pointing at a composite primary key in another table.
 
+Every name in an entry must exist in the config: `fields` on this table, `referencedTable` among your tables (by its `name`, as a relationship's `relatedTable`), and `referencedFields` on that table, one for each entry of `fields`. `id` and the other system columns count. A name that does not resolve fails validation with a message naming the entry.
+
 <!-- sovrium:options ForeignKeySchema -->
 
 ```yaml

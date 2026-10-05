@@ -14,7 +14,7 @@ import {
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
 import { requireDomainContext, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { Hono, Context } from 'hono'
 
@@ -80,10 +80,7 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
   }
   const sessionId = c.req.param('sessionId')
   if (sessionId === undefined || sessionId.length === 0) {
-    return c.json(
-      errorBody({ error: 'Conversation not found.', code: ApiErrorCode.NOT_FOUND }),
-      404
-    )
+    return notFound(c, 'Conversation not found.')
   }
   const result = await runRequestEffect(
     c,
@@ -100,10 +97,7 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
     )
   }
   if (result.success.length === 0) {
-    return c.json(
-      errorBody({ error: 'Conversation not found.', code: ApiErrorCode.NOT_FOUND }),
-      404
-    )
+    return notFound(c, 'Conversation not found.')
   }
   const messages = result.success.map((msg) => ({
     role: msg.role,
@@ -125,10 +119,7 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
   }
   const sessionId = c.req.param('sessionId')
   if (sessionId === undefined || sessionId.length === 0) {
-    return c.json(
-      errorBody({ error: 'Conversation not found.', code: ApiErrorCode.NOT_FOUND }),
-      404
-    )
+    return notFound(c, 'Conversation not found.')
   }
   const result = await runRequestEffect(
     c,
@@ -144,6 +135,8 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
       500
     )
   }
+  // A thread the caller does not own answers as one that does not exist (S1).
+  if (!result.success) return notFound(c, 'Conversation not found.')
   return c.json({ deleted: true, sessionId }, 200)
 }
 

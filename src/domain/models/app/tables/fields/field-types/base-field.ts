@@ -53,8 +53,8 @@ const baseFieldStruct = Schema.Struct({
       Schema.annotate({
         title: 'Field Label',
         description:
-          'External display name shown to end users, in place of the internal `name`. Resolution order on every surface: surface-level override, then this label, then the raw `name` verbatim.',
-        examples: ['Unit price', 'Prix unitaire', 'Email address', 'Date de création'],
+          'External display name shown to end users, in place of the internal `name`. Resolution order on every surface: surface-level override, then this label, then the raw `name` verbatim. In a multi-language app the label may be a `$t:<key>` translation key, which resolves against the active language wherever the label is shown: grid column headers, form control labels and the messages that name the field, and record drawer field labels.',
+        examples: ['Unit price', 'Prix unitaire', 'Email address', '$t:clients.company'],
       }),
       Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
     )

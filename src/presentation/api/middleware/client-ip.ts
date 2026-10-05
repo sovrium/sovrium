@@ -11,6 +11,7 @@ import {
   resolveClientIp,
   resolveTrustedForwardedIp,
 } from '@/domain/kernel/url/client-ip'
+import { toRateLimitKey } from '@/domain/kernel/url/rate-limit-key'
 import {
   parseTrustedProxyHops,
   TRUSTED_PROXY_HOPS_DEFAULT,
@@ -126,6 +127,16 @@ export const getRequestClientIp = (c: Context): string => {
     trustedProxyHops: hops,
   })
 }
+
+/**
+ * The key every per-address rate limit counts this request under: the client
+ * address from {@link getRequestClientIp}, with an IPv6 address widened to its
+ * /64 and an IPv4-mapped one keyed as its IPv4 address (`toRateLimitKey`).
+ *
+ * For COUNTING only. Anything that stores or shows the caller's address (the
+ * activity log, sessions, form submissions) keeps {@link getRequestClientIp}.
+ */
+export const getRequestRateLimitKey = (c: Context): string => toRateLimitKey(getRequestClientIp(c))
 
 /**
  * The address a trusted proxy vouched for, or `undefined` when none did.

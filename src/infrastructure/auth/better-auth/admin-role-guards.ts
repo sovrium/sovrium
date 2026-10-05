@@ -11,27 +11,36 @@ import { Effect } from 'effect'
 import { countActiveAdmins } from '@/application/use-cases/auth/count-admins'
 // eslint-disable-next-line boundaries/dependencies -- see countActiveAdmins above: the current role of the mutation target can only be read from inside the Better Auth `before` hook.
 import { readUserRoleById } from '@/application/use-cases/auth/get-user-role'
+/* eslint-disable boundaries/dependencies -- see countActiveAdmins above: a role change or an impersonation that Better Auth performed can only be observed, and so recorded, from inside its `after` hook. */
 import {
-  assignableRoleNames,
-  isAdminTier,
-  isAssignableRole,
-  resolveAdminRole,
-} from '@/domain/models/app/auth/roles'
+  recordImpersonation,
+  recordRoleChange,
+} from '@/application/use-cases/auth/record-user-acts'
+/* eslint-enable boundaries/dependencies */
+// eslint-disable-next-line boundaries/dependencies -- see countActiveAdmins above: a demotion that left no admin is put back from the same `after` hook that counted.
+import { updateUserRole } from '@/application/use-cases/tables/user-role'
+import { isAdminTier } from '@/domain/models/app/auth/roles'
+import {
+  adminRoleNamesFor,
+  demotesAnAdmin,
+  findUnassignableRoleSegment,
+  isLastAdmin,
+  lastAdminRemovalMessage,
+  leavesNoAdmin,
+  roleChangeOf,
+  roleSegments,
+  unassignableRoleMessage,
+} from '@/domain/models/app/auth/roles/role-write-validation'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
+import {
+  endpointSucceeded,
+  readTargetUserId,
+  requestKey,
+  sessionUserId,
+  type AuthMiddlewareCtx,
+} from './hook-context'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
-import type { createAuthMiddleware } from 'better-auth/api'
-
-/**
- * The Better Auth `before`-hook context. Re-derived here (rather than imported
- * from `auth.ts`) so this guard module has no cycle back to the instance
- * factory that consumes it.
- */
-type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
-  ctx: infer C
-) => unknown
-  ? C
-  : never
 
 /**
  * Admin endpoints whose body can write a `role` onto a user. Every one of them
@@ -62,7 +71,46 @@ const ROLE_DEMOTING_PATHS: ReadonlySet<string> = new Set(['/admin/set-role', '/a
 export type AuthHookDeps = {
   readonly countActiveAdmins?: (adminRoles: readonly string[]) => Promise<number | undefined>
   readonly getUserRole?: (userId: string) => Promise<string | undefined>
+  /** Put back the role a refused demotion overwrote. Rejects when it cannot. */
+  readonly restoreUserRole?: (userId: string, role: string) => Promise<void>
+  readonly recordRoleChange?: (input: RoleChangeRecord) => Promise<void>
+  readonly recordImpersonation?: (input: ImpersonationRecord) => Promise<void>
 }
+
+/** A role change that stood, as the `after` hook hands it to the audit trail. */
+export type RoleChangeRecord = {
+  readonly actorId: string
+  readonly userId: string
+  readonly previousRole: string | null
+  readonly role: string
+}
+
+/** The start or stop of an impersonation, attributed to the admin. */
+export type ImpersonationRecord = {
+  readonly phase: 'started' | 'stopped'
+  readonly adminId: string
+  readonly userId: string
+}
+
+/**
+ * What the `before` hook learned about a role write, kept for the `after` hook
+ * of the SAME request: the target, the role it held, the payload, and whether
+ * the write demotes an admin.
+ */
+type PendingRoleWrite = {
+  readonly userId: string
+  readonly previousRole: string | undefined
+  readonly nextRole: unknown
+  readonly demotes: boolean
+}
+
+/**
+ * Pending role writes, keyed by the request's endpoint context object (see
+ * {@link requestKey}). A WeakMap, so each entry goes with its request —
+ * including one the after hook never reads, for a request a later before hook
+ * refused.
+ */
+const pendingRoleWrites = new WeakMap<object, PendingRoleWrite>()
 
 /**
  * Read the role value out of the request body.
@@ -77,52 +125,10 @@ const readRoleField = (ctx: AuthMiddlewareCtx, path: string): unknown => {
   return path === '/admin/update-user' ? body?.data?.role : body?.role
 }
 
-// eslint-disable-next-line functional/prefer-immutable-types
-const readTargetUserId = (ctx: AuthMiddlewareCtx): string | undefined => {
-  const body = ctx.body as { userId?: unknown } | undefined
-  return typeof body?.userId === 'string' && body.userId !== '' ? body.userId : undefined
-}
-
 /**
- * Normalise a role payload into individual role names.
- *
- * Better Auth treats the role column as a comma-separated list: its own
- * `parseRoles` joins an array with `,` and `hasPermission` splits on `,`. So
- * `'member,superadmin'`, `['member', 'superadmin']` and
- * `['member,superadmin']` are all the same thing downstream — every SEGMENT
- * must be validated, or a smuggled value rides in on a legitimate one.
- */
-const roleSegments = (raw: unknown): readonly string[] =>
-  (Array.isArray(raw) ? raw : [raw])
-    .filter((value): value is string => typeof value === 'string')
-    .flatMap((value) => value.split(','))
-    .map((value) => value.trim())
-    .filter((value) => value !== '')
-
-/**
- * The role names that can actually reach `/api/auth/admin/*` for this app: the
- * app's resolved admin-equivalent role plus the literal `'admin'` when they
- * differ (mirroring `isAdminEquivalent`'s dual clause).
- *
- * Deliberately NOT `isAdminTier`: an `admin-viewer` / `operator` is 404ed by
- * `applyAdminRoleCheckMiddleware`, so counting it as an admin would leave the
- * door locked while the guard reported it open.
- */
-const adminRoleNamesFor = (app: AdminRoleResolvable): readonly string[] => {
-  const resolved = resolveAdminRole(app)
-  return resolved === 'admin' ? [resolved] : [resolved, 'admin']
-}
-
-/**
- * `true` when a raw stored role value grants at least one of `names`. Absent /
- * unknown roles are `false`, so a caller cannot mistake "could not read the
- * role" for "holds the role".
- */
-const grantsAnyOf = (role: string | undefined, names: readonly string[]): boolean =>
-  role !== undefined && roleSegments(role).some((segment) => names.includes(segment))
-
-/**
- * The Effect→Promise bridge for the two guard reads.
+ * The Effect→Promise bridge for a Better Auth hook's reads and records — the
+ * guard reads here, and the act records and rails of the sibling hook modules
+ * (`admin-user-act-hooks.ts`, `account-deletion-hooks.ts`), which share it.
  *
  * It lives HERE, and not in the use-cases, because standing rule E1 puts the
  * run at the composition root — and a Better Auth `before` hook is as close to
@@ -136,15 +142,41 @@ const grantsAnyOf = (role: string | undefined, names: readonly string[]): boolea
  * Both programs fold their own failure into `undefined` before they arrive, so
  * nothing here can reject.
  */
-const runGuardRead = <A>(program: Effect.Effect<A, never, AuthRepository>): Promise<A> =>
+export const runAuthHookProgram = <A>(
+  program: Effect.Effect<A, never, AuthRepository>
+): Promise<A> => Effect.runPromise(Effect.provide(program, AuthRepositoryLive))
+
+/**
+ * The bridge for the restoring write. Unlike the reads it CAN reject: a
+ * demotion that left no admin and could not be put back must not answer as if
+ * it had been, so the failure reaches Better Auth and the request fails.
+ */
+const runGuardWrite = <E>(program: Effect.Effect<void, E, AuthRepository>): Promise<void> =>
   Effect.runPromise(Effect.provide(program, AuthRepositoryLive))
 
 /** Resolve the injected reads, falling back to the real use cases. */
 const roleReader = (deps?: AuthHookDeps) =>
-  deps?.getUserRole ?? ((userId: string) => runGuardRead(readUserRoleById(userId)))
+  deps?.getUserRole ?? ((userId: string) => runAuthHookProgram(readUserRoleById(userId)))
 const adminCounter = (deps?: AuthHookDeps) =>
   deps?.countActiveAdmins ??
-  ((adminRoles: readonly string[]) => runGuardRead(countActiveAdmins(adminRoles)))
+  ((adminRoles: readonly string[]) => runAuthHookProgram(countActiveAdmins(adminRoles)))
+const roleRestorer = (deps?: AuthHookDeps) =>
+  deps?.restoreUserRole ??
+  ((userId: string, role: string) => runGuardWrite(updateUserRole(userId, role)))
+const roleChangeRecorder = (deps?: AuthHookDeps) =>
+  deps?.recordRoleChange ??
+  ((input: RoleChangeRecord) =>
+    runAuthHookProgram(
+      recordRoleChange({
+        author: { kind: 'user', userId: input.actorId },
+        userId: input.userId,
+        previousRole: input.previousRole,
+        role: input.role,
+      })
+    ))
+const impersonationRecorder = (deps?: AuthHookDeps) =>
+  deps?.recordImpersonation ??
+  ((input: ImpersonationRecord) => runAuthHookProgram(recordImpersonation(input)))
 
 /**
  * Reject a role value the app does not know about, with a 400.
@@ -161,37 +193,32 @@ const adminCounter = (deps?: AuthHookDeps) =>
  */
 // eslint-disable-next-line functional/prefer-immutable-types
 async function validateAssignableRole(ctx: AuthMiddlewareCtx, app: AdminRoleResolvable) {
-  const segments = roleSegments(readRoleField(ctx, ctx.path))
   // No role in the payload — nothing to validate. Better Auth still enforces
-  // its own required-field rules (a bare `{}` on set-role stays a 400).
-  if (segments.length === 0) return
-  const invalid = segments.find((segment) => !isAssignableRole(segment, app))
+  // its own required-field rules (a bare `{}` on set-role stays a 400). Any
+  // role that IS present must be one exact assignable name: Better Auth stores
+  // it verbatim (an array joined with `,`), and Sovrium reads it whole.
+  const invalid = findUnassignableRoleSegment(readRoleField(ctx, ctx.path), app)
   if (invalid === undefined) return
-  const valid = [...assignableRoleNames(app)].toSorted().join(', ')
   // eslint-disable-next-line functional/no-throw-statements
-  throw new APIError('BAD_REQUEST', {
-    message: `Role '${invalid}' is not assignable. Valid roles: ${valid}.`,
-  })
+  throw new APIError('BAD_REQUEST', { message: unassignableRoleMessage(invalid, app) })
 }
 
 /**
  * Refuse a role mutation that would remove the last admin who can still sign
- * in, with a 409.
+ * in, with a 409 — and remember the write for the `after` hook.
  *
- * The guard fires only when ALL of the following hold, so a routine demotion of
- * a non-admin never trips it:
+ * The refusal fires only when ALL of the following hold, so a routine demotion
+ * of a non-admin never trips it:
  *  1. the new role contains no admin-capable name (otherwise it is not a
  *     demotion at all), and
  *  2. the target CURRENTLY holds an admin-capable role, and
  *  3. exactly one non-banned admin remains.
  *
- * KNOWN RACE — stated rather than engineered around. Two concurrent demotions
- * of the last two admins can both read a count of 2 and both proceed. Closing
- * it needs a serializable transaction spanning the count and the update, which
- * a Better Auth `before` hook cannot obtain (Better Auth owns the write), and a
- * database `CHECK` is unavailable because released migrations are frozen. Both
- * actors here are already admins, so this is a foot-gun rail between trusted
- * operators — NOT a security boundary. Treat it as such.
+ * This is the fast, write-free refusal for the ordinary case. It cannot see two
+ * demotions sent together — both read a count of 2 — so the `after` hook counts
+ * again once the write has committed ({@link settleRoleWrite}). Every write
+ * that names a role is remembered, demoting or not, because the `after` hook is
+ * also where a change that stood is put on the audit trail.
  */
 async function guardLastAdmin(
   // eslint-disable-next-line functional/prefer-immutable-types
@@ -199,26 +226,26 @@ async function guardLastAdmin(
   app: AdminRoleResolvable,
   deps?: AuthHookDeps
 ) {
-  const adminRoles = adminRoleNamesFor(app)
-  const nextSegments = roleSegments(readRoleField(ctx, ctx.path))
-  if (nextSegments.length === 0) return
-  if (nextSegments.some((segment) => adminRoles.includes(segment))) return
+  const nextRole = readRoleField(ctx, ctx.path)
+  // No role in the payload: an update-user that leaves the role alone.
+  if (nextRole === undefined || nextRole === null) return
 
   const userId = readTargetUserId(ctx)
   if (userId === undefined) return
 
-  const currentRole = await roleReader(deps)(userId)
-  // Not currently an admin → demoting it cannot reduce the admin population.
-  if (!grantsAnyOf(currentRole, adminRoles)) return
+  const previousRole = await roleReader(deps)(userId)
+  const demotes = demotesAnAdmin(nextRole, previousRole, app)
 
-  const remaining = await adminCounter(deps)(adminRoles)
   // A failed count skips the guard rather than blocking role management.
-  if (remaining === undefined || remaining > 1) return
+  if (demotes && isLastAdmin(await adminCounter(deps)(adminRoleNamesFor(app)))) {
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new APIError('CONFLICT', { message: lastAdminRemovalMessage(app) })
+  }
 
-  // eslint-disable-next-line functional/no-throw-statements
-  throw new APIError('CONFLICT', {
-    message: `Cannot remove the last remaining admin. Promote another user to '${resolveAdminRole(app)}' first.`,
-  })
+  const key = requestKey(ctx)
+  if (key === undefined) return
+  // eslint-disable-next-line functional/no-expression-statements -- request-scoped hand-over from the before hook to the after hook of the same dispatch
+  pendingRoleWrites.set(key, { userId, previousRole, nextRole, demotes })
 }
 
 /**
@@ -276,5 +303,102 @@ export async function applyAdminRoleGuards(
   await validateAssignableRole(ctx, app)
   if (ROLE_DEMOTING_PATHS.has(ctx.path)) {
     await guardLastAdmin(ctx, app, deps)
+  }
+}
+
+/**
+ * Settle a role write Better Auth has just made: undo it if it left no admin,
+ * record it if it stood.
+ *
+ * The count is taken again AFTER the write. Two demotions of the last two
+ * admins sent together both pass the before-write check, but each write commits
+ * before its own recount, so at least one recount runs after both writes and
+ * finds no admin: that request puts its target's previous role back and is
+ * refused with the rail's 409. Both may do so — both requests then answer 409
+ * and both admins keep their role, which errs towards the rail's purpose.
+ *
+ * Only a write that stood reaches the trail, and only when it changed the role:
+ * setting the role an account already holds is not a role change. The actor is
+ * the signed-in caller — Better Auth's admin middleware has put that session on
+ * the context by the time the endpoint ran.
+ */
+async function settleRoleWrite(
+  // eslint-disable-next-line functional/prefer-immutable-types
+  ctx: AuthMiddlewareCtx,
+  app: AdminRoleResolvable,
+  deps?: AuthHookDeps
+) {
+  const key = requestKey(ctx)
+  const pending = key === undefined ? undefined : pendingRoleWrites.get(key)
+  if (pending === undefined) return
+  if (!endpointSucceeded(ctx.context.returned)) return
+
+  if (
+    pending.demotes &&
+    pending.previousRole !== undefined &&
+    leavesNoAdmin(await adminCounter(deps)(adminRoleNamesFor(app)))
+  ) {
+    await roleRestorer(deps)(pending.userId, pending.previousRole)
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new APIError('CONFLICT', { message: lastAdminRemovalMessage(app) })
+  }
+
+  const change = roleChangeOf(pending.previousRole, pending.nextRole)
+  const actorId = sessionUserId(ctx.context.session)
+  if (change === undefined || actorId === undefined) return
+  await roleChangeRecorder(deps)({ actorId, userId: pending.userId, ...change })
+}
+
+/**
+ * Record an impersonation that started: the caller is the admin, the body's
+ * `userId` the account now being acted as.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types
+async function recordImpersonationStart(ctx: AuthMiddlewareCtx, deps?: AuthHookDeps) {
+  if (!endpointSucceeded(ctx.context.returned)) return
+  const adminId = sessionUserId(ctx.context.session)
+  const userId = readTargetUserId(ctx)
+  if (adminId === undefined || userId === undefined) return
+  await impersonationRecorder(deps)({ phase: 'started', adminId, userId })
+}
+
+/**
+ * Record an impersonation that stopped. The request arrives on the
+ * impersonation session, which belongs to the account being acted as; the
+ * admin is the session's `impersonatedBy`. The entry is attributed to the
+ * admin, never to that account.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types
+async function recordImpersonationStop(ctx: AuthMiddlewareCtx, deps?: AuthHookDeps) {
+  if (!endpointSucceeded(ctx.context.returned)) return
+  const session = ctx.context.session as
+    { readonly session?: { readonly impersonatedBy?: unknown } } | null | undefined
+  const adminId = session?.session?.impersonatedBy
+  const userId = sessionUserId(session)
+  if (typeof adminId !== 'string' || adminId === '' || userId === undefined) return
+  await impersonationRecorder(deps)({ phase: 'stopped', adminId, userId })
+}
+
+/**
+ * The `after` half of the admin role guards: settle and record role writes,
+ * record impersonations. Runs once Better Auth's handler has returned, so each
+ * branch first checks that the endpoint succeeded.
+ */
+export async function applyAdminRoleAfterHooks(
+  // eslint-disable-next-line functional/prefer-immutable-types
+  ctx: AuthMiddlewareCtx,
+  app: AdminRoleResolvable,
+  deps?: AuthHookDeps
+) {
+  if (ROLE_DEMOTING_PATHS.has(ctx.path)) {
+    await settleRoleWrite(ctx, app, deps)
+    return
+  }
+  if (ctx.path === '/admin/impersonate-user') {
+    await recordImpersonationStart(ctx, deps)
+    return
+  }
+  if (ctx.path === '/admin/stop-impersonating') {
+    await recordImpersonationStop(ctx, deps)
   }
 }

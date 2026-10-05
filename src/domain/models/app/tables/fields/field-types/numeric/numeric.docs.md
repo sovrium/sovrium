@@ -1,13 +1,14 @@
 # Number Fields
 
-> The six numeric field types — integer, decimal, currency, percentage, rating and progress.
+> The numeric field types — integer, decimal (also spelled number), currency, percentage, rating and progress.
 
-Six field types store numbers, currencies, percentages, ratings and progress indicators. All of them also accept the base field properties every field type shares.
+Seven field types store numbers, currencies, percentages, ratings and progress indicators. All of them also accept the base field properties every field type shares.
 
 | Type         | Stores                                             |
 | ------------ | -------------------------------------------------- |
 | `integer`    | Whole numbers with optional min/max range.         |
 | `decimal`    | Fixed-precision decimals (1–10 decimal places).    |
+| `number`     | An alias of `decimal`, read as a JSON number.      |
 | `currency`   | Monetary values with ISO 4217 code and formatting. |
 | `percentage` | Percentage values, displayed with `%`.             |
 | `rating`     | Star/icon rating with a configurable maximum.      |
@@ -31,6 +32,14 @@ Fixed-precision decimal numbers. `precision` is the number of decimal places kep
 
 ```yaml
 - { id: 2, name: weight_kg, type: decimal, precision: 3 }
+```
+
+### `number`
+
+`number` is an alias of `decimal`. It takes exactly the same options and is stored the same way, so it sorts, filters, aggregates and computes in formulas identically. One thing differs on the wire: the records API returns a `number` value as a JSON number, while a `decimal` value is a string that keeps every digit. Use `decimal` where precision beyond a JavaScript number matters, and whichever name reads better otherwise.
+
+```yaml
+- { id: 7, name: height_m, type: number, precision: 2, min: 0 }
 ```
 
 ## `currency`

@@ -365,6 +365,8 @@ export const PageSchema = Schema.Struct({
    * When set on a collection page, generates an RSS feed endpoint.
    * - `true`: Generate feed with default settings (20 items)
    * - `{ limit: N }`: Generate feed with custom item count
+   * - `{ title, description }`: name the feed itself, when the page's own
+   *   title names one record
    *
    * @example
    * ```typescript
@@ -390,6 +392,22 @@ export const PageSchema = Schema.Struct({
             }),
             Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
           )
+        ),
+        /** The feed's own name, for a page whose title names one record */
+        title: Schema.optional(
+          Schema.String.annotate({
+            description:
+              "The feed's name as a feed reader lists it. Takes precedence over the page's `meta.title`, and is the way to name the feed of a collection page whose title names one record. Accepts a `$t:` key.",
+            examples: ['Field Notes', '$t:feed.title'],
+          })
+        ),
+        /** The feed's own description */
+        description: Schema.optional(
+          Schema.String.annotate({
+            description:
+              "One line a feed reader shows under the feed's name. Takes precedence over the page's `meta.description`. Accepts a `$t:` key.",
+            examples: ['Essays on building and running software a small team owns.'],
+          })
         ),
       }),
     ]).annotate({

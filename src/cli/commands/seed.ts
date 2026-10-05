@@ -233,10 +233,12 @@ export const handleSeedCommand = async (options: SeedCommandOptions): Promise<vo
   const mode = requireMode(options.mode)
   const runAt = requireRunAt(options.today)
   const configFile = options.configFile ?? (await discoverConfigFile())
-  const app = await requireApp(configFile)
+  const { app, authoredTableIds } = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
 
-  const loaded = await applyDatabaseMigrations(app).then(() => loadSeedFiles(seedDir))
+  const loaded = await applyDatabaseMigrations(app, { authoredTableIds }).then(() =>
+    loadSeedFiles(seedDir)
+  )
   if (!loaded.ok) return refuse(`Error: seed files could not be read:\n${indent(loaded.errors)}`)
 
   const planned = buildSeedPlan({

@@ -33,23 +33,25 @@
  * Binary-safety: OTLP is imported by subpath (`OtlpLogger`/`OtlpMetrics`/
  * `OtlpSerialization`) plus `FetchHttpClient`, never an aggregate barrel (v3's
  * `@effect/opentelemetry` barrel pulled `@opentelemetry/*` and broke
- * `bun build --compile`; `effect/unstable/observability/index` would do the same).
+ * `bun build --compile`; `effect/observability/index` would do the same).
  *
  * EFFECT 4. `@effect/opentelemetry` and `@effect/platform` are gone as packages
  * — v4 absorbs both, so these are the SAME exporters on new paths under
- * `effect/unstable/*`. `unstable` means the API may break in a minor; that is
+ * `effect/http/*` and `effect/observability/*` (4.0.0 GA dropped the old
+ * `effect/unstable/*` segment, #8354). Those modules stay tagged
+ * `@stability unstable`, meaning the API may break in a minor; that is
  * accepted for this file only. `Metric` itself is stable and top-level
- * — only the OTLP exporter wiring lives under `unstable`.
+ * — only the OTLP exporter wiring is unstable-tier.
  */
 
 import { Duration, Effect, Layer, Logger, References, ManagedRuntime, Tracer } from 'effect'
-import * as FetchHttpClient from 'effect/unstable/http/FetchHttpClient'
-import * as HttpBody from 'effect/unstable/http/HttpBody'
-import * as OtlpExporter from 'effect/unstable/observability/OtlpExporter'
-import * as OtlpLogger from 'effect/unstable/observability/OtlpLogger'
-import * as OtlpMetrics from 'effect/unstable/observability/OtlpMetrics'
-import * as OtlpSerialization from 'effect/unstable/observability/OtlpSerialization'
-import * as OtlpTracer from 'effect/unstable/observability/OtlpTracer'
+import * as FetchHttpClient from 'effect/http/FetchHttpClient'
+import * as HttpBody from 'effect/http/HttpBody'
+import * as OtlpExporter from 'effect/observability/OtlpExporter'
+import * as OtlpLogger from 'effect/observability/OtlpLogger'
+import * as OtlpMetrics from 'effect/observability/OtlpMetrics'
+import * as OtlpSerialization from 'effect/observability/OtlpSerialization'
+import * as OtlpTracer from 'effect/observability/OtlpTracer'
 import { formatClock } from '@/infrastructure/logging/cli-output'
 import { isDebugEnabled, isProduction } from '@/infrastructure/process/env'
 import { collectingTracer } from './span-collector'
@@ -430,11 +432,11 @@ export const initObsRuntime = async (): Promise<void> => {
  * `parentSpan` is what gives log↔trace correlation, and it has to be passed in
  * rather than inherited. Every call here runs on the OBSERVABILITY runtime,
  * which means a FRESH fiber: `OtlpLogger` stamps `traceId`/`spanId` from
- * `options.fiber.currentSpan` (OtlpLogger.ts:230), and a fresh fiber has none,
+ * `options.fiber.cache.span` (OtlpLogger.js:170), and a fresh fiber has none,
  * so before this argument existed NO log line emitted from inside application
  * code could carry a trace id — however deep inside a span it was written.
  * `Effect.withParentSpan` puts the caller's span into this fiber's context,
- * where `fiber.currentSpan` reads it.
+ * where `fiber.cache.span` reads it.
  */
 export const logRecordEffect = (
   level: TelemetryLogLevel,

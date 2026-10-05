@@ -83,17 +83,3 @@ export const updateUserRole = (
     const repo = yield* AuthRepository
     yield* repo.updateUserRole(userId, role)
   }).pipe(Effect.withSpan('tables.update-user-role'))
-
-/**
- * Retrieves the user's active session token from the database
- *
- * @param userId - The user ID to look up
- * @returns The raw session token, or undefined if no active session
- */
-export const getUserSessionToken = (
-  userId: string
-): Effect.Effect<string | undefined, AuthDatabaseError, AuthRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* AuthRepository
-    return yield* repo.getUserSessionToken(userId)
-  }).pipe(Effect.withSpan('tables.get-user-session-token'))

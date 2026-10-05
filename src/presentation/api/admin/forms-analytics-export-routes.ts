@@ -6,7 +6,7 @@
  */
 
 /**
- * F-04 admin endpoints — CSV export + analytics aggregate.
+ * [internal ref] admin endpoints — CSV export + analytics aggregate.
  *
  * Two new endpoints, sibling to the existing forms-list / submissions-list
  * / submission-detail / submissions-bulk surface in `admin/forms.ts`:
@@ -17,7 +17,7 @@
  *       rows, the response still returns 200 + CSV but emits the header
  *       `X-Sovrium-Truncated: true` to signal that the client should
  *       fall back to a server-side job (the >1000-row job pipeline is
- *       explicitly OUT OF v1 scope per the locked F-04 plan).
+ * explicitly OUT OF v1 scope per the locked [internal ref] plan).
  *       Field-level redaction applies: fields whose
  *       `permissions.read` excludes the requesting role have their
  *       VALUE blanked in CSV (the column header is retained).
@@ -48,9 +48,12 @@ import {
   OPEN_WHEN_UNDECLARED,
   permits,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
 import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
+import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { Form, FormField } from '@/domain/models/app/forms'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -70,20 +73,16 @@ const DEFAULT_WINDOW_DAYS = 30
  * path, so the operator running an export sees every column rather than
  * silently receiving a blank one.
  */
-function isFieldReadable(field: FormField, role: string): boolean {
+function isFieldReadable(field: FormField, caller: PermissionCaller): boolean {
   // Casts: every field discriminant gets `permissions` from
   // `commonFieldProps` (FormFieldPermissionsSchema).
   const perms = (field as { readonly permissions?: { readonly read?: PermissionValue } })
     .permissions
   return permits(
-    evaluatePermission(
-      perms?.read,
-      { role },
-      {
-        whenUndeclared: OPEN_WHEN_UNDECLARED,
-        adminOverride: 'admin-outranks-everything',
-      }
-    )
+    evaluatePermission(perms?.read, caller, {
+      whenUndeclared: OPEN_WHEN_UNDECLARED,
+      adminOverride: 'admin-outranks-everything',
+    })
   )
 }
 
@@ -117,7 +116,7 @@ function buildCsvRow(
     readonly data: unknown
   },
   form: Form,
-  role: string
+  caller: PermissionCaller
 ): Record<string, unknown> {
   const data = (ledgerRow.data ?? {}) as Record<string, unknown>
   const out: Record<string, unknown> = {
@@ -131,7 +130,7 @@ function buildCsvRow(
   for (const field of form.fields) {
     const name = fieldName(field)
     if (name.length === 0) continue
-    if (!isFieldReadable(field, role)) {
+    if (!isFieldReadable(field, caller)) {
       out[name] = ''
       continue
     }
@@ -174,7 +173,7 @@ function csvResponse(c: Context, csv: string, truncated: boolean, formName: stri
  * Inline CSV ≤1000 rows. Beyond 1000 rows the response still returns
  * 200 + CSV but emits `X-Sovrium-Truncated: true`. The async polling
  * pipeline (`202 + jobId + pollUrl`) is OUT OF v1 scope per locked
- * F-04 plan; clients should detect the truncation header and surface
+ * [internal ref] plan; clients should detect the truncation header and surface
  * a "Refine your filter" UI affordance.
  */
 async function handleExport(c: Context, resolveApp: () => App): Promise<Response> {
@@ -183,7 +182,7 @@ async function handleExport(c: Context, resolveApp: () => App): Promise<Response
   const formName = c.req.param('formName') ?? ''
   const form = (app.forms ?? []).find((f) => f.name === formName)
   if (!form) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   const format = c.req.query('format') ?? 'csv'
   if (format !== 'csv') {
@@ -210,7 +209,10 @@ async function handleExport(c: Context, resolveApp: () => App): Promise<Response
   const truncated = rawRows.length > EXPORT_INLINE_CAP
   const exported = rawRows.slice(0, EXPORT_INLINE_CAP)
   const columns = buildCsvColumns(form)
-  const records = exported.map((row) => buildCsvRow(row, form, role))
+  // The admin override reads the app's role ladder: its top role outranks a
+  // field allowlist exactly as the built-in `admin` does.
+  const caller = { role, adminEquivalent: isAdminEquivalent(role, app) }
+  const records = exported.map((row) => buildCsvRow(row, form, caller))
   const csv = exportRecordsToCsv(
     records as ReadonlyArray<Readonly<Record<string, unknown>>>,
     columns
@@ -281,7 +283,7 @@ async function handleAnalytics(c: Context, resolveApp: () => App): Promise<Respo
   const formName = c.req.param('formName') ?? ''
   const form = (app.forms ?? []).find((f) => f.name === formName)
   if (!form) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
 
   // Per-form opt-out short-circuit. The endpoint still
@@ -359,7 +361,7 @@ async function handleAnalytics(c: Context, resolveApp: () => App): Promise<Respo
 }
 
 /**
- * Chain the F-04 analytics + export routes onto the parent Hono app.
+ * Chain the [internal ref] analytics + export routes onto the parent Hono app.
  * Registration order: the export route is more specific than the
  * generic submissions detail path (`/submissions/:submissionId`), so
  * we register it FIRST to avoid the dynamic-segment route swallowing

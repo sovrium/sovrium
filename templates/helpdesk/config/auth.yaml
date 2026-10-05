@@ -1,7 +1,15 @@
-# Email + password auth for the support team. First registered user becomes
-# admin (Better Auth firstUserAdmin); later sign-ups get the `member` role.
-# Customers never sign in — they use the public /support form.
-allowSignUp: true
+# Email and password sign-in, for the support team only.
+#
+# Requesters never sign in: they write in from the public form on `/` and rate
+# the answer from the link in the resolution email. Nobody signs themselves
+# up either. The first administrator comes from `AUTH_ADMIN_EMAIL` /
+# `AUTH_ADMIN_PASSWORD` on the first start (see `.env.example`), and every
+# other agent is added by an admin with `sovrium admin create <email>`. The
+# demo accounts come from `seed/users.yaml`.
+#
+# Two roles: `member` for the agents who work the queue, and `admin` for the
+# team lead, who also reads Reports and is the only one who removes a ticket.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

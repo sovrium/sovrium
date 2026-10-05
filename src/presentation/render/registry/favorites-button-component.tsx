@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { FAVORITES_READY_MARK } from '@/presentation/design/runtime-ready-marks'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -98,8 +99,8 @@ const FAVORITES_BUTTON_RUNTIME = `(function () {
     }
   }
   function setup(button) {
-    if (button.getAttribute('data-favorites-ready') === 'true') return;
-    button.setAttribute('data-favorites-ready', 'true');
+    if (button.getAttribute('${FAVORITES_READY_MARK}') === 'true') return;
+    button.setAttribute('${FAVORITES_READY_MARK}', 'true');
     refresh(button);
     trackRecent(button);
     button.addEventListener('click', function (event) {

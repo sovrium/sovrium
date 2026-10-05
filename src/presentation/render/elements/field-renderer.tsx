@@ -91,6 +91,7 @@ export function renderField(config: RenderFieldConfig): ReactElement {
       className={resolveClasses(computeFormFieldClasses(), className)}
       data-testid={testId}
       data-component="field"
+      data-component-type={props['data-component-type'] as string | undefined}
     >
       {fieldLabel !== undefined && (
         <label

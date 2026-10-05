@@ -37,6 +37,8 @@ A union discriminated by `type`.
 
 `delaySeconds` on a redirect defaults to `2`, and `0` navigates immediately.
 
+A form sends its visitor to a web page or to this site, and nowhere else. An address is an `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`); the scheme is written out, never filled in by a template variable, and a `$t:` address is checked in every language. `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field, and a server refuses to start on one. A thank-you page on another site works: write its full `https://` address. The same rule holds for a success-page button's `url`, its `buttonHref`, a closed form's link, and the `navigate` and `redirect` of a page form's or a button's action.
+
 Omit `onSuccess` entirely and the form falls back to a success toast reading "Submitted." — a sane default, and rarely the one you want in production.
 
 `reset` is the type for a single-page form a submitter fills repeatedly. On a multi-step layout it clears the answers without returning the submitter to the first step, so prefer a success page carrying a reset action there.
@@ -94,3 +96,5 @@ Covers whole-submission failures: the write was rejected, or the request did not
 ### Field errors are a different channel
 
 An invalid email or a missing required value comes back as a per-field error list and is rendered inline against the offending input. `onError` fires **alongside** it as the whole-form summary, not instead of it — so an error message written here should read as a summary rather than as the only thing the submitter will see.
+
+A field the server refuses is marked `aria-invalid` and points at its reason, which names the field by its label.

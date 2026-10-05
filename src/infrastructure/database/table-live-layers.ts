@@ -6,8 +6,10 @@
  */
 
 import { Layer } from 'effect'
+import { RecordChangeFeedLive } from '@/infrastructure/realtime/record-change-feed-live'
 import { ActivityRepositoryLive } from './repositories/analytics/activity-repository-live'
 import { AuthRepositoryLive } from './repositories/auth/auth-repository-live'
+import { UserDirectoryRepositoryLive } from './repositories/auth/user-directory-repository-live'
 import { CommentRepositoryLive } from './repositories/comment-repository-live'
 import { BatchRepositoryLive } from './repositories/tables/batch-repository-live'
 import { DataSourceRepositoryLive } from './repositories/tables/data-source-repository-live'
@@ -19,7 +21,10 @@ import { TableRepositoryLive } from './repositories/tables/table-repository-live
  * Import this single layer in presentation routes to satisfy
  * all table, batch, comment, and activity repository requirements — plus the
  * auth repository, which a record read uses to name the accounts its `user`
- * fields store (the `_display` label of a user field).
+ * fields store (the `_display` label of a user field) — and the user
+ * directory, which names the people a comment mentions and narrows them to the
+ * record's readers — and the live record-change feed, so every runtime that can
+ * write a record announces it on the change stream.
  *
  * @example
  * ```typescript
@@ -32,5 +37,7 @@ export const TableLive = Layer.mergeAll(
   CommentRepositoryLive,
   ActivityRepositoryLive,
   DataSourceRepositoryLive,
-  AuthRepositoryLive
+  AuthRepositoryLive,
+  UserDirectoryRepositoryLive,
+  RecordChangeFeedLive
 )

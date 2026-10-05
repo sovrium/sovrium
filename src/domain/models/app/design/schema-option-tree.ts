@@ -35,7 +35,7 @@
  *
  * A second trap one level down: `Arrays.rest` is an array of NODES directly, so
  * the element is `rest[0]` and `rest[0].type` is `undefined`. Both were probed
- * against effect 4.0.0-rc.108 rather than assumed.
+ * against effect 4.0.0 rather than assumed.
  */
 
 import { Schema } from 'effect'
@@ -109,7 +109,7 @@ export interface SchemaOption {
    * a default no decode can surface, so the two are complements and neither
    * replaces the other.
    *
-   * Never emitted to JSON Schema (probed on `effect@4.0.0-rc.108`: adding 53 of
+   * Never emitted to JSON Schema (probed on `effect@4.0.0`: adding 53 of
    * them left `app.json` byte-identical), so it costs nothing in the byte-gated
    * document and is readable only by an AST walk — this one.
    */
@@ -904,7 +904,7 @@ const nodeSource = (node: SchemaNode): string =>
  *
  * The bag entry point asks a `Schema.Struct` it built itself; here there is only
  * an AST, so the schema is rebuilt from it with `Schema.make`. Probed on
- * `effect@4.0.0-rc.108`: a rebuilt schema decodes `{}` to the same defaults as
+ * `effect@4.0.0`: a rebuilt schema decodes `{}` to the same defaults as
  * the original, including a `withDecodingDefault`, so this is the same question
  * {@link decodedDefaults} asks rather than a reconstruction of the answer —
  * which is the thing that would be worse than no column at all.

@@ -60,6 +60,37 @@ export function nativeInputTypeOf(type: string): string {
   return INPUT_TYPE_BY_WIDGET[fieldWidgetOf(type)] ?? 'text'
 }
 
+/**
+ * The component type a native form control is named after: the page component
+ * that draws the same control. A drawer, a dialog or a hosted form draws its
+ * controls itself, and names each one as a page would, so a reader counting by
+ * `data-component-type` finds the same parts wherever they are drawn.
+ */
+const COMPONENT_TYPE_BY_INPUT_TYPE: Readonly<Record<string, string>> = {
+  text: 'input',
+  email: 'input',
+  url: 'input',
+  tel: 'input',
+  password: 'input',
+  search: 'input',
+  number: 'number-input',
+  date: 'date-picker',
+  'datetime-local': 'date-picker',
+  time: 'date-picker',
+  checkbox: 'checkbox',
+  file: 'file-upload',
+}
+
+/**
+ * The `data-component-type` of an `<input type=…>`, or `undefined` for a type
+ * no page component draws: an unnamed part is honest, a wrong name is not.
+ */
+export function inputComponentTypeOf(nativeInputType: string): string | undefined {
+  return Object.hasOwn(COMPONENT_TYPE_BY_INPUT_TYPE, nativeInputType)
+    ? COMPONENT_TYPE_BY_INPUT_TYPE[nativeInputType]
+    : undefined
+}
+
 /** Decimal places an ISO currency is written with — 2 for EUR, 0 for JPY. */
 function currencyDigitsOf(currency: string | undefined): number | undefined {
   if (currency === undefined) return undefined

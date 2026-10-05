@@ -313,7 +313,8 @@ export const generateProvider = (provider: string, root = SOURCES_DIR): Generate
       return normaliseSpec(doc, options)
     } catch (error) {
       throw new Error(
-        `${provider}/${file}: ${error instanceof Error ? error.message : String(error)}`
+        `${provider}/${file}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
       )
     }
   })

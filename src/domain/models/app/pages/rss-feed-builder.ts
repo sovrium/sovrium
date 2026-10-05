@@ -179,8 +179,9 @@ interface BuildRssFeedXmlFromItemsInput {
 }
 
 /**
- * Resolve the RSS `<channel>` title/description identity from the rss page's
- * `meta`, falling back to the app-level fields.
+ * Resolve the RSS `<channel>` title/description identity from the page's own
+ * `rss.title` / `rss.description`, then its `meta`, falling back to the
+ * app-level fields.
  *
  * A public feed should announce its OWN identity, so the rss page's `meta.title`
  * / `meta.description` drive the channel when present AND safe for a feed shared
@@ -197,11 +198,14 @@ export function resolveRssChannelIdentity(
   app: App,
   page: Page
 ): { readonly title: string; readonly description: string } {
+  // `rss.title` / `rss.description` name the feed itself and win over the
+  // page's `meta`, which on a collection page names one record.
+  const feed = typeof page.rss === 'object' ? page.rss : undefined
   return {
-    title: resolveChannelField(app, page.meta?.title, app.name),
+    title: resolveChannelField(app, feed?.title ?? page.meta?.title, app.name),
     description: resolveChannelField(
       app,
-      page.meta?.description,
+      feed?.description ?? page.meta?.description,
       app.description ?? 'Application built with Sovrium'
     ),
   }

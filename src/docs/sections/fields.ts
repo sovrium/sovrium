@@ -150,12 +150,13 @@ export const section = defineSection({
       slug: 'number-fields',
       title: 'Number Fields',
       description:
-        'The six numeric field types — integer, decimal, currency, percentage, rating and progress.',
+        'The numeric field types — integer, decimal (also spelled number), currency, percentage, rating and progress.',
       keywords: [
         'sovrium',
         'numeric fields',
         'integer',
         'decimal',
+        'number',
         'currency',
         'percentage',
         'rating',

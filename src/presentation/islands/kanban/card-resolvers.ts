@@ -6,21 +6,34 @@
  */
 
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
-import { substitute } from './card-template'
+import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { resolveImageSource, substitute } from './card-template'
 import type { TableRecord } from '../runtime/types'
 import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 
 /**
- * Pull the navigate path out of a card.onClick action and substitute
- * $record.X tokens. Returns undefined when the action isn't a navigate.
+ * What activating a card does, or `undefined` when the card declares no click
+ * — or declares a navigate path that does not stay on this site.
+ *
+ * The two verbs a grid row takes: `navigate` follows the path with the card's
+ * `$record.*` values (a `$param.*` token was already filled from the page
+ * address at render), and `openDrawer` opens the named drawer on the card's
+ * record — the drawer then names the record in the address (`?record=<id>`),
+ * as it does for a grid row click. `table` is the board's bound table, which
+ * the drawer needs to bind the record to its own table's forms alone.
  */
-export function resolveNavigatePath(
+export function resolveCardActivation(
   onClick: KanbanCard['onClick'],
-  record: TableRecord
-): string | undefined {
-  if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
-  return substitute(onClick.path, record)
+  record: TableRecord,
+  table?: string
+): (() => void) | undefined {
+  if (!onClick) return undefined
+  if ('action' in onClick) {
+    const { component } = onClick
+    return () => openCardDrawer(component, record, table)
+  }
+  return cardPathClick(substitute(onClick.path, record))
 }
 
 /** Resolve `colorField` to a stringified value or undefined when missing. */
@@ -69,16 +82,6 @@ export function resolveCardColors(
 
 /** Resolve `coverImage` template to a usable URL or undefined. */
 export function resolveCoverImage(card: KanbanCard, record: TableRecord): string | undefined {
-  if (card.coverImage === undefined) return undefined
-  const resolved = substitute(card.coverImage, record)
-  // Drop empty string (e.g. when thumbnail field is null) so we don't render a
-  // broken `<img src="">` element that would still trip toBeVisible() checks.
-  return resolved === '' ? undefined : resolved
-}
-
-/** Imperative SPA navigation. Wrapped to keep mutating call out of JSX. */
-export function navigateTo(path: string): void {
-  if (typeof globalThis !== 'undefined' && globalThis.location) {
-    globalThis.location.assign(path)
-  }
+  // An attachment field draws its (first) file, as a gallery card's cover does.
+  return card.coverImage === undefined ? undefined : resolveImageSource(card.coverImage, record)
 }

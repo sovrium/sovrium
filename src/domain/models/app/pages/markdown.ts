@@ -94,6 +94,3 @@ export const MarkdownSchema = Schema.Struct({
 
 /** @public */
 export type Markdown = Schema.Schema.Type<typeof MarkdownSchema>
-
-// Re-export ContentDir from dedicated module
-export { ContentDirSchema, type ContentDir } from './content-dir'

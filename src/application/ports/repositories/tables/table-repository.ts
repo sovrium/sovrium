@@ -25,10 +25,10 @@ export interface QueryFilterLeaf {
 }
 
 /**
- * Nestable filter node (GAP-3 composite row-level predicates): a leaf, an
+ * Nestable filter node ([internal ref] composite row-level predicates): a leaf, an
  * `and` group, or an `or` group. The SQL WHERE builder walks this tree,
  * emitting `( … AND … )` / `( … OR … )` groups. Single-clause filters use a
- * bare leaf — fully backward compatible with the pre-GAP-3 flat shape.
+ * bare leaf — fully backward compatible with the pre-[internal ref] flat shape.
  */
 export type QueryFilterNode =
   | QueryFilterLeaf
@@ -41,6 +41,71 @@ export type QueryFilterNode =
  */
 export interface QueryFilter {
   readonly and?: readonly QueryFilterNode[]
+}
+
+/**
+ * A lookup a list must evaluate as EMPTY for every row whose linked record the
+ * reader may not read — so a filter, a sort or an aggregate naming it never
+ * steers on a value the reader may not see.
+ *
+ * `readable` is the related table's row-level read rule projected for this
+ * reader; `undefined` means no related row is readable. `link` says where the
+ * row's keys live: a `column` on the row (many-to-one, one-to-one), the
+ * junction of a many-to-many link, or — `reverse` — the related rows' `column`
+ * pointing back at the row. The last two recompute the lookup from the readable
+ * linked rows (and the lookup's own `filters`).
+ *
+ * A lookup of a lookup takes the `chain` link: every record it reads through,
+ * one key column after the next, each with its table's rule projected for this
+ * reader (`undefined` where the table carries none). The value is kept on a row
+ * whose every hop is readable and evaluated as empty elsewhere; the mask's own
+ * `readable` is not read. When the chain ends on a copied LIST, its `list` names
+ * that many-to-many or reverse link: the value is recomputed through every hop
+ * from the listed rows that pass the list table's rule (and the lookup's own
+ * `filters`), so it keeps the names the reader may read and none other.
+ */
+export interface LookupReadMask {
+  readonly lookup: string
+  readonly relatedTable: string
+  readonly relatedField: string
+  readonly readable: QueryFilterNode | undefined
+  readonly link:
+    | { readonly kind: 'column'; readonly column: string }
+    | { readonly kind: 'junction'; readonly filters?: QueryFilterNode }
+    | { readonly kind: 'reverse'; readonly column: string; readonly filters?: QueryFilterNode }
+    | {
+        readonly kind: 'chain'
+        readonly hops: readonly LookupReadHop[]
+        readonly list?: LookupReadList
+      }
+}
+
+/**
+ * The list a lookup of a lookup copies at the end of its chain: the
+ * many-to-many link (`junction`) of `sourceTable` to `relatedTable`, or the
+ * back-link `column` of `relatedTable` (`reverse`), its copied `relatedField`,
+ * the related table's rule projected for the reader (`undefined` where it
+ * carries none) and the lookup's own `filters`.
+ */
+export interface LookupReadList {
+  readonly kind: 'junction' | 'reverse'
+  readonly sourceTable: string
+  readonly relatedTable: string
+  readonly relatedField: string
+  readonly column?: string
+  readonly readable: QueryFilterNode | undefined
+  readonly filters?: QueryFilterNode
+}
+
+/**
+ * One record a lookup of a lookup reads through: the key `column` of the row
+ * before it (the listed row for the first hop), the `relatedTable` that key
+ * names, and that table's rule projected for the reader.
+ */
+export interface LookupReadHop {
+  readonly column: string
+  readonly relatedTable: string
+  readonly readable: QueryFilterNode | undefined
 }
 
 /**
@@ -59,10 +124,14 @@ export interface AggregateQuery {
  */
 export interface AggregationResult {
   readonly count?: string
-  readonly sum?: Record<string, number>
-  readonly avg?: Record<string, number>
-  readonly min?: Record<string, number>
-  readonly max?: Record<string, number>
+  /** A number, or `null` over no values. */
+  readonly sum?: Record<string, number | null>
+  /** A number, or `null` over no values. */
+  readonly avg?: Record<string, number | null>
+  /** A number, a date as its ISO string, or `null` over no values. */
+  readonly min?: Record<string, number | string | null>
+  /** A number, a date as its ISO string, or `null` over no values. */
+  readonly max?: Record<string, number | string | null>
 }
 
 /**
@@ -86,6 +155,11 @@ export class TableRepository extends Context.Service<
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly filter?: QueryFilter
+      /**
+       * Lookups to evaluate as empty on the rows whose linked record the reader
+       * may not read, wherever the query names them (filter, sort, aggregate).
+       */
+      readonly lookupMasks?: readonly LookupReadMask[]
       readonly includeDeleted?: boolean
       readonly sort?: string
       /**
@@ -146,6 +220,8 @@ export class TableRepository extends Context.Service<
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly filter?: QueryFilter
+      /** Lookups to evaluate as empty for this reader, as `listRecords` takes them. */
+      readonly lookupMasks?: readonly LookupReadMask[]
       readonly sort?: string
     }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
 
@@ -201,6 +277,11 @@ export class TableRepository extends Context.Service<
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly filter?: QueryFilter
+      /**
+       * Lookups to evaluate as empty on the rows whose linked record the reader
+       * may not read, wherever the query names them (filter, sort, aggregate).
+       */
+      readonly lookupMasks?: readonly LookupReadMask[]
       readonly includeDeleted?: boolean
       readonly aggregate: AggregateQuery
     }) => Effect.Effect<AggregationResult, DatabaseError>
@@ -211,6 +292,21 @@ export class TableRepository extends Context.Service<
      * mirror row so the reciprocal side sees the link. Idempotent.
      */
     readonly linkManyToMany: (input: {
+      readonly sourceTable: string
+      readonly sourceId: string | number
+      readonly links: readonly {
+        readonly relatedTable: string
+        readonly relatedIds: readonly (string | number)[]
+        readonly hasReciprocal: boolean
+      }[]
+    }) => Effect.Effect<void, DatabaseError>
+
+    /**
+     * Remove named junction rows of a record's `many-to-many` fields — the
+     * inverse of {@link linkManyToMany}, mirror row included. A pair that is
+     * not linked is a no-op. Used when a field is cleared.
+     */
+    readonly unlinkManyToMany: (input: {
       readonly sourceTable: string
       readonly sourceId: string | number
       readonly links: readonly {

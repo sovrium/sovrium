@@ -1,0 +1,39 @@
+# Starting a post, from the New post button on the desk. A new post is a
+# draft: a title and its address are enough, the rest is written on its edit
+# page.
+id: 2
+name: new-post
+title: New post
+access:
+  require: [admin]
+  redirectTo: /admin/login
+submitTo:
+  table: posts
+display:
+  submitLabel: Create the draft
+onSuccess:
+  type: redirect
+  url: /admin/posts/$record.id/edit
+  delaySeconds: 0
+prefill:
+  status: Draft
+fields:
+  - kind: table-field
+    column: title
+    required: true
+    label: Title
+  - kind: table-field
+    column: slug
+    required: true
+    label: URL slug
+    helpText: The essay's address, /blog/<slug>. Lowercase words joined by hyphens.
+  - kind: table-field
+    column: author
+    label: Author
+  - kind: table-field
+    column: body
+    required: true
+    label: First lines
+  - kind: table-field
+    column: status
+    hidden: true

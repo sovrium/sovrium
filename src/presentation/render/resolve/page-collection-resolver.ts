@@ -35,13 +35,14 @@
  * `filter: [{ field: 'category', value: '$record.name' }]`).
  */
 
+import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import {
   fetchCollectionAdjacency,
   substituteCollectionInMeta,
   substituteCollectionInPageComponents,
-  type CollectionAdjacencyGate,
+  type CollectionRowsReader,
 } from '@/presentation/render/resolve/page-collection-prevnext'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -68,12 +69,10 @@ export type PageCollectionResolution =
   | { readonly kind: 'not-found' }
   | { readonly kind: 'none' }
   /**
-   * Bug 2 / [internal ref]: the slug resolved to a real row, but
-   * the table's `rowLevelPermissions.read.when` predicate excluded it for
-   * the active session. Distinct from `not-found` so the caller can render
-   * a structured access-denied response (e.g. 200 with a permission
-   * marker) instead of a silent 404. S1 anti-enumeration is preserved
-   * because anonymous + truly-nonexistent both still produce `not-found`.
+   * The slug resolved to a real row, but the table's
+   * `rowLevelPermissions.read.when` predicate excluded it for the active
+   * session. The page answers it exactly as `not-found` — the same 404 and
+   * the same page — so the status never tells a reader the row exists.
    */
   | { readonly kind: 'permission-blocked' }
 
@@ -115,6 +114,10 @@ const FILTER_OPERATORS: Readonly<
       : false,
   in: (cellValue, expected) =>
     Array.isArray(expected) ? (expected as readonly unknown[]).includes(cellValue) : false,
+  // [internal ref]: missing, null, `''`, `` and `{}` are empty — the one rule,
+  // judged on the raw row as the SQL filter judges it (SQLite JSON text too).
+  isEmpty: (cellValue) => isEmptyCell(cellValue),
+  isNotEmpty: (cellValue) => !isEmptyCell(cellValue),
 }
 
 /**
@@ -412,7 +415,7 @@ function autoBindCommentInComponent(
  * collection.filter, row-level read predicate). Returns either an early
  * `PageCollectionResolution` outcome OR the matched record for the caller to
  * continue substitution. Extracted to keep `resolveCollectionPage` under the
- * complexity cap as the gate chain grew with Bug 2's row-level overlay.
+ * complexity cap as the gate chain grew with [internal ref]'s row-level overlay.
  */
 async function resolveCollectionRecord(
   collection: Readonly<NonNullable<Page['collection']>>,
@@ -443,7 +446,7 @@ async function resolveCollectionRecord(
     return { kind: 'not-found' }
   }
 
-  // Bug 2 / [internal ref]: row-level read predicate runs AFTER
+  // [internal ref]: row-level read predicate runs AFTER
   // the row is confirmed to exist (so a genuinely missing record still 404s
   // — S1 anti-enumeration preserved) and AFTER the collection.filter
   // (status/draft/etc. exclusions take precedence over per-user perms).
@@ -461,29 +464,13 @@ async function passesRowLevelRead(
   return check === undefined ? true : check(record)
 }
 
-/**
- * The gates each `$collection.previous` / `.next` neighbour answers: the same
- * row-level check and field projection as the record itself — a hidden row is
- * skipped rather than linked, and a shown one is projected.
- */
-function adjacencyGateOf(options: ResolveCollectionOptions | undefined): CollectionAdjacencyGate {
-  const { rowLevelReadCheck, projectRecord } = options ?? {}
-  return {
-    ...(rowLevelReadCheck !== undefined
-      ? { isVisible: async (row) => rowLevelReadCheck(row) }
-      : {}),
-    ...(projectRecord !== undefined ? { project: projectRecord } : {}),
-  }
-}
-
 interface ResolveCollectionOptions {
   readonly bypassFilter?: boolean
   /**
-   * Bug 2 / [internal ref]: when supplied, the resolver invokes
-   * this predicate against the fetched record. A `false` result means the
-   * row exists but the active user can't see it — the resolver returns
-   * `permission-blocked` instead of `not-found` so the caller can render
-   * a structured access-denied response.
+   * When supplied, the resolver invokes this predicate against the fetched
+   * record. A `false` result means the row exists but the active user can't
+   * see it — the resolver returns `permission-blocked`, which the page answers
+   * exactly as `not-found`.
    *
    * Returning `true` (or omitting the option entirely) preserves the
    * existing pass-through behaviour. `bypassFilter` does NOT bypass this
@@ -503,7 +490,7 @@ interface ResolveCollectionOptions {
    */
   readonly projectRecord?: (
     record: Readonly<Record<string, unknown>>
-  ) => Readonly<Record<string, unknown>>
+  ) => Promise<Readonly<Record<string, unknown>>>
   /**
    * The visitor may read no row of the collection's table — its read
    * permission refuses them, or its rows are scoped to a user and there is no
@@ -512,6 +499,12 @@ interface ResolveCollectionOptions {
    * slugs exist.
    */
   readonly refuseRecord?: boolean
+  /**
+   * How the collection's rows are read for this visitor — the records gate —
+   * to find the `$collection.previous` / `.next` neighbours. Omitted: the rows
+   * are read as they are.
+   */
+  readonly readRows?: CollectionRowsReader
 }
 
 export async function resolveCollectionPage(
@@ -525,7 +518,7 @@ export async function resolveCollectionPage(
 
   const resolved = await resolveCollectionRecord(collection, routeParams, db, options)
   if (resolved.kind !== 'continue') return resolved
-  const record = options?.projectRecord?.(resolved.record) ?? resolved.record
+  const record = (await options?.projectRecord?.(resolved.record)) ?? resolved.record
 
   const substitutedMeta = substituteRecordInMeta(page.meta, record)
   const substitutedComponents = substituteRecordInPageComponents(
@@ -555,7 +548,7 @@ export async function resolveCollectionPage(
     collection,
     resolved.record,
     db,
-    adjacencyGateOf(options)
+    options?.readRows
   )
   const adjMeta = substituteCollectionInMeta(substitutedMeta, adjacency)
   const adjComponents = substituteCollectionInPageComponents(autoBoundComponents, adjacency)

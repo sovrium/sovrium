@@ -20,6 +20,7 @@
  */
 
 import { Effect } from 'effect'
+import { relayFrom, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { cryptoRandomId } from './types'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
@@ -51,7 +52,10 @@ export interface AutomationCallRunners {
     readonly handlers: StepContext['handlers']
     readonly userId: string | undefined
     readonly callDepth: number
+    readonly recordEventDepth: number
     readonly visitedAutomations: ReadonlySet<string>
+    readonly relay?: RunRelay
+    readonly onPersisted?: (runId: string) => void
   }) => Effect.Effect<RunAutomationResult, never, RunRequirements>
 }
 
@@ -132,11 +136,15 @@ const buildSubAutomationRun = (
     readonly target: NonNullable<App['automations']>[number]
     readonly inputData: Readonly<Record<string, unknown>>
     readonly newDepth: number
+    /** How many of the caller's steps had run when it called: the relay's reach. */
+    readonly stepIndex: number
+    readonly onRun: ((runId: string) => void) | undefined
   },
   runners: AutomationCallRunners
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
   Effect.gen(function* () {
     const { ctx, target, inputData, newDepth } = input
+    const callerRunId = ctx.automation.runId
     const automationId = yield* runners.resolveAutomationId(target.name, target).pipe(
       // effect-swallow: the id only LABELS this run in the activity log; a lookup that fails must not stop the automation it was about to run, and a random id keeps the run traceable within itself.
       Effect.orElseSucceed(() => cryptoRandomId())
@@ -151,7 +159,13 @@ const buildSubAutomationRun = (
       handlers: ctx.handlers,
       userId: ctx.automation.userId,
       callDepth: newDepth,
+      // A called automation is part of the same chain of writes as its caller.
+      recordEventDepth: ctx.recordEventDepth,
       visitedAutomations: ctx.visitedAutomations,
+      // The called run records which run fed it, and how far that run had got:
+      // what it was handed is judged by what the caller had read by then.
+      ...(callerRunId === undefined ? {} : { relay: relayFrom(callerRunId, input.stepIndex) }),
+      ...(input.onRun === undefined ? {} : { onPersisted: input.onRun }),
     })
   })
 
@@ -168,12 +182,19 @@ const buildSubAutomationRun = (
  */
 export const buildAutomationInvoker =
   (runners: AutomationCallRunners) =>
-  (ctx: StepContext): AutomationInvoker => {
-    return ({ name, inputData, mode, maxDepth }) => {
+  (ctx: StepContext, stepIndex: number): AutomationInvoker => {
+    return ({ name, inputData, mode, maxDepth, onRun }) => {
       const resolved = resolveCallTarget(ctx, name, inputData, maxDepth)
       if (!resolved.ok) return Promise.reject(resolved.error)
       const subRun = buildSubAutomationRun(
-        { ctx, target: resolved.target, inputData, newDepth: resolved.newDepth },
+        {
+          ctx,
+          target: resolved.target,
+          inputData,
+          newDepth: resolved.newDepth,
+          stepIndex,
+          onRun,
+        },
         runners
       )
       if (mode === 'async') {

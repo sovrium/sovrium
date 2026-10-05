@@ -64,6 +64,8 @@ const DISPLAY_META_KEYS = [
   // `text` keeps printing an ISO-shaped string verbatim instead of having it
   // read as a date
   'resultType',
+  // date / datetime — the day of the week printed before the date
+  'weekday',
 ] as const
 
 /**

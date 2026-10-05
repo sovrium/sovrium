@@ -15,19 +15,24 @@
 
 import { dirname, resolve } from 'node:path'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
+import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
 import { findProjectJailEscape } from '@/domain/models/process-env/desktop'
 
 /**
- * Check if a value is a $ref object: an object with exactly one key "$ref"
- * whose value is a string path.
+ * Check if a value is a file include: an object with exactly one key "$ref"
+ * whose value is a PATH (see `isFileRefValue`).
+ *
+ * A lone `$ref` holding a bare name (`{ $ref: plan-card }`) is not an include —
+ * it places the component template of that name, so it is left in the tree for
+ * the schema and never looked up on disk. A name that matches no template is
+ * refused by AppSchema, with the file spelling in the message.
  */
-const isRefObject = (value: unknown): value is { readonly $ref: string } =>
-  typeof value === 'object' &&
-  value !== null &&
-  !Array.isArray(value) &&
-  Object.keys(value).length === 1 &&
-  '$ref' in value &&
-  typeof (value as Record<string, unknown>)['$ref'] === 'string'
+const isRefObject = (value: unknown): value is { readonly $ref: string } => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  if (Object.keys(value).length !== 1) return false
+  const ref = (value as Record<string, unknown>)['$ref']
+  return typeof ref === 'string' && isFileRefValue(ref)
+}
 
 /**
  * Stand-in bytes for one file of the graph, keyed by ABSOLUTE path.
@@ -77,7 +82,7 @@ const loadReferencedFile = async (
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
-    throw new Error(`Failed to parse referenced file ${refPath}: ${message}`)
+    throw new Error(`Failed to parse referenced file ${refPath}: ${message}`, { cause: error })
   }
 
   // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation

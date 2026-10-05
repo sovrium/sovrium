@@ -339,6 +339,14 @@ function buildEndpointConfig(endpoint: EndpointConfig): SerializedEndpointConfig
  * form handling. The fields come from the component's `fields[]` (each with an
  * explicit `control`), and the submit POSTs to the custom endpoint via the vanilla
  * runtime bound to `form[data-action-type="endpoint"]`.
+ *
+ * The form only sends through that runtime, so until it has run the submit is
+ * drawn `disabled` and marked `data-awaits-script`: a press, or Enter in a
+ * field, would otherwise fall back to the browser default — a GET to the page's
+ * own address carrying every field value, a password included, in the URL. The
+ * runtime enables every marked submit, including one a later client render
+ * inserts. `method="post"` is the second lock: no submit path, however it is
+ * reached, writes a value into an address.
  */
 export function renderEndpointForm(
   props: ElementProps,
@@ -356,6 +364,7 @@ export function renderEndpointForm(
   return (
     <form
       {...omitInternalMarkers(props)}
+      method="post"
       className={mergedClassName}
       data-action-type="endpoint"
       data-endpoint-config={endpointConfigJson}
@@ -363,6 +372,8 @@ export function renderEndpointForm(
       {fields.map((field) => renderEndpointField(field))}
       <button
         type="submit"
+        disabled
+        data-awaits-script=""
         className={computeSubmitClasses(endpoint.submitVariant)}
       >
         {endpoint.submitLabel ?? 'Envoyer'}

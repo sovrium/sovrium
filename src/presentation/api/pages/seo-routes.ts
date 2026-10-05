@@ -14,7 +14,10 @@ import {
   generateLlmsFullTxtContent,
   type HreflangConfig,
 } from '@/application/use-cases/server/static-content-generators'
-import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
+import {
+  resolveRequestBaseUrl,
+  trustedForwarding,
+} from '../../../domain/kernel/url/request-base-url'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 
@@ -53,20 +56,21 @@ const buildLanguageOptions = (
  * site served at an unknown origin links cleanly. An absolute prefix is emitted
  * only when the operator declares a canonical origin:
  *  1. `BASE_URL` env var — the canonical production origin.
- *  2. `X-Forwarded-Host` + `X-Forwarded-Proto` — a reverse-proxy-declared
- *     public origin.
+ *  2. `X-Forwarded-Host` + `X-Forwarded-Proto` — a public origin, believed only
+ *     when a declared proxy (`TRUSTED_PROXY_HOPS` >= 1) wrote it; with none
+ *     declared the headers are the client's own and are ignored.
  *
  * A bare `Host` header (e.g. `localhost:PORT` from a direct request) does NOT
  * promote links to absolute — it returns `''` (relative). The trailing slash is
  * trimmed so callers can append `${path}` safely.
  */
-const resolveLlmsBaseUrl = (forwardedHost?: string, forwardedProto?: string): string => {
+const resolveLlmsBaseUrl = (header: (name: string) => string | undefined): string => {
   const fromEnv = Bun.env.BASE_URL
   if (fromEnv) return fromEnv.replace(/\/$/, '')
 
-  if (forwardedHost) {
-    const proto = forwardedProto || 'https'
-    return `${proto}://${forwardedHost}`.replace(/\/$/, '')
+  const forwarded = trustedForwarding(header)
+  if (forwarded.host) {
+    return `${forwarded.proto ?? 'https'}://${forwarded.host}`.replace(/\/$/, '')
   }
 
   return ''
@@ -89,10 +93,7 @@ const respondWithLlmsIndex = async (
   app: App,
   language: string | undefined
 ): Promise<Response> => {
-  const baseUrl = resolveLlmsBaseUrl(
-    c.req.header('X-Forwarded-Host'),
-    c.req.header('X-Forwarded-Proto')
-  )
+  const baseUrl = resolveLlmsBaseUrl((name) => c.req.header(name))
   const body = await generateLlmsTxtContent(app, baseUrl, language)
   return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 }

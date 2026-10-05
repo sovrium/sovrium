@@ -29,6 +29,7 @@ import {
   buildActionToolDescription,
   buildAutomationToolDescription,
   buildTableToolDescription,
+  buildTableToolName,
   isAiAccessEnabled,
 } from '@/domain/models/app/auth/ai-access'
 import type { App } from '@/domain/models/app'
@@ -76,7 +77,7 @@ function listTableTools(appName: string, app: App): ReadonlyArray<McpToolListing
   return (app.tables ?? []).flatMap((table) => {
     if (!isAiAccessEnabled(table.aiAccess)) return []
     return resolveOperations(table.aiAccess).map((operation) => ({
-      name: `${appName}_${table.name}_${operation}`,
+      name: buildTableToolName(appName, table.name, operation),
       category: 'table' as const,
       description: buildTableToolDescription(table.name, operation, table.aiAccess),
     }))

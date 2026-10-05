@@ -8,12 +8,7 @@
 import { Effect } from 'effect'
 import { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import { selectNewItems } from '@/domain/models/app/automations/actions/state/filter-new-service'
-import {
-  asArray,
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { asArray, resolveOwnProps } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -72,12 +67,13 @@ const parseFilterNewProps = (
 export const handleStateFilterNew: ActionHandler = (action, _app, automation, runContext) =>
   Effect.gen(function* () {
     if (runContext === undefined) return failure('state.filterNew requires a run context')
-    const parsed = parseFilterNewProps(action, rawActionProps(runContext))
+    // The props as written, filled in once (or as given when final): `input`
+    // keeps its list, and an env reference in `key` or `namespace` resolves.
+    const own = resolveOwnProps(runContext)
+    const parsed = parseFilterNewProps(action, own)
     if (parsed === undefined) return failure('state.filterNew requires a key')
     const { key, cursor, namespace, stepName, remember, initial } = parsed
-    const items = asArray(
-      resolveRunContextValue(rawActionProps(runContext)['input'], buildRunContextView(runContext))
-    )
+    const items = asArray(own['input'])
 
     const repo = yield* AutomationStateRepository
     const seenKey = seenStateKey(stepName, namespace)

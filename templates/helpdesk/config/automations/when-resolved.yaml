@@ -1,0 +1,58 @@
+# When the team marks a ticket Resolved, from the board or from the grid:
+#
+# 1. The ticket is stamped with when it was resolved.
+# 2. The requester is told, with one link to rate the answer. The link opens
+#    the public rating page on that ticket (config/pages/rate.yaml).
+#
+# Set `BASE_URL` (see `.env.example`) so the link points at your own address.
+name: when-resolved
+label: Ticket resolved — stamp it and ask for a rating
+description: Stamp a resolved ticket with its resolution time and email the requester a link to rate the answer.
+enabled: true
+trigger:
+  type: record
+  table: tickets
+  events:
+    - update
+  watchFields:
+    - status
+actions:
+  - name: onlyWhenResolved
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.status}}'
+            operator: equals
+            value: Resolved
+      onFalse: stop
+  - name: resolvedAt
+    type: date
+    operator: now
+    props: {}
+  - name: stampTicket
+    type: record
+    operator: update
+    props:
+      table: tickets
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        resolved_at: '{{resolvedAt.instant}}'
+  - name: emailRequester
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.requester_email}}'
+      subject: 'Resolved: {{trigger.data.record.subject}}'
+      body: |
+        <p>Hello {{trigger.data.record.requester_name}},</p>
+        <p>Your ticket <strong>{{trigger.data.record.subject}}</strong> is resolved.</p>
+        <p>Did the answer work? One click tells us:
+        <a href="$env.BASE_URL/rate?ticket={{trigger.data.record.id}}">rate this answer</a>.</p>
+        <p>If something is still wrong, send a new ticket from the support page.</p>

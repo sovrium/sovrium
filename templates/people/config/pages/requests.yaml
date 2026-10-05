@@ -114,8 +114,8 @@ components:
               # A request filed in the app also starts an approval run that
               # waits on an admin. This list reads those runs, so a decision
               # can resume the run itself: approving marks the request
-              # Approved. Rejecting stops the run — then mark the request
-              # Rejected above and write the reason.
+              # Approved, rejecting marks it Rejected — then open it above to
+              # write the reason.
               - type: text
                 element: h2
                 props:
@@ -151,16 +151,16 @@ components:
                       - label: Reject
                         icon: x
                         variant: ghost
-                        confirm: Stop this approval run? The request stays Pending until you mark it Rejected above.
+                        confirm: Reject this request? Open it afterwards to write the reason.
                         action:
                           type: fetch
                           url: /api/automations/runs/$record.runId/approvals/$record.approvalId/reject
                           method: POST
                           onSuccess:
                             type: toast
-                            message: Approval run stopped
+                            message: Request rejected
                             variant: success
-                            refetch: approval-runs
+                            refetch: [approval-runs, request-queue]
                 emptyMessage: No approval run waits on you. A request filed in the app appears here until an admin decides.
           # One request, opened from the queue: the decision and its reason,
           # editable by the admin reading this page.
@@ -172,7 +172,7 @@ components:
             dataSource:
               table: time_off_requests
             props:
-              title: Time-off request
+              title: '$record.employee_name · $record.type'
             recordFields:
               - { name: employee_name, type: single-line-text, label: Person }
               - { name: type, type: single-select, label: Type }

@@ -1,0 +1,40 @@
+# The claim form, opened from the Add expense button on My expenses. It never
+# asks who you are: the server stamps whoever is signed in, and the approval
+# automation writes that person on the claim.
+id: 1
+name: add-expense
+title: Add expense
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: expenses
+  storeSubmission: false
+display:
+  submitLabel: Add expense
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: receipt
+    label: Receipt
+    helpText: A photo or a PDF of the receipt.
+  - kind: table-field
+    column: description
+    required: true
+    label: Description
+  - kind: table-field
+    column: amount
+    required: true
+    label: Amount
+  - kind: table-field
+    column: expense_date
+    label: Date
+  - kind: table-field
+    column: category
+    label: Category
+  - kind: table-field
+    column: kind
+    label: Backed by

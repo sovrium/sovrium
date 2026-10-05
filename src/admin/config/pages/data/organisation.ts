@@ -40,22 +40,20 @@
 //     `system-sources.ts`), so the notice below says a source failed and cannot
 //     yet say which. Stated in the copy rather than silently omitted.
 //
-// ─── THE TWO GATES, AND THE SCALAR THAT SHOULD REPLACE THEM ────────────────
+// ─── THE PRESENCE GATES ────────────────────────────────────────────────────
 //
-// `visibility.record` has neither a length nor a presence operator — measured,
-// not assumed: `exists` decodes and is then DROPPED, and the `brand` endpoint
-// publishes a `declared` BOOLEAN precisely because of it. The condition
-// evaluator compares `String(value)` against `String(expected)`
-// (`condition-operators.ts`), and `String([])` is the empty string while
-// `String([{…}])` is `'[object Object]'`. So `{ field: 'findings', eq: '' }`
-// is "the list came back empty" and `neq: ''` is "it did not".
+// `findings`, `degraded` and `exceptions` are REQUIRED arrays on the graph
+// body, so each state on this page is a presence test on one of them:
+// `isNotEmpty: true` draws the list, `isEmpty: true` draws the empty state, and
+// the two are mutually exclusive by construction. Presence is the engine's one
+// empty rule — missing, `null`, `''`, `[]` and `{}` are empty, nothing else is —
+// the same rule a table filter compiles, so these gates say what they mean
+// rather than riding on how a list happens to stringify.
 //
-// That works and it is deterministic, but it rides on JS array stringification
-// rather than on a contract, which is a thin thing to hang an empty state on.
-// The honest fix is the one `brand` already shipped: the graph read publishes a
-// `findingCount` / `degradedCount` scalar, and these two gates become ordinary
-// numeric comparisons. Until it does, the mechanism is written down here rather
-// than left for the next reader to rediscover from a silent blank page.
+// They used to be `eq: ''` / `neq: ''`, which worked only because
+// `String([])` is the empty string. That spelling also calls a MISSING field
+// present, which a required array never is here, so the swap changed no
+// rendered state.
 //
 // ─── SEVERITY IS TYPOGRAPHY, WITH ONE COLOUR ───────────────────────────────
 //
@@ -317,7 +315,7 @@ const findingsList = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { record: { field: 'findings', neq: '' } },
+    visibility: { record: { field: 'findings', isNotEmpty: true } },
     children: [
       {
         // `list`, not a `container` with `element: 'ul'`: the container element
@@ -348,7 +346,7 @@ const noFindings = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { record: { field: 'findings', eq: '' } },
+    visibility: { record: { field: 'findings', isEmpty: true } },
     children: [
       emptyState(
         'No findings.',
@@ -377,7 +375,7 @@ const degradedNotice = (): PageComponent =>
       className: 'border-error-border bg-error-bg flex flex-col gap-1 rounded-lg border p-4',
       'data-testid': 'organisation-degraded',
     },
-    visibility: { record: { field: 'degraded', neq: '' } },
+    visibility: { record: { field: 'degraded', isNotEmpty: true } },
     children: [
       text('p', 'text-error-fg text-sm font-medium', '$t:admin.organisation.degraded.heading'),
       text('p', 'text-error-fg text-sm', '$t:admin.organisation.degraded.body'),
@@ -578,9 +576,8 @@ const exceptionsTable = (): PageComponent =>
 /**
  * What stands under the grid when nothing narrows anything.
  *
- * Gated on the same `String([]) === ''` mechanism as the findings list and the
- * reach table — the third and now fourth rider on it, documented at length at
- * the top of this file.
+ * Gated on `exceptions` being empty, the same presence test the findings list
+ * and the reach table use — documented at the top of this file.
  *
  * It says what the absence MEANS rather than reporting it. "No exceptions" next
  * to a grid full of marks reads as reassurance, and it is the opposite: every
@@ -592,7 +589,7 @@ const noExceptions = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { record: { field: 'exceptions', eq: '' } },
+    visibility: { record: { field: 'exceptions', isEmpty: true } },
     children: [
       emptyState(
         'No narrowings.',
@@ -627,7 +624,7 @@ const exceptionsPanel = (): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        visibility: { record: { field: 'exceptions', neq: '' } },
+        visibility: { record: { field: 'exceptions', isNotEmpty: true } },
         children: [exceptionsTable()],
       } as PageComponent,
       noExceptions(),

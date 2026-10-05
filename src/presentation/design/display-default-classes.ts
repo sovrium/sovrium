@@ -286,7 +286,7 @@ export const computeSpeechBubbleClasses = ({
 // ──────────────────────────────────────────────────────────────────────────────
 
 const STATIC_TABLE_SHELL = [
-  'w-full border-collapse overflow-hidden',
+  'w-full border-separate border-spacing-0 overflow-hidden',
   `bg-[${v('sv-bg', T.bg)}]`,
   'border',
   `border-[${v('sv-border', T.border)}]`,
@@ -301,15 +301,22 @@ const STATIC_TABLE_SHELL = [
  * composition (no island, no live records), while data-table renders an
  * interactive island with sortable/filterable rows.
  *
- * `border-collapse` keeps the per-cell border ruling clean; rounded
- * corners + overflow-hidden ensure the inner cell borders don't bleed past
- * the rounded shell.
+ * Separate borders with no spacing, not `border-collapse`: a collapsed border
+ * lends half of each 1px rule to the rows either side of it, so the header row
+ * and the first and last body rows landed on half pixels (27, 28.5, 28, 28.5).
+ * With separate borders the shell's rule belongs to the table and the header
+ * rule to its cells, and every row is a whole number of pixels tall. Rounded
+ * corners + overflow-hidden keep the cells inside the rounded shell.
  */
 export const computeStaticTableShellClasses = (): string => STATIC_TABLE_SHELL
 
+// On the header CELLS: a separate-border table draws no border on a `<tr>`.
+// `*:` (`:is(.row > *)`, one class) rather than `[&>th]` (a class and a type):
+// an author's own `[&_th]:border-…` on the table must still win, as a cell's
+// border won over its row's under `border-collapse`.
 const STATIC_TABLE_HEADER_ROW = [
-  'border-b',
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
+  '*:border-b',
+  `*:border-[${v('sv-border-strong', T.borderStrong)}]`,
 ].join(' ')
 
 /**

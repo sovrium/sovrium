@@ -29,7 +29,7 @@ import type { TableRecord } from '../runtime/types'
 
 export interface DetectedConflict {
   /** Identifier of the record whose displayed values were overwritten. */
-  readonly recordId: string | number
+  readonly recordId: string
   /** Field name(s) whose displayed value the server state overwrote. */
   readonly overwrittenFields: readonly string[]
   /** Monotonic token so a fresh conflict supersedes a still-shown toast. */
@@ -73,7 +73,7 @@ function detectConflict(
       if (!prev) return undefined
       const overwrittenFields = changedFields(prev, next)
       return overwrittenFields.length > 0
-        ? { recordId: next.id as string | number, overwrittenFields }
+        ? { recordId: String(next.id), overwrittenFields }
         : undefined
     })
     .find((detected): detected is Omit<DetectedConflict, 'token'> => detected !== undefined)

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isPhysicalColumnField, shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
@@ -187,7 +188,7 @@ export const generateNotNullValidationQuery = (tableName: string, fieldName: str
   BEGIN
     SELECT COUNT(*) INTO null_count
     FROM ${tableName}
-    WHERE ${fieldName} IS NULL;
+    WHERE ${quoteSqlIdentifier(fieldName)} IS NULL;
 
     IF null_count > 0 THEN
       RAISE EXCEPTION 'Migration failed: cannot add NOT NULL constraint to column "${fieldName}" in table "${tableName}" because % existing row(s) contain null values. Either provide a default value or update existing rows first.', null_count;
@@ -210,7 +211,7 @@ export const generateBackfillQuery = (table: Table, field: Fields[number]): stri
   }
 
   const defaultClause = defaultMatch[1]
-  return `UPDATE ${table.name} SET ${field.name} = ${defaultClause} WHERE ${field.name} IS NULL`
+  return `UPDATE ${table.name} SET ${quoteSqlIdentifier(field.name)} = ${defaultClause} WHERE ${quoteSqlIdentifier(field.name)} IS NULL`
 }
 
 /**
@@ -246,7 +247,7 @@ export const findNullabilityChanges = (
         const backfillQuery = generateBackfillQuery(table, field)
         return [
           ...(backfillQuery ? [backfillQuery] : []),
-          `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`,
+          `ALTER TABLE ${table.name} ALTER COLUMN ${quoteSqlIdentifier(field.name)} SET NOT NULL`,
         ]
       }
 
@@ -254,12 +255,14 @@ export const findNullabilityChanges = (
       // This prevents migration from failing with PostgreSQL's "column contains null values" error
       return [
         generateNotNullValidationQuery(table.name, field.name),
-        `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`,
+        `ALTER TABLE ${table.name} ALTER COLUMN ${quoteSqlIdentifier(field.name)} SET NOT NULL`,
       ]
     }
     if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
       // Only DROP NOT NULL if it's not a primary key or auto-managed field
-      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+      return [
+        `ALTER TABLE ${table.name} ALTER COLUMN ${quoteSqlIdentifier(field.name)} DROP NOT NULL`,
+      ]
     }
     return []
   })
@@ -307,7 +310,9 @@ export const findDefaultValueChanges = (
 
     // Case 1: Default removed (was set, now undefined)
     if (previousDefault !== undefined && currentDefault === undefined) {
-      return [`ALTER TABLE ${physicalTableName} ALTER COLUMN ${field.name} DROP DEFAULT`]
+      return [
+        `ALTER TABLE ${physicalTableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} DROP DEFAULT`,
+      ]
     }
 
     // Case 2: Default added or modified (generate SET DEFAULT statement)
@@ -319,7 +324,7 @@ export const findDefaultValueChanges = (
       if (defaultMatch) {
         const defaultClause = defaultMatch[1]
         return [
-          `ALTER TABLE ${physicalTableName} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`,
+          `ALTER TABLE ${physicalTableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} SET DEFAULT ${defaultClause}`,
         ]
       }
     }
@@ -359,7 +364,8 @@ export const buildColumnStatements = (options: {
   // constraints are handled by `PRAGMA foreign_keys = ON` at runtime.
   const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
   const dropStatements = columnsToDrop.map(
-    (columnName) => `ALTER TABLE ${tableName} DROP COLUMN ${columnName}${cascadeSuffix}`
+    (columnName) =>
+      `ALTER TABLE ${tableName} DROP COLUMN ${quoteSqlIdentifier(columnName)}${cascadeSuffix}`
   )
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)

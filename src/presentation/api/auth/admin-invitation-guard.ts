@@ -32,8 +32,10 @@
  */
 
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { canInviteRole, isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { Context } from 'hono'
@@ -46,38 +48,24 @@ export interface SessionLike {
 }
 
 /**
- * Compute the absolute base URL for the current request.
+ * Compute the absolute base URL an emailed invitation link points at.
  *
- * Priority order:
- *   1. The configured `BASE_URL` environment variable (production / when set).
- *   2. The request origin from the `Origin` / `Referer` header.
- *   3. A best-effort reconstruction from `Host` + `X-Forwarded-Proto`.
+ *   1. The configured `BASE_URL` environment variable, when set.
+ *   2. Otherwise the request's own address (`resolveRequestBaseUrl`): a
+ *      forwarded host and scheme only behind a declared proxy
+ *      (`TRUSTED_PROXY_HOPS`), else the `Host` the request was sent to, over
+ *      `http`.
  *
- * Tests run on `http://localhost:<random-port>` and the request's `Origin`
- * header carries that port, so the returned URL stays in-host with the
- * test server.
+ * The inviter's `Origin` and `Referer` are deliberately NOT read. Both are text
+ * the calling browser (or any script) sets, and a link built from them lets
+ * whoever issues the invitation mail a stranger an accept link on a domain of
+ * their choosing, signed by this instance. The link names THIS instance, the
+ * way every other address it prints does.
  */
-
 export const resolveBaseURL = (c: Context): string => {
   const envUrl = process.env['BASE_URL']
   if (envUrl) return envUrl.replace(/\/$/, '')
-
-  const origin = c.req.header('origin')
-  if (origin) return origin.replace(/\/$/, '')
-
-  const referer = c.req.header('referer')
-  if (referer) {
-    try {
-      const u = new URL(referer)
-      return `${u.protocol}//${u.host}`
-    } catch {
-      // fall through
-    }
-  }
-
-  const host = c.req.header('host') ?? 'localhost'
-  const proto = c.req.header('x-forwarded-proto') ?? 'http'
-  return `${proto}://${host}`
+  return resolveRequestBaseUrl(c)
 }
 
 /**
@@ -122,8 +110,7 @@ export const requireAdminCaller = async (
  * could tell "I lack the invite grant" from "this endpoint is not for me", which
  * is precisely the distinction S1 anti-enumeration exists to withhold.
  */
-const denyNotFound = (c: Context): Response =>
-  c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+const denyNotFound = (c: Context): Response => notFound(c, 'Not Found')
 
 /**
  * Resolve the caller's session and stored role, or the refusal that replaces

@@ -48,12 +48,10 @@
 
 import { isHexColor } from '@/domain/kernel/color/option-chip-color'
 import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
+import { formatDateTimeInstant } from '@/domain/kernel/format/date-time-instant'
 import { formatDurationValue } from '@/domain/kernel/format/duration-format'
-import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import {
-  computeAttachmentEntryClasses,
-  computeAttachmentGlyphClasses,
   computeAttachmentLinkClasses,
   computeAttachmentListClasses,
   computeBarcodeClasses,
@@ -69,8 +67,15 @@ import {
   DEFAULT_RATING_MAX,
   ratingGlyphsFor,
 } from '../../design/cell-affordances-default-classes'
+import {
+  toAttachmentArray,
+  toAttachmentEntry,
+  type AttachmentEntry,
+} from '../parts/attachment-entries'
+import { AttachmentLink } from '../parts/attachment-links'
 import { readsAsTrue } from '../runtime/cell-value-semantics'
 import { resolvePageLocale } from '../runtime/page-locale'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import { richTextPreview } from '../runtime/rich-text-preview'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { CellFieldOptions } from './cell-renderers'
@@ -162,6 +167,7 @@ export function ProgressCell({
   return (
     <span
       role="progressbar"
+      data-component-type="progress"
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -282,78 +288,6 @@ export function CheckboxCell({ value }: { value: unknown }): React.ReactNode {
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * One attached file as the read path enriches it: a bare storage key promoted
- * to an object carrying the URL the records API already signed.
- */
-interface AttachmentEntry {
-  readonly name: string
-  readonly href?: string
-}
-
-/** The last path segment of a storage key — the name the uploader chose. */
-const baseName = (key: string): string => {
-  const segments = key.split('/').filter(Boolean)
-  return segments[segments.length - 1] ?? key
-}
-
-const toAttachmentEntry = (value: unknown): AttachmentEntry | undefined => {
-  if (typeof value === 'string') return value.length > 0 ? { name: baseName(value) } : undefined
-  if (typeof value !== 'object' || value === null) return undefined
-
-  const entry = value as Readonly<Record<string, unknown>>
-  const pick = (...keys: readonly string[]): string | undefined =>
-    keys
-      .map((key) => entry[key])
-      .find((candidate): candidate is string => typeof candidate === 'string' && candidate !== '')
-
-  const label = pick('filename', 'name', 'key')
-  if (label === undefined) return undefined
-  // The href is a URL-valued sink fed by stored data, so it goes through the
-  // canonical safe-address check: a value that is not a same-origin path or an
-  // http(s) URL leaves the entry as its name, with nothing to follow.
-  const href = toSafeAssetUrl(pick('signedUrl', 'url', 'key'))
-  return { name: baseName(label), ...(href !== undefined ? { href } : {}) }
-}
-
-/**
- * The page glyph that precedes a file's name.
- *
- * `aria-hidden` and empty: it carries no information a screen reader needs —
- * the link's accessible name is already the file name — and duplicating "file"
- * into the announcement would make every attachment read twice.
- */
-const ATTACHMENT_GLYPH = (
-  <span
-    aria-hidden="true"
-    className={computeAttachmentGlyphClasses()}
-  />
-)
-
-function AttachmentLink({ entry }: { entry: AttachmentEntry }): React.ReactNode {
-  if (entry.href === undefined) {
-    return (
-      <span className={computeAttachmentEntryClasses()}>
-        {ATTACHMENT_GLYPH}
-        <span className={computeAttachmentLinkClasses()}>{entry.name}</span>
-      </span>
-    )
-  }
-  return (
-    <span className={computeAttachmentEntryClasses()}>
-      {ATTACHMENT_GLYPH}
-      <a
-        href={entry.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={computeAttachmentLinkClasses()}
-      >
-        {entry.name}
-      </a>
-    </span>
-  )
-}
-
-/**
  * Render a single attachment as a link named after the file. The records API
  * has already replaced the bare key with `{ key, signedUrl }`, so the URL this
  * needs is in hand — no new fetch, no new endpoint.
@@ -363,18 +297,6 @@ export function AttachmentLinkCell({ value }: { value: unknown }): React.ReactNo
   const entry = toAttachmentEntry(value)
   if (!entry) return EMPTY_VALUE
   return <AttachmentLink entry={entry} />
-}
-
-/** Recover the array a SQLite JSON-TEXT column reads back as. */
-const toAttachmentArray = (value: unknown): readonly unknown[] | undefined => {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string' || !value.trim().startsWith('[')) return undefined
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : undefined
-  } catch {
-    return undefined
-  }
 }
 
 /**
@@ -453,7 +375,9 @@ export function DateCell({
   fieldOptions?: CellFieldOptions
 }): React.ReactNode {
   if (isMissing(value)) return EMPTY_VALUE
-  return formatCalendarDate(value, fieldOptions?.locale) ?? String(value)
+  return (
+    formatCalendarDate(value, fieldOptions?.locale, fieldOptions?.display?.weekday) ?? String(value)
+  )
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -480,14 +404,14 @@ export function DateTimeCell({
   fieldOptions?: CellFieldOptions
 }): React.ReactNode {
   if (isMissing(value)) return EMPTY_VALUE
-  const parsed = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(parsed.getTime())) return String(value)
-  const timeZone = fieldOptions?.timeZone
-  return new Intl.DateTimeFormat(usableLocale(fieldOptions?.locale ?? resolvePageLocale()), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    ...(timeZone ? { timeZone } : {}),
-  }).format(parsed)
+  return (
+    formatDateTimeInstant(value, fieldOptions?.locale ?? resolvePageLocale(), {
+      timeZone: fieldOptions?.timeZone ?? resolvePageTimezone(),
+      ...(fieldOptions?.display?.weekday === undefined
+        ? {}
+        : { weekday: fieldOptions.display.weekday }),
+    }) ?? String(value)
+  )
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

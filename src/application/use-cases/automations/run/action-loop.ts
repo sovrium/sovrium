@@ -86,13 +86,19 @@ export const runActionsWithTimeout = (
   options: {
     readonly timeoutMs: number
     readonly skipActionNames: ReadonlySet<string>
+    /** Outputs a resumed run starts with — see `ExecuteAutomationRunInput.seedOutputs`. */
+    readonly seedOutputs?: Readonly<Record<string, Record<string, unknown>>>
     /** The `automation:call` invoker; passed in because it closes over the run loop itself. */
-    readonly automationInvoker: (ctx: StepContext) => AutomationInvoker
+    readonly automationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
   }
 ): Effect.Effect<RunAccumulator, never, StepRequirements> =>
   Effect.gen(function* () {
     const { timeoutMs, skipActionNames, automationInvoker } = options
-    const progress = yield* Ref.make<LoopProgress>({ acc: EMPTY_RUN_ACCUMULATOR, settled: 0 })
+    const initial: RunAccumulator =
+      options.seedOutputs === undefined
+        ? EMPTY_RUN_ACCUMULATOR
+        : { ...EMPTY_RUN_ACCUMULATOR, actions: options.seedOutputs }
+    const progress = yield* Ref.make<LoopProgress>({ acc: initial, settled: 0 })
     // The reduce produces a final accumulator. Three short-circuit cases append
     // a `'skipped'` step record for the action WITHOUT executing it:
     //
@@ -121,7 +127,7 @@ export const runActionsWithTimeout = (
     }
     const loop = Effect.reduce(
       rawActions,
-      () => EMPTY_RUN_ACCUMULATOR,
+      () => initial,
       (acc, rawAction) =>
         step(acc, rawAction).pipe(
           Effect.tap((next) =>

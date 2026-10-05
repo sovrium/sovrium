@@ -34,6 +34,7 @@ import {
   AccountRepository,
   type AuthoredTableCandidate,
   type AccountDatabaseError,
+  type AccountAuditEntryRow,
   type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
@@ -140,11 +141,12 @@ interface ExportSources {
   readonly accountRows: readonly AccountLinkedRow[]
   readonly authoredRecords: readonly AuthoredRecord[]
   readonly formSubmissions: readonly ExportedFormSubmission[]
+  readonly auditRows: readonly AccountAuditEntryRow[]
 }
 
 /** Assemble the export payload from the caller's rows. Pure shaping logic. */
 function buildExportPayload(sources: Readonly<ExportSources>) {
-  const { user, sessionRows, accountRows, authoredRecords, formSubmissions } = sources
+  const { user, sessionRows, accountRows, authoredRecords, formSubmissions, auditRows } = sources
   return {
     exportedAt: new Date().toISOString(),
     format: 'json' as const,
@@ -192,6 +194,16 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
     })),
     authoredRecords,
     formSubmissions,
+    // The caller's own acts on the admin audit trail (Art. 15 reaches data
+    // about a person's own acts, and a non-admin has no other way to read it).
+    // The act only — never the metadata, which can describe somebody else.
+    auditTrail: auditRows.map((row) => ({
+      action: row.action,
+      occurredAt: new Date(row.createdAt).toISOString(),
+      resourceType: row.resourceType,
+      resourceId: row.resourceId,
+      result: row.result,
+    })),
   }
 }
 
@@ -235,19 +247,20 @@ export const ExportAccount = (
       return { _tag: 'Unauthorized' } as const
     }
 
-    const [sessionRows, accountRows, submissionRows] = yield* Effect.all([
+    const [sessionRows, accountRows, submissionRows, auditRows] = yield* Effect.all([
       repo.loadSessions(userId),
       repo.loadAccounts(userId),
       repo.loadFormSubmissions(userId),
+      repo.loadAuditTrail(userId),
     ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
-    const perTable = yield* Effect.all(
-      recordTables.map(({ tableName, column }) =>
+    const perTable = yield* Effect.forEach(
+      recordTables,
+      ({ tableName, column }) =>
         repo
           .readAuthoredRecords(tableName, column, userId)
-          .pipe(Effect.map((rows) => rows.map((row) => shapeAuthoredRecord(tableName, row))))
-      ),
+          .pipe(Effect.map((rows) => rows.map((row) => shapeAuthoredRecord(tableName, row)))),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
     const authoredRecords = perTable.flat()
@@ -260,6 +273,7 @@ export const ExportAccount = (
         accountRows,
         authoredRecords,
         formSubmissions: submissionRows.map(shapeFormSubmission),
+        auditRows,
       })
     )
     return { _tag: 'Ok', body } as const

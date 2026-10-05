@@ -17,11 +17,8 @@
 
 import { ProtocolError } from '@modelcontextprotocol/server'
 import { Effect } from 'effect'
-import {
-  findMultiSelectSelectionOverflows,
-  findUndeclaredMultiSelectValues,
-} from '@/domain/models/app/tables/multi-select-values-validation'
 import { provideTableLive, type TableServices } from '@/infrastructure/layers/table-layer'
+import { sanitizeError } from '@/presentation/api/runtime/error-sanitizer'
 import type { Table } from '@/domain/models/app'
 
 /**
@@ -52,17 +49,21 @@ export interface RunProgramInput<A> {
 /**
  * Run an Effect program with `TableLive` provided and convert the outcome
  * to an MCP `tools/call` JSON-RPC envelope. Success → wraps the value in
- * the `result.content[0].text` slot per the MCP wire format. Either-Left
- * errors collapse to -32603 with the underlying error message.
+ * the `result.content[0].text` slot per the MCP wire format.
+ *
+ * A failure collapses to -32603 carrying the records API's SANITISED sentence
+ * (`sanitizeError`, the same seam every record route answers through): a
+ * duplicate is `Resource already exists`, a malformed id the fixed
+ * invalid-format sentence — never the driver's text, a constraint name, or the
+ * caller's own value echoed back. The full error is logged server-side there.
  */
 export async function runProgramAsToolResult<A>(input: RunProgramInput<A>): Promise<McpToolResult> {
   const provided = provideTableLive(input.program)
   const outcome = await Effect.runPromise(Effect.result(provided))
 
   if (outcome._tag === 'Failure') {
-    const message =
-      outcome.failure instanceof Error ? outcome.failure.message : String(outcome.failure)
-    return toolFailure(-32_603, message)
+    const sanitized = sanitizeError(outcome.failure)
+    return toolFailure(-32_603, sanitized.message ?? sanitized.error)
   }
 
   const formatted = input.formatSuccess ? input.formatSuccess(outcome.success) : outcome.success
@@ -115,20 +116,17 @@ const ENVELOPE_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Field-level system metadata that lives inside the inner `fields` object
- * (snake_case from the database transformer) and is never user-authored.
- * `deleted_at` is present only on a trashed record; a live one omits it.
- * Stripping these would make trash/soft-delete semantics opaque to the AI
- * client; whitelist mode targets user-authored data, not system bookkeeping.
+ * The one piece of system metadata a whitelisted `fields` object keeps:
+ * `deleted_at` / `deleted_by`, present only on a trashed record, so the
+ * assistant can tell a trashed record from a live one.
+ *
+ * The creation and update stamps are deliberately NOT here. They already reach
+ * the record's top level as `createdAt` / `updatedAt`, and a table that
+ * declares its own `created-at` / `updated-at` fields also carried them inside
+ * `fields` under their column names — so a whitelist of `title` and `status`
+ * answered four keys where it named two.
  */
-const FIELDS_SYSTEM_KEYS: ReadonlySet<string> = new Set([
-  'deleted_at',
-  'deleted_by',
-  'created_at',
-  'updated_at',
-  'created_by',
-  'updated_by',
-])
+const FIELDS_SYSTEM_KEYS: ReadonlySet<string> = new Set(['deleted_at', 'deleted_by'])
 
 /**
  * Apply `aiAccess.fieldExposure` to a single record envelope on the read
@@ -186,40 +184,4 @@ export function applyMcpFieldExposureToRecords(
   table: Readonly<Table>
 ): ReadonlyArray<Record<string, unknown>> {
   return records.map((record) => applyMcpFieldExposureToRecord(record, table))
-}
-
-/**
- * The first `multi-select` contract violation in an MCP write payload —
- * option MEMBERSHIP, then selection CARDINALITY — phrased for a JSON-RPC
- * `-32602 Invalid params` error, or `undefined` when the payload is clean.
- *
- * Why the MCP surface needs its own check. `tool-compiler.ts` advertises the
- * declared options as a JSON Schema `enum` on the tool inputSchema, and its
- * comment there says "the runtime relies on PostgreSQL + the records-API for
- * the authoritative validation". Neither holds on this path: an inputSchema
- * `enum` is a hint an MCP client MAY honour and a sloppy or hostile one simply
- * ignores; the write goes straight to `createRecordProgram` /
- * `updateRecordProgram` without traversing the records-API validation chain in
- * `presentation/api/validation`; and the PostgreSQL CHECK that would otherwise
- * have caught it is deliberately not emitted on SQLite, the shipped default
- * (`sql/sql-check-constraints.ts`). An undeclared option therefore persisted.
- *
- * The rules and the message wording are the records-API's, so an MCP client
- * and an HTTP client get the same answer for the same payload.
- */
-export function findFirstMultiSelectViolation(
-  table: Table,
-  fields: Readonly<Record<string, unknown>>
-): string | undefined {
-  const undeclared = findUndeclaredMultiSelectValues(table.fields, fields)[0]
-  if (undeclared) {
-    return `Invalid option for field '${undeclared.field}'. Allowed options: ${undeclared.allowed.join(', ')}`
-  }
-
-  const overflow = findMultiSelectSelectionOverflows(table.fields, fields)[0]
-  if (overflow) {
-    return `Too many selections for field '${overflow.field}'. max selections allowed: ${overflow.maxSelections}`
-  }
-
-  return undefined
 }

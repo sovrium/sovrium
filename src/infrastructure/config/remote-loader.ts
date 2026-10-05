@@ -88,7 +88,8 @@ export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
-      `Failed to fetch or parse schema from ${url}: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to fetch or parse schema from ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     )
   }
 }

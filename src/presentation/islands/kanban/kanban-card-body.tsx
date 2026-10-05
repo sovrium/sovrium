@@ -7,16 +7,24 @@
 
 import {
   KANBAN_CARD_BODY_CLASSES,
+  KANBAN_FOOTER_AVATAR_CLASSES,
   KANBAN_CARD_DEFAULT_TITLE_CLASSES,
   computeKanbanCardCoverClasses,
   computeKanbanCardFooterClasses,
+  computeKanbanFooterBadgeClasses,
 } from '@/presentation/design/kanban-default-classes'
-import { renderCardChild } from './card-template'
+import { renderCardChild, type CardChildClasses } from './card-template'
 import { renderFooterItem } from './footer-formatters'
 import { useKanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
+
+/** The board's classes for the record components a card slot draws. */
+const CARD_CHILD_CLASSES: CardChildClasses = {
+  avatar: KANBAN_FOOTER_AVATAR_CLASSES,
+  badge: computeKanbanFooterBadgeClasses(),
+}
 
 export function KanbanCardDefault({ record }: { readonly record: TableRecord }): ReactElement {
   // No template configured: render a minimal default with a title-ish field.
@@ -48,7 +56,9 @@ export function KanbanCardBody({
         />
       )}
       <div className={KANBAN_CARD_BODY_CLASSES}>
-        {card.children?.map((child, index) => renderCardChild(child, record, index))}
+        {card.children?.map((child, index) =>
+          renderCardChild(child, record, index, CARD_CHILD_CLASSES)
+        )}
       </div>
       {/* The footer sits OUTSIDE the body's padding box so its top rule runs
           edge to edge — which is what makes it read as a division of the card

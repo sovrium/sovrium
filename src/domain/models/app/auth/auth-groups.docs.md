@@ -59,4 +59,12 @@ tables:
 
 Resolution is **most permissive wins**: the effective permissions are the union of what the role grants and what every group the user belongs to grants.
 
+This also holds on a table that declares `rowLevelPermissions`. A group grant admits the member to the table exactly as a role grant does, and the row-level rule then narrows which rows they reach: a member of `ops` granted `read: ['group:ops']` on a table whose rule shows only northern rows reads the northern rows, and a southern one answers `404` as a missing record does.
+
+Every door onto a table admits exactly the callers its records admit, through one set of roles: the account role, a `group:` entry per group, and — on a table with row-level rules, and only there — every role an assignment gives. That holds for the records themselves, the table's permission map, an upsert, the comment thread and a new comment, the MCP tools, a restore and a batch restore, the delete form and a record button. Groups and assignments are read on every request, so a membership or an assignment you withdraw stops counting on the caller's next request.
+
 Groups earn their place at the field level — exposing a salary or budget column to a finance group while the rest of the table stays broadly readable. A role could express that only by creating a role per intersection, which is how a permission model becomes unmaintainable.
+
+A field `read` grant naming a group opens the column to that group's members wherever records are read: the list, a single record, `filter`, `sort`, `groupBy` and `aggregate`, the `?q=` search, the record history, the record a write hands back, the table definition and its permission map. A caller in no group, or in another one, reads none of it, and a query naming the column answers `404` as for a column that does not exist.
+
+A field's `write` audience is matched against the caller's role only. Name roles there: a `group:` entry in a field's `write` admits nobody but an admin, and the permission map reports that field as not writable.

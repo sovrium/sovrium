@@ -3,6 +3,2009 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.30.0",
+      "date": "2026-10-05",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.29.1...v0.30.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "automations",
+              "text": "automation read and list steps hand over the record as the records API returns it"
+            },
+            {
+              "scope": "records",
+              "text": "record ids and relationship values are strings on every wire"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "keep the document alive across sidebar navigation"
+            },
+            {
+              "scope": "auth",
+              "text": "let a signed-in user delete their account at once through a mailed confirmation link"
+            },
+            {
+              "scope": "server",
+              "text": "pin a development server's clock with SOVRIUM_DEV_CLOCK"
+            },
+            {
+              "scope": "auth",
+              "text": "bans, lifted bans and admin-set passwords are recorded in the audit log"
+            },
+            {
+              "scope": "account",
+              "text": "the personal data export lists the audit entries the person made"
+            },
+            {
+              "scope": "pages",
+              "text": "gallery covers load lazily, or eagerly with galleryCard.loading"
+            },
+            {
+              "scope": "auth",
+              "text": "record role changes and impersonations in the audit log"
+            },
+            {
+              "scope": "i18n",
+              "text": "engine interface text is overridden under a reserved sovrium. prefix"
+            },
+            {
+              "scope": "tables",
+              "text": "order dates with min and max aggregates"
+            },
+            {
+              "scope": "comments",
+              "text": "the mention picker speaks the page language"
+            },
+            {
+              "scope": "comments",
+              "text": "mention someone who can read the record from the comment composer"
+            },
+            {
+              "scope": "i18n",
+              "text": "the rate-limited read notice follows the page language"
+            },
+            {
+              "scope": "i18n",
+              "text": "the engine's own interface text follows the page language, and field labels accept translation keys"
+            },
+            {
+              "scope": "pages",
+              "text": "choose the currency of a list metadata amount"
+            },
+            {
+              "scope": "pages",
+              "text": "a board card can open a record drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "hide or show on whether a field has a value"
+            },
+            {
+              "scope": "automations",
+              "text": "resolve an approval request that reaches its timeout"
+            },
+            {
+              "scope": "pages",
+              "text": "clear an optional field on purpose from an edit form"
+            },
+            {
+              "scope": "pages",
+              "text": "add a two-language `toggle` variant to the language switcher"
+            },
+            {
+              "scope": "pages",
+              "text": "give each language its own sharing image from a `$t:` key"
+            },
+            {
+              "scope": "pages",
+              "text": "print the address a visitor asked for with `$app.path`"
+            },
+            {
+              "scope": "pages",
+              "text": "name a feed with `rss.title` and `rss.description`"
+            },
+            {
+              "scope": "tables",
+              "text": "a date can print its weekday"
+            },
+            {
+              "scope": "pages",
+              "text": "a filter can ask whether a field is empty"
+            },
+            {
+              "scope": "auth",
+              "text": "a built-in role can carry its own landing page"
+            },
+            {
+              "scope": "cli",
+              "text": "seed files may list several attachments and give a relative date a time of day"
+            },
+            {
+              "scope": "pages",
+              "text": "a list row can open a record like a grid row"
+            },
+            {
+              "scope": "pages",
+              "text": "a filter can name today, a day offset or the start of a month"
+            },
+            {
+              "scope": "automations",
+              "text": "an approval can continue when rejected, recording the decision"
+            },
+            {
+              "scope": "design",
+              "text": "option badges can be drawn outlined with a dot, everywhere they appear"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "make multi-record writes all-or-nothing on SQLite"
+            },
+            {
+              "scope": "automations",
+              "text": "keep a run waiting for an approval whole through the upgrade scrub"
+            },
+            {
+              "scope": "account",
+              "text": "scrub the automation runs that read an erased person's records"
+            },
+            {
+              "scope": "automations",
+              "text": "judge what an approver reads of a run by what fed it — relayed runs, step errors, request messages, calls and scripts"
+            },
+            {
+              "scope": "tables",
+              "text": "compare a narrowed lookup list in the order and form its reader is shown"
+            },
+            {
+              "scope": "tables",
+              "text": "filtering on a lookup that copies a list sees the names its reader may read"
+            },
+            {
+              "scope": "automations",
+              "text": "an approver never sees a run's trigger data she may not read"
+            },
+            {
+              "scope": "automations",
+              "text": "an approver sees a run step whose related records she may all read"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup copying a list shows only the linked records its reader may read"
+            },
+            {
+              "scope": "tables",
+              "text": "filtering on a lookup of a lookup sees the rows its reader may read"
+            },
+            {
+              "scope": "automations",
+              "text": "an approver never sees a run step's related values she may not read"
+            },
+            {
+              "scope": "ai",
+              "text": "chat tools never read a related value their user may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup of a lookup follows every hop's row rule"
+            },
+            {
+              "scope": "buckets",
+              "text": "a file reference by a signed-in user is never judged as a visitor's because of her role's name"
+            },
+            {
+              "scope": "tables",
+              "text": "a write's response leaves out what its writer may not read"
+            },
+            {
+              "scope": "pages",
+              "text": "a page's chosen fields never reveal a lookup its reader may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "a formula over a hidden lookup is left out as the lookup is"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup of a related formula follows what that formula reads"
+            },
+            {
+              "scope": "tables",
+              "text": "related values judge a signed-out visitor by her session, not a role name"
+            },
+            {
+              "scope": "pages",
+              "text": "the sitemap follows a table's resolved read"
+            },
+            {
+              "scope": "pages",
+              "text": "a page over a signed-in-only table names none of its fields to a signed-out visitor"
+            },
+            {
+              "scope": "tables",
+              "text": "a signed-in user is never taken for a signed-out visitor because of her role's name"
+            },
+            {
+              "scope": "tables",
+              "text": "a rollup or count shows its aggregate only to a reader who may read what it adds up"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup shows a related value only to a reader who may read it"
+            },
+            {
+              "scope": "tables",
+              "text": "a signed-out visitor reads only tables open to everyone, on every door"
+            },
+            {
+              "scope": "auth",
+              "text": "an API key works again once its owner's ban has expired"
+            },
+            {
+              "scope": "views",
+              "text": "a shared-view link opens for a reader whose assignment covers its table"
+            },
+            {
+              "scope": "tables",
+              "text": "validate refuses a row rule naming the active scope"
+            },
+            {
+              "scope": "tables",
+              "text": "a single read judges the row rule on the stored record"
+            },
+            {
+              "scope": "tables",
+              "text": "a signed-out visitor never satisfies a rule naming the signed-in person"
+            },
+            {
+              "scope": "tables",
+              "text": "one record gate for pages, hosted forms and the records API"
+            },
+            {
+              "scope": "tables",
+              "text": "a row rule on the reader's email matches her own rows and never empty ones"
+            },
+            {
+              "scope": "buckets",
+              "text": "a batch entry without a path is refused like a single request"
+            },
+            {
+              "scope": "buckets",
+              "text": "a signed URL's fields can no longer be read as another operation's"
+            },
+            {
+              "scope": "buckets",
+              "text": "batch signing checks each entry's permission and batch uploads work"
+            },
+            {
+              "scope": "tables",
+              "text": "access-assignment errors no longer echo database text"
+            },
+            {
+              "scope": "views",
+              "text": "a shared view opens for a reader whose role comes from an assignment"
+            },
+            {
+              "scope": "forms",
+              "text": "a hosted form refuses a parent row the submitter cannot read"
+            },
+            {
+              "scope": "auth",
+              "text": "the app's top role opens every admin door"
+            },
+            {
+              "scope": "webhooks",
+              "text": "a secret whose variable is empty refuses every caller"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse a library install that reads an undeclared variable"
+            },
+            {
+              "scope": "env",
+              "text": "refuse a configuration that references an undeclared variable"
+            },
+            {
+              "scope": "automations",
+              "text": "an environment reference inside an expression is read as a value"
+            },
+            {
+              "scope": "automations",
+              "text": "a regex pattern must be written in the config"
+            },
+            {
+              "scope": "ai",
+              "text": "the MCP action tool fills a template once"
+            },
+            {
+              "scope": "automations",
+              "text": "a template variable inside a helper expression is never parsed"
+            },
+            {
+              "scope": "tables",
+              "text": "an empty field never satisfies a row rule"
+            },
+            {
+              "scope": "webhooks",
+              "text": "outgoing webhooks read only variables the app declares"
+            },
+            {
+              "scope": "automations",
+              "text": "never render a value a step received as a template"
+            },
+            {
+              "scope": "tables",
+              "text": "validate refuses row rules that cannot match the field's stored type"
+            },
+            {
+              "scope": "tables",
+              "text": "row rules judge stored values by the field's type on every read and write"
+            },
+            {
+              "scope": "pages",
+              "text": "the command palette hides rows the reader's row rule hides"
+            },
+            {
+              "scope": "automations",
+              "text": "stop resolving environment references inside data a caller sent"
+            },
+            {
+              "scope": "automations",
+              "text": "let a webhook response return a step's value with its type"
+            },
+            {
+              "scope": "automations",
+              "text": "answer a webhook call with its run id and status only"
+            },
+            {
+              "scope": "pages",
+              "text": "a search list names no hidden field when another table shares its name"
+            },
+            {
+              "scope": "activity",
+              "text": "the app's top role reads the activity feed as an admin does"
+            },
+            {
+              "scope": "ai",
+              "text": "answer a signed-out visitor of a public agent within the anonymous reach"
+            },
+            {
+              "scope": "pages",
+              "text": "offer edit-form controls only for fields the reader may write"
+            },
+            {
+              "scope": "automations",
+              "text": "an agent step of a run started by hand shows its starter only what she may read"
+            },
+            {
+              "scope": "automations",
+              "text": "a run's non-admin reader sees step output only within her reach"
+            },
+            {
+              "scope": "automations",
+              "text": "an agent step retrieves only from its own knowledge base"
+            },
+            {
+              "scope": "ai",
+              "text": "a knowledge search returns only the fields its searcher may read"
+            },
+            {
+              "scope": "ai",
+              "text": "a declared agent answers a signed-in caller only within her own reach"
+            },
+            {
+              "scope": "pages",
+              "text": "a record drawer on a record it cannot show offers nothing to edit"
+            },
+            {
+              "scope": "pages",
+              "text": "a collection page answers a row hidden by its read rule as a missing one"
+            },
+            {
+              "scope": "pages",
+              "text": "a grid offers no alternate view built on a field its reader may not read"
+            },
+            {
+              "scope": "pages",
+              "text": "no page names a field its reader may not read"
+            },
+            {
+              "scope": "ai",
+              "text": "apply the records write rules to chat updates and deletes"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an update to a record the read rule hides"
+            },
+            {
+              "scope": "ai",
+              "text": "return only readable, live records from a knowledge search"
+            },
+            {
+              "scope": "ai",
+              "text": "count only readable records in the chat confirmation prompt"
+            },
+            {
+              "scope": "ai",
+              "text": "leave trashed records out of chat queries and tool calls"
+            },
+            {
+              "scope": "ai",
+              "text": "chat answers only the tables and rows the records API would show the same user"
+            },
+            {
+              "scope": "tables",
+              "text": "judge a SQLite checkbox as the records API reads it wherever one row meets a row-level rule"
+            },
+            {
+              "scope": "realtime",
+              "text": "judge a SQLite checkbox as the records API reads it for presence and subscriptions"
+            },
+            {
+              "scope": "tables",
+              "text": "judge a SQLite checkbox as the records API reads it in the update and delete gates"
+            },
+            {
+              "scope": "pages",
+              "text": "offer an inline editor and a drawer save only to a reader who may update"
+            },
+            {
+              "scope": "pages",
+              "text": "name no field its reader may not read on a board, calendar, timeline or chart"
+            },
+            {
+              "scope": "pages",
+              "text": "read every server-rendered record through the one records gate"
+            },
+            {
+              "scope": "forms",
+              "text": "refuse a submitted link to a row the related table's read rule hides"
+            },
+            {
+              "scope": "activity",
+              "text": "judge a boolean row-level rule on SQLite as the records API does"
+            },
+            {
+              "scope": "realtime",
+              "text": "cap presence streams at ten per user"
+            },
+            {
+              "scope": "pages",
+              "text": "show a signed-out visitor only the tables the records API opens to her"
+            },
+            {
+              "scope": "ai",
+              "text": "admit assignment roles on AI chat record changes as the records API does"
+            },
+            {
+              "scope": "pages",
+              "text": "draw no record from the trash on a server-rendered page"
+            },
+            {
+              "scope": "auth",
+              "text": "keep the built-in admin admin-equivalent when a custom role outranks it"
+            },
+            {
+              "scope": "pages",
+              "text": "publish in /feed.xml only what a signed-out reader may read"
+            },
+            {
+              "scope": "tables",
+              "text": "let a viewer a table names write by batch as she writes one record"
+            },
+            {
+              "scope": "tables",
+              "text": "reserve permanent delete and purge to admin-equivalent roles"
+            },
+            {
+              "scope": "pages",
+              "text": "offer a viewer no create or edit that a group grant alone would give her"
+            },
+            {
+              "scope": "pages",
+              "text": "the first-object redirect lands only on a row its visitor may read"
+            },
+            {
+              "scope": "pages",
+              "text": "field lists a page builds name only readable fields and offer inputs only on writable ones"
+            },
+            {
+              "scope": "pages",
+              "text": "record components over a table their visitor may not read carry nothing of it"
+            },
+            {
+              "scope": "realtime",
+              "text": "end a presence stream when the access it was opened on ends"
+            },
+            {
+              "scope": "realtime",
+              "text": "give a missing and a hidden record the same presence check"
+            },
+            {
+              "scope": "pages",
+              "text": "a data-bound sidebar section lists only what its visitor may read"
+            },
+            {
+              "scope": "forms",
+              "text": "choices read from a table offer each visitor only the rows its row-level rule shows them"
+            },
+            {
+              "scope": "tables",
+              "text": "judge signed-out access on a table's inherited and overridden rules"
+            },
+            {
+              "scope": "pages",
+              "text": "server-drawn lists and searches show only the rows and fields their visitor may read"
+            },
+            {
+              "scope": "pages",
+              "text": "give a data-table grid only the views, fields and permissions its reader may see"
+            },
+            {
+              "scope": "mcp",
+              "text": "refuse an update or delete on a table its caller may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a delete on a table its caller may not read as a missing record"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse every write to a viewer admitted only by a group or an assignment"
+            },
+            {
+              "scope": "tables",
+              "text": "admit on every table door exactly the callers the records admit"
+            },
+            {
+              "scope": "tables",
+              "text": "list a table that declares no read permission to every caller its records serve"
+            },
+            {
+              "scope": "tables",
+              "text": "check table access before validating requests"
+            },
+            {
+              "scope": "realtime",
+              "text": "presence on a record page follows the record a component shows"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse writes to stored records on a table the caller may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse writes to a field the caller may not read"
+            },
+            {
+              "scope": "activity",
+              "text": "show a non-admin only her own agent decisions and the actions she may read"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a refused export with the missing table's 404"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an anonymous listing that includes deleted records"
+            },
+            {
+              "scope": "tables",
+              "text": "list the tables a viewer may read instead of refusing her"
+            },
+            {
+              "scope": "realtime",
+              "text": "presence on a record page follows the record"
+            },
+            {
+              "scope": "activity",
+              "text": "keep another user's email out of the activity entries a non-admin reads"
+            },
+            {
+              "scope": "activity",
+              "text": "let a viewer list the activity she may read"
+            },
+            {
+              "scope": "activity",
+              "text": "describe the activity API as it answers"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a table's view list exactly as the table's records do"
+            },
+            {
+              "scope": "tables",
+              "text": "make a view without a grant inherit its table's read"
+            },
+            {
+              "scope": "realtime",
+              "text": "presence is served only on a page the caller may open"
+            },
+            {
+              "scope": "tables",
+              "text": "honour a view's grant when records are listed through ?view="
+            },
+            {
+              "scope": "activity",
+              "text": "the activity feed shows a reader only what the records API would"
+            },
+            {
+              "scope": "tables",
+              "text": "admit a group's members to a view whose grant names the group"
+            },
+            {
+              "scope": "tables",
+              "text": "answer the table list and definition exactly as the table's records do"
+            },
+            {
+              "scope": "tables",
+              "text": "let a caller sort by every field they may read"
+            },
+            {
+              "scope": "tables",
+              "text": "guest comments no longer open a thread the table keeps to signed-in readers"
+            },
+            {
+              "scope": "tables",
+              "text": "reading one comment by id follows the thread's moderation rule"
+            },
+            {
+              "scope": "tables",
+              "text": "reserve a permanent batch delete to admins"
+            },
+            {
+              "scope": "tables",
+              "text": "check row-level rules on the trashed row when restoring"
+            },
+            {
+              "scope": "tables",
+              "text": "keep webhook configuration, delivery logs, retries and tests to admins"
+            },
+            {
+              "scope": "tables",
+              "text": "keep operations a table does not grant refused under a row-level rule"
+            },
+            {
+              "scope": "tables",
+              "text": "never report a write the records API would refuse in a table's permission map"
+            },
+            {
+              "scope": "tables",
+              "text": "answer 404 for the permissions of a table the caller may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "honour a group's field read grant on every record read"
+            },
+            {
+              "scope": "tables",
+              "text": "name no field in the permissions map of a table its caller may not read"
+            },
+            {
+              "scope": "tables",
+              "text": "keep a shared view's malformed filters from naming hidden fields"
+            },
+            {
+              "scope": "tables",
+              "text": "leave unreadable fields out of the table permissions map"
+            },
+            {
+              "scope": "migrations",
+              "text": "apply a new single-select option on SQLite when the same edit adds or renames a field"
+            },
+            {
+              "scope": "tables",
+              "text": "boot tables whose field names are SQL keywords"
+            },
+            {
+              "scope": "tables",
+              "text": "leave unreadable fields out of a table definition"
+            },
+            {
+              "scope": "tables",
+              "text": "mask hidden fields out of a shared saved view"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a view id that clashes with a table or another table's view"
+            },
+            {
+              "scope": "tables",
+              "text": "mask the views a table read returns as the views list does"
+            },
+            {
+              "scope": "pages",
+              "text": "keep calendar days and daylight-saving hours in place on the calendar"
+            },
+            {
+              "scope": "pages",
+              "text": "place calendar date-times in the operator time zone"
+            },
+            {
+              "scope": "pages",
+              "text": "list only readable tables in the command palette"
+            },
+            {
+              "scope": "tables",
+              "text": "name only readable fields in a view definition"
+            },
+            {
+              "scope": "records",
+              "text": "refuse sum and avg over a field that is not a number"
+            },
+            {
+              "scope": "migrations",
+              "text": "accept SQL keywords such as all or order as view ids"
+            },
+            {
+              "scope": "theming",
+              "text": "draw a github-dark carriage-return token in the block's text tone"
+            },
+            {
+              "scope": "pages",
+              "text": "read a date-time in its field's own zone in drawers, and keep declared file names"
+            },
+            {
+              "scope": "records",
+              "text": "answer a field the table does not have as a field the caller may not read"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse to cancel any run that already ended"
+            },
+            {
+              "scope": "pages",
+              "text": "name only readable fields in the command palette"
+            },
+            {
+              "scope": "pages",
+              "text": "label chart months by name and currency ticks in compact amounts"
+            },
+            {
+              "scope": "pages",
+              "text": "paint calendar chips, breadcrumbs, sort glyphs and tab labels in legible theme roles"
+            },
+            {
+              "scope": "theming",
+              "text": "draw every code-block token at 4.5:1 on its block"
+            },
+            {
+              "scope": "pages",
+              "text": "read date-times in the operator zone and files by name in grids and drawers"
+            },
+            {
+              "scope": "records",
+              "text": "answer a hidden or missing filter field alike and refuse a sort on a hidden field"
+            },
+            {
+              "scope": "automations",
+              "text": "a replay never gets past a filter or an approval, and only an admin replays with new data"
+            },
+            {
+              "scope": "pages",
+              "text": "a record drawer respects field permissions and refuses only required blanks"
+            },
+            {
+              "scope": "tables",
+              "text": "stamp a custom-named updated-by field on batch update"
+            },
+            {
+              "scope": "records",
+              "text": "refuse a filter that is not an and list, and isTrue on a non-boolean field"
+            },
+            {
+              "scope": "automations",
+              "text": "only an admin, the starter or a named approver can read, replay or cancel an automation run"
+            },
+            {
+              "scope": "tables",
+              "text": "show the API's message when a grid file upload is refused"
+            },
+            {
+              "scope": "pages",
+              "text": "save a record drawer whose multiple-attachments field holds files"
+            },
+            {
+              "scope": "records",
+              "text": "stamp a custom-named author field on every record a batch creates"
+            },
+            {
+              "scope": "automations",
+              "text": "answer 404 for the runs of an automation the config does not declare"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a record drawer's values as the grid does, and edit each with its own control"
+            },
+            {
+              "scope": "server",
+              "text": "warn that email is disabled when an agent is granted email.send"
+            },
+            {
+              "scope": "ai",
+              "text": "answer 404 when deleting a conversation that is not there"
+            },
+            {
+              "scope": "api",
+              "text": "answer every 404 with one body"
+            },
+            {
+              "scope": "records",
+              "text": "create a record that carries only many-to-many links"
+            },
+            {
+              "scope": "records",
+              "text": "apply every live filter operator to the trash, and refuse a top-level or"
+            },
+            {
+              "scope": "forms",
+              "text": "draw a telephone, date-time or file picker for standalone phone, datetime and attachment fields"
+            },
+            {
+              "scope": "automations",
+              "text": "an approval declared as an action template also needs sign-in configured"
+            },
+            {
+              "scope": "pages",
+              "text": "the development clock decides the year a server-written short date leaves out"
+            },
+            {
+              "scope": "automations",
+              "text": "a refused digest sort key is reported on the sort key alone"
+            },
+            {
+              "scope": "config",
+              "text": "a rule broken inside the clearly intended shape is reported on its own"
+            },
+            {
+              "scope": "automations",
+              "text": "an approval nested in a loop or branch also needs sign-in configured"
+            },
+            {
+              "scope": "tables",
+              "text": "a notIn filter with a single value or a null in its list no longer inverts or empties"
+            },
+            {
+              "scope": "pages",
+              "text": "drawers, dialogs, forms and row actions name the parts they draw"
+            },
+            {
+              "scope": "pages",
+              "text": "a table written row by row draws its rows on whole pixels"
+            },
+            {
+              "scope": "pages",
+              "text": "the docs navigation folds into a bar across the column on a phone"
+            },
+            {
+              "scope": "auth",
+              "text": "refuse an account-deletion email template that carries no confirmation link"
+            },
+            {
+              "scope": "pages",
+              "text": "a short date of this year is written without its year"
+            },
+            {
+              "scope": "tables",
+              "text": "notIn filters views, the records API and the chat query tool"
+            },
+            {
+              "scope": "auth",
+              "text": "a caller demoted mid-request gets the admin plane's 404, not a 403"
+            },
+            {
+              "scope": "account",
+              "text": "erasure never removes the last admin; a scheduled erasure is deferred instead"
+            },
+            {
+              "scope": "tables",
+              "text": "recompute stored formulas once after an upgrade that computes them differently"
+            },
+            {
+              "scope": "forms",
+              "text": "refuse a form address that is neither a web page nor a path on this site"
+            },
+            {
+              "scope": "records",
+              "text": "link many-to-many values in a batch create"
+            },
+            {
+              "scope": "api",
+              "text": "answer every missing record or table with one 404 body"
+            },
+            {
+              "scope": "account",
+              "text": "refuse the last admin's scheduled deletion and sweep outstanding deletion links"
+            },
+            {
+              "scope": "tables",
+              "text": "join many-to-many lookup values with a comma and a space on SQLite"
+            },
+            {
+              "scope": "realtime",
+              "text": "a session that ends closes only its own connections"
+            },
+            {
+              "scope": "realtime",
+              "text": "close live subscriptions at once when a group or organisation membership changes"
+            },
+            {
+              "scope": "realtime",
+              "text": "end a live subscription with the session it was opened with"
+            },
+            {
+              "scope": "database",
+              "text": "retire idle pooled PostgreSQL connections before a server cuts them"
+            },
+            {
+              "scope": "tables",
+              "text": "backfill a formula on the development clock's day on SQLite"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a sidebar entry badge on a whole pixel"
+            },
+            {
+              "scope": "pages",
+              "text": "name a drawer's close button in the page language"
+            },
+            {
+              "scope": "server",
+              "text": "let the development clock reach every server-side now"
+            },
+            {
+              "scope": "storage",
+              "text": "infer no MIME type from an extension that names an object member"
+            },
+            {
+              "scope": "pages",
+              "text": "draw no card image from an attached file that is not an image"
+            },
+            {
+              "scope": "forms",
+              "text": "honour the record-token escape in a form's success text and addresses"
+            },
+            {
+              "scope": "pages",
+              "text": "honour the record-token escape in event paths, row actions and confirm phrases"
+            },
+            {
+              "scope": "realtime",
+              "text": "close live subscriptions when an admin resets a password or updates an account"
+            },
+            {
+              "scope": "realtime",
+              "text": "judge a subscription filter on readable columns and withhold row-gated lookups"
+            },
+            {
+              "scope": "realtime",
+              "text": "announce every committed row change, and a large write as one resync"
+            },
+            {
+              "scope": "realtime",
+              "text": "close a live subscription when the subscriber's access changes"
+            },
+            {
+              "scope": "migrations",
+              "text": "a table renamed in place keeps one set of triggers, constraints and indexes"
+            },
+            {
+              "scope": "realtime",
+              "text": "refuse a subscription exactly as a missing table"
+            },
+            {
+              "scope": "pages",
+              "text": "give dialogs a named close button and form dialogs a Cancel"
+            },
+            {
+              "scope": "forms",
+              "text": "draw form controls at the input component's height"
+            },
+            {
+              "scope": "pages",
+              "text": "draw badges and table header rows on whole pixels"
+            },
+            {
+              "scope": "theming",
+              "text": "paint every page in the theme background colour"
+            },
+            {
+              "scope": "tables",
+              "text": "datetimes and times stored as typed on SQLite are rewritten once at startup"
+            },
+            {
+              "scope": "migrations",
+              "text": "repair formula columns an earlier version converted to text on PostgreSQL"
+            },
+            {
+              "scope": "pages",
+              "text": "an escaped record token no longer hides a component from a restricted role"
+            },
+            {
+              "scope": "admin",
+              "text": "hide the pairing sentence for a colour role that names no pair"
+            },
+            {
+              "scope": "admin",
+              "text": "print the record tokens in the gallery, kanban and list examples as written"
+            },
+            {
+              "scope": "account",
+              "text": "order same-instant export entries by id"
+            },
+            {
+              "scope": "config",
+              "text": "refuse a component: placement naming no template at boot"
+            },
+            {
+              "scope": "pages",
+              "text": "a backslash before a record token prints the token as written"
+            },
+            {
+              "scope": "realtime",
+              "text": "never show a row's hidden previous values when an update brings it into view"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a digest sort key written as a JSON path at config decode"
+            },
+            {
+              "scope": "forms",
+              "text": "hold a hidden link or account to the value the server fills in"
+            },
+            {
+              "scope": "comments",
+              "text": "count per-record assigned roles in a record's mention audience"
+            },
+            {
+              "scope": "realtime",
+              "text": "deliver each change only to subscribers whose row-level rule shows the row"
+            },
+            {
+              "scope": "tables",
+              "text": "formulas reach the rows already in a table, and writes return computed values"
+            },
+            {
+              "scope": "tables",
+              "text": "datetimes store their UTC instant and times read HH:MM:SS on SQLite"
+            },
+            {
+              "scope": "tables",
+              "text": "a table can link to itself many-to-many, and derived table names are checked"
+            },
+            {
+              "scope": "migrations",
+              "text": "a table renamed under its id is renamed, not rebuilt"
+            },
+            {
+              "scope": "records",
+              "text": "an id that cannot be a record key answers 404 on PostgreSQL"
+            },
+            {
+              "scope": "account",
+              "text": "erasure removes the person's email address from the audit log"
+            },
+            {
+              "scope": "auth",
+              "text": "a refused admin password reset no longer signs the user out"
+            },
+            {
+              "scope": "records",
+              "text": "empty values sort last in both directions on both engines"
+            },
+            {
+              "scope": "tables",
+              "text": "the table list answers in an app with no auth"
+            },
+            {
+              "scope": "ai",
+              "text": "MCP migration and schema-checksum tools read their stored tables"
+            },
+            {
+              "scope": "automations",
+              "text": "a ban-user step cannot ban the last admin"
+            },
+            {
+              "scope": "auth",
+              "text": "the admin role route answers like set-role, including 404 for an unknown account"
+            },
+            {
+              "scope": "config",
+              "text": "refuse a $ref that names no template, showing how to include a file instead"
+            },
+            {
+              "scope": "config",
+              "text": "a bare $ref places a component template instead of looking for a file"
+            },
+            {
+              "scope": "auth",
+              "text": "two simultaneous demotions cannot remove the last admin"
+            },
+            {
+              "scope": "tables",
+              "text": "enforce a number field's range and precision as a decimal's"
+            },
+            {
+              "scope": "auth",
+              "text": "a role write names exactly one role, spelled exactly"
+            },
+            {
+              "scope": "automations",
+              "text": "an assign-role step cannot demote the last admin"
+            },
+            {
+              "scope": "auth",
+              "text": "a default role must be one the app declares"
+            },
+            {
+              "scope": "auth",
+              "text": "a role update names a declared role and keeps the last admin"
+            },
+            {
+              "scope": "migrations",
+              "text": "keep a many-to-many link table's keys when a linked table is rebuilt"
+            },
+            {
+              "scope": "ai",
+              "text": "ground an agent on a table named with capitals, spaces or hyphens"
+            },
+            {
+              "scope": "tables",
+              "text": "judge the reserved auth\\_ and system\\_ prefixes on the stored name"
+            },
+            {
+              "scope": "ai",
+              "text": "name the tools of a table with a space so AI clients accept them"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse two table names that are stored as the same table"
+            },
+            {
+              "scope": "tables",
+              "text": "store a blank date as no date, including one an automation writes"
+            },
+            {
+              "scope": "tables",
+              "text": "keep a formula's text literals as written, and start every formula PostgreSQL computes through the session"
+            },
+            {
+              "scope": "pages",
+              "text": "a board card shows the file of an attachment field as its cover or image"
+            },
+            {
+              "scope": "auth",
+              "text": "changing a user's role no longer hands the admin that user's session"
+            },
+            {
+              "scope": "ai",
+              "text": "answer chat record questions about tables named with a hyphen or a space"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse an unknown field type in sovrium validate, naming the known types"
+            },
+            {
+              "scope": "tables",
+              "text": "give the number field the grid and min/max handling of a decimal"
+            },
+            {
+              "scope": "tables",
+              "text": "catalogue number as an alias of decimal"
+            },
+            {
+              "scope": "i18n",
+              "text": "built-in view labels, the clear control, the palette create dialog and automation forms follow the page language"
+            },
+            {
+              "scope": "tables",
+              "text": "sum number, rating and progress rollups, and read a date rollup as its day"
+            },
+            {
+              "scope": "tables",
+              "text": "compute formulas that read a date as text with the row trigger on PostgreSQL"
+            },
+            {
+              "scope": "automations",
+              "text": "log a failed bucket lookup before falling back"
+            },
+            {
+              "scope": "pages",
+              "text": "a card image draws only a safe address"
+            },
+            {
+              "scope": "pages",
+              "text": "an AI chat or search box placed in a breakpoint counts at boot"
+            },
+            {
+              "scope": "pages",
+              "text": "an editable drawer unlocks only once it shows the record"
+            },
+            {
+              "scope": "forms",
+              "text": "a create form's id names the form itself"
+            },
+            {
+              "scope": "pages",
+              "text": "a script in the first tab panel binds after load"
+            },
+            {
+              "scope": "migrations",
+              "text": "carry many-to-many link tables when a table is renamed under its id"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a unique constraint naming a field the table does not declare"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse table names holding whitespace other than a plain space"
+            },
+            {
+              "scope": "migrations",
+              "text": "rebuild a table with a lookup without colliding on its constraint names"
+            },
+            {
+              "scope": "tables",
+              "text": "serve records of tables named with capitals, spaces or hyphens"
+            },
+            {
+              "scope": "automations",
+              "text": "an object with keys is a value, not empty"
+            },
+            {
+              "scope": "pages",
+              "text": "one rule decides what is empty in visibility and collection pages"
+            },
+            {
+              "scope": "tables",
+              "text": "a view filter judges an empty value as the records API does, on both databases"
+            },
+            {
+              "scope": "migrations",
+              "text": "quote table names in lookup views"
+            },
+            {
+              "scope": "database",
+              "text": "start behind a connection pooler that refuses the JIT setting"
+            },
+            {
+              "scope": "tables",
+              "text": "a composite foreign key must name a table and fields that exist"
+            },
+            {
+              "scope": "migrations",
+              "text": "`migrate --dry-run`, `--check` and `--watch` recognise a table renamed under its id"
+            },
+            {
+              "scope": "pages",
+              "text": "a card click on a board, calendar or gallery only opens a page on this site, and a gallery card can open a record drawer"
+            },
+            {
+              "scope": "migrations",
+              "text": "refuse a table rebuild that would copy none of a populated table's columns"
+            },
+            {
+              "scope": "tables",
+              "text": "read a date as its day wherever a raw row is handed on, on PostgreSQL"
+            },
+            {
+              "scope": "database",
+              "text": "compare view trigger functions, and preview view rebuilds an upgrade performs"
+            },
+            {
+              "scope": "database",
+              "text": "recreate a volatile formula trigger on a table that already has it"
+            },
+            {
+              "scope": "server",
+              "text": "refuse to start on an invalid rate-limit window"
+            },
+            {
+              "scope": "security",
+              "text": "count an IPv6 client by its /64 in every rate limit"
+            },
+            {
+              "scope": "security",
+              "text": "count MCP and credentialed page requests against the per-address ceiling"
+            },
+            {
+              "scope": "migrations",
+              "text": "making a field required with a default fills existing empty rows on SQLite"
+            },
+            {
+              "scope": "migrations",
+              "text": "quote table names in every migration statement, and rename a table only under an id its author wrote"
+            },
+            {
+              "scope": "tables",
+              "text": "a group grant opens a table with a row-level rule as a role grant does"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse two tables that look each other up, naming the lookups"
+            },
+            {
+              "scope": "auth",
+              "text": "draw the social sign-in skeleton as a waiting POST form"
+            },
+            {
+              "scope": "ai",
+              "text": "draw the chat composer as a POST form"
+            },
+            {
+              "scope": "auth",
+              "text": "never send an invitation's token and password in the address"
+            },
+            {
+              "scope": "pages",
+              "text": "never send a guest comment in the page address"
+            },
+            {
+              "scope": "database",
+              "text": "rebuild lookup views an upgrade writes differently"
+            },
+            {
+              "scope": "security",
+              "text": "let every in-memory rate limiter forget idle keys"
+            },
+            {
+              "scope": "security",
+              "text": "cap API requests per address ahead of every session lookup"
+            },
+            {
+              "scope": "tables",
+              "text": "copy nothing from a trashed record through a link to one record"
+            },
+            {
+              "scope": "tables",
+              "text": "answer null for an aggregate over no values"
+            },
+            {
+              "scope": "tables",
+              "text": "read a date field as its day on PostgreSQL"
+            },
+            {
+              "scope": "pages",
+              "text": "a button that submits a form by selector waits for the form's script like its own submit"
+            },
+            {
+              "scope": "mcp",
+              "text": "judge a link target with the caller's groups on an MCP write"
+            },
+            {
+              "scope": "forms",
+              "text": "a hidden relationship field is held to the rows it would offer"
+            },
+            {
+              "scope": "forms",
+              "text": "a form submission can only link a row the form offers"
+            },
+            {
+              "scope": "tables",
+              "text": "an upsert keeps the link its matched row already holds"
+            },
+            {
+              "scope": "pages",
+              "text": "never send a form's values in the address when it is submitted before the page's script runs"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse an undecided approval timeout inside a branch or a loop"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an aggregate naming a field the table does not have"
+            },
+            {
+              "scope": "tables",
+              "text": "skip trashed records in a lookup through many, and never group or filter on a hidden one"
+            },
+            {
+              "scope": "tables",
+              "text": "a link to a row the writer cannot read is answered as a link to a missing row"
+            },
+            {
+              "scope": "pages",
+              "text": "a component template keeps the test id its author gives it"
+            },
+            {
+              "scope": "pages",
+              "text": "a page keeps out of the page cache when a template or breakpoint makes it depend on the request"
+            },
+            {
+              "scope": "comments",
+              "text": "the mention picker finds readers however many others sort first"
+            },
+            {
+              "scope": "comments",
+              "text": "a single comment and an edited comment carry their resolved mentions"
+            },
+            {
+              "scope": "comments",
+              "text": "a comment thread answers to its record's row-level read rule"
+            },
+            {
+              "scope": "tables",
+              "text": "hide unreadable rows behind reverse lookups and in the trash"
+            },
+            {
+              "scope": "api",
+              "text": "cap a comment at 50 mentions"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse an approval timeout that decides nothing"
+            },
+            {
+              "scope": "pages",
+              "text": "name a sidebar with groups on its navigation"
+            },
+            {
+              "scope": "automations",
+              "text": "the depth limit still stops a loop through a field a write changes without naming it"
+            },
+            {
+              "scope": "automations",
+              "text": "the depth limit refuses only a write that would start a run"
+            },
+            {
+              "scope": "pages",
+              "text": "a phone's calendar switch offers the agenda in the month's place"
+            },
+            {
+              "scope": "admin",
+              "text": "every run status reads in the operator's language as a badge"
+            },
+            {
+              "scope": "automations",
+              "text": "a run a filter stopped reads Skipped, and its filter step Filtered out"
+            },
+            {
+              "scope": "tables",
+              "text": "a hidden lookup value no longer steers a filter, a sort or an aggregate"
+            },
+            {
+              "scope": "tables",
+              "text": "a CSV export keeps a column whose first row leaves it out"
+            },
+            {
+              "scope": "tables",
+              "text": "a many-to-many lookup carries only the linked records its reader may read"
+            },
+            {
+              "scope": "automations",
+              "text": "only an admin with write authority resolves an approval request"
+            },
+            {
+              "scope": "automations",
+              "text": "a record automation no longer re-fires on a number its own write did not change"
+            },
+            {
+              "scope": "tables",
+              "text": "judge a lookup before a field selection or permission drops its key"
+            },
+            {
+              "scope": "i18n",
+              "text": "an interface-text override written for one language no longer replaces the engine's words in another"
+            },
+            {
+              "scope": "pages",
+              "text": "name the phone calendar's agenda in its view switch"
+            },
+            {
+              "scope": "forms",
+              "text": "draw an attachment field's label at the size of every other label"
+            },
+            {
+              "scope": "tables",
+              "text": "signed-in callers keep their own records budget, and rate-limited widgets offer a retry"
+            },
+            {
+              "scope": "tables",
+              "text": "leave out a lookup through a link the reader may not read"
+            },
+            {
+              "scope": "automations",
+              "text": "stop a resumed run before any step when its starter was banned"
+            },
+            {
+              "scope": "automations",
+              "text": "a copied or moved file keeps its bucket, and a refused speech upload is not retried"
+            },
+            {
+              "scope": "automations",
+              "text": "a record list output reads as its value in branches, filters and code steps"
+            },
+            {
+              "scope": "pages",
+              "text": "a board card binds its drawer record only to its own table"
+            },
+            {
+              "scope": "pages",
+              "text": "an editable record drawer picks a linked record by name instead of showing its id"
+            },
+            {
+              "scope": "pages",
+              "text": "a sign-out form shows only its button, and a dialog with an opener elsewhere starts closed"
+            },
+            {
+              "scope": "pages",
+              "text": "a form inside a tab panel keeps its validation, background submit and recorder"
+            },
+            {
+              "scope": "forms",
+              "text": "an embedded form keeps its field defaults and resolves now and user tokens in its prefill"
+            },
+            {
+              "scope": "forms",
+              "text": "an in-place create form honours its inline prefill and stores an empty link as empty"
+            },
+            {
+              "scope": "pages",
+              "text": "translate list empty messages and overlay titles"
+            },
+            {
+              "scope": "tables",
+              "text": "an upsert answers to the table's row-level rules"
+            },
+            {
+              "scope": "forms",
+              "text": "style the recorder buttons and size an embedded form title by its heading level"
+            },
+            {
+              "scope": "forms",
+              "text": "a recorded, dropped or picked file satisfies a required attachment"
+            },
+            {
+              "scope": "ai",
+              "text": "name a recording after its audio type when sending it to a speech engine"
+            },
+            {
+              "scope": "automations",
+              "text": "a batch update or upsert writes a many-to-many field"
+            },
+            {
+              "scope": "automations",
+              "text": "an older approval request can no longer be claimed through a new account"
+            },
+            {
+              "scope": "tables",
+              "text": "anonymous creates and comments no longer share a form's rate limit"
+            },
+            {
+              "scope": "tables",
+              "text": "a signed-out visitor's record is authored by the system"
+            },
+            {
+              "scope": "tables",
+              "text": "a record never names a linked record its reader may not read"
+            },
+            {
+              "scope": "automations",
+              "text": "an automation can write a many-to-many field"
+            },
+            {
+              "scope": "automations",
+              "text": "a run whose starter is banned stops acting as them"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run reads records as the person who started it"
+            },
+            {
+              "scope": "tables",
+              "text": "check a record write against the row it will actually leave"
+            },
+            {
+              "scope": "automations",
+              "text": "rows a hand-started run writes carry the person who started it"
+            },
+            {
+              "scope": "automations",
+              "text": "a run started by hand resumes as that person after an approval"
+            },
+            {
+              "scope": "automations",
+              "text": "a run stopped by a rejected approval can be read again"
+            },
+            {
+              "scope": "server",
+              "text": "serve a request that sends no Host header"
+            },
+            {
+              "scope": "ai",
+              "text": "leave paused automations out of the MCP tool list"
+            },
+            {
+              "scope": "automations",
+              "text": "an approver named by email is the account that held it when the request was made"
+            },
+            {
+              "scope": "tables",
+              "text": "let create: all accept records from visitors who are not signed in"
+            },
+            {
+              "scope": "tables",
+              "text": "hide linked records a reader may not read"
+            },
+            {
+              "scope": "automations",
+              "text": "a run someone starts by hand writes as that person"
+            },
+            {
+              "scope": "tables",
+              "text": "check a row-level write rule against the row as it would be written"
+            },
+            {
+              "scope": "cli",
+              "text": "fail cleanly when sovrium update cannot replace the binary"
+            },
+            {
+              "scope": "docker",
+              "text": "mark the official image so sovrium update recognises it"
+            },
+            {
+              "scope": "cli",
+              "text": "detect Homebrew installs from the binary path, not HOMEBREW_PREFIX"
+            },
+            {
+              "scope": "mcp",
+              "text": "do not list a manual automation switched off in config"
+            },
+            {
+              "scope": "server",
+              "text": "confine the retired-host redirect's host before printing it"
+            },
+            {
+              "scope": "server",
+              "text": "refuse a Host that lists several hosts with 400"
+            },
+            {
+              "scope": "pages",
+              "text": "open an edit form with the record's many-to-many links"
+            },
+            {
+              "scope": "pages",
+              "text": "name the language switcher once, and give it the attributes in its props"
+            },
+            {
+              "scope": "pages",
+              "text": "name a form embedded by reference as a form"
+            },
+            {
+              "scope": "mcp",
+              "text": "list a manual automation to a role exactly when that role may run it"
+            },
+            {
+              "scope": "mcp",
+              "text": "a caller with no identity is denied by every row-level rule"
+            },
+            {
+              "scope": "server",
+              "text": "trust X-Forwarded-Host for the retired-host redirect only behind a declared proxy"
+            },
+            {
+              "scope": "auth",
+              "text": "build the emailed invitation link from this instance's address"
+            },
+            {
+              "scope": "server",
+              "text": "refuse a request whose Host is not a host name with 400"
+            },
+            {
+              "scope": "docs",
+              "text": "say which requests trust a forwarding header, and what an unset BASE_URL advertises behind a proxy"
+            },
+            {
+              "scope": "server",
+              "text": "never print a Host header that is not a host name"
+            },
+            {
+              "scope": "mcp",
+              "text": "write tools apply every value rule and lock the records API applies"
+            },
+            {
+              "scope": "api",
+              "text": "a record's history answers to the record's read rules"
+            },
+            {
+              "scope": "pages",
+              "text": "an $app value never turns text content into markup"
+            },
+            {
+              "scope": "server",
+              "text": "believe forwarded host and scheme only behind a declared proxy"
+            },
+            {
+              "scope": "mcp",
+              "text": "write tools answer failures and malformed values as the records API does"
+            },
+            {
+              "scope": "mcp",
+              "text": "write tools apply the table's row-level rules"
+            },
+            {
+              "scope": "forms",
+              "text": "save a record's edit form through the same checks and effects as the API"
+            },
+            {
+              "scope": "pages",
+              "text": "print `$app` values as text inside an HTML template"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a cached page's sharing image on the host each visitor asked for"
+            },
+            {
+              "scope": "tables",
+              "text": "fill a `$currentUser` default on the rows an upsert creates"
+            },
+            {
+              "scope": "pages",
+              "text": "print a date's weekday in list metadata and on gallery cards"
+            },
+            {
+              "scope": "pages",
+              "text": "a card qr-code's size and error-correction level are validated as a page qr-code's are"
+            },
+            {
+              "scope": "automations",
+              "text": "a missing key stays missing when it shares a name with a built-in or inherited member"
+            },
+            {
+              "scope": "forms",
+              "text": "mark a refused field invalid and name it by its label"
+            },
+            {
+              "scope": "pages",
+              "text": "read a `./` favicon from the root of public/ on nested pages"
+            },
+            {
+              "scope": "automations",
+              "text": "templates inside a path branch resolve as they do at the top level"
+            },
+            {
+              "scope": "pages",
+              "text": "a card qr-code honours its size, error-correction level and class"
+            },
+            {
+              "scope": "cli",
+              "text": "a bare init writes the same public/README.md a template ships"
+            },
+            {
+              "scope": "pages",
+              "text": "make a navigating gallery card a link and show attachment covers"
+            },
+            {
+              "scope": "design",
+              "text": "keep a page styled when one class list holds a stray quote"
+            },
+            {
+              "scope": "api",
+              "text": "answer a record history addressed by its table name"
+            },
+            {
+              "scope": "api",
+              "text": "read `true` and `false` as booleans in a checkbox filter shorthand"
+            },
+            {
+              "scope": "tables",
+              "text": "stamp a datetime whose default is `now` with the write time"
+            },
+            {
+              "scope": "cli",
+              "text": "seed attachment files into the bucket their field declares"
+            },
+            {
+              "scope": "mcp",
+              "text": "keep a whitelisted record's fields to the fields the whitelist names"
+            },
+            {
+              "scope": "forms",
+              "text": "keep untouched fields when an edit form is saved with its button"
+            },
+            {
+              "scope": "pages",
+              "text": "apply a public row rule to anonymous readers of a collection page"
+            },
+            {
+              "scope": "auth",
+              "text": "a custom role below level 80 is no longer treated as admin"
+            },
+            {
+              "scope": "pages",
+              "text": "the collections manual says who reads a gated article's Markdown"
+            },
+            {
+              "scope": "pages",
+              "text": "the data-binding manual states what emptiness and a section's limit mean"
+            },
+            {
+              "scope": "pages",
+              "text": "a section's pager counts no more rows than its limit"
+            },
+            {
+              "scope": "tables",
+              "text": "an empty list is empty to every filter, and emptiness reads any column type"
+            },
+            {
+              "scope": "tables",
+              "text": "a signed-in default fills a field left empty, in a batch create too"
+            },
+            {
+              "scope": "server",
+              "text": "the page-search index is replaced whole, and a shadowed public copy is reported"
+            },
+            {
+              "scope": "pages",
+              "text": "an article's own access fails closed, and its Markdown answers the readers its page answers"
+            },
+            {
+              "scope": "auth",
+              "text": "a built-in role listed for its landing never becomes the app's top role"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup can read another lookup"
+            },
+            {
+              "scope": "pages",
+              "text": "an empty list shows its empty state and a user field can default to the signed-in account"
+            },
+            {
+              "scope": "pages",
+              "text": "an article can be gated from its front matter, the docs layout names its parts, and a title match comes first"
+            },
+            {
+              "scope": "automations",
+              "text": "a chained run is finished before the server stops, and a cycle between two automations is refused at boot"
+            },
+            {
+              "scope": "pages",
+              "text": "a section bound to a table honours its limit anywhere on the page"
+            },
+            {
+              "scope": "pages",
+              "text": "a calendar opens a drawer on click, reads on a phone and refuses a colour field that is a multi-select"
+            },
+            {
+              "scope": "automations",
+              "text": "a form submission starts its automations with the stored row"
+            },
+            {
+              "scope": "tables",
+              "text": "a summary row works on a grid bound to a view"
+            },
+            {
+              "scope": "pages",
+              "text": "a drawer shows files, edits with the form's controls, opens other drawers and names itself in the address"
+            },
+            {
+              "scope": "api",
+              "text": "a filter with a malformed relative date is refused instead of forwarded"
+            },
+            {
+              "scope": "automations",
+              "text": "a status change that leaves its own trigger condition is accepted at boot"
+            },
+            {
+              "scope": "server",
+              "text": "the page-search index is written beside the database, not into the app folder"
+            },
+            {
+              "scope": "pages",
+              "text": "dragging an all-day event keeps its start day east of UTC"
+            },
+            {
+              "scope": "pages",
+              "text": "a form in an overlay the viewer cannot open reads no choices"
+            },
+            {
+              "scope": "pages",
+              "text": "cards draw the QR code of their record"
+            },
+            {
+              "scope": "pages",
+              "text": "an aggregated chart takes one series to name and colour it"
+            },
+            {
+              "scope": "tables",
+              "text": "a lookup through a link to the same table works"
+            },
+            {
+              "scope": "automations",
+              "text": "a record written by an automation starts the automations of its table, and create returns its id"
+            },
+            {
+              "scope": "pages",
+              "text": "a drawer title can name the record it opens"
+            },
+            {
+              "scope": "pages",
+              "text": "a calendar range that ends on a date shows its last day"
+            },
+            {
+              "scope": "pages",
+              "text": "related lists and list items show names and money as the grid does"
+            },
+            {
+              "scope": "pages",
+              "text": "cards draw badges, avatars and images of their record"
+            },
+            {
+              "scope": "pages",
+              "text": "every component names its type, including code blocks, QR codes and static widgets"
+            },
+            {
+              "scope": "pages",
+              "text": "an overlay opened by a hidden button stays hidden with it"
+            },
+            {
+              "scope": "forms",
+              "text": "an empty email, link or phone answer is stored as no value"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "automations",
+              "text": "a hand-started batch checks its caller once"
+            },
+            {
+              "scope": "comments",
+              "text": "the mention picker loads readers' grants one page at a time"
+            },
+            {
+              "scope": "tables",
+              "text": "look up the reader's email only when a rule names it"
+            },
+            {
+              "scope": "activity",
+              "text": "judge the activity feed's read rules in the database"
+            },
+            {
+              "scope": "activity",
+              "text": "judge the activity feed's records a few at a time"
+            },
+            {
+              "scope": "tables",
+              "text": "keep the SQLite search index by key on every write"
+            },
+            {
+              "scope": "tables",
+              "text": "partition a grouped record list in one pass"
+            },
+            {
+              "scope": "auth",
+              "text": "skip the session lookup for a request that carries no credential"
+            },
+            {
+              "scope": "database",
+              "text": "turn PostgreSQL JIT compilation off on every connection"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.29.1",
       "date": "2026-09-27",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.29.0...v0.29.1",

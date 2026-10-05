@@ -11,12 +11,11 @@
  * `GET /api/automations/approvals` answers only the automation-step requests
  * the signed-in caller may resolve — the same rule the resolution endpoint
  * enforces — so a page bound to it shows each person their own inbox. The
- * caller is loaded once per request: the email for list entries naming an
- * address, the role for `all-admins` and for entries naming a role.
+ * caller is loaded once per request: the account id for list entries naming
+ * an address, the role for `all-admins` and for entries naming a role.
  */
 
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import {
   AutomationApprovalRepository,
   type AutomationApprovalDatabaseError,
@@ -24,25 +23,26 @@ import {
 } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
-  isNamedApprover,
-  toApproverList,
+  isPersistedApprover,
   type ApprovalCaller,
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
-import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
+import type {
+  AuthDatabaseError,
+  AuthRepository,
+} from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 
 /**
- * Load who a signed-in user is, for the approver rule: their account email and
- * their global role (`member` when the account carries none).
+ * Load who a signed-in user is, for the approver rule: their account id — an
+ * address names the account a request pinned it to, never whoever holds the
+ * address now — and their global role (`member` when the account carries none).
  */
 export const loadApprovalCaller = (
   userId: string
 ): Effect.Effect<ApprovalCaller, AuthDatabaseError, AuthRepository> =>
   Effect.gen(function* () {
-    const repo = yield* AuthRepository
-    const email = yield* repo.findUserEmailById(userId)
     const role = yield* getUserRole(userId)
-    return { email, role }
+    return { userId, role }
   }).pipe(Effect.withSpan('automations.load-approval-caller'))
 
 /** A status the approvals list can be asked for. */
@@ -65,7 +65,7 @@ const MAX_LISTED_APPROVALS = 500
  * The automation-step requests carrying `status` that `caller` may resolve,
  * newest first, among the {@link MAX_LISTED_APPROVALS} newest of that status.
  *
- * The filter is `isNamedApprover`, the predicate the resolution gate applies,
+ * The filter is `isPersistedApprover`, the predicate the resolution gate applies,
  * so the list never offers a request its reader would be refused.
  */
 export const listAutomationApprovals = (input: {
@@ -86,8 +86,7 @@ export const listAutomationApprovals = (input: {
     return rows
       .filter(
         (row) =>
-          row.status === input.status &&
-          isNamedApprover(toApproverList(row.approvers), input.caller, input.app)
+          row.status === input.status && isPersistedApprover(row.approvers, input.caller, input.app)
       )
       .map((row) => ({ ...row, status: input.status }))
   }).pipe(Effect.withSpan('automations.list-automation-approvals'))

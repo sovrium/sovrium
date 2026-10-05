@@ -7,7 +7,7 @@
 
 import {
   buildEnvLookup,
-  resolveEnvInString,
+  resolveSecretInString,
 } from '@/application/use-cases/automations/resolve-env-vars'
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
 import { webhookNotFound } from './webhook-refusals'
@@ -53,7 +53,7 @@ export const answerVerificationHandshake = (
   if (verification === undefined || c.req.method.toUpperCase() !== 'GET') return undefined
   const mode = c.req.query('hub.mode')
   if (mode === undefined && getIsEventMethod) return undefined
-  const expected = resolveEnvInString(
+  const expected = resolveSecretInString(
     verification.verifyToken,
     buildEnvLookup(app.env, process.env)
   )

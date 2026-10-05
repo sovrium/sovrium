@@ -12,6 +12,7 @@ import { db } from '@/infrastructure/database/drizzle'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
+import { databaseTableName, tableIdentifier } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -36,15 +37,15 @@ function buildRecordCheckQuery(params: {
   const shouldFilterOwner = hasOwnerId && !isAdmin
 
   if (hasDeletedAt && shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
+    return sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   if (hasDeletedAt) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+    return sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
   }
   if (shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
+    return sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
-  return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
+  return sql`SELECT id FROM ${tableIdentifier(tableName)} WHERE id = ${recordId}`
 }
 
 /**
@@ -61,7 +62,8 @@ export function checkRecordExists(config: {
   return Effect.gen(function* () {
     // Check which of deleted_at / owner_id exist (dialect-aware introspection)
     const columns = yield* Effect.tryPromise({
-      try: () => getExistingColumnNames(db, tableName, ['deleted_at', 'owner_id']),
+      try: () =>
+        getExistingColumnNames(db, databaseTableName(tableName), ['deleted_at', 'owner_id']),
       catch: (error) => new DatabaseError('Failed to check table columns', error),
     })
 

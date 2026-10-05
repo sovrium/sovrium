@@ -6,7 +6,7 @@
  */
 
 import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-default-classes'
-import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
+import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { renderComponentSearchBar } from './component-search-bar'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -28,6 +28,10 @@ function extractCalendarProps(elementProps: Record<string, unknown>): Record<str
     // `optionValue → hex` for the field `colorField` names, resolved
     // server-side from `app.tables` (the island only ever sees records).
     colorFieldColors: elementProps.colorFieldColors,
+    // The fields holding a calendar day, so a range ends on its last day.
+    dateOnlyFields: elementProps.dateOnlyFields,
+    // The date-time fields declaring their own zone; the rest read in the page's.
+    fieldTimeZones: elementProps.fieldTimeZones,
     maxEventsPerDay: elementProps.maxEventsPerDay,
     calendarEvent: elementProps.calendarEvent,
     calendarInteraction: elementProps.calendarInteraction,
@@ -110,12 +114,23 @@ function renderCalendarSkeleton(): ReactElement {
 }
 
 /**
+ * The view the mounted calendar opens on — its `defaultView`, `month` when
+ * unset — written on the host that names the calendar.
+ */
+const calendarView = (defaultView: unknown): string =>
+  typeof defaultView === 'string' ? defaultView : 'month'
+
+/**
  * SSR placeholder for the calendar island. Renders the Sovrium toolbar row and
  * a 5x7 day-grid skeleton preserved as a Suspense fallback while the
  * FullCalendar bundle loads — at the geometry the mounted calendar paints, so
  * the grid does not resize under the reader as the island hydrates.
  */
-export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => {
+export const islandCalendarComponent: ComponentRenderer = ({
+  elementProps,
+  currentLang,
+  languages,
+}) => {
   const islandProps = extractCalendarProps(elementProps)
   const propsJson = JSON.stringify(islandProps)
 
@@ -123,12 +138,11 @@ export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => 
     <div
       data-island="calendar"
       data-island-props={propsJson}
-      data-component="calendar"
-      data-component-type="calendar"
+      {...namedHost('calendar', { 'data-view': calendarView(elementProps.defaultView) })}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={hostClassName(elementProps)}
     >
-      {renderComponentSearchBar(elementProps.search)}
+      {renderComponentSearchBar(elementProps.search, { currentLang, languages })}
       {renderCalendarSkeleton()}
     </div>
   )

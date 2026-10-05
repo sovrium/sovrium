@@ -1,0 +1,15 @@
+# The line under every public page.
+type: container
+element: footer
+props:
+  className: border-t border-border
+children:
+  - type: container
+    props:
+      className: mx-auto flex max-w-[1100px] items-center px-6 py-4 text-xs text-foreground-muted
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-xs text-foreground-muted
+        content: Fieldday · workshops and meetups across France

@@ -5,12 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
+import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import {
-  hasCreatePermission,
+  hasCreatePermissionForRoles,
   hasReadPermission,
+  readOpensToEveryone,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { declaredFieldLabel } from '@/presentation/design/field-display'
+import { readableFieldsOf } from './caller-table-inputs'
+import { resolveValueCurrency } from './resolve-chart-field-context'
+import type { CallerTableView } from '@/application/ports/services/page-renderer'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
@@ -38,6 +43,8 @@ export interface RelatedSectionColumn {
   readonly field: string
   readonly label: string
   readonly type: string
+  /** The column's declared currency display, so an amount prints as the grid prints it. */
+  readonly currency?: CurrencyDisplayOptions
 }
 
 /**
@@ -68,6 +75,13 @@ type RawEntry = Readonly<Record<string, unknown>>
 export interface RelatedCaller {
   readonly session: SessionInfo | undefined
   readonly guest: boolean
+  /**
+   * Each related table as the caller may see it, stamped by the page pass
+   * (`caller-table-stamp.ts`): a section with no `columns` heads only the
+   * fields she may read. Absent (no auth, a render outside the page route
+   * funnel), every field.
+   */
+  readonly callerTables?: Readonly<Record<string, CallerTableView>> | undefined
 }
 
 /**
@@ -105,24 +119,28 @@ export function markRelatedGuestCaller(
 
 /**
  * May this caller read / create in the related table, exactly as the records
- * API would answer? An auth-app guest is admitted to a `read: 'all'` table only
- * and never to a create (the API's `requireAuthOrGuestComment` gate); anyone
- * else goes through the shared evaluators a grid bound to the table uses.
+ * API would answer? An auth-app guest is admitted only to a table whose read,
+ * resolved through `inherit` and `override`, is `'all'`, and never to a create
+ * (the API's `requireAuthOrGuestComment` gate); anyone else goes through the
+ * shared evaluators a grid bound to the table uses.
  */
 function callerAccess(
   table: Table,
   tables: Tables | undefined,
   caller: RelatedCaller
 ): { readonly read: boolean; readonly create: boolean } {
-  if (caller.guest) {
-    const permissions = table.permissions as Readonly<{ read?: unknown }> | undefined
-    return { read: isOpenToEveryone(toPermissionValue(permissions?.read)), create: false }
-  }
+  if (caller.guest) return { read: readOpensToEveryone(table, tables), create: false }
+  // An admin-equivalent caller — the built-in `admin` or the app's top role,
+  // which the auth context stamps as `isUnrestricted` — outranks every grant,
+  // exactly as the records API's admin override answers her.
+  if (caller.session?.isUnrestricted === true) return { read: true, create: true }
   const role = caller.session?.role ?? ''
   const groups = caller.session?.groups ?? []
   return {
     read: hasReadPermission(table, role, tables, groups),
-    create: hasCreatePermission(table, role, tables, groups),
+    // The records API's own write evaluator over the same roles: a viewer is
+    // never offered a create a group grant would give her (the API refuses it).
+    create: hasCreatePermissionForRoles(table, [role, ...groups.map(toGroupReference)], tables),
   }
 }
 
@@ -133,11 +151,24 @@ function columnFor(field: string, ownLabel: unknown, table: Table): RelatedSecti
     (typeof ownLabel === 'string' && ownLabel !== '' ? ownLabel : undefined) ??
     declaredFieldLabel(declared) ??
     field
-  return { field, label, type: declared?.type ?? 'single-line-text' }
+  const currency = resolveValueCurrency(table, field)
+  return {
+    field,
+    label,
+    type: declared?.type ?? 'single-line-text',
+    ...(currency === undefined ? {} : { currency }),
+  }
 }
 
-/** The declared columns, or every field of the table except the relationship itself. */
-function resolveColumns(entry: RawEntry, table: Table): readonly RelatedSectionColumn[] {
+/**
+ * The declared columns, or every field of the table except the relationship
+ * itself that the caller may read.
+ */
+function resolveColumns(
+  entry: RawEntry,
+  table: Table,
+  callerTable: CallerTableView | undefined
+): readonly RelatedSectionColumn[] {
   const declared = entry['columns']
   if (Array.isArray(declared)) {
     return declared.flatMap((column: unknown) => {
@@ -146,9 +177,13 @@ function resolveColumns(entry: RawEntry, table: Table): readonly RelatedSectionC
       return typeof field === 'string' ? [columnFor(field, record?.['label'], table)] : []
     })
   }
-  return table.fields
-    .filter((field) => field.name !== entry['field'])
-    .map((field) => columnFor(field.name, undefined, table))
+  const readable =
+    callerTable === undefined
+      ? table.fields.map((field) => field.name)
+      : readableFieldsOf(table, callerTable)
+  return readable
+    .filter((name) => name !== entry['field'])
+    .map((name) => columnFor(name, undefined, table))
 }
 
 /**
@@ -183,7 +218,7 @@ export function resolveRelatedSections(
         label: String(entry['label']),
         table: table.name,
         field: entry['field'],
-        columns: resolveColumns(entry, table),
+        columns: resolveColumns(entry, table, caller.callerTables?.[table.name]),
         ...(Array.isArray(entry['sort'])
           ? { sort: entry['sort'] as RelatedSection['sort'] & object }
           : {}),

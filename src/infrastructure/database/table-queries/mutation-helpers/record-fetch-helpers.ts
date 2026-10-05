@@ -9,7 +9,9 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/domain/errors'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
+import { tableIdentifier } from '../statement/validation'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 /**
@@ -26,7 +28,7 @@ export async function fetchRecordById(
   try {
     const result = await executeRaw(
       tx,
-      sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+      sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} LIMIT 1`
     )
     return result[0]
   } catch (error) {
@@ -49,7 +51,7 @@ export function fetchRecordByIdEffect(
     try: async () => {
       const result = await executeRaw(
         tx,
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+        sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${recordId} LIMIT 1`
       )
       return result[0]
     },
@@ -91,10 +93,34 @@ export function fetchRecordsByIds(
       )
       const result = await executeRaw(
         tx,
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id IN (${idParams})`
+        sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id IN (${idParams})`
       )
       return result
     },
     catch: (error) => new DatabaseError('Failed to fetch records before operation', error),
   })
+}
+
+/**
+ * The row a write hands back, as a read right after it sees the row.
+ *
+ * SQLite's `RETURNING` reports the row as it stood BEFORE its `AFTER` triggers
+ * ran — and on SQLite the trigger-computed formulas and the `updated_at` stamp
+ * are written by `AFTER` triggers — so a create answered a formula as `null`
+ * and an update answered the previous modification time. On SQLite the row is
+ * therefore read again by its id. PostgreSQL computes both in `BEFORE`
+ * triggers, which `RETURNING` already reflects, so its row is kept as it is.
+ */
+export async function rowAfterTriggers(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  row: Readonly<Record<string, unknown>>
+): Promise<Readonly<Record<string, unknown>>> {
+  const { id } = row
+  if (!isSqliteRuntime() || id === undefined || id === null) return row
+  const [reread] = await executeRaw(
+    tx,
+    sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${id} LIMIT 1`
+  )
+  return reread ?? row
 }

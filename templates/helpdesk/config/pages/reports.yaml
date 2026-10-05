@@ -1,0 +1,95 @@
+# Reports, for the admin: where the tickets stand, and what people write in
+# about. Every figure is counted from the tickets on every visit. A member
+# asking for this page is sent away.
+name: reports
+path: /reports
+access:
+  require: [admin]
+  redirectTo: /sign-in
+meta:
+  title: Reports · Tallyline Support
+  description: Where the tickets stand, and the volume by topic.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Reports
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Open tickets
+                    dataSource:
+                      table: tickets
+                      filter:
+                        - { field: status, operator: in, value: [New, Open, Waiting on customer] }
+                    kpiAggregate: { function: count }
+                  - type: kpi
+                    label: Unassigned
+                    dataSource:
+                      table: tickets
+                      filter:
+                        - { field: status, operator: in, value: [New, Open, Waiting on customer] }
+                        - { field: unassigned, operator: eq, value: 1 }
+                    kpiAggregate: { function: count }
+                  - type: kpi
+                    label: Urgent, still open
+                    dataSource:
+                      table: tickets
+                      filter:
+                        - { field: status, operator: in, value: [New, Open, Waiting on customer] }
+                        - { field: priority, operator: eq, value: Urgent }
+                    kpiAggregate: { function: count }
+                  - type: kpi
+                    label: Resolved
+                    dataSource:
+                      table: tickets
+                      filter:
+                        - { field: status, operator: in, value: [Resolved, Closed] }
+                    kpiAggregate: { function: count }
+              - type: container
+                element: section
+                props:
+                  className: flex min-w-0 flex-col gap-1
+                  aria-label: Tickets by topic
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: text-[14px] font-semibold text-foreground
+                    content: Tickets by topic
+                  - type: text
+                    element: p
+                    props:
+                      className: text-xs text-foreground-muted
+                    content: Every ticket, open or finished, by what it was about
+                  - type: chart
+                    chartType: bar
+                    props:
+                      className: h-[240px] [&_svg_rect]:fill-primary
+                    dataSource:
+                      table: tickets
+                    chartAggregate:
+                      function: count
+                      groupBy: category
+                      order: value-desc

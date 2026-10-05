@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { formAddressCheck } from '../../forms/form-address-validation'
 import { SuccessPageActionSchema } from '../../forms/on-success'
 
 /**
@@ -126,9 +127,10 @@ export const ActionResponseSchema = Schema.Struct({
   /** Path to navigate to after action */
   navigate: Schema.optional(
     Schema.String.annotate({
-      description: 'URL path to navigate to. Supports $variable references.',
+      description:
+        'URL path to navigate to. Supports $variable references. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
       examples: ['/dashboard', '/posts/$record.slug'],
-    })
+    }).pipe(Schema.check(formAddressCheck))
   ),
   /**
    * Field names whose values are retained after a `type: reset` response.
@@ -192,9 +194,9 @@ export const ActionResponseSchema = Schema.Struct({
   redirect: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage".',
+        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage". An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
       examples: ['/support/tickets/$record.id'],
-    })
+    }).pipe(Schema.check(formAddressCheck))
   ),
   /** Toast notification to show */
   toast: Schema.optional(ToastSchema),

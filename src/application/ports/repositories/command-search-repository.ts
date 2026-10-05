@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
 import type { Effect } from 'effect'
 
 /**
@@ -41,6 +42,17 @@ export interface TableSearchInput {
    * answers this question; this one has to answer it too.
    */
   readonly excludeDeleted: boolean
+  /**
+   * The reader's row-level read rule, projected for this table — ANDed onto the
+   * scan so a row the rule hides is never a candidate, and never takes one of
+   * the result slots from a row it admits. `undefined` when no rule narrows this
+   * reader (none declared, or an admin-equivalent reader).
+   *
+   * Required rather than optional for the same reason as `excludeDeleted`: the
+   * palette once answered every question a records read answers except this
+   * one, and returned the labels of rows the records API refused.
+   */
+  readonly rowFilter: QueryFilterNode | undefined
 }
 
 /**

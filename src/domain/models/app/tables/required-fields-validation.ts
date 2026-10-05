@@ -13,7 +13,7 @@
  * (`presentation/api/validation/rules/field-rules.ts`) and one behind
  * `POST /records/upsert`
  * (`presentation/api/routes/tables/record/create-record-helpers.ts`). They then
- * drifted: the create copy learned the `default` exemption (GAP-10,
+ * drifted: the create copy learned the `default` exemption ([internal ref],
  * [internal ref]) and the upsert copy did not. The visible
  * result was two routes giving OPPOSITE answers to the same config — a field
  * declared `required: true, default: 'draft'` created fine through

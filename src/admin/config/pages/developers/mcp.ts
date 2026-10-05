@@ -17,7 +17,7 @@
 //
 // `/api/admin/instance` publishes both as FACTS — `origin` and
 // `oauthApplicationType` — and the page composes the curl around them. That is
-// [internal ref] exactly: the endpoint answers what config cannot compute, the console
+// the rule exactly: the endpoint answers what config cannot compute, the console
 // keeps the words. A `registerCurl` field would have frozen this file's comment
 // line, its backslash continuations and its quoting into a published OpenAPI
 // contract, and could never be translated.
@@ -145,7 +145,7 @@ const endpointCard = (): PageComponent =>
  * the endpoint because deciding it needs a URL parser and the three loopback
  * spellings RFC 8252 §7.3 names, neither of which config has.
  *
- * `--cookie "$SOVRIUM_SESSION"` is not decoration either: since [internal ref] the
+ * `--cookie "$SOVRIUM_SESSION"` is not decoration either: the
  * endpoint refuses an anonymous caller 401. It sits BEFORE `--data` and uses
  * double quotes because the docs spec lifts the printed body out by slicing
  * between `--data '` and the LAST `'`.

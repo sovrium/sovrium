@@ -35,8 +35,9 @@
  *    reconnect cleanly and `fetch`-based callers are never left hanging.
  *
  * Both transports reuse the SAME channel-manager fan-out — a record CRUD
- * handler publishes a single change event and it is delivered over every
- * open SSE stream AND every open WebSocket on the table channel.
+ * handler publishes a single change event and it reaches every open SSE
+ * stream AND every open WebSocket on the table channel, where it is judged per
+ * subscriber against their row-level read rule before anything is sent.
  *
  * Auth + table resolution are handled upstream by the `/api/tables/*`
  * middleware chain (`authMiddleware → requireAuth → validateTable →
@@ -44,9 +45,10 @@
  * get HTTP 404 before this handler ever runs.
  */
 
-import { Effect, Queue, Stream } from 'effect'
+import { Data, Effect, Queue, Stream, type Cause } from 'effect'
 import { upgradeWebSocket } from 'hono/bun'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
 import {
   buildReadAccessPlan,
@@ -54,14 +56,41 @@ import {
   REALTIME_READ_POLICY,
   type ReadAccessPlan,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { grantFingerprint } from '@/domain/models/app/tables/realtime-grant-fingerprint-service'
+import {
+  scopeChangeToReader,
+  type RowReadRule,
+} from '@/domain/models/app/tables/realtime-row-scope-service'
+import { relationshipFieldNames } from '@/domain/models/app/tables/record-id-service'
+import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
+import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { logError } from '@/infrastructure/logging'
 import { tooManyRequestsResponse } from '@/infrastructure/process/rate-limit-response'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
-import { registerConnection } from '@/infrastructure/realtime/connection-counter'
+import {
+  registerConnection,
+  type ConnectionHooks,
+  type RecheckSweep,
+} from '@/infrastructure/realtime/connection-counter'
 import { tableChannel } from '@/infrastructure/realtime/record-change-publisher'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffectSse } from '@/presentation/api/runtime/effect-sse'
 import { SSE_RESPONSE_HEADERS, enqueueSseMessage } from '@/presentation/api/runtime/sse-stream'
+import {
+  resolveGuardForTable,
+  type GuardCaller,
+  type RowLevelGuardContext,
+} from './row-level-guard'
 import { parseSubscriptionFilter, changeEventMatchesFilter } from './subscription-filter'
+import {
+  applyFieldSelection,
+  parseFieldSelection,
+  streamColumnsOf,
+  toWebSocketWireMessage,
+  withStringRelationshipLinks,
+} from './subscription-payload'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
 import type { Context } from 'hono'
@@ -88,88 +117,169 @@ import type { Context } from 'hono'
  *  - it short-circuited to "no filtering" whenever the table declared no
  *    `permissions.fields`, which is precisely when the default rules apply.
  *
- * No row-level context is supplied: this endpoint gates the SUBSCRIPTION, and
- * per-row scoping of fanned-out change events is a separate, unimplemented
- * concern (see the report accompanying this change). `rowPredicate` is therefore
- * `'unresolved'` on a table with `rowLevelPermissions` and MUST NOT be read as
- * "no constraint".
+ * The roles are the records API's: on a table with a row-level rule they are
+ * the guard's (account role, groups AND `user_access` roles), so a caller the
+ * records API admits through that overlay is admitted to the stream of the same
+ * rows. The rows themselves are scoped per change event by {@link readRuleOf}.
  */
 const resolveReadPlan = (
   table: Table,
-  effectiveRoles: readonly string[],
-  userRole: string,
-  app: App
+  caller: { readonly userRole: string; readonly effectiveRoles: readonly string[] },
+  app: App,
+  guard: RowLevelGuardContext | undefined
 ): ReadAccessPlan =>
   buildReadAccessPlan({
     app,
     table,
-    principal: { role: userRole, effectiveRoles, isAuthenticated: true },
+    principal: {
+      role: caller.userRole,
+      effectiveRoles: caller.effectiveRoles,
+      isAuthenticated: true,
+    },
     policy: REALTIME_READ_POLICY,
+    rowContext: guard?.current,
   })
 
+/**
+ * The subscriber's row-level read rule, as a pure in-memory predicate over a
+ * changed row — or `undefined` when no rule governs them (the table declares
+ * none, or the caller is unrestricted). Resolved once per connection: the
+ * caller's context is loaded at the handshake, so each fanned-out change costs
+ * one predicate evaluation per subscriber and no database read.
+ */
+const readRuleOf = (
+  table: Table,
+  guard: RowLevelGuardContext | undefined
+): RowReadRule | undefined => {
+  const rlp = table.rowLevelPermissions
+  if (rlp?.read?.when === undefined || guard === undefined || guard.current.isUnrestricted) {
+    return undefined
+  }
+  // Judged as the records API reads the row: a SQLite `1`/`0` boolean is
+  // `true`/`false` before the rule sees it, whichever row the event carries.
+  return (row) => rowPassesRule(rlp, 'read', readStoredValues(table, row), guard.current)
+}
+
 // ---------------------------------------------------------------------------
-// Change-event payload shaping
+// Grant resolution — one path, shared by the handshake and the re-check
 // ---------------------------------------------------------------------------
 
-/**
- * Apply a column whitelist to a single record payload. `id` is always
- * retained. Returns the payload unchanged when no whitelist was supplied.
- */
-const pickRecordFields = (
-  payload: unknown,
-  whitelist: ReadonlySet<string> | undefined
-): unknown => {
-  if (!whitelist) return payload
-  if (payload === null || typeof payload !== 'object') return payload
-  const { id, fields: recordFields } = payload as {
-    id?: unknown
-    fields?: Record<string, unknown>
-  }
-  if (recordFields === undefined) return payload
-  const filtered = Object.fromEntries(
-    Object.entries(recordFields).filter(([key]) => whitelist.has(key))
-  )
-  return { id, fields: filtered }
+/** What one resolution of a subscriber's grant on a table decided. */
+interface SubscriptionGrant {
+  readonly guard: RowLevelGuardContext | undefined
+  readonly plan: ReadAccessPlan
+  /**
+   * The columns the stream may carry to this subscriber, or `undefined` for
+   * every column: the plan's whitelist, less the lookups the stream withholds
+   * from them ({@link streamColumnsOf}).
+   */
+  readonly streamColumns: readonly string[] | undefined
+  /** The grant reduced to one comparable string — see `grantFingerprint`. */
+  readonly fingerprint: string
 }
 
 /**
- * Apply a `fields` whitelist to a change event's record/oldRecord payloads.
- * `id` is always retained. Returns the event unchanged when no whitelist was
- * requested.
+ * Resolve a subscriber's grant on one table: the records API's roles and row
+ * context (on a row-rule table the guard adds the caller's `user_access` roles
+ * and loads what the rule reads), then the read plan. The handshake and the
+ * periodic re-check both resolve through here, so a connection is never judged
+ * by a second path that could drift from the first.
  */
-const applyFieldSelection = (
-  event: Record<string, unknown>,
-  fields: readonly string[] | undefined
-): Record<string, unknown> => {
-  if (!fields) return event
-  const whitelist = new Set(fields)
-  return {
-    ...event,
-    ...(event['record'] !== undefined
-      ? { record: pickRecordFields(event['record'], whitelist) }
-      : {}),
-    ...(event['oldRecord'] !== undefined
-      ? { oldRecord: pickRecordFields(event['oldRecord'], whitelist) }
-      : {}),
-  }
+const resolveSubscriptionGrant = async (
+  session: { readonly userId: string },
+  caller: GuardCaller,
+  table: Table,
+  app: App
+): Promise<SubscriptionGrant> => {
+  const guard = await resolveGuardForTable(session, caller, table, app)
+  const effectiveRoles =
+    guard?.effectiveRoles ?? buildEffectiveRoles(caller.userRole, caller.userGroups)
+  const plan = resolveReadPlan(table, { userRole: caller.userRole, effectiveRoles }, app, guard)
+  const streamColumns = streamColumnsOf(app, table, plan, {
+    role: caller.userRole,
+    groups: caller.userGroups,
+  })
+  const fingerprint = grantFingerprint({
+    allowed: plan.allowed,
+    columns: streamColumns,
+    rowContext: guard?.current,
+  })
+  return { guard, plan, streamColumns, fingerprint }
 }
 
+class SubscriptionGrantError extends Data.TaggedError('SubscriptionGrantError')<{
+  readonly cause: unknown
+}> {}
+
 /**
- * Shape a raw channel event into the wire message for a WebSocket subscriber.
+ * The grant at the handshake, or `undefined` when it could not be read.
  *
- * `delete` events are reduced to `{ type: 'delete', recordId, table }`.
- * `insert` / `update` events carry the field-permission-filtered record (and
- * previous values, for updates) under the canonical change-event shape.
+ * A fault answers exactly as a denial does, and a denial answers exactly as a
+ * missing table: a `500` that only an existing table can produce would tell the
+ * caller the table exists, which the `404` is there to hide.
  */
-const toWebSocketWireMessage = (
-  event: Record<string, unknown>,
-  readableFields: readonly string[] | undefined
-): Record<string, unknown> => {
-  if (event['event'] === 'delete') {
-    return { type: 'delete', recordId: event['recordId'], table: event['table'] }
+const resolveHandshakeGrant = (
+  session: { readonly userId: string },
+  caller: GuardCaller,
+  table: Table,
+  app: App
+): Promise<SubscriptionGrant | undefined> =>
+  Effect.runPromise(
+    Effect.tryPromise({
+      try: () => resolveSubscriptionGrant(session, caller, table, app),
+      catch: (cause) => new SubscriptionGrantError({ cause }),
+    }).pipe(
+      Effect.tapCause((cause: Cause.Cause<SubscriptionGrantError>) =>
+        Effect.sync(() =>
+          logError('[realtime] resolving a subscription grant failed; refusing it', cause, {
+            table: table.name,
+          })
+        )
+      ),
+      // effect-swallow: the refusal IS the answer — a grant that cannot be read
+      // is refused exactly as a missing table is (see above), and the cause is
+      // logged on the way past (E6).
+      Effect.orElseSucceed((): SubscriptionGrant | undefined => undefined)
+    )
+  )
+
+/** The caller's account role and groups, as the table middleware resolves them for a request. */
+const resolveCaller = (userId: string): Promise<GuardCaller> =>
+  Effect.runPromise(
+    provideTableLive(
+      Effect.all({ userRole: getUserRole(userId), userGroups: getUserGroups(userId) })
+    )
+  )
+
+/**
+ * The periodic re-check of one connection's grant: resolve it again from the
+ * account up, and answer whether it is still the one the connection opened
+ * with. The sweep memoises the caller per user and the grant per user and
+ * table, so a user holding several connections to one table costs one
+ * resolution per sweep, not one per connection.
+ */
+const recheckGrant =
+  (input: {
+    readonly session: { readonly userId: string }
+    readonly table: Table
+    readonly app: App
+    readonly fingerprint: string
+  }) =>
+  async (sweep: RecheckSweep): Promise<boolean> => {
+    const { session, table, app, fingerprint } = input
+    const caller = await sweep.memo(`caller:${session.userId}`, () => resolveCaller(session.userId))
+    const grant = await sweep.memo(`grant:${session.userId}:${table.name}`, () =>
+      resolveSubscriptionGrant(session, caller, table, app)
+    )
+    return grant.fingerprint === fingerprint
   }
-  return applyFieldSelection(event, readableFields)
-}
+
+/**
+ * Anti-enumeration (S1): a table the caller may not subscribe to answers
+ * exactly as a table that does not exist — the same `404` and the same body as
+ * `validateTable`'s.
+ */
+const notFoundResponse = (c: Context): Response => notFound(c)
 
 // ---------------------------------------------------------------------------
 // SSE transport
@@ -177,24 +287,18 @@ const toWebSocketWireMessage = (
 
 /** Scoping parameters resolved from a subscription handshake. */
 interface SubscriptionScope {
+  /** Every column the stream may carry to this subscriber (`undefined`: all). */
+  readonly readable: readonly string[] | undefined
+  /** The subscriber's own `?fields=` selection, within {@link readable}. */
   readonly fields: readonly string[] | undefined
   readonly filter: ReturnType<typeof parseSubscriptionFilter>
+  /** The subscriber's row-level read rule; `undefined` when none governs them. */
+  readonly reads: RowReadRule | undefined
+  /** The table's relationship fields, whose values are sent as strings. */
+  readonly links: readonly string[]
 }
 
 const enqueue = enqueueSseMessage
-
-/**
- * Parse the optional comma-separated `fields` query param into a field list.
- * Returns `undefined` when no field selection was requested.
- */
-const parseFieldSelection = (raw: string | undefined): readonly string[] | undefined => {
-  if (raw === undefined || raw.trim() === '') return undefined
-  const fields = raw
-    .split(',')
-    .map((field) => field.trim())
-    .filter((field) => field.length > 0)
-  return fields.length > 0 ? fields : undefined
-}
 
 /**
  * Buffered handshake stream for `fetch`/Playwright `request.get` callers
@@ -232,8 +336,10 @@ const buildLiveResponse = (params: {
    * `onTerminate` exactly once per connection regardless of reason.
    */
   readonly release: () => void
+  /** Hands the registry how this stream is ended when the subscriber's grant changes. */
+  readonly bind: (hooks: ConnectionHooks) => void
 }): Response => {
-  const { c, appId, tableName, scope, release } = params
+  const { c, appId, tableName, scope, release, bind } = params
 
   // REGISTRATION HAPPENS HERE, not inside the stream — and that placement is
   // the whole point of this function's shape.
@@ -260,15 +366,43 @@ const buildLiveResponse = (params: {
   // the moment the request is handled, and `Stream.fromQueue` later drains
   // whatever accumulated. No hand-rolled holding buffer and no replay step,
   // because an unbounded queue already is both.
-  const queue = Effect.runSync(Queue.unbounded<Record<string, unknown>>())
+  const queue = Effect.runSync(Queue.unbounded<Record<string, unknown>, Cause.Done>())
 
   const unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
-    if (!changeEventMatchesFilter(event, scope.filter)) return
+    // Row scope first, on the unfiltered row: the rule may read a column the
+    // subscriber's field whitelist later strips.
+    const scoped = scopeChangeToReader(event, scope.reads)
+    if (scoped === undefined) return
+    // The `?filter=` is judged on the columns the subscriber may read, never on
+    // one stripped from them: a filter on a hidden column would otherwise say,
+    // event by event, what that column holds. Their own `?fields=` selection
+    // narrows the payload only after, so a filter on a readable column they
+    // did not select still works.
+    const readable = applyFieldSelection(scoped, scope.readable)
+    if (!changeEventMatchesFilter(readable, scope.filter)) return
     // eslint-disable-next-line functional/no-expression-statements -- synchronous push into the stream queue, as the listener contract requires
-    Queue.offerUnsafe(queue, applyFieldSelection(event, scope.fields))
+    Queue.offerUnsafe(
+      queue,
+      withStringRelationshipLinks(applyFieldSelection(readable, scope.fields), scope.links)
+    )
   })
 
   const source = Stream.fromQueue(queue)
+
+  // A grant change, or the end of the stream's session, ends the stream:
+  // ending the queue completes the drain, the bridge tears the connection down
+  // through `onTerminate`, and `EventSource` reconnects on its own — to a
+  // handshake that judges the grant and the session as they stand now (a dead
+  // session is refused with 401 by the auth middleware). No re-check is bound: the stream's own lifetime
+  // (`SSE_STREAM_MAX_LIFETIME_MS`, 25 s) is shorter than the re-check interval,
+  // so every reconnect already re-judges it.
+  bind({
+    close: () => {
+      unsubscribe()
+      // eslint-disable-next-line functional/no-expression-statements -- ending the queue is what ends the stream
+      Queue.endUnsafe(queue)
+    },
+  })
 
   return runEffectSse(c, source, (event) => ({ kind: 'data', payload: event }), {
     preamble: [
@@ -300,9 +434,10 @@ const buildLiveResponse = (params: {
 const isWebSocketUpgrade = (c: Context): boolean =>
   (c.req.header('upgrade') ?? '').toLowerCase() === 'websocket'
 
-/** The minimal `send`-capable surface of a Hono WebSocket context. */
+/** The minimal `send`/`close` surface of a Hono WebSocket context. */
 interface SendableWebSocket {
   readonly send: (data: string) => unknown
+  readonly close: (code?: number, reason?: string) => void
 }
 
 /** Per-connection teardown handle held across the WebSocket lifetime. */
@@ -337,10 +472,16 @@ const buildWebSocketEvents = (params: {
   readonly appId: string
   readonly tableName: string
   readonly readableFields: readonly string[] | undefined
+  readonly reads: RowReadRule | undefined
+  readonly links: readonly string[]
   /** Released on `onClose` so the per-user connection counter does not leak. */
   readonly release: () => void
+  /** Hands the registry how this socket is closed and re-checked. */
+  readonly bind: (hooks: ConnectionHooks) => void
+  /** Resolves the grant again and answers whether it still matches. */
+  readonly recheck: NonNullable<ConnectionHooks['recheck']>
 }) => {
-  const { appId, tableName, readableFields, release } = params
+  const { appId, tableName, readableFields, reads, links, release, bind, recheck } = params
   /* eslint-disable functional/immutable-data, functional/no-expression-statements -- per-connection teardown state mutated once on open */
   const state: WebSocketConnectionState = {}
 
@@ -349,12 +490,34 @@ const buildWebSocketEvents = (params: {
       sendWebSocketMessage(ws, { type: 'subscribed', table: tableName })
 
       state.unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
-        sendWebSocketMessage(ws, toWebSocketWireMessage(event, readableFields))
+        const scoped = scopeChangeToReader(event, reads)
+        if (scoped !== undefined)
+          sendWebSocketMessage(
+            ws,
+            withStringRelationshipLinks(toWebSocketWireMessage(scoped, readableFields), links)
+          )
       })
 
       state.heartbeat = setInterval(() => {
         sendWebSocketMessage(ws, { type: 'heartbeat', timestamp: new Date().toISOString() })
       }, REALTIME_TRANSPORT_CONFIG.heartbeatIntervalMs)
+
+      // A grant change or the end of the socket's session — at once from an
+      // in-process door, or at the next re-check for one made elsewhere —
+      // closes the socket with the code the registry hands over (grant-changed:
+      // reconnect; session-ended: sign in again). The listener goes first so
+      // nothing more is sent; `onClose` still runs the rest of the teardown.
+      bind({
+        close: (cause) => {
+          if (state.unsubscribe) state.unsubscribe()
+          try {
+            ws.close(cause.code, cause.reason)
+          } catch {
+            // Already closing — `onClose` runs the teardown path.
+          }
+        },
+        recheck,
+      })
     },
     onMessage(event: { data: unknown }, ws: SendableWebSocket): void {
       // A client-sent `ping` keep-alive is answered with a `pong`.
@@ -381,11 +544,15 @@ const handleWebSocketUpgrade = (params: {
   readonly appId: string
   readonly tableName: string
   readonly readableFields: readonly string[] | undefined
+  readonly reads: RowReadRule | undefined
+  readonly links: readonly string[]
   readonly release: () => void
+  readonly bind: (hooks: ConnectionHooks) => void
+  readonly recheck: NonNullable<ConnectionHooks['recheck']>
 }): Promise<Response> => {
-  const { c, appId, tableName, readableFields, release } = params
+  const { c, appId, tableName, readableFields, reads, links, release, bind, recheck } = params
   const middleware = upgradeWebSocket(() =>
-    buildWebSocketEvents({ appId, tableName, readableFields, release })
+    buildWebSocketEvents({ appId, tableName, readableFields, reads, links, release, bind, recheck })
   )
 
   // `upgradeWebSocket` is a Hono middleware: invoke it directly with a no-op
@@ -430,7 +597,7 @@ const buildSubscriptionHeaders = (
  * names the cap and the retry hint is a flat 30 s rather than the time until a
  * sliding window frees a slot.
  */
-const tooManyConnectionsResponse = (c: Context, current: number, limit: number): Response =>
+export const tooManyConnectionsResponse = (c: Context, current: number, limit: number): Response =>
   tooManyRequestsResponse(c, {
     message: `Concurrent connection limit reached (${current}/${limit}). Close an existing connection and retry.`,
     code: 'TOO_MANY_CONNECTIONS',
@@ -440,9 +607,10 @@ const tooManyConnectionsResponse = (c: Context, current: number, limit: number):
 interface LiveTransportInput {
   readonly c: Context
   readonly app: App
-  readonly session: { readonly userId: string }
-  readonly tableName: string
-  readonly plan: ReadAccessPlan
+  /** The handshake's session: its user, and its own id, which bounds the connection. */
+  readonly session: { readonly id: string; readonly userId: string }
+  readonly table: Table
+  readonly grant: SubscriptionGrant
 }
 
 /**
@@ -464,20 +632,32 @@ interface LiveTransportInput {
  * EFFECTIVE selection, not the requested one.
  */
 const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
-  const { c, app, session, tableName, plan } = input
-  const registration = registerConnection(session.userId)
+  const { c, app, session, table, grant } = input
+  const { plan } = grant
+  const tableName = table.name
+  const reads = readRuleOf(table, grant.guard)
+  const links = relationshipFieldNames(table)
+  const registration = registerConnection(session.userId, session.id)
   if (!registration.accepted) {
     return Promise.resolve(tooManyConnectionsResponse(c, registration.current, registration.limit))
   }
   const requested = parseFieldSelection(c.req.query('fields'))
   const effectiveFields = narrowRequestedColumns(plan, requested)
+  const streamFields = narrowRequestedColumns(
+    { ...plan, columnWhitelist: grant.streamColumns },
+    requested
+  )
   if (isWebSocketUpgrade(c)) {
     return handleWebSocketUpgrade({
       c,
       appId: app.name,
       tableName,
-      readableFields: effectiveFields,
+      readableFields: streamFields,
+      reads,
+      links,
       release: registration.release,
+      bind: registration.bind,
+      recheck: recheckGrant({ session, table, app, fingerprint: grant.fingerprint }),
     })
   }
   const filterExpr = c.req.query('filter')
@@ -492,8 +672,9 @@ const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
       c,
       appId: app.name,
       tableName,
-      scope: { fields: effectiveFields, filter },
+      scope: { readable: grant.streamColumns, fields: streamFields, filter, reads, links },
       release: registration.release,
+      bind: registration.bind,
     })
   )
 }
@@ -504,17 +685,13 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   const table = app.tables?.find((t) => t.name === tableName)
   // validateTable already guarantees the table exists; this is a defensive
   // narrow so the permission check below has a concrete table.
-  if (!table) {
-    return c.json({ success: false, message: 'Table not found', code: 'NOT_FOUND' }, 404)
-  }
+  if (!table) return notFoundResponse(c)
 
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  const plan = resolveReadPlan(table, effectiveRoles, userRole, app)
-  if (!plan.allowed) {
-    // Anti-enumeration: a denied subscription is indistinguishable from a
-    // missing table (S1 — return 404, never 403).
-    return c.json({ success: false, message: 'Table not found', code: 'NOT_FOUND' }, 404)
-  }
+  // Anti-enumeration: a denied subscription — or one whose grant could not be
+  // read — is indistinguishable from a missing table (S1 — 404, never 403/500).
+  const grant = await resolveHandshakeGrant(session, { userRole, userGroups }, table, app)
+  if (grant === undefined || !grant.plan.allowed) return notFoundResponse(c)
+  const { plan } = grant
 
   // [internal ref]: enforce the per-user concurrent transport-connection
   // cap. The handshake-only stream (`fetch` / Playwright `request.get`) does
@@ -523,7 +700,7 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   // register and release on teardown.
   const acceptsEventStream = (c.req.header('accept') ?? '').includes('text/event-stream')
   if (isWebSocketUpgrade(c) || acceptsEventStream) {
-    return openLiveTransport({ c, app, session, tableName, plan })
+    return openLiveTransport({ c, app, session, table, grant })
   }
 
   // Buffered `fetch`/Playwright (Accept: */*) caller — handshake-only stream

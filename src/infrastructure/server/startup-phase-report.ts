@@ -76,7 +76,7 @@ const collectDatabasePhases = (
   AuthConfigRequiredForUserFields | SchemaInitializationError | Error
 > => {
   if (report) return Effect.succeed(report.phases)
-  return runDatabaseStartup(app, parseDatabaseDialectConfig(), false)
+  return runDatabaseStartup(app, parseDatabaseDialectConfig())
 }
 
 /**

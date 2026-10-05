@@ -10,10 +10,12 @@ import { transformRecord } from '@/application/use-cases/tables/record-transform
 import { hasUpdatePermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import { handleRouteError } from './error-handlers'
 import type { App } from '@/domain/models/app'
+import type { FieldWriter } from '@/domain/models/app/tables/field-write-permission-service'
 import type { Context } from 'hono'
 
 /**
@@ -45,7 +47,7 @@ export function checkTableUpdatePermissionWithRole(
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
 
-  if (!hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)) {
+  if (!hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
     // S1 anti-enumeration: authz denial returns 404 with a generic envelope.
     // The pre-S1 code branched on `userRole === 'viewer'` to customise the
     // error message; that branch is intentionally removed so the response
@@ -55,6 +57,7 @@ export function checkTableUpdatePermissionWithRole(
       response: c.json(
         {
           success: false,
+          error: 'Not Found',
           message: 'Resource not found',
           code: 'NOT_FOUND',
         },
@@ -72,13 +75,13 @@ export function checkTableUpdatePermissionWithRole(
 export function filterAllowedFieldsWithRole(
   app: App,
   tableName: string,
-  userRole: string,
+  writer: FieldWriter,
   data: Record<string, unknown>
 ): {
   allowedData: Record<string, unknown>
   forbiddenFields: readonly string[]
 } {
-  const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, data)
+  const forbiddenFields = validateFieldWritePermissions(app, tableName, writer, data)
 
   // Filter out forbidden fields only. `SYSTEM_PROTECTED_FIELDS` is deliberately
   // NOT applied here: stripping a name-matched column from the write silently
@@ -103,7 +106,7 @@ export async function handleNoAllowedFields(config: {
   const { recordId, forbiddenFields, app, c } = config
   // Both callers derive these from the same `getTableContext(c)`, so reading
   // them here keeps the caller-supplied set down to what is genuinely local.
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
   // Filter out system-protected fields from forbidden list
   const attemptedForbiddenFields = forbiddenFields.filter(
     (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
@@ -116,6 +119,7 @@ export async function handleNoAllowedFields(config: {
     return c.json(
       {
         success: false,
+        error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
       },
@@ -132,7 +136,7 @@ export async function handleNoAllowedFields(config: {
     const record = result.success
 
     if (!record) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+      return notFound(c)
     }
 
     // This is the ONLY PATCH branch that emits the `{ record }` envelope, and
@@ -142,7 +146,8 @@ export async function handleNoAllowedFields(config: {
     // cleared the 404 guard above and echoed every read-restricted column on
     // the row. Route it through the same canonical filter every other
     // record-bearing response uses.
-    const readable = filterReadableFields({ app, tableName, userRole, record })
+    const caller = { role: userRole, groups: userGroups }
+    const readable = filterReadableFields({ app, tableName, caller, record })
     return c.json({ record: transformRecord(readable, { app, tableName }) }, 200)
   } catch (error) {
     return handleRouteError(c, error)

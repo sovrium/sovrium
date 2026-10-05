@@ -21,6 +21,10 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * a run in either state would otherwise fail to encode and turn the whole
  * runs listing into a server error.
  *
+ * `rejected` is written when an approval step's request is rejected and the
+ * run stops there; like the two above, a rejected run must decode or its
+ * detail and every listing holding it answer a server error.
+ *
  * `pending` and `retrying` are never written by the engine. They stay in the
  * list for API compatibility, so a client that switches on them keeps
  * compiling.
@@ -34,13 +38,14 @@ export const runStatusSchema = Schema.Literals([
   'failed',
   'skipped',
   'cancelled',
+  'rejected',
   'retrying',
   'timed-out',
   'exhausted',
   'completed-with-errors',
 ]).annotate({
   description:
-    "Automation run status. 'queued' waits for a concurrency slot and 'waiting-approval' waits on an approval step. 'pending' and 'retrying' are never written by the engine and are kept for API compatibility.",
+    "Automation run status. 'queued' waits for a concurrency slot and 'waiting-approval' waits on an approval step. 'rejected' is written when an approval step's request is rejected and the run stops there. 'pending' and 'retrying' are never written by the engine and are kept for API compatibility.",
 })
 
 export type RunStatus = typeof runStatusSchema.Type
@@ -113,6 +118,14 @@ export const runSchema = Schema.Struct({
   error: Schema.NullOr(
     Schema.String.annotate({ description: 'Top-level error message if run failed' })
   ),
+  valuesErasedAt: optionalField(
+    Schema.NullOr(
+      looseIsoDateTime({
+        description:
+          'When the values this run captured were erased with the account of a person they named (ISO 8601); null otherwise. Steps, statuses and timings are kept.',
+      })
+    )
+  ),
 })
 
 export type Run = typeof runSchema.Type
@@ -170,7 +183,8 @@ export const automationApprovalSchema = Schema.Struct({
   status: approvalStatusSchema,
   message: Schema.NullOr(
     Schema.String.annotate({
-      description: "The request's message as shown to approvers, templates rendered",
+      description:
+        "The request's message as shown to approvers, templates rendered; null when the reader may not read what fed it.",
     })
   ),
   approvers: Schema.Union([
@@ -296,38 +310,70 @@ export type ReplayRunRequest = typeof replayRunRequestSchema.Type
 // ─── Trigger Response ────────────────────────────────────────────────────────
 
 /**
- * Public response body for `POST /api/automations/:name/webhook` AND
- * `POST /api/automations/:name/trigger` (manual trigger).
+ * The status a run is answered with, on the webhook and on the manual
+ * trigger alike. `completed` is a clean run; `completed-with-errors` a run
+ * that kept going past a step declaring `continueOnError`; `skipped`,
+ * `cancelled` and `waiting-approval` (a run paused on an approval request)
+ * surface verbatim; every engine-internal failure label (failure, exhausted,
+ * timed-out) collapses to `failed`.
+ */
+export const publicRunStatusSchema = Schema.Literals([
+  'completed',
+  'completed-with-errors',
+  'failed',
+  'skipped',
+  'cancelled',
+  'waiting-approval',
+]).annotate({
+  description:
+    'Run status. `completed` = every action succeeded; `completed-with-errors` = an action failed under `continueOnError` and the run went on; `failed` = an action failed and the run stopped (the run still records); `skipped`, `cancelled`, and `waiting-approval` (paused on an approval request) surface as such.',
+})
+
+export type PublicRunStatus = typeof publicRunStatusSchema.Type
+
+/**
+ * Default synchronous body of `/api/automations/:name/webhook`: the run's id
+ * and status, and nothing the run read.
  *
- * Both routes share the same shape because they both run the same use case
- * (`runWebhookAutomation` / `runManualAutomation` returning `RunAutomationResult`)
- * and are mapped through `triggerResultBody` in `routes/automations/index.ts`.
+ * A webhook's caller is whoever holds its URL — usually a third-party service
+ * signed in to nothing — so the default answer names the run and never carries
+ * a step's output or error. An author who wants data returned declares it with
+ * a `webhook/response` action (or `trigger.response`), which replaces this body
+ * entirely. The key list lives HERE: the handler builds a value of
+ * {@link WebhookDefaultResponse}, so adding or removing a key is one edit.
+ */
+export const webhookDefaultResponseSchema = Schema.Struct({
+  id: uuid({ description: 'ID of the created run (matches runs API)' }),
+  status: publicRunStatusSchema,
+})
+
+export type WebhookDefaultResponse = typeof webhookDefaultResponseSchema.Type
+
+/**
+ * Response body of the MANUAL trigger, `POST /api/automations/:name/trigger`
+ * (and of a replay). It differs from the webhook's default answer
+ * ({@link webhookDefaultResponseSchema}) on purpose: the manual trigger's caller
+ * is signed in, started the run herself, and every step's reach is intersected
+ * with hers, so the run can hand her back its last output.
  *
- * [internal ref] (Wave-3, 2026-05-04): the trigger response surfaces only the
- * **last action's output** as `output`, mirroring n8n's "When Last Node
- * Finishes" mode. Per-action visibility moved to the runs detail endpoint
- * (`GET /api/automations/runs/:id` → `runDetailSchema.steps[]`). This
- * supersedes the Wave-2 alignment which exposed a per-action
- * map at `actions.<name>` — that contract leaked internal action names
- * into every webhook response and coupled API consumers to action naming.
+ * [internal ref] (Wave-3, 2026-05-04): the response surfaces only the **last
+ * action's output** as `output`, mirroring n8n's "When Last Node Finishes"
+ * mode. Per-action visibility lives at the runs detail endpoint
+ * (`GET /api/automations/runs/:id` → `runDetailSchema.steps[]`).
  *
- * Currently exported for documentation / future OpenAPI wiring only — the
- * route handler does not validate against this schema. Callers may import
- * `TriggerResponse` for type-safe response handling.
+ * Exported for documentation / OpenAPI — the route handler does not validate
+ * against this schema.
  */
 export const triggerResponseSchema = Schema.Struct({
   success: Schema.Literal(true).annotate({
     description: 'Run was dispatched (downstream failures still produce true)',
   }),
   id: uuid({ description: 'ID of the created run (matches runs API)' }),
-  status: Schema.Literals(['completed', 'failed']).annotate({
-    description:
-      'Terminal run status. `completed` = all actions succeeded; `failed` = at least one action failed (the run still records). Always synchronous: no `accepted` (async mode is not implemented).',
-  }),
+  status: publicRunStatusSchema,
   output: optionalField(
     Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
-        'Output of the last action that produced non-empty output (n8n parity). Walks the executed-step list from the tail and returns the first `outcome.output` it finds — actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. Overridden entirely by an explicit `webhook.response` action when the automation defines one. For per-action breakdown, call `GET /api/automations/runs/:id`.',
+        'Output of the last action that produced non-empty output (n8n parity). Walks the executed-step list from the tail and returns the first `outcome.output` it finds — actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. For per-action breakdown, call `GET /api/automations/runs/:id`.',
     })
   ),
   error: optionalField(

@@ -440,13 +440,14 @@ const localiseMarkdownSource = (
  */
 const buildCollectionNav = async (
   page: Page,
-  routeParams: Readonly<Record<string, string>>
+  routeParams: Readonly<Record<string, string>>,
+  isArticleReadable: ((frontmatter: Readonly<Record<string, string>>) => boolean) | undefined
 ): Promise<CollectionNavData | undefined> => {
   const { contentDir } = page
   if (contentDir === undefined) return undefined
   if (contentDir.nav?.enabled !== true) return undefined
   const currentSlug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
-  return listContentDir(contentDir, page.path, currentSlug)
+  return listContentDir(contentDir, page.path, currentSlug, isArticleReadable)
 }
 
 /**
@@ -715,7 +716,13 @@ export async function resolveMarkdownPage(
    * the single canonical URL is the base path itself, never the index article's
    * slugged URL. `undefined` for ordinary slugged article renders.
    */
-  indexBasePathPattern?: string
+  indexBasePathPattern?: string,
+  /**
+   * [internal ref] — which articles the reader may open, by their front matter
+   * `access`: the sidebar and the previous/next links list only those. Absent
+   * lists every article, as before.
+   */
+  isArticleReadable?: (frontmatter: Readonly<Record<string, string>>) => boolean
 ): Promise<ResolvedMarkdownPage | undefined> {
   const pageSourceFile = derivePageSourceFile(page)
   const contentDirOutcome = await loadContentDirSource(page, routeParams)
@@ -733,7 +740,7 @@ export async function resolveMarkdownPage(
   const composedHtml = await composeMarkdownHtml(rendered, app)
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
-  const collectionNav = await buildCollectionNav(page, routeParams)
+  const collectionNav = await buildCollectionNav(page, routeParams, isArticleReadable)
   const chrome = await resolvePageChrome({
     page,
     routeParams,

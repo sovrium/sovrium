@@ -16,16 +16,15 @@ import {
 } from '@/application/use-cases/tables/record-lifecycle-programs'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
-import { hasDeletePermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
   provideTableWithAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { handleRestoreRecordError, handleRouteError } from './error-handlers'
 import {
@@ -37,6 +36,7 @@ import { checkDeleteGate } from './record-delete-gate'
 import {
   enforceFormMutationGate,
   enforceRestoreGate,
+  passesUnguardedTableGate,
   resolveGuardForTable,
 } from './row-level-guard'
 import type { App } from '@/domain/models/app'
@@ -74,18 +74,18 @@ function deleteFailureResponse(c: Context, error: unknown): Response {
     '_tag' in error &&
     error._tag === 'ValidationError'
   if (isDriverOriginatedFailure(error) || isValidationRefusal) return handleRouteError(c, error)
-  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  return notFound(c)
 }
 
 /**
- * Fire table webhooks AND publish a realtime `delete` change event for a
- * successful delete (fire-and-forget). Shared by the permanent-delete and
- * soft-delete pipelines so both dispatch `event: 'delete'` consistently.
- * `skip` (e.g. row absent, restrict-violation) short-circuits to a no-op so
- * no delivery row is logged and no change event is broadcast.
+ * Fire table webhooks for a successful delete (fire-and-forget). Shared by the
+ * permanent-delete and soft-delete pipelines so both dispatch `event: 'delete'`
+ * consistently. `skip` (e.g. row absent, restrict-violation) short-circuits to
+ * a no-op so no delivery row is logged.
  *
- * Delete change events bypass the subscription filter — a
- * filtered view must still drop a removed row regardless of its field values.
+ * The realtime `delete` change event is not published here: the delete program
+ * announces every row it removed — cascaded children included — once the
+ * delete commits (`record-change-announcement.ts`).
  */
 function fireDeleteWebhooks(
   app: App,
@@ -98,20 +98,10 @@ function fireDeleteWebhooks(
   return Effect.promise(() =>
     triggerTableWebhooks({
       table: app.tables?.find((t) => t.name === tableName),
+      appEnv: app.env,
       event: 'delete',
       record,
     })
-  ).pipe(
-    Effect.tap(() =>
-      Effect.sync(() =>
-        publishRecordChange({
-          appId: app.name,
-          tableName,
-          event: 'delete',
-          recordId: (record['id'] as string | number | undefined) ?? '',
-        })
-      )
-    )
   )
 }
 
@@ -140,7 +130,7 @@ async function executePermanentDelete({
     // `app` so this pre-fetch refuses a table with no single-value record
     // address, rather than being the statement that names its missing `id`.
     const previous = yield* rawGetRecordProgram(session, tableName, recordId, app)
-    const success = yield* permanentlyDeleteRecordProgram(session, tableName, recordId)
+    const success = yield* permanentlyDeleteRecordProgram(session, tableName, recordId, app)
     return { previous, success }
   }).pipe(
     Effect.tap(({ previous, success }) => {
@@ -161,8 +151,7 @@ async function executePermanentDelete({
   )
   const result = await runRequestEffect(c, Effect.result(provideTableWithAutomationsLive(program)))
   if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
-  if (!result.success.success)
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  if (!result.success.success) return notFound(c)
   return c.json({ success: true }, 200)
 }
 
@@ -223,8 +212,7 @@ function softDeleteResultToResponse(
       400
     )
   }
-  if (!result.success)
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  if (!result.success) return notFound(c)
   if (result.setNullPerformed) return c.json({ success: true }, 200)
   // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
   return c.body(null, 204)
@@ -331,8 +319,9 @@ async function executePurge({
     // co-firing request —.
     const keysToDelete = (
       await Effect.runPromise(
-        Effect.all(
-          keys.map((ref) =>
+        Effect.forEach(
+          keys,
+          (ref) =>
             // effect-promise: total -- `isFileKeyReferencedElsewhere` runs its query through `runTableProgram`, which resolves an `Effect.result`; a failed lookup returns `false` as a value rather than rejecting.
             Effect.promise(async () => {
               const referenced = await isFileKeyReferencedElsewhere({
@@ -343,8 +332,7 @@ async function executePurge({
                 attachmentFieldNames,
               })
               return referenced ? undefined : ref
-            })
-          ),
+            }),
           { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
         )
       )
@@ -361,7 +349,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   const gateError = await checkDeleteGate({
     c,
@@ -379,20 +367,13 @@ export async function handleDeleteRecord(c: Context, app: App) {
   const permanent = c.req.query('permanent') === 'true'
   const purge = c.req.query('purge') === 'true'
 
-  // Pure permanent delete (no storage cleanup) requires admin role.
-  // S1 anti-enumeration: non-admin attempts return 404 so the
-  // admin-only delete boundary is not discoverable.
+  // Both irreversible deletes — a permanent delete and a purge — are reserved
+  // to an admin-equivalent role, whatever the caller's `delete` grant.
+  // S1 anti-enumeration: anyone else gets the 404 of a missing record, so
+  // the boundary is not discoverable, and nothing is deleted.
+  if ((permanent || purge) && !isAdminEquivalent(userRole, app)) return notFound(c)
+
   if (permanent) {
-    if (!isAdminRole(userRole)) {
-      return c.json(
-        {
-          success: false,
-          message: 'Resource not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      )
-    }
     return executePermanentDelete({
       session,
       tableName,
@@ -404,7 +385,6 @@ export async function handleDeleteRecord(c: Context, app: App) {
   }
 
   // Purge: remove attached storage files then permanently delete the DB row.
-  // Requires the same delete permission already checked above — no extra admin gate.
   if (purge) {
     return executePurge({ session, tableName, recordId, app, c, userId: session.userId })
   }
@@ -420,11 +400,11 @@ export async function handleDeleteRecord(c: Context, app: App) {
  * Performs soft delete and redirects to the _redirect path from form body.
  */
 export async function handleFormDeleteRecord(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Z-3: row-level scoping. Falls back to canonical role-only check when
   // the table doesn't declare rowLevelPermissions (preserves existing
@@ -440,11 +420,12 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
       op: 'delete',
     })
     if (gateError) return gateError
-  } else if (!hasDeletePermission(table, userRole, app.tables)) {
+  } else if (!passesUnguardedTableGate(app, table, { userRole, userGroups }, 'delete')) {
     // S1 anti-enumeration: delete-permission denial returns 404.
     return c.json(
       {
         success: false,
+        error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
       },
@@ -469,7 +450,7 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
 
   if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
   if (!result.success.result.success) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
 
   // The path arrives in the request body, so it is only honoured once proven
@@ -483,30 +464,30 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
 }
 
 export async function handleRestoreRecord(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Z-3: row-level scoping. Restore reuses the delete role gate AND the
-  // read predicate (the user must have been entitled to the row before
-  // it was soft-deleted).
+  // read and delete rules, judged on the trashed row itself.
   if (guard) {
     const gateError = await enforceRestoreGate({
       c,
       table,
       session,
       tableName,
-      recordId,
+      ids: [recordId],
       guard,
     })
     if (gateError) return gateError
-  } else if (!hasDeletePermission(table, userRole, app.tables)) {
+  } else if (!passesUnguardedTableGate(app, table, { userRole, userGroups }, 'delete')) {
     // S1 anti-enumeration: restore-permission denial returns 404.
     return c.json(
       {
         success: false,
+        error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
       },
@@ -515,7 +496,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
   }
 
   const result = await runTableProgram(
-    restoreRecordProgram(session, tableName, recordId, { app, userRole })
+    restoreRecordProgram(session, tableName, recordId, { app, userRole, userGroups })
   )
 
   if (result._tag === 'Failure') {
@@ -523,7 +504,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
   }
 
   if (!result.success.success) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
 
   return c.json(result.success, 200)

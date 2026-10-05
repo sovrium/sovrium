@@ -8,8 +8,8 @@
 /*
  * The Action union and the narrowed row-click union, assembled from the
  * per-variant siblings. This module is the one every consumer names, so it
- * re-exports the whole variant surface: the split is a file boundary, never
- * a change to what `action` exports.
+ * re-exports the variant schemas and types those consumers import through it;
+ * the rest are imported from their sibling directly.
  *
  * - `action-response.ts`   — the shared post-action vocabulary (toast, onSuccess/onError)
  * - `action-operations.ts` — auth, crud, automation (engine operations)
@@ -27,32 +27,16 @@ import {
 import { FetchActionSchema } from './action-fetch'
 import { AuthActionSchema, AutomationActionSchema, CrudActionSchema } from './action-operations'
 
+export { ActionResponseSchema } from './action-response'
+export { CrudActionSchema } from './action-operations'
+export { NavigateActionSchema, OpenDrawerActionSchema, ToastActionSchema } from './action-client'
 export {
-  ActionResponseSchema,
-  ActionResponseTypeSchema,
-  ToastSchema,
-  ToastVariantSchema,
-} from './action-response'
-export type { ActionResponse, ActionResponseType, Toast, ToastVariant } from './action-response'
-export { AuthActionSchema, AutomationActionSchema, CrudActionSchema } from './action-operations'
-export type { AuthAction, AutomationAction, CrudAction } from './action-operations'
-export {
-  FilterActionSchema,
-  NavigateActionSchema,
-  OpenDrawerActionSchema,
-  ToastActionSchema,
-} from './action-client'
-export type { FilterAction, NavigateAction, OpenDrawerAction, ToastAction } from './action-client'
-export {
-  FetchActionModeSchema,
-  FetchActionSchema,
   FetchResponseEnvelopeSchema,
   FetchSuccessResponseSchema,
   FetchToastResponseSchema,
 } from './action-fetch'
 export type {
   FetchAction,
-  FetchActionMode,
   FetchResponseEnvelope,
   FetchSuccessResponse,
   FetchToastResponse,
@@ -197,7 +181,40 @@ export const RowClickActionSchema = Schema.Union([
   })
 )
 
+/**
+ * Card Click Action
+ *
+ * What a click on a card does — a board card (`kanban.card.onClick`) or a
+ * gallery card (`gallery.galleryCard.onClick`): the two verbs a grid row and
+ * a list item take, and no others.
+ *
+ * Both cards used to accept the full eight-member {@link ActionSchema}, and
+ * both handlers only ever read a navigate path. `{ action: 'openDrawer',
+ * component }` — the shape a grid's `onRowClick` takes — validated on a card
+ * and then did nothing, and a `{ type: 'crud' }` or `{ type: 'fetch' }`
+ * validated just as quietly. Narrowing the union turns that runtime silence
+ * into a decode error the author can act on, in the type, the decoder and the
+ * published JSON Schema at once.
+ *
+ * ONE schema for both cards, so a card is one vocabulary wherever it is drawn.
+ * Deliberately NOT {@link RowClickActionSchema} itself, for the reason the
+ * record drawer's click on a related row gives: that node carries an
+ * identifier and a description written for a grid, and a card needs its own
+ * words. The two variants are the same schemas, so the vocabulary is one.
+ */
+export const CardClickActionSchema = Schema.Union([
+  NavigateActionSchema,
+  OpenDrawerActionSchema,
+]).annotate({
+  identifier: 'CardClickAction',
+  title: 'Card Click Action',
+  description:
+    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openDrawer` opens that record in the named drawer on the page, as a grid row click does. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
+})
+
 /** @public */
 export type Action = Schema.Schema.Type<typeof ActionSchema>
 /** @public */
 export type RowClickAction = Schema.Schema.Type<typeof RowClickActionSchema>
+/** @public */
+export type CardClickAction = Schema.Schema.Type<typeof CardClickActionSchema>

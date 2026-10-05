@@ -1,5 +1,17 @@
+# The projects a team works on. Each task belongs to one.
+#
+# `permissions` is what makes the table reachable at all: a table that names
+# no reader is left out of `GET /api/tables` for every caller. Here every role
+# reads; an admin or a member creates and edits; only an admin deletes. A
+# caller who may not do something is answered 404, never 403, so the API does
+# not confirm what it refuses.
 id: 1
 name: projects
+permissions:
+  read: [admin, member, viewer]
+  create: [admin, member]
+  update: [admin, member]
+  delete: [admin]
 fields:
   - id: 1
     name: name
@@ -16,6 +28,8 @@ fields:
       - Active
       - Completed
       - Archived
+  # Stamped by the engine with whoever created the row; a seeded row reads
+  # "system", which tells demo data from real data at a glance.
   - id: 4
     name: created_by
     type: created-by

@@ -1,25 +1,37 @@
 # docs-site
 
-A documentation website built with Sovrium's markdown pages feature — an Astro Starlight / Docusaurus alternative. The docs live as plain `.md` files under `content/docs/`, authored in any editor and tracked in Git. A single `contentDir` collection page turns that folder into one route per file, with a frontmatter-grouped sidebar, automatic prev/next links, a table of contents, and Shiki-highlighted code — all from configuration. The home page shows the inline-markdown mode; the docs section shows the file-based content-directory mode.
+Docs — a documentation website whose every page is a markdown file in the repository. A
+landing page with the one command that starts it and three ways in; behind it the
+documentation itself: a sidebar of sections, the page with its outline, the date it was last
+updated, a link to edit its source, previous and next across sections, typed callouts and
+highlighted code. Every page is public; there is no database content and no sign-in.
 
 ## This app at a glance
 
-- **Pages** (2): home, docs
-- **Singletons**: theme
-- **Markdown content**: 5 file(s) under `content/`
-- **Static assets**: `public/` (served at the site root)
+- **Pages** (3): docs (`/docs/:path*`, one route per file under `content/docs/`, `/docs`
+  itself is `introduction.md`), home (`/`), not-found (`/404`, served for any address that
+  answers nothing)
+- **Markdown content**: `content/docs/` — two sections, `getting-started` at the root and
+  `guides/` in a folder of its own; each page's frontmatter carries `title`, `description`,
+  `category`, `order` and `updated`. `guides/theming.md` is a draft, left out until its
+  `draft: true` line is removed
+- **Singletons**: design
+- **Static assets**: `public/` (served at the site root; the introduction's picture is in
+  `public/docs/`)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. A page is a
+markdown file: add one under `content/docs/` with a `category` the sidebar already knows
+(`config/pages/docs.yaml`, `groupLabels`), an `order` that places it where previous and next
+should find it, and an `updated` date. Point `contentDir.editUrl` in `config/pages/docs.yaml`
+at the real repository. The design system is in `config/design.yaml`: read its comments
+before changing a colour, keep one accent, and keep colour for what a callout means (a tip, a
+warning, a page that is not here). Start a step with its verb and show the command before
+explaining it.
 
 ---
 

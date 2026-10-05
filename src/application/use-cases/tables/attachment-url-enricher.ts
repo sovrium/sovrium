@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createHmac } from 'node:crypto'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { parseJsonArrayCell, parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
+import { signSignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
@@ -29,8 +29,8 @@ import type { App } from '@/domain/models/app'
  *   session-free download capability for a bucket that needs none.
  *
  * The function is pure-with-respect-to-time once `now` is fixed by the
- * caller: HMAC is the only crypto operation and matches the signer used by
- * `src/presentation/api/routes/buckets/signed-urls.ts` so the resulting URLs
+ * caller: HMAC is the only crypto operation, through the signer shared with
+ * `src/presentation/api/buckets/signed-urls.ts`, so the resulting URLs
  * verify successfully when `GET`ed through that handler.
  *
  * ── Shape promotion, and its two bounds ──────────────────────
@@ -60,18 +60,15 @@ const DEFAULT_EXPIRES_IN_SECONDS = 3600
 const signingSecret = (env: Readonly<NodeJS.ProcessEnv>): string => resolveStorageSigningSecret(env)
 
 /**
- * Compute the HMAC-SHA256 download token. Bound to the same payload string
- * the signed-URL serve handler verifies (`bucket|path|operation|expires`).
+ * Compute the HMAC-SHA256 download token through the one shared signer, so it
+ * is bound to exactly the claims the signed-URL serve handler verifies.
  */
 const computeDownloadToken = (
   env: Readonly<NodeJS.ProcessEnv>,
   bucket: string,
   path: string,
   expires: number
-): string =>
-  createHmac('sha256', signingSecret(env))
-    .update(`${bucket}|${path}|download|${expires}`)
-    .digest('hex')
+): string => signSignedUrl(signingSecret(env), { bucket, path, operation: 'download', expires })
 
 /**
  * Type-guard for an attachment JSONB object carrying a storage key. We

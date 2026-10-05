@@ -620,7 +620,42 @@
    * Initializes the language switcher on page load
    * Caches DOM elements and attaches event listeners
    */
+  /**
+   * Point the two-language toggle at the same page in the other language.
+   * The server renders the other language's root, the only address it can
+   * know; the browser holds the full path, query and hash.
+   */
+  function retargetToggle() {
+    const link = document.querySelector('[data-language-toggle]')
+    if (!link) {
+      return
+    }
+    const code = link.getAttribute('hreflang')
+    if (!code) {
+      return
+    }
+    const segments = window.location.pathname.split('/').filter(Boolean)
+    const rest = languageFromPath() ? segments.slice(1) : segments
+    const newUrl = new URL(`/${code}/${rest.join('/')}`, window.location.origin)
+    newUrl.search = window.location.search
+    newUrl.hash = window.location.hash
+    // Read off the parser's `href`, never reassembled from `search` and `hash`:
+    // those two carry the address bar's own text, and a URL rebuilt from them
+    // is DOM text written back into an attribute. `href` is the parsed,
+    // re-serialised address, on this origin under the language code the server
+    // stamped on the link.
+    link.setAttribute('href', newUrl.href)
+    link.addEventListener('click', function (event) {
+      event.stopPropagation()
+      if (languagesConfig.persistSelection ?? true) {
+        rememberLanguage(code)
+      }
+    })
+  }
+
   function init() {
+    retargetToggle()
+
     // Cache DOM elements once
     currentLanguageEl = document.querySelector('[data-testid="current-language"]')
     languageCodeEl = document.querySelector('[data-testid="language-code"]')

@@ -9,9 +9,15 @@ import { SQL } from 'bun'
 import { Effect, Data, type Config } from 'effect'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
+  NO_AUTHORED_TABLE_IDS,
+  type AuthoredTableIds,
+} from '@/domain/models/app/tables/authored-table-ids-service'
+import {
   parseDatabaseDialectConfig,
   type DatabaseDialectConfig,
 } from '@/domain/models/process-env/database/database-dialect'
+import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
@@ -32,12 +38,13 @@ import {
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
 import {
   tableExists,
-  executeSQL,
+  executeSQLStatements,
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import { generateJunctionTableDDL, generateJunctionTableName } from '../sql/sql-generators'
+import { generateJunctionForeignKeyRestoreSQL } from '../sql/sql-junction-tables'
 import {
   createOrMigrateTableEffect,
   createLookupViewsEffect,
@@ -48,6 +55,7 @@ import * as viewGenerators from '../views/view-generators'
 import { applySchemaDefaults } from './apply-schema-defaults'
 import { dropCommandSearchFtsObjects, reconcileCommandSearchIndexes } from './command-search-fts'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
+import { recomputeFormulasForOlderEngine } from './formula-engine-recompute'
 import {
   getPreviousSchema,
   recordMigration,
@@ -239,17 +247,28 @@ const addCircularFKConstraints = (
     /* eslint-enable functional/no-loop-statements */
   })
 
+/** A link table to ensure: its DDL, then (PostgreSQL) the keys a rebuild may have dropped. */
+interface JunctionTableSpec {
+  readonly name: string
+  readonly ddl: string
+  readonly restoreKeys: readonly string[]
+}
+
 /** Collect junction table specs for many-to-many relationships (functional construction with deduplication) */
 const collectJunctionTableSpecs = (
   sortedTables: readonly Table[],
   tableUsesView: ReadonlyMap<string, boolean>
-): ReadonlyMap<string, { readonly name: string; readonly ddl: string }> => {
+): ReadonlyMap<string, JunctionTableSpec> => {
   const junctionSpecs = sortedTables.flatMap((table) => {
     const manyToManyFields = table.fields.filter(isManyToManyRelationship)
     return manyToManyFields.map((field) => {
       const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
       const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
-      return [junctionTableName, { name: junctionTableName, ddl }] as const
+      // PostgreSQL: a rebuild of either end dropped the link table's keys (CASCADE).
+      const restoreKeys = isSqliteRuntime()
+        ? []
+        : generateJunctionForeignKeyRestoreSQL(table.name, field.relatedTable, tableUsesView)
+      return [junctionTableName, { name: junctionTableName, ddl, restoreKeys }] as const
     })
   })
 
@@ -260,7 +279,7 @@ const collectJunctionTableSpecs = (
 /** Create junction tables for many-to-many relationships */
 const createJunctionTables = (
   tx: TransactionLike,
-  junctionTableSpecs: ReadonlyMap<string, { readonly name: string; readonly ddl: string }>
+  junctionTableSpecs: ReadonlyMap<string, JunctionTableSpec>
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (junctionTableSpecs.size === 0) return
@@ -268,8 +287,9 @@ const createJunctionTables = (
       tables: Array.from(junctionTableSpecs.keys()).join(', '),
     })
     // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
-    yield* Effect.all(
-      Array.from(junctionTableSpecs.values()).map((spec) => executeSQL(tx, spec.ddl)),
+    yield* Effect.forEach(
+      Array.from(junctionTableSpecs.values()),
+      (spec) => executeSQLStatements(tx, [spec.ddl, ...spec.restoreKeys]),
       { concurrency: 'unbounded' }
     )
   })
@@ -296,15 +316,15 @@ const createAllViews = (
     // time). Created sequentially (`concurrency: 1`) so that order is honoured on
     // the shared transaction connection.
     const viewOrderedTables = sortTablesByViewDependencies(sortedTables)
-    yield* Effect.all(
-      viewOrderedTables.map((table) => createLookupViewsEffect(tx, table, sortedTables)),
+    yield* Effect.forEach(
+      viewOrderedTables,
+      (table) => createLookupViewsEffect(tx, table, sortedTables),
       { concurrency: 1 }
     )
     // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
-    yield* Effect.all(
-      sortedTables.map((table) => createTableViewsEffect(tx, table)),
-      { concurrency: 'unbounded' }
-    )
+    yield* Effect.forEach(sortedTables, (table) => createTableViewsEffect(tx, table), {
+      concurrency: 'unbounded',
+    })
   })
 
 /**
@@ -341,7 +361,7 @@ const ensureConditionalSystemTables = (
  * Bring the SET of relations in line with the config, before any table is
  * created or altered (Steps 3.5, 4 and 5.5, in that order):
  *
- *  - 3.5 rename tables whose name changed (same id);
+ *  - 3.5 rename tables whose name changed under an id the author wrote;
  *  - 4 drop the tables the config no longer owns — the `_base` table behind a
  *    view-backed table and every many-to-many junction table ARE owned, and a
  *    table that still holds rows is refused unless the one-shot
@@ -357,18 +377,31 @@ const reconcileRelationSet = (
   options: SchemaInitOptions
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
-    yield* renameTablesIfNeeded(tx, tables, previousSchema)
-    yield* dropObsoleteTables(tx, tables, options)
+    yield* renameTablesIfNeeded(
+      tx,
+      tables,
+      previousSchema,
+      options.authoredTableIds ?? NO_AUTHORED_TABLE_IDS
+    )
+    yield* dropObsoleteTables(tx, tables, options, previousSchema)
     yield* reconcileViewTopology(tx, tables)
   })
 
 /**
- * What a caller may consent to on this run. The boot passes nothing, so it can
- * never drop a table that still holds rows; `sovrium migrate
- * --allow-destructive` is the only caller that sets `allowDestructive`.
+ * What a caller may consent to on this run, and what the decode knew. The boot
+ * passes no consent, so it can never drop a table that still holds rows;
+ * `sovrium migrate --allow-destructive` is the only caller that sets
+ * `allowDestructive`.
  */
 export interface SchemaInitOptions {
   readonly allowDestructive?: boolean
+  /**
+   * The ids the author WROTE, as `decodeAppConfigObject` returned them beside
+   * the config: only a name change under one of these is a rename. Omitted, no
+   * id reads as written — a rename is then refused as a populated drop, never
+   * guessed.
+   */
+  readonly authoredTableIds?: AuthoredTableIds
 }
 
 /** Execute all migration steps within a transaction */
@@ -415,7 +448,7 @@ const executeMigrationSteps = (
     })
 
     // Apply schema-author-friendly defaults: scope-table TEXT PKs (Z-1/Z-2)
-    // + JSONB upgrade for form-referenced single-attachment columns (F-11).
+    // + JSONB upgrade for form-referenced single-attachment columns.
     // PK-type map is built from this list (post-defaults) so scope-table
     // parents resolve relationship FK columns to TEXT.
     const tablesForCreation = applySchemaDefaults(sortedTables, app)
@@ -431,6 +464,8 @@ const executeMigrationSteps = (
       lookupViewModule: lookupViewGenerators,
       hasAuthConfig: !!app.auth,
     })
+
+    yield* recomputeFormulasForOlderEngine(tx, tablesForCreation) // Step 6.5
 
     // Step 7: Add FK constraints for circular dependencies
     yield* addCircularFKConstraints(tx, sortedTables, circularTables, tableUsesView)
@@ -508,7 +543,7 @@ const cleanupObsoleteViews = (
         sqliteDb.close()
       }
     } else {
-      const db = new SQL({ url: dialectConfig.databaseUrl, max: 1 })
+      const db = new SQL(postgresClientOptions(dialectConfig.databaseUrl, { max: 1 }))
       try {
         yield* Effect.tryPromise({
           try: async () => {

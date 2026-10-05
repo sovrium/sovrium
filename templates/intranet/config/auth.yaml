@@ -1,10 +1,27 @@
+# Sign-in for everyone at the company, closed to strangers.
+#
+# The link comes first: someone types their work email and receives a link
+# that signs them in — no password to remember. It needs SMTP (see
+# `.env.example`); until mail is configured, the password is the way in, on
+# its own page behind "Use a password instead", so the sign-in page never
+# shows two forms at once.
+#
+# Nobody signs themselves up. The first administrator comes from
+# `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first start, and everyone
+# else is added with `sovrium admin create <email>`. The demo accounts come
+# from `seed/users.yaml`.
+#
+# Three roles: `member` for every employee, `managers` for the people who
+# publish announcements, and `admin` for IT, who can also delete one. Each
+# table's `permissions` block says which is which.
+allowSignUp: false
+defaultRole: member
 strategies:
-  - type: emailAndPassword
-    minPasswordLength: 8
   - type: magicLink
     expirationMinutes: 15
-defaultRole: member
+  - type: emailAndPassword
+    minPasswordLength: 8
 roles:
   - name: managers
-    description: People managers — publish announcements and manage the directory
+    description: People managers — publish announcements and set a must-read date
     level: 60

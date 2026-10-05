@@ -8,8 +8,9 @@
 import { sql } from 'drizzle-orm'
 import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { validateColumnName } from '../statement/validation'
+import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
+import { rowAfterTriggers } from './record-fetch-helpers'
 
 /**
  * Validate fields object is not empty
@@ -73,7 +74,7 @@ export async function executeRecordUpdateCRUD(
   try {
     const result = await executeRaw(
       tx,
-      sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+      sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
     )
 
     // If no rows were updated, record not found or access denied
@@ -82,7 +83,7 @@ export async function executeRecordUpdateCRUD(
       throw new Error(`Record not found or access denied`)
     }
 
-    return result[0]!
+    return { ...(await rowAfterTriggers(tx, tableName, result[0]!)) }
   } catch (error) {
     // Preserve "not found" or "access denied" in wrapper message for API error handling
     const errorMsg = error instanceof Error ? error.message : String(error)

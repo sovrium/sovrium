@@ -1,10 +1,15 @@
-name: expenses
-version: 1.0.0
+# Halden Expenses — a small team's expense claims in one config.
+#
+# Each person files what they paid with its receipt and sees only their own
+# claims, on the server. Finance reviews with the receipt beside the claim,
+# decides in the app, and repays the approved claims in one transfer. This is
+# the file you diff, fork and redeploy.
+name: halden-expenses
+version: 2.0.0
 description: >-
-  Expense tracking — members file expenses with receipts and see only their
-  own (row-level permissions); admins approve each one through a paused
-  automation and watch spend by category on a dashboard. Not an accounting
-  system — a clean approval trail in your own database.
+  A small team's expense claims: each person files what they paid with its
+  receipt and sees only their own claims, finance decides in the app with the
+  receipt beside the claim, and approved claims are exported and marked repaid.
 
 auth:
   $ref: ./config/auth.yaml
@@ -12,19 +17,29 @@ auth:
 design:
   $ref: ./config/design.yaml
 
-# Named storage bucket for receipt uploads (local disk by default; S3 when the
-# operator sets STORAGE_PROVIDER).
-buckets:
-  - $ref: ./config/buckets/receipts.yaml
-
 tables:
   - $ref: ./config/tables/expenses.yaml
 
-pages:
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/my-expenses.yaml
-  - $ref: ./config/pages/review.yaml
+# The Add expense dialog on My expenses opens this form.
+forms:
+  - $ref: ./config/forms/add-expense.yaml
 
-# Automations run server-side with full history in your own database.
+# Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/approve-expense.yaml
+  - $ref: ./config/automations/reject-with-reason.yaml
+  - $ref: ./config/automations/mark-reimbursed.yaml
+
+# Listed in the order of the sidebar: your own claims first, then the two
+# pages only finance opens.
+pages:
+  - $ref: ./config/pages/my-expenses.yaml
+  - $ref: ./config/pages/review.yaml
+  - $ref: ./config/pages/reimburse.yaml
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/sign-in.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last row of a grid.
+badge:
+  placement: footer

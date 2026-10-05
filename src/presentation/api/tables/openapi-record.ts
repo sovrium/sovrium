@@ -11,6 +11,7 @@ import {
   getCommentResponseSchema,
   getRecordHistoryResponseSchema,
   listCommentsResponseSchema,
+  mentionableUsersResponseSchema,
   updateCommentResponseSchema,
 } from '@/domain/models/api/tables/comments'
 import {
@@ -67,7 +68,8 @@ const routes: readonly RouteSpec[] = [
     method: 'post',
     pathTemplate: '/api/tables/{tableSlug}/records',
     summary: 'Create a record',
-    description: 'Creates a new record in the table with the given field values.',
+    description:
+      'Creates a new record in the table with the given field values. A caller granted create on a table she may not read is answered `{ "created": 1 }` alone, with no field value and no record id.',
     operationIdBase: 'createRecord',
 
     request: { body: effectJsonBody(createRecordRequestSchema) },
@@ -183,6 +185,20 @@ const routes: readonly RouteSpec[] = [
     responses: {
       201: effectJsonResponse(createCommentResponseSchema, 'Comment created'),
       400: errorResponse('Validation error'),
+      401: errorResponse('Unauthorized'),
+      404: errorResponse('Record not found'),
+    },
+  },
+  {
+    method: 'get',
+    pathTemplate: '/api/tables/{tableSlug}/records/{recordId}/comments/mentionable',
+    summary: 'List people who can be mentioned on a record',
+    description:
+      'The candidate source for the comment composer: people who can read the record, other than the caller, whose name matches the optional `q` search term. Never returns an email.',
+    operationIdBase: 'listMentionableUsers',
+    parameters: effectParameters(recordOnlyParamSchema, 'path'),
+    responses: {
+      200: effectJsonResponse(mentionableUsersResponseSchema, 'People who can be mentioned'),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Record not found'),
     },

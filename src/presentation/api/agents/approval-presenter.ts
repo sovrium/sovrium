@@ -25,11 +25,13 @@ export const DEFAULT_TIMEOUT_SECONDS = 3600
  *
  * Timeout / escalation deadlines are computed from `now` so a polling client
  * sees consistent absolute timestamps without a background timer.
+ * `requestedById` is the user who started the run, `undefined` for a schedule.
  */
 export const buildApprovalRecord = (
   agent: Agent,
   action: string,
-  payload: Readonly<Record<string, unknown>>
+  payload: Readonly<Record<string, unknown>>,
+  requestedById: string | undefined
 ): ApprovalRecord => {
   const now = Date.now()
   const timeoutSeconds = agent.approval?.timeout ?? DEFAULT_TIMEOUT_SECONDS
@@ -50,6 +52,7 @@ export const buildApprovalRecord = (
     escalatedTo: agent.approval?.escalation?.to,
     escalateAfterMs: escalateAfter === undefined ? undefined : now + escalateAfter * 1000,
     approvedByEmail: undefined,
+    requestedById,
   }
 }
 

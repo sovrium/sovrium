@@ -11,16 +11,20 @@ File actions operate against the app's configured storage, whether that is the l
 | `upload`   | `source`, `path?`, `contentType?` | Uploads a file to storage  |
 | `download` | `key`                             | Downloads a stored file    |
 | `delete`   | `key`                             | Deletes a stored file      |
-| `copy`     | `source`, `destination`           | Copies a stored file       |
-| `move`     | `source`, `destination`           | Moves or renames a file    |
+| `copy`     | `sourceKey`, `destinationKey`     | Copies a stored file       |
+| `move`     | `sourceKey`, `destinationKey`     | Moves or renames a file    |
 | `list`     | `prefix`, `limit?`                | Lists files under a prefix |
+
+A copy or a move keeps the source's bucket: a file uploaded through a bucket stays reachable through that bucket's API, and by `ai/transcribe` with `bucket`, under its new key. A file that belongs to no bucket stays in none.
 
 ## Metadata and access
 
-| Operator      | Props                             | Does                                            |
-| ------------- | --------------------------------- | ----------------------------------------------- |
-| `getMetadata` | `key`                             | Reads size, content type and the rest           |
-| `signUrl`     | `key`, `expiresIn?`, `operation?` | Mints a time-limited URL for download or upload |
+| Operator      | Props                                             | Does                                            |
+| ------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `getMetadata` | `key`                                             | Reads size, content type and the rest           |
+| `signUrl`     | `key`, `expiresIn?`, `operation?`, `contentType?` | Mints a time-limited URL for download or upload |
+
+`contentType` binds the content type of an upload URL, and is ignored for a download.
 
 ## Generation
 
@@ -32,13 +36,13 @@ File actions operate against the app's configured storage, whether that is the l
 
 ## Parsing and transforming
 
-| Operator         | Props                                                                        | Does                                |
-| ---------------- | ---------------------------------------------------------------------------- | ----------------------------------- |
-| `parseCsv`       | `source?`, `key?`, `content?`, `columns?`, `skipRows?`, `delimiter?`         | Parses CSV into rows                |
-| `parseXlsx`      | `source?`, `key?`, `sheet?`, `header?`, `range?`, `skipRows?`                | Parses a worksheet into rows        |
-| `extractText`    | `source`, `format?`                                                          | Extracts text from a document       |
-| `transformImage` | `source`, `width?`, `height?`, `fit?`, `format?`, `quality?`, `destination?` | Resizes or converts an image        |
-| `compress`       | `files`, `filename`, `destination?`                                          | Zips several files into one archive |
+| Operator         | Props                                                                                                                                      | Does                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| `parseCsv`       | `source?`, `key?`, `content?`, `columns?`, `skipRows?`, `delimiter?`                                                                       | Parses CSV into rows                |
+| `parseXlsx`      | `source?`, `key?`, `sheet?`, `header?`, `range?`, `skipRows?`                                                                              | Parses a worksheet into rows        |
+| `extractText`    | `key?` or `source?` (one is required), `format?`                                                                                           | Extracts text from a document       |
+| `transformImage` | `key?` or `source?` (one is required), `operation?`, `width?`, `height?`, `fit?`, `format?` or `outputFormat?`, `quality?`, `destination?` | Resizes or converts an image        |
+| `compress`       | `keys?` or `files?` (one is required), `filename?`, `destination?`                                                                         | Zips several files into one archive |
 
 <!-- sovrium:options FileActionSchema -->
 

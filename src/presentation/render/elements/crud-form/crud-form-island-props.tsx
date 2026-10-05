@@ -23,6 +23,8 @@ export function buildCrudIslandProps(ctx: {
   readonly fieldGroups?: readonly { readonly label: string; readonly fields: readonly string[] }[]
   readonly wizard?: readonly { readonly label: string; readonly fields: readonly string[] }[]
   readonly autoSave?: AutoSaveConfig
+  /** The form's interface strings that differ from English (`form.*`), if any. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }): string {
   const { onSuccess } = ctx.action
   const successPage =
@@ -54,6 +56,7 @@ export function buildCrudIslandProps(ctx: {
     fieldGroups: ctx.fieldGroups,
     wizard: ctx.wizard,
     autoSave: ctx.autoSave,
+    uiStrings: ctx.uiStrings,
     'data-testid': ctx.testId,
     id: ctx.id,
   })

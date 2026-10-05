@@ -70,7 +70,7 @@ export const RowLevelPredicateSchema = Schema.Struct({
         Schema.Struct({
           kind: Schema.Literal('scalar').annotate({
             description:
-              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` the active scope, which `sovrium validate` and the boot refuse in a row rule (use `$currentUser.assignments.<table>` instead).',
           }),
           name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']).annotate({
             description: 'Which property of the signed-in person the value is taken from.',
@@ -79,7 +79,7 @@ export const RowLevelPredicateSchema = Schema.Struct({
         Schema.Struct({
           kind: Schema.Literal('assignment').annotate({
             description:
-              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` the active scope, which `sovrium validate` and the boot refuse in a row rule (use `$currentUser.assignments.<table>` instead).',
           }),
           tableSlug: Schema.String.annotate({
             description: 'Table the signed-in person is assigned through.',
@@ -88,12 +88,12 @@ export const RowLevelPredicateSchema = Schema.Struct({
         Schema.Struct({
           kind: Schema.Literal('activeAssignment').annotate({
             description:
-              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` the active scope, which `sovrium validate` and the boot refuse in a row rule (use `$currentUser.assignments.<table>` instead).',
           }),
         }),
       ]).annotate({
         description:
-          'Which part of the signed-in person the value is read from: one of their own properties, the records they are assigned to in a table, or their currently active assignment.',
+          'Which part of the signed-in person the value is read from: one of their own properties or the records they are assigned to in a table. A row rule naming the active scope (`activeAssignment`) is refused by `sovrium validate` and the boot: scope rows with `$currentUser.assignments.<table>` instead. The active scope narrows page data-source filters only.',
       }),
     }),
   ]).pipe(
@@ -113,7 +113,7 @@ export const RowLevelPredicateSchema = Schema.Struct({
 export type RowLevelPredicate = Schema.Schema.Type<typeof RowLevelPredicateSchema>
 
 /**
- * Row-Level Predicate Group Schema (GAP-3 — composite AND/OR predicates).
+ * Row-Level Predicate Group Schema ([internal ref] — composite AND/OR predicates).
  *
  * A `when` predicate may be either a single `field/operator/value` triple
  * (the original form — fully backward compatible) OR a composite GROUP that
@@ -178,7 +178,7 @@ export const RowLevelPredicateGroupSchema: Schema.Codec<RowLevelPredicateGroup> 
 
 /**
  * A row-level `when` predicate: either a single triple or a composite
- * AND/OR group (GAP-3). The single-triple form is unchanged — composite
+ * AND/OR group. The single-triple form is unchanged — composite
  * groups are purely additive.
  */
 export const RowLevelWhenSchema = Schema.Union([

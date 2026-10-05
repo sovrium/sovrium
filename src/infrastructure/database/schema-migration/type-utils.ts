@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { isFormulaReturningArray } from '../formula/formula-utils'
+import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { mapFieldTypeToPostgres } from '../sql/sql-generators'
+import { mapFormulaResultTypeToPostgres } from '../sql/sql-type-mappings'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -83,12 +87,28 @@ const resolveExpectedColumnType = (
   field: Fields[number],
   tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string =>
-  field.type === 'relationship' &&
-  'relatedTable' in field &&
-  typeof field.relatedTable === 'string' &&
-  tablePrimaryKeyTypes?.has(field.relatedTable) === true
-    ? resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
-    : mapFieldTypeToPostgres(field)
+  field.type === 'formula'
+    ? formulaColumnType(field)
+    : field.type === 'relationship' &&
+        'relatedTable' in field &&
+        typeof field.relatedTable === 'string' &&
+        tablePrimaryKeyTypes?.has(field.relatedTable) === true
+      ? resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
+      : mapFieldTypeToPostgres(field)
+
+/**
+ * The column type a formula is stored in: its `resultType`'s type, as the
+ * column generator declares it — with `[]` for a formula returning an array.
+ * Read as the plain `formula` mapping (`TEXT`), every numeric formula column
+ * looked mistyped, and the next migration of its table converted it to TEXT.
+ */
+function formulaColumnType(field: Fields[number]): string {
+  const base = mapFormulaResultTypeToPostgres(
+    'resultType' in field && typeof field.resultType === 'string' ? field.resultType : undefined
+  )
+  const formula = 'formula' in field && typeof field.formula === 'string' ? field.formula : ''
+  return isFormulaReturningArray(formula) && !base.endsWith('[]') ? `${base}[]` : base
+}
 
 /**
  * Check if column data type matches the expected type from schema
@@ -118,6 +138,36 @@ export const doesColumnTypeMatch = (
   // For other types, exact match required
   return normalizedExpected === normalizedExisting
 }
+
+/**
+ * The formula columns of a table whose live type is not the type this version
+ * declares for them, by name.
+ *
+ * Earlier versions measured every formula column against the plain `formula`
+ * mapping (`TEXT`), so the first migration of a table after any edit converted
+ * its numeric, date and boolean formula columns to TEXT — generated ones
+ * included. The config of such a deployment does not change on upgrade, so
+ * nothing else would ever look at those columns again, and every write to the
+ * table kept failing (`text + integer` in the formula trigger). A formula column
+ * holds no value of its own, so the repair is a rebuild of the table and a
+ * recompute of its trigger formulas; this names the columns that need it.
+ *
+ * A formula returning an array is left out: `information_schema` reports every
+ * array as `ARRAY`, so its element type cannot be compared. PostgreSQL only —
+ * a SQLite column declares an affinity, and no version ever converted one.
+ *
+ * @param liveTypes - column name → the `data_type` the catalog reports
+ */
+export const findDriftedFormulaColumns = (
+  fields: readonly Fields[number][],
+  liveTypes: ReadonlyMap<string, string>
+): readonly string[] =>
+  fields.flatMap((field) => {
+    if (field.type !== 'formula' || !isPhysicalColumnField(field, fields)) return []
+    if ('formula' in field && isFormulaReturningArray(String(field.formula))) return []
+    const live = liveTypes.get(field.name)
+    return live === undefined || doesColumnTypeMatch(field, live) ? [] : [field.name]
+  })
 
 /** Timestamp targets a TEXT column must be cast into explicitly. */
 const TEXT_CASTABLE_TIMESTAMP_TARGETS: ReadonlySet<string> = new Set(['timestamp', 'timestamptz'])
@@ -196,13 +246,13 @@ export const generateAlterColumnTypeStatement = (
 ): string => {
   const targetType = resolveExpectedColumnType(field, tablePrimaryKeyTypes)
   const usingClause = resolveUsingClause(
-    field.name,
+    quoteSqlIdentifier(field.name),
     targetType,
     normalizeDataType(existingDataType),
     normalizeDataType(targetType)
   )
 
-  return `ALTER TABLE ${tableName} ALTER COLUMN ${field.name} TYPE ${targetType}${usingClause}`
+  return `ALTER TABLE ${tableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} TYPE ${targetType}${usingClause}`
 }
 
 /**

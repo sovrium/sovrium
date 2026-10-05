@@ -11,10 +11,9 @@ import { db, type DatabaseError } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import {
   generateJunctionTableName,
-  toSingular,
+  junctionKeyColumns,
 } from '@/infrastructure/database/sql/sql-junction-tables'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { validateTableName } from '../statement/validation'
 
 /**
  * [internal ref]: writing and reading a native `many-to-many` relationship field.
@@ -81,11 +80,8 @@ const junctionInsert = (
   aId: string | number,
   bId: string | number
 ): Readonly<SQL> => {
-  validateTableName(aTable)
-  validateTableName(bTable)
   const junction = generateJunctionTableName(aTable, bTable)
-  const aCol = `${toSingular(aTable)}_id`
-  const bCol = `${toSingular(bTable)}_id`
+  const [aCol, bCol] = junctionKeyColumns(aTable, bTable)
   // Composite primary key (aCol, bCol) makes ON CONFLICT DO NOTHING idempotent
   // on both dialects — re-linking an existing pair is a no-op, not an error.
   return sql`INSERT INTO ${sql.identifier(junction)} (${sql.identifier(aCol)}, ${sql.identifier(bCol)}) VALUES (${coerceId(aId)}, ${coerceId(bId)}) ON CONFLICT DO NOTHING`
@@ -100,6 +96,20 @@ const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>
         ? [own, junctionInsert(link.relatedTable, input.sourceTable, relatedId, input.sourceId)]
         : [own]
     })
+  )
+
+/**
+ * Write a record's junction rows on an OPEN transaction, one statement after
+ * the other — for a caller that must commit or roll back the links together
+ * with the record itself (a batch create).
+ */
+export const writeManyToManyLinksInTransaction = (
+  tx: Parameters<typeof executeRaw>[0],
+  input: LinkManyToManyInput
+): Promise<unknown> =>
+  buildLinkStatements(input).reduce<Promise<unknown>>(
+    (prev, statement) => prev.then(() => executeRaw(tx, statement)),
+    Promise.resolve(undefined)
   )
 
 /**
@@ -124,6 +134,47 @@ export const linkManyToMany = (input: LinkManyToManyInput): Effect.Effect<void, 
   })
 }
 
+/** A single DELETE of the junction row that pairs `aTable` (aId) with `bTable` (bId). */
+const junctionDelete = (
+  aTable: string,
+  bTable: string,
+  aId: string | number,
+  bId: string | number
+): Readonly<SQL> => {
+  const junction = generateJunctionTableName(aTable, bTable)
+  const [aCol, bCol] = junctionKeyColumns(aTable, bTable)
+  return sql`DELETE FROM ${sql.identifier(junction)} WHERE ${sql.identifier(aCol)} = ${coerceId(aId)} AND ${sql.identifier(bCol)} = ${coerceId(bId)}`
+}
+
+/**
+ * Remove the named junction rows of a source record (own junction + reciprocal
+ * mirror), in one transaction. The inverse of {@link linkManyToMany}: a pair
+ * that is not linked is a no-op. A no-op when there is nothing to remove.
+ */
+export const unlinkManyToMany = (
+  input: LinkManyToManyInput
+): Effect.Effect<void, DatabaseError> => {
+  const statements = input.links.flatMap((link) =>
+    link.relatedIds.flatMap((relatedId) => {
+      const own = junctionDelete(input.sourceTable, link.relatedTable, input.sourceId, relatedId)
+      return link.hasReciprocal
+        ? [own, junctionDelete(link.relatedTable, input.sourceTable, relatedId, input.sourceId)]
+        : [own]
+    })
+  )
+  if (statements.length === 0) return Effect.void
+  return Effect.tryPromise({
+    try: () =>
+      db.transaction((tx) =>
+        statements.reduce<Promise<unknown>>(
+          (prev, statement) => prev.then(() => executeRaw(tx, statement)),
+          Promise.resolve(undefined)
+        )
+      ),
+    catch: wrapDatabaseError(`Failed to unlink many-to-many records for ${input.sourceTable}`),
+  })
+}
+
 /** A many-to-many field to resolve for a set of source records. */
 export interface ManyToManyReadField {
   readonly fieldName: string
@@ -145,11 +196,8 @@ const readFieldRows = (
   sourceIds: readonly (string | number)[],
   field: ManyToManyReadField
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
-  validateTableName(sourceTable)
-  validateTableName(field.relatedTable)
   const junction = generateJunctionTableName(sourceTable, field.relatedTable)
-  const srcCol = `${toSingular(sourceTable)}_id`
-  const relCol = `${toSingular(field.relatedTable)}_id`
+  const [srcCol, relCol] = junctionKeyColumns(sourceTable, field.relatedTable)
   const idList = sql.join(
     sourceIds.map((id) => sql`${coerceId(id)}`),
     sql.raw(', ')
@@ -184,16 +232,16 @@ export const readManyToMany = (
   input: ReadManyToManyInput
 ): Effect.Effect<ManyToManyResult, DatabaseError> => {
   if (input.fields.length === 0 || input.sourceIds.length === 0) return Effect.succeed({})
-  return Effect.all(
-    input.fields.map((field) =>
+  return Effect.forEach(
+    input.fields,
+    (field) =>
       Effect.tryPromise({
         try: async () => ({
           field,
           byRecord: foldFieldRows(await readFieldRows(input.sourceTable, input.sourceIds, field)),
         }),
         catch: wrapDatabaseError(`Failed to read many-to-many records for ${input.sourceTable}`),
-      })
-    ),
+      }),
     { concurrency: READ_FIELD_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.map((perField) =>

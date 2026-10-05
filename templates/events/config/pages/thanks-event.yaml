@@ -1,0 +1,47 @@
+# Where a registration lands: `/thanks/<event>`. The page is bound to that one
+# event, so it names it, with its date and its place. The registration form
+# puts the event the visitor chose into the address; nothing of the attendee
+# travels in it.
+name: thanks-event
+path: /thanks/:id
+dataSource:
+  table: events
+  mode: single
+  param: id
+meta:
+  title: You are registered · Fieldday
+  description: Your registration is confirmed. A confirmation is on its way to your inbox.
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: main
+        props:
+          className: mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-4 px-6 pt-16 pb-10 max-md:px-4 max-md:pt-8
+        children:
+          - type: icon
+            props:
+              name: circle-check
+              size: 28
+              className: text-success
+          - type: text
+            element: h1
+            props:
+              className: text-[30px] font-semibold leading-tight tracking-tight text-foreground max-md:text-2xl
+            content: You are registered for $record.name
+          - type: text
+            element: p
+            props:
+              className: text-base text-foreground-muted
+            content: $record.when_label, at $record.place. A confirmation is on its way to your inbox.
+          - type: container
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] font-medium text-foreground hover:bg-background-subtle
+                content: See the other events
+      - $ref: ./_site-footer.yaml

@@ -1,20 +1,27 @@
+# Docs — a documentation website in one config.
+#
+# The pages are plain markdown files under `content/docs/`, read by the app at
+# start: a landing page with the one command, and behind it the documentation —
+# a sidebar of sections, the page with its outline, the date it was last
+# updated, a link to edit its source, previous and next. There is no database
+# and no sign-in: every page is public. This is the file you diff, fork and
+# redeploy.
 name: docs-site
-version: 1.0.0
+version: 2.0.0
 description: >-
-  A documentation website built with Sovrium's markdown pages feature — an
-  Astro Starlight / Docusaurus alternative. The docs live as plain `.md` files
-  under `content/docs/`, authored in any editor and tracked in Git. A single
-  `contentDir` collection page turns that folder into one route per file, with
-  a frontmatter-grouped sidebar, automatic prev/next links, a table of
-  contents, and Shiki-highlighted code — all from configuration. The home page
-  shows the inline-markdown mode; the docs section shows the file-based
-  content-directory mode.
+  A documentation website whose every page is a markdown file in the
+  repository: a sidebar in sections, an outline, last-updated dates, an edit
+  link to the source, typed callouts and highlighted code.
 
 design:
   $ref: ./config/design.yaml
 
 pages:
-  # Inline-markdown landing page (markdown.content + layout: prose)
-  - $ref: ./config/pages/home.yaml
-  # File-based docs collection (contentDir → one route per .md file)
   - $ref: ./config/pages/docs.yaml
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/not-found.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over a code block.
+badge:
+  placement: footer

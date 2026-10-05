@@ -62,8 +62,18 @@ import {
   dryRunBlocks,
 } from './migrate-report'
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
+
+/**
+ * What every mode hands the planner and the apply path alike: the one-shot
+ * consent, and the table ids the author wrote (so both read the same renames).
+ */
+interface MigrateRunOptions {
+  readonly allowDestructive: boolean
+  readonly authoredTableIds: AuthoredTableIds
+}
 
 /** Everything `sovrium migrate` reads from the command line. */
 export interface MigrateCommandOptions {
@@ -135,7 +145,7 @@ const fail = (headline: string, detail: readonly string[], guidance: string): ne
  * The section is still conditional, because a config can resolve and declare no
  * tables — the report says so rather than staying silent.
  */
-const runCheck = async (app: App, allowDestructive: boolean): Promise<void> => {
+const runCheck = async (app: App, options: MigrateRunOptions): Promise<void> => {
   const { readMigrationPreflight } =
     await import('@/infrastructure/database/drizzle/migrate-preflight')
   const { planConfigTableChanges } = await import('@/infrastructure/database/schema/schema-dry-run')
@@ -147,7 +157,7 @@ const runCheck = async (app: App, allowDestructive: boolean): Promise<void> => {
   // Read-only: `planConfigTableChanges` introspects and, for a changing column,
   // SELECTs its rows. It emits no DDL, which is what keeps `--check`'s
   // "writes nothing" contract true.
-  const changes = await Effect.runPromise(planConfigTableChanges(app, config, { allowDestructive }))
+  const changes = await Effect.runPromise(planConfigTableChanges(app, config, options))
 
   // The report goes out FIRST and unconditionally: an operator asked where the
   // database stands, and a blocked upgrade does not make that question moot.
@@ -167,13 +177,13 @@ const runCheck = async (app: App, allowDestructive: boolean): Promise<void> => {
 }
 
 /** `--dry-run`: name what would change, on both machines, and write nothing. */
-const runDryRun = async (app: App, allowDestructive: boolean): Promise<void> => {
+const runDryRun = async (app: App, options: MigrateRunOptions): Promise<void> => {
   const { planConfigTableChanges } = await import('@/infrastructure/database/schema/schema-dry-run')
   const { Effect } = await import('effect')
 
   const config = await dialectConfig()
   const state = await readFolderState()
-  const changes = await Effect.runPromise(planConfigTableChanges(app, config, { allowDestructive }))
+  const changes = await Effect.runPromise(planConfigTableChanges(app, config, options))
 
   printDocument(dryRunBlocks(state, changes))
 
@@ -196,11 +206,11 @@ const runDryRun = async (app: App, allowDestructive: boolean): Promise<void> => 
 }
 
 /** The apply path: run both machines, then report the difference they made. */
-const runApply = async (app: App, allowDestructive: boolean): Promise<void> => {
+const runApply = async (app: App, options: MigrateRunOptions): Promise<void> => {
   printProgress('Migrating')
 
   const before = await readFolderState()
-  const failure = await applyDatabaseMigrations(app, { allowDestructive }).then(
+  const failure = await applyDatabaseMigrations(app, options).then(
     () => undefined,
     (error: unknown) => describeFailure(error)
   )
@@ -241,17 +251,20 @@ export const handleMigrateCommand = async (options: MigrateCommandOptions): Prom
   }
 
   const configFile = options.configFile ?? (await discoverConfigFile())
-  const app = await requireApp(configFile)
+  const { app, authoredTableIds } = await requireApp(configFile)
 
   // Every mode now reads `app`: `--check` covers the dynamic tables too
   // ([internal ref]'s Layer B), read-only. It still creates nothing — describing a
   // table is exactly what the mode promises to do without building it.
-  const { allowDestructive } = options
+  const runOptions: MigrateRunOptions = {
+    allowDestructive: options.allowDestructive,
+    authoredTableIds,
+  }
   const run = options.check
-    ? () => runCheck(app, allowDestructive)
+    ? () => runCheck(app, runOptions)
     : options.dryRun
-      ? () => runDryRun(app, allowDestructive)
-      : () => runApply(app, allowDestructive)
+      ? () => runDryRun(app, runOptions)
+      : () => runApply(app, runOptions)
 
   return run().catch((error: unknown) =>
     fail(

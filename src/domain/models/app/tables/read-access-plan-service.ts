@@ -65,6 +65,7 @@
 import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import {
   hasReadPermissionForRoles,
+  readOpensToEveryone,
   readRequiresSession,
 } from '../auth/permission-evaluator-service'
 import { isFieldReadableByCaller } from './field-read-filter-service'
@@ -434,12 +435,27 @@ const isFieldReadableForPolicy = (input: {
 }
 
 /**
+ * May a principal WITHOUT a session read `table`? The evaluator answers
+ * `'authenticated'` and an undeclared grant for every role, because the
+ * records API's session gate has already refused a signed-out request unless
+ * the table's resolved read is `'all'`. A page render has no such gate, so the
+ * plan asks the same question here: in an app with an `auth` block, only
+ * `'all'` admits her. An app with no `auth` block has no sessions at all, and
+ * only a grant naming the `'authenticated'` rung keeps her out.
+ */
+export const admitsSignedOut = (app: App, table: TableLike): boolean => {
+  const tables = app.tables as Parameters<typeof readOpensToEveryone>[1]
+  return app.auth === undefined
+    ? !readRequiresSession(table, tables)
+    : readOpensToEveryone(table, tables)
+}
+
+/**
  * Compose the four read controls into one plan.
  *
  * The table gate uses {@link hasReadPermissionForRoles} — inheritance-aware and
- * group-aware — rather than the record-CRUD guard's `passesTableRoleGate`,
- * which resolves neither. Where the two disagree the inheritance-aware answer
- * is the stricter and the correct one: a table declaring
+ * group-aware — the same evaluator the record-CRUD guard's
+ * `passesTableRoleGate` runs: a table declaring
  * `permissions: { inherit: 'parent' }` must not read as ungated.
  */
 export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan => {
@@ -455,17 +471,13 @@ export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan 
     }
   }
 
-  // `'authenticated'` admits any SESSION. The evaluator answers it for every
-  // role because the records API's session gate has already refused a caller
-  // without one; a page render has no such gate, so the plan asks here.
   const allowed =
     hasReadPermissionForRoles(
       table as Parameters<typeof hasReadPermissionForRoles>[0],
       principal.effectiveRoles,
-      app.tables as Parameters<typeof hasReadPermissionForRoles>[2]
+      app as Parameters<typeof hasReadPermissionForRoles>[2]
     ) &&
-    (principal.isAuthenticated ||
-      !readRequiresSession(table, app.tables as Parameters<typeof readRequiresSession>[1]))
+    (principal.isAuthenticated || admitsSignedOut(app, table))
 
   if (!allowed) {
     return {

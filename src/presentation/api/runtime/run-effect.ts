@@ -146,7 +146,7 @@ export async function runEffect<T, S extends Schema.Top = Schema.Top>(
       // renders it (`Expected number\n  at ["count"]`), but a `SchemaError`
       // carries no message on its stack header, so passing it as the cause logs
       // a bare `Error` and the attribution — the entire point of this branch —
-      // is lost. Measured on effect@4.0.0-rc.108.
+      // is lost. Measured on effect@4.0.0.
       logError(
         `[API Error] response failed its schema at ${c.req.method} ${c.req.path} requestId=${requestId}: ${validated.error.message}`,
         validated.error

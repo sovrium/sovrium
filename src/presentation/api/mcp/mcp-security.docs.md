@@ -47,7 +47,17 @@ The role of the user behind the credential bounds everything downstream: a key o
 
 Role permissions include the table's own `permissions`: `read` for the read and list tools, `create`, `update` and `delete` for the write tools. A tool called by a role the table does not admit is refused exactly as the records API refuses it — `Resource not found` — and nothing is read or written. Hiding a tool from `tools/list` is a convenience; this check is the gate, because a client can name any tool by hand.
 
-Every one of those checks — table permissions, field `read` and `write` grants, row-level scopes, a manual automation's `requiredRole` — sees the account's role exactly as the records API does, custom roles included; a table permission naming a `group:` is matched against the groups the account belongs to. A key owned by an `editor` is an `editor` to your tables, not a generic member.
+A write tool applies the table's row-level rules the way the records API does: a row outside them answers `Resource not found`, and a failure answers the records API's own message. An update or delete of a row the caller cannot read, or cannot write, is refused before anything is touched, and the refusal echoes nothing of the row; a create whose values fall outside the `create` rule — a record filed under someone else's name — writes nothing. Every value rule the records API applies runs on the write tools too — required fields, formats such as a malformed email, choice and link limits, attachment rules — and a value it rejects is refused as invalid params with the sentence the records API gives; an update of a record a field condition has made read-only is refused the same way. A failure in the database (a duplicate, an id that cannot exist) answers the records API's fixed sentence, never the database's own text.
+
+On a table the caller may not read, an update or delete tool answers exactly as for a record that does not exist — an update `Resource not found`, a delete `"success": false` — whether or not the record is stored, hands back nothing of it, and writes nothing.
+
+An action template carries no role gate of its own, so a viewer is refused one outright: it is withheld from a viewer's `tools/list`, and a call that names it by hand is refused too.
+
+An action template or a manual automation writes as the caller: the table's rules apply inside the run, and a record they exclude fails the step without being touched.
+
+Every one of those checks — table permissions, field `read` and `write` grants, row-level scopes, a manual automation's `requiredRole` — sees the account's role exactly as the records API does, custom roles included; a table permission naming a `group:` is matched against the groups the account belongs to, and on a table with row-level rules the roles an assignment gives the account count too, exactly as on the records API. A key owned by an `editor` is an `editor` to your tables, not a generic member.
+
+A manual automation is listed to a role exactly when that role may run it; the same `requiredRole` check decides both. An automation an operator has paused is not listed until it is resumed.
 
 The practical consequence is that writing `aiAccess: true` on a table cannot over-expose it. The worst case is that a role sees, through a tool, exactly what it could already have fetched over the API.
 
@@ -65,6 +75,8 @@ Turning auditing off is permitted for compliance edge cases and is a bad default
 | `MCP_RATE_LIMIT_PER_DAY`    | `5000`  | Per credential |
 
 Over-limit requests answer HTTP `429`, carrying `Retry-After` and the `X-RateLimit-Limit` / `-Remaining` / `-Reset` trio, with a JSON-RPC `-32603` error in the body — so a client reading the transport and a client reading the envelope both learn the same thing. The per-day ceiling is the one that matters most: a model in a retry loop can burn a minute's budget and keep going, but it cannot quietly run all night against your database.
+
+Ahead of these, every MCP request also counts against the instance's per-address ceiling (`API_IP_RATE_LIMIT`), shared with the HTTP API, before its credential is looked up; past it the request is refused with the platform's shared `429` answer rather than the JSON-RPC envelope.
 
 ## Admin internals
 

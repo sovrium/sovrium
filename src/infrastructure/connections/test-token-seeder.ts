@@ -41,23 +41,6 @@ import { SENTINEL_ACCESS_TOKEN, SENTINEL_REFRESH_TOKEN } from './sentinel-tokens
  * exists only so specs can verify the encrypted envelope shape.
  */
 
-/**
- * Sentinel literals + detector live in `./sentinel-tokens.ts` so the
- * non-test consumers (live token repository, OAuth2 auth-header injector,
- * connections /status route) can reach the predicate without depending on
- * this test-only seeder module — keeps the live code path import-clean of
- * test scaffolding. The seeder re-exports `isSentinelAccessToken` for the
- * minority of callers that import both the seeder utilities and the
- * predicate together.
- *
- * [internal ref]: an earlier version of this comment claimed the extraction
- * broke an import cycle; it didn't, because the seeder reaches the live
- * repo via dynamic `await import(...)` (see `runSeedTestConnectionTokens`
- * below). The decoupling is still correct, but for test/live separation,
- * not cycle avoidance.
- */
-export { isSentinelAccessToken } from './sentinel-tokens'
-
 interface OAuth2ConnectionShape {
   readonly name: string
   readonly type: string

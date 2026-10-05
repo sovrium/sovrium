@@ -16,6 +16,7 @@ import {
   computeTableEditorFooterClasses,
 } from '@/presentation/design/table-default-classes'
 import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
+import { useGridString } from './grid-strings'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
 /**
@@ -83,6 +84,7 @@ function ConfirmBody({ onConfirm }: { readonly onConfirm: () => void }) {
 
 export function SettingsDialog({ onReset }: SettingsDialogProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const settingsLabel = useGridString('datatable.settings', 'Settings')
   const openConfirm = useCallback(() => setConfirmOpen(true), [])
   const handleConfirm = useCallback(() => {
     onReset()
@@ -94,9 +96,9 @@ export function SettingsDialog({ onReset }: SettingsDialogProps) {
       <Dialog.Root>
         <Dialog.Trigger
           className={DROPDOWN_TRIGGER_CLASS}
-          aria-label="Settings"
+          aria-label={settingsLabel}
         >
-          Settings
+          {settingsLabel}
         </Dialog.Trigger>
         <Dialog.Portal>
           <Dialog.Backdrop className={computeOverlayBackdropClasses()} />

@@ -40,6 +40,7 @@ import {
 } from './form-field-resolver'
 import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
 import { FormBodyStep } from './form-renderer-multi-step'
+import { prefillColumnsOf } from './record-prefill-resolver'
 import type { EmbeddedFormPrefillContext } from './form-body'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -209,13 +210,30 @@ function FormPage({
  * defaults when both target the same field name.
  */
 function resolveStandalonePrefill(
+  app: Readonly<App>,
   form: Readonly<Form>,
   prefillCtx: FormPrefillContext | undefined
 ): Readonly<Record<string, PrefillValue>> | undefined {
   if (!prefillCtx) return undefined
+  return resolveFormStartingValues(app, form, prefillCtx)
+}
+
+/**
+ * A form's own starting values: every field's `defaultValue`, overlaid by the
+ * form's `prefill` map, resolved against `prefillCtx`. The ONE merge both a
+ * standalone form page and a form embedded in a page (`form-ref-resolver.ts`)
+ * start from, so the same form never starts differently in two places.
+ *
+ * Defaults are keyed by the field's submit name (`column` for table-bound
+ * fields, `name` for standalone); a form-level `prefill` entry wins over a
+ * field's default on the same key.
+ */
+export function resolveFormStartingValues(
+  app: Readonly<App>,
+  form: Readonly<Form>,
+  prefillCtx: FormPrefillContext
+): Readonly<Record<string, PrefillValue>> {
   const { prefill } = form as { readonly prefill?: Readonly<Record<string, PrefillValue>> }
-  // Collect per-field `defaultValue` declarations, keyed by the resolved
-  // field name (`column` for table-bound fields, `name` for standalone).
   const fieldDefaults = Object.fromEntries(
     form.fields.flatMap((field) => {
       const f = field as {
@@ -229,9 +247,8 @@ function resolveStandalonePrefill(
       return [[key, f.defaultValue] as const]
     })
   )
-  // Form-level prefill overrides per-field defaultValue.
-  const merged = { ...fieldDefaults, ...(prefill ?? {}) }
-  return resolveFormPrefill(merged, prefillCtx)
+  const columns = prefillColumnsOf(app.tables, form.submitTo.table)
+  return resolveFormPrefill({ ...fieldDefaults, ...(prefill ?? {}) }, { ...prefillCtx, columns })
 }
 
 /**
@@ -254,7 +271,7 @@ function renderFormDocument(opts: {
       form={form as Form}
       embed={embed}
       activeLang={activeLang}
-      prefill={resolveStandalonePrefill(form, prefillCtx)}
+      prefill={resolveStandalonePrefill(app, form, prefillCtx)}
       {...(prefillCtx?.optionSets !== undefined ? { optionSets: prefillCtx.optionSets } : {})}
     />
   )
@@ -373,6 +390,8 @@ export function renderEmbeddedFormBody(
     readonly optionSets?: FormOptionSets
     /** Draw no form title — the host (a dialog) heads the form itself. */
     readonly omitTitle?: boolean
+    /** A Cancel beside the submit, already translated — the host is a dialog. */
+    readonly cancelLabel?: string
   }
 ): string {
   // `embed={false}` so the embedded form gets standalone-like attributes (no
@@ -395,6 +414,7 @@ export function renderEmbeddedFormBody(
       activeLang={activeLang}
       titleAs={opts?.titleAs}
       omitTitle={opts?.omitTitle}
+      cancelLabel={opts?.cancelLabel}
       {...(opts?.optionSets !== undefined ? { optionSets: opts.optionSets } : {})}
     />
   )

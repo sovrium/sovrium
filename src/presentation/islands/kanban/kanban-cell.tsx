@@ -48,15 +48,11 @@ function CellBody({
   column,
   emptyMessage,
   card,
-  draggableEnabled,
-  colorFieldColors,
   isOver,
 }: {
   readonly column: KanbanColumnData
   readonly emptyMessage: string | undefined
   readonly card: KanbanCard | undefined
-  readonly draggableEnabled: boolean
-  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   readonly isOver: boolean
 }): ReactElement {
   if (column.records.length === 0) {
@@ -73,8 +69,6 @@ function CellBody({
           key={String(record.id ?? JSON.stringify(record))}
           record={record}
           card={card}
-          draggableEnabled={draggableEnabled}
-          colorFieldColors={colorFieldColors}
         />
       ))}
       {isOver ? <DropPlaceholder /> : undefined}
@@ -92,9 +86,6 @@ export interface KanbanCellProps {
   readonly dropId: string
   readonly emptyMessage?: string
   readonly card?: KanbanCard
-  readonly draggableEnabled: boolean
-  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
-  readonly colorFieldColors?: Readonly<Record<string, string>>
   /** The column header, on the single-axis board that draws one per column. */
   readonly header?: ReactNode
   /**
@@ -146,8 +137,6 @@ export function KanbanCell({
   dropId,
   emptyMessage,
   card,
-  draggableEnabled,
-  colorFieldColors,
   header,
   folded = false,
   bodyId,
@@ -185,8 +174,6 @@ export function KanbanCell({
               column={column}
               emptyMessage={emptyMessage}
               card={card}
-              draggableEnabled={draggableEnabled}
-              colorFieldColors={colorFieldColors}
               isOver={showPlaceholder}
             />
           </div>

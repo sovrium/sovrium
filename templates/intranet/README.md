@@ -1,6 +1,6 @@
-# Sovrium Intranet
+# Halden Intranet
 
-> A company hub — announcements, people, resources.
+> A company intranet: the must-read first, the news, a searchable directory, the resources, and a Publish page for managers.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,10 +19,24 @@ sovrium init my-intranet --template intranet
 
 ## What's inside
 
-Public pages plus an auth-gated employee hub with announcements, a people directory, and shared resources. Sign-in supports magic links (SMTP required for those).
+- **Welcome** (`/`) — the public door: what the hub holds and one way in. It names nobody.
+- **Sign-in** (`/sign-in`) — a work email and a link sent to it, no password to remember.
+  "Use a password instead" opens the password form on its own page (`/sign-in/password`).
+- **Home** (`/portal`) — the must-read on top, with its acknowledge-by date and how many
+  colleagues have acknowledged it ("31 of 46"); the latest news with who wrote it; what is
+  coming up; who joined in the last 30 days; and the tools. A search box finds the hub's
+  pages you may open. An announcement's title opens it in a drawer.
+- **News** — every announcement, newest first, with an index beside it that narrows by
+  topic or by a word of the title.
+- **People** — everyone at the company with their role, team, office and manager; search by
+  name, narrow by team or office.
+- **Resources** — guides, policies and tools, grouped, each with its address.
+- **Publish** (managers only) — write an announcement; give it an "acknowledge by" date to
+  make it a must-read. It is signed with your name and lands on everyone's Home.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Sign-up is closed: IT adds each colleague. Everything is declared in
+[`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+config, restart, done.
 
 ## Run locally
 
@@ -32,10 +46,33 @@ sovrium start app.yaml
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+email, demo data). The sign-in link needs SMTP; until you configure it, sign in with a
+password.
 
-> Email flows (sign-in links, notifications) need `SMTP_*` variables. Without them the app
-> runs with email disabled.
+## What to try
+
+Load the demo data first. It creates eight accounts at Halden, a software company with six
+offices, and a directory of forty-six colleagues — thirty-eight of them invented to fill it
+out — with six announcements, dated relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+1. Open `/sign-in`, choose **Use a password instead** and sign in as
+   **jules.marchand@halden.example** (member). Home greets you with the security training
+   on top: acknowledge within six days, 31 of 46 done.
+2. Open the must-read from its title: who wrote it, what it asks and the full text.
+3. On **People**, search for **Keiko**: data and reporting, in Berlin.
+4. Sign in as **priya.raghunathan@halden.example** (a manager). **Publish** appears in the
+   navigation. Publish an announcement with an acknowledge-by date: it tops everyone's Home.
+5. Sign in as **omar.haddad@halden.example** (IT, the admin), the only one who can delete an
+   announcement.
+
+The acknowledgements are demo data: the app counts them, but has no Acknowledge button yet.
+A post is addressed to the whole company; one team or one office only is not something an
+announcement can be limited to.
 
 ## Deploy
 

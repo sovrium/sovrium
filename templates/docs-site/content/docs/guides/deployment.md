@@ -1,50 +1,51 @@
 ---
 title: Deployment
-description: Build a static bundle or run the server, and ship it anywhere.
-category: Guides
+description: Publish the site as static files, a server or a container.
+category: guides
 order: 5
-draft: false
+updated: 2026-09-16
 ---
 
 # Deployment
 
-A docs site is public and stateless, so you can ship it as static files or run
-it as a long-lived server. Both render the same markdown.
+A documentation site is public and keeps no data, so it can ship as static
+files or run as a server. Both render the same markdown.
 
-## Static build
+## A static build
 
-Render every page to HTML and host the folder on any static host (Netlify,
-Cloudflare Pages, S3, GitHub Pages):
+Render every page to HTML, then upload the folder to any static host:
 
 ```bash
-sovrium build app.yaml --output ./dist
-# ./dist now holds the HTML for every /docs/* route plus assets
+sovrium build app.yaml
 ```
 
-## Run the server
+The pages land in `./dist`. Set `SOVRIUM_OUTPUT_DIR` to write them elsewhere,
+and `SOVRIUM_BASE_URL` so the sitemap carries your address.
+
+## The server
 
 ```bash
 PORT=3000 sovrium start app.yaml
 ```
 
-## Docker
+The server reads `content/docs/` at start, so a restart publishes an edit.
 
-```dockerfile
+## A container
+
+```dockerfile title="Dockerfile"
 FROM ghcr.io/sovrium/sovrium:latest
 COPY . /app
 WORKDIR /app
 CMD ["start", "app.yaml"]
 ```
 
-## Editing workflow
+## The editing loop
 
-Because content is files, the authoring loop is just Git:
+1. Edit a file under `content/docs/`, or follow "Edit this page".
+2. Set `draft: true` to keep a page out while you write it.
+3. Commit. The next build or restart publishes it, with its new date.
 
-1. Add or edit a `.md` file in `content/docs/`.
-2. Set `draft: true` in frontmatter to hide a work-in-progress page.
-3. Commit. The next build (or a dev restart) picks it up automatically.
-
-::: callout
-Frugal by default: no database, no AI, no email means no secrets to manage and a
-tiny footprint. The static build is just HTML, CSS, and highlighted code.
+::: callout type="warning"
+**Set `BASE_URL` in production.** Without it, the sitemap and the links in
+link previews point at `localhost`.
 :::

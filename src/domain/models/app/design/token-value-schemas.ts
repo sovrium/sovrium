@@ -129,7 +129,7 @@ export const ladderRecord = <S extends Schema.Top>(
  *
  * The five theme-block records — `colors`, `spacing`, `shadows`, `borderRadius`,
  * `breakpoints` — all key on a CHECKED `Schema.String`, and Effect v4 silently
- * DROPS an entry whose key fails a key schema. Measured on `4.0.0-rc.108`,
+ * DROPS an entry whose key fails a key schema. Measured on `4.0.0`,
  * `onExcessProperty: 'error'` set:
  *
  * ```

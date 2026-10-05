@@ -8,7 +8,7 @@
 /* eslint-disable max-lines-per-function, complexity, react-perf/jsx-no-new-function-as-prop -- comment-thread-island composes 6 conditional UI states (loading, error, empty, list, form, pagination) into a single component; per-handler arrow props are conventional React pattern. */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import {
   computeCommentActionClasses,
   computeCommentEmptyClasses,
@@ -16,12 +16,17 @@ import {
   computeCommentSignedOutClasses,
   computeCommentSortBarClasses,
 } from '@/presentation/design/comments-default-classes'
+import { CommentMentionSource } from './comment-mention-source'
+import { CommentStringsContext, type CommentStrings } from './comment-strings'
 import { buildListUrl, deleteCommentApi, patchComment, postComment } from './comment-thread-api'
 import { NumberedPagination, SortDropdown } from './comment-thread-controls'
 import { CommentThreadForm } from './comment-thread-form'
 import { CommentList } from './comment-thread-list'
 import { useScrollFetch } from './use-scroll-fetch'
 import type { CommentsListResponse, CommentThreadIslandProps } from './comment-thread-types'
+
+/** The provider value of a thread whose host sent no strings: English throughout. */
+const NO_UI_STRINGS: CommentStrings = {}
 
 /**
  * Comment-thread island.
@@ -135,129 +140,134 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
 
   const visible = paginationStyle === 'loadMore' ? loadedComments : (listQuery.data?.comments ?? [])
   const pagination = listQuery.data?.pagination
+  const mentionSource = useMemo(() => ({ tableName, recordId }), [tableName, recordId])
 
   return (
-    <section
-      ref={rootRef}
-      data-component="comments"
-      data-component-type="comments"
-      data-comments-limit={String(limit)}
-      data-comments-sort={sort}
-      data-comments-pagination-style={paginationStyle}
-      data-comments-table={tableName}
-      data-comments-record-id={recordId}
-      data-comments-threading={String(threadingEnabled)}
-      data-testid={testId}
-      // A reader who cannot see the scroll has no button left to hear. Taking
-      // the control away obliges the thread to announce the fetch it now makes
-      // on its own — and to say `"false"` at rest rather than nothing, so an
-      // assistive technology reads a settled region rather than an unknown one.
-      // (React renders an `aria-*` boolean as the string `"true"`/`"false"`,
-      // so the attribute is always present rather than dropped when false.)
-      aria-busy={listQuery.isFetching}
-      // FRAMELESS on purpose. `island-client.tsx` calls `createRoot(host)`, so
-      // this subtree renders INSIDE the SSR `<section>` that already carries the
-      // thread frame — border, ground, radius and outer margin. Drawing the frame
-      // here too would nest two identical borders once the island mounts, which is
-      // the card-in-card the row layout exists to remove.
-      //
-      // AND UNNAMED, for the same reason. The host already carries the author's
-      // `props.id`, so stamping it here too put the SAME id on two nested
-      // elements the moment the island mounted — invalid, and worse than
-      // cosmetic: `#thread` then matches twice, so a `#id` assertion passes
-      // before hydration and fails after it. That is a race an author meets as
-      // a flaky page rather than as a duplicate id, which is why the id stays
-      // on the ONE element that exists whether or not this subtree ever mounts.
-      //
-      // The ACCESSIBLE NAME stays on that host too, and it stayed here by
-      // oversight when the id moved. A named `<section>` is a landmark, so
-      // naming both left a reader navigating by landmark hearing one name twice
-      // with no way to tell which of the two nested regions held the thread —
-      // and left a lookup by that name resolving to one element before
-      // hydration and to two after it.
-      className="comments flex flex-col"
-    >
-      <div className={computeCommentSortBarClasses()}>
-        <SortDropdown
-          sort={sort}
-          onChange={(next) => {
-            setSort(next)
-            restartFromFirstPage()
-          }}
-        />
-      </div>
-      {visible.length === 0 ? (
-        <p
-          data-comments-empty-state=""
-          className={computeCommentEmptyClasses()}
+    <CommentStringsContext.Provider value={props.uiStrings ?? NO_UI_STRINGS}>
+      <CommentMentionSource.Provider value={mentionSource}>
+        <section
+          ref={rootRef}
+          data-component="comments"
+          data-component-type="comments"
+          data-comments-limit={String(limit)}
+          data-comments-sort={sort}
+          data-comments-pagination-style={paginationStyle}
+          data-comments-table={tableName}
+          data-comments-record-id={recordId}
+          data-comments-threading={String(threadingEnabled)}
+          data-testid={testId}
+          // A reader who cannot see the scroll has no button left to hear. Taking
+          // the control away obliges the thread to announce the fetch it now makes
+          // on its own — and to say `"false"` at rest rather than nothing, so an
+          // assistive technology reads a settled region rather than an unknown one.
+          // (React renders an `aria-*` boolean as the string `"true"`/`"false"`,
+          // so the attribute is always present rather than dropped when false.)
+          aria-busy={listQuery.isFetching}
+          // FRAMELESS on purpose. `island-client.tsx` calls `createRoot(host)`, so
+          // this subtree renders INSIDE the SSR `<section>` that already carries the
+          // thread frame — border, ground, radius and outer margin. Drawing the frame
+          // here too would nest two identical borders once the island mounts, which is
+          // the card-in-card the row layout exists to remove.
+          //
+          // AND UNNAMED, for the same reason. The host already carries the author's
+          // `props.id`, so stamping it here too put the SAME id on two nested
+          // elements the moment the island mounted — invalid, and worse than
+          // cosmetic: `#thread` then matches twice, so a `#id` assertion passes
+          // before hydration and fails after it. That is a race an author meets as
+          // a flaky page rather than as a duplicate id, which is why the id stays
+          // on the ONE element that exists whether or not this subtree ever mounts.
+          //
+          // The ACCESSIBLE NAME stays on that host too, and it stayed here by
+          // oversight when the id moved. A named `<section>` is a landmark, so
+          // naming both left a reader navigating by landmark hearing one name twice
+          // with no way to tell which of the two nested regions held the thread —
+          // and left a lookup by that name resolving to one element before
+          // hydration and to two after it.
+          className="comments flex flex-col"
         >
-          {emptyText}
-        </p>
-      ) : (
-        <CommentList
-          comments={visible}
-          currentUserId={currentUserId}
-          currentUserIsAdmin={currentUserIsAdmin}
-          threading={threadingEnabled}
-          isSaving={editMutation.isPending}
-          isDeleting={deleteMutation.isPending}
-          isReplying={replyMutation.isPending}
-          onSaveEdit={(commentId, content) =>
-            editMutation.mutateAsync({ commentId, content }).then(() => undefined)
-          }
-          onConfirmDelete={(commentId) =>
-            deleteMutation.mutateAsync(commentId).then(() => undefined)
-          }
-          onSubmitReply={(parentCommentId, content) =>
-            replyMutation.mutateAsync({ parentCommentId, content }).then(() => undefined)
-          }
-        />
-      )}
-      {/*
-        THE SENTINEL, and it is the whole of the `loadMore` pager now. Reaching
-        the last row is the reader's request for the next page; there is no
-        button, because pressing one to continue reading is the interruption
-        row 50 removes.
+          <div className={computeCommentSortBarClasses()}>
+            <SortDropdown
+              sort={sort}
+              onChange={(next) => {
+                setSort(next)
+                restartFromFirstPage()
+              }}
+            />
+          </div>
+          {visible.length === 0 ? (
+            <p
+              data-comments-empty-state=""
+              className={computeCommentEmptyClasses()}
+            >
+              {emptyText}
+            </p>
+          ) : (
+            <CommentList
+              comments={visible}
+              currentUserId={currentUserId}
+              currentUserIsAdmin={currentUserIsAdmin}
+              threading={threadingEnabled}
+              isSaving={editMutation.isPending}
+              isDeleting={deleteMutation.isPending}
+              isReplying={replyMutation.isPending}
+              onSaveEdit={(commentId, content) =>
+                editMutation.mutateAsync({ commentId, content }).then(() => undefined)
+              }
+              onConfirmDelete={(commentId) =>
+                deleteMutation.mutateAsync(commentId).then(() => undefined)
+              }
+              onSubmitReply={(parentCommentId, content) =>
+                replyMutation.mutateAsync({ parentCommentId, content }).then(() => undefined)
+              }
+            />
+          )}
+          {/*
+          THE SENTINEL, and it is the whole of the `loadMore` pager now. Reaching
+          the last row is the reader's request for the next page; there is no
+          button, because pressing one to continue reading is the interruption
+          row 50 removes.
 
-        Rendered ONLY while there is more to fetch, so an exhausted thread has
-        nothing left to observe — "the end of the list" and "stop asking" are
-        one state rather than two that could disagree. It sits after the list
-        and before the form, which is where the older end of the thread is.
-      */}
-      {paginationStyle === 'loadMore' && pagination?.hasMore === true && (
-        <div
-          ref={sentinelRef}
-          data-comments-sentinel=""
-          aria-hidden="true"
-          className={computeCommentPagerClasses()}
-        />
-      )}
-      {paginationStyle === 'numbered' && pagination && (
-        <div className={computeCommentPagerClasses()}>
-          <NumberedPagination
-            total={pagination.total}
-            limit={pagination.limit}
-            offset={pagination.offset}
-            onSelect={goToOffset}
-          />
-        </div>
-      )}
-      {currentUserId ? (
-        <CommentThreadForm
-          placeholder={placeholder}
-          isSubmitting={createMutation.isPending}
-          onSubmit={(content) => createMutation.mutateAsync(content).then(() => undefined)}
-        />
-      ) : (
-        <p className={computeCommentSignedOutClasses()}>
-          <a
-            href="/sign-in"
-            className={computeCommentActionClasses()}
-          >
-            Sign in to comment
-          </a>
-        </p>
-      )}
-    </section>
+          Rendered ONLY while there is more to fetch, so an exhausted thread has
+          nothing left to observe — "the end of the list" and "stop asking" are
+          one state rather than two that could disagree. It sits after the list
+          and before the form, which is where the older end of the thread is.
+        */}
+          {paginationStyle === 'loadMore' && pagination?.hasMore === true && (
+            <div
+              ref={sentinelRef}
+              data-comments-sentinel=""
+              aria-hidden="true"
+              className={computeCommentPagerClasses()}
+            />
+          )}
+          {paginationStyle === 'numbered' && pagination && (
+            <div className={computeCommentPagerClasses()}>
+              <NumberedPagination
+                total={pagination.total}
+                limit={pagination.limit}
+                offset={pagination.offset}
+                onSelect={goToOffset}
+              />
+            </div>
+          )}
+          {currentUserId ? (
+            <CommentThreadForm
+              placeholder={placeholder}
+              isSubmitting={createMutation.isPending}
+              onSubmit={(content) => createMutation.mutateAsync(content).then(() => undefined)}
+            />
+          ) : (
+            <p className={computeCommentSignedOutClasses()}>
+              <a
+                href="/sign-in"
+                className={computeCommentActionClasses()}
+              >
+                Sign in to comment
+              </a>
+            </p>
+          )}
+        </section>
+      </CommentMentionSource.Provider>
+    </CommentStringsContext.Provider>
   )
 }

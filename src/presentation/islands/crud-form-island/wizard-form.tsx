@@ -11,6 +11,7 @@ import { computeFormLayoutClasses } from '@/presentation/design/form-layout-clas
 import { StepRail } from '@/presentation/design/step-rail'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { FormFields } from '../parts/crud-form/layout'
+import { formString } from './form-strings'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
@@ -24,10 +25,11 @@ function WizardNav(props: {
   readonly isLastStep: boolean
   readonly isPending: boolean
   readonly buttonLabel: string
+  readonly savingLabel: string
   readonly onBack: () => void
   readonly onNext: () => void
 }) {
-  const { step, isLastStep, isPending, buttonLabel, onBack, onNext } = props
+  const { step, isLastStep, isPending, buttonLabel, savingLabel, onBack, onNext } = props
   return (
     <div>
       {step > 0 && (
@@ -45,7 +47,7 @@ function WizardNav(props: {
           className={computeButtonDefaultClasses()}
           disabled={isPending}
         >
-          {isPending ? 'Saving...' : buttonLabel}
+          {isPending ? savingLabel : buttonLabel}
         </button>
       ) : (
         <button
@@ -95,7 +97,10 @@ function useWizardNavigation(args: {
     const missing = findMissingRequiredFields(stepFields, values)
     if (missing.length > 0) {
       ctx.setState({
-        fieldError: { field: missing[0]!, message: 'This field is required' },
+        fieldError: {
+          field: missing[0]!,
+          message: formString(ctx.uiStrings, 'form.required', 'This field is required'),
+        },
         invalidFields: missing,
         isPending: false,
       })
@@ -160,7 +165,8 @@ export function WizardCreateForm(props: {
         step={step}
         isLastStep={isLastStep}
         isPending={state.isPending ?? false}
-        buttonLabel={island.buttonLabel ?? 'Create'}
+        buttonLabel={island.buttonLabel ?? formString(island.uiStrings, 'form.create', 'Create')}
+        savingLabel={formString(island.uiStrings, 'form.saving', 'Saving...')}
         onBack={onBack}
         onNext={onNext}
       />

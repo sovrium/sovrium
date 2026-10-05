@@ -32,7 +32,7 @@
 
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
-import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
+import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
 /**
@@ -49,47 +49,27 @@ export interface CollectionAdjacency {
 }
 
 /**
- * How a neighbour answers the visitor, supplied by the caller that holds the
- * session. Both are optional: a page with no auth has nothing to ask.
- *
- * - `isVisible` — the table's row-level read check for this visitor. A
- *   neighbour it hides is SKIPPED, not printed: a prev/next link carries the
- *   neighbour's slug and title, so linking to a row the visitor may not read
- *   would enumerate it. The walk continues to the nearest visible row, which is
- *   what the records API's own list shows the same visitor.
- * - `project` — the visitor's field-level read projection. A neighbour's
- *   printed fields go through the same projection as the page's own record, so
- *   `$collection.next.<field>` cannot print a column `$record.<field>` may not.
+ * How the collection's rows are read for the visitor, supplied by the caller
+ * that holds the session: the records gate (`readRowsForCaller`), which skips
+ * a row the table's row-level rule hides from her and hands each row back less
+ * the columns she may not read. A prev/next link carries the neighbour's slug
+ * and title, so linking to a row the visitor may not read would enumerate it;
+ * through the gate the neighbours are the ones the records API's own list
+ * shows the same visitor. Absent (a render with no caller), the rows are read
+ * as they are.
  */
-export interface CollectionAdjacencyGate {
-  readonly isVisible?: (record: Readonly<Record<string, unknown>>) => Promise<boolean>
-  readonly project?: (
-    record: Readonly<Record<string, unknown>>
-  ) => Readonly<Record<string, unknown>>
-}
+export type CollectionRowsReader = (query: {
+  readonly filter?: readonly DataFilter[]
+  readonly sort?: readonly DataSort[]
+  readonly liveOnly?: boolean
+}) => Promise<readonly Readonly<Record<string, unknown>>[]>
 
 /**
- * The nearest row from `start` walking by `step` that the visitor may see, or
- * `undefined` at the end of the list. Walks lazily, so a page whose neighbours
- * are visible pays one check per side rather than one per row of the table.
- */
-async function nearestVisible(
-  records: readonly Readonly<Record<string, unknown>>[],
-  start: number,
-  step: 1 | -1,
-  isVisible: CollectionAdjacencyGate['isVisible']
-): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const candidate = records[start]
-  if (candidate === undefined) return undefined
-  if (isVisible === undefined || (await isVisible(candidate))) return candidate
-  return nearestVisible(records, start + step, step, isVisible)
-}
-
-/**
- * Fetches all live records that match the collection filter, sorted by `id`
- * ascending, then locates the index of the currently-resolved record by its
- * slug field. Returns the nearest neighbour on each side the visitor may see,
- * projected to the columns they may read (or undefined for boundaries).
+ * Reads all live records that match the collection filter, sorted by `id`
+ * ascending, through `readRows`, then locates the currently-resolved record by
+ * its `id` (its slug when it carries none). Returns the rows either side of it
+ * — the visitor's nearest readable neighbours, projected to the columns she
+ * may read — or undefined at a boundary.
  *
  * The row list is read `liveOnly`: a soft-deleted row is gone from its own page
  * (`resolveCollectionRecord`), so it must not survive as somebody's neighbour
@@ -104,27 +84,21 @@ export async function fetchCollectionAdjacency(
   collection: NonNullable<Page['collection']>,
   resolvedRecord: Readonly<Record<string, unknown>>,
   db: DataSourceDb,
-  gate: CollectionAdjacencyGate = {}
+  readRows: CollectionRowsReader = (query) => db.fetchRecords(collection.table, query)
 ): Promise<CollectionAdjacency> {
-  const records = await db.fetchRecords(collection.table, {
+  const records = await readRows({
     filter: collection.filter as readonly DataFilter[] | undefined,
     sort: [{ field: 'id', direction: 'asc' }],
     liveOnly: true,
   })
 
-  const slugValue = resolvedRecord[collection.slugField]
-  const index = records.findIndex((r) => r[collection.slugField] === slugValue)
+  // The `id` is a system column no field grant strips, where the slug may be
+  // a field the visitor may not read.
+  const key = resolvedRecord['id'] !== undefined ? 'id' : collection.slugField
+  const index = records.findIndex((r) => r[key] === resolvedRecord[key])
   if (index < 0) return { previous: undefined, next: undefined }
 
-  const [previous, next] = await Promise.all([
-    nearestVisible(records, index - 1, -1, gate.isVisible),
-    nearestVisible(records, index + 1, 1, gate.isVisible),
-  ])
-  const project = gate.project ?? ((record) => record)
-  return {
-    previous: previous === undefined ? undefined : project(previous),
-    next: next === undefined ? undefined : project(next),
-  }
+  return { previous: records[index - 1], next: records[index + 1] }
 }
 
 /**

@@ -1,3 +1,5 @@
+# The links everyone needs: guides, policies and the internal tools, grouped
+# on the Resources page.
 id: 3
 name: resources
 fields:
@@ -5,18 +7,33 @@ fields:
     name: title
     type: single-line-text
     required: true
-  - id: 2
-    name: url
-    type: url
-    required: true
   - id: 3
     name: category
     type: single-select
     options:
-      - Tools
-      - Policies
       - Guides
-      - Links
+      - Policies
+      - Tools
+    required: true
+  - id: 2
+    name: url
+    type: url
+    required: true
+  # A line on what you find there, for the Resources page.
+  - id: 6
+    name: note
+    type: single-line-text
   - id: 4
     name: added_at
     type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - managers
+  update:
+    - admin
+    - managers
+  delete:
+    - admin

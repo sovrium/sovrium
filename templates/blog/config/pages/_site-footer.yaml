@@ -1,0 +1,21 @@
+# The line under every public page: the publication, what it is, the feed —
+# and what it is built with, on the same row.
+type: container
+element: footer
+props:
+  role: contentinfo
+  className: flex h-[52px] flex-none items-center border-t border-border bg-background px-10 text-[12.5px] text-foreground-subtle max-md:px-3.5
+children:
+  - type: text
+    element: p
+    props:
+      className: min-w-0 truncate text-[12.5px] text-foreground-subtle
+    content: Field Notes · essays from a small studio · RSS
+  - type: container
+    props:
+      className: grow
+  - type: link
+    props:
+      href: https://sovrium.com
+      className: ml-3 whitespace-nowrap font-mono text-[12px] text-foreground-subtle no-underline hover:text-foreground
+    content: Built with Sovrium

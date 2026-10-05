@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -28,13 +29,13 @@ type AiCategorizeField = Extract<Fields[number], { readonly type: 'ai-categorize
 const buildGuardSql = (
   fieldName: string
 ): string => `  -- Preserve explicit non-NULL values (user override)
-  IF NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+  IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
     RETURN NEW;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;
 
@@ -88,7 +89,7 @@ const CATEGORY_SELECTION_SQL = `  -- 1) Try to match a category by exact keyword
  * classifications (and optionally invoke the real AI provider).
  */
 const buildNotifySql = (sanitized: string, fieldName: string): string =>
-  `  NEW.${fieldName} = chosen;
+  `  NEW.${quoteSqlIdentifier(fieldName)} = chosen;
 
   -- Emit NOTIFY so the application layer can observe + log the classification.
   -- Payload format: JSON with table, field, value, and a condensed source prefix.

@@ -172,6 +172,8 @@ interface CodePreInput {
   readonly rest: Record<string, unknown>
   readonly dataTestId: string | undefined
   readonly preClass: string
+  /** The author's `props.className`, carried onto the highlighted `<pre>` too. */
+  readonly authorClassName: string | undefined
   readonly language: string | undefined
   /**
    * The gutter's numbers, or EMPTY when the author asked for none. An array
@@ -237,13 +239,15 @@ function renderLineGutter(numbers: readonly number[]): ReactElement {
  * The HIGHLIGHTED `<pre>` — React owns it, re-emitting Shiki's class list and
  * injecting the `<code>` subtree.
  *
- * Only `id` is passed through (matching what the legacy post-render splice
- * re-injected), so the author's `props.className` stays OFF the highlighted
- * container exactly as it does today — repainting it is a separate,
- * baseline-affecting change.
+ * Only `id`, the type stamp and the author's `props.className` are passed
+ * through: the `<pre>` is the element that names the block's type, so it is
+ * also the one an author's class must land on — the only hook a config has to
+ * size or hide a code block without wrapping it in a container.
  */
 function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): ReactElement {
   const { rest, dataTestId, gutter } = input
+  const className = resolveClasses(highlight.preClass, input.authorClassName)
+  const componentType = rest['data-component-type'] as string | undefined
   // UNGUTTERED: the injected subtree is the `<pre>`'s only content — byte-for-
   // byte the markup every existing block already ships, so adding a gutter
   // option repaints nothing that did not ask for one.
@@ -251,8 +255,9 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
     return (
       <pre
         id={rest['id'] as string | undefined}
-        className={highlight.preClass}
+        className={className}
         data-testid={dataTestId}
+        data-component-type={componentType}
         data-code-command="true"
         data-copy-target="true"
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; markup is pre-highlighted + canonically sanitised
@@ -269,8 +274,9 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
   return (
     <pre
       id={rest['id'] as string | undefined}
-      className={highlight.preClass}
+      className={className}
       data-testid={dataTestId}
+      data-component-type={componentType}
       data-line-numbers="true"
       data-code-command="true"
       data-copy-target="true"
@@ -483,6 +489,7 @@ export const codeBlockComponent: ComponentRenderer = ({
     // (The concatenation this replaces put `font-mono` last for the same
     // reason, but relied on CSS source order to make it stick.)
     preClass: resolveClasses('', undefined, authorClassName, 'font-mono'),
+    authorClassName,
     language,
     gutter,
     content,

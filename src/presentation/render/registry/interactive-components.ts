@@ -563,9 +563,20 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       // strip every interactive element (`<form>`, `<input>`, ...). A schema
       // author cannot supply it — the decoded `customHTML` schema only exposes
       // `content` / `htmlSrc`, so the field is absent on any validated input.
-      const trustedContent = (component as { trustedContent?: unknown } | undefined)?.trustedContent
+      //
+      // `authoredType` travels with it: the type the author declared before the
+      // render-time rewrite (a `formRef` form is a `form`), stamped in place of
+      // `customHTML` so the element is named once, as written.
+      const synthesized = component as
+        { readonly trustedContent?: unknown; readonly authoredType?: unknown } | undefined
+      const trustedContent = synthesized?.trustedContent
       if (typeof trustedContent === 'string') {
-        return Renderers.renderCustomHTML(elementProps, trustedContent, true)
+        const authoredType = synthesized?.authoredType
+        const namedProps =
+          typeof authoredType === 'string'
+            ? { ...elementProps, 'data-component-type': authoredType }
+            : elementProps
+        return Renderers.renderCustomHTML(namedProps, trustedContent, true)
       }
       return Renderers.renderCustomHTML(elementProps, content)
     },

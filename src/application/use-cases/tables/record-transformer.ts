@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readsAsDay } from '@/domain/models/app/tables/min-max-order-service'
+import { toStringRelationshipValue } from '@/domain/models/app/tables/record-id-service'
 import { formatFieldForDisplay, type FormatResult } from './display-formatter'
 import type { App } from '@/domain/models/app'
 
@@ -34,7 +36,7 @@ export interface FormattedFieldValue {
  * User-defined fields are nested under the `fields` property.
  */
 export interface TransformedRecord {
-  readonly id: string | number
+  readonly id: string
   readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
@@ -374,6 +376,59 @@ function processRawField(
 }
 
 /**
+ * A `Date` the driver decoded, as the records API reads it: a `date` field (or
+ * a `MIN`/`MAX` rollup over one) as its day (`YYYY-MM-DD` — PostgreSQL's `date` decodes to UTC midnight, and a
+ * date has no time), anything else as its ISO instant.
+ */
+const serializeDriverValue = (
+  key: string,
+  value: unknown,
+  schema: Readonly<{ readonly app?: App; readonly tableName?: string }> | undefined
+): RecordFieldValue => {
+  if (!(value instanceof Date)) return value as RecordFieldValue
+  const isDay =
+    schema?.app !== undefined &&
+    schema.tableName !== undefined &&
+    readsAsDay(schema.app, schema.tableName, key)
+  return isDay ? value.toISOString().slice(0, 10) : value.toISOString()
+}
+
+/**
+ * A raw row with every `Date` the driver decoded read as the records API reads
+ * it: a `date` field as its day, anything else as its ISO instant. For the
+ * roads that hand a row on without `transformRecord` — an automation's read,
+ * a grouping key, a webhook's previous values — so PostgreSQL (which decodes
+ * `date` and timestamps to `Date`) answers what SQLite (which stores text) does.
+ */
+export const serializeDriverRow = (
+  row: Readonly<Record<string, unknown>>,
+  schema: Readonly<{ readonly app?: App; readonly tableName?: string }>
+): Readonly<Record<string, unknown>> =>
+  Object.values(row).some((value) => value instanceof Date)
+    ? Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [
+          key,
+          value instanceof Date ? serializeDriverValue(key, value, schema) : value,
+        ])
+      )
+    : row
+
+/**
+ * A relationship value names the related record by its id, and a record id
+ * reads as a string — in the raw and the display format alike.
+ */
+const relationshipAsString = (
+  key: string,
+  value: RecordFieldValue,
+  schema: Readonly<{ readonly app?: App; readonly tableName?: string }> | undefined
+): RecordFieldValue =>
+  schema?.app !== undefined &&
+  schema.tableName !== undefined &&
+  getFieldType(schema.app, schema.tableName, key) === 'relationship'
+    ? (toStringRelationshipValue(value) as RecordFieldValue)
+    : value
+
+/**
  * Process a single field value with optional display formatting
  */
 const processFieldValue = (
@@ -386,10 +441,14 @@ const processFieldValue = (
     readonly timezone?: string
   }>
 ): Readonly<RecordFieldValue | FormattedFieldValue> => {
-  const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
-
   // Check if app schema info is available for type-aware processing
   const hasSchemaInfo = options?.app && options?.tableName
+
+  const processedValue = relationshipAsString(
+    key,
+    serializeDriverValue(key, value, options),
+    options
+  )
 
   // Apply display formatting if requested
   if (options?.format !== 'display' || !hasSchemaInfo) {

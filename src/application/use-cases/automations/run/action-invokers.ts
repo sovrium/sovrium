@@ -15,9 +15,15 @@
  * gets fresh invokers) and share one cycle-detection `invocationStack`.
  */
 
+import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { actionKey, missingActionHandler } from '../action-handlers'
-import { applyTemplateVars } from '../expand-action-refs'
-import { findTemplate, resolveActionPropsForDispatch } from './prop-substitution'
+import {
+  authoredReferenceRoots,
+  fillAuthoredReferences,
+  referenceAuthoredValues,
+} from '../authored-references'
+import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
+import type { ReadTracker } from './read-tracker'
 import type { RunAccumulator, StepContext } from './types'
 
 /**
@@ -31,15 +37,24 @@ import type { RunAccumulator, StepContext } from './types'
  */
 interface DispatchActionInput {
   readonly action: Readonly<Record<string, unknown>>
-  readonly resolvedProps: Record<string, unknown>
+  readonly resolvedProps: Readonly<Record<string, unknown>>
+  /** The props as authored, for a handler that renders its own; for final
+   *  props, the props themselves. */
+  readonly authoredProps: Readonly<Record<string, unknown>>
+  /** A named template's variables, read by its `{{$vars.name}}` references. */
+  readonly templateVars?: Readonly<Record<string, unknown>>
+  /** The props are values a step handed over: never rendered again. */
+  readonly propsFinal: boolean
   readonly ctx: StepContext
   readonly acc: RunAccumulator
   readonly invocationStack: ReadonlySet<string>
   readonly failureLabel: string
+  /** Where the step records what this dispatch read. */
+  readonly tracker: ReadTracker
 }
 
 const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> => {
-  const { action, resolvedProps, ctx, acc, invocationStack, failureLabel } = input
+  const { action, resolvedProps, ctx, acc, invocationStack, failureLabel, tracker } = input
   const handlerKey = actionKey(
     String(action['type'] ?? ''),
     action['operator'] as string | undefined
@@ -54,17 +69,22 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
     previousSteps: acc.actions,
     triggerData: ctx.triggerData,
     rawAction: action,
+    authoredProps: input.authoredProps,
+    ...(input.templateVars === undefined ? {} : { templateVars: input.templateVars }),
+    ...(input.propsFinal ? { propsFinal: true as const } : {}),
     envLookup: ctx.envLookup,
-    invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack),
-    invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack),
+    invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, tracker),
+    invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, tracker),
   }
-  const program = handler(
-    { ...action, props: resolvedProps },
-    ctx.app,
-    ctx.automation,
-    subRunContext
+  // Its own announcing scope: this program runs detached from the calling
+  // step's fiber, so the rows it writes are announced as one write of its own.
+  const program = announceRecordWrites(ctx.app)(
+    handler({ ...action, props: resolvedProps }, ctx.app, ctx.automation, subRunContext)
   )
   return ctx.runProgram(program).then((outcome) => {
+    // What it read is recorded whatever the outcome: a failed read may still
+    // carry what it read in its error.
+    tracker.dispatched(ctx.app, { ...action, props: resolvedProps }, outcome.output)
     if (outcome.status === 'failure') {
       // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
       throw new Error(outcome.error ?? `${failureLabel} failed`)
@@ -95,7 +115,8 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
 export const buildTemplateInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
-  invocationStack: ReadonlySet<string>
+  invocationStack: ReadonlySet<string>,
+  tracker: ReadTracker
 ): ((name: string, vars?: Readonly<Record<string, unknown>>) => Promise<unknown>) => {
   return (templateName, vars) => {
     if (invocationStack.has(templateName)) {
@@ -110,16 +131,36 @@ export const buildTemplateInvoker = (
         )
       )
     }
-    const substituted = applyTemplateVars(template, vars) as Record<string, unknown>
-    const resolvedProps = resolveActionPropsForDispatch(substituted, ctx)
+    // The template is authored config: its body is rendered ONCE, with the
+    // caller's `vars` and the env values inserted as values the template pass
+    // never parses (`{{$vars.name}}`, `{{$env.NAME}}`). A variable default is
+    // config too, so its own `$env.X` is filled in first; the merged
+    // variables are values from then on.
+    const defaults = fillAuthoredReferences(template.variables ?? {}, {
+      envLookup: ctx.envLookup,
+    })
+    const values = { envLookup: ctx.envLookup, vars: { ...defaults, ...(vars ?? {}) } }
+    const referenced = referenceAuthoredValues(template.action, values)
+    // A code action's source is never a template: its references are filled in
+    // as text, and so is the action other handlers read as written.
+    const filled = fillAuthoredReferences(template.action, values)
+    const isCode = String(template.action['type'] ?? '') === 'code'
+    const resolvedProps = renderAuthoredTemplateProps(isCode ? filled : referenced, {
+      ...ctx.templateContext,
+      ...authoredReferenceRoots(values),
+    })
     const newStack = new Set([...invocationStack, templateName])
     return dispatchActionAsPromise({
-      action: substituted,
+      action: filled,
       resolvedProps,
+      authoredProps: (referenced['props'] ?? {}) as Readonly<Record<string, unknown>>,
+      templateVars: values.vars,
+      propsFinal: false,
       ctx,
       acc,
       invocationStack: newStack,
       failureLabel: `template '${templateName}'`,
+      tracker,
     })
   }
 }
@@ -127,8 +168,8 @@ export const buildTemplateInvoker = (
 /**
  * Build a native-action dispatcher for the code sandbox's
  * `context.actions.<actionType>.<operator>(props)` proxy. Synthesises
- * a concrete action object on the fly (no template required), resolves
- * env templates in props, and dispatches through the shared
+ * a concrete action object on the fly (no template required) and
+ * dispatches it with its props as given — never rendered — through the shared
  * {@link dispatchActionAsPromise} helper.
  *
  * Native dispatch never grows the cycle-detection stack on its own —
@@ -141,7 +182,8 @@ export const buildTemplateInvoker = (
 export const buildNativeActionInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
-  invocationStack: ReadonlySet<string>
+  invocationStack: ReadonlySet<string>,
+  tracker: ReadTracker
 ): ((
   type: string,
   operator: string,
@@ -162,14 +204,20 @@ export const buildNativeActionInvoker = (
       operator,
       props: props ?? {},
     }
-    const resolvedProps = resolveActionPropsForDispatch(synthetic, ctx)
+    // The props are values the calling step built (a code action's call, an
+    // item a loop filled in, a branch's resolved action): final, so neither
+    // this dispatch nor the handler renders them again.
+    const finalProps = props ?? {}
     return dispatchActionAsPromise({
       action: synthetic,
-      resolvedProps,
+      resolvedProps: finalProps,
+      authoredProps: finalProps,
+      propsFinal: true,
       ctx,
       acc,
       invocationStack,
       failureLabel: `native action '${type}.${operator}'`,
+      tracker,
     })
   }
 }

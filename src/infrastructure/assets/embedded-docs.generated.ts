@@ -185,72 +185,73 @@ import _d170 from '../../../src/domain/models/app/pages/components/component-typ
 import _d171 from '../../../src/domain/models/app/pages/components/component-types/form-controls/form-controls.docs.md' with { type: 'file' }
 import _d172 from '../../../src/domain/models/app/pages/components/component-types/interactive/interactive.docs.md' with { type: 'file' }
 import _d173 from '../../../src/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
-import _d174 from '../../../src/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md' with { type: 'file' }
-import _d175 from '../../../src/domain/models/app/pages/components/component-types/modules/modules.docs.md' with { type: 'file' }
-import _d176 from '../../../src/domain/models/app/pages/components/component-types/navigation/navigation.docs.md' with { type: 'file' }
-import _d177 from '../../../src/domain/models/app/pages/components/component-types/overlays/overlays.docs.md' with { type: 'file' }
-import _d178 from '../../../src/domain/models/app/pages/components/component-types/specialty/design-console-components.docs.md' with { type: 'file' }
-import _d179 from '../../../src/domain/models/app/pages/components/component-types/specialty/social-components.docs.md' with { type: 'file' }
-import _d180 from '../../../src/domain/models/app/pages/components/component-types/specialty/specialty-components.docs.md' with { type: 'file' }
-import _d181 from '../../../src/domain/models/app/pages/components/component-types/structural/structural.docs.md' with { type: 'file' }
-import _d182 from '../../../src/domain/models/app/pages/interactions.docs.md' with { type: 'file' }
-import _d183 from '../../../src/domain/models/app/pages/interactivity-scripts.docs.md' with { type: 'file' }
-import _d184 from '../../../src/domain/models/app/pages/pages-collections.docs.md' with { type: 'file' }
-import _d185 from '../../../src/domain/models/app/pages/pages-data-binding.docs.md' with { type: 'file' }
-import _d186 from '../../../src/domain/models/app/pages/pages-layouts-access.docs.md' with { type: 'file' }
-import _d187 from '../../../src/domain/models/app/pages/pages-overview.docs.md' with { type: 'file' }
-import _d188 from '../../../src/domain/models/app/pages/pages-references.docs.md' with { type: 'file' }
-import _d189 from '../../../src/domain/models/app/pages/pages-routing.docs.md' with { type: 'file' }
-import _d190 from '../../../src/domain/models/app/pages/search-components.docs.md' with { type: 'file' }
-import _d191 from '../../../src/domain/models/app/pages/search-overview.docs.md' with { type: 'file' }
-import _d192 from '../../../src/domain/models/app/pages/seo-crawlers.docs.md' with { type: 'file' }
-import _d193 from '../../../src/domain/models/app/pages/seo-meta.docs.md' with { type: 'file' }
-import _d194 from '../../../src/domain/models/app/pages/seo-structured-data.docs.md' with { type: 'file' }
-import _d195 from '../../../src/domain/models/app/redirects/redirects.docs.md' with { type: 'file' }
-import _d196 from '../../../src/domain/models/app/schema-overview.docs.md' with { type: 'file' }
-import _d197 from '../../../src/domain/models/app/system-sources/system-sources.docs.md' with { type: 'file' }
-import _d198 from '../../../src/domain/models/app/tables/fields/field-types/advanced/button-fields.docs.md' with { type: 'file' }
-import _d199 from '../../../src/domain/models/app/tables/fields/field-types/advanced/computed-fields.docs.md' with { type: 'file' }
-import _d200 from '../../../src/domain/models/app/tables/fields/field-types/advanced/formula-fields.docs.md' with { type: 'file' }
-import _d201 from '../../../src/domain/models/app/tables/fields/field-types/advanced/structured-fields.docs.md' with { type: 'file' }
-import _d202 from '../../../src/domain/models/app/tables/fields/field-types/ai/ai.docs.md' with { type: 'file' }
-import _d203 from '../../../src/domain/models/app/tables/fields/field-types/date-time/date-time.docs.md' with { type: 'file' }
-import _d204 from '../../../src/domain/models/app/tables/fields/field-types/field-types.docs.md' with { type: 'file' }
-import _d205 from '../../../src/domain/models/app/tables/fields/field-types/full-text-search.docs.md' with { type: 'file' }
-import _d206 from '../../../src/domain/models/app/tables/fields/field-types/media/media.docs.md' with { type: 'file' }
-import _d207 from '../../../src/domain/models/app/tables/fields/field-types/numeric/numeric.docs.md' with { type: 'file' }
-import _d208 from '../../../src/domain/models/app/tables/fields/field-types/relational/relational.docs.md' with { type: 'file' }
-import _d209 from '../../../src/domain/models/app/tables/fields/field-types/selection/selection.docs.md' with { type: 'file' }
-import _d210 from '../../../src/domain/models/app/tables/fields/field-types/text/text.docs.md' with { type: 'file' }
-import _d211 from '../../../src/domain/models/app/tables/fields/field-types/user/user.docs.md' with { type: 'file' }
-import _d212 from '../../../src/domain/models/app/tables/foreign-keys/foreign-keys.docs.md' with { type: 'file' }
-import _d213 from '../../../src/domain/models/app/tables/indexes/indexes.docs.md' with { type: 'file' }
-import _d214 from '../../../src/domain/models/app/tables/table-permissions.docs.md' with { type: 'file' }
-import _d215 from '../../../src/domain/models/app/tables/table-validation.docs.md' with { type: 'file' }
-import _d216 from '../../../src/domain/models/app/tables/tables-overview.docs.md' with { type: 'file' }
-import _d217 from '../../../src/domain/models/app/tables/views/views.docs.md' with { type: 'file' }
-import _d218 from '../../../src/domain/models/app/tables/webhooks/webhooks.docs.md' with { type: 'file' }
-import _d219 from '../../../src/infrastructure/config/configuration-refs.docs.md' with { type: 'file' }
-import _d220 from '../../../src/presentation/api/mcp/mcp-client-mode.docs.md' with { type: 'file' }
-import _d221 from '../../../src/presentation/api/mcp/mcp-clients.docs.md' with { type: 'file' }
-import _d222 from '../../../src/presentation/api/mcp/mcp-integration.docs.md' with { type: 'file' }
-import _d223 from '../../../src/presentation/api/mcp/mcp-security.docs.md' with { type: 'file' }
-import _d224 from '../../../src/presentation/api/mcp/mcp-server.docs.md' with { type: 'file' }
-import _d225 from '../../../src/presentation/api/openapi/api-endpoints.docs.md' with { type: 'file' }
-import _d226 from '../../../src/presentation/api/openapi/api-reference.docs.md' with { type: 'file' }
-import _d227 from '../../../src/presentation/api/openapi/openapi.docs.md' with { type: 'file' }
-import _d228 from '../../../src/presentation/api/tables/activity-monitoring.docs.md' with { type: 'file' }
-import _d229 from '../../../src/presentation/api/tables/record-history.docs.md' with { type: 'file' }
-import _d230 from '../../../src/presentation/api/tables/records-batch.docs.md' with { type: 'file' }
-import _d231 from '../../../src/presentation/api/tables/records-crud.docs.md' with { type: 'file' }
-import _d232 from '../../../src/presentation/api/tables/records-filtering-sorting.docs.md' with { type: 'file' }
-import _d233 from '../../../src/presentation/api/tables/records-grouping-views.docs.md' with { type: 'file' }
-import _d234 from '../../../src/presentation/api/tables/records-import-export.docs.md' with { type: 'file' }
-import _d235 from '../../../src/presentation/api/tables/records-overview.docs.md' with { type: 'file' }
-import _d236 from '../../../src/presentation/api/tables/records-realtime.docs.md' with { type: 'file' }
-import _d237 from '../../../src/presentation/api/tables/records-soft-delete.docs.md' with { type: 'file' }
-import _d238 from '../../../src/presentation/api/tables/records-upsert-delete.docs.md' with { type: 'file' }
-import _d239 from '../../../src/presentation/api/tables/runtime-customization.docs.md' with { type: 'file' }
+import _d174 from '../../../src/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
+import _d175 from '../../../src/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md' with { type: 'file' }
+import _d176 from '../../../src/domain/models/app/pages/components/component-types/modules/modules.docs.md' with { type: 'file' }
+import _d177 from '../../../src/domain/models/app/pages/components/component-types/navigation/navigation.docs.md' with { type: 'file' }
+import _d178 from '../../../src/domain/models/app/pages/components/component-types/overlays/overlays.docs.md' with { type: 'file' }
+import _d179 from '../../../src/domain/models/app/pages/components/component-types/specialty/design-console-components.docs.md' with { type: 'file' }
+import _d180 from '../../../src/domain/models/app/pages/components/component-types/specialty/social-components.docs.md' with { type: 'file' }
+import _d181 from '../../../src/domain/models/app/pages/components/component-types/specialty/specialty-components.docs.md' with { type: 'file' }
+import _d182 from '../../../src/domain/models/app/pages/components/component-types/structural/structural.docs.md' with { type: 'file' }
+import _d183 from '../../../src/domain/models/app/pages/interactions.docs.md' with { type: 'file' }
+import _d184 from '../../../src/domain/models/app/pages/interactivity-scripts.docs.md' with { type: 'file' }
+import _d185 from '../../../src/domain/models/app/pages/pages-collections.docs.md' with { type: 'file' }
+import _d186 from '../../../src/domain/models/app/pages/pages-data-binding.docs.md' with { type: 'file' }
+import _d187 from '../../../src/domain/models/app/pages/pages-layouts-access.docs.md' with { type: 'file' }
+import _d188 from '../../../src/domain/models/app/pages/pages-overview.docs.md' with { type: 'file' }
+import _d189 from '../../../src/domain/models/app/pages/pages-references.docs.md' with { type: 'file' }
+import _d190 from '../../../src/domain/models/app/pages/pages-routing.docs.md' with { type: 'file' }
+import _d191 from '../../../src/domain/models/app/pages/search-components.docs.md' with { type: 'file' }
+import _d192 from '../../../src/domain/models/app/pages/search-overview.docs.md' with { type: 'file' }
+import _d193 from '../../../src/domain/models/app/pages/seo-crawlers.docs.md' with { type: 'file' }
+import _d194 from '../../../src/domain/models/app/pages/seo-meta.docs.md' with { type: 'file' }
+import _d195 from '../../../src/domain/models/app/pages/seo-structured-data.docs.md' with { type: 'file' }
+import _d196 from '../../../src/domain/models/app/redirects/redirects.docs.md' with { type: 'file' }
+import _d197 from '../../../src/domain/models/app/schema-overview.docs.md' with { type: 'file' }
+import _d198 from '../../../src/domain/models/app/system-sources/system-sources.docs.md' with { type: 'file' }
+import _d199 from '../../../src/domain/models/app/tables/fields/field-types/advanced/button-fields.docs.md' with { type: 'file' }
+import _d200 from '../../../src/domain/models/app/tables/fields/field-types/advanced/computed-fields.docs.md' with { type: 'file' }
+import _d201 from '../../../src/domain/models/app/tables/fields/field-types/advanced/formula-fields.docs.md' with { type: 'file' }
+import _d202 from '../../../src/domain/models/app/tables/fields/field-types/advanced/structured-fields.docs.md' with { type: 'file' }
+import _d203 from '../../../src/domain/models/app/tables/fields/field-types/ai/ai.docs.md' with { type: 'file' }
+import _d204 from '../../../src/domain/models/app/tables/fields/field-types/date-time/date-time.docs.md' with { type: 'file' }
+import _d205 from '../../../src/domain/models/app/tables/fields/field-types/field-types.docs.md' with { type: 'file' }
+import _d206 from '../../../src/domain/models/app/tables/fields/field-types/full-text-search.docs.md' with { type: 'file' }
+import _d207 from '../../../src/domain/models/app/tables/fields/field-types/media/media.docs.md' with { type: 'file' }
+import _d208 from '../../../src/domain/models/app/tables/fields/field-types/numeric/numeric.docs.md' with { type: 'file' }
+import _d209 from '../../../src/domain/models/app/tables/fields/field-types/relational/relational.docs.md' with { type: 'file' }
+import _d210 from '../../../src/domain/models/app/tables/fields/field-types/selection/selection.docs.md' with { type: 'file' }
+import _d211 from '../../../src/domain/models/app/tables/fields/field-types/text/text.docs.md' with { type: 'file' }
+import _d212 from '../../../src/domain/models/app/tables/fields/field-types/user/user.docs.md' with { type: 'file' }
+import _d213 from '../../../src/domain/models/app/tables/foreign-keys/foreign-keys.docs.md' with { type: 'file' }
+import _d214 from '../../../src/domain/models/app/tables/indexes/indexes.docs.md' with { type: 'file' }
+import _d215 from '../../../src/domain/models/app/tables/table-permissions.docs.md' with { type: 'file' }
+import _d216 from '../../../src/domain/models/app/tables/table-validation.docs.md' with { type: 'file' }
+import _d217 from '../../../src/domain/models/app/tables/tables-overview.docs.md' with { type: 'file' }
+import _d218 from '../../../src/domain/models/app/tables/views/views.docs.md' with { type: 'file' }
+import _d219 from '../../../src/domain/models/app/tables/webhooks/webhooks.docs.md' with { type: 'file' }
+import _d220 from '../../../src/infrastructure/config/configuration-refs.docs.md' with { type: 'file' }
+import _d221 from '../../../src/presentation/api/mcp/mcp-client-mode.docs.md' with { type: 'file' }
+import _d222 from '../../../src/presentation/api/mcp/mcp-clients.docs.md' with { type: 'file' }
+import _d223 from '../../../src/presentation/api/mcp/mcp-integration.docs.md' with { type: 'file' }
+import _d224 from '../../../src/presentation/api/mcp/mcp-security.docs.md' with { type: 'file' }
+import _d225 from '../../../src/presentation/api/mcp/mcp-server.docs.md' with { type: 'file' }
+import _d226 from '../../../src/presentation/api/openapi/api-endpoints.docs.md' with { type: 'file' }
+import _d227 from '../../../src/presentation/api/openapi/api-reference.docs.md' with { type: 'file' }
+import _d228 from '../../../src/presentation/api/openapi/openapi.docs.md' with { type: 'file' }
+import _d229 from '../../../src/presentation/api/tables/activity-monitoring.docs.md' with { type: 'file' }
+import _d230 from '../../../src/presentation/api/tables/record-history.docs.md' with { type: 'file' }
+import _d231 from '../../../src/presentation/api/tables/records-batch.docs.md' with { type: 'file' }
+import _d232 from '../../../src/presentation/api/tables/records-crud.docs.md' with { type: 'file' }
+import _d233 from '../../../src/presentation/api/tables/records-filtering-sorting.docs.md' with { type: 'file' }
+import _d234 from '../../../src/presentation/api/tables/records-grouping-views.docs.md' with { type: 'file' }
+import _d235 from '../../../src/presentation/api/tables/records-import-export.docs.md' with { type: 'file' }
+import _d236 from '../../../src/presentation/api/tables/records-overview.docs.md' with { type: 'file' }
+import _d237 from '../../../src/presentation/api/tables/records-realtime.docs.md' with { type: 'file' }
+import _d238 from '../../../src/presentation/api/tables/records-soft-delete.docs.md' with { type: 'file' }
+import _d239 from '../../../src/presentation/api/tables/records-upsert-delete.docs.md' with { type: 'file' }
+import _d240 from '../../../src/presentation/api/tables/runtime-customization.docs.md' with { type: 'file' }
 
 export const EMBEDDED_DOCS = {
   "src/admin/config/pages/admin-dashboard.docs.md": _d0,
@@ -427,70 +428,71 @@ export const EMBEDDED_DOCS = {
   "src/domain/models/app/pages/components/component-types/form-controls/form-controls.docs.md": _d171,
   "src/domain/models/app/pages/components/component-types/interactive/interactive.docs.md": _d172,
   "src/domain/models/app/pages/components/component-types/layout/layout-components.docs.md": _d173,
-  "src/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md": _d174,
-  "src/domain/models/app/pages/components/component-types/modules/modules.docs.md": _d175,
-  "src/domain/models/app/pages/components/component-types/navigation/navigation.docs.md": _d176,
-  "src/domain/models/app/pages/components/component-types/overlays/overlays.docs.md": _d177,
-  "src/domain/models/app/pages/components/component-types/specialty/design-console-components.docs.md": _d178,
-  "src/domain/models/app/pages/components/component-types/specialty/social-components.docs.md": _d179,
-  "src/domain/models/app/pages/components/component-types/specialty/specialty-components.docs.md": _d180,
-  "src/domain/models/app/pages/components/component-types/structural/structural.docs.md": _d181,
-  "src/domain/models/app/pages/interactions.docs.md": _d182,
-  "src/domain/models/app/pages/interactivity-scripts.docs.md": _d183,
-  "src/domain/models/app/pages/pages-collections.docs.md": _d184,
-  "src/domain/models/app/pages/pages-data-binding.docs.md": _d185,
-  "src/domain/models/app/pages/pages-layouts-access.docs.md": _d186,
-  "src/domain/models/app/pages/pages-overview.docs.md": _d187,
-  "src/domain/models/app/pages/pages-references.docs.md": _d188,
-  "src/domain/models/app/pages/pages-routing.docs.md": _d189,
-  "src/domain/models/app/pages/search-components.docs.md": _d190,
-  "src/domain/models/app/pages/search-overview.docs.md": _d191,
-  "src/domain/models/app/pages/seo-crawlers.docs.md": _d192,
-  "src/domain/models/app/pages/seo-meta.docs.md": _d193,
-  "src/domain/models/app/pages/seo-structured-data.docs.md": _d194,
-  "src/domain/models/app/redirects/redirects.docs.md": _d195,
-  "src/domain/models/app/schema-overview.docs.md": _d196,
-  "src/domain/models/app/system-sources/system-sources.docs.md": _d197,
-  "src/domain/models/app/tables/fields/field-types/advanced/button-fields.docs.md": _d198,
-  "src/domain/models/app/tables/fields/field-types/advanced/computed-fields.docs.md": _d199,
-  "src/domain/models/app/tables/fields/field-types/advanced/formula-fields.docs.md": _d200,
-  "src/domain/models/app/tables/fields/field-types/advanced/structured-fields.docs.md": _d201,
-  "src/domain/models/app/tables/fields/field-types/ai/ai.docs.md": _d202,
-  "src/domain/models/app/tables/fields/field-types/date-time/date-time.docs.md": _d203,
-  "src/domain/models/app/tables/fields/field-types/field-types.docs.md": _d204,
-  "src/domain/models/app/tables/fields/field-types/full-text-search.docs.md": _d205,
-  "src/domain/models/app/tables/fields/field-types/media/media.docs.md": _d206,
-  "src/domain/models/app/tables/fields/field-types/numeric/numeric.docs.md": _d207,
-  "src/domain/models/app/tables/fields/field-types/relational/relational.docs.md": _d208,
-  "src/domain/models/app/tables/fields/field-types/selection/selection.docs.md": _d209,
-  "src/domain/models/app/tables/fields/field-types/text/text.docs.md": _d210,
-  "src/domain/models/app/tables/fields/field-types/user/user.docs.md": _d211,
-  "src/domain/models/app/tables/foreign-keys/foreign-keys.docs.md": _d212,
-  "src/domain/models/app/tables/indexes/indexes.docs.md": _d213,
-  "src/domain/models/app/tables/table-permissions.docs.md": _d214,
-  "src/domain/models/app/tables/table-validation.docs.md": _d215,
-  "src/domain/models/app/tables/tables-overview.docs.md": _d216,
-  "src/domain/models/app/tables/views/views.docs.md": _d217,
-  "src/domain/models/app/tables/webhooks/webhooks.docs.md": _d218,
-  "src/infrastructure/config/configuration-refs.docs.md": _d219,
-  "src/presentation/api/mcp/mcp-client-mode.docs.md": _d220,
-  "src/presentation/api/mcp/mcp-clients.docs.md": _d221,
-  "src/presentation/api/mcp/mcp-integration.docs.md": _d222,
-  "src/presentation/api/mcp/mcp-security.docs.md": _d223,
-  "src/presentation/api/mcp/mcp-server.docs.md": _d224,
-  "src/presentation/api/openapi/api-endpoints.docs.md": _d225,
-  "src/presentation/api/openapi/api-reference.docs.md": _d226,
-  "src/presentation/api/openapi/openapi.docs.md": _d227,
-  "src/presentation/api/tables/activity-monitoring.docs.md": _d228,
-  "src/presentation/api/tables/record-history.docs.md": _d229,
-  "src/presentation/api/tables/records-batch.docs.md": _d230,
-  "src/presentation/api/tables/records-crud.docs.md": _d231,
-  "src/presentation/api/tables/records-filtering-sorting.docs.md": _d232,
-  "src/presentation/api/tables/records-grouping-views.docs.md": _d233,
-  "src/presentation/api/tables/records-import-export.docs.md": _d234,
-  "src/presentation/api/tables/records-overview.docs.md": _d235,
-  "src/presentation/api/tables/records-realtime.docs.md": _d236,
-  "src/presentation/api/tables/records-soft-delete.docs.md": _d237,
-  "src/presentation/api/tables/records-upsert-delete.docs.md": _d238,
-  "src/presentation/api/tables/runtime-customization.docs.md": _d239,
+  "src/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md": _d174,
+  "src/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md": _d175,
+  "src/domain/models/app/pages/components/component-types/modules/modules.docs.md": _d176,
+  "src/domain/models/app/pages/components/component-types/navigation/navigation.docs.md": _d177,
+  "src/domain/models/app/pages/components/component-types/overlays/overlays.docs.md": _d178,
+  "src/domain/models/app/pages/components/component-types/specialty/design-console-components.docs.md": _d179,
+  "src/domain/models/app/pages/components/component-types/specialty/social-components.docs.md": _d180,
+  "src/domain/models/app/pages/components/component-types/specialty/specialty-components.docs.md": _d181,
+  "src/domain/models/app/pages/components/component-types/structural/structural.docs.md": _d182,
+  "src/domain/models/app/pages/interactions.docs.md": _d183,
+  "src/domain/models/app/pages/interactivity-scripts.docs.md": _d184,
+  "src/domain/models/app/pages/pages-collections.docs.md": _d185,
+  "src/domain/models/app/pages/pages-data-binding.docs.md": _d186,
+  "src/domain/models/app/pages/pages-layouts-access.docs.md": _d187,
+  "src/domain/models/app/pages/pages-overview.docs.md": _d188,
+  "src/domain/models/app/pages/pages-references.docs.md": _d189,
+  "src/domain/models/app/pages/pages-routing.docs.md": _d190,
+  "src/domain/models/app/pages/search-components.docs.md": _d191,
+  "src/domain/models/app/pages/search-overview.docs.md": _d192,
+  "src/domain/models/app/pages/seo-crawlers.docs.md": _d193,
+  "src/domain/models/app/pages/seo-meta.docs.md": _d194,
+  "src/domain/models/app/pages/seo-structured-data.docs.md": _d195,
+  "src/domain/models/app/redirects/redirects.docs.md": _d196,
+  "src/domain/models/app/schema-overview.docs.md": _d197,
+  "src/domain/models/app/system-sources/system-sources.docs.md": _d198,
+  "src/domain/models/app/tables/fields/field-types/advanced/button-fields.docs.md": _d199,
+  "src/domain/models/app/tables/fields/field-types/advanced/computed-fields.docs.md": _d200,
+  "src/domain/models/app/tables/fields/field-types/advanced/formula-fields.docs.md": _d201,
+  "src/domain/models/app/tables/fields/field-types/advanced/structured-fields.docs.md": _d202,
+  "src/domain/models/app/tables/fields/field-types/ai/ai.docs.md": _d203,
+  "src/domain/models/app/tables/fields/field-types/date-time/date-time.docs.md": _d204,
+  "src/domain/models/app/tables/fields/field-types/field-types.docs.md": _d205,
+  "src/domain/models/app/tables/fields/field-types/full-text-search.docs.md": _d206,
+  "src/domain/models/app/tables/fields/field-types/media/media.docs.md": _d207,
+  "src/domain/models/app/tables/fields/field-types/numeric/numeric.docs.md": _d208,
+  "src/domain/models/app/tables/fields/field-types/relational/relational.docs.md": _d209,
+  "src/domain/models/app/tables/fields/field-types/selection/selection.docs.md": _d210,
+  "src/domain/models/app/tables/fields/field-types/text/text.docs.md": _d211,
+  "src/domain/models/app/tables/fields/field-types/user/user.docs.md": _d212,
+  "src/domain/models/app/tables/foreign-keys/foreign-keys.docs.md": _d213,
+  "src/domain/models/app/tables/indexes/indexes.docs.md": _d214,
+  "src/domain/models/app/tables/table-permissions.docs.md": _d215,
+  "src/domain/models/app/tables/table-validation.docs.md": _d216,
+  "src/domain/models/app/tables/tables-overview.docs.md": _d217,
+  "src/domain/models/app/tables/views/views.docs.md": _d218,
+  "src/domain/models/app/tables/webhooks/webhooks.docs.md": _d219,
+  "src/infrastructure/config/configuration-refs.docs.md": _d220,
+  "src/presentation/api/mcp/mcp-client-mode.docs.md": _d221,
+  "src/presentation/api/mcp/mcp-clients.docs.md": _d222,
+  "src/presentation/api/mcp/mcp-integration.docs.md": _d223,
+  "src/presentation/api/mcp/mcp-security.docs.md": _d224,
+  "src/presentation/api/mcp/mcp-server.docs.md": _d225,
+  "src/presentation/api/openapi/api-endpoints.docs.md": _d226,
+  "src/presentation/api/openapi/api-reference.docs.md": _d227,
+  "src/presentation/api/openapi/openapi.docs.md": _d228,
+  "src/presentation/api/tables/activity-monitoring.docs.md": _d229,
+  "src/presentation/api/tables/record-history.docs.md": _d230,
+  "src/presentation/api/tables/records-batch.docs.md": _d231,
+  "src/presentation/api/tables/records-crud.docs.md": _d232,
+  "src/presentation/api/tables/records-filtering-sorting.docs.md": _d233,
+  "src/presentation/api/tables/records-grouping-views.docs.md": _d234,
+  "src/presentation/api/tables/records-import-export.docs.md": _d235,
+  "src/presentation/api/tables/records-overview.docs.md": _d236,
+  "src/presentation/api/tables/records-realtime.docs.md": _d237,
+  "src/presentation/api/tables/records-soft-delete.docs.md": _d238,
+  "src/presentation/api/tables/records-upsert-delete.docs.md": _d239,
+  "src/presentation/api/tables/runtime-customization.docs.md": _d240,
 }

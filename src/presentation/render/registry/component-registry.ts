@@ -114,11 +114,3 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   toc: tocComponent,
 } as Partial<Record<DispatchableComponentType, ComponentRenderer>> &
   Record<string, ComponentRenderer>
-
-// Re-export individual component groups for granular imports if needed
-export { structuralComponents } from './structural-components'
-export { textComponents } from './text-components'
-export { mediaComponents } from './media-components'
-export { interactiveComponents } from './interactive-components'
-export { specialComponents } from './special-components'
-export { islandComponents } from './island-components'

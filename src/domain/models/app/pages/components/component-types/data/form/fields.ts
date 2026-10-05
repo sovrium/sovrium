@@ -52,8 +52,9 @@ export const FormTypeLiteral = Schema.Literal('form')
  * Prefill value supported by `inlinePrefill.prefill[<column>]`.
  *
  * Either a literal scalar/array (the value goes directly into the rendered
- * form) or a `$parent.<segment>` token resolved at render time from the host
- * page's `dataSource: { mode: 'single' }` record. The token form is
+ * form) or a token resolved at render time: `$parent.<segment>` /
+ * `$record.<segment>` from the host page's `dataSource: { mode: 'single' }`
+ * record, `$now`, or `$user.<prop>` from the signed-in viewer. The token form is
  * canonical when the host page exposes a parent record; literals are useful
  * for bootstrap defaults (e.g. `status: 'open'`) that don't depend on the
  * parent.
@@ -70,11 +71,13 @@ const InlinePrefillValueSchema = Schema.Union([
   Schema.Array(Schema.Finite),
 ]).annotate({
   description:
-    'Literal value or `$parent.<field>` token resolved against the host page record at render time.',
+    'Literal value, or a token resolved while the page renders: `$parent.<field>` or `$record.<field>` for a field of the page record, `$now` for the current date and time, `$user.<prop>` for a property of the signed-in viewer (dropped when nobody is signed in).',
 })
 
 /**
- * Inline-prefill configuration attached to a `formRef` page-form component.
+ * Inline-prefill configuration attached to a page-form component — either a
+ * `formRef` embed of a top-level form, or a form declared in place with its
+ * own `dataSource` and a `crud` create action.
  *
  * Used by the inline-relationship-create flow (Y-5): the host page exposes
  * a single record via `page.dataSource: { mode: 'single' }`, and the
@@ -99,7 +102,7 @@ const InlinePrefillValueSchema = Schema.Union([
 export const InlinePrefillSchema = Schema.Struct({
   prefill: Schema.Record(Schema.String, InlinePrefillValueSchema).annotate({
     description:
-      'Map of form-field column name to prefill value. Supports `$parent.<field>` tokens that resolve against the host page record.',
+      'Map of form-field column name to prefill value. Supports `$parent.<field>` / `$record.<field>` tokens that resolve against the host page record, `$now`, and `$user.<prop>`. Fields it does not name keep their own defaults.',
   }),
   lockPrefill: Schema.optional(
     Schema.Boolean.annotate({
@@ -304,12 +307,15 @@ export const formFields = {
     })
   ),
   /**
-   * Inline-prefill configuration for embedded forms (Y-5).
+   * Inline-prefill configuration for forms placed on a record page (Y-5).
    *
-   * Only meaningful in combination with `formRef` on a host page that
-   * exposes a `dataSource: { mode: 'single' }` record. When set, prefill
-   * tokens like `'$parent.id'` resolve against the host record at render
-   * time so the submitter never has to pick the parent record manually.
+   * Applies to both page-form shapes — a `formRef` embed and a form declared
+   * in place with its own `dataSource` + `crud` create action — on a host
+   * page that exposes a `dataSource: { mode: 'single' }` record, whether the
+   * form sits directly on the page, in a tab panel or in a dialog. When set,
+   * prefill tokens like `'$parent.id'` resolve against the host record at
+   * render time so the submitter never has to pick the parent record
+   * manually.
    *
    * `lockPrefill: true` further hides the prefilled fields and triggers
    * server-side parent revalidation on submit (404 → 422 mapping).

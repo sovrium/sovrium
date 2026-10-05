@@ -6,11 +6,25 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveInterpreterString,
+  resolveTranslationTokensDeep,
+} from '@/domain/models/app/languages/translation-resolver'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
+import { openerProp } from '@/presentation/render/resolve/overlay-triggers'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
+
+/**
+ * The name of a dialog's or drawer's close button, in the page language: the
+ * button is drawn as a glyph, so this is all a screen reader hears. Renamed
+ * under `sovrium.dialog.close`.
+ */
+export const overlayCloseLabel = (context: {
+  readonly currentLang?: string
+  readonly languages?: Languages
+}): string => resolveInterpreterString('dialog.close', context.currentLang, context.languages)
 
 /**
  * Reads a top-level component field, falling back to the same key in
@@ -113,6 +127,7 @@ export function buildAlertDialogProps(
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
+    ...openerProp(component),
   }
 }
 
@@ -126,7 +141,8 @@ export function buildAlertDialogProps(
 export function buildDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
-  childrenHtml: string
+  childrenHtml: string,
+  component: Component | undefined
 ) {
   return {
     title: rawProps?.['title'],
@@ -138,6 +154,7 @@ export function buildDialogProps(
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
+    ...openerProp(component),
   }
 }
 

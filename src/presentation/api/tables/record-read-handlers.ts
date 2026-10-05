@@ -11,12 +11,15 @@ import {
   createListTrashProgram,
   createGetRecordProgram,
 } from '@/application/use-cases/tables/read-record-programs'
+import { viewGrantAdmits, type TableCaller } from '@/application/use-cases/tables/table-operations'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
 } from '@/domain/models/api/tables/tables'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   findViewByKey,
   viewFilterConditions,
@@ -24,13 +27,10 @@ import {
 } from '@/domain/models/app/tables/views/view-read-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runEffect } from '@/presentation/api/runtime'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { handleRouteError } from './error-handlers'
-import {
-  validateAggregateParam,
-  validateFieldsParam,
-  validateGroupByParam,
-} from './field-permission-validation'
+import { validateAggregateParam, validateGroupByParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { buildSearchFilter, readSearchTerm } from './list-records-search'
 import { validatePaginationParams } from './pagination-validation'
@@ -42,14 +42,17 @@ import {
   checkGetReadGate,
   checkListReadGate,
   EMPTY_LIST_RESPONSE,
-  enforceGetReadPredicate,
+  readRuleAdmits,
   NOT_FOUND_RESPONSE,
   type FilterStructure,
 } from './row-level-read-helpers'
 import { validateSortPermission } from './sort-validation'
 import { validateTimezoneParam } from './timezone-validation'
 import type { App, Table } from '@/domain/models/app'
-import type { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import type {
+  TableGateScope,
+  hasReadPermission,
+} from '@/domain/models/app/auth/permission-evaluator-service'
 import type { Context } from 'hono'
 
 /**
@@ -60,7 +63,7 @@ function checkReadPermission(
   table: Parameters<typeof hasReadPermission>[0],
   effectiveRoles: readonly string[],
   c: Context,
-  allTables?: App['tables']
+  allTables?: TableGateScope
 ) {
   if (!hasReadPermissionForRoles(table, effectiveRoles, allTables)) {
     return NOT_FOUND_RESPONSE(c)
@@ -73,12 +76,10 @@ type ListRecordsValidationInput = {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
-  readonly table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
+  readonly userGroups: readonly string[]
   readonly timezone: string | undefined
   readonly sort: string | undefined
   readonly aggregate: Parameters<typeof validateAggregateParam>[0]
-  readonly fields: string | undefined
   readonly groupBy: string | undefined
 }
 
@@ -97,6 +98,7 @@ function validateListRecordsParams(input: ListRecordsValidationInput) {
     app: input.app,
     tableName: input.tableName,
     userRole: input.userRole,
+    userGroups: input.userGroups,
     c: input.c,
   }
 
@@ -108,11 +110,11 @@ function validateListRecordsParams(input: ListRecordsValidationInput) {
       app: input.app,
       tableName: input.tableName,
       userRole: input.userRole,
+      userGroups: input.userGroups,
       c: input.c,
     }) ??
     validateAggregateParam(input.aggregate, access) ??
-    validateGroupByParam(input.groupBy, access) ??
-    validateFieldsParam(input.fields, input.table, input.c)
+    validateGroupByParam(input.groupBy, access)
   )
 }
 
@@ -130,6 +132,7 @@ type ViewConfig = {
   readonly name: string
   readonly filters?: unknown
   readonly sorts?: readonly { readonly field: string; readonly direction: string }[]
+  readonly permissions?: unknown
 }
 
 /**
@@ -151,12 +154,19 @@ function viewFilterStructure(rawFilters: unknown): FilterStructure {
  *   or when the table has no views configured (view is silently ignored).
  * - `{ error: false, view: { filter, sort } }` when the view is found.
  * - `{ error: true, response }` with HTTP 404 when a view name is given but
- * not found in the table (spec [internal ref]).
+ * not found in the table (spec [internal ref]), or names a view
+ *   the caller may not open — answered exactly as a view that does not exist.
+ *
+ * A view is opened here as on its own records route: its grant when it
+ * declares one, else its table's read (already passed by the time this runs).
+ * Its conditions then narrow the rows whatever fields they name — a condition
+ * on a field hidden from the caller still applies, as it does there.
  */
 function resolveView(
   c: Context,
-  table: { readonly views?: unknown } | undefined
+  input: Readonly<{ table: Table | undefined; caller: TableCaller }>
 ): ResolveViewResult {
+  const { table, caller } = input
   const viewName = c.req.query('view')
   if (!viewName) return { error: false, view: undefined }
 
@@ -164,21 +174,16 @@ function resolveView(
   if (!views || views.length === 0) {
     return {
       error: true,
-      response: c.json(
-        { success: false, message: `View '${viewName}' not found`, code: 'NOT_FOUND' },
-        404
-      ),
+      response: notFound(c, `View '${viewName}' not found`),
     }
   }
 
   const foundView = findViewByKey(views, viewName)
-  if (!foundView) {
+  // The table's read gate has already admitted this caller.
+  if (!foundView || !table || !viewGrantAdmits(foundView, caller, true)) {
     return {
       error: true,
-      response: c.json(
-        { success: false, message: `View '${viewName}' not found`, code: 'NOT_FOUND' },
-        404
-      ),
+      response: notFound(c, `View '${viewName}' not found`),
     }
   }
 
@@ -202,9 +207,9 @@ function parseRequestFilter(
   c: Context,
   app: App,
   tableName: string,
-  userRole: string
+  caller: Readonly<{ userRole: string; userGroups: readonly string[] }>
 ): ParsedRequestFilter {
-  const filter = parseFilter(c, app, tableName, userRole)
+  const filter = parseFilter(c, app, tableName, caller)
   if (!filter.error) return { ok: true, value: filter.value }
   const response =
     filter.response ??
@@ -232,6 +237,7 @@ interface PrepareListInput {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly table: Table | undefined
   readonly guard: RowLevelGuardContext | undefined
 }
@@ -243,16 +249,22 @@ interface PrepareListInput {
  * inputs ready for query execution.
  */
 function prepareListRequest(input: PrepareListInput): ListRequestPrep | ListRequestReady {
-  const { c, app, tableName, userRole, table, guard } = input
-  const viewResult = resolveView(c, table)
+  const { c, app, tableName, userRole, userGroups, table, guard } = input
+  const caller = {
+    role: userRole,
+    groups: userGroups,
+    anonymous: isGuestSession(getTableContext(c).session?.userId),
+    adminEquivalent: isAdminEquivalent(userRole, app),
+  }
+  const viewResult = resolveView(c, { table, caller })
   if (viewResult.error) return { type: 'response', response: viewResult.response }
 
-  const filterResult = parseRequestFilter(c, app, tableName, userRole)
+  const filterResult = parseRequestFilter(c, app, tableName, { userRole, userGroups })
   if (!filterResult.ok) return { type: 'response', response: filterResult.response }
 
   const filterWithSearch = mergeFilters(
     filterResult.value,
-    buildSearchFilter({ c, app, tableName, userRole, table })
+    buildSearchFilter({ c, app, tableName, userRole, userGroups, table })
   )
   const finalFilter = buildListFilter(table, guard, viewResult.view?.filter, filterWithSearch)
   if (finalFilter === 'empty' || finalFilter === 'reject') {
@@ -272,12 +284,12 @@ export async function handleListRecords(c: Context, app: App) {
 
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
   if (gateError) return gateError
 
-  const prepared = prepareListRequest({ c, app, tableName, userRole, table, guard })
+  const prepared = prepareListRequest({ c, app, tableName, userRole, userGroups, table, guard })
   if (prepared.type === 'response') return prepared.response
 
   const { finalFilter, effectiveSort, params } = prepared
@@ -287,11 +299,10 @@ export async function handleListRecords(c: Context, app: App) {
     app,
     tableName,
     userRole,
-    table,
+    userGroups,
     timezone: params.timezone,
     sort: effectiveSort,
     aggregate: params.aggregate,
-    fields: params.fields,
     groupBy: params.groupBy,
   })
   if (validationError) return validationError
@@ -331,7 +342,7 @@ export async function handleListTrash(c: Context, app: App) {
 
   // Check table-level read permission (group-aware, most-permissive-wins)
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  const permissionError = checkReadPermission(table, effectiveRoles, c, app.tables)
+  const permissionError = checkReadPermission(table, effectiveRoles, c, app)
   if (permissionError) return permissionError
 
   // ROW-LEVEL SCOPING. This handler never resolved the guard, so on a table
@@ -340,10 +351,10 @@ export async function handleListTrash(c: Context, app: App) {
   // `deletedBy`. Its two siblings (`handleListRecords`, `handleGetRecord`) both
   // resolve it; the omission here was the whole of the gap. Deleting a record
   // does not widen who may read it.
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   // Parse filter parameter
-  const filter = parseFilter(c, app, tableName, userRole)
+  const filter = parseFilter(c, app, tableName, { userRole, userGroups })
   if (filter.error) {
     return (
       filter.response ??
@@ -373,7 +384,7 @@ export async function handleListTrash(c: Context, app: App) {
   if (paginationError) return paginationError
 
   // Validate sort permission (the filter was checked by `parseFilter` above)
-  const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
+  const sortError = validateSortPermission({ sort, app, tableName, userRole, userGroups, c })
   if (sortError) return sortError
 
   return runEffect(
@@ -384,6 +395,7 @@ export async function handleListTrash(c: Context, app: App) {
         tableName,
         app,
         userRole,
+        userGroups,
         filter: scopedFilter,
         sort,
         limit,
@@ -425,13 +437,13 @@ export async function handleGetRecord(c: Context, app: App) {
   if (timezoneError) return timezoneError
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table, app)
+  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
 
   const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
   if (gateError) return gateError
 
   try {
-    const response = await runEffect(
+    return await runEffect(
       c,
       provideTableLive(
         createGetRecordProgram({
@@ -445,11 +457,11 @@ export async function handleGetRecord(c: Context, app: App) {
           format: formatParam === 'display' ? 'display' : undefined,
           timezone,
           origin: new URL(c.req.url).origin,
+          admits: readRuleAdmits(guard, table),
         })
       ),
       getRecordResponseSchema
     )
-    return await enforceGetReadPredicate(c, response, guard, table)
   } catch (error) {
     return handleRouteError(c, error)
   }

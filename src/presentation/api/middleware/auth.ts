@@ -7,11 +7,13 @@
 
 import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
+import { resolveInheritedPermissions } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getRequestTrustedClientIp } from './client-ip'
 import { isPublicViewRead } from './public-view-read'
+import { carriesCredential } from './request-credential'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -122,6 +124,13 @@ function processSessionResult(
  */
 export function authMiddleware(auth: BetterAuthLike) {
   return async (c: Context, next: Next) => {
+    // A request carrying no credential has no session to find: skip the lookup
+    // and leave the session undefined — what `getSession` would resolve anyway.
+    // It has already been counted by the per-address ceiling ahead of here.
+    if (!carriesCredential(c)) {
+      await next()
+      return
+    }
     try {
       const authHeader = c.req.header('authorization')
 
@@ -190,7 +199,8 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  * other path under `/api/tables/*` still gets the normal 401:
  *
  * 1. **PG-02 guest comments** — `GET`/`POST /api/tables/:t/records/:r/comments`
- *    when the table sets `comments.guestComments: true`. The honeypot +
+ *    when the table sets `comments.guestComments: true` AND its own gates are
+ *    open to a signed-out visitor (see {@link guestThreadOpens}). The honeypot +
  *    rate-limit + classifier guards inside `comment-handlers.ts` (running BEFORE
  *    record-exists / DB writes) provide the spam floor that makes this safe.
  *
@@ -224,11 +234,12 @@ export function requireAuthOrGuestComment(
       return undefined
     }
     const app = resolveApp()
-    const isGuestComment = isGuestCommentCreateRequest(c) && hasGuestCommentsEnabled(c, app)
+    const isGuestComment = isGuestCommentCreateRequest(c) && guestThreadOpens(c, app)
     const isPublicRead =
-      (isPublicTableRecordReadRequest(c) && hasPublicReadEnabled(c, app)) ||
+      (isPublicTableRecordReadRequest(c) && tableOpensToEveryone(c, app, 'read')) ||
       isPublicViewRead(c, app)
-    if (isGuestComment || isPublicRead) {
+    const isPublicCreate = isRecordCreateRequest(c) && tableOpensToEveryone(c, app, 'create')
+    if (isGuestComment || isPublicRead || isPublicCreate) {
       injectGuestPrincipal(c)
       await next()
       return undefined
@@ -282,6 +293,27 @@ function isGuestCommentCreateRequest(c: Context): boolean {
   return /^\/api\/tables\/[^/]+\/records\/[^/]+\/comments\/?$/.test(c.req.path)
 }
 
+/**
+ * Whether a signed-out visitor is let through to a record's thread.
+ *
+ * `guestComments: true` opens the thread to a guest only where the record is
+ * itself open to her: the table's gate wins. Reading the thread (`GET`) needs
+ * the table's `read` to be `'all'` — the one rung an anonymous caller reads a
+ * record on — and posting (`POST`) needs, on top, a `comment` grant
+ * of `'all'` or none at all (the `comments` block then opens it). An
+ * `'authenticated'` rung or a role list on either means a signed-in caller, so
+ * the visitor gets the same `401` the record gives her, and nothing is written.
+ */
+function guestThreadOpens(
+  c: Context,
+  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
+): boolean {
+  if (!hasGuestCommentsEnabled(c, app)) return false
+  if (!tableOpensToEveryone(c, app, 'read')) return false
+  if (c.req.method !== 'POST') return true
+  return tableOpensToEveryone(c, app, 'comment', { omittedIsOpen: true })
+}
+
 function hasGuestCommentsEnabled(
   c: Context,
   app: { readonly tables?: ReadonlyArray<unknown> } | undefined
@@ -325,10 +357,11 @@ const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/
  * SHAPE; `?deleted=true` re-opened the same handler through a query parameter,
  * and `c.req.path` does not include the query string, so the carve-out regex
  * matched it and served soft-deleted rows to an ANONYMOUS caller on any
- * `read: 'all'` table.
+ * `read: 'all'` table. `?includeDeleted=true` reaches the same rows (on the
+ * list, and the single read of a trashed record), so it is closed alike.
  */
 function requestsDeletedRecords(c: Context): boolean {
-  return c.req.query('deleted') === 'true'
+  return c.req.query('deleted') === 'true' || c.req.query('includeDeleted') === 'true'
 }
 
 function isPublicTableRecordReadRequest(c: Context): boolean {
@@ -339,32 +372,74 @@ function isPublicTableRecordReadRequest(c: Context): boolean {
 }
 
 /**
+ * The records API's create verb exactly — `POST /api/tables/:t/records` — and
+ * nothing beneath it: the batch, import, form and comment routes keep their
+ * own doors.
+ */
+function isRecordCreateRequest(c: Context): boolean {
+  return c.req.method === 'POST' && PUBLIC_READ_LIST_PATH.test(c.req.path)
+}
+
+/**
  * True when the `/api/tables/:t/records...` request targets a table whose
- * resolved `permissions.read` is the `'all'` literal (public read, opt-in per
- * table). A `read: [roles]` / `'authenticated'` / absent grant returns false so
+ * RESOLVED `permissions.<operation>` is the `'all'` literal — everyone, the
+ * anonymous visitor included (public read under [internal ref]; a public create, the
+ * records-API twin of a public form). The grant is read the way the records
+ * route reads it: through `inherit`, with `override` applied, so a table whose
+ * own block says `'all'` but whose override narrows it is closed, and a table
+ * that only inherits `'all'` is open. A role list, `'authenticated'`, an absent
+ * grant or an inheritance chain that does not resolve returns false, so
  * anonymous callers keep the normal 401 (anti-enumeration preserved).
  */
-function hasPublicReadEnabled(
+function tableOpensToEveryone(
+  c: Context,
+  app: { readonly tables?: ReadonlyArray<unknown> } | undefined,
+  operation: 'read' | 'create' | 'comment',
+  options: { readonly omittedIsOpen?: boolean } = {}
+): boolean {
+  const resolved = resolveRequestedTableGrants(c, app)
+  if (resolved === 'closed') return false
+  const grant = resolved?.[operation]
+  if (grant === undefined && options.omittedIsOpen === true) return true
+  // Deliberately ONE rung, not the ladder: only the `'all'` literal opens a
+  // table to anonymous callers. `'authenticated'` and role arrays must
+  // keep the normal 401 so anti-enumeration is preserved.
+  return isOpenToEveryone(toPermissionValue(grant))
+}
+
+type ResolvableTable = Parameters<typeof resolveInheritedPermissions>[0]
+type ResolvableTables = Parameters<typeof resolveInheritedPermissions>[1]
+
+/**
+ * The grants of the table a `/api/tables/:t/records...` request names, once
+ * `inherit` and `override` are applied (`resolveInheritedPermissions`, the
+ * resolution the records route's evaluators use). `'closed'` when there is no
+ * such table or its inheritance chain does not resolve (missing parent, cycle),
+ * which the records route's own evaluation refuses as well; `undefined` when
+ * the table declares no permissions block.
+ */
+function resolveRequestedTableGrants(
   c: Context,
   app: { readonly tables?: ReadonlyArray<unknown> } | undefined
-): boolean {
-  if (!app?.tables) return false
+): ReturnType<typeof resolveInheritedPermissions> | 'closed' {
+  if (!app?.tables) return 'closed'
   // Extract the {tableId} segment without depending on Hono param binding
   // (this middleware runs upstream of `validateTable`).
   const match = c.req.path.match(/^\/api\/tables\/([^/]+)\/records/)
-  if (!match) return false
+  if (!match) return 'closed'
   const tableKey = match[1] ?? ''
-  const table = app.tables.find((t): t is { readonly name?: string; readonly id?: unknown } => {
+  const table = app.tables.find((t) => {
     if (typeof t !== 'object' || t === null) return false
     const candidate = t as { readonly name?: unknown; readonly id?: unknown }
     return candidate.name === tableKey || String(candidate.id ?? '') === tableKey
   })
-  if (!table) return false
-  const { permissions } = table as { readonly permissions?: { readonly read?: unknown } }
-  // Deliberately ONE rung, not the ladder: only the `'all'` literal opens a
-  // table to anonymous reads. `'authenticated'` and role arrays must
-  // keep the normal 401 so anti-enumeration is preserved.
-  return isOpenToEveryone(toPermissionValue(permissions?.read))
+  if (!table) return 'closed'
+  const permissions = resolveInheritedPermissions(
+    table as ResolvableTable,
+    app.tables as ResolvableTables
+  )
+  const ownPermissions = (table as { readonly permissions?: unknown }).permissions
+  return ownPermissions !== undefined && permissions === undefined ? 'closed' : permissions
 }
 
 /**
@@ -423,7 +498,10 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
 
     if (!session) {
       if (notFoundOnMissingSession) {
-        return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+        return c.json(
+          { success: false, error: 'Not Found', message: 'Not found', code: 'NOT_FOUND' },
+          404
+        )
       }
       return c.json(
         {
@@ -445,7 +523,10 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
     if (!isAdminTier(role, app)) {
       // S1 anti-enumeration: authenticated-but-non-admin callers receive 404
       // (never 403) so the admin route surface is not discoverable.
-      return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+      return c.json(
+        { success: false, error: 'Not Found', message: 'Not found', code: 'NOT_FOUND' },
+        404
+      )
     }
 
     await next()

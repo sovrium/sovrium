@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   hasCreatePermissionForRoles,
   hasUpdatePermissionForRoles,
@@ -15,9 +15,13 @@ import { filterReadableFields } from '@/domain/models/app/tables/field-read-filt
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
 import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import { forbiddenCreateResponse } from './response-helpers'
+import { resolveAccessRolesFor } from './row-level-guard'
+import { enforceUpsertRowGate } from './upsert-row-gate'
 import type { App } from '@/domain/models/app'
+import type { FieldWriter } from '@/domain/models/app/tables/field-write-permission-service'
 import type { Context } from 'hono'
 
 /**
@@ -95,21 +99,24 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly userRole: string
   /** Group names the caller belongs to (un-prefixed) — group-aware RBAC. */
   readonly userGroups: readonly string[]
+  /** The caller's `user_access` roles, counted on a table with row-level rules. */
+  readonly accessRoles: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
   readonly c: Context
 }): Promise<{ allowed: true } | { allowed: false; response: Response }> {
-  const { app, tableName, userRole, userGroups, records, fieldsToMergeOn, c } = config
+  const { app, tableName, userRole, userGroups, accessRoles, records, fieldsToMergeOn, c } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Both gates below evaluate the caller's EFFECTIVE ROLES — their global role
-  // plus a `group:<name>` entry per membership — not a bare role string. A bare
-  // string can never match a `group:` permission entry, because that overlay
-  // exists only in the set `buildEffectiveRoles` produces. The create branch is
-  // the sharper miss of the two: its batch-create sibling
-  // (`batch/batch-routes.ts:225`) was already group-aware, and upsert was simply
-  // missed by that sweep.
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
+  // Both gates below evaluate the caller's EFFECTIVE ROLES exactly as the
+  // records route's create and update do — her account role, a `group:<name>`
+  // entry per membership and, on a table with row-level rules, her assignment
+  // roles — so an upsert admits whom a create and an update admit.
+  const effectiveRoles = tableEffectiveRoles(table, {
+    role: userRole,
+    groups: userGroups,
+    accessRoles,
+  })
 
   const unresolvable = unresolvableMergeField(table, fieldsToMergeOn)
 
@@ -121,22 +128,15 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
     (await checkForExistingRecords(tableName, records, fieldsToMergeOn))
 
   // If records will be updated, check update permission
-  if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)) {
+  if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
     return {
       allowed: false,
-      response: c.json(
-        {
-          success: false,
-          message: 'Not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      ),
+      response: notFound(c, 'Not found'),
     }
   }
 
   // Check table-level create permission (for new records)
-  if (!hasCreatePermissionForRoles(table, effectiveRoles, app.tables)) {
+  if (!hasCreatePermissionForRoles(table, effectiveRoles, app)) {
     return {
       allowed: false,
       response: forbiddenCreateResponse(c),
@@ -258,11 +258,11 @@ export function validateReadonlyFields(
 export function stripUnwritableFields<T extends { fields: Record<string, unknown> }>(
   app: App,
   tableName: string,
-  userRole: string,
+  writer: FieldWriter,
   records: readonly T[]
 ): T[] {
   return records.map((record) => {
-    const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
+    const forbiddenFields = validateFieldWritePermissions(app, tableName, writer, record.fields)
     if (forbiddenFields.length === 0) {
       return record
     }
@@ -296,8 +296,10 @@ export function applyReadFiltering<E, R>(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
 }): Effect.Effect<UpsertResponse, E, R> {
-  const { program, app, tableName, userRole } = config
+  const { program, app, tableName, userRole, userGroups } = config
 
   return program.pipe(
     Effect.map((response) => {
@@ -310,7 +312,7 @@ export function applyReadFiltering<E, R>(config: {
             fields: filterReadableFields({
               app,
               tableName,
-              userRole,
+              caller: { role: userRole, groups: userGroups },
               record: record.fields,
             }),
           }) as { readonly fields: Record<string, unknown> }
@@ -331,14 +333,7 @@ export function applyReadFiltering<E, R>(config: {
  * `_forbiddenField` parameter is retained for call-site readability.
  */
 function createForbiddenFieldResponse(c: Context, _forbiddenField: string): Response {
-  return c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
+  return notFound(c)
 }
 
 /**
@@ -350,16 +345,24 @@ function checkSingleRecordProtectedFields(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
 }): { success: true } | { success: false; response: Response } {
-  const { c, app, tableName, userRole, records } = config
+  const { c, app, tableName, userRole, userGroups, records } = config
 
   if (records.length !== 1) {
     return { success: true }
   }
 
   const allForbiddenFields = records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .map((record) =>
+      validateFieldWritePermissions(
+        app,
+        tableName,
+        { role: userRole, groups: userGroups },
+        record.fields
+      )
+    )
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
@@ -382,10 +385,11 @@ function checkAllFieldsStripped(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>
 }): { success: true } | { success: false; response: Response } {
-  const { c, app, tableName, userRole, records, strippedRecords } = config
+  const { c, app, tableName, userRole, userGroups, records, strippedRecords } = config
 
   const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
   if (hasWritableFields) {
@@ -394,7 +398,14 @@ function checkAllFieldsStripped(config: {
 
   // All fields were stripped
   const allForbiddenFields = records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .map((record) =>
+      validateFieldWritePermissions(
+        app,
+        tableName,
+        { role: userRole, groups: userGroups },
+        record.fields
+      )
+    )
     .filter((fields) => fields.length > 0)
   const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
   const firstForbiddenField = uniqueForbiddenFields[0]
@@ -446,6 +457,7 @@ export async function validateUpsertRequest(config: {
   readonly tableName: string
   readonly userRole: string
   readonly userGroups: readonly string[]
+  readonly session: Parameters<typeof enforceUpsertRowGate>[0]['session']
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
 }) {
@@ -453,29 +465,21 @@ export async function validateUpsertRequest(config: {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Single-record upsert: reject if ANY protected fields present
-  const singleRecordCheck = checkSingleRecordProtectedFields({
-    c,
-    app,
-    tableName,
-    userRole,
-    records,
-  })
+  const singleRecordCheck = checkSingleRecordProtectedFields(config)
   if (!singleRecordCheck.success) {
     return singleRecordCheck
   }
 
   // For multi-record upserts, strip unwritable fields
-  const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
-
-  // Check if all fields were stripped
-  const stripCheck = checkAllFieldsStripped({
-    c,
+  const strippedRecords = stripUnwritableFields(
     app,
     tableName,
-    userRole,
-    records,
-    strippedRecords,
-  })
+    { role: userRole, groups: userGroups },
+    records
+  )
+
+  // Check if all fields were stripped
+  const stripCheck = checkAllFieldsStripped({ ...config, strippedRecords })
   if (!stripCheck.success) {
     return stripCheck
   }
@@ -486,6 +490,7 @@ export async function validateUpsertRequest(config: {
     tableName,
     userRole,
     userGroups,
+    accessRoles: await resolveAccessRolesFor(config.session, table ? [table] : []),
     records: strippedRecords,
     fieldsToMergeOn,
     c,
@@ -497,6 +502,11 @@ export async function validateUpsertRequest(config: {
   // Validate required fields
   const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
   if (!requiredCheck.success) return { success: false as const, response: requiredCheck.response }
+
+  // Row-level rules: each row it merges onto is checked as it stands and as it
+  // will be written, and each row it creates against `create.when`.
+  const rowError = await enforceUpsertRowGate({ ...config, table, records: strippedRecords })
+  if (rowError) return { success: false as const, response: rowError }
 
   return { success: true as const, strippedRecords }
 }

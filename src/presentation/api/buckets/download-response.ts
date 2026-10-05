@@ -21,7 +21,7 @@
  */
 
 import { logError } from '@/infrastructure/logging/logger'
-import { storageErrorBody } from '@/presentation/api/runtime/auth-helpers'
+import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
 import type { StorageError } from '@/application/ports/services/storage-service'
 import type { ImageTransformFailure } from '@/infrastructure/storage/apply-image-transform'
@@ -119,11 +119,7 @@ export function storageFailureResponse(c: Context, failure: StorageError, label:
     logError(label, failure)
   }
   const message = cause instanceof Error ? cause.message : String(cause)
-  return c.json(
-    storageErrorBody(
-      isNotFound ? 'File not found' : `Download failed: ${message}`,
-      isNotFound ? 'NOT_FOUND' : 'STORAGE_ERROR'
-    ),
-    isNotFound ? 404 : 500
-  )
+  return isNotFound
+    ? notFound(c, 'File not found')
+    : c.json(storageErrorBody(`Download failed: ${message}`, 'STORAGE_ERROR'), 500)
 }

@@ -6,6 +6,8 @@
  */
 
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -36,17 +38,9 @@ export function canUserReadField(
   app: App,
   tableName: string,
   fieldName: string,
-  userRole: string
+  caller: Readonly<{ role: string; groups: readonly string[] }>
 ): boolean {
-  // The app's resolved TOP role is admin-EQUIVALENT and must behave like the
-  // built-in `admin`. A literal `userRole === 'admin'` denied a custom top-tier
-  // role (e.g. an `engineer` at the highest level) the sort access it already has
-  // on the response-filter path — see the warning on `isAdminEquivalent` in
-  // `domain/models/app/auth/roles`.
-  if (isAdminEquivalent(userRole, app)) {
-    return true
-  }
-
+  const userRole = caller.role
   // System columns are readable by any role that can read the table at all. They
   // are not declared in `table.fields`, so they must be admitted before the
   // lookup below rejects them as unknown.
@@ -57,26 +51,27 @@ export function canUserReadField(
   const table = app.tables?.find((t) => t.name === tableName)
   const field = table?.fields?.find((f) => f.name === fieldName)
 
-  // Unknown field: still rejected. Deliberate — it keeps `?sort=<garbage>` from
-  // reaching SQL generation.
+  // Unknown field: rejected for every role, the admin included. Deliberate — it
+  // keeps `?sort=<garbage>` from reaching SQL generation.
   if (!field) {
     return false
   }
 
-  // Member role: cannot read currency fields by default
-  if (userRole === 'member') {
-    const restrictedTypes = ['currency']
-    return !restrictedTypes.includes(field.type)
+  // The app's resolved TOP role is admin-EQUIVALENT and must behave like the
+  // built-in `admin`. A literal `userRole === 'admin'` denied a custom top-tier
+  // role (e.g. an `engineer` at the highest level) the sort access it already has
+  // on the response-filter path — see the warning on `isAdminEquivalent` in
+  // `domain/models/app/auth/roles`.
+  if (isAdminEquivalent(userRole, app)) {
+    return true
   }
 
-  // Viewer role: only name/title text fields
-  if (userRole === 'viewer') {
-    const allowedFieldTypes = ['single-line-text']
-    const allowedFieldNames = ['name', 'title']
-    return allowedFieldTypes.includes(field.type) && allowedFieldNames.includes(fieldName)
-  }
-
-  return true
+  // The records response's own field read predicate — field grants, a grant
+  // naming one of the caller's groups and the built-in role defaults
+  // included: a caller sorts by exactly the fields they may read. A field the
+  // caller may not read is not sorted on — an order by a hidden value
+  // discloses it row by row.
+  return isFieldReadableByCaller(app, tableName, caller, fieldName)
 }
 
 /**
@@ -87,9 +82,12 @@ export function validateSortPermission(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
   readonly c: Context
 }) {
-  const { sort, app, tableName, userRole, c } = config
+  const { sort, app, tableName, userRole, userGroups, c } = config
+  const caller = { role: userRole, groups: userGroups }
 
   if (!sort) return undefined
 
@@ -99,40 +97,10 @@ export function validateSortPermission(config: {
     .map((s) => s.split(':')[0])
     .filter((field): field is string => field !== undefined && field !== '')
 
-  const table = app.tables?.find((t) => t.name === tableName)
-
-  // First: check field existence (400 for non-existent fields)
-  const nonExistentField = sortFields.find(
-    (field) => !SYSTEM_FIELDS.has(field) && !table?.fields?.find((f) => f.name === field)
-  )
-
-  if (nonExistentField) {
-    return c.json(
-      {
-        success: false,
-        message: `Invalid sort field: '${nonExistentField}'`,
-        code: 'VALIDATION_ERROR',
-        errors: [{ field: 'sort', message: `Invalid sort field: '${nonExistentField}'` }],
-      },
-      400
-    )
-  }
-
-  // S1 anti-enumeration: hide the field-permission boundary by returning 404.
-  const inaccessibleField = sortFields.find(
-    (field) => !canUserReadField(app, tableName, field, userRole)
-  )
-
-  if (inaccessibleField) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
-
-  return undefined
+  // S1 anti-enumeration: a field the table does not have and a field the
+  // caller may not read get the same 404, the one a filter on either gets —
+  // a 400 for the first would tell the two apart (`canUserReadField` refuses
+  // an unknown name before it can reach SQL generation).
+  const refused = sortFields.find((field) => !canUserReadField(app, tableName, field, caller))
+  return refused === undefined ? undefined : notFound(c)
 }

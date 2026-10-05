@@ -1,0 +1,54 @@
+# The bar at the top: the product's name, the three sections, the language
+# switcher and the one call to action. On a phone only the name and the
+# switcher stay; the call to action leads the first screen instead.
+type: container
+element: header
+props:
+  # The engine wraps every page in its own `main`, and a header inside `main`
+  # is not the page's banner on its own: the role says so.
+  role: banner
+  className: flex h-[60px] items-center gap-[18px] border-b border-border bg-background px-10 max-md:gap-2.5 max-md:px-3.5
+children:
+  - type: link
+    props:
+      href: '#top'
+      className: flex items-center gap-2.5 text-[14px] font-semibold text-foreground no-underline
+    children:
+      - type: icon
+        props:
+          name: calendar
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Tablée
+  - type: container
+    props:
+      className: grow
+  - type: container
+    element: nav
+    props:
+      aria-label: $t:nav.label
+      className: flex items-center gap-[18px] max-md:hidden
+    children:
+      - type: link
+        props:
+          href: '#features'
+          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+        content: $t:nav.features
+      - type: link
+        props:
+          href: '#how-it-works'
+          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+        content: $t:nav.how
+      - type: link
+        props:
+          href: '#demo'
+          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+        content: $t:nav.demo
+  - component: language-switcher
+  - type: link
+    props:
+      href: '#demo'
+      className: inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground no-underline hover:bg-primary-hover max-md:hidden
+    content: $t:nav.cta

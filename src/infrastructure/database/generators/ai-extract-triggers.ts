@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -123,7 +124,7 @@ const buildExtractPlaceholderExpr = (properties: readonly ExtractProperty[]): st
 const buildExtractGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-NULL user value.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL THEN
       RETURN NEW;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -132,14 +133,14 @@ const buildExtractGuardSql = (fieldName: string, sourceFields: readonly string[]
       RETURN NEW;
     END IF;
     -- User changed the extracted column directly in this statement: honour it.
-    IF NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName} AND NEW.${fieldName} IS NOT NULL THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS DISTINCT FROM OLD.${fieldName} AND NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;`
 
@@ -164,7 +165,7 @@ const buildExtractNotifySql = (
   const temperatureLiteral = sqlNumberLiteral(field.temperature, 'real')
   const maxTokensLiteral = sqlNumberLiteral(field.maxTokens, 'int')
 
-  return `  NEW.${fieldName} = ${placeholderExpr};
+  return `  NEW.${quoteSqlIdentifier(fieldName)} = ${placeholderExpr};
 
   -- Emit NOTIFY so the application layer can observe + log the extract
   -- compute event and invoke the AI provider for the canonical extraction.
@@ -175,7 +176,7 @@ const buildExtractNotifySql = (
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
     'record_id', NEW.id,
-    'value', NEW.${fieldName}::text,
+    'value', NEW.${quoteSqlIdentifier(fieldName)}::text,
     'source', left(source_content, 4000),
     'schema', ${schemaLiteral},
     'prompt', ${promptLiteral},

@@ -1,4 +1,10 @@
+# The language switcher in the header. With two languages it is one link to
+# the same page in the other language — "FR" on the English page, "EN" on the
+# French one — named by that language's label. It keeps the section the
+# visitor is reading. The toggle stands 32px tall, the height of the header's
+# other controls.
 name: language-switcher
 type: language-switcher
 props:
-  variant: dropdown
+  variant: toggle
+  className: '[&_a]:h-8'

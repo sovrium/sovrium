@@ -66,10 +66,9 @@ const filterLiveEntities = <T extends EntityRef>(
   rows: readonly T[]
 ): Effect.Effect<readonly T[], never> =>
   Effect.gen(function* () {
-    const existenceFlags = yield* Effect.all(
-      rows.map((row) => repo.recordStillExists(row)),
-      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
-    )
+    const existenceFlags = yield* Effect.forEach(rows, (row) => repo.recordStillExists(row), {
+      concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
+    })
     return rows.filter((_, index) => existenceFlags[index])
   })
 

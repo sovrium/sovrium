@@ -28,6 +28,8 @@ Every batch body requires the canonical envelope form. The flat shorthand that s
 
 <!-- sovrium:options batchCreateRecordsRequestSchema -->
 
+A many-to-many field takes the related records' ids, as in a single create — `{ "fields": { "title": "Release notes", "labels": ["1", "2"] } }` — and each created record reads back linked to exactly those records.
+
 | Status | Meaning                                                        |
 | ------ | -------------------------------------------------------------- |
 | `201`  | Every record created                                           |
@@ -37,6 +39,8 @@ Every batch body requires the canonical envelope form. The flat shorthand that s
 | `409`  | A record collided with a unique constraint                     |
 
 The last two rows of that table are the same event seen twice: a `400` and a `409` both mean **no row was written**, including the ones that were perfectly valid.
+
+A caller granted `create` on a table she may not read gets `201` with `{ "created": <count> }` alone — no records even with `returnRecords`, no ids — and the `404` of a table that does not exist where a reader would get a `400`, `409` or `422`.
 
 ## Update
 
@@ -60,7 +64,7 @@ Each entry names the record `id` — string or number, both accepted — plus th
 }
 ```
 
-**`permanent` goes in the body.** This route reads the flag from the JSON body, where the schema validates it; a `?permanent=true` query string has no effect here, so a request relying on it soft-deletes and reports success. Permanent batch delete is irreversible and is reserved for the admin role.
+**`permanent` goes in the body.** This route reads the flag from the JSON body, where the schema validates it; a `?permanent=true` query string has no effect here, so a request relying on it soft-deletes and reports success. Permanent batch delete is irreversible and is reserved for an admin-equivalent role (see Roles & RBAC), on both batch delete routes, exactly as the single-record `?permanent=true` is: any other caller, even one granted `delete`, receives the same `404` and nothing is deleted. Like the single-record permanent delete, it leaves attached files in storage.
 
 ## Restore
 
@@ -86,3 +90,5 @@ Create-or-update many records matched on one or more unique fields, in one trans
 | Permissions     | Table and field-level permissions are enforced per record         |
 
 A **uniqueness collision answers `409`** on every batch path, matching the single-record write. Other constraint failures — a check, a foreign key, a not-null — stay `400`, because those reject the value that was sent, whereas a unique collision is a clash with a row that already exists. Either way the transaction rolls back whole.
+
+A relationship value naming a row the caller may not read — a related table their role may not read, or a row a row-level rule hides from them — counts as a foreign-key failure, exactly as a row that does not exist: `400`, the same body, and the whole batch rolls back with nothing written.

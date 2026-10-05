@@ -66,8 +66,8 @@ export const chatActionSchema = Schema.Struct({
   }),
   table: optionalField(Schema.String.annotate({ description: 'Table affected by the action' })),
   recordId: optionalField(
-    Schema.Union([Schema.String, Schema.Finite]).annotate({
-      description: 'Record affected by the action',
+    Schema.String.annotate({
+      description: 'Record affected by the action, as the records API names it',
     })
   ),
   description: Schema.String.annotate({

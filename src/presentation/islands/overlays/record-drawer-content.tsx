@@ -30,21 +30,22 @@
  *    the commit affordance. See `record-drawer-children.tsx`.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional confirm-gate + per-field/per-action event handlers (the footer-action confirm/cancel close over the armed action; a field's onChange closes over its name). These are transient surfaces rendered only while the drawer is open, not a hot path. Mirrors the same exemption in action-cell.tsx + inline-confirm-dialog.tsx. */
-
-import { useCallback, useState, type ReactElement } from 'react'
 import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
-import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
-import { executeFetchAction } from '../runtime/action-executor'
+import { fieldDescriptionId } from '@/presentation/design/field-display'
 import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
 import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
-import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { RecordButton, type RecordButtonConfig } from '../runtime/record-button'
+import { DrawerActions, type DrawerAction } from './record-drawer-actions'
 import { RecordDrawerChildren } from './record-drawer-children'
+import { ChoiceField } from './record-drawer-choice-input'
+import { isChoiceField, isLinkField, type DrawerChoice } from './record-drawer-choices'
+import { LinkField } from './record-drawer-link-input'
 import { ReadOnlyValue } from './record-drawer-read-only-value'
+import { StructuredValue } from './record-drawer-structured-value'
+import { TypedField } from './record-drawer-typed-input'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
-import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
-import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
+import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
+import type { ReactElement, ReactNode } from 'react'
 
 /** A schema-derived field the drawer renders a control (or structured block) for. */
 export interface RecordDrawerField {
@@ -71,16 +72,50 @@ export interface RecordDrawerField {
    * `visibleWhen` predicate and, for an automation button, a row to run on.
    */
   readonly button?: RecordButtonConfig
+  /**
+   * A `single-select` / `status` field's declared options, resolved by the SSR
+   * host, so an editable drawer offers them as a choice the way the form does.
+   */
+  readonly options?: ReadonlyArray<DrawerChoice>
+  /** A date / datetime column's `weekday`, printed before the date it reads. */
+  readonly weekday?: 'short' | 'long'
+  /** A datetime column's own `timeZone`, read before the operator zone. */
+  readonly timeZone?: string
+  /**
+   * A `single-select` / `status` field's `value → paint` map, resolved by the
+   * SSR host as the grid's pill paints it, so a read-only entry draws the
+   * grid's badge. Only options declaring a colour are listed.
+   */
+  readonly paints?: Readonly<Record<string, OptionChipPaint>>
+  /** An attachment column's upload bucket and constraints, for the editable file picker. */
+  readonly bucket?: string
+  readonly allowedFileTypes?: readonly string[]
+  readonly maxFileSize?: number
+  /**
+   * A single-valued `relationship`'s related table and `displayField`, resolved
+   * by the SSR host, so an editable drawer offers the link as a picker of named
+   * records the way the form does.
+   */
+  readonly relatedTable?: string
+  readonly displayField?: string
+  /**
+   * The bound column must hold a value: Save refuses it blank, and an optional
+   * link offers a Clear control.
+   */
+  readonly required?: boolean
+  /** The words a blank required entry is refused with, in the page language. */
+  readonly requiredMessage?: string
+  /**
+   * The reader's role may not write this field: drawn as its value without an
+   * editable control, and never sent by Save.
+   */
+  readonly readOnly?: boolean
+  /** An optional link's Clear control, caption and accessible name, in the page language. */
+  readonly clearLabel?: string
+  readonly clearName?: string
 }
 
-/** A footer action button the drawer renders below the record body (CAP-1). */
-export interface DrawerAction {
-  readonly label: string
-  readonly action: Action
-  readonly variant?: string
-  /** Confirm gate before firing — the legacy STRING prompt or the rich OBJECT form. */
-  readonly confirm?: string | ConfirmObject
-}
+const NO_ACTIONS: ReadonlyArray<DrawerAction> = []
 
 type Values = Record<string, string>
 type RawRecord = Record<string, unknown>
@@ -119,104 +154,6 @@ function EntryDescription({ field }: { readonly field: RecordDrawerField }) {
 // CAP-3 — structured field display
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Parse a JSON string into its structured value; leave non-JSON / non-string untouched. */
-function coerceStructured(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
-}
-
-/** Render a leaf readably; serialize a nested object/array instead of `[object Object]`. */
-function formatScalar(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
-
-/** One labelled `name: value` line inside a list item or a key-value block. */
-function PairLine({
-  name,
-  value,
-}: {
-  readonly name: string
-  readonly value: unknown
-}): ReactElement {
-  return (
-    <span className="text-foreground text-sm">
-      <span className="text-foreground-muted">{name}</span>
-      {`: ${formatScalar(value)}`}
-    </span>
-  )
-}
-
-/** Labelled key/value lines of one object (a list item or a key-value object). */
-function renderObjectPairs(value: unknown): ReactElement[] {
-  if (typeof value !== 'object' || value === null) {
-    return [
-      <span
-        key="_scalar"
-        className="text-foreground text-sm"
-      >
-        {formatScalar(value)}
-      </span>,
-    ]
-  }
-  return Object.entries(value as RawRecord).map(([key, val]) => (
-    <PairLine
-      key={key}
-      name={key}
-      value={val}
-    />
-  ))
-}
-
-const PRE_CLASS = 'text-foreground overflow-auto text-sm'
-
-/** Array-of-objects → a readable `<ul>` list, one labelled item per element. */
-function StructuredList({ data }: { readonly data: unknown }): ReactElement {
-  if (!Array.isArray(data)) {
-    return <pre className={PRE_CLASS}>{JSON.stringify(data, undefined, 2)}</pre>
-  }
-  return (
-    <ul className="flex flex-col gap-2">
-      {data.map((item, index) => (
-        <li
-          key={index}
-          className="border-border flex flex-col gap-1 rounded border p-2"
-        >
-          {renderObjectPairs(item)}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-/** Render a (coerced) field value via its `renderAs` selector. */
-function StructuredValue({
-  renderAs,
-  data,
-}: {
-  readonly renderAs: string
-  readonly data: unknown
-}): ReactElement {
-  if (renderAs === 'list') return <StructuredList data={data} />
-  if (renderAs === 'key-value') {
-    return <div className="flex flex-col gap-1">{renderObjectPairs(data)}</div>
-  }
-  if (renderAs === 'code') {
-    return (
-      <pre className={PRE_CLASS}>
-        {typeof data === 'string' ? data : JSON.stringify(data, undefined, 2)}
-      </pre>
-    )
-  }
-  // `json` (and any future structured default): pretty-print as indented JSON.
-  return <pre className={PRE_CLASS}>{JSON.stringify(data, undefined, 2)}</pre>
-}
-
 /** A read-only structured field block (never a text input) — for a `renderAs` field. */
 function StructuredFieldDisplay({
   field,
@@ -230,7 +167,7 @@ function StructuredFieldDisplay({
       <span className="text-foreground-muted">{entryLabel(field)}</span>
       <StructuredValue
         renderAs={field.renderAs ?? 'json'}
-        data={coerceStructured(value)}
+        value={value}
       />
       <EntryDescription field={field} />
     </div>
@@ -254,32 +191,70 @@ function FieldInput({
   readonly disabled: boolean
   readonly onChange: (name: string, value: string) => void
 }): ReactElement {
-  return (
-    <label className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{entryLabel(field)}</span>
-      <input
-        type="text"
-        aria-label={entryLabel(field)}
-        name={field.name}
+  if (isLinkField(field)) {
+    return (
+      <LinkField
+        field={field}
+        label={entryLabel(field)}
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(field.name, event.target.value)}
-        className="border-border rounded border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
-        {...fieldDescribedBy(field)}
-      />
+        onChange={onChange}
+      >
+        <EntryDescription field={field} />
+      </LinkField>
+    )
+  }
+  if (isChoiceField(field)) {
+    return (
+      <ChoiceField
+        field={field}
+        label={entryLabel(field)}
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
+      >
+        <EntryDescription field={field} />
+      </ChoiceField>
+    )
+  }
+  return (
+    <TypedField
+      field={field}
+      label={entryLabel(field)}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+    >
       <EntryDescription field={field} />
-    </label>
+    </TypedField>
   )
 }
 
 /**
- * A read-only labelled value (a plain non-structured field on a READ-ONLY drawer
- * — a system-detail binding, or a `canEdit: false` drawer). Renders a
- * `data-field`-tagged value span rather than a (disabled) text input, so a
- * system-detail drawer's plain fields read as text (queryable / maskable) exactly
- * as they did under the retired `SystemRecordDrawerBody`.
+ * One entry of a READ-ONLY drawer (a system-detail binding, or a `canEdit:
+ * false` drawer): its heading a term of the drawer's description list, and its
+ * value the detail after it.
  */
-function ReadOnlyField({
+function ReadOnlyEntry({
+  field,
+  children,
+}: {
+  readonly field: RecordDrawerField
+  readonly children: ReactNode
+}): ReactElement {
+  return (
+    <div className="text-md flex flex-col gap-1">
+      <dt className="text-foreground-muted">{entryLabel(field)}</dt>
+      <dd className="flex flex-col gap-1">{children}</dd>
+    </div>
+  )
+}
+
+/**
+ * A read-only entry's value: a `data-field`-tagged span, drawn as the grid
+ * draws the same field (queryable / maskable), never a disabled text input.
+ */
+function ReadOnlyFieldValue({
   field,
   value,
 }: {
@@ -287,123 +262,26 @@ function ReadOnlyField({
   readonly value: unknown
 }): ReactElement {
   return (
-    <div className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{entryLabel(field)}</span>
-      <span
-        data-field={field.name}
-        className="text-foreground"
-      >
-        <ReadOnlyValue
-          type={field.type}
-          value={value}
-          currency={field.currency}
-        />
-      </span>
-      <EntryDescription field={field} />
-    </div>
+    <span
+      data-field={field.name}
+      className="text-foreground"
+    >
+      <ReadOnlyValue
+        type={field.type}
+        value={value}
+        label={entryLabel(field)}
+        currency={field.currency}
+        weekday={field.weekday}
+        timeZone={field.timeZone}
+        paints={field.paints}
+      />
+    </span>
   )
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CAP-1 — footer action slot
 // ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Dispatch a drawer footer action against the loaded record. Reuses the shared
- * `executeFetchAction` runtime — `$record.<field>` in the action's `url` / `body`
- * resolves against `record` at CLICK time (the drawer loads its record lazily).
- */
-function dispatchDrawerAction(action: Action, record: RawRecord): void {
-  if ('type' in action && action.type === 'fetch') {
-    void executeFetchAction(action as FetchAction, { record })
-  }
-}
-
-const ACTION_BUTTON_CLASS =
-  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-md transition-colors disabled:cursor-not-allowed disabled:opacity-50'
-
-/**
- * A single footer action button. A `confirm`-bearing action arms the shared
- * inline `alertdialog` gate on the first click (its confirm affordance re-uses
- * this action's label); otherwise the action fires immediately.
- */
-function DrawerActionButton({
-  item,
-  record,
-  disabled,
-}: {
-  readonly item: DrawerAction
-  readonly record: RawRecord
-  /** The record has not loaded yet: `$record.*` would resolve against nothing. */
-  readonly disabled: boolean
-}): ReactElement {
-  const [confirming, setConfirming] = useState(false)
-  const fire = useCallback(() => dispatchDrawerAction(item.action, record), [item.action, record])
-
-  if (item.confirm && confirming) {
-    // The OBJECT form renders the shared `ObjectConfirmDialog` (separate title /
-    // dialog role / type-to-confirm input / label overrides); the legacy STRING
-    // form keeps the byte-identical inline gate.
-    if (typeof item.confirm !== 'string') {
-      return (
-        <ObjectConfirmDialog
-          config={item.confirm}
-          record={record}
-          fallbackConfirmLabel={item.label}
-          onConfirm={fire}
-          onCancel={() => setConfirming(false)}
-        />
-      )
-    }
-    return (
-      <InlineConfirmDialog
-        prompt={item.confirm}
-        confirmLabel={item.label}
-        onConfirm={fire}
-        onCancel={() => setConfirming(false)}
-      />
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      className={ACTION_BUTTON_CLASS}
-      disabled={disabled}
-      onClick={() => (item.confirm ? setConfirming(true) : fire())}
-    >
-      {item.label}
-    </button>
-  )
-}
-
-const NO_ACTIONS: ReadonlyArray<DrawerAction> = []
-
-/** The footer action row rendered below the record body (nothing when empty). */
-function DrawerActions({
-  actions,
-  record,
-  loading,
-}: {
-  readonly actions: ReadonlyArray<DrawerAction>
-  readonly record: RawRecord
-  readonly loading: boolean
-}): ReactElement | null {
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
-  if (actions.length === 0) return null
-  return (
-    <div className="border-border mt-2 flex flex-wrap gap-2 border-t pt-4">
-      {actions.map((item, index) => (
-        <DrawerActionButton
-          key={`${item.label}-${index}`}
-          item={item}
-          record={record}
-          disabled={loading}
-        />
-      ))}
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared drawer body
@@ -438,6 +316,8 @@ export interface DrawerContentProps {
   readonly related?: ReactElement
   readonly onChange: (name: string, value: string) => void
   readonly onSave: () => void
+  /** Close this drawer — a footer `openDrawer` steps aside for the drawer it opens. */
+  readonly onClose: () => void
   /**
    * The bound table's name. Lets an automation button field address its invoke
    * endpoint; absent for a system-backed drawer, which has no record route.
@@ -451,43 +331,153 @@ export interface DrawerContentProps {
   readonly saveLabel: string
 }
 
-/**
- * The field's value control: an editable input, or a read-only value span for a
- * system-backed / `canEdit: false` drawer.
- */
-function DrawerFieldControl({
-  field,
-  values,
+/** The AI refinement status beside a value that has one ([internal ref] Phase 2). */
+function RefinementStatus({
   record,
-  canEdit,
-  loading,
-  onChange,
+  field,
 }: {
-  readonly field: RecordDrawerField
-  readonly values: Values
   readonly record: RawRecord
-  readonly canEdit: boolean
-  readonly loading: boolean
-  readonly onChange: (name: string, value: string) => void
+  readonly field: RecordDrawerField
 }): ReactElement {
-  return canEdit ? (
-    <FieldInput
-      field={field}
-      value={values[field.name] ?? ''}
-      disabled={loading}
-      onChange={onChange}
-    />
-  ) : (
-    <ReadOnlyField
-      field={field}
-      value={withDisplayLabels(record)[field.name]}
+  // An AI-computed value whose refinement failed reads exactly like a refined
+  // one. The status rides in on the very response this drawer already parsed,
+  // so nothing new is fetched to say so — and the drawer has room to say it.
+  return (
+    <AiRefinementMarker
+      status={readAiRefinementStatus(record, field.name)}
+      placement="inline"
     />
   )
 }
 
+/** A button field: an action on the loaded record, never an input. */
+function FieldButton({
+  field,
+  config,
+  record,
+  table,
+}: {
+  readonly field: RecordDrawerField
+  readonly config: RecordButtonConfig
+  readonly record: RawRecord
+  readonly table?: string
+}): ReactElement {
+  return (
+    <RecordButton
+      config={config}
+      fieldName={field.name}
+      record={record}
+      {...(table === undefined ? {} : { table })}
+      {...(record['id'] === undefined ? {} : { recordId: String(record['id']) })}
+    />
+  ) as ReactElement
+}
+
+/** What a read-only entry's detail holds: an action, a structured block or the value. */
+function ReadOnlyDetail({
+  field,
+  record,
+  table,
+}: {
+  readonly field: RecordDrawerField
+  readonly record: RawRecord
+  readonly table?: string
+}): ReactElement {
+  if (field.button) {
+    return (
+      <FieldButton
+        field={field}
+        config={field.button}
+        record={record}
+        {...(table === undefined ? {} : { table })}
+      />
+    )
+  }
+  if (isStructured(field)) {
+    return (
+      <>
+        <StructuredValue
+          renderAs={field.renderAs ?? 'json'}
+          value={record[field.name]}
+        />
+        <EntryDescription field={field} />
+      </>
+    )
+  }
+  return (
+    <>
+      <ReadOnlyFieldValue
+        field={field}
+        value={withDisplayLabels(record)[field.name]}
+      />
+      <EntryDescription field={field} />
+      <RefinementStatus
+        record={record}
+        field={field}
+      />
+    </>
+  )
+}
+
 /**
- * Render ONE schema-derived field: a structured `renderAs` block, then the value
- * control, then the AI refinement status where the value has one.
+ * One entry of an editable drawer: an action, a structured `renderAs` block, or
+ * the field's control followed by its AI refinement status.
+ */
+function EditableField({
+  field,
+  values,
+  record,
+  loading,
+  onChange,
+  table,
+}: {
+  readonly field: RecordDrawerField
+  readonly values: Values
+  readonly record: RawRecord
+  readonly loading: boolean
+  readonly onChange: (name: string, value: string) => void
+  readonly table?: string
+}): ReactElement {
+  // A button field is an action, never an input — it precedes both branches
+  // below, which would otherwise offer an editor for a field with no value.
+  if (field.button) {
+    return (
+      <FieldButton
+        field={field}
+        config={field.button}
+        record={record}
+        {...(table === undefined ? {} : { table })}
+      />
+    )
+  }
+  if (isStructured(field)) {
+    return (
+      <StructuredFieldDisplay
+        field={field}
+        value={record[field.name]}
+      />
+    )
+  }
+  return (
+    <>
+      <FieldInput
+        field={field}
+        value={values[field.name] ?? ''}
+        disabled={loading || field.readOnly === true}
+        onChange={onChange}
+      />
+      <RefinementStatus
+        record={record}
+        field={field}
+      />
+    </>
+  )
+}
+
+/**
+ * Render ONE schema-derived field. A read-only drawer lists it as a term and
+ * its detail; an editable one draws an action, a structured `renderAs` block,
+ * or the field's control followed by its AI refinement status.
  */
 function DrawerField({
   field,
@@ -506,46 +496,49 @@ function DrawerField({
   readonly onChange: (name: string, value: string) => void
   readonly table?: string
 }): ReactElement {
-  // A button field is an action, never an input — it precedes both branches
-  // below, which would otherwise offer an editor for a field with no value.
-  if (field.button) {
+  if (!canEdit) {
     return (
-      <RecordButton
-        config={field.button}
-        fieldName={field.name}
-        record={record}
-        {...(table === undefined ? {} : { table })}
-        {...(record['id'] === undefined ? {} : { recordId: String(record['id']) })}
-      />
-    ) as ReactElement
-  }
-  if (isStructured(field)) {
-    return (
-      <StructuredFieldDisplay
-        field={field}
-        value={record[field.name]}
-      />
+      <ReadOnlyEntry field={field}>
+        <ReadOnlyDetail
+          field={field}
+          record={record}
+          {...(table === undefined ? {} : { table })}
+        />
+      </ReadOnlyEntry>
     )
   }
   return (
-    <>
-      <DrawerFieldControl
-        field={field}
-        values={values}
-        record={record}
-        canEdit={canEdit}
-        loading={loading}
-        onChange={onChange}
-      />
-      {/* [internal ref] Phase 2: an AI-computed value whose refinement failed reads
-          exactly like a refined one. The status rides in on the very response
-          this drawer already parsed to fill the control above, so nothing new
-          is fetched to say so — and the drawer has room to say it in full. */}
-      <AiRefinementMarker
-        status={readAiRefinementStatus(record, field.name)}
-        placement="inline"
-      />
-    </>
+    <EditableField
+      field={field}
+      values={values}
+      record={record}
+      loading={loading}
+      onChange={onChange}
+      {...(table === undefined ? {} : { table })}
+    />
+  )
+}
+
+/**
+ * The fields' container. A read-only drawer lists its fields as ONE
+ * description list — each heading a term, each value its detail; an editable
+ * drawer's controls stay direct children of the panel.
+ */
+function DrawerFieldList({
+  canEdit,
+  children,
+}: {
+  readonly canEdit: boolean
+  readonly children: ReactNode
+}): ReactNode {
+  if (canEdit) return children
+  return (
+    <dl
+      data-component-type="description-list"
+      className="flex flex-col gap-4"
+    >
+      {children}
+    </dl>
   )
 }
 
@@ -576,6 +569,7 @@ function DrawerSaveButton({
   return (
     <button
       type="button"
+      data-component-type="button"
       onClick={onSave}
       disabled={loading}
       className="bg-primary text-primary-fg text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -603,24 +597,27 @@ export function DrawerContent({
   related,
   onChange,
   onSave,
+  onClose,
   table,
   saveLabel,
 }: DrawerContentProps): ReactElement {
   return (
     <>
       <DrawerError error={error} />
-      {fields.map((field) => (
-        <DrawerField
-          key={field.name}
-          field={field}
-          values={values}
-          record={record}
-          canEdit={canEdit}
-          loading={loading}
-          onChange={onChange}
-          {...(table === undefined ? {} : { table })}
-        />
-      ))}
+      <DrawerFieldList canEdit={canEdit}>
+        {fields.map((field) => (
+          <DrawerField
+            key={field.name}
+            field={field}
+            values={values}
+            record={record}
+            canEdit={canEdit}
+            loading={loading}
+            onChange={onChange}
+            {...(table === undefined ? {} : { table })}
+          />
+        ))}
+      </DrawerFieldList>
       {canEdit && (
         <DrawerSaveButton
           label={saveLabel}
@@ -639,6 +636,7 @@ export function DrawerContent({
         actions={actions}
         record={record}
         loading={loading}
+        onLeave={onClose}
       />
     </>
   )

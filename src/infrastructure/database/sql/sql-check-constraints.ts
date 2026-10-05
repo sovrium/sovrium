@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { optionValue } from '@/domain/models/app/tables/select-option'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from './sql-utils'
@@ -27,7 +28,9 @@ export const generateArrayConstraints = (fields: readonly Fields[number][]): rea
     )
     .map((field) => {
       const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'array_length'
-      const callArgs = isSqliteRuntime() ? `(${field.name})` : `(${field.name}, 1)`
+      const callArgs = isSqliteRuntime()
+        ? `(${quoteSqlIdentifier(field.name)})`
+        : `(${quoteSqlIdentifier(field.name)}, 1)`
       return `CONSTRAINT check_${field.name}_max_items CHECK (${lengthFn}${callArgs} IS NULL OR ${lengthFn}${callArgs} <= ${field.maxItems})`
     })
 
@@ -51,7 +54,7 @@ export const generateMultipleAttachmentsConstraints = (
     )
     .map((field) => {
       const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'jsonb_array_length'
-      return `CONSTRAINT check_${field.name}_max_files CHECK (${lengthFn}(${field.name}) IS NULL OR ${lengthFn}(${field.name}) <= ${field.maxFiles})`
+      return `CONSTRAINT check_${field.name}_max_files CHECK (${lengthFn}(${quoteSqlIdentifier(field.name)}) IS NULL OR ${lengthFn}(${quoteSqlIdentifier(field.name)}) <= ${field.maxFiles})`
     })
 
 /**
@@ -64,10 +67,11 @@ export const generateNumericConstraints = (fields: readonly Fields[number][]): r
       (
         field
       ): field is Fields[number] & {
-        type: 'integer' | 'decimal' | 'currency' | 'percentage' | 'rating'
+        type: 'integer' | 'decimal' | 'number' | 'currency' | 'percentage' | 'rating'
       } =>
         (field.type === 'integer' ||
           field.type === 'decimal' ||
+          field.type === 'number' ||
           field.type === 'currency' ||
           field.type === 'percentage' ||
           field.type === 'rating') &&
@@ -82,8 +86,10 @@ export const generateNumericConstraints = (fields: readonly Fields[number][]): r
       const effectiveMin = field.type === 'rating' && !hasMin ? 1 : hasMin ? field.min : undefined
 
       const conditions = [
-        ...(effectiveMin !== undefined ? [`${field.name} >= ${effectiveMin}`] : []),
-        ...(hasMax ? [`${field.name} <= ${field.max}`] : []),
+        ...(effectiveMin !== undefined
+          ? [`${quoteSqlIdentifier(field.name)} >= ${effectiveMin}`]
+          : []),
+        ...(hasMax ? [`${quoteSqlIdentifier(field.name)} <= ${field.max}`] : []),
       ]
 
       const constraintName = `check_${field.name}_range`
@@ -99,7 +105,7 @@ export const generateProgressConstraints = (fields: readonly Fields[number][]): 
     .filter((field): field is Fields[number] & { type: 'progress' } => field.type === 'progress')
     .map((field) => {
       const constraintName = `check_${field.name}_range`
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} >= 0 AND ${field.name} <= 100)`
+      return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} >= 0 AND ${quoteSqlIdentifier(field.name)} <= 100)`
     })
 
 /**
@@ -136,7 +142,7 @@ const generateEnumCheckConstraint = (
     .map((opt) => `'${escapeSqlString(optionValue(opt))}'`)
     .join(', ')
   const constraintName = `check_${field.name}_enum`
-  return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
+  return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} IN (${values}))`
 }
 
 /**
@@ -176,7 +182,7 @@ export const generateRichTextConstraints = (fields: readonly Fields[number][]): 
     )
     .map((field) => {
       const constraintName = `check_${field.name}_max_length`
-      return `CONSTRAINT ${constraintName} CHECK (LENGTH(${field.name}) <= ${field.maxLength})`
+      return `CONSTRAINT ${constraintName} CHECK (LENGTH(${quoteSqlIdentifier(field.name)}) <= ${field.maxLength})`
     })
 
 /**
@@ -236,16 +242,16 @@ export const generateBarcodeConstraints = (fields: readonly Fields[number][]): r
         if (!(field.format in barcodeFormatPgPatterns)) return ''
         const glob = barcodeFormatSqliteGlobs[field.format]
         if (glob !== undefined) {
-          return `CONSTRAINT ${constraintName} CHECK (${field.name} GLOB '${glob}')`
+          return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} GLOB '${glob}')`
         }
         // No GLOB representation for this regex — partial degradation: require
         // non-empty. Documented above; tests pin both PG (strict) and SQLite
         // (relaxed) semantics.
-        return `CONSTRAINT ${constraintName} CHECK (LENGTH(${field.name}) > 0)`
+        return `CONSTRAINT ${constraintName} CHECK (LENGTH(${quoteSqlIdentifier(field.name)}) > 0)`
       }
       const pattern = barcodeFormatPgPatterns[field.format]
       if (!pattern) return ''
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '${pattern}')`
+      return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} ~ '${pattern}')`
     })
     .filter((constraint) => constraint !== '')
 
@@ -263,9 +269,9 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
     .map((field) => {
       const constraintName = `check_${field.name}_format`
       if (isSqliteRuntime()) {
-        return `CONSTRAINT ${constraintName} CHECK (${field.name} GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]')`
+        return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]')`
       }
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '^#[0-9a-fA-F]{6}$')`
+      return `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} ~ '^#[0-9a-fA-F]{6}$')`
     })
 
 /**
@@ -310,8 +316,8 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
  *   - batch create / update / upsert and bulk HTML-form update —
  *     `validateBulkFieldValues` / `validateUpdateFieldValues` in
  *     `presentation/api/routes/tables/batch/`
- *   - MCP `_create` / `_update` tools — `findFirstMultiSelectViolation` in
- *     `infrastructure/server/route-setup/mcp/tool-call.ts`
+ *   - MCP `_create` / `_update` tools — the records API's own create chain and
+ *     `checkRecordUpdateValues`, through `presentation/api/mcp/write-tool-rules.ts`
  *   - automation `record/create|update|upsert` and `record/batch*` —
  *     `findMultiSelectViolationMessage` in
  *     `application/use-cases/automations/action-handlers/shared.ts`
@@ -353,7 +359,7 @@ export const generateMultiSelectConstraints = (
         .join(', ')
       const constraintName = `check_${field.name}_options`
       return [
-        `CONSTRAINT ${constraintName} CHECK (${field.name} <@ ARRAY[${escapedOptions}]::text[])`,
+        `CONSTRAINT ${constraintName} CHECK (${quoteSqlIdentifier(field.name)} <@ ARRAY[${escapedOptions}]::text[])`,
       ]
     })
 

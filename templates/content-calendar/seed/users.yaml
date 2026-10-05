@@ -1,0 +1,14 @@
+# Loomwork's content team, created as sign-in accounts before any piece is
+# written, so every piece can name its owner.
+#
+# Tomás leads and approves, so he is the admin; Nadia writes, so she is a
+# member. No password is written here: both accounts take
+# `SOVRIUM_SEED_PASSWORD` from the environment, so a password never lands in a
+# file you might commit.
+users:
+  - email: tomas.ruiz@loomwork.example
+    name: Tomás Ruiz
+    role: admin
+  - email: nadia.brandt@loomwork.example
+    name: Nadia Brandt
+    role: member

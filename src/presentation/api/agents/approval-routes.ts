@@ -38,7 +38,8 @@
 import { MirrorApprovalCreate, MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/app/auth/permissions'
+import { checkPermissionWithAdminOverride } from '@/domain/models/app/auth/permissions'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { requireDomainContext, runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
@@ -47,7 +48,7 @@ import {
   mayTriggerAgents,
 } from '@/presentation/api/agents/agent-trigger-guard'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { recordAgentActivity } from './agent-activity-log'
 import { callAgentAi } from './agent-ai-call'
@@ -61,7 +62,7 @@ import {
 } from './agent-limits'
 import { serializeAgent } from './agent-presenter'
 import { resolveRoleLevel } from './agent-roles'
-import { runApprovalMirror, runApproverEmailLookup, toMirrorRecord } from './approval-mirror'
+import { runApprovalMirror, runApproverIdentityLookup, toMirrorRecord } from './approval-mirror'
 import { buildApprovalRecord, serializeApproval } from './approval-presenter'
 import {
   appendActivityEntry,
@@ -156,8 +157,13 @@ const isRbacDenied = (
   const tableConfig = app?.tables?.find((candidate) => candidate.name === table)
   const rule = tableConfig?.permissions?.[permission]
   if (rule === undefined) return false
-  // `isAdminRole` mirrors the table-permission admin override.
-  return !checkPermissionWithAdminOverride(isAdminRole(agent.role), rule, agent.role)
+  // The table-permission admin override, judged on the agent's role: the
+  // built-in `admin` and the app's top role both outrank the rule.
+  return !checkPermissionWithAdminOverride(
+    isAdminEquivalent(agent.role, app ?? {}),
+    rule,
+    agent.role
+  )
 }
 
 /**
@@ -206,6 +212,42 @@ const isToolAccessDenied = (
   // RBAC gate: a role that lacks the table-level CRUD permission is denied
   // even when the table/action are allowlisted.
   return isRbacDenied(agent, table, action, app)
+}
+
+/**
+ * Log an agent action in both activity sinks and return who started its run.
+ *
+ * [internal ref]: the action appears in activity monitoring with
+ * actor_type='agent' and actor_name set to the agent name. [internal ref]
+ * / -007: it also joins the `GET /api/activity` `entries` feed, alongside
+ * approval decisions, carrying the table and row it targets — the records read
+ * gate a non-admin reader is held to — and the account id of whoever started
+ * the run, the one identity the feed's audience rule trusts.
+ */
+const logAgentAction = async (
+  c: Readonly<Context>,
+  agentName: string,
+  action: string,
+  body: ExecuteRequestBody
+): Promise<string | undefined> => {
+  const targetTable = typeof body.table === 'string' ? body.table : undefined
+  const recordId =
+    typeof body.recordId === 'string' || typeof body.recordId === 'number'
+      ? String(body.recordId)
+      : undefined
+  const startedById = getSessionContext(c as Context)?.userId
+  await recordAgentActivity(requireDomainContext(c), { actorName: agentName, action, targetTable })
+  appendAgentActivityEntry({
+    id: crypto.randomUUID(),
+    action,
+    agentName,
+    actor: { type: 'agent', name: agentName },
+    targetTable,
+    recordId,
+    createdAt: new Date().toISOString(),
+    runStartedById: startedById,
+  })
+  return startedById
 }
 
 /**
@@ -268,28 +310,13 @@ const executeWithinSlot = async (
     return tokenBudgetExhausted(c, agentName)
   }
 
-  // [internal ref]: the agent action appears in activity monitoring
-  // with actor_type='agent' and actor_name set to the agent name.
-  const targetTable = typeof body.table === 'string' ? body.table : undefined
-  await recordAgentActivity(requireDomainContext(c), { actorName: agentName, action, targetTable })
-
-  // [internal ref]: surface the agent action in the
-  // `GET /api/activity` `entries` feed with `actor.type='agent'` and
-  // `actor.name` set to the agent name, alongside approval decisions.
-  appendAgentActivityEntry({
-    id: crypto.randomUUID(),
-    action,
-    agentName,
-    actor: { type: 'agent', name: agentName },
-    targetTable,
-    createdAt: new Date().toISOString(),
-  })
+  const startedById = await logAgentAction(c, agentName, action, body)
 
   if (!requiresApproval(agent, action)) {
     return c.json({ status: 'completed', approvalRequired: false, agent: agentName }, 200)
   }
 
-  const record = buildApprovalRecord(agent, action, payload)
+  const record = buildApprovalRecord(agent, action, payload, startedById)
   putApproval(record)
   await runApprovalMirror(requireDomainContext(c), MirrorApprovalCreate(toMirrorRecord(record)))
 
@@ -316,7 +343,7 @@ const handleExecute =
     // `checkTriggerPermission`. Both the 503 below and the limiters after it
     // answer differently for a declared agent than an undeclared one, and the
     // limiters record the attempts they admit.
-    const triggerRefusal = await checkTriggerPermission(c, agent)
+    const triggerRefusal = await checkTriggerPermission(c, agent, app)
     if (triggerRefusal) return triggerRefusal
 
     // [internal ref]: with no AI provider configured at all, the declared agent is
@@ -357,13 +384,7 @@ const handleExecute =
     // as 404 to prevent enumeration. Checked before the AI round-trip so a
     // disallowed call never reaches the LLM provider.
     if (isToolAccessDenied(agent, body, action, app)) {
-      return c.json(
-        errorBody({
-          error: `Agent '${agentName}' cannot access this resource.`,
-          code: ApiErrorCode.NOT_FOUND,
-        }),
-        404
-      )
+      return c.json(notFoundBody(`Agent '${agentName}' cannot access this resource.`), 404)
     }
 
     return runAgentAction(c, agent, body, action)
@@ -388,10 +409,10 @@ const handleExecute =
 const handleListAgents =
   (app: App | undefined) =>
   async (c: Readonly<Context>): Promise<Response> => {
-    const listRefusal = await checkAgentListPermission(c)
+    const listRefusal = await checkAgentListPermission(c, app)
     if (listRefusal) return listRefusal
     const agents = app?.agents ?? []
-    const visible = await mayTriggerAgents(c, agents)
+    const visible = await mayTriggerAgents(c, agents, app)
     return c.json(
       agents.filter((_agent, index) => visible[index] === true).map(serializeAgent),
       200
@@ -407,7 +428,7 @@ const handleGetAgent =
     // The readback serves `systemPrompt`, `instructions` and the tool
     // allowlist — the exact material a prompt injection is built from, so it
     // carries the same gate as invocation.
-    return (await checkTriggerPermission(c, agent)) ?? c.json(serializeAgent(agent), 200)
+    return (await checkTriggerPermission(c, agent, app)) ?? c.json(serializeAgent(agent), 200)
   }
 
 /**
@@ -424,7 +445,7 @@ const handleGetUsage =
     if (!agent) return agentNotFound(c)
     // Token spend is the operator's cost ledger for this agent; an anonymous
     // caller has no business reading it.
-    const refusal = await checkTriggerPermission(c, agent)
+    const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const limits = resolveAgentLimits(agent.limits)
     return c.json(getAgentUsage(agentName, limits.maxTokensPerDay), 200)
@@ -439,7 +460,7 @@ const handleListApprovals =
     // A pending approval carries the queued action's payload — table, record id
     // and field values the agent is about to write. At least as sensitive as
     // the `systemPrompt` the readback gate withholds.
-    const refusal = await checkTriggerPermission(c, agent)
+    const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const statusFilter = c.req.query('status')
     const all = listApprovalsForAgent(agentName).map((record) => refreshApproval(record))
@@ -454,15 +475,12 @@ const handleGetApproval =
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
-    const refusal = await checkTriggerPermission(c, agent)
+    const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const approvalId = c.req.param('id') ?? ''
     const record = getApproval(approvalId)
     if (!record || record.agentName !== agentName) {
-      return c.json(
-        errorBody({ error: `Approval '${approvalId}' not found.`, code: ApiErrorCode.NOT_FOUND }),
-        404
-      )
+      return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
     }
     return c.json(serializeApproval(refreshApproval(record)), 200)
   }
@@ -478,10 +496,7 @@ const handleDecision =
     const approvalId = c.req.param('id') ?? ''
     const stored = getApproval(approvalId)
     if (!stored || stored.agentName !== agentName) {
-      return c.json(
-        errorBody({ error: `Approval '${approvalId}' not found.`, code: ApiErrorCode.NOT_FOUND }),
-        404
-      )
+      return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
     }
 
     const record = refreshApproval(stored)
@@ -514,10 +529,9 @@ const handleDecision =
     const approverLevel = resolveRoleLevel(app, approver.role)
     if (approverLevel < agentLevel) {
       return c.json(
-        errorBody({
-          error: `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`,
-          code: ApiErrorCode.NOT_FOUND,
-        }),
+        notFoundBody(
+          `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`
+        ),
         404
       )
     }
@@ -527,19 +541,20 @@ const handleDecision =
 
 interface Approver {
   readonly id: string
+  readonly name: string
   readonly email: string
   readonly role: string
 }
 
-/** Resolve the approving user from the session, including role + email. */
+/** Resolve the approving user from the session, including role, name + email. */
 const resolveApprover = async (
   c: Context,
   userId: string | undefined
 ): Promise<Approver | undefined> => {
   if (userId === undefined) return undefined
   const role = await runDomainPromise(c, getUserRole(userId))
-  const email = await runApproverEmailLookup(requireDomainContext(c), userId)
-  return { id: userId, email, role }
+  const { email, name } = await runApproverIdentityLookup(requireDomainContext(c), userId)
+  return { id: userId, name, email, role }
 }
 
 const applyDecision = async (
@@ -564,8 +579,9 @@ const applyDecision = async (
     action: decision === 'approve' ? 'approval.approved' : 'approval.rejected',
     approvalId: next.id,
     agentName: next.agentName,
-    actor: { id: approver.id, email: approver.email },
+    actor: { id: approver.id, name: approver.name, email: approver.email },
     createdAt: new Date().toISOString(),
+    runStartedById: next.requestedById,
   })
 
   return c.json(serializeApproval(next), 200)

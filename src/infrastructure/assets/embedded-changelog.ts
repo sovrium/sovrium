@@ -36,13 +36,7 @@ import {
 // eslint-disable-next-line import/extensions -- a `with { type: 'file' }` import names one file, and its extension is part of the name
 import RAW_PAYLOAD from './embedded-changelog.generated.json' with { type: 'file' }
 
-export type {
-  EmbeddedChangelogPayload,
-  ReleaseNoteEntry,
-  ReleaseNoteSection,
-  ReleaseNotes,
-  ReleaseSectionKind,
-} from '@/domain/kernel/markdown/release-notes'
+export type { EmbeddedChangelogPayload, ReleaseNotes } from '@/domain/kernel/markdown/release-notes'
 
 // A `with { type: 'file' }` import is a path string at runtime, while TypeScript
 // types it as the JSON's shape. Cast through `unknown` to recover the runtime

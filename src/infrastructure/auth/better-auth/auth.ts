@@ -16,25 +16,33 @@ import {
 } from '@/application/use-cases/automations/trigger-auth-event'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
+import { AUTH_COOKIE_PREFIX } from '@/domain/models/app/auth/session-cookie'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { db } from '@/infrastructure/database'
 import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-oauth-resource-tables'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { logError } from '@/infrastructure/logging/logger'
+import { isEmailConfigured } from '@/infrastructure/process/env'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
 import { runOnDomain } from '@/infrastructure/server/domain-runtime'
+import {
+  applyAccountDeletionAfterHooks,
+  applyAccountDeletionBeforeHooks,
+  buildDeleteUserConfig,
+} from './account-deletion-hooks'
 import {
   ACCOUNT_PREFERENCE_FIELDS,
   applyAccountPreferenceGuards,
   writablePreferenceLanguages,
 } from './account-preferences'
 import { withDriverErrorMessages } from './adapter-errors'
-import { applyAdminRoleGuards } from './admin-role-guards'
+import { applyAdminRoleAfterHooks, applyAdminRoleGuards } from './admin-role-guards'
+import { applyAdminUserActAfterHooks, applyAdminUserActBeforeHooks } from './admin-user-act-hooks'
 import { applyAvatarUrlGuard } from './avatar-url-guard'
 import { applyDisplayNameGuard } from './display-name-guard'
 import { createEmailHandlers } from './email-handlers'
-import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
+import { ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildApiKeyPlugin } from './plugins/api-key'
 import { buildEmailOtpPlugin } from './plugins/email-otp'
@@ -42,6 +50,7 @@ import { buildMagicLinkPlugin } from './plugins/magic-link'
 import { buildOauthServerPlugin } from './plugins/oauth-server'
 import { buildOrganizationPlugin } from './plugins/organization'
 import { buildTwoFactorPlugin } from './plugins/two-factor'
+import { applyRealtimeGrantAfterHooks, applyRealtimeGrantBeforeHooks } from './realtime-grant-hooks'
 import {
   users,
   sessions,
@@ -63,7 +72,9 @@ import {
   oauthClientResources,
   oauthClientAssertions,
 } from './schema'
+import { buildSessionHooks } from './session-database-hooks'
 import type { AuthHookDeps } from './admin-role-guards'
+import type { AdminUserActDeps } from './admin-user-act-hooks'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -312,8 +323,6 @@ type TwoFactorBackupCodesHandler = NonNullable<
   ReturnType<typeof createEmailHandlers>['twoFactorBackupCodes']
 >
 
-type AccountDeletionHandler = NonNullable<ReturnType<typeof createEmailHandlers>['accountDeletion']>
-
 async function handleTwoFactorEnable(
   ctx: Readonly<Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]>,
   sendBackupCodes: TwoFactorBackupCodesHandler
@@ -332,55 +341,6 @@ async function handleTwoFactorEnable(
   })
 }
 
-async function handleDeleteUser(
-  ctx: Readonly<Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]>,
-  sendAccountDeletion: AccountDeletionHandler
-): Promise<void> {
-  const { returned } = ctx.context
-  const isSuccess = returned instanceof Response ? returned.status === 200 : returned !== undefined
-  if (!isSuccess) return
-  const user = ctx.context.session?.user as AuthSessionUser
-  if (!user?.email) return
-  await sendAccountDeletion({ email: user.email, name: user.name })
-}
-
-/**
- * Revoke every session of the user whose password an admin has just set.
- *
- * An admin resets a password for one reason: the old one can no longer be
- * trusted. Leaving the sessions minted under it alive keeps whoever obtained it
- * signed in indefinitely, and the reset that was supposed to lock them out
- * instead only stops them signing in AGAIN. Rotating the credential and
- * rotating what the credential already bought are one action, not two.
- *
- * Unconditional, deliberately. `POST /admin/set-user-password` accepts exactly
- * `{ userId, newPassword }` — its body schema admits nothing else, so a
- * `revokeOtherSessions` flag on the request is parsed away before any handler
- * sees it. Branching on one would produce a condition that is never true and a
- * gap that looks closed. There is also no case for the other branch: an admin
- * who wants to change a password while preserving the sessions is describing
- * the user's own self-service password change, not this endpoint.
- *
- * Runs `after` because Better Auth owns the write. It uses the same
- * `internalAdapter.deleteUserSessions` that the plugin's own `ban-user`,
- * `revoke-user-sessions` and `remove-user` routes call, so revocation stays one
- * mechanism with one set of semantics rather than a parallel Sovrium-side
- * implementation of session teardown.
- *
- * A failed set is left alone: on a 400 or a 404 nothing was rotated, and
- * killing sessions anyway would turn a rejected request into a logout.
- */
-async function handleAdminSetUserPassword(
-  ctx: Readonly<Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]>
-): Promise<void> {
-  const { returned } = ctx.context
-  const isSuccess = returned instanceof Response ? returned.status === 200 : returned !== undefined
-  if (!isSuccess) return
-  const userId = (ctx.body as { readonly userId?: unknown } | undefined)?.userId
-  if (typeof userId !== 'string' || userId === '') return
-  await ctx.context.internalAdapter.deleteUserSessions(userId)
-}
-
 /**
  * Build auth hooks with request validation middleware
  *
@@ -390,7 +350,19 @@ async function handleAdminSetUserPassword(
  * Also applies the admin role-mutation guards — see {@link applyAdminRoleGuards}:
  * an unassignable role value is a 400, a last-admin demotion is a 409, and an
  * admin-tier impersonation target is a 403. All three run in `before`, because
- * Better Auth owns the write and there is no later interception point.
+ * Better Auth owns the write. The `after` half
+ * ({@link applyAdminRoleAfterHooks}) counts the admins again once a demotion
+ * has committed, undoing one that left none with a 409, and puts every role
+ * change and impersonation that stood on the admin audit trail. Bans, lifted
+ * bans and admin-set passwords that stood go on the same trail, and a password
+ * an admin set ends the target's sessions ({@link applyAdminUserActAfterHooks}).
+ * Any request that changed what an account may read — a role, a ban, a group
+ * membership, a revoked session, a removed account — closes that account's
+ * live realtime connections so they are judged again at the handshake
+ * ({@link applyRealtimeGrantAfterHooks}). A self-service deletion request is
+ * held to the last-admin rail before its link is mailed, and one that stood is
+ * put on the audit trail ({@link applyAccountDeletionBeforeHooks},
+ * {@link applyAccountDeletionAfterHooks}).
  *
  * `authConfig` supplies the app's role vocabulary; when it is absent the admin
  * plugin is not registered at all (`buildAdminPlugin` returns `[]`), so those
@@ -402,7 +374,7 @@ async function handleAdminSetUserPassword(
 export function buildAuthHooks(
   handlers?: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth,
-  deps?: AuthHookDeps,
+  deps?: AuthHookDeps & AdminUserActDeps,
   languages?: Languages
 ) {
   const roleApp: AdminRoleResolvable = { auth: authConfig }
@@ -426,17 +398,20 @@ export function buildAuthHooks(
       // account export would publish it.
       await applyAccountPreferenceGuards(ctx, languages, roleApp)
       await applyAdminRoleGuards(ctx, roleApp, deps)
+      await applyAdminUserActBeforeHooks(ctx, deps)
+      await applyRealtimeGrantBeforeHooks(ctx)
+      await applyAccountDeletionBeforeHooks(ctx, roleApp)
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/two-factor/enable' && handlers?.twoFactorBackupCodes) {
         await handleTwoFactorEnable(ctx, handlers.twoFactorBackupCodes)
       }
-      if (ctx.path === '/delete-user' && handlers?.accountDeletion) {
-        await handleDeleteUser(ctx, handlers.accountDeletion)
-      }
-      if (ctx.path === '/admin/set-user-password') {
-        await handleAdminSetUserPassword(ctx)
-      }
+      await applyAccountDeletionAfterHooks(ctx)
+      await applyAdminRoleAfterHooks(ctx, roleApp, deps)
+      await applyAdminUserActAfterHooks(ctx, deps)
+      // Last: a grant that changed closes the account's live realtime
+      // connections, after the role guards have had the chance to undo it.
+      await applyRealtimeGrantAfterHooks(ctx)
     }),
   }
 }
@@ -460,10 +435,16 @@ type ConnectionForSeed = {
  * `Secure` attribute (so `http://localhost` DX works) and CSRF origin-checking
  * is disabled. On a non-loopback bind — signalled by a non-loopback `BASE_URL`
  * / `HOSTNAME` — secure cookies are forced ON and CSRF is enforced.
+ *
+ * `cookiePrefix` is Better Auth's default, pinned explicitly to the shared
+ * constant the request-credential predicate recognises the session cookie by:
+ * a prefix changed here alone would make every signed-in API request look
+ * anonymous to `authMiddleware`.
  */
-function buildAdvancedConfig() {
+export function buildAdvancedConfig() {
   const relaxed = isTransportRelaxed()
   return {
+    cookiePrefix: AUTH_COOKIE_PREFIX,
     useSecureCookies: !relaxed,
     disableCSRFCheck: relaxed,
   }
@@ -510,6 +491,8 @@ type AppMetaForOrg = {
   readonly languages?: App['languages']
   /** `admin: false` removes the console, and its languages, from the write door. */
   readonly admin?: App['admin']
+  /** The app's tables, swept by the erasure an immediate account deletion runs. */
+  readonly tables?: App['tables']
 }
 
 /**
@@ -560,6 +543,10 @@ const dispatchAuthEvent = (
  *  - `session.create.before` points every session's `activeOrganizationId`
  *    at the single per-app organization so the organization-plugin team
  *    endpoints (`/api/auth/organization/*`) resolve.
+ *  - `session.delete.after` closes the realtime connections opened with the
+ *    deleted session — every session Better Auth deletes: sign-out, a
+ *    revocation, a ban, an admin-set password, an expired session cleaned up
+ *    on read.
  *  - `user.create.after` runs the welcome email, auto-enrolls the new user
  *    into that organization, (test-mode only) seeds OAuth tokens, AND
  *    (AU-03) fires any `trigger.type === 'auth'` automations that
@@ -586,18 +573,7 @@ function buildDatabaseHooks(
   hookContext: AuthHookContext
 ) {
   return {
-    session: {
-      create: {
-        // Point every session at the single per-app organization so the
-        // native team endpoints resolve against an active organization.
-        before: async (session: Readonly<Record<string, unknown>>) => {
-          if (!authConfig) return undefined
-          return {
-            data: { ...session, activeOrganizationId: SOVRIUM_ORGANIZATION_ID },
-          }
-        },
-      },
-    },
+    session: buildSessionHooks(authConfig),
     user: {
       create: {
         after: async (user: Readonly<{ id: string; email: string; name: string }>) => {
@@ -718,6 +694,15 @@ export function createAuthInstance(
       // additional field's type and nothing more. The two operator-email
       // switches are engine-owned the same way — see `account-preferences.ts`.
       additionalFields: ACCOUNT_PREFERENCE_FIELDS,
+      // Immediate deletion by mailed link, running the scheduled purge's own
+      // erasure; `undefined` (a 404 door) when the app closes it or no mail
+      // can be sent. See `account-deletion-hooks.ts`.
+      deleteUser: buildDeleteUserConfig({
+        authConfig,
+        emailConfigured: isEmailConfigured(),
+        sendConfirmation: handlers.accountDeletion,
+        tables: appMeta?.tables,
+      }),
     },
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),

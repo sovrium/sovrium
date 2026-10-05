@@ -1,0 +1,41 @@
+# The managers' section, beside the handbook's own sections.
+#
+# A content directory is opened or closed as a whole, so the managers'
+# articles live in a directory of their own, served by a second page that only
+# managers can open (kb-managers.yaml). This block is the way to it: it is
+# rendered for managers and the admin only — a member's page carries none of
+# its links — and it is drawn in the same markup as the handbook's sidebar, so
+# it reads as one more section of it.
+type: container
+element: nav
+visibility:
+  roles: [admin, managers]
+props:
+  aria-label: For managers
+  data-component: docs-sidebar-nav
+  className: mx-4 mb-6 border-t border-border pt-5 lg:fixed lg:bottom-6 lg:left-0 lg:mx-0 lg:mb-0 lg:w-[247px] lg:px-3.5 lg:bg-background
+children:
+  - type: container
+    element: section
+    props:
+      data-nav-group: managers
+    children:
+      - type: text
+        element: p
+        props:
+          className: mb-2 px-2.5 font-mono text-[11px] font-medium tracking-wide text-foreground-subtle uppercase
+        content: For managers
+      - type: container
+        props:
+          className: flex flex-col gap-0.5
+        children:
+          - type: link
+            props:
+              href: /kb/managers/hiring
+              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-foreground-muted hover:text-foreground
+            content: Hiring a colleague
+          - type: link
+            props:
+              href: /kb/managers/pay-reviews
+              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-foreground-muted hover:text-foreground
+            content: Pay reviews

@@ -186,6 +186,33 @@ export const accountExportFormSubmissionSchema = Schema.Struct({
 }).annotate({ identifier: 'AccountExportFormSubmission' })
 
 /**
+ * Account export — one audit-log entry the caller made
+ *
+ * One `audit_log` row whose actor is the caller: what they did, when, to what,
+ * and with what outcome. Nothing else. The row's `metadata` is left out because
+ * emitters write free-form metadata and some of it describes somebody else (a
+ * role change carries the target's previous and new role); the transport and
+ * the actor block are left out because the actor is the caller. Entries in
+ * which the caller is only the resource acted upon (their role was changed,
+ * they were banned) are an admin's act and are not listed.
+ */
+export const accountExportAuditEntrySchema = Schema.Struct({
+  action: Schema.String.annotate({
+    description: 'What the caller did, as an audit action name (e.g. "user.role.changed")',
+  }),
+  occurredAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the act was recorded' }),
+  resourceType: Schema.String.annotate({
+    description: 'Kind of thing the act was done to (e.g. "user", "account")',
+  }),
+  resourceId: Schema.String.annotate({
+    description: 'Identifier of the thing the act was done to',
+  }),
+  result: Schema.String.annotate({
+    description: 'Outcome the audit trail recorded for the act (e.g. "success")',
+  }),
+}).annotate({ identifier: 'AccountExportAuditEntry' })
+
+/**
  * Account export response schema
  *
  * The complete personal-data footprint of the authenticated caller, returned by
@@ -212,6 +239,10 @@ export const accountExportResponseSchema = Schema.Struct({
   }),
   formSubmissions: Schema.Array(accountExportFormSubmissionSchema).annotate({
     description: 'Every form submission the caller made (submitter_user_id = caller)',
+  }),
+  auditTrail: Schema.Array(accountExportAuditEntrySchema).annotate({
+    description:
+      'Every admin audit-log entry the caller made, newest first — the acts only, without their metadata. Empty for an account that never performed an audited act.',
   }),
 }).annotate({ identifier: 'AccountExportResponse' })
 

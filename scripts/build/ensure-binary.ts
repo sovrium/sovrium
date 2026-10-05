@@ -58,6 +58,7 @@ import { existsSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { listDirSync } from '../lib/drift/walk'
+import { withoutThrowawayOptOut } from '../lib/throwaway-runtime-manifest'
 import { BINARY_PATH, PROJECT_ROOT, checkBinaryFreshness } from './binary-build-stamp'
 
 /** Repo-relative home of the `@packaging` tier. */
@@ -281,8 +282,12 @@ export function ensureCompiledBinary(): EnsureResult {
   }
 
   console.log(`Building ./sovrium for the @packaging tier — ${freshness.reason}`)
+  // This builds the checkout's OWN ./sovrium and its committed manifest, so the
+  // throwaway opt-out (meant only for `buildBinaryIsolated`'s temp worktree)
+  // is scrubbed: a shell export naming this checkout must not reach the guard.
   const proc = spawnSync('bun', ['run', 'build:binary'], {
     cwd: PROJECT_ROOT,
+    env: withoutThrowawayOptOut(process.env),
     stdio: 'inherit',
     encoding: 'utf-8',
     timeout: BUILD_BINARY_TIMEOUT_MS,

@@ -104,7 +104,7 @@ export const SimpleComponentReferenceSchema = Schema.Struct({
  *
  * Allows referencing and customizing predefined component templates.
  * Supports two syntaxes:
- * 1. Full syntax: { $ref: 'component-name', vars: {...} }
+ * 1. Full syntax: { $ref: 'component-name', vars: {...} } (vars optional; absent means no values)
  * 2. Shorthand syntax: { component: 'component-name' } (vars default to empty object)
  *
  * @example
@@ -128,7 +128,17 @@ export const SimpleComponentReferenceSchema = Schema.Struct({
  */
 const FullComponentReferenceSchema = Schema.Struct({
   $ref: ComponentReferenceNameSchema,
-  vars: ComponentVarsSchema,
+  // Optional: a template with no `$variable` placeholders is placed with a bare
+  // `{ $ref: name }`. An absent `vars` is read as no values, exactly like `{}`.
+  vars: Schema.optional(
+    ComponentVarsSchema.pipe(
+      Schema.annotate({
+        description:
+          "Values for the template's `$variable` placeholders. Omit it for a template that has none.",
+        defaultNote: '{}',
+      })
+    )
+  ),
 }).pipe(
   Schema.annotate({
     title: 'Component Reference (Full Syntax)',

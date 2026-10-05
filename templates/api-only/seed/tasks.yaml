@@ -1,26 +1,17 @@
-# Sample tasks, linked to projects by their file-local key.
+# Ten tasks of one engineering team, linked to their projects by the projects
+# file's keys: eight open, two done.
 #
-# `@projects.<key>` resolves to the id the projects file's row was written with.
-# Cross-file keys only resolve within a single `sovrium seed` run — the token is
-# not stored, so seeding one table in isolation with `--table tasks` against an
-# empty database has nothing to point at.
+# `@projects.<key>` resolves to the id the projects file's row was written with,
+# and `@user:<email>` to the account `users.yaml` creates. Both resolve within
+# one `sovrium seed` run only — the token itself is never stored.
 #
-# `due_date` uses relative-date tokens rather than fixed dates, so the data set
-# never ages into a wall of overdue work. Every token in one run renders against
-# the same instant, so a set seeded either side of midnight stays internally
-# consistent. Dates straddle today deliberately: a client filtering
-# `?due_date[lte]=…` needs overdue, due-now and upcoming rows to filter between.
+# `due_date` is relative to the day the seed runs, so the backlog never ages
+# into a wall of overdue work; `--today 2026-09-24` pins it to that day. The
+# dates straddle today on purpose: one open task is three days late, so the
+# call `?filter=done:false&sort=due_date:asc` puts it first.
 #
-# `assigned_to` is absent throughout, and left that way deliberately. It is a
-# `user` field holding an auth user id, and seed files have no vocabulary for
-# auth users — `@users.someone` resolves nothing, because the seeder addresses
-# app tables and the auth schema is not one of them. An invented id would not
-# fail loudly either: it renders as an empty cell, which a reader interprets as a
-# broken template rather than as absent data. Assign through
-# `PATCH /api/tables/tasks/records/:id` once real accounts exist.
-#
-# All four `priority` options and both `done` states appear, for the same reason
-# the projects file covers its whole enum.
+# Every open task has someone holding it. All four priorities and both `done`
+# states appear, so one page of JSON shows the whole shape of the table.
 records:
   - key: atlas-sandbox-creds
     fields:
@@ -30,6 +21,7 @@ records:
       priority: Critical
       done: false
       due_date: '{{today-3d}}'
+      assigned_to: '@user:samir.haddad@taskapi.example'
 
   - key: atlas-ledger-migration
     fields:
@@ -39,6 +31,7 @@ records:
       priority: High
       done: false
       due_date: '{{today+11d}}'
+      assigned_to: '@user:samir.haddad@taskapi.example'
 
   - key: atlas-cutover-plan
     fields:
@@ -48,6 +41,7 @@ records:
       priority: Medium
       done: false
       due_date: '{{today+25d}}'
+      assigned_to: '@user:nora.lindqvist@taskapi.example'
 
   - key: beacon-invoice-endpoint
     fields:
@@ -57,6 +51,7 @@ records:
       priority: High
       done: false
       due_date: '{{today+4d}}'
+      assigned_to: '@user:nora.lindqvist@taskapi.example'
 
   - key: beacon-design-signoff
     fields:
@@ -66,6 +61,7 @@ records:
       priority: Medium
       done: true
       due_date: '{{today-16d}}'
+      assigned_to: '@user:nora.lindqvist@taskapi.example'
 
   - key: relay-rate-card-parser
     fields:
@@ -75,6 +71,7 @@ records:
       priority: High
       done: false
       due_date: '{{today+2d}}'
+      assigned_to: '@user:samir.haddad@taskapi.example'
 
   - key: relay-retry-policy
     fields:
@@ -84,15 +81,17 @@ records:
       priority: Medium
       done: false
       due_date: '{{today+18d}}'
+      assigned_to: '@user:samir.haddad@taskapi.example'
 
   - key: relay-webhook-signing
     fields:
       title: Verify inbound webhook signatures
-      description: Shipped for carriers one and two.
+      description: Shipped for carriers one and two. The third follows once its rate card parses.
       project: '@projects.relay'
       priority: Critical
-      done: true
-      due_date: '{{today-9d}}'
+      done: false
+      due_date: '{{today+9d}}'
+      assigned_to: '@user:nora.lindqvist@taskapi.example'
 
   - key: harbour-variance-report
     fields:
@@ -102,6 +101,7 @@ records:
       priority: Low
       done: true
       due_date: '{{today-48d}}'
+      assigned_to: '@user:samir.haddad@taskapi.example'
 
   - key: kestrel-hardware-writeoff
     fields:
@@ -111,3 +111,4 @@ records:
       priority: Low
       done: false
       due_date: '{{today+37d}}'
+      assigned_to: '@user:nora.lindqvist@taskapi.example'

@@ -121,7 +121,7 @@ export const ROLLUP_AGGREGATION_VOCABULARY: ClosedVocabulary = {
 }
 
 /**
- * The fifteen operators `generateSqlCondition` implements.
+ * The seventeen operators `generateSqlCondition` implements.
  *
  * NOT the same vocabulary as `pages[].components[].dataSource.filters` — that
  * one (`FilterOperatorSchema`) is already a proper literal union spelled
@@ -148,9 +148,11 @@ export const FILTER_OPERATOR_VOCABULARY: ClosedVocabulary = {
     'isNull',
     'isNotNull',
     'isEmpty',
+    'isNotEmpty',
     'isTrue',
     'isFalse',
     'in',
+    'notIn',
   ],
   caseInsensitive: false,
 }

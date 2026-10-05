@@ -18,12 +18,12 @@ Tags in brackets point to `sources.md`. Each rule says what Sovrium does and wha
 
 ## The origin
 
-| Rule                                                                   | Threshold | Sovrium                                                                                                                                                                     |
-| ---------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One public origin, `https`, one host (with or without `www`, not both) | —         | Set `BASE_URL` on the server, `SOVRIUM_BASE_URL` for `sovrium build`                                                                                                        |
-| Every advertised URL absolute                                          | —         | Without `BASE_URL`, sitemap and robots use the request's `Host` (or `X-Forwarded-Host`); hreflang falls back to the origin of an absolute `meta.canonical`, else is omitted |
+| Rule                                                                   | Threshold | Sovrium                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One public origin, `https`, one host (with or without `www`, not both) | —         | Set `BASE_URL` on the server, `SOVRIUM_BASE_URL` for `sovrium build`                                                                                                                                                   |
+| Every advertised URL absolute                                          | —         | Without `BASE_URL`, sitemap and robots use the request's `Host` (or `X-Forwarded-Host` when `TRUSTED_PROXY_HOPS` declares a proxy); hreflang falls back to the origin of an absolute `meta.canonical`, else is omitted |
 
-Behind a reverse proxy that does not forward the host, an unset `BASE_URL` advertises the internal address. Always set it in production. [S8]
+Behind a reverse proxy, an unset `BASE_URL` advertises the internal address unless the proxy forwards the host and `TRUSTED_PROXY_HOPS` declares it. Always set it in production. [S8]
 
 ## Canonical URLs
 

@@ -29,6 +29,7 @@ import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import { buildUserFilterConditions } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
 
@@ -137,7 +138,7 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
       return new Set(rows.map((row) => row.entityId))
     }),
 
-  searchTable: ({ physicalTable, columns, query, excludeDeleted }) =>
+  searchTable: ({ physicalTable, columns, query, excludeDeleted, rowFilter }) =>
     // Never fails, and now actually so. This was an `Effect.promise`, whose
     // rejection is a DEFECT rather than a typed error — `orElseSucceed` only
     // handles the error channel, so the "any DB failure resolves to []" comment
@@ -177,6 +178,13 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
         const livePredicate =
           excludeDeleted && hasDeletedAt ? sql`${sql.identifier('deleted_at')} IS NULL` : undefined
 
+        // The reader's row-level read rule, rendered by the records list's own
+        // WHERE builder so the two cannot disagree on what a rule admits (stored
+        // booleans, `IN (NULL)` inside a group, and the rest). It narrows the
+        // scan itself, before `LIMIT`: a hidden row is never a candidate.
+        const [rulePredicate] =
+          rowFilter === undefined ? [] : buildUserFilterConditions({ and: [rowFilter] })
+
         const conjoin = (...parts: ReadonlyArray<Readonly<SQL> | undefined>): Readonly<SQL> =>
           sql.join(
             parts.filter((part): part is Readonly<SQL> => part !== undefined),
@@ -190,7 +198,7 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
             db,
             sql`SELECT id, ${labelExpression(columns)} AS __label
                 FROM ${sql.identifier(physicalTable)}
-                WHERE ${conjoin(livePredicate, candidate, sql`(${likePredicate})`)}
+                WHERE ${conjoin(livePredicate, rulePredicate, candidate, sql`(${likePredicate})`)}
                 LIMIT 25`
           )
 

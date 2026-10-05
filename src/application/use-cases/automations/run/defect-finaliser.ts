@@ -22,7 +22,10 @@
  */
 
 import { Cause, Effect, Exit, Ref } from 'effect'
-import { RUN_DEFECT_ERROR } from '@/domain/models/app/automations/automation-run-outcome-service'
+import {
+  INTERRUPTED_RUN_ERROR,
+  RUN_DEFECT_ERROR,
+} from '@/domain/models/app/automations/automation-run-outcome-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { finaliseRun } from './run-persistence'
 import { releaseSlot, unregisterCancellation } from './scheduler'
@@ -49,15 +52,20 @@ const closeAbandonedRun = (
   Effect.gen(function* () {
     // E6: the cause is logged BEFORE the run is closed over it — nothing below
     // carries it any further.
+    // An interruption is not an internal error: it is the server stopping the
+    // run (a shutdown that could not wait for it — [internal ref]), and the row says so.
+    const interrupted = Cause.hasInterruptsOnly(cause)
     logError(
-      `[automation] run ${run.runId} of "${run.name}" stopped with an internal error; closing it as failed`,
+      interrupted
+        ? `[automation] run ${run.runId} of "${run.name}" was interrupted; closing it as stopped`
+        : `[automation] run ${run.runId} of "${run.name}" stopped with an internal error; closing it as failed`,
       Cause.squash(cause)
     )
     yield* finaliseRun({
       runId: run.runId,
       automationId: run.automationId,
       engineStatus: 'failure',
-      engineError: RUN_DEFECT_ERROR,
+      engineError: interrupted ? INTERRUPTED_RUN_ERROR : RUN_DEFECT_ERROR,
       triggerData: run.triggerData,
       startedAt: run.admittedAt,
       finishedAt: new Date(),

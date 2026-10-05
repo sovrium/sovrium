@@ -75,6 +75,8 @@ A page bound to one record — either arm — may also draw a list the record ca
 
 A `code` component whose **whole** `content` is exactly one token — `$record.fare`, or a named repeat's `$leg.stops` — prints an object or an array as JSON indented by two spaces, keys in alphabetical order. It is always printed as text. Anywhere else, including a lone token in a `text` component or a token mixed with other text in a `code` component, an object-valued token is left as its literal `$record.<key>` rather than printed as `[object Object]`.
 
+To print a token as text on a page a record fills — documenting a card, say — put a backslash before it: `\$record.photo` prints `$record.photo`. In a double-quoted YAML string or a TypeScript string, escape the backslash itself.
+
 **`$id` is not a path syntax.** `$` is not a legal character in a `path`, so `/tasks/$id` fails validation. The dynamic-segment marker is `:` everywhere; `$record.*` is a _content_ reference, not a route one.
 
 ## The language segment
@@ -159,6 +161,8 @@ pages:
 The `{field}` placeholders in `hrefTemplate` are filled from that first row, so a first row named `anvil` sends `/products` to `/products/anvil`.
 
 **An empty collection renders the page.** With no row there is no target, so the page is served normally and shows its own empty message. A redirect that fired anyway would either loop or land on a path that does not exist.
+
+**The first row is the first one the visitor may read.** The redirect names its row to whoever asks, so it is chosen exactly as the records API would list the table to that visitor: a row the table's row-level read rule hides from them is skipped, and a table they may not read offers no row — the page then renders, as for an empty collection. A system data source is read with the visitor's own credentials, so its endpoint answers the same question.
 
 The page must declare a list source — a component-level system data source, or a page-level `dataSource` in `list` mode. Without one the redirect could never fire, so it is refused at startup rather than left silently inert. `hrefTemplate` must also be a path carrying at least one `{field}` placeholder: a constant target needs no first row, and therefore no `redirectToFirst`.
 

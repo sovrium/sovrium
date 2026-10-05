@@ -11,6 +11,7 @@ import {
   computeTablePagerClasses,
   computeTablePagerSelectClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import type { DataTableInstance } from './table-features'
 
 interface PaginationControlsProps {
@@ -35,24 +36,56 @@ function PageSizeSelect({
   readonly pageSizeOptions: readonly number[]
   readonly onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
 }) {
+  const pageSizeLabel = useGridString('datatable.pagination.pageSizeLabel', 'Page size')
+  const pageSizeTemplate = useGridString('datatable.pagination.pageSize', '{size} / page')
   return (
     <select
       data-page-size
       value={pageSize}
       onChange={onChange}
       className={computeTablePagerSelectClasses()}
-      aria-label="Page size"
+      aria-label={pageSizeLabel}
     >
       {pageSizeOptions.map((size) => (
         <option
           key={size}
           value={size}
         >
-          {size} / page
+          {pageSizeTemplate.replace('{size}', String(size))}
         </option>
       ))}
     </select>
   )
+}
+
+/**
+ * The pager's words in the page language (`datatable.pagination.*`): the range
+ * summary, the page label, and the two step buttons' captions and names.
+ */
+function usePagerLabels(input: {
+  readonly pageIndex: number
+  readonly pageSize: number
+  readonly pageCount: number
+  readonly total: number
+}) {
+  const { pageIndex, pageSize, pageCount, total } = input
+  const range = useGridString('datatable.pagination.range', '{from}–{to} of {total}', {
+    from: pageIndex * pageSize + 1,
+    to: Math.min((pageIndex + 1) * pageSize, total),
+    total,
+  })
+  const noResults = useGridString('datatable.pagination.empty', 'No results')
+  return {
+    summary: total > 0 ? range : noResults,
+    page: useGridString('datatable.pagination.page', 'Page {page} of {count}', {
+      page: pageIndex + 1,
+      count: pageCount || 1,
+    }),
+    previous: useGridString('datatable.pagination.previous', 'Previous'),
+    previousLabel: useGridString('datatable.pagination.previousLabel', 'Previous page'),
+    next: useGridString('datatable.pagination.next', 'Next'),
+    nextLabel: useGridString('datatable.pagination.nextLabel', 'Next page'),
+  }
 }
 
 /**
@@ -84,10 +117,7 @@ export function PaginationControls(props: PaginationControlsProps) {
   const onPrevious = useCallback(() => table.previousPage(), [table])
   const onNext = useCallback(() => table.nextPage(), [table])
 
-  const summary =
-    total > 0
-      ? `${pageIndex * pageSize + 1}–${Math.min((pageIndex + 1) * pageSize, total)} of ${total}`
-      : 'No results'
+  const labels = usePagerLabels({ pageIndex, pageSize, pageCount, total })
 
   return (
     <nav
@@ -95,7 +125,7 @@ export function PaginationControls(props: PaginationControlsProps) {
       data-pagination
       className={`${computeTablePagerClasses({ position })} flex-wrap justify-between gap-y-1`}
     >
-      <span className="whitespace-nowrap">{summary}</span>
+      <span className="whitespace-nowrap">{labels.summary}</span>
       <div className="ml-auto flex items-center gap-2">
         {pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect
@@ -109,21 +139,19 @@ export function PaginationControls(props: PaginationControlsProps) {
           onClick={onPrevious}
           disabled={!table.getCanPreviousPage()}
           className={computeTablePagerButtonClasses({ disabled: !table.getCanPreviousPage() })}
-          aria-label="Previous page"
+          aria-label={labels.previousLabel}
         >
-          Previous
+          {labels.previous}
         </button>
-        <span className="whitespace-nowrap">
-          Page {pageIndex + 1} of {pageCount || 1}
-        </span>
+        <span className="whitespace-nowrap">{labels.page}</span>
         <button
           type="button"
           onClick={onNext}
           disabled={!table.getCanNextPage()}
           className={computeTablePagerButtonClasses({ disabled: !table.getCanNextPage() })}
-          aria-label="Next page"
+          aria-label={labels.nextLabel}
         >
-          Next
+          {labels.next}
         </button>
       </div>
     </nav>

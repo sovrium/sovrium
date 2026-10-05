@@ -36,6 +36,7 @@ import { isAdminEquivalent, isAdminTier } from '@/domain/models/app/auth/roles'
 import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import { collectOverlayTargets, overlayIdOf } from '@/presentation/render/resolve/overlay-triggers'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -331,6 +332,41 @@ export function applyVisibilityToComponents(
   if (!components) return components
   return pruneNodes(components, {
     keep: (node) => isNodeVisibleForSession(node, session, app),
+  }) as Page['components']
+}
+
+/**
+ * Removes every overlay whose triggers were ALL removed by the gates above.
+ *
+ * An overlay (dialog, drawer, popover) that an author opens by id is part of
+ * the affordance its trigger offers: a create form behind an admin-only
+ * button is as much the admin's as the button is. So when the gates leave a
+ * viewer none of the triggers that addressed an overlay in the authored page,
+ * the overlay goes with them — absent from the HTML, exactly as a gated
+ * component is, never rendered and hidden. An overlay's own `visibility` still
+ * applies on top (the gates already ran over it), so the two compose as AND.
+ *
+ * An overlay no trigger addresses (opened by a record binding, or always
+ * open) is not touched: it was never an affordance of a trigger.
+ *
+ * @param authored - the tree BEFORE the gates, which names every trigger
+ * @param gated - the tree AFTER them, which names the triggers this viewer keeps
+ */
+export function applyOverlayTriggerGate(
+  authored: Page['components'],
+  gated: Page['components']
+): Page['components'] {
+  if (!gated) return gated
+  const addressed = collectOverlayTargets(authored)
+  if (addressed.size === 0) return gated
+  const kept = collectOverlayTargets(gated)
+  const orphaned = new Set([...addressed].filter((id) => !kept.has(id)))
+  if (orphaned.size === 0) return gated
+  return pruneNodes(gated, {
+    keep: (node) => {
+      const id = overlayIdOf(node)
+      return id === undefined || !orphaned.has(id)
+    },
   }) as Page['components']
 }
 

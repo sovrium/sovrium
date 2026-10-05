@@ -69,6 +69,13 @@ export interface FormBodyShared {
    * instead of the standalone left alignment. Defaults to `false` (standalone).
    */
   readonly embedded?: boolean
+  /**
+   * The label of a Cancel drawn beside the submit, already translated. Set by
+   * a dialog hosting the form (`expandDialogFormRef`): the button carries
+   * `data-dialog-cancel` and the dialog island closes on it. Absent, the form
+   * offers its submit alone.
+   */
+  readonly cancelLabel?: string
 }
 
 function FormStepProgress({ totalVisible }: { readonly totalVisible: number }) {
@@ -90,6 +97,7 @@ function FormStepNav({ isFirst, isLast }: { readonly isFirst: boolean; readonly 
       {!isFirst && (
         <button
           type="button"
+          data-component-type="button"
           className="step-previous"
         >
           Previous
@@ -98,6 +106,7 @@ function FormStepNav({ isFirst, isLast }: { readonly isFirst: boolean; readonly 
       {!isLast && (
         <button
           type="button"
+          data-component-type="button"
           className="step-next"
         >
           Next
@@ -190,6 +199,7 @@ function MultiStepFormElement({
           reaches the last step; runtime toggles visibility per step. */}
       <button
         type="submit"
+        data-component-type="button"
         {...(isLast ? {} : { hidden: true })}
       >
         {submitLabel}

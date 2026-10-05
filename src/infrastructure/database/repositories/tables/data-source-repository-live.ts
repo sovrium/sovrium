@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   DataSourceRepository,
   DataSourceDatabaseError,
@@ -17,6 +17,11 @@ import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-f
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { readManyToMany } from '@/infrastructure/database/table-queries'
+import {
+  emptyValueCondition,
+  nonEmptyValueCondition,
+} from '@/infrastructure/database/table-queries/filter-operators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -95,6 +100,12 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
   if (operator === 'in') {
     return buildInClause(field, value)
   }
+
+  // `isEmpty` / `isNotEmpty` take no value: the records API's own rule
+  // (NULL, empty text, an empty list — [internal ref]), so a server-drawn list and
+  // a grid over the same data source never disagree about emptiness.
+  if (operator === 'isEmpty') return emptyValueCondition(field)
+  if (operator === 'isNotEmpty') return nonEmptyValueCondition(field)
 
   // The comparison operator reaches SQL only through this closed literal map,
   // never as caller text; an unrecognised operator falls through to `=`.
@@ -344,12 +355,12 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       return await executeSqlQuery<Record<string, unknown>[]>(query)
     }),
 
-  countRecords: (tableName, filter) =>
+  countRecords: (tableName, filter, options) =>
     wrap(async () => {
       const sanitized = sanitizeTableName(tableName)
       const query = joinClauses([
         sql`SELECT COUNT(*) AS count FROM ${sql.identifier(sanitized)}`,
-        filter && filter.length > 0 ? buildWhereClause(filter) : undefined,
+        buildWhereClause(filter ?? [], options?.liveOnly === true),
       ])
       const rows = await executeSqlQuery<Array<{ count: number | string }>>(query)
       return toFiniteCount(rows[0]?.count)
@@ -379,6 +390,12 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       )
       return rows[0]
     }),
+
+  fetchManyToManyLinks: (tableName, recordId, fields) =>
+    readManyToMany({ sourceTable: tableName, sourceIds: [recordId], fields }).pipe(
+      Effect.map((byRecord) => byRecord[recordId] ?? {}),
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    ),
 
   /**
    * Z-1 ($currentUser.assignments.<table>) — flattens record_ids across all
@@ -440,4 +457,73 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         throw error
       }
     }),
+
+  fetchUsersAssignments: (userIds, tableSlug) =>
+    readUserAccessRows(userIds, tableSlug).pipe(
+      Effect.map((rows) =>
+        groupByUser(rows.map((row) => [row.user_id, toRecordIdList(row.record_ids)] as const))
+      )
+    ),
+
+  fetchUsersAccessRoles: (userIds) =>
+    readUserAccessRows(userIds, undefined).pipe(
+      Effect.map((rows) =>
+        groupByUser(
+          rows.map((row) => {
+            const { role } = row
+            return [row.user_id, typeof role === 'string' && role.length > 0 ? [role] : []] as const
+          }),
+          { distinct: true }
+        )
+      )
+    ),
 })
+
+/** One `user_access` row, as the batched reads select it. */
+interface UserAccessRow {
+  readonly user_id: string
+  readonly role: string | null
+  readonly record_ids: unknown
+}
+
+/**
+ * The `user_access` rows of every one of `userIds` — for one scope table, or
+ * across all of them — in ONE query. Every value is bound. An empty `userIds`
+ * reads nothing; a missing `user_access` table reads as no rows.
+ */
+const readUserAccessRows = (
+  userIds: readonly string[],
+  tableSlug: string | undefined
+): Effect.Effect<readonly UserAccessRow[], DataSourceDatabaseError> =>
+  wrap(async () => {
+    const ids = [...new Set(userIds)]
+    if (ids.length === 0) return [] as readonly UserAccessRow[]
+    const inUsers = sql`${sql.identifier('user_id')} IN (${sql.join(
+      ids.map((id) => sql`${id}`),
+      sql`, `
+    )})`
+    const where =
+      tableSlug === undefined
+        ? inUsers
+        : sql`${inUsers} AND ${sql.identifier('table_slug')} = ${tableSlug}`
+    const query = sql`SELECT ${sql.identifier('user_id')}, ${sql.identifier('role')}, ${sql.identifier('record_ids')} FROM ${userAccessTableSql()} WHERE ${where}`
+    try {
+      return await executeSqlQuery<UserAccessRow[]>(query)
+    } catch (error) {
+      if (isMissingUserAccessTable(error)) return [] as readonly UserAccessRow[]
+      /* eslint-disable-next-line functional/no-throw-statements */
+      throw error
+    }
+  })
+
+/** Merge per-row values into one list per user, optionally without repeats. */
+const groupByUser = (
+  entries: readonly (readonly [string, readonly string[]])[],
+  options: { readonly distinct?: boolean } = {}
+): ReadonlyMap<string, readonly string[]> =>
+  new Map(
+    [...Map.groupBy(entries, ([userId]) => userId)].map(([userId, rows]) => {
+      const merged = rows.flatMap(([, values]) => values)
+      return [userId, options.distinct === true ? [...new Set(merged)] : merged] as const
+    })
+  )

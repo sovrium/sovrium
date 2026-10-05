@@ -1,0 +1,59 @@
+# The page a reader sees when an address answers nothing — an old link, a page
+# that moved. The server answers 404 and renders this page at `/404`: it says
+# what happened and offers the way back.
+name: not-found
+path: /404
+meta:
+  title: This page is not here · Docs
+  description: The page you opened is not in the documentation.
+components:
+  - $ref: ./_site-header.yaml
+  - type: container
+    element: section
+    props:
+      className: mx-auto flex w-full max-w-[560px] flex-col items-start gap-3.5 pt-[88px] pb-[88px] max-md:px-3 max-md:pt-10
+    children:
+      - type: text
+        element: p
+        props:
+          className: font-mono text-[12px] font-medium uppercase tracking-wider text-error
+        content: 404 · page not found
+      - type: text
+        element: h1
+        props:
+          className: text-[36px] leading-tight font-semibold tracking-tight text-foreground
+        content: This page is not here
+      - type: text
+        element: p
+        props:
+          className: text-[17px] text-foreground-muted
+        content: It may have moved when the guides were reorganised. The Configuration page now lives under Guides.
+      - type: container
+        props:
+          className: flex flex-wrap gap-2.5
+        children:
+          - type: link
+            props:
+              href: /docs/guides/configuration
+              className: inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-[14px] font-medium text-primary-foreground hover:bg-primary-hover
+            children:
+              - type: icon
+                props:
+                  name: arrow-right
+                  size: 14
+              - type: text
+                element: span
+                content: Go to Configuration
+          - type: link
+            props:
+              href: /docs
+              className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground hover:bg-background-subtle
+            children:
+              - type: icon
+                props:
+                  name: house
+                  size: 14
+              - type: text
+                element: span
+                content: Docs home
+  - $ref: ./_site-footer.yaml

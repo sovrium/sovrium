@@ -1,17 +1,14 @@
-# Admin authentication for the blog CMS.
+# Sign-in exists for the people who write: the readers never need an account.
 #
-# Email + password sign-in. The first account ever registered becomes the
-# built-in `admin` (Better Auth firstUserAdmin); every later sign-up gets the
-# `editor` role below.
+# Nobody can open one from the site: the first editor comes from
+# `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first start (see
+# `.env.example`), and anyone else is added with `sovrium admin create
+# <email>`. The demo editor comes from `seed/users.yaml`.
 #
-# Role capabilities are enforced by the per-table `permissions` blocks:
-#   - editor : create / edit / publish posts and tags
-#   - admin  : everything an editor can do, plus manage authors
+# The editor is an `admin`: the desk behind `/admin` is closed to every other
+# role, and each table's `permissions` block says who may change what.
+allowSignUp: false
+defaultRole: member
 strategies:
   - type: emailAndPassword
     minPasswordLength: 8
-defaultRole: editor
-roles:
-  - name: editor
-    description: Create, edit, and publish posts and tags
-    level: 30

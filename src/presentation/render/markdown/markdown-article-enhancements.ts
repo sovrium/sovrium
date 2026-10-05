@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runtime-ready-marks'
+
 /**
  * Client-side enhancement payloads for the markdown article ([internal ref], P4). These are inline `<style>`/`<script>` string
  * literals injected via `dangerouslySetInnerHTML` — the "no island runtime"
@@ -53,7 +55,9 @@
  *      ≈19.5px list indent) leaks onto the breadcrumb `<ol>` and pushes the
  *      "Home" crumb ≈24px to the RIGHT of the article body text. Zero the ol's
  *      margin + padding so the breadcrumb's left edge lines up with the article
- *      body (its `list-none` already suppresses the markers).
+ *      body (its `list-none` already suppresses the markers). The body colour
+ *      re-asserted on `li` in (4) is handed back too: a crumb takes the trail's
+ *      tone and the current crumb the foreground role, whatever prose paints.
  *
  * Raw author selectors do not need to live in `BUILTIN_CSS_CANDIDATES` (only
  * Tailwind utility class names are candidate-gated), so this scoped sheet is
@@ -79,6 +83,8 @@ const DOCS_PROSE_PATCH = `
 .prose .md-callout :last-child,.prose [data-component="alert"] :last-child{margin-bottom:0;}
 .prose :where(h1,h2,h3,h4,h5,h6){scroll-margin-top:5rem;}
 .prose [data-component="docs-article-header"] ol,.prose [data-component="docs-article-header"] li{margin:0;padding:0;}
+.prose [data-component="docs-article-header"] li{color:inherit;}
+.prose [data-component="docs-article-header"] li[aria-current="page"]{color:var(--color-foreground);}
 `
 
 /**
@@ -113,9 +119,9 @@ const TOC_SCROLLSPY_STYLE = `
 const TOC_SCROLLSPY_SCRIPT = `(function(){
 "use strict";
 function init(){
-var nav=document.querySelector('[data-component="markdown-toc"]:not([data-toc-spy-ready])');
+var nav=document.querySelector('[data-component="markdown-toc"]:not([${TOC_SPY_READY_MARK}])');
 if(!nav){return;}
-nav.setAttribute("data-toc-spy-ready","");
+nav.setAttribute("${TOC_SPY_READY_MARK}","");
 var links=nav.querySelectorAll("[data-toc-link]");
 if(!links.length||typeof IntersectionObserver==="undefined"){return;}
 var linkById={};
@@ -152,10 +158,10 @@ export const TOC_SCROLLSPY_SCRIPT_HTML = { __html: TOC_SCROLLSPY_SCRIPT }
 const COPY_MARKDOWN_SCRIPT = `(function(){
 "use strict";
 function enhance(){
-var btns=document.querySelectorAll("[data-copy-markdown]:not([data-copy-ready])");
+var btns=document.querySelectorAll("[data-copy-markdown]:not([${COPY_READY_MARK}])");
 for(var i=0;i<btns.length;i++){
 (function(btn){
-btn.setAttribute("data-copy-ready","");
+btn.setAttribute("${COPY_READY_MARK}","");
 var url=btn.getAttribute("data-copy-markdown-url");
 var cached=null;
 if(url){fetch(url).then(function(r){return r.text();}).then(function(t){cached=t;}).catch(function(){});}

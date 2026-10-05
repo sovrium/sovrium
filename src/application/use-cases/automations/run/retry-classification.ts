@@ -14,6 +14,7 @@
  */
 
 import type { ActionOutcome } from '../action-handlers/shared'
+import type { SpeechError } from '@/application/ports/services/speech-service'
 
 /**
  * Longest `Retry-After` the retry loop will honour. A server asking for more
@@ -38,19 +39,46 @@ const responseOf = (
 }
 
 /**
+ * Is a failed HTTP answer with this status worth another try? `408`, `429` and
+ * every `5xx` are; any other `4xx` — a missing record, a refused credential, a
+ * malformed request — fails the same way on every try.
+ */
+export const isTransientStatus = (status: number): boolean =>
+  status === 408 || status === 429 || status >= 500
+
+/**
  * True when a failed attempt is TRANSIENT — worth retrying.
  *
- * A failure with no HTTP response (a network error, a timeout, any action that
- * is not an HTTP call) keeps retrying as before. An HTTP failure is transient
- * for `408`, `429` and every `5xx`; any other `4xx` — a missing record, a
- * refused credential, a malformed request — fails the same way on every try,
- * so it is not retried.
+ * A handler that knows says so with `retryable` on the outcome, and that answer
+ * wins: a provider it called refused the input, or the input was refused before
+ * anything was sent. Otherwise a failure with no HTTP response (a network
+ * error, a timeout, any action that is not an HTTP call) keeps retrying as
+ * before, and an HTTP failure retries on {@link isTransientStatus}.
  */
 export const isTransientFailure = (outcome: ActionOutcome): boolean => {
+  if (outcome.retryable !== undefined) return outcome.retryable
   const response = responseOf(outcome)
   if (response === undefined) return true
-  const { status } = response
-  return status === 408 || status === 429 || status >= 500
+  return isTransientStatus(response.status)
+}
+
+/**
+ * Whether a speech-to-text failure is worth another try.
+ *
+ * The endpoint's own answer decides for a provider error ({@link
+ * isTransientStatus}); a timeout is transient. A recording refused before it was
+ * sent, or an endpoint that is not configured, fails the same way on every try.
+ */
+export const isTransientSpeechFailure = (error: Readonly<SpeechError>): boolean => {
+  switch (error._tag) {
+    case 'SpeechProviderError':
+      return isTransientStatus(error.statusCode)
+    case 'SpeechTimeoutError':
+      return true
+    case 'SpeechInputError':
+    case 'SpeechNotConfiguredError':
+      return false
+  }
 }
 
 /**

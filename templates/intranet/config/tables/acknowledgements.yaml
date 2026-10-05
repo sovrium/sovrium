@@ -1,0 +1,32 @@
+# One row each time a colleague confirms they have read a must-read. The
+# announcement counts its rows, which is where "31 of 46" comes from.
+id: 4
+name: acknowledgements
+fields:
+  - id: 1
+    name: post
+    type: relationship
+    relatedTable: posts
+    relationType: many-to-one
+    displayField: title
+    required: true
+  - id: 2
+    name: member
+    type: relationship
+    relatedTable: members
+    relationType: many-to-one
+    displayField: name
+  - id: 3
+    name: acknowledged_at
+    type: date
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - managers
+    - member
+  update:
+    - admin
+  delete:
+    - admin

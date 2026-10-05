@@ -1,55 +1,41 @@
+# The way in: a work email, and a link sent to it. The password is one click
+# away, on its own page (sign-in-password.yaml), so this page never shows two
+# forms side by side. Sign-up is closed (config/auth.yaml); a new colleague is
+# added by IT.
 name: sign-in
 path: /sign-in
 meta:
-  title: Sign In
-  description: Sign in to the company intranet
+  title: Sign in · Halden
+  description: Sign in to Halden with your work email.
 components:
+  - $ref: ./_site-header.yaml
   - type: container
-    element: section
+    element: main
     props:
-      className: py-16 px-6 min-h-screen
-      style:
-        backgroundColor: var(--color-background-subtle)
+      className: flex justify-center px-5 pt-12 pb-16 max-md:pt-8
     children:
       - type: container
         props:
-          className: max-w-md mx-auto
+          className: flex w-full max-w-[440px] flex-col gap-5
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-2 text-center
-              style:
-                color: var(--color-foreground)
-            content: Welcome back
-          - type: text
-            element: p
-            props:
-              className: text-center mb-8
-              style:
-                color: var(--color-foreground-muted)
-            content: Sign in to access the company intranet.
-
-          # Magic-link form — passwordless, primary option
           - type: container
             props:
-              className: p-6 rounded-xl border mb-4
-              style:
-                backgroundColor: var(--color-card)
-                borderColor: var(--color-border)
+              className: flex flex-col gap-1.5 text-center
             children:
               - type: text
-                element: h2
+                element: h1
                 props:
-                  className: text-xl font-semibold mb-3
-                content: Sign in with a magic link
+                  className: text-[28px] font-semibold tracking-tight text-foreground
+                content: Sign in to Halden
               - type: text
                 element: p
                 props:
-                  className: text-md mb-4
-                  style:
-                    color: var(--color-foreground-muted)
-                content: We'll email you a one-tap sign-in link. No password needed.
+                  className: text-foreground-muted
+                content: We email you a link that signs you in.
+          - type: container
+            props:
+              className: flex flex-col gap-4 rounded-lg border border-border bg-background-raised p-5 shadow-sm
+            children:
               - type: form
                 props:
                   id: magic-link-form
@@ -57,28 +43,25 @@ components:
                   type: auth
                   method: login
                   strategy: magicLink
+                  submitLabel: Email me a sign-in link
                   onSuccess:
                     navigate: /portal
-
-          # Email + password form — fallback option
-          - type: container
+              - type: container
+                props:
+                  className: flex items-center justify-center gap-2 text-sm text-foreground-muted
+                children:
+                  - type: icon
+                    props:
+                      name: lock
+                      size: 14
+                  - type: link
+                    props:
+                      href: /sign-in/password
+                      className: underline hover:text-foreground
+                    content: Use a password instead
+          - type: text
+            element: p
             props:
-              className: p-6 rounded-xl border
-              style:
-                backgroundColor: var(--color-card)
-                borderColor: var(--color-border)
-            children:
-              - type: text
-                element: h2
-                props:
-                  className: text-xl font-semibold mb-3
-                content: Or sign in with a password
-              - type: form
-                props:
-                  id: password-sign-in-form
-                action:
-                  type: auth
-                  method: login
-                  strategy: email
-                  onSuccess:
-                    navigate: /portal
+              className: text-center text-xs text-foreground-muted
+            content: Only people with a Halden email can sign in. New here? Ask your manager to add you.
+  - $ref: ./_site-footer.yaml

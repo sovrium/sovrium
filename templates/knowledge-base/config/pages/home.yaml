@@ -1,30 +1,109 @@
+# The public door: what the handbook holds, one card per section, and one way
+# in. It names no article and no policy — a visitor learns what is behind the
+# door, not what it says.
 name: home
 path: /
 meta:
-  title: Company handbook
-  description: The internal knowledge base — sign in to read
+  title: Corvel handbook · how we work, written down
+  description: Onboarding, IT and the policies Corvel keeps — one handbook, readable by everyone at Corvel once they sign in.
 components:
+  - $ref: ./_site-header.yaml
   - type: container
     element: section
     props:
-      className: py-20 px-6
+      className: flex flex-col gap-7 px-10 pt-12 pb-12 max-md:px-3.5 max-md:pt-6
     children:
       - type: container
         props:
-          className: max-w-2xl mx-auto text-center
+          className: mx-auto flex w-full max-w-[720px] flex-col items-center gap-4 pt-7 text-center max-md:items-start max-md:pt-0 max-md:text-left
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-4
-            content: Company handbook
           - type: text
             element: p
             props:
-              className: text-xl mb-8
-            content: Onboarding, IT how-tos, and policies — written in markdown, versioned in Git, readable only by the team.
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+            content: Corvel · for the team
+          - type: text
+            element: h1
+            props:
+              className: text-[40px] font-semibold leading-[1.1] tracking-tight text-foreground max-md:text-[30px]
+            content: How we work, written down
+          - type: text
+            element: p
+            props:
+              className: max-w-[560px] text-[17px] text-foreground-muted max-md:text-[15px]
+            content: Onboarding, IT and the policies we keep — one handbook, readable by everyone at Corvel once they sign in.
           - type: link
             props:
               href: /sign-in
-              className: inline-block px-6 py-3 rounded-lg font-medium border
-            content: Sign in to read
+              className: inline-flex h-8 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover
+            children:
+              - type: text
+                element: span
+                content: Sign in to read
+              - type: icon
+                props:
+                  name: arrow-right
+                  size: 16
+      # One card per section, by name and purpose — never by article.
+      - type: container
+        props:
+          className: mx-auto mt-3 grid w-full max-w-[960px] grid-cols-3 gap-4 max-md:mt-0 max-md:grid-cols-1 max-md:gap-2.5
+        children:
+          - type: card
+            props:
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+            children:
+              - type: icon
+                props:
+                  name: house
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
+                props:
+                  className: text-xl font-semibold text-foreground
+                content: Getting started
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted
+                content: Your first days, the accounts you need, who to ask.
+          - type: card
+            props:
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+            children:
+              - type: icon
+                props:
+                  name: laptop
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
+                props:
+                  className: text-xl font-semibold text-foreground
+                content: IT
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted
+                content: Hardware, access and the security basics.
+          - type: card
+            props:
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+            children:
+              - type: icon
+                props:
+                  name: file-text
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
+                props:
+                  className: text-xl font-semibold text-foreground
+                content: Policies
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted
+                content: Expenses, security and the rules we agreed on.
+  - $ref: ./_site-footer.yaml

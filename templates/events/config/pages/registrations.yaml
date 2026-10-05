@@ -1,55 +1,98 @@
+# Everyone registered, grouped under the name of their event, with who is on
+# the waitlist and who has arrived. It is also the door: search a name and
+# press Check in beside it.
 name: registrations
 path: /registrations
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Registrations
-  description: Every attendee, grouped by event
+  title: Registrations · Fieldday
+  description: Every registration by event, the waitlist, and the check-in at the door.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Registrations
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Everyone who signed up, grouped by event. Each row was confirmed by email automatically.
-
-      - type: table
-        dataSource:
-          table: registrations
-          sort:
-            - field: created_at
-              direction: desc
-        columns:
-          - field: name
-            label: Attendee
-            sortable: true
-          - field: email
-            label: Email
-          - field: event
-            label: Event
-          - field: status
-            label: Status
-            filterable: true
-          - field: created_at
-            label: Registered
-            format: relative-date
-            sortable: true
-        search:
-          enabled: true
-          placeholder: Search attendees...
-        groupBy:
-          field: event
-        pagination:
-          pageSize: 20
-        emptyMessage: No registrations yet — share the /register link.
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Registrations
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: registrations-filter
+                fields:
+                  - { name: name, label: Attendee, kind: text }
+                  - { name: email, label: Email, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Confirmed, label: Confirmed }
+                      - { value: Waitlist, label: Waitlist }
+                      - { value: Cancelled, label: Cancelled }
+              - type: table
+                props:
+                  id: registrations-grid
+                  # Status is an outlined word, not a filled chip: green once
+                  # confirmed, amber on the waitlist.
+                  className: '[&_td:nth-child(3)_span]:!border [&_td:nth-child(3)_span]:!border-current [&_td:nth-child(3)_span]:!rounded-full [&_td:nth-child(3)_span]:!bg-transparent [&_td:nth-child(3)_span_span]:!border-0'
+                dataSource:
+                  table: registrations
+                  bindTo: registrations-filter
+                  sharedFilter: {}
+                  # The latest registrations first, so this week's arrivals are
+                  # on the first page; the filter bar finds anyone else.
+                  sort:
+                    - { field: registered_at, direction: desc }
+                rowHeight: short
+                columns:
+                  - { field: name, label: Attendee, sortable: true }
+                  - { field: email, label: Email }
+                  - field: status
+                    label: Status
+                    cellStyle:
+                      - { when: { eq: Confirmed }, className: '[&_*]:!text-success' }
+                      - { when: { eq: Waitlist }, className: '[&_*]:!text-warning' }
+                      - { when: { eq: Cancelled }, className: '[&_*]:!text-foreground-muted' }
+                  - { field: registered_at, label: Registered, format: short-date, align: right }
+                  - { field: checked_in, label: Arrived }
+                  # The door: one press marks the person as arrived. Already
+                  # checked in, the button is gone.
+                  - type: actions
+                    actions:
+                      - label: Check in
+                        icon: check
+                        visibleWhen: { field: checked_in, notIn: [true, 1, 'true', '1'] }
+                        action:
+                          type: fetch
+                          url: /api/tables/registrations/records/$record.id
+                          method: PATCH
+                          body:
+                            fields:
+                              checked_in: true
+                          onSuccess:
+                            type: toast
+                            message: Checked in
+                            variant: success
+                            refetch: registrations-grid
+                groupBy:
+                  field: event
+                pagination:
+                  pageSize: 100
+                emptyMessage: People who register on the public page appear here, grouped by event. Share the public page, or add an attendee by hand.

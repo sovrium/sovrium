@@ -65,6 +65,14 @@ fields:
     formula: "CASE WHEN stage NOT IN ('Won', 'Lost') AND close_date < CURRENT_DATE THEN 'Close date passed' ELSE '' END"
     resultType: string
 
+views:
+  # The deals still in play: the count beside Pipeline in the sidebar.
+  - id: open_deals
+    name: Open deals
+    filters:
+      and:
+        - { field: stage, operator: in, value: [Prospect, Qualified, Proposal] }
+
 aiAccess:
   description: >-
     The sales pipeline. Use this when the user asks about deals, stages,

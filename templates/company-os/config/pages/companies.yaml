@@ -66,7 +66,7 @@ components:
                 dataSource:
                   table: companies
                 props:
-                  title: Client
+                  title: $record.name
                 recordFields:
                   - { name: name, type: single-line-text, label: Client }
                   - { name: industry, type: single-select, label: Sector }
@@ -78,6 +78,7 @@ components:
                     field: company
                     columns:
                       - { field: name, label: Deal }
+                      - { field: value, label: Value }
                       - { field: stage, label: Stage }
                       - { field: close_date, label: Closes }
                     sort:

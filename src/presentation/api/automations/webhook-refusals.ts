@@ -30,7 +30,7 @@
  */
 
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { Context } from 'hono'
 
 /** The request named no webhook. */
@@ -49,11 +49,7 @@ export const webhookInvalidRequest = (c: Context): Response =>
  * is operationally paused, so a paused automation is indistinguishable from a
  * missing one to a caller.
  */
-export const webhookNotFound = (c: Context): Response =>
-  c.json(
-    errorBody({ error: 'not_found', message: 'No such webhook', code: ApiErrorCode.NOT_FOUND }),
-    404
-  )
+export const webhookNotFound = (c: Context): Response => notFound(c, 'No such webhook')
 
 /**
  * The webhook exists but does not accept this method.

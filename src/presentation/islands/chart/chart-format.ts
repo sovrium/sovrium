@@ -5,11 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  formatCurrencyValue,
-  type CurrencyDisplayOptions,
-} from '@/domain/kernel/format/currency-format'
+import { formatCompactCurrency } from '@/domain/kernel/format/compact-currency'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { resolvePageLocale } from '../runtime/page-locale'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 /**
  * Display formats applied to chart axis tick labels. Mirrors the domain
@@ -18,15 +17,42 @@ import { resolvePageLocale } from '../runtime/page-locale'
 export type ChartAxisFormat = 'date' | 'currency' | 'number' | 'percent'
 
 /**
- * A `currency` axis prints the PLOTTED field's currency and precision, grouped
- * in the page language, through the one currency formatter every other surface
- * uses. With no field currency resolved (a plain number field formatted as
- * currency), the axis keeps its historical `$` prefix.
+ * A `currency` axis prints the PLOTTED field's currency in the page language's
+ * compact notation — `€3.5K`, `3,5 k€` — never with cents: a tick names a
+ * level on the scale, not an amount to the cent. With no field currency
+ * resolved (a plain number field formatted as currency), the axis keeps its
+ * historical `$` prefix.
  */
 function formatCurrencyTick(value: number, currency: CurrencyDisplayOptions | undefined): string {
   return currency === undefined
     ? `$${String(value)}`
-    : formatCurrencyValue(value, currency, resolvePageLocale())
+    : formatCompactCurrency(value, currency, resolvePageLocale())
+}
+
+/** A month bucket key, as a `month` interval groups a date: `2025-07`. */
+const MONTH_KEY = /^(\d{4})-(\d{2})$/
+
+/**
+ * The labeller of an axis whose every key is a month bucket: each key printed
+ * as its short month in the page language (`Jul`, `juil.`), with its year only
+ * when the keys span more than one year (`Dec 2025`, `Jan 2026`). `undefined`
+ * when any key is not a month bucket, so the keys print as they are.
+ */
+export function monthKeyLabeller(keys: readonly string[]): ((key: string) => string) | undefined {
+  const months = keys.map((key) => MONTH_KEY.exec(key))
+  if (months.length === 0 || months.some((month) => month === null)) return undefined
+  const years = new Set(months.map((month) => month?.[1]))
+  const format = new Intl.DateTimeFormat(usableLocale(resolvePageLocale()), {
+    month: 'short',
+    ...(years.size > 1 ? { year: 'numeric' } : {}),
+    timeZone: 'UTC',
+  })
+  return (key) => {
+    const month = MONTH_KEY.exec(key)
+    return month === null
+      ? key
+      : format.format(new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1)))
+  }
 }
 
 const MONTH_NAMES = [

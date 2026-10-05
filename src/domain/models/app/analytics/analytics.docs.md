@@ -78,7 +78,7 @@ Every aggregated endpoint above accepts an optional `event_type` and `event_name
 
 ### Inspecting raw events
 
-`GET /api/analytics/events` gives row-level visibility into the unified stream, complementing the aggregated endpoints. It is admin-only and filters by `event_type`, `event_name` and date range.
+`GET /api/analytics/events` gives row-level visibility into the unified stream, complementing the aggregated endpoints. It answers admin-equivalent roles only — the built-in `admin` and the app's highest role — like the other read endpoints, and filters by `event_type`, `event_name` and date range.
 
 ```text
 GET /api/analytics/events?event_type=track&limit=50&offset=0&from=2026-01-01&to=2026-04-15

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
 
 /**
  * Scalar accepted by the comparison operators.
@@ -29,6 +30,12 @@ const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
  * - `in` / `notIn` — set membership against a list of values
  * - `contains`     — substring / collection containment
  * - `gt`/`lt`/`gte`/`lte` — numeric comparisons
+ * - `isEmpty` / `isNotEmpty` — presence test, written `isEmpty: true`. NULL,
+ *   an absent value and `''` are all empty, the same rule the record filters
+ *   apply, so a text column holding NULL on one row and `''` on another is
+ *   tested alike. Spelled as a flag rather than a value comparison because
+ *   neither `eq: ''` nor `gt` can express it: `eq` compares the stringified
+ *   value (NULL reads as `"null"`), and `gt` is numeric.
  *
  * Lives in `shared/` rather than beside any one consumer because three
  * unrelated surfaces now spend it — `table` `cellStyle[].when`, a
@@ -39,6 +46,15 @@ const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
 const describedValue = (description: string) => ConditionValueSchema.annotate({ description })
 const describedValueArray = (description: string) =>
   ConditionValueArraySchema.annotate({ description })
+
+/**
+ * The presence flags take `true` and nothing else. `isEmpty: false` would be a
+ * second spelling of `isNotEmpty: true`, and two spellings of one predicate are
+ * how two surfaces come to disagree — so the negation has its own key and the
+ * `false` form is refused at decode.
+ */
+const describedFlag = (description: string) =>
+  Schema.Literal(true).annotate({ description, examples: [true] })
 
 export const ConditionOperatorsSchema = Schema.Struct({
   /** Equals */
@@ -65,10 +81,22 @@ export const ConditionOperatorsSchema = Schema.Struct({
   ),
   /** Less than or equal */
   lte: Schema.optional(describedValue('Matches when the value is less than or equal to this one.')),
+  /** Value is empty: NULL, absent, '', [] or {} */
+  isEmpty: Schema.optional(
+    describedFlag(
+      'Write `isEmpty: true` to match when the value is empty — no value at all, an empty text (\'\'), an empty list or an empty object. All of them count as empty, so a NULL, a blank text and a multi-select with nothing picked are tested alike. Nothing else is empty: `0`, `false`, a blank space, `{"a": null}` and `[null]` are values.'
+    )
+  ),
+  /** Value is present: neither NULL, absent, '', [] nor {} */
+  isNotEmpty: Schema.optional(
+    describedFlag(
+      "Write `isNotEmpty: true` to match when the value is present — neither missing, an empty text (''), an empty list nor an empty object. The one way to say \"this field has a value\", since `neq: ''` also matches a missing value."
+    )
+  ),
 }).annotate({
   title: 'Condition Operators',
   description:
-    'Condition matcher: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte.',
+    'Condition matcher: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte, and the presence flags isEmpty: true / isNotEmpty: true.',
 })
 
 /** @public */
@@ -89,6 +117,8 @@ export type ConditionOperators = Schema.Schema.Type<typeof ConditionOperatorsSch
  * visibleWhen: { field: status, eq: pending }
  * # "Renew" shows only on expiring/expired rows
  * visibleWhen: { field: status, in: [expiring, expired] }
+ * # "Call" shows only on rows that have a phone number
+ * visibleWhen: { field: phone, isNotEmpty: true }
  * ```
  */
 export const FieldConditionSchema = Schema.Struct({
@@ -100,14 +130,14 @@ export const FieldConditionSchema = Schema.Struct({
 }).annotate({
   title: 'Field Condition',
   description:
-    'Per-record predicate: the target renders only on records whose `field` value satisfies the operator(s). Reuses the shared condition vocabulary (eq, neq, in, notIn, contains, gt, lt, gte, lte). Omit to show on every record.',
+    'Per-record predicate: the target renders only on records whose `field` value satisfies the operator(s). Reuses the shared condition vocabulary (eq, neq, in, notIn, contains, gt, lt, gte, lte, isEmpty, isNotEmpty). Omit to show on every record.',
 })
 
 /** @public */
 export type FieldCondition = Schema.Schema.Type<typeof FieldConditionSchema>
 
 /**
- * Apply one operator to an already-coerced pair of representations.
+ * Apply one operator to a value.
  *
  * Comparison is string-based for the equality/membership/containment family
  * and numeric for the ordering family, so a `status` column holding `'3'`
@@ -115,13 +145,12 @@ export type FieldCondition = Schema.Schema.Type<typeof FieldConditionSchema>
  * rather than throwing — the schema already constrains the vocabulary, and a
  * value arriving from a rehydrated JSON blob must not crash a render.
  */
-const matchesCondition = (
-  operator: string,
-  expected: unknown,
-  strValue: string,
-  numValue: number
-): boolean => {
+const matchesCondition = (operator: string, expected: unknown, value: unknown): boolean => {
+  const strValue = String(value)
+  const numValue = Number(value)
   const matchers: Readonly<Record<string, () => boolean>> = {
+    isEmpty: () => expected === true && isEmptyCell(value),
+    isNotEmpty: () => expected === true && !isEmptyCell(value),
     eq: () => strValue === String(expected),
     neq: () => strValue !== String(expected),
     in: () => Array.isArray(expected) && expected.some((entry) => String(entry) === strValue),
@@ -144,11 +173,9 @@ export const matchesConditionOperators = (
   operators: Readonly<Record<string, unknown>>,
   value: unknown
 ): boolean => {
-  const strValue = String(value)
-  const numValue = Number(value)
   return Object.entries(operators)
     .filter(([, expected]) => expected !== undefined)
-    .every(([operator, expected]) => matchesCondition(operator, expected, strValue, numValue))
+    .every(([operator, expected]) => matchesCondition(operator, expected, value))
 }
 
 /**

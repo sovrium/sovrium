@@ -1,0 +1,125 @@
+# The bar above every handbook page: the handbook's name, the search box, the
+# assistant and sign-out.
+#
+# On a markdown page the FIRST component renders above the article and the
+# rest below it, so this bar is always the first entry of `components`.
+#
+# Below `lg` the sections sit behind the layout's menu button; the classes
+# below lift that button into the bar, left of the handbook's name.
+#
+# It also tunes the reading frame that follows it: the `[&~div_…]` classes
+# reach the article, the sidebar and the callouts rendered after the bar, so
+# the body reads a step larger than the chrome, links and the current page
+# carry the accent, and a callout sits on the theme's own grounds in light and
+# dark. Delete them and the handbook falls back to the built-in docs look.
+#
+# The search asks the server as the reader types (`index: session`), and the
+# server answers only with the pages that reader may open: a member never sees
+# the managers' articles in the results, and nothing is written to a public
+# index file.
+type: container
+element: header
+props:
+  className: >-
+    sticky top-0 z-30 border-b border-border bg-background
+    max-lg:[&~div_article]:px-0 max-lg:[&~div_article]:pt-0 max-lg:[&~div>div]:pt-0
+    max-lg:[&~div_[data-component=docs-article-header]]:mb-3.5
+    max-lg:[&~div>div>[data-component-type=container]>button]:fixed max-lg:[&~div>div>[data-component-type=container]>button]:top-2
+    max-lg:[&~div>div>[data-component-type=container]>button]:left-2 max-lg:[&~div>div>[data-component-type=container]>button]:z-40
+    max-lg:[&~div>div>[data-component-type=container]>button]:h-9 max-lg:[&~div>div>[data-component-type=container]>button]:border-0
+    max-lg:[&~div>div>[data-component-type=container]>button]:bg-transparent max-lg:[&~div>div>[data-component-type=container]>button]:px-2
+    max-lg:[&~div>div>[data-component-type=container]>button]:text-[0px]
+    max-lg:[&~div>div>[data-component-type=container]]:contents
+    lg:[&~div>div]:max-w-none lg:[&~div>div]:gap-0 lg:[&~div>div]:px-0
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:top-14
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:h-[calc(100dvh-3.5rem)]
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:w-[248px]
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:px-3.5
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:py-5
+    [&~div_nav_[data-nav-group]]:mb-3 [&~div_nav_[data-nav-group]]:border-t-0
+    [&~div_nav_[data-nav-group]]:pt-0
+    [&~div_nav_[data-nav-group]>p]:font-mono [&~div_nav_[data-nav-group]>p]:text-[11px]
+    [&~div_nav_[data-nav-group]>p]:font-medium [&~div_nav_[data-nav-group]>p]:px-2.5
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:text-[13.5px]
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:px-2.5
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:border-l-0
+    lg:[&~div_article]:px-12 lg:[&~div_article]:pt-8
+    [&~div_[data-component=docs-article-header]>div:last-child>a]:hidden
+    max-lg:[&~div_[data-component=docs-article-header]>div:last-child]:hidden
+    lg:[&~div_[data-component=markdown-toc]]:block
+    lg:[&~div_[data-component=markdown-toc]]:w-[220px]
+    lg:[&~div_[data-component=markdown-toc]]:top-14
+    lg:[&~div_[data-component=markdown-toc]]:max-h-[calc(100dvh-6rem)]
+    lg:[&~div_[data-component=markdown-toc]]:py-8
+    lg:[&~div_[data-component=markdown-toc]]:self-stretch
+    lg:[&~div_[data-component=markdown-toc]]:border-l
+    lg:[&~div_[data-component=markdown-toc]]:border-border
+    lg:[&~div_[data-component=markdown-toc]]:px-4
+    [&~div_li[data-toc-level="1"]]:hidden
+    lg:[&~div_article>*]:max-w-[560px]
+    [&~div_article_h1]:text-[30px] [&~div_article_h1]:tracking-tight
+    [&~div_article_h2]:text-xl [&~div_article_h2]:mt-7 [&~div_article_h2]:mb-3
+    [&~div_article_h1]:mb-3
+    [&~div_article>div:not([data-component])_li]:my-1
+    [&~div_article>div:not([data-component])_:is(p,ul,ol)]:my-3
+    [&~div_article>div:not([data-component])_:is(p,li)]:text-[15px]
+    [&~div_article>div:not([data-component])_:is(p,li)]:leading-[1.7]
+    [&~div_article>div:not([data-component])_a]:!text-primary-subtle-foreground
+    [&~div_nav_a[aria-current=page]]:!bg-primary-subtle
+    [&~div_nav_a[aria-current=page]]:!text-primary-subtle-foreground
+    [&~div_[data-component=alert]]:!bg-background-subtle
+    [&~div_[data-component=alert]]:!text-foreground
+    [&~div_[data-component=alert][data-type=note]]:!bg-primary-subtle
+    [&~div_[data-component=alert][data-type=note]]:!border-l-primary
+children:
+  - type: container
+    props:
+      className: flex h-14 items-center gap-4 px-6 max-md:h-[52px] max-md:gap-2 max-md:pr-2.5 max-lg:pl-12
+    children:
+      - type: link
+        props:
+          href: /kb
+          className: flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: book-open
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: Corvel handbook
+      - type: search-input
+        scope: page
+        index: session
+        placeholder: Search the handbook
+        props:
+          aria-label: Search the handbook
+          className: w-[280px] max-md:hidden
+      - type: container
+        props:
+          className: grow
+      - type: link
+        props:
+          href: /assistant
+          className: inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-foreground-muted hover:bg-background-subtle hover:text-foreground
+        children:
+          - type: icon
+            props:
+              name: message-circle
+              size: 14
+          - type: text
+            element: span
+            props:
+              className: max-md:sr-only
+            content: Ask the handbook
+      - type: button
+        variant: ghost
+        props:
+          className: h-8 px-2.5 text-sm
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /

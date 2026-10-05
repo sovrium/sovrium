@@ -186,7 +186,7 @@ export const emptyToNullable = (schema: unknown): unknown => {
  * `anyOf: [{ type: 'string' }, { type: 'null' }]` — a claim that it accepts
  * `null`, which it does not, and which is indistinguishable from a genuine
  * `Schema.NullOr`. The two cannot be told apart structurally, which is why the
- * source marks its own: measured on effect 4.0.0-rc.108, an annotation on the
+ * source marks its own: measured on effect 4.0.0, an annotation on the
  * `Schema.Undefined` member is dropped by the emitter, so the marker rides on
  * the WRAPPER, where `title` survives.
  *

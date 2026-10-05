@@ -555,7 +555,7 @@ const roleRow = (): PageComponent =>
             type: 'text',
             element: 'p',
             props: { className: `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed` },
-            visibility: { record: { field: 'pairsWith', neq: '' } },
+            visibility: { record: { field: 'pairsWith', isNotEmpty: true } },
             content: 'Designed to sit against $record.pairsWith.',
           },
         ],

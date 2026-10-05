@@ -33,7 +33,7 @@ import { OPTIONAL_UNDEFINED_MARKER } from '@/domain/models/api/combinators/optio
  * WHY IT IS A FUNCTION AND NOT A DOC NOTE
  *
  * The ordering below is load-bearing and its failure mode is SILENT. Measured
- * against `Schema.toJsonSchemaDocument` on effect 4.0.0-rc.108:
+ * against `Schema.toJsonSchemaDocument` on effect 4.0.0:
  *
  * | pipe order                                   | JSON Schema `default` |
  * | -------------------------------------------- | --------------------- |
@@ -54,9 +54,10 @@ import { OPTIONAL_UNDEFINED_MARKER } from '@/domain/models/api/combinators/optio
  *     | "NaN") and drops annotations entirely, so no `default` is emitted for
  *     it by any spelling. `Schema.Finite` / `Schema.Int` do carry it.
  *   - a REFINED node (`Schema.Finite`, `Schema.Int`, anything with a `check`)
- *     nests the default as `allOf: [{ default: x }]` rather than putting it on
- *     the node, because the refinement already sits between. Same cause as the
- *     `annotate`-before-`check` rule in
+ *     attaches the default to the check, not the node. On rc.108 that surfaced
+ *     as `allOf: [{ default: x }]`; Effect 4.0.0 compacts a non-colliding check
+ *     into the node (#7336), so the default now sits beside `type`. Same cause
+ *     as the `annotate`-before-`check` rule in
  * `[internal ref]`.
  *
  * WHY `withDecodingDefault` AND NOT `withDecodingDefaultKey`

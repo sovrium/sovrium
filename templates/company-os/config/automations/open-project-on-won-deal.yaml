@@ -2,8 +2,9 @@
 # project directly — no integration service between two tools. The project
 # takes the deal's name, its client and its owner, and starts as Planned.
 #
-# A record created by an automation does not fire the record triggers of the
-# table it lands in, so nothing chains from the new project by itself.
+# The new project fires the record triggers of the projects table like any
+# other new record, so an automation watching new projects would run next.
+# This app declares none, so the chain stops here.
 name: open-project-on-won-deal
 label: Deal won — open the delivery project
 description: When a deal reaches Won, create a Planned project for the same client.

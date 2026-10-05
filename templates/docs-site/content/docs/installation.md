@@ -1,25 +1,32 @@
 ---
 title: Installation
-description: Install the Sovrium CLI and scaffold this docs template.
-category: Getting Started
+description: Install the CLI, scaffold this template, and serve it locally.
+category: getting-started
 order: 2
-draft: false
+updated: 2026-09-11
 ---
 
 # Installation
 
-Sovrium ships as a standalone binary. Pick whichever path fits your machine.
+Install the CLI, scaffold this template, and serve it locally.
 
 ## Install the CLI
 
+Run the install script on macOS or Linux:
+
 ```bash
-# Install script (macOS / Linux)
 curl -fsSL https://sovrium.com/install | sh
+```
 
-# Homebrew
+Or install it with Homebrew:
+
+```bash
 brew install sovrium/tap/sovrium
+```
 
-# Docker
+Or pull the container image:
+
+```bash
 docker pull ghcr.io/sovrium/sovrium:latest
 ```
 
@@ -31,39 +38,24 @@ cd my-docs
 sovrium start app.yaml
 ```
 
-Your docs are now served at `http://localhost:3000`, with this very page at
+Your docs are now served at `http://localhost:3000`, with this page at
 `/docs/installation`.
 
-## Project layout
-
-```text
-my-docs/
-├── app.yaml                 # entry point
-├── config/
-│   ├── design.yaml          # colors, type, codeBlock (Shiki) theme
-│   └── pages/
-│       ├── home.yaml        # inline-markdown landing
-│       └── docs.yaml        # contentDir collection
-└── content/
-    └── docs/                # ← your markdown lives here
-        ├── introduction.md
-        ├── installation.md
-        ├── quick-start.md
-        └── guides/
-            ├── configuration.md
-            └── deployment.md
-```
-
-::: callout
-Zero configuration: this template has no database, auth, AI, or email. Copy
-`.env.example` to `.env` only if you want to override a default.
+::: callout type="note"
+**One binary.** The CLI is a single file with no runtime to install. The
+container image carries the same binary.
 :::
 
 ## Verify
 
 ```bash
-# Validate the config without starting the server
 sovrium validate app.yaml
 ```
 
 A clean run prints `Valid configuration: docs-site`.
+
+::: callout type="tip"
+**Validate before you commit.** `sovrium validate` checks every page and the
+design file without starting the server, so a typo fails in a second rather
+than on the live site.
+:::

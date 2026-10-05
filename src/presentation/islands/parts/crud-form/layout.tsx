@@ -7,9 +7,11 @@
 
 import React from 'react'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
 import { evaluateCondition, isFieldVisible } from './conditions'
 import { type FieldDef, labelOf, renderField } from './fields'
+import { clearMarkOf, isMarkedCleared } from './wire-values'
 
 export interface FieldGroup {
   readonly label: string
@@ -36,6 +38,8 @@ interface RenderProps {
    * has none yet.
    */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
+  /** The form's interface strings in the page language, keyed by catalogue key; English when absent. */
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
 
 function renderHiddenField(field: FieldDef, values: Record<string, string>): React.ReactElement {
@@ -69,18 +73,80 @@ function applyConditionalFlags(field: FieldDef, values: Record<string, string>):
     : field
 }
 
+/** The widgets whose empty control means "untouched", so clearing needs its own gesture. */
+const CLEARABLE_WIDGETS: ReadonlySet<string> = new Set([
+  'date',
+  'datetime',
+  'number',
+  'select',
+  'record-picker',
+])
+
+/**
+ * Whether a field offers its Clear control: on a form editing a record, for an
+ * optional, editable date, number, choice or relationship that holds a value.
+ */
+function offersClear(field: FieldDef, value: string, props: RenderProps): boolean {
+  if (props.binding?.recordId === undefined) return false
+  if (field.required || field.readOnly || field.disabled) return false
+  return CLEARABLE_WIDGETS.has(fieldWidgetOf(field.type)) && value.trim() !== ''
+}
+
+/**
+ * The Clear control: empties the field and marks it cleared, so the save
+ * stores it empty (`<field>__clear` posted natively, `null` from a script).
+ */
+function ClearControl(props: {
+  readonly field: FieldDef
+  readonly onChange: RenderProps['onChange']
+  readonly uiStrings: RenderProps['uiStrings']
+}) {
+  const { field, onChange, uiStrings } = props
+  const onClick = React.useCallback(() => {
+    onChange(field.name, '')
+    onChange(clearMarkOf(field.name), '1')
+  }, [field.name, onChange])
+  return (
+    <button
+      type="button"
+      aria-label={(uiStrings?.['form.clearNamed'] ?? 'Clear {label}')
+        .split('{label}')
+        .join(labelOf(field))}
+      onClick={onClick}
+      className="text-foreground-muted hover:text-foreground mt-1 text-xs underline"
+    >
+      {uiStrings?.['form.clear'] ?? 'Clear'}
+    </button>
+  )
+}
+
 function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
   const effectiveField = applyConditionalFlags(field, props.values)
+  const value = props.values[field.name] ?? ''
   return (
     <React.Fragment key={field.name}>
       <div>
         {renderField({
           field: effectiveField,
-          value: props.values[field.name] ?? '',
+          value,
           onChange: props.onChange,
           invalid: invalidSet.has(field.name),
           ...(props.binding === undefined ? {} : { binding: props.binding }),
         })}
+        {offersClear(effectiveField, value, props) && (
+          <ClearControl
+            field={effectiveField}
+            onChange={props.onChange}
+            uiStrings={props.uiStrings}
+          />
+        )}
+        {isMarkedCleared(props.values, field.name) && (
+          <input
+            type="hidden"
+            name={clearMarkOf(field.name)}
+            value="1"
+          />
+        )}
       </div>
       {props.fieldError?.field === field.name && (
         // Same recipe as every other field message in the system
@@ -160,7 +226,13 @@ export function FormFields(props: FormFieldsProps) {
   const { fields, values, onChange, fieldError, invalidFields, fieldGroups, layout, binding } =
     props
   const invalidSet = new Set(invalidFields ?? [])
-  const renderProps: RenderProps = { values, onChange, fieldError, binding }
+  const renderProps: RenderProps = {
+    values,
+    onChange,
+    fieldError,
+    binding,
+    uiStrings: props.uiStrings,
+  }
 
   if (fieldGroups && fieldGroups.length > 0) {
     return (
@@ -193,11 +265,15 @@ interface FormBodyProps {
   readonly redirectUrl?: string
   readonly useNativeForm: boolean
   readonly submitLabel: string
+  /** The submit button's caption while a save is in flight; English when absent. */
+  readonly savingLabel?: string
   readonly variant?: string
   readonly fieldGroups?: readonly FieldGroup[]
   readonly layout?: string
   /** Forwarded to the fields so a `button` field can address its own record. */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
+  /** Forwarded to the fields — see `RenderProps.uiStrings`. */
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
 
 function ErrorSummary(props: {
@@ -231,6 +307,7 @@ export function FormBody(props: FormBodyProps) {
     redirectUrl,
     useNativeForm,
     submitLabel,
+    savingLabel,
     variant,
     fieldGroups,
     layout,
@@ -253,6 +330,7 @@ export function FormBody(props: FormBodyProps) {
         fieldGroups={fieldGroups}
         layout={layout}
         {...(binding === undefined ? {} : { binding })}
+        uiStrings={props.uiStrings}
       />
       {redirectUrl && useNativeForm && (
         <input
@@ -269,7 +347,7 @@ export function FormBody(props: FormBodyProps) {
         disabled={state.isPending}
         {...(variant && { 'data-variant': variant })}
       >
-        {state.isPending ? 'Saving...' : submitLabel}
+        {state.isPending ? (savingLabel ?? 'Saving...') : submitLabel}
       </button>
     </>
   )

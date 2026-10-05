@@ -28,7 +28,7 @@ import { guardedKeyRecord } from './token-value-schemas'
  *
  * The KEY grammar — kebab-case — is asserted at the RECORD level rather than as
  * a key schema, because Effect v4 silently DROPS a key-schema failure. Measured
- * on `4.0.0-rc.108`, a record keyed `Rounded` decoded to `{}` with no error and
+ * on `4.0.0`, a record keyed `Rounded` decoded to `{}` with no error and
  * no radius. Here it is refused by name. See `guardedKeyRecord`.
  *
  * ## `DEFAULT` is refused, and why it is refused rather than left alone

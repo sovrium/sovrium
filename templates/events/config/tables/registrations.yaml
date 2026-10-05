@@ -1,3 +1,9 @@
+# Everyone who registered, one row per person per event.
+#
+# A visitor registers from the public page with no account, through the
+# hosted forms in config/forms/: those forms are the only way in for someone
+# who is not signed in. Attendee details stay with the organizers — nobody
+# else reads this table.
 id: 2
 name: registrations
 fields:
@@ -6,9 +12,8 @@ fields:
     type: relationship
     relatedTable: events
     relationType: many-to-one
-    # The public /register form renders this column as a dropdown of events;
-    # displayField names the column each choice is labelled with, while the
-    # stored value stays the event's row id.
+    # The form's Event select and the grid's group headers show the event's
+    # name; the stored value stays the event's id.
     displayField: name
     required: true
   - id: 2
@@ -19,23 +24,46 @@ fields:
     name: email
     type: email
     required: true
+  # Confirmed while there are seats; Waitlist once the event is full. An
+  # organizer moves someone off the waitlist by changing this one word.
   - id: 4
     name: status
     type: single-select
     options:
-      - Confirmed
-      - Waitlist
-      - Cancelled
+      - value: Confirmed
+        color: '#6B6B76'
+      - value: Waitlist
+        color: '#6B6B76'
+      - value: Cancelled
+        color: '#6B6B76'
     default: Confirmed
+  # The one question the registration form asks.
+  - id: 7
+    name: answer
+    type: single-select
+    options:
+      - value: A spreadsheet we use every week
+        color: '#6B6B76'
+      - value: A process we still run by hand
+        color: '#6B6B76'
+      - value: Nothing yet, just curious
+        color: '#6B6B76'
+  # Ticked at the door (config/pages/registrations.yaml).
+  - id: 6
+    name: checked_in
+    type: checkbox
+    default: false
+  # When the person registered. Written by the app, never typed.
   - id: 5
-    name: created_at
+    name: registered_at
     type: created-at
 
-# Attendee data stays private — only the signed-in team can read it. The
-# public /register form can still create rows (form submissions write through
-# the form's own access rule, not the table read rule).
+# Organizers read and update attendees; only an admin removes one. A
+# signed-in member who tries to delete gets the same 404 as a missing row.
 permissions:
-  read: authenticated
+  read:
+    - admin
+    - member
   create:
     - admin
     - member

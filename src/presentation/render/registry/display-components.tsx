@@ -33,6 +33,7 @@
  * defaults at the Tailwind cascade.
  */
 
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   computeEmptyStateContainerClasses,
   computeEmptyStateTitleClasses,
@@ -74,6 +75,7 @@ export const displayComponents: Partial<Record<DispatchableComponentType, Compon
         id={elementProps['id'] as string | undefined}
         className={className}
         data-component="empty-state"
+        data-component-type={hostComponentType(elementProps)}
         role="status"
       >
         {title ? <h3 className={computeEmptyStateTitleClasses()}>{title}</h3> : undefined}

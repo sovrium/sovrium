@@ -58,10 +58,11 @@ export class DataSourceRepository extends Context.Service<
 
     readonly countRecords: (
       tableName: string,
-      filter?: readonly DataFilter[]
+      filter?: readonly DataFilter[],
+      /** `liveOnly`: a soft-deleted row is not counted (`deleted_at IS NULL`). */
+      options?: { readonly liveOnly?: boolean }
     ) => Effect.Effect<number, DataSourceDatabaseError>
 
-    // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
     readonly fetchSingleRecord: (
       tableName: string,
       paramField: string,
@@ -69,7 +70,25 @@ export class DataSourceRepository extends Context.Service<
       fields?: readonly string[],
       /** `liveOnly`: a soft-deleted row reads as absent (`deleted_at IS NULL`). */
       options?: { readonly liveOnly?: boolean }
+      // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
     ) => Effect.Effect<Record<string, unknown> | undefined, DataSourceDatabaseError>
+
+    /**
+     * The ids one record links through each of the given many-to-many fields,
+     * read from their junction tables: `fieldName -> relatedIds`. A field the
+     * record links nothing through is absent (callers default to `[]`).
+     *
+     * Used by a single-record form, whose many-to-many fields have no base
+     * column for `fetchSingleRecord` to read.
+     */
+    readonly fetchManyToManyLinks: (
+      tableName: string,
+      recordId: string,
+      fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+    ) => Effect.Effect<
+      Readonly<Record<string, readonly (string | number)[]>>,
+      DataSourceDatabaseError
+    >
 
     /**
      * Fetch the flattened set of record-id strings the given user has access
@@ -96,5 +115,29 @@ export class DataSourceRepository extends Context.Service<
     readonly fetchUserAccessRoles: (
       userId: string
     ) => Effect.Effect<readonly string[], DataSourceDatabaseError>
+
+    /**
+     * {@link fetchUserAssignments} for MANY users in ONE query: each user's
+     * flattened record ids for `tableSlug`. A user with no row is absent from
+     * the map. An empty `userIds` answers an empty map without a query, and a
+     * missing `user_access` table answers it too.
+     *
+     * Used by a door that judges a page of people at once (the comment mention
+     * picker), so it reads one query per scope table per page, never per person.
+     */
+    readonly fetchUsersAssignments: (
+      userIds: readonly string[],
+      tableSlug: string
+    ) => Effect.Effect<ReadonlyMap<string, readonly string[]>, DataSourceDatabaseError>
+
+    /**
+     * {@link fetchUserAccessRoles} for MANY users in ONE query: each user's
+     * distinct `user_access` role names. A user with no row is absent from the
+     * map; an empty `userIds` and a missing `user_access` table both answer an
+     * empty map.
+     */
+    readonly fetchUsersAccessRoles: (
+      userIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, readonly string[]>, DataSourceDatabaseError>
   }
 >()('DataSourceRepository') {}

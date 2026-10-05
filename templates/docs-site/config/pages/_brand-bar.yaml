@@ -1,0 +1,51 @@
+# The row every documentation page opens with: the site's name, the search
+# box, and the two sections.
+#
+# The search asks the server as the reader types and answers with the pages
+# of the documentation.
+#
+# On a phone the two section links leave the row: the menu button opens the
+# same sections, and the bar keeps its width for the site's name.
+type: container
+props:
+  className: flex h-14 items-center gap-6 px-8 max-md:h-[52px] max-md:gap-2 max-md:pr-3 max-lg:pl-12
+children:
+  - type: link
+    props:
+      href: /
+      className: flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-foreground
+    children:
+      - type: icon
+        props:
+          name: book-open
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Docs
+  - type: search-input
+    scope: page
+    index: session
+    placeholder: Search the docs
+    props:
+      aria-label: Search the docs
+      className: w-[196px] max-md:hidden
+  - type: container
+    props:
+      className: grow
+  - type: container
+    element: nav
+    props:
+      aria-label: Site
+      className: flex items-center gap-5 text-sm max-md:hidden
+    children:
+      - type: link
+        props:
+          href: /docs
+          className: font-medium text-foreground hover:text-primary
+        content: Docs
+      - type: link
+        props:
+          href: /docs/guides/configuration
+          className: text-foreground-muted hover:text-foreground
+        content: Guides

@@ -38,6 +38,12 @@ export const UserFieldSchema = BaseFieldSchema.pipe(
         description: 'Lets the field hold several users instead of exactly one.',
       })
     ),
+    default: Schema.optional(
+      Schema.Literal('$currentUser').annotate({
+        description:
+          'Fills the field with the signed-in person when a record is created without a value for it, from a form, a dialog or the API. The field stays editable afterwards, unlike `created-by`.',
+      })
+    ),
   }),
   Schema.annotate({
     title: 'User Field',

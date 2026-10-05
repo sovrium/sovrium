@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { validateAccountDeletionTemplateLink } from './account-deletion-template-validation'
 import { AuthApiKeysConfigSchema } from './api-keys'
 import { AuthEmailTemplatesSchema } from './email-templates'
 import { GroupSchema } from './groups'
@@ -122,6 +123,31 @@ export const AllowSignUpSchema = Schema.Boolean.pipe(
 )
 
 /**
+ * Immediate Account Deletion Schema
+ *
+ * Whether a signed-in user may delete their own account at once through the
+ * auth API. The request mails a single-use confirmation link to the account's
+ * address; following it, signed in as that account, runs the same hard erasure
+ * as the scheduled purge. The door needs outgoing email and refuses the last
+ * admin who can sign in.
+ *
+ * - `true` (default): the door is open whenever email is configured
+ * - `false`: the door answers as if it did not exist
+ *
+ * The scheduled deletion (`POST /api/account/delete`, erased after a 7-day
+ * grace period) is available whatever this is set to.
+ */
+export const ImmediateAccountDeletionSchema = Schema.Boolean.pipe(
+  Schema.annotate({
+    title: 'Immediate account deletion',
+    description:
+      'Lets a signed-in user delete their own account at once: they ask, a confirmation link is mailed to them, and following it erases the account and everything in it. Needs outgoing email. false closes this door; the scheduled deletion, erased after a 7-day grace period, stays available either way.',
+    defaultNote: 'true',
+    examples: [true, false],
+  })
+)
+
+/**
  * Invitation Token Expiry Schema
  *
  * Lifetime of single-use tokens issued by `POST /api/auth/admin/invite-user`.
@@ -194,9 +220,11 @@ const validateTwoFactorRequiresEmailPassword = (
  * never be a default, or every registrant would arrive admin-dashboard-capable.
  */
 const validateDefaultRoleExists = (config: AuthConfigForValidation): string | undefined => {
-  if (!config.defaultRole || !config.roles) return undefined
+  if (!config.defaultRole) return undefined
   const builtInRoles = ['admin', 'member', 'viewer']
-  const customRoleNames = config.roles.map((r) => r.name)
+  // Checked whether or not `auth.roles` is present: with no roles declared the
+  // only valid defaults are the built-ins.
+  const customRoleNames = (config.roles ?? []).map((r) => r.name)
   const allValidRoles = [...builtInRoles, ...customRoleNames]
   return allValidRoles.includes(config.defaultRole)
     ? undefined
@@ -282,6 +310,12 @@ export const AuthSchema = Schema.Struct({
    * - false: Self-registration disabled, only admins create users
    */
   allowSignUp: Schema.optional(AllowSignUpSchema),
+
+  /**
+   * Immediate, email-confirmed self-deletion (optional, defaults to true).
+   * See {@link ImmediateAccountDeletionSchema}.
+   */
+  immediateAccountDeletion: Schema.optional(ImmediateAccountDeletionSchema),
 
   // ============================================================================
   // Authentication Strategies (required)
@@ -519,7 +553,8 @@ export const AuthSchema = Schema.Struct({
         validateDefaultRoleExists(config) ??
         validateGroupNames(config) ??
         validateScopeTables(config) ??
-        validateLandingPathRequiredWhenRolesHaveLanding(config)
+        validateLandingPathRequiredWhenRolesHaveLanding(config) ??
+        validateAccountDeletionTemplateLink(config)
       )
     })
   )

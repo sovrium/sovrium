@@ -13,14 +13,19 @@
  *     server stuck `running` past their timeout, and alert each one. Answers
  *     `{ interrupted, stuck }`. The first sweep runs at every boot and the
  *     second every five minutes; this runs both on demand.
+ *   - `POST /api/internal/automations/expire-approvals` — resolve the approval
+ *     requests past their timeout by their `onTimeout`. Answers
+ *     `{ expired: [approvalIds] }`. Runs at every boot and every minute on its
+ *     own (`register-approval-expiry.ts`); this runs it on demand.
  *   - `POST /api/internal/notifications/automation-rollup` — send the hourly
  *     roll-up of the automation failures held back from immediate alerts.
  *   - `POST /api/internal/notifications/weekly-digest` — compute the weekly
  *     summary of the instance and, unless `SOVRIUM_NOTIFY_DIGEST=off`, store
  *     and send it. Answers `{ sent, recipients, digest }` either way.
  *
- * All three jobs run on their own in production (the boot sweep and the
- * five-minute stuck-run sweep in `register-stuck-run-sweep.ts`; the hourly
+ * All four jobs run on their own in production (the boot sweep and the
+ * five-minute stuck-run sweep in `register-stuck-run-sweep.ts`; the approval
+ * expiry in `register-approval-expiry.ts`; the hourly
  * cron in `register-failure-rollup.ts`; the weekly cron and boot catch-up in
  * `register-weekly-digest.ts`). These routes exist so a test can run them
  * deterministically, and are gated exactly like `POST /api/account/purge-due`:
@@ -31,6 +36,7 @@
 
 import { Effect } from 'effect'
 import { sendWeeklyDigest } from '@/application/use-cases/admin/weekly-digest-send'
+import { expireAutomationApprovals } from '@/application/use-cases/automations/expire-automation-approvals'
 import { reapInterruptedRuns } from '@/application/use-cases/automations/reap-interrupted-runs'
 import { sendFailureRollup } from '@/application/use-cases/automations/send-failure-rollup'
 import { sweepStuckRuns } from '@/application/use-cases/automations/sweep-stuck-runs'
@@ -64,6 +70,18 @@ async function handleReapInterrupted(c: Context, app: App): Promise<Response> {
   )
 }
 
+/** Resolve the approval requests past their timeout; answers `{ expired: [approvalIds] }`. */
+async function handleExpireApprovals(c: Context, app: App): Promise<Response> {
+  if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
+  return runEffect(
+    c,
+    provideDomain(
+      c,
+      Effect.map(expireAutomationApprovals(app, process.env), (expired) => ({ expired }))
+    )
+  )
+}
+
 /** Run the failure roll-up; answers `{ sent, automations }`. */
 async function handleAutomationRollup(c: Context, app: App): Promise<Response> {
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
@@ -87,6 +105,9 @@ export function chainNotificationTriggerRoutes<T extends Hono>(
   return honoApp
     .post('/api/internal/automations/reap-interrupted', (c) =>
       handleReapInterrupted(c, resolveApp())
+    )
+    .post('/api/internal/automations/expire-approvals', (c) =>
+      handleExpireApprovals(c, resolveApp())
     )
     .post('/api/internal/notifications/automation-rollup', (c) =>
       handleAutomationRollup(c, resolveApp())

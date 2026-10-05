@@ -36,9 +36,11 @@ import {
 } from '@/presentation/api/ai/chat-mutation-flow'
 import { evaluateQueryTurn } from '@/presentation/api/ai/chat-query-flow'
 import { respondWithActions } from '@/presentation/api/ai/chat-tool-calling'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { ChatTurnToPersist } from '@/presentation/api/ai/chat-durable-memory'
+import type { ChatReader } from '@/presentation/api/ai/chat-read-scope'
 import type { Context } from 'hono'
 
 /** Inputs for a single non-agent chat turn dispatched to the AI provider. */
@@ -58,6 +60,11 @@ export interface ChatTurnInput {
    * `userRole` — a bare role can never match a `group:` permission entry.
    */
   readonly effectiveRoles: readonly string[]
+  /**
+   * Who the turn's record reads answer to: the records gates are asked for it
+   * per table — its effective roles there, then its row-level read rule.
+   */
+  readonly reader: ChatReader
   /** App schema — present when the turn may trigger a record mutation. */
   readonly app?: App
   /** Confirmation token from the request body, when re-confirming a delete. */
@@ -99,7 +106,7 @@ const refuseAsNotFound = async (c: Readonly<Context>, input: ChatTurnInput): Pro
     action: 'ai.chat.error',
     actorName: input.actorName,
   })
-  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  return notFound(c, 'Resource not found')
 }
 
 const turnToPersist = (
@@ -135,8 +142,7 @@ export const finishChatTurn = async (
     app: input.app,
     message: input.message,
     sessionId: input.sessionId,
-    userRole: input.userRole,
-    effectiveRoles: input.effectiveRoles,
+    reader: input.reader,
     ...(input.pageContext !== undefined && { pageContext: input.pageContext }),
   })
   if (query.kind === 'forbidden') return await refuseAsNotFound(c, input)
@@ -183,7 +189,7 @@ export const finishChatTurn = async (
     // S1 anti-enumeration: authz denials in chat (record mutation) return 404
     // so the user cannot enumerate which tables they lack write access to.
     // `mutation.message` is intentionally discarded from the response envelope.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Resource not found')
   }
 
   return finishMutationTurn(c, input, aiReply, mutation)

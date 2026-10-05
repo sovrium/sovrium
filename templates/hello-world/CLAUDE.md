@@ -1,23 +1,26 @@
 # my-app
 
-My Sovrium application
+Hello World — the first page after `sovrium init`. One page at `/` says the app runs, shows
+the lines of `app.yaml` that make it, and links the documentation and the templates; a page
+at `/404` answers any address that has no page yet, with the way back. No tables, no
+sign-in.
 
 ## This app at a glance
 
-- **Pages** (1): home
+- **Pages** (2): home (`/`), not-found (`/404`, served for any address that answers nothing)
+- **Singletons**: design (inline: twelve colour roles per scheme, `colorScheme: system`)
 - **Static assets**: `public/` (served at the site root)
+- **Twin**: `app.ts` is the same app in TypeScript. Keep both files in sync when you change
+  either, or delete the one you do not use.
 
-Config is a single inline `app.yaml` — split it under `config/` as the app grows (see below).
+Config is a single inline `app.yaml` — split it under `config/` with `$ref` as the app grows.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The usual
+first change is to replace the page at `/` with your own. Keep the voice of the design block:
+say what happened, name the file, no exclamation marks.
 
 ---
 

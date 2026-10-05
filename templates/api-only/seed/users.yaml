@@ -1,0 +1,20 @@
+# The three people of the team, one per role, so every rule of the API can be
+# tried with a real key:
+#
+# - Nora is an `admin`: she reads, writes and deletes, and opens the admin
+#   console at `/_admin`.
+# - Samir is a `member`: he reads, creates and updates, but cannot delete.
+# - Julia is a `viewer`: she reads, and every write she tries answers 404.
+#
+# No password is written here: each account takes `SOVRIUM_SEED_PASSWORD` from
+# the environment, so a password never lands in a file you might commit.
+users:
+  - email: nora.lindqvist@taskapi.example
+    name: Nora Lindqvist
+    role: admin
+  - email: samir.haddad@taskapi.example
+    name: Samir Haddad
+    role: member
+  - email: julia.weber@taskapi.example
+    name: Julia Weber
+    role: viewer

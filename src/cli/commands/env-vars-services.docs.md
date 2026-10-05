@@ -58,7 +58,7 @@ A separate endpoint from the language model, never derived from `AI_BASE_URL`. U
 
 ## Email
 
-With no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing, so a bare email-and-password app boots quietly.
+With no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing — a magic link, email codes, required verification, an `email` automation action, or an agent granted `email.send` — so a bare email-and-password app boots quietly.
 
 | Variable         | Default               | Description                                  |
 | ---------------- | --------------------- | -------------------------------------------- |
@@ -88,7 +88,7 @@ The first eight reach the HTTP route only. `sovrium mcp`, the local stdio path, 
 | `MCP_RATE_LIMIT_PER_MINUTE` | `60`              | Requests per credential per minute                                                                                                   |
 | `MCP_RATE_LIMIT_PER_DAY`    | `5000`            | Requests per credential per day                                                                                                      |
 | `MCP_AUDIT_ENABLED`         | `true`            | Log every tool call to the audit trail                                                                                               |
-| `MCP_EXPOSE_INTERNALS`      | `true`            | Expose internal tables read-only to the admin role                                                                                   |
+| `MCP_EXPOSE_INTERNALS`      | `true`            | Expose internal tables read-only to admin-equivalent roles (`admin` and the app's highest role)                                      |
 | `MCP_CONFIRM_DESTRUCTIVE`   | `true`            | Mark delete tools destructive so clients confirm first                                                                               |
 | `MCP_CONFIG_WRITE`          | `false`           | `sovrium mcp` only: offer the config write tools, when the project is named explicitly. Inert on the HTTP route, which warns at boot |
 

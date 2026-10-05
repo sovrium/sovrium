@@ -18,6 +18,8 @@ Every option listed above is written beside `type`. A config that still carries 
   allowAttachments: true
 ```
 
+The composer sends nothing until the page's script has run: its Send button waits for it, so a message never travels in the page address.
+
 ### Voice input
 
 Set `voiceInput` on an `ai-chat` component (beside `type`, like every other option) to add a push-to-talk microphone button to the composer. The person holds the button while speaking. On release, the recording is transcribed by the speech-to-text endpoint the operator configures (`STT_*`), and the recording itself is never stored. With `mode: draft` (the default), the transcript is placed in the message box for review. With `mode: send`, it is sent at once. `language` is an optional two-letter hint. `quality` defaults to `fast`, because the person is waiting for the text. `maxDurationSeconds` caps a recording at 1 to 300 seconds, and 300 is the default. A recording larger than 25 MB is refused.

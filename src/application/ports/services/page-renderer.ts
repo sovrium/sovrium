@@ -22,6 +22,51 @@ export type PageRenderResult =
   | { readonly unauthorized: true }
 
 /**
+ * A table as ONE caller may see it, in the shapes the table API answers that
+ * caller: the views `GET /api/tables/:t/views` lists her (each definition
+ * naming only the fields she may read), and the map
+ * `GET /api/tables/:t/permissions` answers her — `undefined` where that route
+ * refuses her.
+ */
+export type CallerTableView = {
+  readonly views: readonly unknown[]
+  readonly permissionMap:
+    | {
+        readonly table: {
+          readonly read: boolean
+          readonly create: boolean
+          readonly update: boolean
+          readonly delete: boolean
+        }
+        readonly fields: Readonly<
+          Record<string, { readonly read: boolean; readonly write: boolean }>
+        >
+      }
+    | undefined
+  /**
+   * When the read named one of the table's views: that view's definition as
+   * `GET /api/tables/:t/views/:v` answers her — its `fields` masked to those she
+   * may read — or `undefined` where that route refuses her.
+   */
+  readonly boundView?: { readonly fields?: readonly string[] } | undefined
+}
+
+/**
+ * Read a table of `app` as the caller holding `session` (none: a visitor).
+ *
+ * Supplied by the route layer, which may reach the table use-cases the
+ * renderer may not, so a page hands its reader exactly what the table API
+ * would — computed by the same programs, never by a second permission model.
+ */
+export type ReadTableAsCaller = (
+  app: App,
+  tableName: string,
+  session: SessionInfo | undefined,
+  /** One of the table's views, by id or name, whose definition to read as well. */
+  view?: string
+) => Promise<CallerTableView>
+
+/**
  * Page renderer port for server-side rendering
  *
  * This interface defines the contract for rendering pages to HTML,
@@ -179,6 +224,13 @@ export class PageRenderer extends Context.Service<
          * as a role, resolve a `$user.*` reference, or reach a row filter.
          */
         readonly callerCapabilities?: readonly CallerCapability[]
+        /**
+         * The table API's own answer to "what may this caller see of this
+         * table?", for the payload a data-table grid hands its reader (its
+         * views, its permission map, its field list). Absent, a grid keeps
+         * every view and field the table declares and carries no permissions.
+         */
+        readonly readTableAsCaller?: ReadTableAsCaller
       }
     ) => PageRenderResult | Promise<PageRenderResult>
 
@@ -189,7 +241,11 @@ export class PageRenderer extends Context.Service<
      * @param detectedLanguage - Optional detected language
      * @returns Complete HTML document as string with 404 error message
      */
-    readonly renderNotFound: (app?: App, detectedLanguage?: string) => string | Promise<string>
+    readonly renderNotFound: (
+      app?: App,
+      detectedLanguage?: string,
+      requestPath?: string
+    ) => string | Promise<string>
 
     /**
      * Renders the 500 Internal Server Error page

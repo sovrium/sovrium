@@ -20,6 +20,7 @@ import {
   linkManyToMany,
   readManyToMany,
   readRelatedLabels,
+  unlinkManyToMany,
 } from '@/infrastructure/database/table-queries'
 
 /**
@@ -39,6 +40,7 @@ export const TableRepositoryLive = Layer.succeed(TableRepository, {
   restoreRecord,
   computeAggregations,
   linkManyToMany,
+  unlinkManyToMany,
   readManyToMany,
   readRelatedLabels,
 })

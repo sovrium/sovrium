@@ -31,15 +31,22 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
       # Row metrics tuned to a four-entry navigation: 32px rows, 13.5px labels,
       # and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
     groups:
       - landmark: Workspace
         items:
           - { label: Dashboard, href: /, icon: house }
-          - { label: Board, href: /board, icon: kanban }
+          - label: Board
+            href: /board
+            icon: kanban
+            badge:
+              endpoint: /api/tables/tasks/records?limit=1&view=open_tasks
+              valuePath: pagination.total
           - { label: Timeline, href: /timeline, icon: chart-gantt }
           - { label: Calendar, href: /calendar, icon: calendar }
   - type: container

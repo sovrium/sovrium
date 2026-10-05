@@ -12,7 +12,10 @@
  * the visitor, because a public form's visitor may read no table at all, and
  * that is the case this exists for. The exposure is bounded where it can be
  * checked once — at load (`form-option-source-validation.ts`) — and here the
- * read projects only the two named columns.
+ * read projects only the two named columns. A row-level read rule is narrower
+ * and is the visitor's: it says which rows each reader may see, and a choice is
+ * a row, so the source offers only the rows the rule shows this visitor —
+ * signed in or not, as the records API answers her.
  *
  * A filter's `$currentUser.<id|email|role>` reference is resolved against the
  * signed-in visitor. Any reference that cannot be resolved (nobody signed in,
@@ -34,6 +37,7 @@ import {
   DataSourceRepository,
   type DataSourceDatabaseError,
 } from '@/application/ports/repositories/tables/data-source-repository'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   accountChoiceSets,
   collectFormOptionSources,
@@ -44,8 +48,14 @@ import {
   type FormOptionItem,
   type FormOptionSets,
   type FormOptionSourcePlan,
+  type OptionSourceQuery,
 } from '@/domain/models/app/forms/form-option-source-service'
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
+import {
+  admittedWindow,
+  visitorRowRule,
+  type RowRuleReader,
+} from '@/domain/models/app/tables/visitor-row-rule-service'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { SelectOptionSource } from '@/domain/models/app/table-option-source'
@@ -81,7 +91,7 @@ const resolveFilterValue = (
 }
 
 /** The source with every reference substituted, or `undefined` when one cannot be. */
-const resolveSourceFilter = (
+export const resolveSourceFilter = (
   source: SelectOptionSource,
   visitor: FormOptionVisitor | undefined
 ): SelectOptionSource | undefined => {
@@ -94,14 +104,72 @@ const resolveSourceFilter = (
   return { ...source, filter: filter as SelectOptionSource['filter'] }
 }
 
+/** The visitor as the row-level rule reads her; `undefined` for anyone not signed in. */
+const readerOf = (visitor: FormOptionVisitor | undefined, app: App): RowRuleReader | undefined => {
+  const id = visitor?.['id']
+  if (typeof id !== 'string') return undefined
+  const email = visitor?.['email']
+  const role = typeof visitor?.['role'] === 'string' ? visitor['role'] : ''
+  return {
+    userId: id,
+    role,
+    // The app's top role reads every row, as the built-in `admin` does.
+    isUnrestricted: isAdminEquivalent(role, app),
+    ...(typeof email === 'string' ? { email } : {}),
+  }
+}
+
+/** The reader's `user_access` record ids for each scope table a rule reads. */
+const loadAssignments = (reader: RowRuleReader | undefined, scopeTables: readonly string[]) =>
+  Effect.gen(function* () {
+    if (reader === undefined || scopeTables.length === 0) {
+      return new Map<string, readonly string[]>()
+    }
+    const repo = yield* DataSourceRepository
+    const entries = yield* Effect.forEach(scopeTables, (slug) =>
+      repo.fetchUserAssignments(reader.userId, slug).pipe(Effect.map((ids) => [slug, ids] as const))
+    )
+    return new Map<string, readonly string[]>(entries)
+  })
+
+/**
+ * The rows of ONE choice source the visitor may be offered: the form's own
+ * authority over the table, under the table's row-level read rule for the
+ * visitor — signed in or not (`visitorRowRule`, the rule every server-side
+ * read of rows answers). A rule is judged on whole rows, so a source under one
+ * reads every matching row, then keeps the admitted ones up to its limit.
+ *
+ * This is the ONE gated read of a form's choices: the choice list draws from
+ * it, and a submitted link is judged by it (`submit-form-offered-links.ts`),
+ * so a row the rule withholds is neither offered nor accepted.
+ */
+export const readAdmittedSourceRows = (
+  app: App,
+  query: OptionSourceQuery,
+  visitor: FormOptionVisitor | undefined
+) =>
+  Effect.gen(function* () {
+    const repo = yield* DataSourceRepository
+    const table = app.auth ? app.tables?.find((t) => t.name === query.table) : undefined
+    const reader = readerOf(visitor, app)
+    const rule = visitorRowRule(table, reader)
+    if (rule.kind === 'all') return yield* repo.fetchRecords(query.table, query.options)
+    if (rule.kind === 'none') return []
+    const { fields, pageSize, ...whole } = query.options
+    const rows = yield* repo.fetchRecords(query.table, whole)
+    const assignments = yield* loadAssignments(reader, rule.scopeTables)
+    const verdicts = rows.map((row) => rule.admits(row, assignments))
+    return admittedWindow(rows, verdicts, { fields, pageSize }).rows
+  }).pipe(
+    Effect.withSpan('forms.read-admitted-source-rows', { attributes: { table: query.table } })
+  )
+
 /** Read ONE plan's rows and project them into choices. */
-const readPlan = (plan: FormOptionSourcePlan, visitor: FormOptionVisitor | undefined) =>
+const readPlan = (app: App, plan: FormOptionSourcePlan, visitor: FormOptionVisitor | undefined) =>
   Effect.gen(function* () {
     const source = resolveSourceFilter(plan.source, visitor)
     if (source === undefined) return [plan.field, [] as readonly FormOptionItem[]] as const
-    const repo = yield* DataSourceRepository
-    const query = optionSourceQuery(source)
-    const rows = yield* repo.fetchRecords(query.table, query.options)
+    const rows = yield* readAdmittedSourceRows(app, optionSourceQuery(source), visitor)
     return [plan.field, rowsToOptions(rows, source)] as const
   })
 
@@ -136,7 +204,7 @@ export const resolveFormOptionSources = (
 > =>
   Effect.gen(function* () {
     const plans = collectFormOptionSources(input.form, input.app.tables ?? [])
-    const entries = yield* Effect.forEach(plans, (plan) => readPlan(plan, input.visitor))
+    const entries = yield* Effect.forEach(plans, (plan) => readPlan(input.app, plan, input.visitor))
     const accounts = yield* readAccountChoices(input)
     return { ...(Object.fromEntries(entries) as FormOptionSets), ...accounts } as FormOptionSets
   }).pipe(

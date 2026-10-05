@@ -1,124 +1,102 @@
-# The announcement feed on /portal.
+# Six announcements from the last two weeks, newest on top of Home.
 #
-# Statuses are spread across all three options — six published, two drafts, one
-# archived — because the Status column is sortable and a column with one value
-# in it teaches a visitor nothing. The archived one also shows what the feed
-# looks like when a post is deliberately kept out of circulation without being
-# deleted.
-#
-# THE FILE ORDER IS OLDEST-FIRST, WHICH LOOKS BACKWARDS AND IS NOT
-#   `created_at` is a `created-at` field: the database stamps it at insert time,
-#   so a seed run gives every row a timestamp milliseconds apart in FILE order,
-#   and a seed value for it would simply be ignored. /portal then sorts
-#   `created_at desc` — newest first — so whatever sits LAST in this file
-#   appears at the TOP of the feed.
-#
-#   Written the natural way, newest-first, the feed opened with a retired
-#   parking notice and buried the office move nine rows down. So the file runs
-#   oldest-first: the archived notice and the two drafts are at the top of the
-#   file and at the bottom of the page, which is where they belong.
+# The security training is the must-read: its `must_read_by` date puts it
+# first on Home with its acknowledge-by date and the count of people who
+# have (seed/acknowledgements.yaml). Every date is relative to the day the
+# seed runs, so the news always reads as this week's. No title or body
+# names a calendar day: Home prints the dates beside them, and a day
+# written into the text would contradict them a week later.
 records:
-  - key: old-parking
-    fields:
-      title: Temporary parking arrangements during the building works
-      status: archived
-      author: '@members.omar'
-      body: >-
-        The works finished, so this no longer applies. Kept for the record
-        rather than deleted: the overflow arrangement with the car park next
-        door is the one we would reuse if the same situation comes round again,
-        and the contact details are in the last paragraph.
-  - key: intranet-feedback-draft
-    fields:
-      title: What do you actually want from this intranet?
-      status: draft
-      author: '@members.sofia'
-      body: >-
-        Drafting a short survey before we add anything else here. The honest
-        starting question is whether people read announcements at all, or
-        whether this page's only real job is being the place the resource links
-        live. Please do not circulate yet.
-
-  - key: summer-hours-draft
-    fields:
-      title: Proposal — summer hours pilot for July and August
-      status: draft
-      author: '@members.priya'
-      body: >-
-        Draft for discussion, not yet agreed. The proposal is a four-and-a-half
-        day week across July and August, with Friday afternoons kept clear of
-        meetings rather than formally off. Open questions: how support cover
-        works, and whether the trial should run across all locations at once or
-        start with one.
-
-  - key: incident-review
-    fields:
-      title: "Friday's outage: what happened and what changes"
-      status: published
-      author: '@members.mateo'
-      body: >-
-        Roughly forty minutes of degraded search on Friday afternoon, caused by
-        a migration that held a lock longer than expected under real data
-        volume. No data was lost. Two changes follow: migrations that touch
-        indexed columns now run against a production-sized copy first, and the
-        deploy window moves off Friday afternoons, which several people have
-        been asking for since well before this.
-
-  - key: expense-policy-update
-    fields:
-      title: 'Expense policy: two changes, one of them overdue'
-      status: published
-      author: '@members.dan'
-      body: >-
-        The receipt threshold rises from twenty to fifty, which removes most of
-        the small-claim paperwork. Travel booked more than three weeks ahead no
-        longer needs a second approval. Everything else is unchanged. The
-        current version is always the one linked in shared resources — please
-        stop working from the PDF that went round in March.
-
-  - key: new-starters
-    fields:
-      title: Three new starters joining the support and data teams
-      status: published
-      author: '@members.hannah'
-      body: >-
-        Keiko joins data and reporting, and two support engineers start on the
-        same Monday. Their first week is deliberately light on process and heavy
-        on shadowing, so if someone asks to sit in on your calls that is the
-        reason. Buddy assignments are in the onboarding checklist.
-
-  - key: q3-results
-    fields:
-      title: Q3 numbers and what they change
-      status: published
-      author: '@members.dan'
-      body: >-
-        Revenue landed slightly ahead of plan and support volume grew faster
-        than headcount, which is the number worth paying attention to. The full
-        deck is in the shared resources list. Two practical consequences: the
-        support rota gains a fourth slot from next month, and the hiring freeze
-        on the platform team is lifted.
-
   - key: security-training
     fields:
-      title: Annual security training is open until the end of the month
-      status: published
+      title: Annual security training is now open
+      topic: Security
       author: '@members.omar'
+      published_at: '{{today-3d}}'
+      must_read_by: '{{today+6d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        Forty minutes, entirely online, and it counts towards your compliance
+        record. The phishing module has been rewritten since last year.
       body: >-
-        Forty minutes, entirely online, and it does count towards your
-        compliance record. The phishing module has been rewritten since last
-        year and is genuinely better. If you completed the training after
-        joining in the last three months you are already covered — check the
-        completion list before spending the time.
+        Forty minutes, entirely online, and it counts towards your compliance
+        record. The phishing module has been rewritten since last year and is
+        genuinely better. If you joined in the last three months and already
+        did it during onboarding, you are done — nothing to repeat.
 
   - key: office-move
     fields:
-      title: London office moves to the third floor on the 14th
-      status: published
+      title: London office moves to the third floor
+      topic: Offices
       author: '@members.priya'
+      published_at: '{{today-2d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        The move happens over one weekend. Pack your desk by Friday evening —
+        crates are by the kitchen from Wednesday.
       body: >-
-        The move happens over a single weekend. Pack your desk by Friday
-        evening — crates are by the kitchen from Wednesday. Meeting rooms keep
-        their names, but the two small rooms swap: Ash is now the one by the
-        window. Anything left unpacked on Friday will be moved for you, and
-        nobody has ever been pleased with how that went.
+        The move happens over one weekend. Pack your desk by Friday evening —
+        crates are by the kitchen from Wednesday. Monitors and docks stay;
+        label anything else you want to find again. The second floor stays
+        open for meetings for a week after the move.
+
+  - key: expense-policy
+    fields:
+      title: 'Expense policy: two changes, one of them overdue'
+      topic: Policy
+      author: '@members.dan'
+      published_at: '{{today-6d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        The receipt threshold rises from €20 to €50, and travel booked three
+        weeks ahead no longer needs a second approval.
+      body: >-
+        The receipt threshold rises from €20 to €50, and travel booked three
+        weeks ahead no longer needs a second approval. Both apply to claims
+        filed from Monday; the policy on Resources has the full text.
+
+  - key: new-starters
+    fields:
+      title: Three new starters join the support and data teams
+      topic: People
+      author: '@members.hannah'
+      published_at: '{{today-8d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        Keiko joins data and reporting, and two support engineers start on the
+        same Monday. Expect shadowing requests this week.
+      body: >-
+        Keiko joins data and reporting in Berlin, and two support engineers
+        start in Lyon on the same Monday. Expect shadowing requests this week,
+        and say hello if you pass them in the kitchen.
+
+  - key: outage-review
+    fields:
+      title: "Friday's outage: what happened and what changes"
+      topic: Engineering
+      author: '@members.mateo'
+      published_at: '{{today-10d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        About forty minutes of slow search on Friday afternoon, caused by a
+        migration that held a lock longer than expected. No data was lost.
+      body: >-
+        About forty minutes of slow search on Friday afternoon, caused by a
+        migration that held a lock longer than expected. No data was lost.
+        Migrations now run in smaller batches, and the on-call rota gets an
+        alert after five minutes instead of fifteen.
+
+  - key: q3-numbers
+    fields:
+      title: Q3 numbers and what they change
+      topic: Company
+      author: '@members.dan'
+      published_at: '{{today-14d}}'
+      audience: '@company.halden'
+      excerpt: >-
+        Revenue landed slightly ahead of plan and support volume grew faster
+        than headcount — the number worth watching.
+      body: >-
+        Revenue landed slightly ahead of plan and support volume grew faster
+        than headcount — the number worth watching. The coming all-hands
+        goes through both, with time for questions.

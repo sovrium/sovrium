@@ -1,23 +1,29 @@
 # task-api
 
-Headless API for task management
+The Task API — the backlog of a fictional engineering team behind a REST API: projects and
+tasks, called with an API key on `x-api-key`, with per-role rules on every table and one
+landing page at `/` that gives the command, the call and the tables. Nobody can open an
+account; the admin comes from `AUTH_ADMIN_*`, the demo member and viewer from the seed.
 
 ## This app at a glance
 
-- **Tables** (2): projects, tasks
-- **Singletons**: auth
+- **Tables** (2): projects, tasks (each with a `permissions` block: every role reads, admin and
+  member create and update, only admin deletes; a refused call answers 404)
+- **Pages** (1): home (`/`, the developer landing)
+- **Singletons**: design (compact, mono headings, one teal accent), auth (sign-up closed, API
+  keys on)
+- **Seed**: `seed/` — five projects, ten tasks (eight open, two done, every open task
+  assigned), and three accounts, one per role
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. A table
+with no `permissions.read` disappears from `GET /api/tables` for every caller: give every new
+table its `permissions` block. Keep the call on the landing page and in `README.md` working
+when pasted — change the table or the filter in both places at once.
 
 ---
 

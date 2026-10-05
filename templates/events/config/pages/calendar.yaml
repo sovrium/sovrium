@@ -1,67 +1,141 @@
+# The Overview, the organizers' home: how many are registered, who waits, which
+# event is full; the month with every event on it; and the seats taken per
+# open event. New event opens a dialog; the event starts as a draft.
 name: calendar
 path: /calendar
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Calendar
-  description: The event schedule on a month view
+  title: Overview · Fieldday
+  description: Registrations, the waitlist and the month of events.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Calendar
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Every event on the schedule, drafts included.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: New event
-          - type: form
-            dataSource:
-              table: events
-            fields:
-              - field: name
-              - field: event_date
-              - field: location
-              - field: capacity
-              - field: status
-            action:
-              type: crud
-              operation: create
-              table: events
-              onSuccess:
-                navigate: /calendar
-                toast:
-                  message: Event created
-                  variant: success
-
-      # `labelField` is optional in the schema but required in practice: without
-      # it every event renders as an unlabelled block, so the month view shows
-      # WHERE the events are and refuses to say WHAT they are. `colorField`
-      # points at the status field, whose option colours are record data — the
-      # one channel ADR-024 A7 keeps coloured — so a Cancelled event reads as
-      # cancelled at a glance instead of matching every other block on the grid.
-      - type: calendar
-        dataSource:
-          table: events
-        dateField: event_date
-        labelField: name
-        colorField: status
-        defaultView: month
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Overview
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New event
+                props:
+                  data-testid: new-event
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-event-dialog
+          - type: dialog
+            formRef: new-event
+            props:
+              id: new-event-dialog
+              title: New event
+              description: It starts as a draft, off the public page, until you open it.
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              # Four figures, computed from the events and their registrations
+              # on every visit.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Registered
+                    dataSource:
+                      table: events
+                      filter:
+                        - { field: status, operator: eq, value: Open }
+                    kpiAggregate: { function: sum, field: seats_taken }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Coming today
+                    dataSource:
+                      table: events
+                      filter:
+                        - { field: status, operator: eq, value: Open }
+                    kpiAggregate: { function: sum, field: coming_today }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: On a waitlist
+                    props:
+                      className: '[&_[data-role=kpi-value]]:text-warning'
+                    dataSource:
+                      table: events
+                      filter:
+                        - { field: status, operator: eq, value: Open }
+                    kpiAggregate: { function: sum, field: on_waitlist }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Full
+                    props:
+                      className: '[&_[data-role=kpi-value]]:text-error'
+                    dataSource:
+                      table: events
+                    kpiAggregate: { function: sum, field: is_full }
+                    kpiFormat: { type: number }
+              - type: container
+                props:
+                  className: flex items-start gap-4 max-lg:flex-col
+                children:
+                  - type: container
+                    props:
+                      className: min-w-0 flex-1 max-lg:w-full
+                    children:
+                      # Events are quiet outlined chips: the page spends its
+                      # colour on the figures above, not on the month.
+                      - type: calendar
+                        props:
+                          className: '[&_.fc-event]:!border-border [&_.fc-event]:!bg-background-raised [&_.fc-event_*]:!text-foreground [&_.fc-daygrid-day-frame]:min-h-[64px]'
+                        dataSource:
+                          table: events
+                          filter:
+                            - { field: status, operator: neq, value: Cancelled }
+                        dateField: starts_at
+                        labelField: name
+                        defaultView: month
+                  # The seats taken per open event, soonest first.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex w-[300px] flex-none flex-col gap-2 max-lg:w-full
+                      aria-label: Seats taken
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                        content: Seats taken
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: events
+                          filter:
+                            - { field: status, operator: eq, value: Open }
+                          sort:
+                            - { field: starts_at, direction: asc }
+                        listDisplay:
+                          emptyMessage: Open events appear here with their seats taken. Create one with New event, then open it.
+                          itemTemplate:
+                            title: $record.name
+                            metadata:
+                              - { field: starts_at, format: short-date }
+                              - { field: place, format: text }
+                              - { field: taken_label, format: text }

@@ -1,104 +1,47 @@
+# The people who sign the essays: a name, a short biography and a portrait.
 name: admin-authors
 path: /admin/authors
-# Admin-only: editors can write posts but only admins manage the author roster.
 access:
-  require:
-    - admin
+  require: [admin]
   redirectTo: /admin/login
 meta:
-  title: Admin · Authors
-  description: Manage post authors
+  title: Authors · Field Notes
+  description: The people who sign the essays.
 components:
   - type: container
-    element: section
     props:
-      className: bg-background min-h-screen py-10 px-6
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: max-w-3xl mx-auto
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: link
-            props:
-              href: /admin
-              className: text-md mb-6 inline-block text-primary hover:underline
-            content: ← Back to posts
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-6 text-foreground
-            content: Authors
-
-          # Existing authors
           - type: container
             props:
-              className: rounded-lg border border-border bg-card p-2 mb-8
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Authors
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
             children:
               - type: table
                 dataSource:
                   table: authors
                   sort:
-                    - field: name
-                      direction: asc
+                    - { field: name, direction: asc }
+                rowHeight: short
                 columns:
-                  - field: name
-                    label: Name
-                  - field: slug
-                    label: Slug
-                  - field: bio
-                    label: Bio
-                  - type: actions
-                    label: Actions
-                    actions:
-                      - label: Delete
-                        icon: trash
-                        confirm: Delete this author?
-                        action:
-                          type: crud
-                          operation: delete
-                          table: authors
-                          onSuccess:
-                            navigate: /admin/authors
-                            toast:
-                              message: Author deleted
-                              variant: success
+                  - { field: name, label: Name }
+                  - { field: slug, label: Slug }
+                  - { field: bio, label: Biography }
+                  - { field: avatar, label: Portrait }
                 pagination:
-                  pageSize: 20
-                emptyMessage: No authors yet.
-
-          # Add an author
-          - type: text
-            element: h2
-            props:
-              className: text-xl font-semibold mb-3 text-foreground
-            content: Add an author
-          - type: container
-            props:
-              className: p-6 rounded-lg border border-border bg-card
-            children:
-              - type: form
-                props:
-                  id: new-author-form
-                dataSource:
-                  table: authors
-                fields:
-                  - field: name
-                    label: Name
-                    placeholder: e.g. Ada Lovelace
-                  - field: slug
-                    label: Slug
-                    placeholder: e.g. ada-lovelace
-                  - field: bio
-                    label: Bio
-                    placeholder: A short biography shown on the byline.
-                  - field: avatar
-                    label: Avatar
-                action:
-                  type: crud
-                  operation: create
-                  table: authors
-                  onSuccess:
-                    navigate: /admin/authors
-                    toast:
-                      message: Author added
-                      variant: success
+                  pageSize: 50
+                emptyMessage: An essay is signed by one of its authors. Add the first one with New record.

@@ -1,0 +1,80 @@
+# The desk's navigation, included at the top of every page behind `/admin`:
+# the publication's name, the four places an editor works, and sign-out.
+#
+# On a laptop narrower than `lg` the sidebar shrinks to a column of icons, and
+# on a phone (below `md`) it leaves the layout: a menu button opens the same
+# entries in a drawer.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: pen-line
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Field Notes
+  - type: sidebar
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+    groups:
+      - landmark: Desk
+        items:
+          - label: Posts
+            href: /admin
+            icon: file-text
+            badge:
+              endpoint: /api/tables/posts/records?limit=1
+              valuePath: pagination.total
+          - label: Comments
+            href: /admin/comments
+            icon: message-square
+            badge:
+              endpoint: /api/tables/comments/records?limit=1&filter=status:Held
+              valuePath: pagination.total
+          - label: Tags
+            href: /admin/tags
+            icon: tag
+            badge:
+              endpoint: /api/tables/tags/records?limit=1
+              valuePath: pagination.total
+          - label: Authors
+            href: /admin/authors
+            icon: users
+            badge:
+              endpoint: /api/tables/authors/records?limit=1
+              valuePath: pagination.total
+          - { label: Assistant, href: /admin/ai-editor, icon: sparkles }
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-between gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: link
+        props:
+          href: /
+          className: text-[12.5px] text-foreground-muted no-underline hover:text-foreground
+        content: View the site
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /admin/login

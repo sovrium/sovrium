@@ -152,7 +152,7 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   // single-select, led by the empty option, never as a free text box its
   // option CHECK would refuse.
   status: 'select',
-  // Bug 4 / [internal ref]: user-typed columns FK to
+  // [internal ref]: user-typed columns FK to
   // `auth_user.id`. They render as a picker carrying the
   // `data-field-type="user"` / `data-allow-multiple` markers the spec
   // asserts, whose options are the app's accounts read on the server for a
@@ -200,7 +200,7 @@ function columnControlConfig(column: Readonly<Table['fields'][number]>): Control
  * locale. The stored `value` is never localized — only the
  * display label is — so switching languages never rewrites data.
  */
-function readColumnOptions(
+export function readColumnOptions(
   column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined,
   languages: Languages | undefined,
   activeLang: string | undefined
@@ -236,27 +236,29 @@ const recordAudioOverlay = (
     : { recordAudioMaxSeconds: recordAudio.maxDurationSeconds ?? DEFAULT_RECORD_AUDIO_SECONDS }
 
 /**
- * Map a standalone field's `inputType` onto an HTML input element type.
+ * A standalone field's `inputType` → the HTML input element type it is drawn
+ * with. A phone number, a date-time and an attachment take the control a
+ * table-bound column of the same type takes: no browser knows `type="phone"`,
+ * `"datetime"` or `"attachment"`, and each would draw a bare text box — an
+ * attachment field without a file picker. Every other `inputType` is its own
+ * element type.
  */
-function inputTypeForStandalone(inputType: string): string {
-  switch (inputType) {
-    case 'long-text':
-      return 'textarea'
-    case 'short-text':
-      return 'text'
-    case 'select':
-    case 'multi-select':
-      return 'select'
-    case 'rating':
-      return 'number'
-    case 'checkbox':
-      return 'checkbox'
-    case 'radio':
-      return 'radio'
-    default:
-      return inputType
-  }
+const STANDALONE_INPUT_ELEMENT: Readonly<Record<string, string>> = {
+  'long-text': 'textarea',
+  'short-text': 'text',
+  select: 'select',
+  'multi-select': 'select',
+  rating: 'number',
+  checkbox: 'checkbox',
+  radio: 'radio',
+  phone: 'tel',
+  datetime: 'datetime-local',
+  attachment: 'file',
 }
+
+/** Map a standalone field's `inputType` onto an HTML input element type. */
+const inputTypeForStandalone = (inputType: string): string =>
+  STANDALONE_INPUT_ELEMENT[inputType] ?? inputType
 
 const resolveSignatureField = (
   field: Readonly<SignatureField>,
@@ -375,7 +377,7 @@ function fileUploadOverlay(
 }
 
 /**
- * Bug 4 / [internal ref]: surface `user.allowMultiple` so the picker can
+ * [internal ref]: surface `user.allowMultiple` so the picker can
  * render the right widget (single-select vs multi-select). Returns `undefined`
  * for non-`user` columns so the spread in `resolveTableField` omits the field
  * entirely. Extracted to keep `resolveTableField` under the complexity cap.
@@ -402,6 +404,20 @@ const tableFieldOptions = (
     ? (optionSets[field.column] ?? [])
     : readColumnOptions(column, locale.languages, locale.activeLang)
 
+/**
+ * The text naming a table-bound control: the form's own `label`, else the
+ * column's declared `label` (either may be a `$t:` key), else nothing — the
+ * caller then falls back to the column name.
+ */
+const tableFieldLabel = (
+  field: Readonly<TableBoundField>,
+  column: Readonly<Table['fields'][number]> | undefined
+): string | undefined => {
+  if (field.label !== undefined) return field.label
+  const label = (column as { readonly label?: unknown } | undefined)?.label
+  return typeof label === 'string' ? label : undefined
+}
+
 const resolveTableField = (
   field: Readonly<TableBoundField>,
   table: Readonly<Table> | undefined,
@@ -417,7 +433,10 @@ const resolveTableField = (
     name: field.column,
     inputElement: elementType,
     htmlInputType: elementType,
-    label: resolveText(field.label, languages, field.column, activeLang),
+    // The form's own label wins; otherwise the column's declared `label` (which
+    // may be a `$t:` key) names the control — the name the reader knows the
+    // field by elsewhere — and only a column declaring none falls back to its name.
+    label: resolveText(tableFieldLabel(field, column), languages, field.column, activeLang),
     placeholder: resolveText(field.placeholder, languages, '', activeLang),
     helpText: resolveText(field.helpText, languages, '', activeLang),
     required: field.required ?? column?.required ?? false,
@@ -572,12 +591,14 @@ export function stepItems(
   fields: ReadonlyArray<ResolvedFormField>,
   stepFieldNames: ReadonlyArray<string>
 ): ReadonlyArray<ResolvedFormField> {
-  return attachSectionsToNextField(fields)
-    .filter((group) => stepFieldNames.includes(group.field.name))
-    .flatMap((group) => [
-      ...group.sections.map((section) => ({ ...section, sectionLevel: 3 as const })),
-      group.field,
-    ])
+  return attachSectionsToNextField(fields).flatMap((group) =>
+    stepFieldNames.includes(group.field.name)
+      ? [
+          ...group.sections.map((section) => ({ ...section, sectionLevel: 3 as const })),
+          group.field,
+        ]
+      : []
+  )
 }
 
 /**

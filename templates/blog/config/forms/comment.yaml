@@ -1,0 +1,35 @@
+# The comment box under an essay (config/pages/essay.yaml renders it with
+# `formRef`). Readers need no account. The essay rides in from the page, and
+# every comment arrives Held — the table's default for `status` — so nothing a
+# stranger writes is public until the editor approves it on the desk.
+#
+# The honeypot silently drops naive bots. Every form also answers at
+# `/forms/comment`.
+id: 1
+name: comment
+title: Leave a comment
+description: It appears under the essay once the author approves it.
+access:
+  require: all
+submitTo:
+  table: comments
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Send for review
+onSuccess:
+  type: message
+  message: Thank you. Your comment appears here once the author approves it.
+fields:
+  - kind: table-field
+    column: author_name
+    required: true
+    label: Your name
+  - kind: table-field
+    column: body
+    required: true
+    label: Comment
+    placeholder: Add a comment. It appears once the author approves it.
+  - kind: table-field
+    column: post
+    hidden: true

@@ -31,17 +31,31 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
       # Row metrics tuned to a compact four-entry navigation: 32px rows, 13.5px
       # labels, and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
     groups:
+      # A count beside an entry is fetched from the same read endpoint the page
+      # lists, so it can never disagree with the page it points to.
       - landmark: Workspace
         items:
-          - { label: Register, href: /, icon: box }
+          - label: Register
+            href: /
+            icon: box
+            badge:
+              endpoint: /api/tables/assets/records?limit=1
+              valuePath: pagination.total
           - { label: Lifecycle, href: /lifecycle, icon: kanban }
           - { label: Gallery, href: /gallery, icon: image }
-          - { label: Locations, href: /locations, icon: map-pin }
+          - label: Locations
+            href: /locations
+            icon: map-pin
+            badge:
+              endpoint: /api/tables/locations/records?limit=1
+              valuePath: pagination.total
   - type: container
     props:
       className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden

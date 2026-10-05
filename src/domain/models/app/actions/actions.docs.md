@@ -7,6 +7,9 @@ The same step usually appears in several automations: a chat alert, an audit-log
 `actions` is a library of named templates. Define the step once, with `$variable` placeholders where the inputs differ:
 
 ```yaml
+env:
+  - { key: SLACK_WEBHOOK_URL, description: Slack incoming webhook URL }
+
 actions:
   - name: notify-slack
     action:
@@ -57,7 +60,12 @@ A placeholder is a `$` followed by an alphanumeric name: `$message`, `$channel`.
 
 That last rule is what lets a template mix all three reference families. Declare the defaults you want, and leave environment references and automation template variables to be resolved later by their own engines.
 
+A variable's value is never parsed as template syntax, wherever its placeholder sits: alone in a string, inside a longer string, or inside a `{{…}}` expression, bare (`{{uppercase $name}}`) or within a quoted argument (`{{uppercase "Hi $name"}}`). Inside an expression, the helper receives the value as its argument. A value holding `{{…}}`, `$env.` or `$name` text therefore reaches the result as those characters, transformed only by the helper that received it: only the template's own definition is read for references. This holds however the template is called, including from code through `context.actions.ref('<name>', vars)` and as an MCP tool.
+
 ```yaml
+env:
+  - { key: SLACK_WEBHOOK_URL, description: Slack incoming webhook URL }
+
 actions:
   - name: notify-team
     variables:
@@ -99,6 +107,8 @@ actions:
       description: Archive one order by its reference.
       annotations: { readOnly: false, destructive: false, idempotent: true }
 ```
+
+A call fills the template once. Each argument named as a parameter fills that `$variable` placeholder, over the template's default; with `fieldExposure: whitelist`, the parameters are the `whitelistFields`. Inside `{{…}}`, an argument is read by its name (`{{reference}}`, or `{{trigger.data.reference}}`). An argument is a value, never template syntax: text in it such as `{{…}}`, `$env.` or `$name` is stored as those characters. A `code` action's source is never filled from arguments; pass them through its `inputData`.
 
 Whether the server actually mounts those tools stays an operator decision, governed by an environment variable rather than by the configuration.
 

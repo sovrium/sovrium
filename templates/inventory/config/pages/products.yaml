@@ -136,7 +136,7 @@ components:
             dataSource:
               table: products
             props:
-              title: Product
+              title: $record.name
             recordFields:
               - { name: name, type: single-line-text, label: Product }
               - { name: sku, type: single-line-text, label: SKU }
@@ -147,6 +147,15 @@ components:
               - { name: lead_time_days, type: integer, label: Lead time (days) }
               - { name: supplier, type: relationship, label: Supplier }
               - { name: barcode, type: barcode, label: Barcode }
+            # The label to stick on the shelf: a QR code of the SKU, drawn once
+            # the product is known, so a phone camera reads the same code a
+            # hand-held scanner types.
+            children:
+              - type: qr-code
+                value: $record.sku
+                size: 112
+                props:
+                  aria-label: QR label for $record.sku
             related:
               - label: Movements
                 table: stock_movements

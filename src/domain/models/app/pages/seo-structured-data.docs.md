@@ -63,6 +63,8 @@ Headline, description and publication date come from each file's frontmatter, so
 
 Favicons accept two shapes. The **object form** above is the short one: a default `icon`, an `appleTouchIcon` for the iOS home screen, and `sizes` for size-specific icons.
 
+A `./` path is read from the root of `public/`, whatever the page's address — on `/fr/` or `/blog/first-evening` as on `/`. The same holds for `meta.favicon`.
+
 ```yaml
 name: my-app
 pages:

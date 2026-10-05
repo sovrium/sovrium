@@ -12,7 +12,7 @@ import type { ReactElement } from 'react'
 
 /**
  * TODO(escp/forms): selection state is client-only — `onValueChange` is
- * not wired into form state. F-1 (form trigger) and Phase D (top-level
+ * not wired into form state. [internal ref] (form trigger) and Phase D (top-level
  * `forms[]`) will need to hand the selected value to the surrounding
  * form via a hidden input or controlled binding. Tracked at the schema
  * level by `name`/`value` pairs in form-control schemas.

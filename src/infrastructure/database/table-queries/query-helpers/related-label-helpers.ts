@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import { db, type DatabaseError } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { validateColumnName, validateTableName } from '../statement/validation'
+import { validateColumnName, tableIdentifier } from '../statement/validation'
 
 /**
  * Reading the human label behind a relationship's stored key.
@@ -65,7 +65,6 @@ const relatedLabelKey = (relatedTable: string, displayField: string): string =>
 const readLabelRows = (
   request: RelatedLabelRequest
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
-  validateTableName(request.relatedTable)
   validateColumnName(request.displayField)
   const idList = sql.join(
     request.ids.map((id) => sql`${coerceId(id)}`),
@@ -73,7 +72,7 @@ const readLabelRows = (
   )
   return executeRaw(
     db,
-    sql`SELECT id AS related_id, ${sql.identifier(request.displayField)} AS label FROM ${sql.identifier(request.relatedTable)} WHERE id IN (${idList})`
+    sql`SELECT id AS related_id, ${sql.identifier(request.displayField)} AS label FROM ${tableIdentifier(request.relatedTable)} WHERE id IN (${idList})`
   )
 }
 
@@ -99,16 +98,16 @@ export const readRelatedLabels = (
 ): Effect.Effect<RelatedLabelMap, DatabaseError> => {
   const wanted = requests.filter((r) => r.ids.length > 0)
   if (wanted.length === 0) return Effect.succeed({})
-  return Effect.all(
-    wanted.map((request) =>
+  return Effect.forEach(
+    wanted,
+    (request) =>
       Effect.tryPromise({
         try: async () => ({
           request,
           byId: foldLabelRows(await readLabelRows(request)),
         }),
         catch: wrapDatabaseError(`Failed to read related labels for ${request.relatedTable}`),
-      })
-    ),
+      }),
     { concurrency: LABEL_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.map((resolved) =>

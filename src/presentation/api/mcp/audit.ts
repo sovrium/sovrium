@@ -42,9 +42,9 @@
 
 import { Effect } from 'effect'
 import { McpAuditRepository } from '@/application/ports/repositories/mcp/mcp-audit-repository'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { logError } from '@/infrastructure/logging/logger'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
+import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller, McpCallerRole } from '@/presentation/api/mcp/auth'
@@ -69,11 +69,11 @@ interface DispatchOutcome {
  * Append one audit row through {@link McpAuditRepository}.
  *
  * Column-mapping notes (the columns themselves now live in the repository):
- * - `caller_type`: `'oauth' | 'token'` derived from the resolved caller
- *   (oauth callers carry a `userId`, static-token callers do not).
- * - `caller_id`: `userId` for oauth callers; the literal string `'token'`
- *   for static-token callers (we deliberately do NOT log the bearer token
- *   value — leaking it into the audit log would defeat the auth gate).
+ * - `caller_type` / `caller_id`: derived from the resolved caller by
+ *   {@link deriveCallerIdentity} — `'oauth'` and the `userId` for every
+ *   authenticated caller, the fail-closed `'token'` pair only for a caller
+ *   with no subject. The bearer credential itself is never logged: leaking
+ *   it into the audit log would defeat the auth gate.
  * - `transport`: hard-coded `'streamable-http'` because the audit path
  *   only fires from the HTTP transport handler. The stdio transport runs
  *   in a separate code path (M-3) and is not currently audited.
@@ -289,7 +289,7 @@ export const handleAuditListCall = async (input: {
   readonly args: Record<string, unknown>
   readonly domainContext: DomainContext
 }): Promise<McpToolResult> => {
-  if (!isAdminRole(input.caller.role)) {
+  if (!isAdminTierCaller(input.caller)) {
     return toolFailure(-32_603, 'Internal tool system.ai_tool_calls is admin-only')
   }
 

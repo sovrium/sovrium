@@ -80,9 +80,17 @@ Overlap exists so a sentence split across a chunk boundary is still retrievable 
 
 ## Rebuilding and searching
 
-| Endpoint                   | Does                                                                       |
-| -------------------------- | -------------------------------------------------------------------------- |
-| `POST /api/ai/rag/rebuild` | Re-embeds the configured sources and persists the vectors; admin-only      |
-| `POST /api/ai/rag/search`  | Embeds a query, searches, filters by threshold, and returns ranked results |
+| Endpoint                   | Does                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /api/ai/rag/rebuild` | Re-embeds the configured sources and persists the vectors; admin-equivalent roles only |
+| `POST /api/ai/rag/search`  | Embeds a query, searches, filters by threshold, and returns ranked results             |
 
 Both behave identically on either dialect — the same authorization, the same response shape.
+
+On an app with `auth`, a search needs a signed-in user, and it returns only what the records API would show her. A result drawn from a table comes back only when she may read that row: the table's read permission (her role, her groups and, on a table with row-level rules, the roles her assignments give her), then the table's row-level read rule. This holds whichever agent's knowledge base is searched, even one whose agent reads under a wider role. A record moved to the trash leaves the index and is never returned; restoring it embeds it again. Results from knowledge documents are not tied to a table and are returned to any signed-in user.
+
+A result also comes back only when she may read every field whose value it holds. A chunk's text is fixed when the record is embedded and cannot be masked afterwards, so the embedding is split instead: the fields an agent lists in `knowledge.tables[].fields` are grouped by who may read them (a field with no read permission of its own takes the table's, and the built-in default field rules count too), each group is embedded as its own chunks, and every chunk records the names of its fields. With `cost_center` readable by admins only, a member searching finds an invoice by its title, and never the chunk that holds its cost centre; an admin finds both. The check runs against the config the app is running, so narrowing a field's read permission takes effect from the next search, before anything is re-embedded. A chunk that records no field names, or names a field the table no longer declares, is never returned to anyone. A record whose listed fields carry two different read permissions costs two sets of chunks, and its title and its notes no longer share one vector.
+
+### On the first boot after upgrading
+
+On PostgreSQL every boot already rebuilds each agent's table knowledge: it clears the agent's chunks and re-embeds them, agent by agent, through the configured provider, once the server is listening. The first boot after an upgrade does the same, with the extra chunks a split adds. While that runs, a search answers from what has been re-embedded so far, so it may return fewer table results for a moment. It never returns a chunk embedded by an earlier version: those record no field names, so they are not served even before the rebuild replaces them. `POST /api/ai/rag/rebuild` remains available to re-embed on demand.

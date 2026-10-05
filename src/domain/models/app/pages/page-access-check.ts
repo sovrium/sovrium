@@ -125,7 +125,7 @@ function isSessionAuthorized(
   // Role match — the user's global role is listed in the access array.
   if (roles.includes(session.role)) return true
 
-  // Bug 2: consult the user_access overlay
+  // [internal ref]: consult the user_access overlay
   // roles. Mirrors the table-level Z-3 pattern (row-level-guard's
   // `effectiveRoles = mergeRoles(userRole, userAccessRoles)`). A user with
   // Better Auth role `member` but a `system.user_access` row of

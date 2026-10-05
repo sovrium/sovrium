@@ -199,14 +199,7 @@ function PieCard({
   const beside = position === 'left' || position === 'right'
   const body = children(beside)
   if (!showsLegend(legend)) {
-    return (
-      <div
-        data-component="chart"
-        className={CHART_CANVAS_CLASSES}
-      >
-        {body}
-      </div>
-    )
+    return <div className={CHART_CANVAS_CLASSES}>{body}</div>
   }
   const legendNode = (
     <SliceLegend
@@ -220,10 +213,7 @@ function PieCard({
   )
   const legendFirst = position !== 'bottom' && position !== 'right'
   return (
-    <div
-      data-component="chart"
-      className={CHART_CANVAS_CLASSES}
-    >
+    <div className={CHART_CANVAS_CLASSES}>
       <div className={beside ? LAYOUT_BESIDE_CLASSES : LAYOUT_CLASSES}>
         {legendFirst ? legendNode : body}
         {legendFirst ? body : legendNode}

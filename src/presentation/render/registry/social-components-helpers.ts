@@ -69,7 +69,8 @@ export interface CommentsFields {
 export function resolveCommentsFields(
   component: Component | undefined,
   rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>
+  elementProps: Record<string, unknown>,
+  defaultPlaceholder = 'Write a comment...'
 ): CommentsFields {
   const c = (component ?? {}) as Record<string, unknown>
   const props = (rawProps ?? {}) as Record<string, unknown>
@@ -79,7 +80,7 @@ export function resolveCommentsFields(
     sort: pickString(c, props, 'sort', 'newest'),
     paginationStyle: pickString(c, props, 'paginationStyle', 'loadMore'),
     emptyText: pickString(c, props, 'emptyText', 'No comments yet'),
-    placeholder: pickString(c, props, 'placeholder', 'Write a comment...'),
+    placeholder: pickString(c, props, 'placeholder', defaultPlaceholder),
     table: pickString(c, props, 'table', undefined),
     recordId: pickString(c, props, 'recordId', undefined),
   }
@@ -217,8 +218,10 @@ export function buildCommentThreadIslandProps(input: {
   readonly elementProps: Record<string, unknown>
   readonly session?: SessionInfo
   readonly threading?: boolean
+  /** The thread's interface strings that differ from English, if any. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }): Record<string, unknown> {
-  const { fields, elementProps, session, threading } = input
+  const { fields, elementProps, session, threading, uiStrings } = input
   const sort = fields.sort === 'oldest' ? 'oldest' : 'newest'
   const paginationStyle = fields.paginationStyle === 'numbered' ? 'numbered' : 'loadMore'
   return {
@@ -233,6 +236,7 @@ export function buildCommentThreadIslandProps(input: {
     ...(session?.userId !== undefined ? { currentUserId: session.userId } : {}),
     ...(sessionIsAdmin(session) ? { currentUserIsAdmin: true } : {}),
     ...(threading === true ? { threading: true } : {}),
+    ...(uiStrings !== undefined ? { uiStrings } : {}),
   }
 }
 

@@ -52,12 +52,6 @@ import {
   renderOpenMenuPopup,
 } from '../elements/open-specimen-renderer'
 
-export type {
-  OpenDatePickerOptions,
-  OpenDateRangeOptions,
-  OpenMenuOptions,
-} from '../elements/open-specimen-renderer'
-
 /**
  * Is this component being drawn as an OPEN specimen?
  *

@@ -20,6 +20,7 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
+import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type {
   ComponentReference,
@@ -58,16 +59,31 @@ export interface DataSourceDb {
     }
   ) => Promise<readonly Record<string, unknown>[]>
 
-  readonly countRecords: (tableName: string, filter?: readonly DataFilter[]) => Promise<number>
+  readonly countRecords: (
+    tableName: string,
+    filter?: readonly DataFilter[],
+    options?: { readonly liveOnly?: boolean }
+  ) => Promise<number>
 
-  // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
   readonly fetchSingleRecord: (
     tableName: string,
     paramField: string,
     paramValue: string,
     fields?: readonly string[],
     options?: { readonly liveOnly?: boolean }
+    // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
   ) => Promise<Record<string, unknown> | undefined>
+
+  /**
+   * Optional — the ids one record links through each given many-to-many field,
+   * read from their junction tables (`fieldName -> relatedIds`). A single-record
+   * form reads them to open with its links; absent, it opens with none.
+   */
+  readonly fetchManyToManyLinks?: (
+    tableName: string,
+    recordId: string,
+    fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+  ) => Promise<Readonly<Record<string, readonly (string | number)[]>>>
 
   /**
    * Reads the user's accessible record-ids from `user_access` for one scope
@@ -89,7 +105,7 @@ export interface DataSourceDb {
    * but who holds `role: 'engineer'` in `user_access` passes a page guard
    * of `access: ['engineer']`. Mirrors the table-level Z-3 overlay.
    *
-   * Bug 2.
+   * [internal ref].
    */
   readonly fetchUserAccessRoles?: (userId: string) => Promise<readonly string[]>
 
@@ -101,6 +117,16 @@ export interface DataSourceDb {
   readonly fetchAccountChoices?: (
     limit: number
   ) => Promise<ReadonlyArray<{ readonly id: string; readonly label: string }>>
+
+  /**
+   * Optional — a table as one caller may see it: the views the table API lists
+   * her and the permission map it answers her, from the API's own programs.
+   * Folded in by the renderer layer from the route's request context, which a
+   * static build passes through too (as the anonymous visitor). Absent — the
+   * operator console's mounted surfaces, a unit test — a grid's payload is not
+   * narrowed to its reader.
+   */
+  readonly readTableAsCaller?: ReadTableAsCaller
 }
 
 /** Injects a _dataSourceError prop into a component's props. */

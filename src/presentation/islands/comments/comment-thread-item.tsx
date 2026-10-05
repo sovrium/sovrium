@@ -16,15 +16,19 @@ import {
   computeCommentAuthorClasses,
   computeCommentAvatarClasses,
   computeCommentBodyColumnClasses,
-  computeCommentComposerFieldClasses,
   computeCommentItemClasses,
   computeCommentMetaClasses,
   computeCommentTextClasses,
   computeCommentTimestampClasses,
 } from '@/presentation/design/comments-default-classes'
 import { resolvePageLocale } from '../runtime/page-locale'
-import { CommentThreadForm } from './comment-thread-form'
+import { decodeForEdit } from './comment-mention-source'
+import { useMentionString } from './comment-mention-strings'
+import { CommentBodyText } from './comment-mention-text'
+import { useCommentString } from './comment-strings'
+import { CommentThreadForm, MentionTextarea } from './comment-thread-form'
 import { isEdited, resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
+import { useMentionComposer } from './use-mention-composer'
 
 /**
  * Renders a single comment with author + content + timestamp + (when allowed)
@@ -129,31 +133,34 @@ function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactEle
   )
 }
 
+/**
+ * The edit box reads the comment's mentions as names, exactly as the thread
+ * does, and saves each one back as the markup it came from — so editing a
+ * comment never turns a mention into plain text, nor shows its author a token.
+ */
 function EditForm({
-  initial,
+  comment,
   onSave,
   onCancel,
   isSaving,
 }: {
-  readonly initial: string
+  readonly comment: CommentRecord
   readonly onSave: (content: string) => void
   readonly onCancel: () => void
   readonly isSaving: boolean
 }): ReactElement {
-  const [value, setValue] = useState(initial)
+  const composer = useMentionComposer(decodeForEdit(comment, useMentionString('unknownUser')))
+  const { value } = composer
   return (
     <div className="grid gap-2">
-      <textarea
-        aria-label="Edit comment"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className={computeCommentComposerFieldClasses()}
-        maxLength={10_000}
+      <MentionTextarea
+        composer={composer}
+        label="Edit comment"
       />
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onSave(value)}
+          onClick={() => onSave(composer.encode())}
           disabled={isSaving || value.trim().length === 0}
           className={PRIMARY_BUTTON}
         >
@@ -228,6 +235,7 @@ function CommentActions({
   readonly canReply: boolean
   readonly onSetMode: (mode: ItemMode) => void
 }): ReactElement | undefined {
+  const replyLabel = useCommentString('comments.reply', 'Reply')
   if (!canEdit && !canDelete && !canReply) return undefined
   return (
     <div className={computeCommentActionsClasses()}>
@@ -255,7 +263,7 @@ function CommentActions({
           onClick={() => onSetMode('replying')}
           className={computeCommentActionClasses()}
         >
-          Reply
+          {replyLabel}
         </button>
       )}
     </div>
@@ -308,7 +316,7 @@ function EditModeItem({
     >
       <CommentMeta comment={comment} />
       <EditForm
-        initial={comment.content}
+        comment={comment}
         isSaving={isSaving}
         onSave={async (next) => {
           await onSaveEdit(comment.id, next)
@@ -343,7 +351,9 @@ function DeleteModeItem({
       className={liClassName}
     >
       <CommentMeta comment={comment} />
-      <p className={computeCommentTextClasses()}>{comment.content}</p>
+      <p className={computeCommentTextClasses()}>
+        <CommentBodyText comment={comment} />
+      </p>
       <DeleteConfirm
         authorName={resolveCommentAuthorName(comment, 'this author')}
         isDeleting={isDeleting}
@@ -373,6 +383,7 @@ export function CommentThreadItem({
   replyCount,
 }: CommentThreadItemProps): ReactElement {
   const [mode, setMode] = useState<ItemMode>('view')
+  const replyPlaceholder = useCommentString('comments.replyPlaceholder', 'Write a reply…')
   const isReplyItem = comment.parentCommentId !== null
   const testId = isReplyItem ? 'comment-reply' : 'comment'
   const liClassName = computeCommentItemClasses({ depth: isReplyItem ? 1 : 0 })
@@ -411,7 +422,7 @@ export function CommentThreadItem({
     >
       <CommentMeta comment={comment} />
       <p className={computeCommentTextClasses()}>
-        {comment.content}
+        <CommentBodyText comment={comment} />
         {isEdited(comment) && (
           <span className={`ml-2 ${computeCommentTimestampClasses()}`}>(edited)</span>
         )}
@@ -425,7 +436,7 @@ export function CommentThreadItem({
       {mode === 'replying' && (
         <CommentThreadForm
           variant="reply"
-          placeholder="Write a reply…"
+          placeholder={replyPlaceholder}
           isSubmitting={isReplying}
           onSubmit={async (content) => {
             await onSubmitReply(comment.id, content)

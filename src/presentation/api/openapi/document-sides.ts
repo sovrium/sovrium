@@ -16,6 +16,7 @@
  */
 
 import { Schema } from 'effect'
+import { toJsonSchemaDocument } from '@/domain/models/api/combinators/json-schema-document'
 import { findInputMarker } from './markers'
 import { REF_SIBLING_METADATA } from './normalize'
 import type { JsonSchema } from './markers'
@@ -95,6 +96,25 @@ import type { JsonSchema } from './markers'
 const decodedSide = (schema: Schema.Top): never => Schema.toType(schema as never) as never
 
 /**
+ * The one JSON-Schema producer behind the API document.
+ *
+ * Two settings keep the Effect 4.0.0 output in the shape the rest of this
+ * adapter was built against (rc.108):
+ *
+ * - `toJsonSchemaDocument` from the domain combinators exports `isPattern` and
+ *   string-length checks exactly, where Effect 4.0.0 now drops non-Unicode
+ *   patterns and halves `minLength`;
+ * - `onExcessProperty: 'error'` brings back `additionalProperties: false` on
+ *   every struct (4.0.0 left objects open by default, #8147). That keyword is
+ *   the input {@link stripAdditionalProperties} expects: it removes it unless
+ *   the schema is marked strict, so the published document is unchanged.
+ */
+export const apiJsonSchemaDocument = (
+  schema: Schema.Top
+): ReturnType<typeof Schema.toJsonSchemaDocument> =>
+  toJsonSchemaDocument(schema, { onExcessProperty: 'error' })
+
+/**
  * Render a schema, taking each node from the side it asks to be documented.
  *
  * The decoded side is the default and the right answer almost everywhere: a
@@ -107,8 +127,8 @@ const decodedSide = (schema: Schema.Top): never => Schema.toType(schema as never
 export const documentedSides = (
   schema: Schema.Top
 ): { schema: JsonSchema; definitions: JsonSchema } => {
-  const decoded = Schema.toJsonSchemaDocument(decodedSide(schema))
-  const encoded = Schema.toJsonSchemaDocument(schema as never)
+  const decoded = apiJsonSchemaDocument(decodedSide(schema))
+  const encoded = apiJsonSchemaDocument(schema)
   return {
     schema: mergeSides(decoded.schema as JsonSchema, encoded.schema as JsonSchema) as JsonSchema,
     definitions: mergeSides(

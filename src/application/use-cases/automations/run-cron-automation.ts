@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -184,9 +184,10 @@ export const runCronAutomationOnDemand = ({
     }
 
     // Operator gate — cron triggers carry no `requiredRole`, so the implicit
-    // requirement is 'admin'. An 'admin' caller always satisfies it.
+    // requirement is 'admin', which every admin-equivalent caller satisfies:
+    // the built-in `admin` and the app's top role.
     const requiredRole = 'admin'
-    const callerSatisfiesRole = userRole === requiredRole || isAdminRole(userRole)
+    const callerSatisfiesRole = userRole !== undefined && isAdminEquivalent(userRole, app)
     if (!callerSatisfiesRole) {
       return yield* Effect.fail({
         _tag: 'AutomationManualRoleRequired' as const,

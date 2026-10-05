@@ -6,6 +6,7 @@
  */
 
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { callerTableOf, fieldEntriesForReader } from './caller-table-inputs'
 import { resolveRecordDrawerFields, type DerivedRecordField } from './resolve-record-drawer-fields'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -95,9 +96,13 @@ export function resolveRowExpandDrawerProps(params: {
   const comp = (component ?? {}) as Record<string, unknown>
   const expand = normalizeRowExpand(comp['rowExpand'] as DataTableRowExpand | undefined)
   if (!expand) return undefined
-  const derived = resolveRecordDrawerFields(component, tables)
-  if (!derived) return undefined
   const dataSource = comp['dataSource'] as { readonly table?: string } | undefined
+  const table = tables?.find((candidate) => candidate.name === dataSource?.table)
+  const synthesized = resolveRecordDrawerFields(component, tables)
+  if (!synthesized || !table) return undefined
+  // The grid's reader is the drawer's: an entry she may not read is not named,
+  // one she may not write is drawn as its value (`caller-table-inputs.ts`).
+  const derived = fieldEntriesForReader(synthesized, table, callerTableOf(component ?? {}))
   return {
     id: rowExpandDrawerId(component),
     title: expand.title ?? resolveInterpreterString('recordDrawer.title', currentLang, languages),

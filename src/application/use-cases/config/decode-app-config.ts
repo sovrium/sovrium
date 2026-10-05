@@ -45,17 +45,28 @@ import {
   messageLinesAsConfigFindings,
   toConfigFindings,
 } from '@/domain/models/app/app-excess-property-report'
+import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
+import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
+import { collectUnprefixedEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
 import { validateComponentXorRules } from '@/domain/models/app/pages/components/component-types/component-xor-rules'
+import { validateCalendarColorFields } from '@/domain/models/app/pages/components/component-types/data/calendar/calendar-color-field-validation'
+import { validateCardSlotComponents } from '@/domain/models/app/pages/components/component-types/data/card-slot-validation'
+import { validateAggregateSeries } from '@/domain/models/app/pages/components/component-types/data/chart/aggregate-series-validation'
 import {
   validateDataTableFieldReferences,
   validateRowColorFields,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import { validateDrawerRelatedReferences } from '@/domain/models/app/pages/components/component-types/overlays/drawer-related-validation'
+import { validateRelativeDateFilters } from '@/domain/models/app/pages/components/relative-date-filter'
 import { validateDataSourceViewReferences } from '@/domain/models/app/pages/data-source-view-validation'
 import { validateTableNameReferences } from '@/domain/models/app/pages/table-name-references'
+import {
+  authoredTableIds,
+  type AuthoredTableIds,
+} from '@/domain/models/app/tables/authored-table-ids-service'
 import { collectImplicitFieldIdNotices } from '@/domain/models/app/tables/implicit-field-id-validation'
 import type { App } from '@/domain/models/app'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
@@ -87,6 +98,13 @@ export type DecodeAppConfigResult =
       readonly app: App
       /** The RAW config as parsed — what downstream re-decoders must be handed. */
       readonly raw: unknown
+      /**
+       * The ids of the tables whose `id` the author WROTE. After the decode every
+       * table has one, and only the document as written says which were chosen;
+       * a name change is a rename only under one of these (`rename-detection.ts`).
+       * Every caller that migrates or plans a migration hands it on.
+       */
+      readonly authoredTableIds: AuthoredTableIds
       /**
        * Non-fatal notices about the config, currently only deprecations.
        *
@@ -254,11 +272,30 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     ...validateDataSourceViewReferences(normalized),
     ...validateComponentFieldReferences(normalized),
     ...validateRowColorFields(normalized),
+    // A calendar's colour names one option; a multi-select is refused. See
+    // `calendar-color-field-validation.ts`.
+    ...validateCalendarColorFields(normalized),
     // A drawer's `related` sections, against the tables they name and the
     // drawer's own table. Here for the same reason as the sweeps above: each
     // verdict needs `tables[]`, which no drawer schema node can see. See
     // `drawer-related-validation.ts`.
     ...validateDrawerRelatedReferences(normalized),
+    // A card slot holds record components only; a data component there is
+    // refused. See `card-slot-validation.ts`.
+    ...validateCardSlotComponents(normalized),
+    // One `series` styles an aggregated chart; a second is refused. See
+    // `aggregate-series-validation.ts`.
+    ...validateAggregateSeries(normalized),
+    // A filter value that claims to be a relative date must be one of the
+    // grammar's tokens. See `relative-date-filter.ts`.
+    ...validateRelativeDateFilters(normalized),
+    // A record automation whose own write re-fires its own trigger: visible in
+    // the config, so refused here. See `record-loop-validation.ts`.
+    ...validateRecordEventLoops(normalized),
+    // An approval `timeout` must decide approve or reject: `escalate`, or no
+    // `onTimeout` at all, is a deadline the engine could never keep. See
+    // `approval-timeout-validation.ts`.
+    ...validateApprovalTimeouts(normalized),
     // Mutually-exclusive component keys. Here rather than in the schema
     // because `buildComponentUnion` has no per-branch refinement hook, so a
     // rule relating an INJECTED key (`children`) to a declared one cannot be
@@ -351,12 +388,16 @@ export const decodeAppConfigObject = (
     name: typeof name === 'string' ? name : 'unnamed',
     app: decoded.success,
     raw: parsed,
+    // Same reason as the field-id notice below: after the decode every table has
+    // an id, and only the document as written says which ones the author chose.
+    authoredTableIds: authoredTableIds(parsed, decoded.success.tables),
     notices: [
       ...collectSupersededDesignNotices(decoded.success),
       // Reads `parsed`, not `decoded`: by the time AppSchema has run, every
       // field carries an id and the distinction has been erased. This is the
       // one notice that can only be derived from the document as written.
       ...collectImplicitFieldIdNotices(parsed),
+      ...collectUnprefixedEngineKeyNotices(decoded.success.languages),
     ],
   }
 }

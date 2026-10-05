@@ -9,10 +9,11 @@
  * Z-3 row-level permission guard for the record CRUD handlers.
  *
  * Provides a single entry point each handler calls to:
- *   1. Resolve the user's current-user context (Better Auth role + user_access roles + assignments)
+ *   1. Resolve the user's current-user context (Better Auth role + user_access
+ *      roles + `group:<name>` memberships + assignments)
  *   2. Decide whether the user role is permitted by the table-level
  *      `permissions.{read,create,update,delete}` gate (overlay of Better
- *      Auth role and any user_access roles)
+ *      Auth role, any user_access roles and every group the user belongs to)
  *   3. Project / evaluate the relevant `rowLevelPermissions.<op>.when`
  *      predicate
  *
@@ -24,53 +25,98 @@
  */
 
 import { Effect } from 'effect'
-import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import {
-  collectAssignmentScopeTables,
   loadCurrentUserContext,
   toSessionProjection,
   type SessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { rawListRecordsProgram } from '@/application/use-cases/tables/raw-list-program'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import {
+  buildEffectiveRoles,
+  getUserAccessRoles,
+  tableEffectiveRoles,
+} from '@/application/use-cases/tables/user-groups'
 import { isAdminEquivalent } from '@/domain/models/app'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
-  ANY_NON_VIEWER_WHEN_UNDECLARED,
-  evaluatePermissionForRoles,
-  permits,
-  isAdminRole,
-} from '@/domain/models/app/auth/permission-evaluation'
+  hasCreatePermissionForRoles,
+  hasDeletePermissionForRoles,
+  hasReadPermissionForCaller,
+  hasUpdatePermissionForRoles,
+} from '@/domain/models/app/auth/permission-evaluator-service'
 import {
-  evaluateRecordAgainstPredicate,
   isPredicateGroup,
   projectPredicateToFilter,
   projectWhenToFilter,
   type CurrentUserContext,
   type RowLevelFilterNode,
 } from '@/domain/models/app/tables/row-level-evaluator-service'
+import {
+  createAllowed,
+  existingRowWriteAllowed,
+  rowLevelRuleFor,
+  rowPassesRule,
+  type RowLevelOperation,
+} from '@/domain/models/app/tables/row-level-write-decision-service'
+import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { provideTableLive, runTableProgram } from '@/infrastructure/layers/table-layer'
-import { logError } from '@/infrastructure/logging'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App, Table } from '@/domain/models/app'
-import type { RowLevelPermissions, TablePermissions } from '@/domain/models/app/tables/permissions'
+import type { TableGateScope } from '@/domain/models/app/auth/permission-evaluator-service'
+import type { RowLevelPermissions } from '@/domain/models/app/tables/permissions'
 import type { Context } from 'hono'
 
+export type { RowLevelOperation }
+
 /**
- * The four CRUD operations the row-level layer gates.
+ * Who is asking: the Better Auth role and the names of the groups the caller
+ * belongs to (un-prefixed), both as the table middleware resolved them.
  */
-export type RowLevelOperation = 'read' | 'write' | 'create' | 'delete'
+export interface GuardCaller {
+  readonly userRole: string
+  readonly userGroups: readonly string[]
+}
 
 export interface RowLevelGuardContext {
   readonly current: CurrentUserContext
   readonly effectiveRoles: readonly string[]
+  /**
+   * The app the table-level gate is judged against: its tables are the set a
+   * table's `inherit` resolves against, so the gate reads the EFFECTIVE grants,
+   * and its role ladder names the top role the admin override admits beside
+   * the built-in `admin`.
+   */
+  readonly allTables: TableGateScope
+  /**
+   * The caller is a visitor who is not signed in — decided from the session's
+   * identity (the guest sentinel id), never from the name of her role.
+   */
+  readonly signedOut: boolean
 }
 
 /**
  * Build the guard context for a single request. The result captures the
- * Better Auth role, all user_access roles for this user (across every
- * scope-table), and the resolved assignments map needed for predicate
- * evaluation.
+ * Better Auth role, every group the user belongs to (as `group:<name>`), all
+ * user_access roles for this user (across every scope-table), and the resolved
+ * assignments map needed for predicate evaluation.
+ *
+ * `caller.userGroups` are the caller's group names as the table middleware already
+ * resolved them for this request (`enrichUserRole`), so the guard adds no
+ * group lookup of its own: a `group:<name>` grant admits the caller to a table
+ * with a row-level rule exactly as it does to a table without one, and the
+ * rule then narrows the rows.
+ *
+ * A visitor with no session reaches here under the placeholder `guest`
+ * identity. That placeholder is never read as a person: her context is the
+ * signed-out one (`signedOutContext`), in which no `$currentUser` value
+ * resolves, so a rule naming the signed-in person matches no row for her — the
+ * record gate's own answer for a reader who is not signed in, in the list's SQL
+ * projection and in the single read's in-memory check alike.
  *
  * Returns an Effect because we need a database round-trip per
  * scope-table; the handler wraps this in `runTableProgram` /
@@ -78,12 +124,12 @@ export interface RowLevelGuardContext {
  */
 export const buildRowLevelGuardContext = (
   session: Pick<UserSession, 'userId'>,
-  userRole: string,
+  caller: GuardCaller,
   table: Pick<Table, 'rowLevelPermissions'>,
-  app: Pick<App, 'auth'>
-): Effect.Effect<RowLevelGuardContext, never, DataSourceRepository> =>
+  app: Pick<App, 'auth' | 'tables'>
+): Effect.Effect<RowLevelGuardContext, never, DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
-    const repo = yield* DataSourceRepository
+    const { userRole, userGroups } = caller
     const projection: SessionProjection = toSessionProjection(session, {
       role: userRole,
       // A literal `admin` user is ALWAYS unrestricted (built-in-admin
@@ -92,45 +138,48 @@ export const buildRowLevelGuardContext = (
       // bringing the records-API guard into parity with the session-establish
       // (`server.ts`) and MCP (`mcp/tool-call.ts`) paths. Mid-level custom
       // roles return false from `isAdminEquivalent` and stay scoped.
-      isUnrestricted: isAdminRole(userRole) || isAdminEquivalent(userRole, app),
+      isUnrestricted: isAdminEquivalent(userRole, app),
     })
 
-    const scopeTables = collectAssignmentScopeTables(table.rowLevelPermissions)
+    const current = yield* loadCurrentUserContext(projection, table.rowLevelPermissions)
 
-    const current = yield* loadCurrentUserContext(projection, scopeTables)
-
-    // Effective roles = Better Auth role + every user_access role this user
-    // holds. Used for the table-level role gate (e.g. a user with
+    // Effective roles = Better Auth role + a `group:<name>` entry per group
+    // membership + every user_access role this user holds. Used for the
+    // table-level role gate (e.g. a user with
     // role='member' but a user_access row of role='customer-admin' should
     // pass `permissions.read = ['customer-admin']`).
-    // FAILING CLOSED ON ERROR IS DELIBERATE: with no `user_access` roles the
-    // overlay contributes nothing, so the table-level gate sees only the Better
-    // Auth role and a user whose access DEPENDS on a `user_access` role is
-    // denied. Do not make this permissive — that would turn a lookup fault into
-    // an authorization bypass.
-    //
-    // The repository already returns an empty list for the one expected
-    // condition (no `user_access` table yet), so reaching this handler means an
-    // unexpected fault. Logging it is what stops a legitimately-granted user
-    // being denied with no trace.
-    const userAccessRoles = yield* repo.fetchUserAccessRoles(session.userId).pipe(
-      Effect.catch((error) => {
-        logError(
-          '[PERMISSIONS] user_access role lookup failed; proceeding without the role overlay',
-          error,
-          { userId: session.userId }
-        )
-        return Effect.succeed([] as readonly string[])
-      })
-    )
+    const userAccessRoles = yield* fetchAccessRolesFailingClosed(session)
 
-    const effectiveRoles = mergeRoles(userRole, userAccessRoles)
+    const effectiveRoles = mergeRoles(buildEffectiveRoles(userRole, userGroups), userAccessRoles)
 
-    return { current, effectiveRoles }
+    return { current, effectiveRoles, allTables: app, signedOut: isGuestSession(session.userId) }
   })
 
-const mergeRoles = (primary: string, extras: readonly string[]): readonly string[] => {
-  const set = new Set<string>([primary, ...extras])
+/**
+ * Every `user_access` role the caller holds, failing closed on a lookup fault
+ * (see `getUserAccessRoles`).
+ */
+export const fetchAccessRolesFailingClosed = (
+  session: Pick<UserSession, 'userId'>
+): Effect.Effect<readonly string[], never, DataSourceRepository> =>
+  getUserAccessRoles(session.userId)
+
+/**
+ * The `user_access` roles the records route would add for this caller on any
+ * of `tables` — fetched only when one of them declares row-level rules (the
+ * only tables where the records route adds them) and the caller is signed in.
+ */
+export const resolveAccessRolesFor = async (
+  session: Pick<UserSession, 'userId'> | undefined,
+  tables: readonly Pick<Table, 'rowLevelPermissions'>[]
+): Promise<readonly string[]> => {
+  if (session === undefined || isGuestSession(session.userId)) return []
+  if (!tables.some((table) => table.rowLevelPermissions !== undefined)) return []
+  return Effect.runPromise(provideTableLive(fetchAccessRolesFailingClosed(session)))
+}
+
+const mergeRoles = (primary: readonly string[], extras: readonly string[]): readonly string[] => {
+  const set = new Set<string>([...primary, ...extras])
   return [...set]
 }
 
@@ -141,16 +190,16 @@ const mergeRoles = (primary: string, extras: readonly string[]): readonly string
  */
 export const resolveGuardForTable = async (
   session: Pick<UserSession, 'userId'>,
-  userRole: string,
+  caller: GuardCaller,
   table: Pick<Table, 'rowLevelPermissions'> | undefined,
-  app: Pick<App, 'auth'>
+  app: Pick<App, 'auth' | 'tables'>
 ): Promise<RowLevelGuardContext | undefined> => {
   if (!table?.rowLevelPermissions) return undefined
   return Effect.runPromise(
     provideTableLive(
       buildRowLevelGuardContext(
         session,
-        userRole,
+        caller,
         { rowLevelPermissions: table.rowLevelPermissions },
         app
       )
@@ -160,36 +209,56 @@ export const resolveGuardForTable = async (
 
 /**
  * True if any of the user's effective roles passes the table-level
- * permission for the given op. `'all'` and `'authenticated'` short-circuit
- * since both implicitly grant access. Admin roles always pass.
+ * permission for the given op.
+ *
+ * This is the records API's own gate on a table WITHOUT row-level rules —
+ * the inheritance- and override-aware `has*PermissionForRoles` evaluators,
+ * which the permission map reports too — run over the guard's effective
+ * roles (Better Auth role, `group:<name>` memberships and `user_access`
+ * roles). So a row-level rule only ever NARROWS what the table grants: an
+ * operation a gating `permissions` block does not name stays refused, and a
+ * table that `inherit`s or `override`s its grants is judged on the grants it
+ * resolves to, exactly as without the rule. Admin always passes.
  */
 export const passesTableRoleGate = (
-  permissions: TablePermissions | undefined,
+  table: Table | undefined,
   op: RowLevelOperation,
-  effectiveRoles: readonly string[]
+  guard: Pick<RowLevelGuardContext, 'effectiveRoles' | 'allTables' | 'signedOut'>
 ): boolean => {
-  const value = permissions?.[mapOpToPermissionKey(op)]
-  return permits(
-    evaluatePermissionForRoles(value, effectiveRoles, {
-      // Neither a missing permissions block nor an undeclared operation gates
-      // this path: the legacy default (every built-in role but `viewer`) stands.
-      whenUndeclared: ANY_NON_VIEWER_WHEN_UNDECLARED,
-      // Better Auth admin (Z-1 `isUnrestricted`) always passes the role gate
-      // regardless of the table's permissions block.
-      adminOverride: 'admin-outranks-everything',
-    })
-  )
+  const { effectiveRoles, allTables } = guard
+  if (op === 'read') return hasReadPermissionForCaller(table, guard, allTables)
+  if (op === 'create') return hasCreatePermissionForRoles(table, effectiveRoles, allTables)
+  if (op === 'write') return hasUpdatePermissionForRoles(table, effectiveRoles, allTables)
+  return hasDeletePermissionForRoles(table, effectiveRoles, allTables)
 }
 
-/** The four table-level operation keys a row-level op can map onto. */
-type TableOperationKey = 'read' | 'create' | 'update' | 'delete'
-
-const mapOpToPermissionKey = (op: RowLevelOperation): TableOperationKey => {
-  if (op === 'read') return 'read'
-  if (op === 'create') return 'create'
-  if (op === 'write') return 'update'
-  return 'delete'
-}
+/**
+ * The records route's table-level gate on a table WITHOUT row-level rules:
+ * {@link passesTableRoleGate} over the one set of effective roles
+ * (`tableEffectiveRoles`) — the caller's account role and her `group:<name>`
+ * memberships, no assignment role, since assignments count only under
+ * row-level rules. Every door onto such a table (the delete, the restore and
+ * its batch, the delete form, the record button) asks this, so each admits
+ * exactly whom the records route admits.
+ *
+ * It judges WRITES only: a read asks the records route's read gate, which knows
+ * whether the caller is signed in. A write gate never consults that, so the
+ * caller here carries no identity and `signedOut` is not read.
+ */
+export const passesUnguardedTableGate = (
+  app: Pick<App, 'auth' | 'tables'>,
+  table: Table | undefined,
+  caller: GuardCaller,
+  op: Exclude<RowLevelOperation, 'read'>
+): boolean =>
+  passesTableRoleGate(table, op, {
+    effectiveRoles: tableEffectiveRoles(table, {
+      role: caller.userRole,
+      groups: caller.userGroups,
+    }),
+    allTables: app,
+    signedOut: false,
+  })
 
 /** Filter clause emitted by `projectPredicateToFilter`. */
 type ProjectedClause = {
@@ -201,7 +270,7 @@ type ProjectedClause = {
 /**
  * Result of projecting a row-level predicate for a single op.
  *
- * A composite predicate (GAP-3) projects to a `RowLevelFilterNode` tree
+ * A composite predicate projects to a `RowLevelFilterNode` tree
  * (`{ and: … }` / `{ or: … }`). A single triple projects to a flat
  * `ProjectedClause` (or the `'empty'` short-circuit when its `in` list is
  * empty — only valid for a single triple; inside a group an empty `in` is
@@ -220,11 +289,11 @@ const projectOpPredicateClause = (
   op: RowLevelOperation,
   ctx: CurrentUserContext
 ): ProjectedClauseResult => {
-  const predicate = rlp ? predicateFor(rlp, op) : undefined
+  const predicate = rowLevelRuleFor(rlp, op)
   if (!predicate) return 'no-rlp'
   if (ctx.isUnrestricted) return 'bypass'
 
-  // Composite group (GAP-3): project to a nested AND/OR filter tree. An
+  // Composite group: project to a nested AND/OR filter tree. An
   // empty `in` inside the tree is scoped to its own branch (rendered as
   // `IN (NULL)` by the SQL layer), so we do NOT apply the whole-predicate
   // `'empty'` short-circuit here.
@@ -286,23 +355,7 @@ export const recordPassesPredicate = (
   op: RowLevelOperation,
   record: Readonly<Record<string, unknown>>,
   ctx: CurrentUserContext
-): boolean => {
-  if (!rlp) return true
-  if (ctx.isUnrestricted) return true
-
-  const predicate = predicateFor(rlp, op)
-  if (!predicate) return true
-
-  return evaluateRecordAgainstPredicate(record, predicate, ctx)
-}
-
-const predicateFor = (rlp: RowLevelPermissions, op: RowLevelOperation) => {
-  if (op === 'read') return rlp.read?.when
-  if (op === 'write') return rlp.write?.when
-  if (op === 'create') return rlp.create?.when
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property of the RowLevelPermissions struct, not a Drizzle query.
-  return rlp.delete?.when
-}
+): boolean => rowPassesRule(rlp, op, record, ctx)
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Form / bulk / export Z-3 enforcement helpers (shared with row #6 audit C-1/C-2)
@@ -313,8 +366,7 @@ const predicateFor = (rlp: RowLevelPermissions, op: RowLevelOperation) => {
  * historically bypassed it entirely. These shared helpers fix that gap.
  * ──────────────────────────────────────────────────────────────────────── */
 
-const NOT_FOUND_BODY = (c: Context): Response =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+const NOT_FOUND_BODY = (c: Context): Response => notFound(c)
 
 /**
  * S1 anti-enumeration: write-permission denials return 404, uniform with the
@@ -322,7 +374,7 @@ const NOT_FOUND_BODY = (c: Context): Response =>
  * call-site readability but no longer leaks into the response envelope.
  */
 const FORBIDDEN_BODY = (c: Context, _action: 'update' | 'delete' | 'restore'): Response =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  notFound(c)
 
 interface FormGateInput {
   readonly c: Context
@@ -332,6 +384,8 @@ interface FormGateInput {
   readonly recordId: string
   readonly guard: RowLevelGuardContext
   readonly op: 'write' | 'delete'
+  /** The change an update proposes — `write.when` is checked on the row as written too. */
+  readonly change?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -355,19 +409,20 @@ interface MutationPredicateInput {
   readonly rlp: RowLevelPermissions | undefined
   readonly op: 'write' | 'delete'
   readonly row: Readonly<Record<string, unknown>>
+  readonly change: Readonly<Record<string, unknown>> | undefined
   readonly ctx: CurrentUserContext
 }
 
 /**
- * Evaluate read.when + write.when (or delete.when) against a fetched row.
+ * Evaluate read.when + write.when (or delete.when) against a fetched row, and
+ * write.when against the row as the change would leave it.
  * Returns the appropriate 404 response on failure, undefined on pass.
  */
 function evaluateMutationPredicates(input: MutationPredicateInput): Response | undefined {
-  const { c, rlp, op, row, ctx } = input
-  if (!rlp) return undefined
-  if (rlp.read?.when && !recordPassesPredicate(rlp, 'read', row, ctx)) return NOT_FOUND_BODY(c)
-  if (!recordPassesPredicate(rlp, op, row, ctx)) return NOT_FOUND_BODY(c)
-  return undefined
+  const { c, rlp, op, row, change, ctx } = input
+  return existingRowWriteAllowed({ rlp, op, existing: row, change, ctx })
+    ? undefined
+    : NOT_FOUND_BODY(c)
 }
 
 /**
@@ -383,74 +438,61 @@ function evaluateMutationPredicates(input: MutationPredicateInput): Response | u
  * Returns `undefined` on pass, a `Response` to short-circuit otherwise.
  */
 export async function enforceFormMutationGate(input: FormGateInput): Promise<Response | undefined> {
-  const { c, table, session, tableName, recordId, guard, op } = input
+  const { c, table, session, tableName, recordId, guard, op, change } = input
   const action = op === 'write' ? 'update' : 'delete'
 
-  if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
+  if (!passesTableRoleGate(table, 'read', guard)) {
     return NOT_FOUND_BODY(c)
   }
   const row = await fetchRowForGate(session, tableName, recordId)
   if (!row || !table) return NOT_FOUND_BODY(c)
-  if (!passesTableRoleGate(table.permissions, op, guard.effectiveRoles)) {
+  if (!passesTableRoleGate(table, op, guard)) {
     return FORBIDDEN_BODY(c, action)
   }
   return evaluateMutationPredicates({
     c,
     rlp: table.rowLevelPermissions,
     op,
-    row,
+    // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
+    row: readStoredValues(table, row),
+    change,
     ctx: guard.current,
   })
 }
 
 /**
- * Z-3 enforcement for the restore endpoint.
+ * The role gate of a restore under row-level rules: the caller reads the table
+ * and holds its `delete` grant, over her effective roles (assignment roles
+ * included). Asked before a batch body is decoded; the rows are judged by
+ * {@link enforceRestoreGate} once the ids are known.
+ */
+export const restoreRoleGateAdmits = (
+  table: Table | undefined,
+  guard: Pick<RowLevelGuardContext, 'effectiveRoles' | 'allTables' | 'signedOut'>
+): boolean =>
+  passesTableRoleGate(table, 'read', guard) && passesTableRoleGate(table, 'delete', guard)
+
+/**
+ * Z-3 enforcement for the restore endpoints, single and batch.
  *
- * Restore is a soft-delete-reverse and the predicate semantics match
- * `delete`: the user must have been entitled to the row before it was
- * soft-deleted. Returns 404 (read miss) or 403 (delete role gate fail).
- *
- * Restore needs `includeDeleted: true` because by definition the row is
- * soft-deleted; we therefore hit the repository directly via a raw program
- * that includes the `_deleted` rows.
+ * Restore is a soft-delete-reverse, so it answers to the `delete` grant and
+ * to the `read.when` and `delete.when` rules — evaluated on the TRASHED row,
+ * which the ordinary reads skip. A row the caller's rules exclude answers
+ * exactly as a missing one (404) and nothing leaves the trash; a batch is
+ * refused whole.
  */
 export async function enforceRestoreGate(input: {
   readonly c: Context
   readonly table: Table | undefined
   readonly session: Pick<UserSession, 'userId'>
   readonly tableName: string
-  readonly recordId: string
-  readonly guard: RowLevelGuardContext
+  readonly ids: readonly string[]
+  /** `undefined` for a table without row-level rules, which this gate admits. */
+  readonly guard: RowLevelGuardContext | undefined
 }): Promise<Response | undefined> {
-  const { c, table, session, tableName, recordId, guard } = input
-
-  if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
-    return NOT_FOUND_BODY(c)
-  }
-
-  if (!passesTableRoleGate(table?.permissions, 'delete', guard.effectiveRoles)) {
-    return FORBIDDEN_BODY(c, 'restore')
-  }
-
-  // For row-level scoping we still want to verify the row exists & is in
-  // scope. We fetch via raw program; if the program returns null because
-  // the row is soft-deleted, runTableProgram leaves the row check to the
-  // restore use-case (which surfaces the canonical 404 if the row is
-  // truly missing). The predicate check below only fires when we can
-  // observe the row.
-  if (!table?.rowLevelPermissions) return undefined
-  const fetched = await runTableProgram(
-    rawGetRecordProgram(session as UserSession, tableName, recordId)
-  )
-  if (
-    fetched._tag === 'Success' &&
-    fetched.success &&
-    !recordPassesPredicate(table.rowLevelPermissions, 'read', fetched.success, guard.current)
-  ) {
-    return NOT_FOUND_BODY(c)
-  }
-
-  return undefined
+  const { guard } = input
+  if (!guard) return undefined
+  return enforceBulkMutationGate({ ...input, guard, op: 'delete', includeDeleted: true })
 }
 
 interface BulkGateInput {
@@ -461,6 +503,10 @@ interface BulkGateInput {
   readonly ids: readonly string[]
   readonly guard: RowLevelGuardContext
   readonly op: 'write' | 'delete'
+  /** Per-id change of a batch update — `write.when` is checked on each row as written. */
+  readonly changes?: ReadonlyMap<string, Readonly<Record<string, unknown>>>
+  /** Judge trashed rows too — a restore's targets are by definition soft-deleted. */
+  readonly includeDeleted?: boolean
 }
 
 /**
@@ -520,10 +566,10 @@ function checkBulkMutationRoleGate(input: {
   readonly op: 'write' | 'delete'
 }): Response | undefined {
   const { c, table, guard, op } = input
-  if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
+  if (!passesTableRoleGate(table, 'read', guard)) {
     return NOT_FOUND_BODY(c)
   }
-  if (!passesTableRoleGate(table?.permissions, op, guard.effectiveRoles)) {
+  if (!passesTableRoleGate(table, op, guard)) {
     return FORBIDDEN_BODY(c, op === 'write' ? 'update' : 'delete')
   }
   if (!table) return NOT_FOUND_BODY(c)
@@ -550,7 +596,7 @@ function checkBulkMutationRoleGate(input: {
  * scope by which entries succeed/fail).
  */
 export async function enforceBulkMutationGate(input: BulkGateInput): Promise<Response | undefined> {
-  const { c, table, session, tableName, ids, guard, op } = input
+  const { c, table, session, tableName, ids, guard, op, includeDeleted } = input
 
   const roleGateError = checkBulkMutationRoleGate({ c, table, guard, op })
   if (roleGateError) return roleGateError
@@ -563,7 +609,7 @@ export async function enforceBulkMutationGate(input: BulkGateInput): Promise<Res
   if (filter === 'empty') return NOT_FOUND_BODY(c)
 
   const fetched = await runTableProgram(
-    rawListRecordsProgram(session as UserSession, tableName, filter)
+    rawListRecordsProgram(session as UserSession, tableName, filter, includeDeleted)
   )
   if (fetched._tag === 'Failure') return NOT_FOUND_BODY(c)
 
@@ -573,7 +619,27 @@ export async function enforceBulkMutationGate(input: BulkGateInput): Promise<Res
   // sequential reduce this replaces.
   const allowedIds = new Set(fetched.success.map((row) => String(row.id)))
   const allInScope = ids.every((id) => allowedIds.has(String(id)))
-  return allInScope ? undefined : NOT_FOUND_BODY(c)
+  if (!allInScope) return NOT_FOUND_BODY(c)
+  return batchStaysInScope(fetched.success, input) ? undefined : NOT_FOUND_BODY(c)
+}
+
+/** Whether every row of a batch update is still inside `write.when` as it would be written. */
+const batchStaysInScope = (
+  rows: readonly Readonly<Record<string, unknown>>[],
+  input: BulkGateInput
+): boolean => {
+  const { changes, op, table, guard } = input
+  if (op !== 'write' || changes === undefined) return true
+  return rows.every((row) =>
+    existingRowWriteAllowed({
+      rlp: table?.rowLevelPermissions,
+      op,
+      // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
+      existing: readStoredValues(table, row),
+      change: changes.get(String(row.id)),
+      ctx: guard.current,
+    })
+  )
 }
 
 /**
@@ -593,16 +659,14 @@ export function enforceBulkCreateGate(input: {
   const { c, table, guard, records } = input
   if (!table?.rowLevelPermissions) return undefined
 
-  if (!passesTableRoleGate(table.permissions, 'create', guard.effectiveRoles)) {
-    if (!passesTableRoleGate(table.permissions, 'read', guard.effectiveRoles)) {
+  if (!passesTableRoleGate(table, 'create', guard)) {
+    if (!passesTableRoleGate(table, 'read', guard)) {
       return NOT_FOUND_BODY(c)
     }
     return forbiddenCreateResponse(c)
   }
 
-  const allInScope = records.every((fields) =>
-    recordPassesPredicate(table.rowLevelPermissions, 'create', fields, guard.current)
-  )
+  const allInScope = records.every((fields) => createAllowed(table, fields, guard.current))
   if (!allInScope) {
     return forbiddenCreateScopeResponse(c)
   }

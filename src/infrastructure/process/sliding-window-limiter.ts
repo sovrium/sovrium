@@ -48,7 +48,7 @@
  * (Redis, etc.). This matches the E2E test topology (one server per test).
  *
  * Effect's own `RateLimiter` was evaluated and rejected for this role: it
- * ships under `effect/unstable/persistence` (the unstable tier, whose
+ * ships under `effect/persistence` (the unstable tier, whose
  * acceptance is scoped to two telemetry/devtools files), it offers
  * `fixed-window` and `token-bucket` algorithms but not a sliding window, and
  * it requires a `RateLimiterStore` layer in Effect context — while every call
@@ -116,8 +116,67 @@ export interface SlidingWindowLimiter {
     config: SlidingWindowConfig,
     now?: number
   ) => SlidingWindowDecision
+  /**
+   * Forget every key with no request inside `windowMs` of `now`, and return how
+   * many were forgotten. {@link record} already sweeps on its own at most once
+   * per window (see {@link createSlidingWindowLimiter}); this is the explicit
+   * form, for a caller that wants to sweep on its own schedule.
+   */
+  readonly prune: (windowMs: number, now?: number) => number
+  /** How many keys currently hold history. */
+  readonly size: () => number
   /** Drop all recorded history. For test harnesses and audit hooks. */
   readonly clear: () => void
+}
+
+/**
+ * Forget every key of `state` with no timestamp inside `windowMs` of `at`, and
+ * return how many were forgotten. See {@link SlidingWindowLimiter.prune}.
+ */
+const pruneStaleKeys = (
+  // eslint-disable-next-line functional/prefer-immutable-types -- the limiter's own mutable state
+  state: Map<string, number[]>,
+  windowMs: number,
+  at: number
+): number => {
+  const stale = [...state.entries()]
+    .filter(([, history]) => history.every((timestamp) => at - timestamp >= windowMs))
+    .map(([key]) => key)
+  // eslint-disable-next-line functional/immutable-data, drizzle/enforce-delete-with-where -- Rate limiting requires mutable state; `state` is a Map, not a Drizzle table
+  stale.forEach((key) => state.delete(key))
+  return stale.length
+}
+
+/**
+ * The self-sweep of one limiter: the longest window any call has asked about,
+ * and when the map was last swept against it. See
+ * {@link createSlidingWindowLimiter} for why it exists.
+ */
+const createSweep = (
+  // eslint-disable-next-line functional/prefer-immutable-types -- the limiter's own mutable state
+  state: Map<string, number[]>
+) => {
+  // eslint-disable-next-line functional/prefer-immutable-types -- the sweep clock is this limiter's own state
+  const clock: { at: number | undefined; longestWindowMs: number } = {
+    at: undefined,
+    longestWindowMs: 0,
+  }
+  return {
+    observe: (windowMs: number): void => {
+      if (windowMs <= clock.longestWindowMs) return
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- see above
+      clock.longestWindowMs = windowMs
+    },
+    runIfDue: (at: number): void => {
+      if (clock.at !== undefined && at - clock.at < clock.longestWindowMs) return
+      if (clock.at !== undefined) {
+        // eslint-disable-next-line functional/no-expression-statements -- amortised eviction of keys with no request left in the window
+        pruneStaleKeys(state, clock.longestWindowMs, at)
+      }
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- see above
+      clock.at = at
+    },
+  } as const
 }
 
 /**
@@ -126,12 +185,25 @@ export interface SlidingWindowLimiter {
  *
  * Every method takes an optional clock override so the window arithmetic is
  * unit-testable without real timers; omitting it reads `Date.now()`.
+ *
+ * Memory: a key is often attacker-chosen (a client address, a caller id), and
+ * the map would otherwise keep one entry per key it has EVER seen. So
+ * {@link SlidingWindowLimiter.record} sweeps out every key with no request left
+ * in the window, at most once per window — the sweep's cost is amortised over
+ * every request in that window, and the map never holds more than the keys
+ * seen in the last two windows. The window swept against is the LONGEST any
+ * call has asked about, so a limiter consulted with several window lengths
+ * never forgets a key that one of them still counts. Forgetting a key whose
+ * every timestamp is outside that window changes no answer: every read already
+ * filters those timestamps out.
  */
 export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
   const state = new Map<string, number[]>()
+  const sweep = createSweep(state)
 
   const getRecent = (key: string, windowMs: number, now?: number): readonly number[] => {
     const at = now ?? Date.now()
+    sweep.observe(windowMs)
     const history = state.get(key) ?? []
     return history.filter((timestamp) => at - timestamp < windowMs)
   }
@@ -139,6 +211,7 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
   const record = (key: string, config: SlidingWindowConfig, now?: number): readonly number[] => {
     const at = now ?? Date.now()
     const recent = getRecent(key, config.windowMs, at)
+    sweep.runIfDue(at)
     const updated = [...recent, at]
     // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
     state.set(key, updated)
@@ -154,10 +227,8 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
     const minSeconds = options?.minSeconds ?? 0
     const recent = getRecent(key, windowMs, at)
     if (recent.length === 0) return minSeconds
-    const oldestRequest = Math.min(...recent)
-    const resetTime = oldestRequest + windowMs
-    const retryAfterMs = Math.max(0, resetTime - at)
-    return Math.max(minSeconds, Math.ceil(retryAfterMs / 1000))
+    const resetTime = Math.min(...recent) + windowMs
+    return Math.max(minSeconds, Math.ceil(Math.max(0, resetTime - at) / 1000))
   }
 
   return {
@@ -175,9 +246,9 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
       }
       return { limited: false, retryAfter: 0, count: record(key, config, at).length }
     },
-    clear: () => {
-      // eslint-disable-next-line functional/immutable-data -- Rate limiting requires mutable state
-      state.clear()
-    },
+    prune: (windowMs, now) => pruneStaleKeys(state, windowMs, now ?? Date.now()),
+    size: () => state.size,
+    // eslint-disable-next-line functional/immutable-data -- Rate limiting requires mutable state
+    clear: () => state.clear(),
   }
 }

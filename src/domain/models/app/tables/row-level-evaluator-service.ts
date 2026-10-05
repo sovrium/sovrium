@@ -38,13 +38,14 @@
 
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
 import type {
+  RowLevelPermissions,
   RowLevelPredicate,
   RowLevelPredicateGroup,
   RowLevelWhen,
 } from '@/domain/models/app/tables/permissions'
 
 /**
- * Type guard distinguishing a composite predicate GROUP (GAP-3) from a single
+ * Type guard distinguishing a composite predicate GROUP from a single
  * `field/operator/value` triple. A group is identified by the presence of a
  * `conditions` array; a triple has a `field` key.
  */
@@ -53,6 +54,57 @@ export const isPredicateGroup = (when: RowLevelWhen): when is RowLevelPredicateG
   when !== null &&
   'conditions' in when &&
   Array.isArray((when as RowLevelPredicateGroup).conditions)
+
+/**
+ * `true` when a row-level `when` names the signed-in person anywhere — a
+ * `$currentUser.<path>` value, in either its string or its object form, in a
+ * leaf or in any branch of a group, at any depth.
+ *
+ * SECURITY: this decides whether a rule can be evaluated for a reader with NO
+ * session. A rule that names nobody (`status eq published`) applies to them as
+ * to anyone; a rule that names the signed-in person must refuse them outright,
+ * because evaluating it against an empty identity would compare the row with
+ * blanks. The walk reads the parsed rule, never its text, so the answer is
+ * exactly the set of values {@link resolvePredicateValue} would substitute: a
+ * leaf's `value` is the only place a reference is resolved, and a `$currentUser`
+ * string inside a literal ARRAY is compared as that literal, never resolved.
+ */
+export const rowRuleNamesCurrentUser = (when: RowLevelWhen): boolean =>
+  isPredicateGroup(when)
+    ? when.conditions.some(rowRuleNamesCurrentUser)
+    : normalizeCurrentUserRef(when.value) !== undefined
+
+/** A scalar `$currentUser.<name>` a rule can read about the signed-in person. */
+export type CurrentUserScalar = 'id' | 'email' | 'role' | 'isUnrestricted'
+
+/**
+ * `true` when a row-level `when` reads `$currentUser.<name>` anywhere — in
+ * either spelling, in a leaf or in any branch of a group.
+ *
+ * It decides which facts about the reader a door must look up before it can
+ * judge the rule: a rule that never names the reader's email does not need it,
+ * so nothing is read for it.
+ */
+export const ruleNamesCurrentUser = (when: RowLevelWhen, name: CurrentUserScalar): boolean => {
+  if (isPredicateGroup(when)) {
+    return when.conditions.some((child) => ruleNamesCurrentUser(child, name))
+  }
+  const ref = normalizeCurrentUserRef(when.value)
+  return ref?.path.kind === 'scalar' && ref.path.name === name
+}
+
+/**
+ * `true` when ANY of a table's row-level rules — read, write, create or delete
+ * — reads `$currentUser.<name>`.
+ */
+export const rulesNameCurrentUser = (
+  rlp: RowLevelPermissions | undefined,
+  name: CurrentUserScalar
+): boolean =>
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property of the RowLevelPermissions struct, not a Drizzle query.
+  [rlp?.read?.when, rlp?.write?.when, rlp?.create?.when, rlp?.delete?.when].some(
+    (when) => when !== undefined && ruleNamesCurrentUser(when, name)
+  )
 
 export interface CurrentUserContext {
   readonly userId: string
@@ -63,7 +115,40 @@ export interface CurrentUserContext {
   readonly assignments: ReadonlyMap<string, readonly string[]>
   /** Most recent active-assignment record id (from cookie / session). */
   readonly activeAssignment?: string
+  /**
+   * A visitor with no session. Nothing about her resolves: every
+   * `$currentUser.*` value is unknown, and a rule naming one admits no row —
+   * see {@link signedOutContext}.
+   */
+  readonly signedOut?: boolean
 }
+
+/**
+ * The context of a visitor with no session, as every door judges her.
+ *
+ * SECURITY: the records API carries a placeholder identity for such a request
+ * (`guest`, as her id and as her role). Those are labels, not a person: read as
+ * values, a rule `audience eq $currentUser.role` served her every row whose
+ * audience was the word `guest`, and `owner neq $currentUser.id` served her
+ * every row somebody owns. So none of her `$currentUser.*` values resolves,
+ * and a rule that names the signed-in person ANYWHERE — even in one branch of
+ * an `or` — admits no row for her, in memory and in SQL alike: exactly the
+ * record gate's answer for a reader who is not signed in
+ * (`visitorRowRule` → `none`). A rule naming no one (`status eq published`)
+ * still applies to her as written.
+ */
+export const signedOutContext = (userId: string, role: string): CurrentUserContext => ({
+  userId,
+  email: undefined,
+  role,
+  isUnrestricted: false,
+  assignments: new Map(),
+  signedOut: true,
+})
+
+/** A signed-out visitor under a rule that names the signed-in person: no row is hers. */
+const refusesSignedOut = (when: RowLevelWhen, ctx: CurrentUserContext): boolean =>
+  ctx.signedOut === true && rowRuleNamesCurrentUser(when)
 
 /**
  * Resolved value of a predicate's `value` field after `$currentUser`
@@ -84,7 +169,9 @@ export type ResolvedPredicateValue =
  *    record_ids); empty array if the user has no rows for that scope
  *  - `activeAssignment`                       → string (from session/cookie)
  *
- * Unrecognized references collapse to `undefined`.
+ * Unrecognized references collapse to `undefined`, and so does a reference
+ * to a value the reader does not have (no email, no active assignment): a
+ * rule naming it matches no row.
  */
 export const resolvePredicateValue = (
   value: RowLevelPredicate['value'],
@@ -111,15 +198,30 @@ export const resolvePredicateValue = (
   return undefined
 }
 
+/**
+ * A value the reader does not have — no email on record, no active
+ * assignment — as `undefined`, never as the empty string.
+ *
+ * SECURITY: an empty string is a value a row can hold. Read as `''`, a missing
+ * email matched every row whose ruled field is empty, in memory and in SQL
+ * alike, and a reader whose email was simply not loaded was refused her own
+ * rows while being served everybody's blank ones. `undefined` resolves to "no
+ * row matches" on both sides: {@link evaluateTriple} answers `false`, and
+ * {@link projectPredicateToFilter} answers nothing to project.
+ */
+const knownValue = (value: string | undefined): string | undefined =>
+  value === undefined || value === '' ? undefined : value
+
 const resolveRefScalar = (
   ref: ReturnType<typeof normalizeCurrentUserRef> & { kind: 'currentUser' },
   ctx: CurrentUserContext
 ): ResolvedPredicateValue => {
   const { path } = ref
+  if (ctx.signedOut === true) return undefined
   if (path.kind === 'scalar') {
-    if (path.name === 'id') return ctx.userId
-    if (path.name === 'email') return ctx.email ?? ''
-    if (path.name === 'role') return ctx.role
+    if (path.name === 'id') return knownValue(ctx.userId)
+    if (path.name === 'email') return knownValue(ctx.email)
+    if (path.name === 'role') return knownValue(ctx.role)
     return ctx.isUnrestricted
   }
 
@@ -128,7 +230,7 @@ const resolveRefScalar = (
   }
 
   // activeAssignment
-  return ctx.activeAssignment ?? ''
+  return knownValue(ctx.activeAssignment)
 }
 
 /**
@@ -183,7 +285,7 @@ export const projectPredicateToFilter = (
 }
 
 // ---------------------------------------------------------------------------
-// GAP-3: composite predicate projection (nestable AND/OR filter tree)
+// [internal ref]: composite predicate projection (nestable AND/OR filter tree)
 // ---------------------------------------------------------------------------
 
 /** A single SQL filter leaf clause projected from a predicate triple. */
@@ -194,7 +296,7 @@ export interface RowLevelLeafClause {
 }
 
 /**
- * Nestable filter node projected from a row-level `when` predicate (GAP-3).
+ * Nestable filter node projected from a row-level `when` predicate.
  * A leaf is a single clause; `and`/`or` nodes compose children. The SQL WHERE
  * builder walks this tree, emitting `( … AND … )` / `( … OR … )` groups.
  */
@@ -217,7 +319,7 @@ const MATCH_NOTHING_LEAF: RowLevelLeafClause = {
 
 /**
  * Project a row-level `when` predicate (single triple OR composite group)
- * into a nestable filter tree the SQL WHERE builder can render (GAP-3).
+ * into a nestable filter tree the SQL WHERE builder can render.
  *
  * Returns:
  *  - a {@link RowLevelFilterNode} tree on success
@@ -233,6 +335,7 @@ export const projectWhenToFilter = (
   when: RowLevelWhen,
   ctx: CurrentUserContext
 ): RowLevelFilterNode | undefined => {
+  if (refusesSignedOut(when, ctx)) return MATCH_NOTHING_LEAF
   if (!isPredicateGroup(when)) {
     return projectPredicateToFilter(when, ctx)
   }
@@ -266,11 +369,12 @@ const evaluateTriple = (
  *  - PATCH / DELETE pre-checks (404 if false)
  *  - create.when validation (403 if false — scope leaks at insert time)
  *
- * Handles both forms (GAP-3):
+ * Handles both forms:
  *  - single triple: the record's `field` value is compared against the
- *    resolved predicate value using the operator semantics. Missing fields
- *    evaluate to `undefined`, which fails `eq`/`in` (safer than silently
- *    allowing).
+ *    resolved predicate value using the operator semantics. An empty value
+ *    (`null`) or a field the record does not have (`undefined`) satisfies no
+ *    operator — not `eq`, not `in`, and not `neq` either — as the records list
+ *    answers the same rule in SQL, where `NULL <> 'draft'` is not true.
  *  - composite group: recurses over `conditions`, combining with `every`
  *    (logic `'and'`, the default) or `some` (logic `'or'`).
  */
@@ -279,6 +383,7 @@ export const evaluateRecordAgainstPredicate = (
   predicate: RowLevelWhen,
   ctx: CurrentUserContext
 ): boolean => {
+  if (refusesSignedOut(predicate, ctx)) return false
   if (isPredicateGroup(predicate)) {
     const evaluateChild = (child: RowLevelWhen): boolean =>
       evaluateRecordAgainstPredicate(record, child, ctx)
@@ -289,11 +394,20 @@ export const evaluateRecordAgainstPredicate = (
   return evaluateTriple(record, predicate, ctx)
 }
 
+/**
+ * `fieldValue` (the stored value) satisfies `operator` against `resolved`.
+ *
+ * SECURITY: an empty stored value satisfies nothing, `neq` included. The list
+ * answers the rule in SQL, where a NULL compares as unknown and the row is
+ * dropped; a single-record door that admitted it would reach a row the list
+ * hides.
+ */
 const compareValues = (
   operator: RowLevelPredicate['operator'],
   fieldValue: unknown,
   resolved: ResolvedPredicateValue
 ): boolean => {
+  if (fieldValue === undefined || fieldValue === null) return false
   if (operator === 'eq') return scalarEquals(fieldValue, resolved)
   if (operator === 'neq') return !scalarEquals(fieldValue, resolved)
   if (operator === 'in') {
@@ -303,11 +417,28 @@ const compareValues = (
   return false
 }
 
+/**
+ * The number a rule value written as text names (`'12.50'` → `12.5`), or
+ * `undefined` for text that is not a number.
+ */
+const numberWrittenAsText = (value: string): number | undefined => {
+  if (value.trim() === '') return undefined
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+/**
+ * `a` (the stored value, read by `readStoredValues`) equals `b` (the rule's).
+ *
+ * A stored number is compared as a number, as the database compares it when
+ * the list answers the rule in SQL: `12.5` equals a rule value written
+ * `'12.50'`. Any other pair of different types is compared by its text, so a
+ * numeric id equals the same id written as text.
+ */
 const scalarEquals = (a: unknown, b: unknown): boolean => {
   if (a === b) return true
-  // Loose-but-typed: coerce numeric-vs-string ids ('c1' vs 'c1' is fine, but
-  // 1 vs '1' should match given UUIDs / TEXT mixed with numeric pks).
   if (a === undefined || a === null || b === undefined || b === null) return false
   if (typeof a === typeof b) return false
+  if (typeof a === 'number' && typeof b === 'string') return numberWrittenAsText(b) === a
   return String(a) === String(b)
 }

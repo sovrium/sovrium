@@ -19,8 +19,7 @@
  * pick an arbitrary order) exits `0`.
  */
 
-import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
-import { ATTACHMENT_TYPES, findSeedTable, uniqueFieldNames } from './seed-config'
+import { findSeedTable, uniqueFieldNames } from './seed-config'
 import { accountEmailsOf, referencesOf } from './seed-values'
 import type { SeedTableConfig } from './seed-config'
 import type { SeedValue } from './seed-values'
@@ -147,40 +146,6 @@ export const checkUndeclaredFields = (
             `"${name}". Fields declared: ${list(declared)}.`
         )
     )
-  })
-
-/**
- * An attachment field bound to a bucket other than the built-in `system` one.
- *
- * Auto-signed attachment URLs are always built against
- * `/api/buckets/system/signed`, ignoring the field's declared `bucket`, so a
- * seeded row here carries a link that can never resolve. Refusing is the honest
- * answer until that defect is fixed — the row would look correct in the
- * database and render a broken image forever.
- */
-export const checkAttachmentBuckets = (
-  planned: readonly PlannedSeedTable[],
-  tables: readonly SeedTableConfig[]
-): readonly string[] =>
-  planned.flatMap((table) => {
-    const config = findSeedTable(tables, table.name)
-    if (!config) return []
-    const written = new Set(table.records.flatMap((record) => Object.keys(record.fields)))
-    return config.fields
-      .filter(
-        (field) =>
-          ATTACHMENT_TYPES.has(field.type) &&
-          field.bucket !== undefined &&
-          field.bucket !== SYSTEM_BUCKET_NAME &&
-          written.has(field.name)
-      )
-      .map(
-        (field) =>
-          `${table.fileName}: field "${field.name}" targets bucket "${field.bucket}". ` +
-          `sovrium seed only writes attachments on the "system" bucket — signed ` +
-          `attachment URLs are always built against /api/buckets/system/signed, so a ` +
-          `row written here would carry a link that never resolves.`
-      )
   })
 
 /**

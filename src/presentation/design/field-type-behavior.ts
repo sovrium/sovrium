@@ -134,6 +134,7 @@ const FIELD_TYPE_BEHAVIOR = {
   // ── Numeric (NUMERIC / INTEGER columns reject '') ───────────────────────
   integer: NUMBER_OMITS_EMPTY,
   decimal: NUMBER_OMITS_EMPTY,
+  number: NUMBER_OMITS_EMPTY,
   currency: NUMBER_OMITS_EMPTY,
   percentage: NUMBER_OMITS_EMPTY,
   // A score on a bounded scale, not a free number: `max` emits
@@ -320,12 +321,20 @@ export function recordValueText(value: unknown): string {
  * The text a pre-mount form SKELETON writes into a control for `value`.
  *
  * The skeleton's values become the hydrated form's initial values, so for a
- * `json` field it must agree with {@link recordValueText}. Every other type
- * keeps its long-standing `String()` coercion: an `array` or `multi-select`
- * value still reaches its control as a comma list, which is what those
- * controls have always read.
+ * `json` field it must agree with {@link recordValueText}. So must a
+ * `relationship` holding a LIST of links: the record picker reads its value as
+ * a JSON array of ids, and the native save parses the same encoding, where the
+ * comma list `String()` makes would read back as one link named "1,2,3"; and
+ * no links at all is `''`, the picker's own empty value, never `'[]'`. Every
+ * other type keeps its long-standing `String()` coercion: an `array` or
+ * `multi-select` value still reaches its control as a comma list, which is what
+ * those controls have always read.
  */
 export function skeletonValueText(type: string | undefined, value: unknown): string {
   if (type === 'json') return recordValueText(value)
+  if (type === 'relationship' && Array.isArray(value)) {
+    // No links is the empty string, the picker's own "nothing linked" sentinel.
+    return value.length === 0 ? '' : recordValueText(value)
+  }
   return value === null || value === undefined ? '' : String(value)
 }

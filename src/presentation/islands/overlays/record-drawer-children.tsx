@@ -41,6 +41,7 @@
 
 import { useCallback, useEffect, useRef, type ReactElement } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { paintQrTemplates } from '@/presentation/islands/runtime/qr-template'
 import { mountNestedIslands } from './live-injected-markup'
 import {
   collectTextNodes,
@@ -119,6 +120,7 @@ export function RecordDrawerChildren({
     if (!root) return
     expandSlotRepeats(root, record, repeatsRef.current)
     resolveSlotTokens(root, record, pristineRef.current)
+    paintQrTemplates(root, record)
   }, [record])
 
   // Read through a ref so the injection below stays keyed to the MARKUP: it must

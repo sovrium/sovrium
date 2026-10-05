@@ -269,7 +269,9 @@ export function buildAuthWrapperStyle(baseStyle: unknown): React.CSSProperties {
 }
 
 /**
- * Builds data attributes for the SSR fallback form.
+ * Builds the attributes of the SSR skeleton form. `method: 'post'` keeps a
+ * submit that slips past the disabled button from writing the credentials into
+ * the page address; it never actually sends (see {@link renderAuthFormSkeleton}).
  */
 function buildFormDataAttrs(
   method: string,
@@ -277,6 +279,7 @@ function buildFormDataAttrs(
   redirectUrl: string | undefined
 ): Record<string, unknown> {
   return {
+    method: 'post',
     'data-action-type': 'auth',
     'data-action-method': method,
     ...(redirectUrl && { 'data-on-success-redirect': redirectUrl }),
@@ -315,6 +318,7 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
         <span className={computeFormFieldLabelClasses()}>{field.label}</span>
         <input
           type={field.inputType}
+          data-component-type="input"
           name={field.name}
           autoComplete={autoComplete}
           aria-invalid="false"
@@ -337,11 +341,26 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
 }
 
 /**
- * Renders the SSR skeleton `<form>` for the auth island — the progressive-
- * enhancement fallback and Suspense loading state that the island hydrates over
- * (the form still works via native POST if JS fails to load). Extracted from
- * {@link renderAuthForm} so both stay within the React component size budget;
- * the wrapper `<div data-island>` composes it.
+ * The author props a sign-in form's SSR skeleton `<form>` carries: the internal
+ * markers dropped, and the component's type too — the island host names the
+ * `form`, and a skeleton naming it as well would name one form twice.
+ */
+export function authSkeletonFormProps(props: ElementProps): ElementProps {
+  const { 'data-component-type': _named, ...rest } = omitInternalMarkers(props)
+  return rest
+}
+
+/**
+ * Renders the SSR skeleton `<form>` for the auth island — the first paint and
+ * the Suspense loading state that the island replaces once its script runs.
+ * Extracted from {@link renderAuthForm} so both stay within the React component
+ * size budget; the wrapper `<div data-island>` composes it.
+ *
+ * The skeleton cannot sign anyone in: the auth endpoints take JSON, which only
+ * the island sends. So its submit is drawn `disabled` — which also blocks Enter
+ * in a field — and the island renders its own live button in its place. Without
+ * that, a press before the script ran fell back to the browser default: a GET to
+ * the page's own address carrying the email and password in the URL.
  */
 function renderAuthFormSkeleton(config: {
   readonly props: ElementProps
@@ -352,7 +371,7 @@ function renderAuthFormSkeleton(config: {
   const { props, formDataAttrs, fields, submitLabel } = config
   return (
     <form
-      {...omitInternalMarkers(props)}
+      {...authSkeletonFormProps(props)}
       {...formDataAttrs}
       // className LAST so the layout class survives the `{...props}` spread —
       // a `props.className` key (even empty/undefined) would otherwise clobber
@@ -377,6 +396,8 @@ function renderAuthFormSkeleton(config: {
       />
       <button
         type="submit"
+        disabled
+        data-component-type="button"
         className={`${computeButtonDefaultClasses()} w-full`}
       >
         {submitLabel}
@@ -390,8 +411,8 @@ function renderAuthFormSkeleton(config: {
  *
  * The island marker `data-island="auth-form"` is discovered by the island client
  * which mounts the interactive AuthFormIsland React component. The HTML form
- * inside serves as both a loading skeleton and progressive enhancement fallback
- * (form still works via native POST if JS fails to load).
+ * inside is the loading skeleton: it paints the form at once, and its submit
+ * stays disabled until the island takes over (it cannot send on its own).
  *
  * When the form component declares a `fields[]` array, the rendered inputs use
  * the schema-supplied labels/placeholders; otherwise the default email/password
@@ -427,6 +448,7 @@ export function renderAuthForm(
     <div
       data-island="auth-form"
       data-island-props={islandProps}
+      data-component-type="form"
       data-testid={props['data-testid'] as string | undefined}
       style={wrapperStyle}
     >

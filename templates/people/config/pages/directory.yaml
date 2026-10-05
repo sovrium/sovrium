@@ -106,8 +106,9 @@ components:
                     action: openDrawer
                     component: person-detail
                   children:
+                    # h2: the page's h1 is Directory, and each card is a section of it.
                     - type: text
-                      element: h3
+                      element: h2
                       props:
                         className: text-[14px] font-semibold text-foreground
                       content: $record.name
@@ -131,7 +132,7 @@ components:
             dataSource:
               table: employees
             props:
-              title: Person
+              title: $record.name
             recordFields:
               - { name: name, type: single-line-text, label: Name }
               - { name: title, type: single-line-text, label: Role }

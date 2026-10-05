@@ -1,0 +1,43 @@
+# The bar on every public page: the company's name and the way in. Nothing
+# internal appears here — no team, no colleague, no policy.
+type: container
+element: header
+props:
+  className: border-b border-border bg-background
+children:
+  - type: container
+    props:
+      className: flex h-[59px] items-center gap-6 px-10 max-md:px-4
+    children:
+      - type: link
+        props:
+          href: /
+          className: flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: house
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: Halden
+      - type: container
+        props:
+          className: grow
+      - type: container
+        element: nav
+        props:
+          aria-label: Site
+          className: flex items-center gap-5 text-sm
+        children:
+          - type: link
+            props:
+              href: mailto:it@halden.example
+              className: text-foreground-muted hover:text-foreground max-md:hidden
+            content: Contact IT
+          - type: link
+            props:
+              href: /sign-in
+              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-background-subtle max-md:h-auto max-md:border-0 max-md:bg-transparent max-md:px-0
+            content: Sign in

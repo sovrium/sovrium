@@ -1,0 +1,22 @@
+# The line under every public page.
+type: container
+element: footer
+props:
+  className: border-t border-border
+children:
+  - type: container
+    props:
+      className: flex items-center px-10 py-4 max-md:px-4 text-xs text-foreground-muted
+    children:
+      # The full line on a wide screen; on a phone, only the name, so the
+      # footer stays one short row under the sign-in form.
+      - type: text
+        element: p
+        props:
+          className: text-[12.5px] text-foreground-subtle max-md:hidden
+        content: Halden · internal site
+      - type: text
+        element: p
+        props:
+          className: text-[12.5px] text-foreground-subtle md:hidden
+        content: Halden

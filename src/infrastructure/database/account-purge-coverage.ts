@@ -387,12 +387,12 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
   },
   'system.audit_log': {
     verdict: 'shed',
-    columns: ['actor_id'],
+    columns: ['actor_id', 'actor_email'],
     reason:
-      'The canonical, deliberately-retained event store. `ON DELETE SET NULL` sheds ' +
-      'the actor on commit while the trail survives — including the ' +
-      '`account.deletion.purged` entry that proves the erasure happened. Destroying ' +
-      'the audit trail to satisfy erasure would remove the evidence of erasure.',
+      'The retained event store. `ON DELETE SET NULL` sheds `actor_id` on commit, and ' +
+      '`actor_email`, which no FK reaches, is cleared to NULL by id before the user row goes. ' +
+      'The trail survives, with the `account.deletion.purged` entry (address in metadata) ' +
+      'that proves the erasure; destroying the trail would destroy that proof.',
   },
 
   // ── Deliberately not purged ───────────────────────────────────────────────
@@ -418,12 +418,12 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     reason:
       'NO user linkage. `source_type` is only ever `document` or `table` (see ' +
       '`ai/document-sync.ts` and `ai/knowledge-sync.ts`), so an embedding indexes ' +
-      'CONTENT, never a person. RESIDUAL, named rather than hidden: an embedding of ' +
-      "a table record the erased user authored survives the record's deletion, " +
-      'because the purge does not know which record ids it removed. That is the ' +
-      'derived-index staleness of `_admin_search_index`, but it belongs on the ' +
-      'record-delete path (every deleted record leaks it, not only an erased ' +
-      "user's), so it is out of scope here and tracked separately.",
+      'CONTENT, never a person. An embedding of a table record the erased user ' +
+      "authored does not survive the record's deletion: the purge's `DELETE` " +
+      'reaches the knowledge listener (`ai-knowledge-listener.ts`), which removes ' +
+      "the record's chunks (`removeKnowledgeRecordEmbeddings`), as for any deleted " +
+      'record; a record moved to the trash leaves the index the same way. Nothing ' +
+      'to sweep here.',
   },
   'system.webhook_deliveries': {
     verdict: 'exempt',

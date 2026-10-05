@@ -7,6 +7,7 @@
 
 import { Context, Data, type Effect } from 'effect'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
+import type { ContentDirArticleBody } from '@/domain/models/app/pages/content-dir-access'
 
 /** Failure reading the on-disk content directory a page is backed by. */
 export class ContentDirReadError extends Data.TaggedError('ContentDirReadError')<{
@@ -40,7 +41,9 @@ export class ContentDirReader extends Context.Service<
      * or `undefined` when no file in the directory derives it.
      *
      * FRONT MATTER IS STRIPPED; the body is what remains. The export surface
-     * serves the prose a reader asked for, not the page's internal metadata.
+     * serves the prose a reader asked for, not the page's internal metadata —
+     * except the article's own `access`, returned beside the body so
+     * the route can ask the router's question of it for the caller.
      *
      * A miss and an empty directory are the same answer, which is what lets the
      * route answer 404 without distinguishing "this slug is wrong" from "the
@@ -50,7 +53,7 @@ export class ContentDirReader extends Context.Service<
     readonly readBodyForSlug: (
       contentDir: Readonly<ContentDir>,
       slug: string
-    ) => Effect.Effect<string | undefined, ContentDirReadError>
+    ) => Effect.Effect<ContentDirArticleBody | undefined, ContentDirReadError>
 
     /**
      * A checksum over the CURRENT on-disk state of this `contentDir`.

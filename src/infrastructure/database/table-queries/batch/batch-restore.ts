@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
 import {
   db,
   NotFoundError,
@@ -22,7 +23,7 @@ import {
   wrapDatabaseError,
   type PassthroughError,
 } from '../statement/error-handling'
-import { validateTableName } from '../statement/validation'
+import { tableIdentifier } from '../statement/validation'
 import { BATCH_FANOUT_CONCURRENCY } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -46,8 +47,9 @@ const validateAndFilterRecordsForRestore = (
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly string[], PassthroughError | NotFoundError> =>
-  Effect.all(
-    recordIds.map((recordId) =>
+  Effect.forEach(
+    recordIds,
+    (recordId) =>
       // The `catch` TAGS the rejection into a `PassthroughError` carrier,
       // which `validateAndFilterRecordsWithEffect` unwraps before it
       // composes its message and stores its `cause`. That keeps the error
@@ -74,8 +76,7 @@ const validateAndFilterRecordsForRestore = (
           return { recordId, error: undefined, isDeleted }
         },
         catch: passthroughError,
-      })
-    ),
+      }),
     { concurrency: BATCH_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.flatMap((validationResults) => {
@@ -187,8 +188,7 @@ export function batchRestoreRecords(
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-          const tableIdent = sql.identifier(tableName)
+          const tableIdent = tableIdentifier(tableName)
 
           // Validate and filter to only soft-deleted records
           const deletedRecordIds = yield* validateAndFilterRecordsWithEffect(
@@ -217,6 +217,15 @@ export function batchRestoreRecords(
     )
 
     yield* logRestoreActivities(session, tableName, restoredRecords)
+    // A restored row comes back into view: announced as an insert.
+    yield* reportCommittedRows(
+      restoredRecords.map((row) => ({
+        tableName,
+        event: 'insert' as const,
+        recordId: String(row['id']),
+        row,
+      }))
+    )
 
     return restoredRecords.length
   })

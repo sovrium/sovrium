@@ -110,6 +110,14 @@ const loadModule = (
 }
 
 /**
+ * `true` when a token leaves a quote open — `font-semibold'`. A balanced pair is
+ * legitimate inside an arbitrary value (`content-['→']`, `bg-[url('/a.png')]`);
+ * an odd one is a typo that no utility can hold.
+ */
+const leavesQuoteOpen = (token: string): boolean =>
+  ['"', "'", '`'].some((quote) => token.split(quote).length % 2 === 0)
+
+/**
  * Extract Tailwind utility-class candidate tokens from a raw class string —
  * the value of a `className` / `class` property authored in an app config.
  *
@@ -126,7 +134,12 @@ export const extractClassTokens = (raw: string): readonly string[] =>
     // Drop empties (from leading/trailing/collapsed whitespace) and tokens that
     // contain `$` — those are render-time interpolation placeholders, not
     // literal utilities. The caller dedups across all strings globally.
-    .filter((token) => token.length > 0 && !token.includes('$'))
+    //
+    // A token leaving a quote open is a typo (`font-semibold'`), never a
+    // utility, and the browser matches no rule to it. Offered to the engine it
+    // opened a string the candidate scanner never closed, and every class after
+    // it on the page went missing from the stylesheet.
+    .filter((token) => token.length > 0 && !token.includes('$') && !leavesQuoteOpen(token))
 
 /**
  * Recursively collect every class token authored in an app config object by

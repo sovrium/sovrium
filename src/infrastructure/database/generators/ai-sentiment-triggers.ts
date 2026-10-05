@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -83,7 +84,7 @@ const SENTIMENT_PLACEHOLDER_SQL = `  -- Deterministic keyword heuristic for the 
 const buildSentimentGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-NULL user value.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL THEN
       RETURN NEW;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -92,14 +93,14 @@ const buildSentimentGuardSql = (fieldName: string, sourceFields: readonly string
       RETURN NEW;
     END IF;
     -- User changed the sentiment column directly in this statement: honour it.
-    IF NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName} AND NEW.${fieldName} IS NOT NULL THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS DISTINCT FROM OLD.${fieldName} AND NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;`
 
@@ -123,7 +124,7 @@ const buildSentimentNotifySql = (
 
   return `${SENTIMENT_PLACEHOLDER_SQL}
 
-  NEW.${fieldName} = jsonb_build_object(
+  NEW.${quoteSqlIdentifier(fieldName)} = jsonb_build_object(
     'label', sentiment_label,
     'score', sentiment_score,
     'explanation', 'Deterministic placeholder based on keyword analysis of the source text.'
@@ -138,7 +139,7 @@ const buildSentimentNotifySql = (
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
     'record_id', NEW.id,
-    'value', NEW.${fieldName}::text,
+    'value', NEW.${quoteSqlIdentifier(fieldName)}::text,
     'source', left(source_content, 4000),
     'prompt', ${promptLiteral},
     'systemPrompt', ${systemPromptLiteral},

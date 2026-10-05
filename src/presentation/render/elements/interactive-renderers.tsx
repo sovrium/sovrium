@@ -229,7 +229,8 @@ export function renderForm(config: RenderFormConfig): ReactElement {
       action as unknown as AutomationFormAction,
       tables,
       component,
-      buckets
+      buckets,
+      { lang: effectiveConfig.lang, languages: effectiveConfig.languages }
     )
   }
   if (action?.type === 'auth') return renderAuthFormVariant(effectiveConfig)
@@ -313,6 +314,7 @@ export function renderFileUpload(config: RenderFileUploadConfig): ReactElement {
       className={className}
       data-testid={testId}
       data-component="file-upload"
+      data-component-type="file-upload"
     >
       {/*
         A plain secondary button, from the one button recipe — R-E. This was a
@@ -364,6 +366,8 @@ export interface RenderSearchInputConfig {
   readonly props: ElementProps
   readonly debounceMs?: number
   readonly minQueryLength?: number
+  /** The placeholder when the author declares none, in the page language. */
+  readonly defaultPlaceholder?: string
 }
 
 /**
@@ -392,7 +396,7 @@ export interface RenderSearchInputConfig {
  * behaviour the config never asked for.
  */
 export function renderSearchInput(config: RenderSearchInputConfig): ReactElement {
-  const { props, debounceMs, minQueryLength } = config
+  const { props, debounceMs, minQueryLength, defaultPlaceholder = 'Search...' } = config
   const id = props.id as string | undefined
   const placeholder = props.placeholder as string | undefined
   const className = props.className as string | undefined
@@ -411,8 +415,8 @@ export function renderSearchInput(config: RenderSearchInputConfig): ReactElement
       <SearchGlyph className={computeSearchInputIconClasses()} />
       <input
         type="search"
-        placeholder={placeholder ?? 'Search...'}
-        aria-label={placeholder ?? 'Search...'}
+        placeholder={placeholder ?? defaultPlaceholder}
+        aria-label={placeholder ?? defaultPlaceholder}
         className={fieldClassName}
         data-search-debounce={debounceMs === undefined ? undefined : String(debounceMs)}
         data-search-min-length={minQueryLength === undefined ? undefined : String(minQueryLength)}

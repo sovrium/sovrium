@@ -11,19 +11,16 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { oversizedRecordingRefusal } from '@/domain/models/process-env/ai/speech'
 import { logError } from '@/infrastructure/logging/logger'
+import { isTransientSpeechFailure } from '../run/retry-classification'
 import {
   audioMimeForTranscription,
   resolveTranscribeSource,
   type TranscribeSource,
 } from './ai-transcribe-source'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
-import type { Transcript } from '@/application/ports/services/speech-service'
+import type { SpeechError, Transcript } from '@/application/ports/services/speech-service'
 
 /**
  * `ai/transcribe` — turn a stored recording into text on the operator's speech
@@ -33,12 +30,23 @@ import type { Transcript } from '@/application/ports/services/speech-service'
  * run, and so a `retry` policy re-runs it): a transcript is the input of the
  * steps that follow, and a `record/update` writing an error envelope into a
  * long-text field would be worse than a failed run an operator can see.
+ *
+ * Only a failure another attempt could fix is retried: a recording refused
+ * before it is sent, an unconfigured endpoint, or a `4xx` other than `408` /
+ * `429` from the endpoint carries `retryable: false` and fails the run at once.
  */
 
 const props = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
   (action['props'] as Record<string, unknown> | undefined) ?? {}
 
 const failure = (error: string): ActionOutcome => ({ status: 'failure', error })
+
+/** A failure no retry can turn into a success: the same input is refused every time. */
+const permanentFailure = (error: string): ActionOutcome => ({
+  status: 'failure',
+  error,
+  retryable: false,
+})
 
 const optionalString = (p: Readonly<Record<string, unknown>>, key: string): string | undefined => {
   const value = stringProp(p, key).trim()
@@ -56,10 +64,7 @@ const rawSource = (
   runContext: ActionRunContext | undefined
 ): unknown => {
   if (runContext === undefined) return resolved['source']
-  const whole = resolveRunContextValue(
-    rawActionProps(runContext)['source'],
-    buildRunContextView(runContext)
-  )
+  const whole = resolveOwnProp(runContext, authoredActionProps(runContext)['source'])
   return typeof whole === 'object' && whole !== null ? whole : resolved['source']
 }
 
@@ -116,6 +121,10 @@ const preflight = (source: TranscribeSource) =>
     return decided
   })
 
+/** A failed transcription, retryable only when the speech endpoint's answer allows it. */
+const speechFailure = (error: Readonly<SpeechError>): ActionOutcome =>
+  isTransientSpeechFailure(error) ? failure(error.message) : permanentFailure(error.message)
+
 const toOutput = (transcript: Transcript): Readonly<Record<string, unknown>> => ({
   text: transcript.text,
   ...(transcript.language !== undefined ? { language: transcript.language } : {}),
@@ -131,11 +140,13 @@ export const handleAiTranscribe: ActionHandler = (action, _app, _automation, run
     const p = props(action)
     const source = resolveTranscribeSource(rawSource(p, runContext), optionalString(p, 'bucket'))
     if (source === undefined) {
-      return failure('ai.transcribe requires a source: a storage key or an attachment value')
+      return permanentFailure(
+        'ai.transcribe requires a source: a storage key or an attachment value'
+      )
     }
 
     const checked = yield* preflight(source)
-    if ('refusal' in checked) return failure(checked.refusal)
+    if ('refusal' in checked) return permanentFailure(checked.refusal)
     const { audioMime } = checked
 
     const storage = yield* StorageService
@@ -170,7 +181,7 @@ export const handleAiTranscribe: ActionHandler = (action, _app, _automation, run
         timestamps: p['timestamps'] === true || p['timestamps'] === 'true',
       })
     )
-    if (transcribed._tag === 'Failure') return failure(transcribed.failure.message)
+    if (transcribed._tag === 'Failure') return speechFailure(transcribed.failure)
     return { status: 'success', output: toOutput(transcribed.success) } as const
   }).pipe(
     Effect.withSpan('automations.handle-ai-transcribe', { attributes: actionAttributes(action) })

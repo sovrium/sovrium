@@ -178,6 +178,32 @@ export async function appendAuditEntryToDbTx(
 }
 
 /**
+ * Clear the actor address on every entry an erased person made, inside the
+ * erasure transaction.
+ *
+ * `actor_id` sheds itself (`ON DELETE SET NULL`) when the user row goes, but
+ * `actor_email` is a plain column nothing else clears, so without this the
+ * trail would go on naming the erased person by address. The entries stay, as
+ * acts with their actor's tier. The match is on `actor_id`, and must run BEFORE
+ * the user row is deleted: afterwards the id is null and nothing links the row
+ * to the person. An address is never matched — it is not unique over time.
+ *
+ * Drizzle binds `userId` as a parameter on both dialects.
+ */
+export async function shedActorEmailInDbTx(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  const writer = tx as unknown as DrizzleDB
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside an open transaction
+  await writer
+    .update(auditLog)
+    // eslint-disable-next-line unicorn/no-null -- a cleared address is SQL NULL, never a placeholder
+    .set({ actorEmail: null })
+    .where(eq(auditLog.actorId, userId))
+}
+
+/**
  * An equality predicate for one optional filter field, or `undefined` when the
  * caller did not supply it.
  *
@@ -256,6 +282,48 @@ export async function listAuditEntriesFromDb(
     // than crash the read endpoint when the table is missing.
     logError('[audit-log] failed to read entries', error)
     return []
+  }
+}
+
+/**
+ * `true` when an entry of `action` about `resourceId` has been written since the
+ * latest entry of `sinceAction` about the same resource — or at any time, when
+ * there is no `sinceAction` entry to measure from.
+ *
+ * Two reads on the indexed `action` column, each stopping at one row. It is how
+ * a recurring job records a condition once per episode rather than once per
+ * run: the episode starts at `sinceAction` (a new one starts over), and any
+ * `action` entry after it means this episode is already on the trail.
+ *
+ * A failed read answers `false`, so the caller records again: a duplicate entry
+ * is the lesser fault next to a missing one.
+ */
+export async function hasAuditEntrySinceLatest(
+  input: Readonly<{ action: string; sinceAction: string; resourceId: string }>
+): Promise<boolean> {
+  try {
+    const anchor = await db
+      .select({ at: auditLog.createdAt })
+      .from(auditLog)
+      .where(and(eq(auditLog.action, input.sinceAction), eq(auditLog.resourceId, input.resourceId)))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(1)
+    const since = anchor[0]?.at
+    const found = await db
+      .select({ id: auditLog.id })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, input.action),
+          eq(auditLog.resourceId, input.resourceId),
+          since === undefined ? undefined : gte(auditLog.createdAt, since)
+        )
+      )
+      .limit(1)
+    return found.length > 0
+  } catch (error) {
+    logError('[audit-log] failed to look up an earlier entry', error, { action: input.action })
+    return false
   }
 }
 

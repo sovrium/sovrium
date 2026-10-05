@@ -42,7 +42,7 @@ export function OpenGraphMeta({
   const fields: ReadonlyArray<{ readonly key: string; readonly value?: string }> = [
     { key: 'title', value: resolveValue(openGraph.title) },
     { key: 'description', value: resolveValue(openGraph.description) },
-    { key: 'image', value: openGraph.image },
+    { key: 'image', value: resolveValue(openGraph.image) },
     { key: 'image:alt', value: resolveValue(openGraph.imageAlt) },
     { key: 'url', value: openGraph.url },
     { key: 'type', value: openGraph.type },

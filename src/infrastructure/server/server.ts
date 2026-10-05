@@ -27,6 +27,7 @@ import { LockFileWriteError } from '@/infrastructure/errors/lock-file-write-erro
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
 import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
+import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
 import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
 import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
@@ -67,7 +68,6 @@ import type { ServerConfig } from '@/infrastructure/server/server-config'
 
 // Commit 1 of the split keeps every name this module used to export resolving
 // from here. `apply-symbol-moves.ts` re-points the importers and deletes these.
-export { createHonoApp } from '@/infrastructure/server/compose-hono-app'
 export type { ServerConfig } from '@/infrastructure/server/server-config'
 
 /**
@@ -224,6 +224,12 @@ export const createServer = (
         registerActivityLogRetentionScheduler,
         registerFailureRollupScheduler(config.app),
         registerStuckRunSweepScheduler(config.app),
+        // Approval timeouts: a boot sweep for the requests that expired while
+        // the server was stopped — forked on the scheduler's scope, since a
+        // resumed run's tail can take minutes and must not hold the banner —
+        // then one every minute. Post-bind, because an `onTimeout: approve`
+        // resumes its run through this runtime.
+        registerApprovalExpiryScheduler(config.app, process.env),
         registerWeeklyDigestScheduler(config.app),
         // The weekly summary's boot catch-up: one summary for a week missed
         // while the server was down. Post-bind, because it reads every domain

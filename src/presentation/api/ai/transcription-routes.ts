@@ -22,8 +22,8 @@ import {
   type AiAnonRateLimit,
 } from '@/presentation/api/ai/ai-anon-rate-limit'
 import { checkChatRateLimit } from '@/presentation/api/ai/chat-rate-limit'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import type { SpeechError, Transcript } from '@/application/ports/services/speech-service'
@@ -192,11 +192,11 @@ const gateCaller = (
 ): Response | undefined => {
   const session = getSessionContext(c)
   if (app?.auth !== undefined && session === undefined) {
-    return c.json(errorBody({ error: 'Not Found', code: ApiErrorCode.NOT_FOUND }), 404)
+    return notFound(c, 'Not Found')
   }
   const anonymous = anonLimit(c, app, 'transcriptions')
   if (anonymous !== undefined) return anonymous
-  const principal = session?.userId ?? `ip:${getRequestClientIp(c)}`
+  const principal = session?.userId ?? `ip:${getRequestRateLimitKey(c)}`
   const rate = checkChatRateLimit(`transcriptions:${principal}`)
   return rate.limited ? rateLimitedResponse(c, rate.retryAfter) : undefined
 }

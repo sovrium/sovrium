@@ -50,17 +50,22 @@ export function isViewBoundSource(dataSource: unknown): boolean {
 /**
  * The resolved grid inputs, narrowed to what a view-bound grid may be told:
  * the view's own columns (all of the table's when the view lists none), and
- * no views catalogue or permission block.
+ * no views catalogue or permission block. `maskedFields` is the view's column
+ * list as its route answers the grid's reader (`boundViewFieldsOf`), which
+ * names no field she may not read — and, when given, is final: an empty list
+ * is a reader the view's route refuses (or one who reads none of its fields),
+ * and names nothing. Only the view's OWN empty list means "every column".
  */
 export function narrowToBoundView(
   inputs: TypeSpecificResolvedInputs,
-  view: BoundView
+  view: BoundView,
+  maskedFields?: readonly string[]
 ): TypeSpecificResolvedInputs {
-  const listed = view.fields
-  const keep =
-    listed === undefined || listed.length === 0
-      ? (name: string) => (inputs.dataTableTableFields ?? []).includes(name)
-      : (name: string) => listed.includes(name)
+  const listed = maskedFields ?? view.fields
+  const everyColumn = maskedFields === undefined && (listed === undefined || listed.length === 0)
+  const keep = everyColumn
+    ? (name: string) => (inputs.dataTableTableFields ?? []).includes(name)
+    : (name: string) => (listed ?? []).includes(name)
   return {
     ...inputs,
     dataTableTableFields: inputs.dataTableTableFields?.filter(keep),

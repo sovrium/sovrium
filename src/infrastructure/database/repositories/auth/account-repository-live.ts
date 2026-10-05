@@ -10,6 +10,7 @@ import { Effect, Layer } from 'effect'
 import {
   AccountDatabaseError,
   AccountRepository,
+  type AccountAuditEntryRow,
   type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
@@ -23,6 +24,7 @@ import {
   authTableRef,
   formSubmissionsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
   executeRaw,
@@ -30,7 +32,9 @@ import {
   type RawSqlRunner,
 } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
+import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { closeUserConnections, SESSION_ENDED } from '@/infrastructure/realtime/connection-counter'
 
 /** Wrap a DB promise, adapting failures to AccountDatabaseError. */
 const wrap = makeDbWrap((cause) => new AccountDatabaseError({ cause }))
@@ -128,8 +132,9 @@ const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]
   // carries `execute()` (Postgres) or `all()` (SQLite); the helper picks
   // whichever the active dialect needs (never the Postgres-only `db.execute`).
   const runner = db as unknown as RawSqlRunner
-  return Effect.all(
-    sanitized.map((candidate) => wrap(() => probeCreatedByColumn(runner, candidate))),
+  return Effect.forEach(
+    sanitized,
+    (candidate) => wrap(() => probeCreatedByColumn(runner, candidate)),
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.map((matched) =>
@@ -206,8 +211,27 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
         })
         .from(submissions)
         .where(eq(submissions.submitterUserId, userId))
-        .orderBy(desc(submissions.submittedAt))) as readonly AccountFormSubmissionRow[]
+        .orderBy(
+          desc(submissions.submittedAt),
+          desc(submissions.id)
+        )) as readonly AccountFormSubmissionRow[]
     }),
+
+  loadAuditTrail: (userId) =>
+    wrap(
+      async () =>
+        (await db
+          .select({
+            action: auditLog.action,
+            createdAt: auditLog.createdAt,
+            resourceType: auditLog.resourceType,
+            resourceId: auditLog.resourceId,
+            result: auditLog.result,
+          })
+          .from(auditLog)
+          .where(eq(auditLog.actorId, userId))
+          .orderBy(desc(auditLog.createdAt), desc(auditLog.id))) as readonly AccountAuditEntryRow[]
+    ),
 
   loadScheduledErasure: (userId) =>
     wrap(async () => {
@@ -225,7 +249,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
     wrap(async () =>
       executeRawTyped<Record<string, unknown>>(
         db,
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
+        sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
       )
     ),
 
@@ -257,5 +281,10 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
         // eslint-disable-next-line functional/no-expression-statements -- DB side effect
         await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
       })
+      // Those sessions went by raw SQL, which no Better Auth session-delete
+      // hook sees: close the live realtime connections they opened now, with
+      // the session-ended code, rather than at the next re-check.
+      // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect
+      closeUserConnections(userId, SESSION_ENDED)
     }),
 })

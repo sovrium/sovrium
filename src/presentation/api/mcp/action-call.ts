@@ -40,18 +40,19 @@
  * in `system.automation_definitions` is idempotent (findByName before
  * create), so repeated invocations reuse the same FK.
  *
- * Variable substitution: caller args become the Handlebars context for
- * `{{varName}}` placeholders in the template's action body. Pre-substituted
- * before the run loop so the action handler sees concrete literals — the
- * run loop's own `{{trigger.data.X}}` substitution then becomes a no-op for
- * these tools (no `{{...}}` remains). Caller args are also forwarded as
- * `triggerData.body` so cross-cutting `{{trigger.data.X}}` references in
- * any nested action sub-shape continue to resolve.
+ * Variable substitution: the template is filled in ONCE, before the run
+ * (`fillInvokedTemplateAction`): `{{varName}}` and `{{trigger.data.varName}}`
+ * read a caller arg, a `$varName` a declared parameter, `$env.X` the app's
+ * env. A caller arg is a value the template pass inserts without parsing it,
+ * and the run executes the filled action with its props FINAL, so no step
+ * reads an arg again for `$env.` or `{{...}}`. Caller args are also forwarded
+ * as `triggerData.body` for the run's history.
  */
 
 import { Effect } from 'effect'
 import { defaultActionHandlers } from '@/application/use-cases/automations/action-handlers'
-import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
+import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
+import { fillInvokedTemplateAction } from '@/application/use-cases/automations/run/prop-substitution'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -62,6 +63,7 @@ import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
+import type { RuntimeActionTemplate } from '@/application/use-cases/automations/run/types'
 import type { App } from '@/domain/models/app'
 import type { ActionTemplate } from '@/domain/models/app/actions'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
@@ -142,30 +144,39 @@ const findFirstMissingRequiredParam = (
   return required.find((name) => !(name in args))
 }
 
+/** The parameters a template's tool declares: its whitelist, else its variables. */
+const declaredParameterNames = (template: ActionTemplate): ReadonlyArray<string> => {
+  const access = template.aiAccess
+  return typeof access === 'object' && access.fieldExposure === 'whitelist'
+    ? (access.whitelistFields ?? [])
+    : Object.keys(template.variables ?? {})
+}
+
 /**
- * Synthesise a single-step manual automation from the action template, with
- * caller args pre-substituted into `{{varName}}` placeholders in the
- * template's action body. The resulting automation is fed to
- * `executeAutomationRun` so persistence (run row in `system.automation_runs`,
- * step rows, in-memory store) and handler dispatch follow the exact same
- * code path as a regular manual automation.
- *
- * Pre-substitution uses the caller args directly as the Handlebars context
- * — `{{name}}` resolves to `args.name`, `{{recipient}}` to `args.recipient`,
- * etc. — rather than nesting them under `trigger.data.X`. This matches the
- * schema-author intent: action-template variables are first-class
- * parameters, not trigger-envelope leaves.
+ * Synthesise a single-step manual automation from the action template, filled
+ * in once with the caller args (see the module header). The resulting
+ * automation is fed to `executeAutomationRun` with `propsFinal`, so
+ * persistence (run row in `system.automation_runs`, step rows, in-memory
+ * store) and handler dispatch follow the exact same code path as a regular
+ * manual automation, without a second pass over the filled props.
  */
 const synthesizeAutomation = (
+  app: App,
   template: ActionTemplate,
   args: Readonly<Record<string, unknown>>
 ): NonNullable<App['automations']>[number] => {
-  const substitutedAction = resolveTriggerInValue(template.action, args) as Record<string, unknown>
+  const filledAction = fillInvokedTemplateAction({
+    // The decoded template, read as the run loop reads `app.actions[]`.
+    template: template as unknown as RuntimeActionTemplate,
+    args,
+    parameterNames: declaredParameterNames(template),
+    envLookup: buildEnvLookup(app.env, process.env),
+  })
   const synthName = `mcp-action:${template.name}`
   return {
     name: synthName,
     trigger: { type: 'manual' },
-    actions: [substitutedAction],
+    actions: [filledAction],
     enabled: true,
   } as unknown as NonNullable<App['automations']>[number]
 }
@@ -238,7 +249,7 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
     return toolFailure(-32_602, `Missing required parameter '${missing}'`)
   }
 
-  const automation = synthesizeAutomation(template, envelope.args)
+  const automation = synthesizeAutomation(app, template, envelope.args)
   const program = Effect.gen(function* () {
     const automationId = yield* resolveAutomationId(automation.name, automation)
     return yield* executeAutomationRun({
@@ -250,6 +261,10 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
       triggerData: { body: envelope.args },
       handlers: defaultActionHandlers,
       userId: caller.userId,
+      // An action template is called by a person: its record actions write as them.
+      startedByHand: true,
+      // Filled in once above: no step reads a caller arg again.
+      propsFinal: true,
     })
   })
 

@@ -65,7 +65,6 @@ import {
   automationsOverviewQuerySchema,
   automationsRunsDetailParamsSchema,
   automationsRunsListQuerySchema,
-  type AutomationRunAdminItem,
   type AutomationsRunsListQuery,
 } from '@/domain/models/api/admin/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
@@ -75,6 +74,7 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
@@ -215,7 +215,7 @@ async function handleRunDetail(c: Context, app: App): Promise<Response> {
     runId: c.req.param('runId'),
   })
   if (!parsedParams.success) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   const { runId } = parsedParams.data
 
@@ -224,7 +224,7 @@ async function handleRunDetail(c: Context, app: App): Promise<Response> {
   if (outcome._tag === 'NotFound') {
     // Anti-enum 404 — short-circuit BEFORE the audit emit (the spec asserts
     // that the unknown-id path does NOT produce an audit entry).
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   if (outcome._tag === 'ValidationFailed') {
     logError(
@@ -271,7 +271,7 @@ function retryErrorResponse(c: Context, error: ReplayAutomationRunError): Respon
     error._tag === 'AutomationRunNotFound' ||
     error._tag === 'AutomationRunMismatch'
   ) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json(
@@ -291,7 +291,7 @@ async function handleRetryRun(c: Context, app: App): Promise<Response> {
     runId: c.req.param('runId'),
   })
   if (!parsedParams.success) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   const { runId } = parsedParams.data
 
@@ -367,7 +367,7 @@ async function handlePauseMutation(
 
   const parsedParams = decodeSafe(automationPauseParamsSchema)({ name: c.req.param('name') })
   if (!parsedParams.success) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   const { name } = parsedParams.data
 
@@ -387,7 +387,7 @@ async function handlePauseMutation(
 
   const outcome = result.success
   if (outcome._tag === 'NotFound') {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c, 'Not found')
   }
   if (outcome._tag === 'Conflict') {
     return c.json(
@@ -462,7 +462,3 @@ export function chainAdminAutomationsRoutes<T extends Hono>(honoApp: T, resolveA
       .get('/api/admin/automations', (c) => handleAutomationsCatalog(c, resolveApp())) as T
   )
 }
-
-// Re-export the schema type so the api-routes wiring's `import type` stays
-// minimal (no need to also import the schema module).
-export type { AutomationRunAdminItem }

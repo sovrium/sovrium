@@ -11,13 +11,23 @@ import {
   createRecordProgram,
   updateRecordProgram,
 } from '@/application/use-cases/tables/write-record-programs'
-import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
-import { buildSystemSession } from '../build-guest-session'
+import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
+import { buildSyntheticSession } from '../build-guest-session'
 import { failed, batchOutcome, runBatchItems } from './record-batch-loop'
+import {
+  CALLER_REFUSAL,
+  callerMayWrite,
+  callerRefusal,
+  deletesOf,
+  runLinkReader,
+  updatesOf,
+  writerActorOf,
+} from './record-caller-gate'
+import { automationCreateFields } from './record-create-fields'
 import {
   declaredFieldNames,
   errorMessageOf,
@@ -25,17 +35,19 @@ import {
   resolveActionTargetIds,
   resolveIdsByFilter,
 } from './record-filters'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { resolveOwnProps } from './run-context-resolution'
 import { actionAttributes, findMultiSelectViolationMessage, numberProp, stringProp } from './shared'
 import type { ItemResult } from './record-batch-loop'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import type { CallerWriteRequest } from '@/application/use-cases/tables/permissions/caller-write-authority'
 import type { DatabaseError, UnknownFilterFieldError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
+
+/** What an item needs once the caller gate may run: the record ports plus the caller lookups. */
+type GateRequirements = TableRepository | AuthRepository | DataSourceRepository
 
 /**
  * The `record` batch operators: `batchCreate`, `batchUpdate`, `batchDelete` and
@@ -81,7 +93,8 @@ import type { App } from '@/domain/models/app'
 type BatchProps = Readonly<Record<string, unknown>>
 
 /**
- * Re-resolve the action's props from the RAW pre-substitution action.
+ * Resolve the action's props from the AUTHORED action (or take them as given
+ * when they are final — see `resolveOwnProps`).
  *
  * The run loop's `resolveTriggerInValue` pass rewrites every STRING leaf through
  * the template engine, so `items: '{{trigger.data.items}}'` — a string leaf
@@ -91,10 +104,7 @@ type BatchProps = Readonly<Record<string, unknown>>
  */
 const resolvedProps = (action: BatchProps, runContext: Parameters<ActionHandler>[3]): BatchProps =>
   runContext
-    ? (resolveRunContextValue(
-        rawActionProps(runContext),
-        buildRunContextView(runContext)
-      ) as Record<string, unknown>)
+    ? (resolveOwnProps(runContext) as Record<string, unknown>)
     : ((action['props'] as Record<string, unknown> | undefined) ?? {})
 
 /**
@@ -120,12 +130,13 @@ const asRecord = (value: unknown): BatchProps | undefined =>
 const createItem = (input: {
   readonly item: unknown
   readonly tableName: string
-  readonly session: ReturnType<typeof buildSystemSession>
+  readonly session: ReturnType<typeof buildSyntheticSession>
   readonly authorship: Readonly<Record<string, string>>
   readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository> =>
+  readonly automation: AutomationContext
+}): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, session, authorship, app } = input
+    const { item, tableName, session, authorship, app, automation } = input
     // A non-object item degrades to "no fields" rather than failing, preserving
     // the operator's original leniency; the create itself then fails on any
     // required column, which is where the operator's error belongs.
@@ -137,9 +148,15 @@ const createItem = (input: {
     // it takes `app` optionally and this caller passes none.
     const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
     if (multiSelectError) return failed(multiSelectError)
+    const refused = yield* callerRefusal(app, automation, [{ op: 'create', tableName, fields }])
+    if (refused !== undefined) return failed(refused.error)
 
     const created = yield* Effect.result(
-      createRecordProgram({ session, tableName, fields: { ...fields, ...authorship } })
+      createRecordProgram({
+        session,
+        tableName,
+        fields: { ...normalizeDateValuesIn(app.tables, tableName, fields), ...authorship },
+      })
     )
     return created._tag === 'Failure'
       ? failed(errorMessageOf(created.failure))
@@ -153,7 +170,7 @@ const createItem = (input: {
  * Runs on the same `runBatchItems` loop as its siblings, so the documented
  * `continueOnItemError` default (stop at the first failing item) holds here too.
  */
-export const handleRecordBatchCreate: ActionHandler = (action, app, _automation, runContext) =>
+export const handleRecordBatchCreate: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = resolvedProps(action, runContext)
     const tableName = stringProp(props, 'table')
@@ -162,14 +179,16 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, _automation,
     }
     const continueOnItemError = props['continueOnItemError'] === true
 
-    // System authority — same rationale as handleRecordCreate: a durable,
-    // non-null actor id satisfies NOT-NULL authorship columns.
-    const session = buildSystemSession()
-    const authorship = buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
+    // Same rationale as handleRecordCreate: a durable, non-null actor id — the
+    // caller of a hand-started run, else the system — satisfies NOT-NULL
+    // authorship columns.
+    const actorId = writerActorOf(automation)
+    const session = buildSyntheticSession(actorId)
+    const authorship = buildCreateAuthorshipOverrides(app.tables, tableName, actorId)
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => createItem({ item, tableName, session, authorship, app }),
+      runItem: (item) => createItem({ item, tableName, session, authorship, app, automation }),
     })
     return batchOutcome({
       tally,
@@ -199,13 +218,47 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, _automation,
 const refusedItem = (outcome: ActionOutcome): ItemResult =>
   failed(outcome.error ?? 'record filter could not be resolved')
 
+/**
+ * Write one change to every matched row — the update half `batchUpdate` and
+ * `batchUpsert` share. It goes through the records API's update program WITH
+ * the app, so a many-to-many field is written to its junction rather than
+ * failing on a base column it does not have, and a cleared one unlinks only
+ * what the run's starter may read (every link for a run nobody started) —
+ * exactly as `record/update` does.
+ */
+const writeUpdates = (input: {
+  readonly actorId: string
+  readonly tableName: string
+  readonly ids: readonly string[]
+  readonly data: Readonly<Record<string, unknown>>
+  readonly app: App
+  readonly automation: AutomationContext
+}): Effect.Effect<ItemResult, never, GateRequirements> =>
+  Effect.gen(function* () {
+    const { actorId, tableName, ids, data, app, automation } = input
+    const session = buildSyntheticSession(actorId)
+    const linkReader = yield* runLinkReader(automation)
+    const fields = { ...data, ...buildUpdateAuthorshipOverrides(app.tables, tableName, actorId) }
+    const written = yield* Effect.result(
+      Effect.forEach(
+        ids,
+        (id) => updateRecordProgram(session, tableName, id, { fields, app, linkReader }),
+        { discard: true }
+      )
+    )
+    return written._tag === 'Failure'
+      ? failed(errorMessageOf(written.failure))
+      : ({ kind: 'updated' } as const)
+  }).pipe(Effect.withSpan('automations.batch-write-updates'))
+
 const applyUpdateItem = (input: {
   readonly item: unknown
   readonly tableName: string
   readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository> =>
+  readonly automation: AutomationContext
+}): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, app } = input
+    const { item, tableName, app, automation } = input
     const entry = asRecord(item)
     if (entry === undefined) return failed('batchUpdate item must be an object')
 
@@ -239,23 +292,15 @@ const applyUpdateItem = (input: {
       // broken integration report a clean run forever.
       return failed(`batchUpdate item matched no records in '${tableName}'`)
     }
-
-    const session = buildSystemSession()
-    const fields = {
-      ...data,
-      ...buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
+    if (!(yield* callerMayWrite(app, automation, updatesOf(tableName, ids, data)))) {
+      return failed(CALLER_REFUSAL)
     }
-    const written = yield* Effect.result(
-      Effect.forEach(ids, (id) => updateRecordProgram(session, tableName, id, { fields }), {
-        discard: true,
-      })
-    )
-    return written._tag === 'Failure'
-      ? failed(errorMessageOf(written.failure))
-      : ({ kind: 'updated' } as const)
+
+    const actorId = writerActorOf(automation)
+    return yield* writeUpdates({ actorId, tableName, ids, data, app, automation })
   })
 
-export const handleRecordBatchUpdate: ActionHandler = (action, app, _automation, runContext) =>
+export const handleRecordBatchUpdate: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = resolvedProps(action, runContext)
     const tableName = stringProp(props, 'table')
@@ -266,7 +311,7 @@ export const handleRecordBatchUpdate: ActionHandler = (action, app, _automation,
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => applyUpdateItem({ item, tableName, app }),
+      runItem: (item) => applyUpdateItem({ item, tableName, app, automation }),
     })
     return batchOutcome({
       tally,
@@ -289,9 +334,10 @@ const upsertItem = (input: {
   readonly tableName: string
   readonly matchField: string
   readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository> =>
+  readonly automation: AutomationContext
+}): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, matchField, app } = input
+    const { item, tableName, matchField, app, automation } = input
     const data = asRecord(item)
     if (data === undefined) return failed('batchUpsert item must be an object')
 
@@ -324,28 +370,33 @@ const upsertItem = (input: {
     if (!targets.resolved) return refusedItem(targets.outcome)
 
     const { ids } = targets
-    const session = buildSystemSession()
+    const writes: readonly CallerWriteRequest[] =
+      ids.length === 0
+        ? [{ op: 'create', tableName, fields: data }]
+        : updatesOf(tableName, ids, data)
+    const refused = yield* callerRefusal(app, automation, writes)
+    if (refused !== undefined) return failed(refused.error)
+    const actorId = writerActorOf(automation)
+    const session = buildSyntheticSession(actorId)
     return ids.length === 0
-      ? yield* createUpsertRow({ session, tableName, data, app })
-      : yield* updateUpsertRows({ session, tableName, ids, data, app })
+      ? yield* createUpsertRow({ session, actorId, tableName, data, app })
+      : yield* writeUpdates({ actorId, tableName, ids, data, app, automation })
   })
 
 const createUpsertRow = (input: {
-  readonly session: ReturnType<typeof buildSystemSession>
+  readonly session: ReturnType<typeof buildSyntheticSession>
+  readonly actorId: string
   readonly tableName: string
   readonly data: Record<string, unknown>
   readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository> =>
+}): Effect.Effect<ItemResult, never, TableRepository | DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
-    const { session, tableName, data, app } = input
+    const { session, actorId, tableName, data, app } = input
     const created = yield* Effect.result(
       createRecordProgram({
         session,
         tableName,
-        fields: {
-          ...data,
-          ...buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
-        },
+        fields: automationCreateFields(app, tableName, data, actorId),
       })
     )
     return created._tag === 'Failure'
@@ -353,30 +404,7 @@ const createUpsertRow = (input: {
       : ({ kind: 'created' } as const)
   })
 
-const updateUpsertRows = (input: {
-  readonly session: ReturnType<typeof buildSystemSession>
-  readonly tableName: string
-  readonly ids: readonly string[]
-  readonly data: Record<string, unknown>
-  readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository> =>
-  Effect.gen(function* () {
-    const { session, tableName, ids, data, app } = input
-    const fields = {
-      ...data,
-      ...buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
-    }
-    const written = yield* Effect.result(
-      Effect.forEach(ids, (id) => updateRecordProgram(session, tableName, id, { fields }), {
-        discard: true,
-      })
-    )
-    return written._tag === 'Failure'
-      ? failed(errorMessageOf(written.failure))
-      : ({ kind: 'updated' } as const)
-  })
-
-export const handleRecordBatchUpsert: ActionHandler = (action, app, _automation, runContext) =>
+export const handleRecordBatchUpsert: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = resolvedProps(action, runContext)
     const tableName = stringProp(props, 'table')
@@ -391,7 +419,7 @@ export const handleRecordBatchUpsert: ActionHandler = (action, app, _automation,
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => upsertItem({ item, tableName, matchField, app }),
+      runItem: (item) => upsertItem({ item, tableName, matchField, app, automation }),
     })
     return batchOutcome({
       tally,
@@ -505,10 +533,11 @@ interface DeleteTally {
 const deleteMatchedRows = (input: {
   readonly tableName: string
   readonly ids: readonly string[]
+  readonly actorId: string
 }): Effect.Effect<DeleteTally, never, TableRepository> => {
-  // System authority — soft-delete stamps `deleted_by` with the durable
-  // system actor instead of NULL under the guest id.
-  const session = buildSystemSession()
+  // Soft-delete stamps `deleted_by` with the caller of a hand-started run, else
+  // the durable system actor — never NULL under the guest id.
+  const session = buildSyntheticSession(input.actorId)
   const start = (): DeleteTally => ({ deleted: 0, error: undefined })
   return Effect.reduce(input.ids, start, (tally, id) =>
     tally.error !== undefined
@@ -522,6 +551,13 @@ const deleteMatchedRows = (input: {
         )
   )
 }
+
+/** A batch delete the caller may not make: refused whole, nothing removed. */
+const REFUSED_DELETE = {
+  status: 'failure',
+  error: CALLER_REFUSAL,
+  output: { matched: 0, deleted: 0 },
+} as const
 
 /**
  * `record/batchDelete` — query-then-delete. Unlike its batch siblings it takes
@@ -542,7 +578,7 @@ const deleteMatchedRows = (input: {
  * off as an empty match set, and {@link deleteMatchedRows} carries the
  * committed count out of a part-way failure.
  */
-export const handleRecordBatchDelete: ActionHandler = (action, app, _automation, runContext) =>
+export const handleRecordBatchDelete: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = resolvedProps(action, runContext)
     const tableName = stringProp(props, 'table')
@@ -587,7 +623,8 @@ export const handleRecordBatchDelete: ActionHandler = (action, app, _automation,
       } as const
     }
 
-    const tally = yield* deleteMatchedRows({ tableName, ids })
+    if (!(yield* callerMayWrite(app, automation, deletesOf(tableName, ids)))) return REFUSED_DELETE
+    const tally = yield* deleteMatchedRows({ tableName, ids, actorId: writerActorOf(automation) })
     const output = { matched: ids.length, deleted: tally.deleted }
     return tally.error === undefined
       ? ({ status: 'success', output } as const)

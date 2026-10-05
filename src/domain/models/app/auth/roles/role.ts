@@ -338,7 +338,7 @@ export type RoleDefinition = Schema.Schema.Type<typeof RoleDefinitionSchema>
 export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema)
   .annotate({
     description:
-      'Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits.',
+      'Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits. A built-in role may also be listed, with nothing but a `defaultLanding` (and `pickerLanding`), to choose where it lands after signing in.',
   })
   .pipe(
     Schema.check(
@@ -351,12 +351,20 @@ export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema)
           return `Duplicate role names: ${duplicates.join(', ')}`
         }
 
-        // Check for conflicts with built-in roles
-        const conflicts = names.filter((name) =>
-          (BUILT_IN_ROLES as readonly string[]).includes(name)
-        )
+        // A built-in role may be named only to give it a landing: its level,
+        // tier and invite right are the engine's, never redefined here.
+        const conflicts = roles
+          .filter((role) => (BUILT_IN_ROLES as readonly string[]).includes(role.name))
+          .filter(
+            (role) =>
+              role.defaultLanding === undefined ||
+              role.level !== undefined ||
+              role.dashboardTier !== undefined ||
+              role.canInvite !== undefined
+          )
+          .map((role) => role.name)
         if (conflicts.length > 0) {
-          return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}`
+          return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}. A built-in role may be listed only to give it a defaultLanding (and pickerLanding).`
         }
 
         return undefined
@@ -395,7 +403,7 @@ export const DefaultRoleSchema = Schema.String.pipe(
     defaultNote: 'member',
     title: 'Default Role',
     description:
-      'Role assigned to new users by default. Accepts built-in roles or custom role names. Defaults to member.',
+      'Role assigned to new users by default. Must be a built-in role (`admin`, `member`, `viewer`) or a name declared in `auth.roles`; any other name, including the admin-tier names, fails validation at startup. Defaults to member.',
     examples: ['member', 'viewer', 'editor'],
   })
 )
@@ -442,6 +450,24 @@ const resolveRoleLevel = (role: { readonly name: string; readonly level?: number
 }
 
 /**
+ * The roles an app declares that take part in its hierarchy — `auth.roles[]`
+ * minus the entries naming a built-in role.
+ *
+ * A built-in name is listed only to give that role a landing: the
+ * entry carries no `level`, tier or invite right, and it redefines nothing. It
+ * must therefore never count as "the app declares custom roles" — otherwise an
+ * app whose only entry is `{ name: 'member', defaultLanding: '/mine' }` would
+ * resolve `member` as its top role, making every member admin-equivalent (the
+ * row-level bypass) and admin-tier (the operator console).
+ */
+const hierarchyRoles = (
+  app: AdminRoleResolvable
+): NonNullable<NonNullable<AdminRoleResolvable['auth']>['roles']> =>
+  (app.auth?.roles ?? []).filter(
+    (role) => !(BUILT_IN_ROLES as readonly string[]).includes(role.name)
+  )
+
+/**
  * Resolve the single "admin-equivalent" role for an app — the configured
  * custom role with the highest `level`.
  *
@@ -454,52 +480,50 @@ const resolveRoleLevel = (role: { readonly name: string; readonly level?: number
  *
  * Resolution rules (deliberately conservative — only ONE role is admin-equivalent):
  * - No custom roles configured → `'admin'` (built-in default; behavior unchanged).
- * - Custom roles configured → the role with the strictly highest `level`.
+ * - Custom roles configured → the role with the strictly highest `level`,
+ *   provided that level reaches the built-in `admin`'s own (80).
  *   - On a tie for the highest level, declaration order wins (the first
  *     declared role at the top level). This keeps resolution deterministic.
- *   - A custom highest-level role does NOT need to out-rank the built-in
- *     `admin` (80): an app that opts into custom roles owns its own hierarchy.
+ *   - A top custom role BELOW 80 is not admin-equivalent: `'admin'` is
+ *     returned instead, and the custom role keeps every restriction its grants
+ *     declare. Being the only custom role an app declares must never turn a
+ *     mid-level role into a superuser.
  *
  * The built-in `admin` role (level 80) remains admin-equivalent for any app
  * that does not declare custom roles, so default behavior is unchanged.
  */
 export const resolveAdminRole = (app: AdminRoleResolvable): string => {
-  const roles = app.auth?.roles ?? []
+  const roles = hierarchyRoles(app)
   if (roles.length === 0) return 'admin'
   const top = roles.reduce((best, role) =>
     resolveRoleLevel(role) > resolveRoleLevel(best) ? role : best
   )
-  return top.name
+  // A custom role stands in for the built-in admin only when it reaches the
+  // admin's own level: a lone `editor` at 40 is a restricted role, not a
+  // superuser, so the app's unrestricted role stays the built-in `admin`.
+  return resolveRoleLevel(top) >= BUILT_IN_ROLE_LEVELS['admin']! ? top.name : 'admin'
 }
 
 /**
  * `true` when `roleName` is admin-equivalent (unrestricted) for the app.
  *
- * Two roles qualify:
+ * Two roles qualify — the app's highest role, and the built-in admin:
  * - the app's resolved top role ({@link resolveAdminRole}), and
- * - the built-in `'admin'` role whenever its level (80) is at least the
- *   resolved top custom role's level.
+ * - the built-in `'admin'` role, ALWAYS — even in an app whose custom role
+ *   outranks it (a `director` at level 90 above `admin` at 80). The built-in
+ *   admin is the account every app is bootstrapped with; a custom role placed
+ *   above it adds a second admin-equivalent role, it never demotes the first.
  *
- * The built-in-`admin` clause is a SECURITY conservatism: a literal `admin`
- * user was unrestricted before this change, so it must stay unrestricted even
- * in an app that also declares a custom top role at the same level. This means
- * the change only ever *adds* admin-equivalence (to the top custom role), never
- * removes it from an existing `admin` user.
+ * This is the one definition: every door that asks "is this caller an
+ * admin?" — permanent deletes, webhook management, the row-level bypass,
+ * field-read bypass — reads it here, with no per-route exception.
  *
  * SECURITY: this is the canonical "should this role bypass row-level access?"
  * predicate. Every other role — including mid-level custom roles — returns
  * `false` and keeps its row-level restrictions.
  */
-export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): boolean => {
-  if (roleName === resolveAdminRole(app)) return true
-  if (isAdminRole(roleName)) {
-    const roles = app.auth?.roles ?? []
-    if (roles.length === 0) return true
-    const topLevel = Math.max(...roles.map(resolveRoleLevel))
-    return BUILT_IN_ROLE_LEVELS['admin']! >= topLevel
-  }
-  return false
-}
+export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): boolean =>
+  isAdminRole(roleName) || roleName === resolveAdminRole(app)
 
 // ============================================================================
 // Dashboard-tier resolution (F6 — Native Admin Dashboard authorization)
@@ -528,7 +552,9 @@ export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): b
  *    → that tier.
  * 4. The RESOLVED TOP custom role ({@link resolveAdminRole}) → `admin-editor`
  *    IMPLICITLY — the zero-config win: the strictly-highest-`level` custom role
- *    becomes admin-capable with no config edit.
+ *    becomes admin-capable with no config edit, provided its level reaches the
+ *    built-in `admin`'s 80 (below that the resolved role is `admin` itself, so
+ *    this rung admits no custom role at all).
  * 5. The legacy `operator` role → `admin-viewer`, but ONLY for an app that does
  *    not declare the name. See {@link LEGACY_OPERATOR_ROLE} for why this rung
  *    sits below the config and not above it.
@@ -574,7 +600,7 @@ export const resolveDashboardTier = (
   // Rules 1–2: app-independent built-in / per-user tiers.
   const builtIn = resolveBuiltInTier(roleName)
   if (builtIn !== undefined) return builtIn
-  const declaredRoles = app.auth?.roles ?? []
+  const declaredRoles = hierarchyRoles(app)
   const declared = declaredRoles.find((r) => r.name === roleName)
   // Rule 3: explicit per-role dashboardTier mapping in the config.
   if (declared?.dashboardTier) return declared.dashboardTier

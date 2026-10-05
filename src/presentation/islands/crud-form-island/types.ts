@@ -13,6 +13,7 @@ import {
 import { type FieldDef } from '../parts/crud-form/fields'
 import { type FieldGroup, type FormBodyState } from '../parts/crud-form/layout'
 import { type SuccessToast } from '../parts/crud-form/toast'
+import type { FormStrings } from './form-strings'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 
 export type CrudOperation = 'create' | 'update' | 'delete' | 'automation'
@@ -80,6 +81,12 @@ export interface CrudFormIslandProps {
   readonly automationName?: string
   readonly inputData?: Record<string, unknown>
   /**
+   * The form's interface strings (`form.*`: default submit labels, the
+   * required-field message, the pending caption), resolved server-side and
+   * sent only where they differ from English — absent on an English page.
+   */
+  readonly uiStrings?: FormStrings
+  /**
    * Optional auto-save configuration. When `saveMode` is `auto` or `onBlur`,
    * field edits are persisted automatically (debounced or on blur) without an
    * explicit submit. Auto-save applies only to `update` (edit) mode — `create`
@@ -140,4 +147,6 @@ export interface SubmitContext {
   readonly deleteRecord: ReturnType<typeof useDeleteRecord>
   readonly automationName?: string
   readonly inputData?: Record<string, unknown>
+  /** The form's interface strings — see `CrudFormIslandProps.uiStrings`. */
+  readonly uiStrings?: FormStrings
 }

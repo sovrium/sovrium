@@ -24,6 +24,16 @@ export interface BatchValidationError extends Error {
 }
 
 /**
+ * One record's many-to-many links in a batch create ([internal ref]: a many-to-many
+ * field has no base column, so its values travel beside the record's fields).
+ */
+export interface BatchCreateLink {
+  readonly relatedTable: string
+  readonly relatedIds: readonly (string | number)[]
+  readonly hasReciprocal: boolean
+}
+
+/**
  * Upsert operation result
  */
 export interface UpsertResult {
@@ -48,10 +58,16 @@ export interface UpsertResult {
 export class BatchRepository extends Context.Service<
   BatchRepository,
   {
+    /**
+     * Create every record, and write `links[i]` — record `i`'s many-to-many
+     * links — to the junction in the SAME transaction, so a link that cannot be
+     * written leaves no record behind.
+     */
     readonly batchCreate: (
       session: Readonly<UserSession>,
       tableName: string,
-      recordsData: readonly Record<string, unknown>[]
+      recordsData: readonly Record<string, unknown>[],
+      links?: readonly (readonly BatchCreateLink[])[]
     ) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError>
 
     readonly batchUpdate: (

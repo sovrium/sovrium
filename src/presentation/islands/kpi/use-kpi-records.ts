@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { retryUnlessRateLimited } from '../runtime/read-failure'
 import type { SharedFilterBindingConfig } from '../hooks/use-shared-filter'
 import type { TableRecord } from '../runtime/types'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
@@ -63,6 +64,7 @@ export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
   return useQuery({
     queryKey,
     enabled: Boolean(dataSource?.table) && shared.ready,
+    retry: retryUnlessRateLimited,
     queryFn: async (): Promise<KpiFetchResult> => {
       if (!dataSource?.table) return { records: [] }
 
@@ -91,7 +93,9 @@ export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
       if (!res.ok) {
         const body = await res.text()
         // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
-        throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)
+        throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`, {
+          cause: { status: res.status },
+        })
       }
 
       const json = (await res.json()) as {

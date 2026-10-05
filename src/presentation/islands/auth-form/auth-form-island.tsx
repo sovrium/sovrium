@@ -161,6 +161,7 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
       <AuthFormFeedback state={state} />
       <button
         type="submit"
+        data-component-type="button"
         disabled={state.isPending}
         className={`${computeButtonDefaultClasses()} w-full`}
       >

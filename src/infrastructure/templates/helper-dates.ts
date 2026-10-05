@@ -49,6 +49,7 @@ import {
   parseWithTokens,
   type DateTokenResult,
 } from '@/domain/kernel/format/date-tokens'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
@@ -98,7 +99,7 @@ export const toInstant = (value: unknown): Readonly<Date> | undefined => {
 }
 
 /** Current instant — the single clock read shared by `now` / `today`. */
-export const isoNow = (): string => new Date().toISOString()
+export const isoNow = (): string => serverNow().toISOString()
 
 // ─── format ──────────────────────────────────────────────────────────────
 

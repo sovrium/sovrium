@@ -10,6 +10,7 @@ import {
   computeTableMenuClasses,
   computeTableMenuItemClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import { DROPDOWN_TRIGGER_CLASS, useDropdownState } from './use-dropdown-state'
 
 /**
@@ -52,6 +53,8 @@ export function GroupMenu({ fields, current, onSelect }: GroupMenuProps) {
   // match the spec's expectation that a follow-up `click` on another DOM
   // element fires AFTER the menu has closed.
   const { open, rootRef, onToggle, close } = useDropdownState()
+  const groupLabel = useGridString('datatable.group', 'Group')
+  const noneLabel = useGridString('datatable.groupNone', 'None')
 
   const handleSelect = useCallback(
     (field: string | null) => {
@@ -68,13 +71,13 @@ export function GroupMenu({ fields, current, onSelect }: GroupMenuProps) {
     >
       <button
         type="button"
-        aria-label="Group"
+        aria-label={groupLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={onToggle}
         className={DROPDOWN_TRIGGER_CLASS}
       >
-        Group
+        {groupLabel}
       </button>
       {open && (
         <div
@@ -85,7 +88,7 @@ export function GroupMenu({ fields, current, onSelect }: GroupMenuProps) {
           <GroupMenuItem
             // eslint-disable-next-line unicorn/no-null -- `null` is the "clear grouping" sentinel for the `string | null` runtimeGroupBy state contract (setRuntimeGroupBy(null) restores the schema default)
             field={null}
-            label="None"
+            label={noneLabel}
             current={current}
             onSelect={handleSelect}
           />

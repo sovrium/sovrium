@@ -74,5 +74,32 @@ export const HttpUrlOrRecordTemplateSchema = Schema.String.pipe(
   format: 'uri',
 })
 
+/**
+ * A sharing-image address: an HTTP/HTTPS URL, a `$record.<field>` template, a
+ * `$t:` translation key (one image per language), or a site path starting with
+ * a single `/`.
+ *
+ * A social network fetches the image with no page around it, so a path is
+ * emitted as a full address on the host the request arrived on — the renderer
+ * owns that step. A protocol-relative `//host/x` is refused: it names another
+ * host without saying which scheme.
+ *
+ * @example "https://example.com/card.png"
+ * @example "/og-en.png"
+ * @example "$t:og.image"
+ */
+export const SharingImageAddressSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^https?:\/\/|\$record\.|^\$t:|^\/(?!\/)/, {
+      message:
+        'URL must start with http:// or https:// or a single /, be a $t: translation key, or contain a $record.<field> substitution token',
+    })
+  )
+).annotate({
+  title: 'Sharing image address',
+  description:
+    'HTTP/HTTPS URL, a path starting with /, a $t: translation key, or a string containing a $record.* substitution token',
+})
+
 /** @public */
 export type HttpUrlOrRecordTemplate = Schema.Schema.Type<typeof HttpUrlOrRecordTemplateSchema>

@@ -72,6 +72,10 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
+import { SCOPED_VAR_CHAIN_SOURCE } from '@/domain/models/app/pages/substitute-record-vars'
+import { FORM_RUNTIME_MARK } from '@/presentation/design/runtime-ready-marks'
+import { resolveDocumentLang } from './form-field-resolver'
 import { FORM_RUNTIME_AUDIO_RECORDER_SCRIPT } from './form-runtime-audio-recorder'
 import {
   FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT,
@@ -79,6 +83,7 @@ import {
   runtimeConditionsConfig,
   type RuntimeConditionsConfig,
 } from './form-runtime-conditions'
+import { FORM_RUNTIME_FIELD_ERRORS_SCRIPT } from './form-runtime-field-errors'
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
 import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
@@ -100,6 +105,12 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
   readonly stepIds: ReadonlyArray<string>
   /** [internal ref]..051: enable Typeform-style one-question runtime. */
   readonly oneQuestion: boolean
+  /**
+   * The runtime's own messages (`form.requiredNamed`, `form.submissionFailed`)
+   * in the page language, present only where they differ from the English the
+   * runtime is written in.
+   */
+  readonly strings?: Readonly<Record<string, string>>
 }
 
 /**
@@ -125,6 +136,11 @@ export function buildFormRuntimeConfig(
       : undefined
   const onError =
     form.onError !== undefined ? resolveOnErrorText(form.onError, languages, activeLang) : undefined
+  const strings = resolveInterpreterStringOverrides(
+    ['form.requiredNamed', 'form.submissionFailed'],
+    resolveDocumentLang(languages, activeLang),
+    languages
+  )
   return {
     formName: form.name,
     ...(onSuccess !== undefined ? { onSuccess } : {}),
@@ -132,6 +148,7 @@ export function buildFormRuntimeConfig(
     multiStep: isMultiStep,
     stepIds: isMultiStep ? form.steps!.map((step) => step.id) : [],
     oneQuestion: isOneQuestion,
+    ...(strings !== undefined ? { strings } : {}),
     ...runtimeConditionsConfig(form),
   }
 }
@@ -166,16 +183,20 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   var formName = config.formName
   if (!formName) return
   var sel = 'form[data-form-name="' + formName + '"]', form = scope.querySelector(sel) || document.querySelector(sel)
-  if (!form || form.hasAttribute('data-form-runtime')) return // bind once, however often this runs
-  form.setAttribute('data-form-runtime', '')
+  if (!form || form.hasAttribute('${FORM_RUNTIME_MARK}')) return // bind once, however often this runs
+  form.setAttribute('${FORM_RUNTIME_MARK}', '')
   // The runtime owns validation end-to-end: it inspects each input via
   // checkValidity() and renders inline error markers. Disabling native
   // validation here (rather than in the SSR markup) keeps the no-JS
   // fallback honest — without a runtime, the browser still surfaces its
   // built-in popup tooltips on submit.
   form.setAttribute('novalidate', '')
+  // The runtime's own messages in the page language, resolved on the server;
+  // absent where they read as the English written here.
+  var S = config.strings || {}
+  var FAILED = S['form.submissionFailed'] || 'Submission failed.'
   var onSuccess = config.onSuccess || { type: 'toast', message: 'Submitted.' }
-  var onError = config.onError || { type: 'toast', message: 'Submission failed.' }
+  var onError = config.onError || { type: 'toast', message: FAILED }
   var stepIds = Array.isArray(config.stepIds) ? config.stepIds : []
   var isMultiStep = config.multiStep === true && stepIds.length > 0
   var isOneQuestion = config.oneQuestion === true
@@ -197,36 +218,7 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
 ${FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT}
 ${FORM_RUNTIME_CONDITIONS_SCRIPT}
 
-  // ---- Inline validation -----------------------------------------------------
-  function clearFieldErrors() {
-    var errs = form.querySelectorAll('[data-field-error]')
-    errs.forEach(removeIfPresent)
-    removeIfPresent(form.parentNode && form.parentNode.querySelector('[data-form-error-message]'))
-    removeIfPresent(document.querySelector('[data-form-toast="' + formName + '"]'))
-  }
-  function showFieldError(input, message) {
-    var wrapper = input.closest('.form-field')
-    if (!wrapper) return
-    removeIfPresent(wrapper.querySelector('[data-field-error]'))
-    var err = document.createElement('div')
-    err.setAttribute('data-field-error', input.name || '')
-    err.setAttribute('role', 'alert')
-    err.className = 'field-error'
-    err.textContent = message
-    wrapper.appendChild(err)
-  }
-  function fieldErrorMessage(input) {
-    var v = input.validity
-    var label = input.name || 'Field'
-    if (v.valueMissing) return label + ' is required'
-    if (v.typeMismatch) {
-      if (input.type === 'email') return 'Please enter a valid email'
-      if (input.type === 'url') return 'Please enter a valid URL'
-      return label + ' is invalid'
-    }
-    if (v.patternMismatch) return label + ' does not match the required pattern'
-    return label + ' is invalid'
-  }
+${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}
   function validateForm() {
     var inputs = namedInputs()
     var firstError = null
@@ -235,8 +227,8 @@ ${FORM_RUNTIME_CONDITIONS_SCRIPT}
       var input = inputs[i]
       if (input.type === 'hidden') continue
       input.setCustomValidity('')
-      if (!input.checkValidity()) {
-        var msg = fieldErrorMessage(input)
+      var msg = invalidMessageOf(input)
+      if (msg !== null) {
         showFieldError(input, msg)
         errors.push({ name: input.name, message: msg })
         if (!firstError) firstError = input
@@ -260,7 +252,7 @@ ${FORM_RUNTIME_CONDITIONS_SCRIPT}
     form.parentNode.insertBefore(box, form)
   }
   function renderOnError(message) {
-    var msg = message || onError.message || 'Submission failed.'
+    var msg = message || onError.message || FAILED
     if (onError.type === 'message' || onError.type === 'errorPage') {
       renderBanner({
         selector: '[data-form-error-message]',
@@ -292,19 +284,34 @@ ${FORM_RUNTIME_CONDITIONS_SCRIPT}
   // When \`encode\` is set (URL contexts) each substituted VALUE is
   // percent-encoded so a value like an email's \`@\` rides safely in a query
   // string; the surrounding template text is left untouched.
+  // The grammar is the shared reader's, interpolated from its source: a
+  // \`|\` fallback chain picks the first non-empty token, and a backslash
+  // directly before a token prints the token itself.
+  var TOKEN_CHAIN = /${SCOPED_VAR_CHAIN_SOURCE}/g
   function interpolate(template, response, encode) {
     if (typeof template !== 'string') return ''
-    var record = response.record || {}
-    function sub(value) {
-      var s = value === undefined || value === null ? '' : String(value)
-      return encode ? encodeURIComponent(s) : s
+    var record = Object.assign({}, response.record || {}, { id: response.linkedRecordId })
+    var scopes = { submission: { id: response.submissionId }, record: record }
+    function scopeOf(ns) {
+      return Object.prototype.hasOwnProperty.call(scopes, ns) ? scopes[ns] : undefined
     }
-    return template
-      .replace(/\\$submission\\.id/g, sub(response.submissionId))
-      .replace(/\\$record\\.id/g, sub(response.linkedRecordId))
-      .replace(/\\$record\\.([a-zA-Z0-9_]+)/g, function (_m, col) {
-        return sub(record[col])
-      })
+    function text(value) {
+      return value === undefined || value === null ? '' : String(value)
+    }
+    return template.replace(TOKEN_CHAIN, function (m, escaped, ns) {
+      if (escaped !== undefined) return scopeOf(escaped) ? m.slice(1) : m
+      var scope = scopeOf(ns)
+      if (!scope) return m
+      var picked = m
+        .split('|')
+        .map(function (token) {
+          return text(scope[token.slice(ns.length + 2)])
+        })
+        .filter(function (s) {
+          return s.length > 0
+        })[0] || ''
+      return encode ? encodeURIComponent(picked) : picked
+    })
   }
 
   // ---- onSuccess UI ----------------------------------------------------------
@@ -456,7 +463,7 @@ ${FORM_RUNTIME_RATING_SCRIPT}
     clearFieldErrors()
     var validation = validateForm()
     if (!validation.ok) {
-      renderOnError(onError.message || 'Submission failed.')
+      renderOnError(onError.message || FAILED)
       return
     }
     var fetchInit

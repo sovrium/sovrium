@@ -7,6 +7,7 @@
 
 import { detectCycles } from '@/domain/kernel/matching/cycle-detection'
 import type { Table } from '@/domain/models/app/tables'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 /**
@@ -50,14 +51,29 @@ const toIdentifiedEntries = (values: readonly unknown[]): readonly IdentifiedEnt
     )
   })
 
+/**
+ * The current entries allowed to claim an identity by id, and every current
+ * entry. They differ for tables, where only an id the author wrote is a claim
+ * (see {@link detectTableRenames}); the name checks always read every entry.
+ */
+type CurrentEntries = {
+  readonly claimants: readonly IdentifiedEntry[]
+  readonly all: readonly IdentifiedEntry[]
+}
+
+const everyEntryClaims = (entries: readonly IdentifiedEntry[]): CurrentEntries => ({
+  claimants: entries,
+  all: entries,
+})
+
 /** Every id-matched (oldName → newName) hypothesis, before any safety filtering. */
 const buildRenameCandidates = (
-  current: readonly IdentifiedEntry[],
+  current: CurrentEntries,
   previous: readonly IdentifiedEntry[]
 ): readonly RenameCandidate[] => {
   const previousNameById = new Map(previous.map((e) => [e.id, e.name] as const))
 
-  return current
+  return current.claimants
     .map((e) => ({ oldName: previousNameById.get(e.id), newName: e.name }))
     .filter((c): c is RenameCandidate => c.oldName !== undefined && c.oldName !== c.newName)
 }
@@ -80,13 +96,13 @@ const buildRenameCandidates = (
  * the wrong thing to do silently.
  */
 const findSafeRenames = (
-  current: readonly IdentifiedEntry[],
+  current: CurrentEntries,
   previous: readonly IdentifiedEntry[]
 ): ReadonlyMap<string, string> => {
   const candidates = buildRenameCandidates(current, previous)
   if (candidates.length === 0) return new Map()
 
-  const currentNames = new Set(current.map((e) => e.name))
+  const currentNames = new Set(current.all.map((e) => e.name))
   const previousNames = new Set(previous.map((e) => e.name))
 
   return new Map<string, string>(
@@ -110,7 +126,7 @@ const findSafeRenames = (
  * @returns the names in the cycle, or an empty array when the candidates form no cycle
  */
 const findAmbiguousRenames = (
-  current: readonly IdentifiedEntry[],
+  current: CurrentEntries,
   previous: readonly IdentifiedEntry[]
 ): readonly string[] => {
   const candidates = buildRenameCandidates(current, previous)
@@ -156,7 +172,10 @@ export const detectFieldRenames = (
   currentFields: readonly Fields[number][],
   previousSchema?: { readonly tables: readonly object[] }
 ): ReadonlyMap<string, string> =>
-  findSafeRenames(toIdentifiedEntries(currentFields), previousFieldsOf(tableName, previousSchema))
+  findSafeRenames(
+    everyEntryClaims(toIdentifiedEntries(currentFields)),
+    previousFieldsOf(tableName, previousSchema)
+  )
 
 /**
  * Field names of `tableName` caught in a rename cycle — two fields exchanging
@@ -169,7 +188,7 @@ export const detectAmbiguousFieldRenames = (
   previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] =>
   findAmbiguousRenames(
-    toIdentifiedEntries(currentFields),
+    everyEntryClaims(toIdentifiedEntries(currentFields)),
     previousFieldsOf(tableName, previousSchema)
   )
 
@@ -178,28 +197,56 @@ export const detectAmbiguousFieldRenames = (
 // ---------------------------------------------------------------------------
 
 /**
- * Detect table renames by comparing table IDs between previous and current schema
- * Returns a map of old table name to new table name for renamed tables
+ * The config's tables as rename claimants: only a table whose `id` its author
+ * WROTE may claim to be a stored table under another name.
+ *
+ * An id the decoder assigned by position says where a table sits in the array,
+ * not which stored table it is. Deleting `orders` and declaring
+ * `report_requests` in its place gives both the positional id 1; read as
+ * identity, that moved every `orders` row into `report_requests`. Without an
+ * author-written id a name change is therefore a drop and a create, and the
+ * boot's refusal to drop a populated table is what protects the rows.
+ *
+ * The stored snapshot is not consulted for this: it holds the decoded config,
+ * where every id is filled in. The current side is the author's claim, and it
+ * is the one side that can be known — `authoredIds`, which the decode returns
+ * beside the config and every caller hands on.
+ */
+const tableClaimants = (
+  currentTables: readonly Table[],
+  authoredIds: AuthoredTableIds
+): CurrentEntries => ({
+  claimants: toIdentifiedEntries(
+    currentTables.filter((table) => table.id !== undefined && authoredIds.has(table.id))
+  ),
+  all: toIdentifiedEntries(currentTables),
+})
+
+/**
+ * Detect table renames: a table whose author-written id the snapshot recorded
+ * under another name. Returns a map of old config name to new config name.
  */
 export const detectTableRenames = (
   currentTables: readonly Table[],
-  previousSchema?: { readonly tables: readonly object[] }
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  authoredIds: AuthoredTableIds
 ): ReadonlyMap<string, string> =>
   findSafeRenames(
-    toIdentifiedEntries(currentTables),
+    tableClaimants(currentTables, authoredIds),
     toIdentifiedEntries(previousSchema?.tables ?? [])
   )
 
 /**
  * Table names caught in a rename cycle — two tables exchanging names in one
- * edit. The caller must refuse the boot rather than guess an order, since either
- * guess moves rows into the wrong table.
+ * edit under ids their author wrote. The caller must refuse the boot rather
+ * than guess an order, since either guess moves rows into the wrong table.
  */
 export const detectAmbiguousTableRenames = (
   currentTables: readonly Table[],
-  previousSchema?: { readonly tables: readonly object[] }
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  authoredIds: AuthoredTableIds
 ): readonly string[] =>
   findAmbiguousRenames(
-    toIdentifiedEntries(currentTables),
+    tableClaimants(currentTables, authoredIds),
     toIdentifiedEntries(previousSchema?.tables ?? [])
   )

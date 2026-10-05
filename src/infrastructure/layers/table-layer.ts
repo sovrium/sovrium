@@ -20,7 +20,10 @@ import { TableLive } from '@/infrastructure/database/table-live-layers'
 export type TableServices = Layer.Success<typeof TableLive>
 
 // Re-export infrastructure queries used by table route handlers
-export { checkForExistingRecords } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
+export {
+  checkForExistingRecords,
+  findRecordIdsByMergeFields,
+} from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
 
 /**
  * The composite layer for table routes that also dispatch record-event

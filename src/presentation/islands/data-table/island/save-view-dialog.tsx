@@ -18,6 +18,7 @@ import {
   computeTableEditorFooterClasses,
 } from '@/presentation/design/table-default-classes'
 import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
+import { useGridString } from './grid-strings'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
 /**
@@ -174,12 +175,13 @@ interface SaveViewFormProps {
  * (name draft, pending, error) stays in the parent — this is a pure render.
  */
 function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveViewFormProps) {
+  const saveViewLabel = useGridString('datatable.saveView', 'Save view')
   return (
     <form
       onSubmit={onSubmit}
       className={computeTableDialogPanelClasses()}
     >
-      <Dialog.Title className={computeTableDialogTitleClasses()}>Save view</Dialog.Title>
+      <Dialog.Title className={computeTableDialogTitleClasses()}>{saveViewLabel}</Dialog.Title>
       <Dialog.Description className={computeTableDialogBodyClasses()}>
         Name this view so you can come back to it from the Views menu.
       </Dialog.Description>

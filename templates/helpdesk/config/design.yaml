@@ -1,121 +1,197 @@
-# Helpdesk theming.
+# Tallyline Support — the design system of this app.
 #
-# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
-# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
-# the platform. There is deliberately no `fonts` block: the workhorse and mono
-# families are already self-hosted, and pulling a family from a CDN would leak
-# the operator's IP and Referer to a third party, which
-# `docs/architecture/patterns/fonts.md` forbids outright. This template used to
-# request Inter from Google Fonts, which achieved neither goal — the request
-# leaked, AND naming an unserved family locks the shipped face out of its own
-# stack, so the page silently fell to the OS default. Distinctiveness here comes
-# from COLOUR, not from type.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# WHY THESE KEYS AND NOT OTHERS
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
-#   prestyled island already consumes, so declaring them repaints the triage
-#   kanban, the ticket grid, the KPI tiles and the public intake form with no
-#   class changes anywhere in this config. A non-role key such as `brand-rose`
-#   emits `--color-*` only and does nothing until something references it —
-#   which is how a template can declare a page of pretty colours and still
-#   render achromatic.
+# Two people meet here without ever seeing the same screen: someone with a
+# problem, and the person who answers it. The public side is quiet and
+# reassuring; the team side is a working queue that spends its emphasis on
+# the few tickets that are late.
 #
-#   The map is NOT identity, and guessing the name is the trap: `muted` and
-#   `background-subtle` both land on `--sv-bg-subtle`, `card` is `--sv-bg-raised`,
-#   `popover` is `--sv-bg-overlay`, `ring` is `--sv-focus-ring`. The canonical
-#   spellings are used below rather than the aliases, so the file reads as the
-#   role it paints. `text` / `text-muted` / `background-alt` are NOT in the map
-#   and would be inert.
-#
-#   Sovrium's own apps under `apps/` may NOT touch these keys without a
-#   BRAND.md permit, because repainting the role tokens there would silently
-#   reinstate the coloured ramp ADR-024 deleted from the Sovrium identity. That
-#   lock is repo-local and deliberately does not extend here: a template exists
-#   to look like the product a customer is building, not like sovrium.com.
-#
-# WHY ROSE, AND HOW IT AVOIDS COLLIDING WITH `error`
-#   Hues are assigned centrally across the nineteen templates so the demo fleet
-#   stays distinguishable at a glance; rose is this one. Rose and red are
-#   neighbours, so an unconsidered palette here would make "submit a ticket" and
-#   "this failed" the same colour. They are pulled apart deliberately: `primary`
-#   sits at rose-600 (#e11d48, pink cast, hue ≈ 350) while `error` drops to
-#   red-700 (#b91c1c, browner and darker, hue ≈ 0). Side by side they read as two
-#   different signals, and `error` is the only one that is never a control.
-#
-#   The neutrals carry a faint warm tint (#f7f4f5 rather than a blue-grey) so the
-#   page reads as one family with the accent instead of a rose button dropped on
-#   a cold slate sheet.
+# One accent, a rose. Rose sits next to the usual "this failed" red, so the
+# error colour moves to a darker, browner brick: sending a ticket and a failed
+# send are never the same colour.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (the board, the grid, the KPI
+# cards, buttons, badges and the public form) with no class changes anywhere
+# else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 colors:
-  # `primary-foreground` is text ON the filled primary, never a themeable
-  # surface — white is the only value that clears AA against rose-600, so it is
-  # a literal rather than a token reference.
-  primary: '#e11d48'
-  primary-hover: '#be123c'
-  primary-foreground: '#ffffff'
-  primary-subtle: '#ffe4e6'
-  ring: '#f43f5e'
+  primary: oklch(0.52 0.16 10)
+  primary-hover: oklch(0.46 0.15 10)
+  primary-active: oklch(0.42 0.14 10)
+  primary-foreground: oklch(0.985 0.003 10)
+  primary-subtle: oklch(0.95 0.03 10)
+  primary-subtle-foreground: oklch(0.38 0.12 10)
+  ring: oklch(0.6 0.16 10)
+  background: oklch(0.985 0.003 10)
+  background-subtle: oklch(0.967 0.005 10)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 10)
+  foreground: oklch(0.21 0.008 10)
+  foreground-muted: oklch(0.45 0.012 10)
+  foreground-subtle: oklch(0.51 0.012 10)
+  foreground-disabled: oklch(0.71 0.012 10)
+  foreground-inverse: oklch(0.985 0.003 10)
+  border: oklch(0.925 0.008 10)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 38)
+  destructive-foreground: oklch(0.985 0.003 10)
 
-  background: '#ffffff'
-  background-subtle: '#f7f4f5'
-  background-raised: '#ffffff'
-  background-overlay: '#ffffff'
-
-  # Three text weights, not one. The islands read `--sv-fg-muted` for column
-  # headers and `--sv-fg-subtle` for timestamps; leaving them unset makes the
-  # ticket grid render its chrome at full body contrast and lose its hierarchy.
-  foreground: '#1c1417'
-  foreground-muted: '#5c4f53'
-  foreground-subtle: '#857276'
-
-  border: '#e8e0e2'
-
-  # The semantic four are claimed on purpose. A support queue is exactly the case
-  # where colour carries consequence — a Resolved ticket reading green and an
-  # Urgent one reading red is the information, not decoration.
-  success: '#047857'
-  warning: '#b45309'
-  error: '#b91c1c'
-  info: '#0369a1'
-
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way. The compiled selector is
-# `html:is(.dark, [data-theme='dark'])`, which re-points BOTH channels — a dark
-# key left out here keeps its light value, which is the documented way to say
-# "this one does not change", not an oversight.
 darkColors:
-  # Primary inverts its relationship with its own foreground: a light rose fill
-  # needs DARK text on it, so `primary-foreground` cannot simply stay white.
-  primary: '#fb7185'
-  primary-hover: '#fda4af'
-  primary-foreground: '#2a0f16'
-  primary-subtle: '#4c1d28'
-  ring: '#f43f5e'
+  primary: oklch(0.78 0.12 10)
+  primary-hover: oklch(0.83 0.09 10)
+  primary-active: oklch(0.87 0.07 10)
+  primary-foreground: oklch(0.16 0.006 10)
+  primary-subtle: oklch(0.28 0.06 10)
+  primary-subtle-foreground: oklch(0.9 0.06 10)
+  ring: oklch(0.72 0.13 10)
+  background: oklch(0.16 0.006 10)
+  background-subtle: oklch(0.19 0.007 10)
+  background-raised: oklch(0.21 0.008 10)
+  background-overlay: oklch(0.23 0.008 10)
+  background-inset: oklch(0.13 0.005 10)
+  foreground: oklch(0.95 0.005 10)
+  foreground-muted: oklch(0.75 0.01 10)
+  foreground-subtle: oklch(0.68 0.012 10)
+  foreground-disabled: oklch(0.45 0.01 10)
+  foreground-inverse: oklch(0.16 0.006 10)
+  border: oklch(0.3 0.01 10)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 38)
+  destructive-foreground: oklch(0.16 0.006 10)
 
-  background: '#171114'
-  background-subtle: '#211a1d'
-  background-raised: '#1e181a'
-  background-overlay: '#1e181a'
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a status colour, and an outcome colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Primary action fill, the current nav entry, the focus ring, the Send ticket button. Never a status and never a priority.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states on quiet surfaces — the current page, the queue tab in use, the column a ticket is dragged over.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A ticket marked Resolved, a submission received, and nothing else.
+    pairsWith: foreground
+  warning:
+    usage: A first response due within the hour.
+    pairsWith: foreground
+  error:
+    usage: A first response overdue, an Urgent ticket still open, a failed submission, a destructive action.
+    pairsWith: foreground
 
-  foreground: '#f2e9ec'
-  foreground-muted: '#b3a3a8'
-  foreground-subtle: '#8a787d'
+# Sans for every sentence, mono for ticket numbers, times, counts and
+# overlines, so a column of times lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
 
-  border: '#3a2c31'
-
-  # Lifted a full step: the light-mode semantics are chosen for contrast against
-  # white and go muddy on a near-black page. `error` stays a step cooler and
-  # lighter than `primary` so the two remain separable in dark mode too.
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#f87171'
-  info: '#38bdf8'
-
+# Soft corners: a friendly desk for someone with a problem, not a ledger.
 radius:
-  sm: 0.25rem
-  md: 0.5rem
-  lg: 0.75rem
+  sm: 0.5rem
+  md: 0.75rem
+  lg: 1rem
   full: 9999px
+
+# Cards carry a one-pixel lift; overlays float clearly above the page.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# Who sees which page. The three team pages are the product; everything else —
+# the public form, the confirmation, the rating page and sign-in — is the
+# public side, which also refuses internal words. The most specific pattern
+# wins, and `everything else` comes last.
+zones:
+  - pattern: /triage
+    zone: product
+    accentBudget: product
+  - pattern: /tickets
+    zone: product
+    accentBudget: product
+  - pattern: /reports
+    zone: product
+    accentBudget: product
+  - pattern: everything else
+    zone: marketing
+    accentBudget: public
+    voice:
+      avoid:
+        - No internal vocabulary on the public side — no "triage", no "queue", no "SLA".
+
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
+# An agent reads a card for four facts — subject, requester, who holds it,
+# when it is due — so the team pages run at `cozy`; a stranger reads the
+# public form once, so the public side runs at `roomy`. The three steps are the
+# platform's own values, written out so one number can be tuned.
+density:
+  default: cozy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+  byZone:
+    product: cozy
+    marketing: roomy
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - reassuring
+    - precise
+    - human
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Send ticket, Assign to me, Mark resolved.'
+    - Say when the requester will hear back, and keep the promise the app can keep.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "Oops", no ticket-as-case-number jargon on the public side.
+    - Never promise a reply channel the app does not have (no "just reply to this email").
+    - Never blame the requester for a missing detail; ask for it.
+  tone:
+    empty: Say what this queue will hold, then the one action that fills it.
+    loading: Name what is loading — the queue, the tickets — never a bare spinner.
+    error: State what did not send and the one thing that fixes it; keep what the person typed.
+    success: Confirm in past tense what happened and when they will hear back.
+    destructive: Name the ticket and whether it comes back.
+
+principles:
+  - The requester always knows what happens next and when.
+  - Every open ticket shows who holds it and when its answer is due.
+  - Colour means an outcome — resolved, due soon, overdue — or it is not used.
+  - The queue is understood without a tour.

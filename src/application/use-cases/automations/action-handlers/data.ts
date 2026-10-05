@@ -6,12 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import {
-  asArray,
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { asArray, authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -27,7 +22,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * loop's `resolveTriggerInValue`: that resolver stringifies non-scalar
  * values (`String([{...}])` → `"[object Object]"`), which would destroy
  * the array a `data:aggregate`/`sort`/… needs. So each handler reads the
- * RAW pre-substitution action (`runContext.rawAction.props`) and resolves
+ * action's props as AUTHORED (`authoredActionProps`) and resolves
  * `{{...}}` itself against a context built from the trigger payload +
  * prior step outputs — returning the actual array/object for
  * whole-string references, falling back to string substitution otherwise.
@@ -38,16 +33,15 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * Each handler returns `{ status: 'success', output: { result: <value> } }`
  * (or `{ value }` for `data:set`, mirroring how a `code` action's return
  * value surfaces under `steps.<name>`). The run loop shallow-merges every
- * step's `output` into `lastOutput`, which the webhook dispatcher exposes
- * as the sync response's `output`.
+ * step's `output` into `lastOutput`, which the manual-trigger response
+ * exposes as `output` (a webhook's default answer carries none of it).
  */
 
-/** Resolve a prop value against the run context — alias of the shared
- *  recursive resolver (whole-string `{{path}}` → raw value; interpolated
- *  → substitution; structured → recurse; scalar → verbatim). */
-const resolveProp = resolveRunContextValue
-const buildContext = buildRunContextView
-const rawProps = rawActionProps
+/** Fill in one of the action's own prop values against the run context
+ *  (whole-string `{{path}}` → raw value; interpolated → substitution;
+ *  structured → recurse; scalar → verbatim) — or return it as given when the
+ *  props are final. See `resolveOwnProp`. */
+type Resolve = (value: unknown) => unknown
 const toArray = asArray
 
 const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
@@ -56,24 +50,17 @@ const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
 const fieldOf = (item: unknown, field: string): unknown =>
   item !== null && typeof item === 'object' ? (item as Record<string, unknown>)[field] : undefined
 
-const strProp = (
-  props: Readonly<Record<string, unknown>>,
-  ctx: Readonly<Record<string, unknown>>,
-  key: string
-): string => String(resolveProp(props[key], ctx))
+const strProp = (props: Readonly<Record<string, unknown>>, resolve: Resolve, key: string): string =>
+  String(resolve(props[key]))
 
 const optStrProp = (
   props: Readonly<Record<string, unknown>>,
-  ctx: Readonly<Record<string, unknown>>,
+  resolve: Resolve,
   key: string
-): string | undefined =>
-  props[key] !== undefined ? String(resolveProp(props[key], ctx)) : undefined
+): string | undefined => (props[key] !== undefined ? String(resolve(props[key])) : undefined)
 
-const numProp = (
-  props: Readonly<Record<string, unknown>>,
-  ctx: Readonly<Record<string, unknown>>,
-  key: string
-): number => Number(resolveProp(props[key], ctx))
+const numProp = (props: Readonly<Record<string, unknown>>, resolve: Resolve, key: string): number =>
+  Number(resolve(props[key]))
 
 // ── aggregation helpers ─────────────────────────────────────────────────────
 
@@ -133,29 +120,26 @@ const compareByKey = (fn: string): ((a: unknown, b: unknown) => number) => {
 
 const withRunContext = (
   runContext: ActionRunContext | undefined,
-  body: (
-    props: Readonly<Record<string, unknown>>,
-    ctx: Readonly<Record<string, unknown>>
-  ) => ActionOutcome
+  body: (props: Readonly<Record<string, unknown>>, resolve: Resolve) => ActionOutcome
 ): ActionOutcome => {
   if (runContext === undefined) return { status: 'success' } as const satisfies ActionOutcome
-  return body(rawProps(runContext), buildContext(runContext))
+  return body(authoredActionProps(runContext), (value) => resolveOwnProp(runContext, value))
 }
 
 // ── handlers ─────────────────────────────────────────────────────────────────
 
 export const handleDataSet: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => ok({ value: resolveProp(props['value'], ctx) }))
+    withRunContext(runContext, (props, resolve) => ok({ value: resolve(props['value']) }))
   ).pipe(Effect.withSpan('automations.handle-data-set'))
 
 export const handleDataAggregate: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
       const fn = String(props['function'] ?? 'count')
-      const field = optStrProp(props, ctx, 'field')
-      const groupBy = optStrProp(props, ctx, 'groupBy')
+      const field = optStrProp(props, resolve, 'field')
+      const groupBy = optStrProp(props, resolve, 'groupBy')
       return ok({
         result:
           groupBy !== undefined
@@ -167,9 +151,9 @@ export const handleDataAggregate: ActionHandler = (_action, _app, _automation, r
 
 export const handleDataSort: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
-      const field = strProp(props, ctx, 'field')
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
+      const field = strProp(props, resolve, 'field')
       const cmp = compareByKey(String(props['direction'] ?? 'asc'))
       return ok({ result: items.toSorted((a, b) => cmp(fieldOf(a, field), fieldOf(b, field))) })
     })
@@ -177,18 +161,18 @@ export const handleDataSort: ActionHandler = (_action, _app, _automation, runCon
 
 export const handleDataLimit: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
-      const count = numProp(props, ctx, 'count')
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
+      const count = numProp(props, resolve, 'count')
       return ok({ result: items.slice(0, Number.isFinite(count) ? count : items.length) })
     })
   ).pipe(Effect.withSpan('automations.handle-data-limit'))
 
 export const handleDataDeduplicate: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
-      const key = strProp(props, ctx, 'key')
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
+      const key = strProp(props, resolve, 'key')
       const deduped = items.reduce<{
         readonly seen: ReadonlyArray<unknown>
         readonly out: ReadonlyArray<unknown>
@@ -205,10 +189,10 @@ export const handleDataDeduplicate: ActionHandler = (_action, _app, _automation,
 
 export const handleDataMerge: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const left = toArray(resolveProp(props['left'], ctx))
-      const right = toArray(resolveProp(props['right'], ctx))
-      const joinKey = optStrProp(props, ctx, 'joinKey')
+    withRunContext(runContext, (props, resolve) => {
+      const left = toArray(resolve(props['left']))
+      const right = toArray(resolve(props['right']))
+      const joinKey = optStrProp(props, resolve, 'joinKey')
       if (joinKey === undefined) return ok({ result: [...left, ...right] })
       return ok({
         result: left.map((leftItem) => {
@@ -223,18 +207,18 @@ export const handleDataMerge: ActionHandler = (_action, _app, _automation, runCo
 
 export const handleDataSplit: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
-      return ok({ result: chunk(items, numProp(props, ctx, 'size')) })
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
+      return ok({ result: chunk(items, numProp(props, resolve, 'size')) })
     })
   ).pipe(Effect.withSpan('automations.handle-data-split'))
 
 export const handleDataCompare: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const left = toArray(resolveProp(props['left'], ctx))
-      const right = toArray(resolveProp(props['right'], ctx))
-      const key = strProp(props, ctx, 'key')
+    withRunContext(runContext, (props, resolve) => {
+      const left = toArray(resolve(props['left']))
+      const right = toArray(resolve(props['right']))
+      const key = strProp(props, resolve, 'key')
       const leftKeys = new Set(left.map((item) => fieldOf(item, key)))
       const rightKeys = new Set(right.map((item) => fieldOf(item, key)))
       return ok({
@@ -249,10 +233,10 @@ export const handleDataCompare: ActionHandler = (_action, _app, _automation, run
 
 export const handleDataLookup: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, ctx) => {
-      const items = toArray(resolveProp(props['input'], ctx))
-      const key = strProp(props, ctx, 'key')
-      const value = resolveProp(props['value'], ctx)
+    withRunContext(runContext, (props, resolve) => {
+      const items = toArray(resolve(props['input']))
+      const key = strProp(props, resolve, 'key')
+      const value = resolve(props['value'])
       return ok({ result: items.find((item) => fieldOf(item, key) === value) })
     })
   ).pipe(Effect.withSpan('automations.handle-data-lookup'))

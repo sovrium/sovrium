@@ -1,0 +1,54 @@
+# The conversation of a ticket, one row per message: what the requester wrote,
+# the team's replies, and internal notes only the team reads. The ticket
+# drawer lists them, oldest first.
+id: 2
+name: ticket_replies
+fields:
+  - id: 1
+    name: ticket
+    type: relationship
+    relatedTable: tickets
+    relationType: many-to-one
+    displayField: subject
+    required: true
+  - id: 2
+    name: kind
+    type: single-select
+    options:
+      - value: From the requester
+        color: '#6F6668'
+      - value: Reply
+        color: '#6F6668'
+      - value: Internal note
+        color: '#6F6668'
+    default: Reply
+  # The agent who wrote a reply or a note; empty on the requester's messages.
+  - id: 3
+    name: author
+    type: user
+    allowMultiple: false
+  - id: 4
+    name: body
+    type: long-text
+    required: true
+  - id: 5
+    name: posted_at
+    type: datetime
+  # Who wrote it, by name — the requester's own, or the agent's. The ticket
+  # drawer's conversation list shows this column rather than `author`: a
+  # requester writes from outside and has no account, so only a name written
+  # out covers both sides of the conversation.
+  - id: 6
+    name: author_name
+    type: single-line-text
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

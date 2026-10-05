@@ -26,6 +26,8 @@ export interface CommentWithUser {
   readonly user: UserMetadataWithOptionalImage | undefined
   readonly guestName: string | null
   readonly guestEmail: string | null
+  /** Stored moderation status — the truth every read reports. */
+  readonly status: 'approved' | 'pending' | 'rejected'
 }
 
 /**
@@ -61,6 +63,8 @@ export interface ListedComment {
   readonly user?: UserMetadataWithOptionalImage | undefined
   readonly guestName?: string | null
   readonly guestEmail?: string | null
+  /** Stored moderation status (an admin's list carries every status). */
+  readonly status: 'approved' | 'pending' | 'rejected'
 }
 
 /**
@@ -133,7 +137,7 @@ export class CommentRepository extends Context.Service<
 
     /**
      * Distinct EMAIL ADDRESSES of all (non-deleted) comment authors on a
-     * record, paired with their user id. Powers GAP-13: the comment-posted
+     * record, paired with their user id. Powers [internal ref]: the comment-posted
      * trigger's `threadParticipants` resolves to email addresses so
      * `{{trigger.threadParticipants}}` is usable directly as an `email.send`
      * `to`. The caller drops the new comment's author by user id before
@@ -153,7 +157,7 @@ export class CommentRepository extends Context.Service<
     >
 
     /**
-     * Resolve a single user id to their email address (GAP-13 owner
+     * Resolve a single user id to their email address ([internal ref] owner
      * fallback for first-comment threads). Returns `undefined` when the
      * user row does not exist.
      */
@@ -163,7 +167,7 @@ export class CommentRepository extends Context.Service<
     }) => Effect.Effect<string | undefined, DatabaseError>
 
     /**
-     * Resolve a single user id to `{ id, email, name }` (GAP-20 record-event
+     * Resolve a single user id to `{ id, email, name }` ([internal ref] record-event
      * trigger USER-field hydration). Reuses the same `auth.user` lookup as
      * `getUserEmailById`, projecting the display `name` alongside the email so
      * a record-event envelope can hydrate `user`-typed fields —

@@ -9,6 +9,7 @@ import {
   computeTableViewSwitcherClasses,
   computeTableViewSwitcherItemClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import type { ActiveViewType } from './use-ui-state'
 import type {
   DataTableViewLabels,
@@ -35,11 +36,15 @@ const DEFAULT_GROUP_LABEL = 'View'
 
 /**
  * Resolve one control's label. Every `viewLabels` key is INDEPENDENTLY
- * optional, so a half-translated app (the common real state) keeps the English
- * default on the keys it did not translate.
+ * optional, so a half-translated app (the common real state) keeps the default
+ * on the keys it did not translate — the engine's own word for the page
+ * language where the catalogue has one (`builtIn`), English otherwise.
  */
-const labelFor = (view: DataTableViewType, viewLabels: DataTableViewLabels | undefined): string =>
-  viewLabels?.[view] ?? DEFAULT_VIEW_LABELS[view]
+const labelFor = (
+  view: DataTableViewType,
+  viewLabels: DataTableViewLabels | undefined,
+  builtIn: Readonly<Partial<Record<DataTableViewType, string>>>
+): string => viewLabels?.[view] ?? builtIn[view] ?? DEFAULT_VIEW_LABELS[view]
 
 interface ViewSwitcherProps {
   /** Ordered view types the switcher offers — the config's `views`, tab order. */
@@ -75,6 +80,10 @@ export function ViewSwitcher({
   onSelectViewType,
 }: ViewSwitcherProps) {
   const groupLabel = viewLabels?.group ?? DEFAULT_GROUP_LABEL
+  const builtIn = {
+    grid: useGridString('datatable.viewGrid', DEFAULT_VIEW_LABELS.grid),
+    calendar: useGridString('datatable.viewCalendar', DEFAULT_VIEW_LABELS.calendar),
+  }
   return (
     <div
       data-testid="view-switcher"
@@ -83,7 +92,7 @@ export function ViewSwitcher({
       className={computeTableViewSwitcherClasses()}
     >
       {views.map((view, index) => {
-        const label = labelFor(view, viewLabels)
+        const label = labelFor(view, viewLabels, builtIn)
         return (
           <button
             key={view}

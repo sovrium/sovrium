@@ -11,8 +11,9 @@ import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { resolveConnectionHeaders } from './auth-headers'
+import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes, serializeActionBody, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
  * `webhook/send` handler — sends an outbound HTTP request with a JSON body
@@ -103,6 +104,23 @@ const signBody = (body: string | undefined, secret: string): string =>
     .digest('hex')}`
 
 /**
+ * The response body with each single-template value at its own type. `$env.X`
+ * references are resolved in the authored text BEFORE the templates, so a
+ * value a template brings in (a record's text) is never read for `$env.`.
+ * Without a run context there is no raw action to read, and the substituted
+ * body is used as is.
+ */
+const typedResponseBody = (
+  substituted: unknown,
+  runContext: ActionRunContext | undefined
+): unknown => {
+  if (runContext === undefined) return substituted
+  const raw = authoredActionProps(runContext)['body']
+  if (raw === undefined) return substituted
+  return resolveOwnProp(runContext, raw)
+}
+
+/**
  * `webhook/response` handler — surfaces the resolved (status, body,
  * headers) trio via the `responseOverride` side-channel on
  * `ActionOutcome`. The synchronous webhook dispatcher
@@ -110,10 +128,14 @@ const signBody = (body: string | undefined, secret: string): string =>
  * `result.responseOverride` and uses it to override the default sync
  * response shape.
  *
- * The runtime already substitutes `{{trigger.data.X}}` and
- * `{{trigger.headers.X}}` templates in `props` before the handler runs
- * (via `resolveTriggerInValue` in the run loop), so we just unwrap the
- * resolved values — no template work happens here.
+ * `status` and `headers` are taken from the props the run loop already
+ * substituted. The `body` is resolved here from the RAW action through
+ * `resolveRunContextValue`, like `flow/stop`'s `output`: the run loop's pass
+ * renders every template as text, so a value that is exactly one `{{path}}`
+ * would reach the caller as `"[object Object]"` or `"1200"`. Resolved here it
+ * keeps its type (object, array, number, boolean, `null`); a path naming
+ * nothing resolves to `undefined` and its key is left out of the JSON; a value
+ * mixing text with templates stays a string.
  *
  * `responseOverride` (rather than `output`) so the payload does NOT
  * leak into `system.automation_runs.steps[].output` JSON nor the
@@ -127,12 +149,13 @@ const signBody = (body: string | undefined, secret: string): string =>
  * clean success in run-history but its override is effectively ignored
  * on the wire.
  */
-export const handleWebhookResponse: ActionHandler = (action) =>
+export const handleWebhookResponse: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.sync(() => {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const body = typedResponseBody(props['body'], runContext)
     const responseOverride: Readonly<Record<string, unknown>> = {
       ...(props['status'] !== undefined ? { status: props['status'] } : {}),
-      ...(props['body'] !== undefined ? { body: props['body'] } : {}),
+      ...(body !== undefined ? { body } : {}),
       ...(props['headers'] !== undefined ? { headers: props['headers'] } : {}),
     }
     return { status: 'success', responseOverride } satisfies ActionOutcome

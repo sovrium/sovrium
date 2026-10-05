@@ -18,6 +18,14 @@ condition:
 
 The comparison operators are `equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `endsWith`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `isEmpty`, `isNotEmpty`, `isNull`, `isNotNull` and `matches`.
 
+`isEmpty` and `isNotEmpty` test for presence: a value is empty when it is missing, null, an empty text, an empty list or an empty object (`{}`); nothing else is — `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. So a `record/list` step is tested on its list, `{{<step>.records}}`, which is empty exactly when nothing matched:
+
+```yaml
+- { field: '{{dueTasks.records}}', operator: isNotEmpty }
+```
+
+Do not test the whole step output (`{{<step>.result}}`): it is an object with keys, `{ record, records }`, so it is always a value, even when nothing matched. Test `{{<step>.records}}`.
+
 Two limits shape how a predicate has to be written:
 
 - **Groups do not nest.** `conditions` holds comparisons only, never another group, so `(A and B) or C` is not expressible in one group. Express it with two branches instead.
@@ -32,6 +40,10 @@ Routes execution into named branches, each with its own condition and nested act
 `paths` requires **at least two** branches. A single-branch path fails when the configuration is decoded, because one conditional step is a filter rather than a branch. A branch with no `condition` always matches, which is how a fallback is written: put it last, under `first-match`.
 
 `mode` is `first-match`, which runs the first matching branch and is the default, or `all-matching`, which runs every match in order.
+
+Inside a branch — its `condition` and its actions — templates resolve as they do at the top level: an earlier step reads as `{{<step>.<key>}}` or `{{<step>.result.<key>}}`, and helpers such as `{{now}}` work.
+
+Each value is filled in once, when the branch runs its action. What a value carries is used as it is: trigger data holding `{{…}}` or `$env.` text is stored or sent as those characters, never read as a template a second time.
 
 ```yaml
 - name: route
@@ -63,6 +75,8 @@ Iterates over an array, running its nested actions once per item.
 <!-- sovrium:options LoopEachActionSchema -->
 
 Inside the loop the current item is at **`{{loop.item}}`**, its fields at `{{loop.item.<field>}}`, and the zero-based position at `{{loop.index}}`. A bare `{{item.*}}` does not resolve.
+
+An item is filled in once, as it is: an item holding `{{…}}` or `$env.` text reaches the nested action as those characters, never read as a template a second time. A nested action that takes a list, such as a data transform on `'{{loop.item.orders}}'`, receives the list itself.
 
 ### `maxIterations` truncates silently
 

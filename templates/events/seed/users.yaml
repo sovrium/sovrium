@@ -1,0 +1,14 @@
+# The two Fieldday organizers, created as sign-in accounts before any table is
+# filled.
+#
+# Élise runs the events and is the admin; Nadia is a member who helps at the
+# door. No password is written here: every account takes
+# `SOVRIUM_SEED_PASSWORD` from the environment, so a password never lands in a
+# file you might commit.
+users:
+  - email: elise.moreau@fieldday.example
+    name: Élise Moreau
+    role: admin
+  - email: nadia.ferhat@fieldday.example
+    name: Nadia Ferhat
+    role: member

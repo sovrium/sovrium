@@ -54,20 +54,28 @@ Two consequences worth knowing:
 
 Custom middleware rate-limits the sensitive endpoints.
 
-| Endpoint                                | Limit        | Window                   |
-| --------------------------------------- | ------------ | ------------------------ |
-| `POST /api/auth/sign-in/email`          | 20 attempts  | 60 s                     |
-| `POST /api/auth/sign-up/email`          | 20 attempts  | 60 s                     |
-| `POST /api/auth/request-password-reset` | 10 attempts  | 60 s                     |
-| `POST /api/auth/oauth2/register`        | 20 requests  | 60 s                     |
-| `GET /api/tables`, `GET /api/tables/*`  | 100 requests | 60 s                     |
-| `POST /api/tables/*`                    | 50 requests  | 60 s                     |
-| `GET /api/activity`, `/api/activity/*`  | 60 requests  | 60 s                     |
-| `POST /api/auth/admin/*`                | 10 requests  | 1 s, sliding, per caller |
+| Endpoint                                                                                                                                 | Limit per caller | Window |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------ |
+| All `/api/*`, the MCP endpoint, and page / `.md` / `/_admin` requests carrying a credential (per address, ahead of every session lookup) | 1200 requests    | 60 s   |
+| `POST /api/auth/sign-in/email`                                                                                                           | 20 attempts      | 60 s   |
+| `POST /api/auth/sign-up/email`                                                                                                           | 20 attempts      | 60 s   |
+| `POST /api/auth/request-password-reset`                                                                                                  | 10 attempts      | 60 s   |
+| `POST /api/auth/oauth2/register`                                                                                                         | 20 requests      | 60 s   |
+| `GET /api/tables`, `GET /api/tables/*`                                                                                                   | 100 requests     | 60 s   |
+| `POST /api/tables/*`                                                                                                                     | 50 requests      | 60 s   |
+| `GET /api/activity`, `/api/activity/*`                                                                                                   | 60 requests      | 60 s   |
+| `POST /api/auth/admin/*`                                                                                                                 | 10 requests      | 1 s    |
 
-Every 60-second window above is one span, adjustable together with `RATE_LIMIT_WINDOW_SECONDS`; the caps themselves are fixed. The admin window is a hardcoded one second — it is sized for dashboard polling, not for brute-force resistance, and the auth check below is what protects those routes. The two scales differ by a factor of sixty on purpose: consolidating them onto one window would silently weaken admin from ten requests per second to ten per minute.
+Every 60-second window above is one span, adjustable together with `RATE_LIMIT_WINDOW_SECONDS`, which must be a whole number of seconds above zero — any other value refuses to start the server, naming the variable and the value; the caps themselves are fixed, except the per-address ceiling on the first row, which `API_IP_RATE_LIMIT` sets. The admin window is a hardcoded one second — it is sized for dashboard polling, not for brute-force resistance, and the auth check below is what protects those routes. The two scales differ by a factor of sixty on purpose: consolidating them onto one window would silently weaken admin from ten requests per second to ten per minute.
 
-Every limiter is a sliding window keyed by caller IP and by the endpoint, so one endpoint's budget cannot be spent by traffic to another.
+**The per-address ceiling** is one budget shared by every API endpoint — the health check aside — and by the form routes of an app with sign-in, counted per client address even for a signed-in caller. It runs before any session lookup, so one address cannot hammer the database with session and API-key lookups through a route that has no limit of its own; an API request that carries no credential at all (no session cookie, no `Authorization`, no `x-api-key`) is counted but triggers no lookup. At twenty requests a second it sits well above every limit below, which keep refusing first. Because it cannot tell apart the people behind one address, `API_IP_RATE_LIMIT` raises or lowers it: raise it when many users reach the app through one office or proxy address. A value that is not a whole number above zero refuses to start the server, naming the variable. The address is resolved as for every other limit, so `TRUSTED_PROXY_HOPS` decides which forwarding header is believed. The MCP endpoint counts against the same budget wherever `MCP_MOUNT_PATH` mounts it, before its credential is checked; its own per-credential limits still apply beneath. A page, a `.md` twin or a console request counts when it carries a credential (the session cookie, `Authorization`, or `x-api-key`), since each of those makes the page look the session up; one that carries none is neither counted nor refused, so a public audience behind one address never spends the budget. Every per-address limit on this page counts an IPv6 client by its /64 — the block one connection is given — and an IPv4-mapped IPv6 address as the IPv4 address it carries; logs and sessions still record the full address.
+
+Every other limiter is a sliding window, counted separately for each endpoint, so one endpoint's budget cannot be spent by traffic to another. Who counts as one caller depends on the endpoint:
+
+- **`/api/tables` and `/api/tables/*`** count a signed-in caller by their user and a caller who is not signed in by IP address. Several people behind one proxy address therefore each keep their own budget, and anonymous traffic that spends an address's budget does not refuse a signed-in user at that address. Visitors who are not signed in share one budget per address, since nothing else tells them apart.
+- **Every other endpoint**, the sign-in, sign-up and password-reset limits included, counts by IP address.
+
+A table that lets visitors create records (`create: all`) additionally limits those anonymous creates per table, as a public form is limited: 10 per visitor address and 1000 per table every 60 seconds. That limit applies on top of the records limit above.
 
 `POST /api/auth/oauth2/register` is capped at the sign-up rate because it is the same kind of surface once dynamic client registration is opened to unauthenticated callers: each request writes a row carrying a caller-chosen client name that a consent screen will later show a user. With registration closed the endpoint answers `401` before the limiter ever binds — the cap is simply already in place on the day an operator opens it.
 

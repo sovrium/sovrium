@@ -129,7 +129,7 @@ export const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-info-700: var(--sv-info-700);
     --color-info-950: var(--sv-info-950);
 
-    /* shadcn-convention alias utilities (DEC-060). Mirror COLOR_TO_SV_TOKEN in
+    /* shadcn-convention alias utilities. Mirror COLOR_TO_SV_TOKEN in
        theme-generators.ts so the DEFAULT theme mints the same shadcn names the
        custom-theme path already accepts — text-primary-foreground / bg-card /
        bg-muted / text-muted-foreground / bg-popover / bg-destructive /
@@ -543,7 +543,7 @@ export const ROLE_TOKEN_BRIDGE = `:root {
     /* fg-muted uses the v1 neutral default DIRECTLY (no var(--color-muted-foreground,
        …) self-reference) to avoid the --color-muted-foreground → --sv-fg-muted →
        --color-muted-foreground CYCLE now that --color-muted-foreground is a
-       registered shadcn alias (DEC-060). Author override still flows through
+       registered shadcn alias. Author override still flows through
        --sv-fg-muted directly via generateAuthorSvBridge. */
     --sv-fg-muted: var(--sv-neutral-600);
     /* fg-subtle/-disabled/-inverse use the neutral default directly to avoid
@@ -560,7 +560,7 @@ export const ROLE_TOKEN_BRIDGE = `:root {
        Neutral defaults are used directly (no var(--color-primary, ...)
        self-reference) to avoid the --color-primary to --sv-primary to
        --color-primary cycle that left bg-primary transparent in zero-config.
-       --sv-primary-fg likewise uses the neutral default DIRECTLY: as of DEC-060
+       --sv-primary-fg likewise uses the neutral default DIRECTLY:
        --color-primary-foreground is a REGISTERED shadcn alias
        (--color-primary-foreground: var(--sv-primary-fg)), so reading it back as
        this role's fallback would form a --color-primary-foreground → --sv-primary-fg
@@ -613,7 +613,7 @@ export const ROLE_TOKEN_BRIDGE = `:root {
 
     /* Error — author 'danger'/'error' override the -solid slot via --color-error.
        The --color-destructive / --color-destructive-foreground shadcn names are
-       NO LONGER read here: as of DEC-060 they are registered aliases
+       NO LONGER read here: they are registered aliases
        (--color-destructive: var(--sv-error-solid)), so reading them back as this
        role's fallback would form a --color-destructive → --sv-error-solid →
        --color-destructive cycle. A destructive author override reaches

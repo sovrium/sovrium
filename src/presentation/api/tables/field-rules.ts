@@ -26,9 +26,8 @@ import { enrichAttachmentMetadata as writeAttachmentMetadata } from '@/applicati
 import { uploadInlineAttachmentContent as persistInlineAttachments } from '@/application/use-cases/attachments/upload-inline-attachments'
 import { validateAttachmentConstraints as checkAttachmentConstraints } from '@/application/use-cases/attachments/validate-attachment-constraints'
 import { validateAttachmentReferences as checkAttachmentReferences } from '@/application/use-cases/attachments/validate-attachment-references'
-import { isAdminEquivalent } from '@/domain/models/app'
-import { hasPermission } from '@/domain/models/app/auth/permissions'
 import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
+import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
@@ -64,7 +63,7 @@ export function validateReadonlyIdField(
 /**
  * Reject direct writes to system-managed / computed field TYPES.
  *
- * Read-only-ness is TYPE-driven, NOT `default`-driven (GAP-10): a user-declared
+ * Read-only-ness is TYPE-driven, NOT `default`-driven: a user-declared
  * `default` is an OVERRIDABLE fallback (the DB column gets a `DEFAULT` clause),
  * so a field merely carrying a `default` stays writable — supplying a value
  * overrides the default, omitting it applies the default. Only computed/
@@ -185,18 +184,6 @@ export function validateRequiredFields(
 }
 
 /**
- * Check if a field permission restricts writing based on user role
- */
-function hasWriteRoleRestriction(
-  fieldPermission: { write?: 'all' | 'authenticated' | readonly string[] } | null | undefined,
-  userRole: string
-): boolean {
-  const writePermission = fieldPermission?.write
-  if (writePermission === undefined) return false
-  return !hasPermission(writePermission, userRole)
-}
-
-/**
  * Filter fields based on write permissions
  * Returns only fields the user is allowed to write
  */
@@ -211,26 +198,20 @@ export function filterAllowedFields(
     const ctx = yield* ValidationContext
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
 
-    // Admin-equivalent roles (the app's resolved top role + the built-in `admin`
-    // when it is not out-ranked) are unrestricted: they bypass field-level WRITE
-    // permissions. A field marked `write: ['engineer']` restricts LOWER roles —
-    // the engineer/admin OWNS every field. Uses the same canonical
-    // `isAdminEquivalent` predicate as the read-side (`filterReadableFields`) and
-    // row-level (`row-level-guard` isUnrestricted) bypass, so an engineer/admin
-    // writing an engineer-only field via the records-API no longer 404s — and a
-    // role bypasses writes exactly when it bypasses reads and row-level access.
-    const isUnrestricted = isAdminEquivalent(ctx.userRole, ctx.app)
-
-    // Get forbidden fields based on field-level permissions (functional filter pattern)
-    const forbiddenFields: readonly string[] = isUnrestricted
-      ? []
-      : Object.keys(fields).filter((fieldName) => {
-          const field = table?.fields?.find((f) => f.name === fieldName)
-          if (!field) return false
-
-          const fieldPermission = table?.permissions?.fields?.find((fp) => fp.field === fieldName)
-          return hasWriteRoleRestriction(fieldPermission, ctx.userRole)
-        })
+    // The one field write rule every door asks (`forbiddenWriteFields`): an
+    // admin-equivalent role owns every field; a field whose `write` rule names
+    // an audience is the role's only when the rule names it; and a field with no
+    // `write` rule is writable exactly when the caller may READ it, groups
+    // included. A field the table does not declare is left to the existence
+    // checks.
+    const forbiddenFields = forbiddenWriteFields(
+      ctx.app,
+      ctx.tableName,
+      { role: ctx.userRole, groups: ctx.userGroups },
+      Object.fromEntries(
+        Object.entries(fields).filter(([name]) => table?.fields?.some((f) => f.name === name))
+      )
+    )
 
     // Filter out forbidden fields. Reservation is TYPE-driven, never NAME-driven:
     // the genuinely readonly fields (`id`, and the computed/system-managed field
@@ -356,8 +337,9 @@ export function validateAttachmentConstraints(
  *
  * The refusal is a `FieldValidationError`, so it renders through the shared
  * field-scoped 400 envelope: the body names the column and never says which of
- * the three conditions failed. The synthetic `guest` principal is treated as
- * anonymous — it has no session behind it. A catalog that cannot be read at all
+ * the three conditions failed. A visitor who is not signed in — the session's
+ * identity says so, whatever her role is called — is treated as anonymous. A
+ * catalog that cannot be read at all
  * is not a verdict and renders as the storage-unavailable 503.
  */
 export function validateAttachmentReferences(
@@ -369,11 +351,12 @@ export function validateAttachmentReferences(
 > {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
-    const authenticated = ctx.userRole !== 'guest'
     yield* checkAttachmentReferences({
       scope: scopeOf(ctx),
       fields,
-      writer: authenticated ? { authenticated, role: ctx.userRole } : { authenticated },
+      writer: ctx.signedOut
+        ? { authenticated: false }
+        : { authenticated: true, role: ctx.userRole },
       publicAccess: resolveStoragePublicAccess(),
     }).pipe(
       Effect.mapError((error) =>

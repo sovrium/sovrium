@@ -2,7 +2,7 @@
 
 > The data grid — columns, selection, bulk actions, grouping and summaries — plus the filter-bar that narrows it and everything else listening on the same channel. Editing in the grid has its own page.
 
-`table` is the grid. Bind it to a table or to a read endpoint with `dataSource`, or omit the binding and it draws the `tableHeaders` and `tableRows` you author; declaring both is refused.
+`table` is the grid. Bind it to a table or to a read endpoint with `dataSource`, or omit the binding and it draws the `tableHeaders` and `tableRows` you author; declaring both is refused. A table written with `tableHeaders` and `tableRows` draws its rows on whole pixels.
 
 <!-- sovrium:options type:table depth=3 -->
 
@@ -18,7 +18,7 @@ Every other action type — `auth`, `crud`, `automation`, `filter`, `toast`, `fe
 
 Opening a row's full record is a property of the grid, so it needs no sibling component and no id to keep in step. `true` expands rows into a panel derived from the bound table; `false` is the same as omitting the key, so an expand can be switched off in place; an object of `{ fields, canEdit, title }` narrows the field list, makes the panel read-only and names it.
 
-**With no `fields`, the panel shows every declared field of the bound table, in declared order** — not the visible `columns`. The reason to expand a row is to see what the row cannot show, so deriving from the columns would make expand a no-op on a grid that already displays everything. Each field keeps the `label` and `description` it declares. An explicit `fields` list narrows and reorders the panel, and may name a field that is not a column.
+**With no `fields`, the panel shows every declared field of the bound table, in declared order** — not the visible `columns`. The reason to expand a row is to see what the row cannot show, so deriving from the columns would make expand a no-op on a grid that already displays everything. Each field keeps the `label` and `description` it declares. An explicit `fields` list narrows and reorders the panel, and may name a field that is not a column. Either way the panel follows its reader's field permissions: a field she may not read is not in it at all, and one she may read but not write shows its value without an editable control.
 
 ```yaml
 - type: table
@@ -46,15 +46,17 @@ A column is either a **field column** or an **action column** (`type: actions`, 
 
 An action column also takes `capability`, which withholds the whole column — header included, and its action endpoints with it — from a caller who lacks the named power.
 
-A field column's `format` chooses the cell rendering: `truncate`, `currency`, `percentage`, `compact`, `bytes`, `relative-date`, `relative-time`, `short-date`, `long-date`, `datetime`, `yes-no`, `check-cross`. `cellStyle` applies `{ when: { <operator>: value }, className }` rules per cell, over the operators `eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte`.
+A field column's `format` chooses the cell rendering: `truncate`, `currency`, `percentage`, `compact`, `bytes`, `relative-date`, `relative-time`, `short-date`, `long-date`, `datetime`, `yes-no`, `check-cross`. `short-date` writes the day and the short month in the page language's order ("Sep 22", "22 sept."). The year is added only when the date falls in another year ("Mar 5, 2024"). `cellStyle` applies `{ when: { <operator>: value }, className }` rules per cell, over the operators `eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte`, and the presence flags `isEmpty: true` / `isNotEmpty: true`. An action's `visibleWhen` names a record `field` and takes the same operators, so `{ field: phone, isNotEmpty: true }` offers the action only on rows that have a phone number; a missing value, an empty text, an empty list and an empty object all count as empty.
 
-A `url` field's cell is a link that opens in a new tab; a value that is not a web address is shown as text. A `date` field's cell reads as a calendar date in the page's language, on the same day for every reader.
+A `url` field's cell is a link that opens in a new tab; a value that is not a web address is shown as text. A `date` field's cell reads as a calendar date in the page's language, on the same day for every reader. A `datetime` field's cell reads as its date and time in the page's language, at the wall clock of the field's own `timeZone`, else the operator time zone, whoever reads it; a field declaring `timeZone: local` reads at the reader's own clock. An attachment cell names each file as it was uploaded, as a link to it; the prefix that keeps the stored key unique is never shown.
 
 ```yaml
 columns:
   - field: status
     frozen: true
     cellStyle: [{ when: { eq: overdue }, className: 'text-red-600' }]
+  - field: due_date
+    cellStyle: [{ when: { isEmpty: true }, className: 'text-muted-foreground' }]
   - type: actions
     actions: [{ label: Delete, action: { type: crud, operation: delete, table: tasks } }]
 ```
@@ -94,9 +96,13 @@ Regions read in their declared order, the stages inside each region read in reve
 
 **Where a selection export gets its rows depends on the same binding.** A grid bound to a table sends the ticked ids to the records-export endpoint, so the file can carry rows from pages the browser never fetched, formatted as each column declares. A grid bound to a read endpoint has no table to address, so it writes the CSV itself — the rows it is holding, over the columns still on screen, with the values as the endpoint returned them — and names the file after the endpoint's last segment.
 
+## Alternate views a reader may not be offered
+
+A grid's `views` switcher offers each reader only the views she can be shown. A board grouped by a field she may not read (`kanbanGroupBy`) and a calendar placed by one (`dateField`) are not offered to her, and her page names neither the field, its label nor its options; the grid and every other view stay. A reader who may read both fields is offered every view the grid declares.
+
 ## Reading through a view
 
-`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in.
+`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in. A `summary` row totals the rows the view returns — its filters included — rather than the whole table. Export stays off: the export reads the table, not the view, so it would hand a reader the fields and rows the view exists to withhold; bind the grid to the table with a filter where an export is needed.
 
 A view's own filters, sorts and `fields` apply before anything the grid adds: its sort headers, search and filters narrow the view, and never reach a column it leaves out. See the data binding article for an example.
 
@@ -119,6 +125,8 @@ Names a field whose declared option colours fill each row. It is spelled `rowCol
 The fill comes from the option colours declared on the named field, and the row's text colour is derived from it so it stays legible against any hue. Unlike a calendar or timeline, **a grid invents nothing**: a value whose option declares no colour is not filled, and neither is an empty value or a grid with no `rowColorField` at all. There is no fallback palette.
 
 **A filled row suppresses `striped`.** Striping, hover and selection are all painted as row backgrounds, and on a filled row the background belongs to you rather than to the grid's chrome — so a filled row drops all three and wears its selection and hover as inset shadows instead. The suppression is per row, not per grid.
+
+A reader who may not read the named field sees the rows unfilled, and the page names neither the field nor its options.
 
 Unlike the record views' `colorField`, this one is checked: `sovrium validate` rejects a `rowColorField` naming a field that does not exist on the bound table, because an unfilled grid looks identical whether the name was a typo or the colours were deliberately left undeclared.
 

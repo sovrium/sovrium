@@ -74,7 +74,7 @@ export interface SessionInfo {
    * Optional for backward compatibility — when absent, page access falls
    * back to checking `role` only.
    *
-   * Bug 2.
+   * [internal ref].
    */
   readonly effectiveRoles?: readonly string[]
 }

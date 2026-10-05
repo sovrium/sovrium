@@ -58,7 +58,17 @@ An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fet
 
 A `crud` action needs `operation` (`create`, `update`, `delete`) **and** `table`. `confirm` gates it behind a dialog, with `confirmMessage` supplying the wording.
 
+A form whose `auth` action has `method: logout` is a sign-out control: it renders only its button — `submitLabel` names it — with no email or password to fill, and pressing it ends the session.
+
+```yaml
+components:
+  - type: form
+    action: { type: auth, method: logout, submitLabel: Sign out }
+```
+
 A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`), `message` and `title` set inline copy, and `actions` renders follow-up buttons on a success page.
+
+A response's `navigate`, a success page's `redirect` and each follow-up button's `url` go to an `http://` or `https://` address or to a path on this site (`/done`, `done`, `?saved=1`, `#top`), on a button as on a form. The scheme is written out, never supplied by a `$record.` variable, and `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field.
 
 ```yaml
 tables:

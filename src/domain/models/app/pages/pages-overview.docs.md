@@ -43,16 +43,17 @@ pages:
 
 ## App variables
 
-`$vars.*` are fixed at author time and `$query.*` reads the URL. Neither can say what app is serving the page — so a page wanting its own product name in the chrome had to hardcode it, and every copy went stale on its own. `$app.*` closes that with six tokens, usable anywhere a string is: content, props, an `href`.
+`$vars.*` are fixed at author time and `$query.*` reads the URL. Neither can say what app is serving the page — so a page wanting its own product name in the chrome had to hardcode it, and every copy went stale on its own. `$app.*` closes that with seven tokens, usable anywhere a string is: content, props, an `href` — including inside a component template, which resolves them for the page it is placed on exactly as a component written inline does.
 
-| Token                | Value                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| `$app.name`          | The config `name` — an npm-style slug, right in a URL or an id.                              |
-| `$app.label`         | That name in display form, title-cased, for page chrome.                                     |
-| `$app.version`       | The declared `version`, or nothing when none is declared.                                    |
-| `$app.origin`        | The scheme and host **this request** arrived on.                                             |
-| `$app.basePath`      | The base this app is served at — empty at a site root, `/_admin` for a mounted console.      |
-| `$app.engineVersion` | The version of the Sovrium engine running the app, which under a mount is not the app's own. |
+| Token                | Value                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `$app.name`          | The config `name` — an npm-style slug, right in a URL or an id.                                                   |
+| `$app.label`         | That name in display form, title-cased, for page chrome.                                                          |
+| `$app.version`       | The declared `version`, or nothing when none is declared.                                                         |
+| `$app.origin`        | The scheme and host **this request** arrived on.                                                                  |
+| `$app.basePath`      | The base this app is served at — empty at a site root, `/_admin` for a mounted console.                           |
+| `$app.engineVersion` | The version of the Sovrium engine running the app, which under a mount is not the app's own.                      |
+| `$app.path`          | The path the visitor asked for, decoded, without the query string (a 404 page can say which address had nothing). |
 
 ```yaml
 name: my-app
@@ -68,7 +69,7 @@ The set is closed, exactly as a page's `query` allow-list is. A token outside it
 
 `$app.version` is the one exception, and always resolves: an app that declares no version substitutes the empty string rather than leaving the token behind. Declaring none is a perfectly valid config, so a surviving `$app.version` would fire on correct input and teach you nothing — and inside a structured value, such as a JSON prop handed to an interactive component, the literal would be read downstream as if it were a real version number.
 
-**A page that references `$app.origin` is served fresh, not from the page cache.** It embeds the request host in its HTML, so a cached copy minted behind one hostname would print the wrong address to visitors of another.
+**A page that references `$app.origin` — directly or through a component template it places — is served fresh, not from the page cache.** It embeds the request host in its HTML, so a cached copy minted behind one hostname would print the wrong address to visitors of another.
 
 ## Capability requirements
 

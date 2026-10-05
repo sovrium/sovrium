@@ -67,9 +67,11 @@ For a one-to-many relationship the foreign key lives on the child, so you seed t
 
 ## Dates that stay current
 
-A fixed date ages. A pipeline whose deals all closed last spring reads as abandoned by autumn, and a calendar seeded with fixed days is empty the moment you look at a different month. Write dates relative to the day the seed runs — `{{today}}`, `{{today+21d}}`, `{{today-3d}}` — and every replay recomputes them, so a demo reset nightly always shows work in progress.
+A fixed date ages. A pipeline whose deals all closed last spring reads as abandoned by autumn, and a calendar seeded with fixed days is empty the moment you look at a different month. Write dates relative to the day the seed runs — `{{today}}`, `{{today+21d}}`, `{{today-3d}}` — and every replay recomputes them, so a demo reset nightly always shows work in progress. A date can carry a time of day — `{{today+6d 14:00}}` is two in the afternoon six days out, in UTC — so an event seeded for the afternoon starts in the afternoon on every replay.
 
 `--today <YYYY-MM-DD>` (or `SOVRIUM_SEED_TODAY`) sets the day every `{{today…}}` resolves against, so a seed reproduces the same dates on any day. The flag wins over the variable; a value that is not a real date is refused.
+
+An empty or blank string for a date, datetime or time column seeds as no value.
 
 ## Modes
 
@@ -133,13 +135,15 @@ A `user` field takes `'@user:<email>'`, resolved to that account's id. An email 
 
 ## Attachments
 
-Put files in `seed/assets/` and reference them by name as `'@asset:northwind-logo.avif'`. The file is uploaded and the stored key is written to the field.
+Put files in `seed/assets/` and reference them by name as `'@asset:northwind-logo.avif'`. The file is uploaded and the stored key is written to the field. A `multiple-attachments` field takes a list of them — one `'@asset:…'` per file — and stores every file, in the order listed.
+
+An `@asset:` file is uploaded into the bucket its field declares; a `public: true` bucket serves it without a session.
 
 ## What seeding does not do
 
 **It does not run your automations.** Records are written directly, so an automation that reacts to record creation will not have fired. If your app's demo value depends on something an automation produces — an activity log, a derived status — seed that too, written the way the automation would have written it.
 
-**Some fields are refused rather than half-written**, each with a message naming the file and record: an attachment field on a bucket other than the built-in `system` one, and `upsert` on a table whose seed data carries many-to-many links. Refusing is deliberate — writing the row and dropping the links would leave you with data that looks complete and is not.
+**Some fields are refused rather than half-written**, each with a message naming the file and record: `upsert` on a table whose seed data carries many-to-many links. Refusing is deliberate — writing the row and dropping the links would leave you with data that looks complete and is not.
 
 ## When a record is rejected
 

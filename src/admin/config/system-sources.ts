@@ -166,7 +166,7 @@ export const AUTOMATION_RUN_DETAIL_ENDPOINT = '/api/admin/automations/runs/:id'
  *
  * There is deliberately no `/api/admin/links/overview` and no per-link click
  * endpoint, however natural either looks: a second aggregation path over the
- * same click rows would eventually disagree with the first ([internal ref] D6). The
+ * same click rows would eventually disagree with the first. The
  * Links console asks the SAME analytics readers a narrower question, with
  * `event_type=link_click`.
  */
@@ -240,7 +240,7 @@ export const ADMIN_ROLES_ENDPOINT = '/api/admin/roles'
 // Every metric on the Analytics and Links consoles comes from these six. There
 // is deliberately no `/api/admin/links/overview` and no per-link click endpoint,
 // however natural either looks: a second aggregation path over the same click
-// rows would eventually disagree with the first ([internal ref] D6). Links asks the
+// rows would eventually disagree with the first. Links asks the
 // SAME readers a narrower question, with `event_type=link_click`.
 //
 // All six require ABSOLUTE ISO `from` / `to`, which is why both surfaces declare
@@ -291,8 +291,9 @@ export const ANALYTICS_EVENTS_ENDPOINT = '/api/analytics/events'
  * copy-pasteable block name `$record.origin` rather than a placeholder an
  * operator must hand-substitute into six blocks across two pages. It publishes
  * FACTS and never the composed strings — no curl, no `${origin}/api`, no
- * joined example list — so the words stay in this config and can be translated
- *.
+ * joined example list — so the words stay in this config and can be translated:
+ * an endpoint answers what config cannot compute, and the console keeps the
+ * words.
  *
  * Read for its ROWS too: the API page's example block folds one
  * `GET /api/tables/$record.name/records` line per table out of `tables`.

@@ -7,7 +7,7 @@
 
 import { Cause, Data, Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { InvalidNotificationEnvError } from '@/application/errors/invalid-notification-env-error'
+import { InvalidEnvVarError } from '@/application/errors/invalid-env-var-error'
 import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
@@ -32,10 +32,14 @@ import {
   type TelemetryConfigurationError,
 } from '@/application/use-cases/env/validate-telemetry-configuration'
 import { prebuildSearchIndex } from '@/application/use-cases/server/prebuild-search-index'
+import { ENGINE_KEY_UNPREFIXED_TOKEN } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
+import { parseApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
 import { parseSovriumAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
+import { searchIndexDir, searchIndexRoot } from '@/domain/models/process-env/data-dir'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { parseSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import {
   parseSovriumAutomationAutopause,
   parseSovriumNotifyAutomations,
@@ -43,6 +47,7 @@ import {
   parseSovriumNotifyDigestCron,
   parseSovriumNotifyTo,
 } from '@/domain/models/process-env/notifications'
+import { parseRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
@@ -59,6 +64,7 @@ import type { DatabaseStartupReport } from '@/application/ports/services/server-
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { Auth } from '@/infrastructure/auth/better-auth/auth-service'
 import type { TSValidationError } from '@/infrastructure/automations/typescript-validator'
 import type {
@@ -98,12 +104,12 @@ export interface StartOptions {
    * Static-asset serving was explicitly DISABLED (`--no-publicDir`, or the
    * `SOVRIUM_PUBLIC_DIR=none` sentinel) — as opposed to merely unconfigured.
    *
-   * The distinction exists for exactly one consumer: the page-search index.
-   * When a config declares a page-scoped `search-input` and no `publicDir` was
-   * resolved, the boot allocates an ephemeral one purely to host the search
-   * artifacts (see `resolveEffectivePublicDir`). An operator who asked for no
-   * static assets at all must not silently get a temp directory back, so
-   * "unset" and "refused" cannot collapse to the same value.
+   * The distinction exists for exactly one consumer: the page-search index,
+   * which is built under the data directory and served at `/sovrium-search/*`
+   * whenever the config declares a page-scoped `search-input` (see
+   * `prepareSearchArtifacts`). An operator who asked for no static assets at
+   * all gets no search either, so "unset" and "refused" cannot collapse to
+   * the same value.
    */
   readonly publicDirOptOut?: boolean
 
@@ -245,11 +251,13 @@ const validateCodeActionsAtStartup = (
  * The operator-email variables are here for the same reason: a mistyped
  * kill switch or recipient would otherwise be discovered only when an alert
  * failed to arrive. So is the default run timeout of an automation, which would
- * otherwise be discovered only when a run was stopped.
+ * otherwise be discovered only when a run was stopped, the per-address API
+ * ceiling, which would otherwise be discovered only when users were refused,
+ * and the rate-limit window, whose bad value would switch every limit off.
  */
 /** What {@link validateBootEnvironment} refuses a boot with. */
 type BootEnvironmentError =
-  MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidNotificationEnvError
+  MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidEnvVarError
 
 const validateBootEnvironment = (validatedApp: App): Effect.Effect<void, BootEnvironmentError> =>
   validateRequiredEnvVars(validatedApp.env, process.env).pipe(
@@ -268,8 +276,11 @@ const validateBootEnvironment = (validatedApp: App): Effect.Effect<void, BootEnv
           parseSovriumNotifyDigest(process.env),
           parseSovriumNotifyDigestCron(process.env),
           parseSovriumAutomationDefaultTimeoutMs(process.env),
+          parseApiIpRateLimit(process.env),
+          parseRateLimitWindowSeconds(process.env),
+          parseSovriumDevClock(process.env),
         ],
-        catch: (error) => new InvalidNotificationEnvError(error),
+        catch: (error) => new InvalidEnvVarError(error),
       })
     ),
     Effect.asVoid
@@ -286,13 +297,32 @@ const validateBootEnvironment = (validatedApp: App): Effect.Effect<void, BootEnv
  * `onExcessProperty: 'error'` default IS the contract. See
  * `decode-app-config.ts`.
  */
-const decodeAndValidateApp = (app: unknown): Effect.Effect<App, AppValidationError, never> =>
+const decodeAndValidateApp = (
+  app: unknown
+): Effect.Effect<
+  {
+    readonly app: App
+    readonly authoredTableIds: AuthoredTableIds
+    readonly bootNotices: readonly string[]
+  },
+  AppValidationError,
+  never
+> =>
   Effect.suspend(() => {
     const decoded = decodeAppConfigObject(app)
     return decoded.valid
-      ? Effect.succeed(decoded.app)
+      ? Effect.succeed({ ...decoded, bootNotices: bootNoticesOf(decoded.notices) })
       : Effect.fail(new AppValidationError(decoded.errors.join('\n')))
   })
+
+/**
+ * The validate notices the server also prints once as it starts. Only the
+ * deprecated bare engine key: the author may never run `sovrium validate`, and
+ * the spelling keeps working silently otherwise. The layout notices stay
+ * `validate`'s, where they are read before an edit, not on every boot.
+ */
+const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
+  notices.filter((notice) => notice.startsWith(`${ENGINE_KEY_UNPREFIXED_TOKEN}:`))
 
 /**
  * Format a bootstrap-admin failure for the warning log. `BootstrapDatabaseError`
@@ -422,70 +452,98 @@ interface CreateServerDeps {
   readonly databaseStartup: DatabaseStartupReport
 }
 
-/**
- * "No directory is served" — the union member, not a throwaway void. Named for
- * the same reason as `NO_BOOTSTRAP_TOKEN` above: it participates in a
- * `string | undefined` result, so `Effect.void` would be wrong here even though
- * it reads identically at the call site.
- */
-const NO_PUBLIC_DIR: string | undefined = undefined
-
-/**
- * Where the page-search artifacts get written, which is also what the
- * static-asset route will serve.
- *
- * Three cases. An operator-configured `publicDir` is used as-is. An explicit
- * opt-out yields nothing, and the index is skipped with it — `--no-publicDir`
- * means no static assets, search included. Otherwise, when and only when the
- * config actually declares a page-scoped `search-input`, an ephemeral directory is
- * allocated purely to host the two search files.
- *
- * The temp directory is deliberately NOT removed at shutdown. Only
- * `/sovrium-search/*` is ever written into it, so nothing else accidentally
- * becomes a static asset, and the OS reaps `/tmp` on its own (systemd-tmpfiles
- * ≥10 days on Linux, 3 days on macOS). If that ever becomes observable, the
- * place to remove it is `installShutdownHandlers`
- * (`infrastructure/server/lifecycle.ts`), which owns the whole SIGTERM/SIGINT
- * path and has nothing to race.
- */
-/** The ephemeral directory that hosts the page-search artifacts could not be made. */
-class SearchPublicDirError extends Data.TaggedError('SearchPublicDirError')<{
+/** The page-search directory could not be prepared (mkdir, or a stale sibling removal). */
+class SearchIndexDirError extends Data.TaggedError('SearchIndexDirError')<{
   readonly cause: unknown
 }> {}
 
-const resolveEffectivePublicDir = (
-  validatedApp: App,
-  options: StartOptions,
-  logger: Context.Service.Shape<typeof Logger>
-): Effect.Effect<string | undefined, never> => {
-  if (options.publicDir) return Effect.succeed(options.publicDir)
-  if (options.publicDirOptOut || !hasPageSearchComponent(validatedApp)) {
-    return Effect.succeed(NO_PUBLIC_DIR)
+/** Whether a process id still names a running process. */
+const isProcessAlive = (pid: number): boolean => {
+  try {
+    // Signal 0 checks existence without delivering anything. EPERM means the
+    // process exists but belongs to another user — still alive.
+    // eslint-disable-next-line functional/no-expression-statements -- existence probe, no effect
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
   }
-  return Effect.tryPromise({
-    try: async () => {
-      const { mkdtemp } = await import('node:fs/promises')
-      const { tmpdir } = await import('node:os')
-      const { join } = await import('node:path')
-      return mkdtemp(join(tmpdir(), 'sovrium-search-public-'))
-    },
-    catch: (cause) => new SearchPublicDirError({ cause }),
-  }).pipe(
-    Effect.tapCause((cause) =>
-      logger.warn(`Page search disabled — no temporary directory: ${Cause.pretty(cause)}`)
-    ),
-    // effect-swallow: see the tap above, and `prepareSearchArtifacts` below,
-    // which states the same rule: a search index that cannot be built costs
-    // the operator search, never the deployment. Falling back to no public
-    // directory is exactly what a config with no page search resolves to.
-    Effect.orElseSucceed(() => NO_PUBLIC_DIR)
-  )
 }
 
 /**
+ * Create this process's page-search directory under the data directory and
+ * remove the ones left by processes that are no longer running, so a data
+ * directory holds one index per live server rather than one per start.
+ */
+const prepareSearchIndexDir = (): Effect.Effect<string, SearchIndexDirError> =>
+  Effect.tryPromise({
+    try: async () => {
+      const { mkdir, readdir, rm } = await import('node:fs/promises')
+      const { join } = await import('node:path')
+      const root = searchIndexRoot()
+      const own = searchIndexDir()
+      // eslint-disable-next-line functional/no-expression-statements -- create this process's directory
+      await mkdir(own, { recursive: true })
+      const entries = await readdir(root)
+      // Only a directory named by a plain process id is ours to judge: a
+      // `-1` or `0` would ask `kill` about a whole process group.
+      const stale = entries.filter((name) => {
+        const pid = Number(name)
+        return /^[1-9]\d*$/.test(name) && pid !== process.pid && !isProcessAlive(pid)
+      })
+      // One removal at a time: a handful of dead-process directories, no pool involved.
+      await stale.reduce<Promise<void>>(
+        (previous, name) =>
+          previous.then(() => rm(join(root, name), { recursive: true, force: true })),
+        Promise.resolve()
+      )
+      return own
+    },
+    catch: (cause) => new SearchIndexDirError({ cause }),
+  })
+
+/**
+ * Warn when the app's own `public/` folder ships a `sovrium-search/` directory.
+ *
+ * While a page declares a `search-input`, the engine owns `/sovrium-search/*`:
+ * the index it builds is mounted before `public/`, so a folder of that name
+ * there is never served — most often the stale copy an older version wrote
+ * into it. The operator is told once, at start, so a file shipped
+ * there on purpose does not vanish in silence.
+ */
+const warnOnShadowedPublicSearch = (
+  publicDir: string | undefined,
+  logger: Context.Service.Shape<typeof Logger>
+): Effect.Effect<void> =>
+  publicDir === undefined
+    ? Effect.void
+    : // effect-promise: total -- both outcomes of `access` are mapped to a boolean; nothing rejects
+      Effect.promise(async () => {
+        const { access } = await import('node:fs/promises')
+        const { join } = await import('node:path')
+        return access(join(publicDir, 'sovrium-search')).then(
+          () => true,
+          () => false
+        )
+      }).pipe(
+        Effect.flatMap((shadowed) =>
+          shadowed
+            ? logger.warn(
+                `${publicDir}/sovrium-search/ is not served: the page-search index owns /sovrium-search/*. Remove the folder, or move what it holds.`
+              )
+            : Effect.void
+        )
+      )
+
+/**
  * Emit the page-search artifacts before the listener binds, so
- * `/sovrium-search/index.json` is servable from request one, and return the
- * directory they went into — which is also what the static-asset route mounts.
+ * `/sovrium-search/index.json` is servable from request one.
+ *
+ * They are written under the DATA directory (`searchIndexDir`), beside the
+ * database — never into the app's `public/` folder, which an author commits
+ * and `sovrium build` ships. The static-asset route mounts the same directory
+ * for `/sovrium-search/*` only. An explicit opt-out of static assets
+ * (`--no-publicDir`) still means no search, as it always did.
  *
  * A failure NEVER takes the boot down: the static-asset route then 404s the
  * search paths, which is the same observable behaviour as a config with no
@@ -498,21 +556,17 @@ const prepareSearchArtifacts = (
   validatedApp: App,
   options: StartOptions,
   logger: Context.Service.Shape<typeof Logger>
-): Effect.Effect<
-  string | undefined,
-  never,
-  ServerFactory | PageRenderer | CSSCompiler | StaticSiteGenerator
-> =>
-  Effect.gen(function* () {
-    const publicDir = yield* resolveEffectivePublicDir(validatedApp, options, logger)
-    if (publicDir !== undefined) {
-      yield* prebuildSearchIndex(rawApp, validatedApp, publicDir).pipe(
+): Effect.Effect<void, never, ServerFactory | PageRenderer | CSSCompiler | StaticSiteGenerator> =>
+  options.publicDirOptOut || !hasPageSearchComponent(validatedApp)
+    ? Effect.void
+    : Effect.gen(function* () {
+        yield* warnOnShadowedPublicSearch(options.publicDir, logger)
+        const dir = yield* prepareSearchIndexDir()
+        yield* prebuildSearchIndex(rawApp, validatedApp, dir)
+      }).pipe(
         Effect.asVoid,
         Effect.catchCause((cause) => logger.warn(`Search index not built: ${Cause.pretty(cause)}`))
       )
-    }
-    return publicDir
-  })
 
 /**
  * Run the database startup chain for this process, once, before anything
@@ -546,11 +600,12 @@ const prepareSearchArtifacts = (
  */
 const hoistDatabaseStartup = (
   serverFactory: Context.Service.Shape<typeof ServerFactory>,
-  validatedApp: App
+  validatedApp: App,
+  authoredTableIds: AuthoredTableIds
 ): Effect.Effect<
   DatabaseStartupReport,
   AuthConfigRequiredForUserFields | SchemaInitializationError | Error
-> => serverFactory.startDatabase(validatedApp)
+> => serverFactory.startDatabase(validatedApp, { authoredTableIds })
 
 /**
  * Create the server from the validated app and the threaded render services.
@@ -630,7 +685,8 @@ export const startServer = (
     // the search index all take their view of the app from this object. Gating
     // later would deliver the 404 and none of the rest, leaving the app
     // advertising URLs it refuses to serve.
-    const validatedApp = prunePagesByRequirements(yield* decodeAndValidateApp(app))
+    const { app: decodedApp, authoredTableIds, bootNotices } = yield* decodeAndValidateApp(app)
+    const validatedApp = prunePagesByRequirements(decodedApp)
     yield* validateBootEnvironment(validatedApp)
     // No encryption-key gate here any more. A server used to refuse to boot
     // without `SOVRIUM_ENCRYPTION_KEY`; it now runs on a key it provisions for
@@ -662,22 +718,28 @@ export const startServer = (
     const serverFactory = yield* ServerFactory
     const pageRenderer = yield* PageRenderer
     const logger = yield* Logger
+    yield* Effect.forEach(bootNotices, (notice) => logger.warn(notice), { discard: true })
 
     // Run migrations → config-file version seed → admin bootstrap before
     // `serverFactory.create` (which binds the listener). See
     // `runBootSequenceAndBootstrap` for the full ordering rationale.
     const bootstrapToken = yield* runBootSequenceAndBootstrap(validatedApp, logger)
 
-    const databaseStartup = yield* hoistDatabaseStartup(serverFactory, validatedApp)
+    const databaseStartup = yield* hoistDatabaseStartup(
+      serverFactory,
+      validatedApp,
+      authoredTableIds
+    )
 
     // Page-search artifacts, before the listener binds. Used to be the CLI's
     // job, which meant every other caller of `startServer` served a 404 for
     // `/sovrium-search/*`. It is a property of the server, so it boots here.
-    const publicDir = yield* prepareSearchArtifacts(app, validatedApp, options, logger)
+    yield* prepareSearchArtifacts(app, validatedApp, options, logger)
 
-    return yield* createServerInstance(
-      validatedApp,
-      { ...options, ...(publicDir !== undefined && { publicDir }) },
-      { serverFactory, pageRenderer, bootstrapToken, databaseStartup }
-    )
+    return yield* createServerInstance(validatedApp, options, {
+      serverFactory,
+      pageRenderer,
+      bootstrapToken,
+      databaseStartup,
+    })
   }).pipe(Effect.withSpan('server.start-server'))

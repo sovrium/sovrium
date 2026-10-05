@@ -7,9 +7,12 @@
 
 import { normalizeRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import {
+  callerReaderFromSession,
+  tableReadPrincipal,
+} from '@/domain/models/app/tables/caller-record-gate-service'
+import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
-  readPrincipalFromSession,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import type { App } from '@/domain/models/app'
@@ -199,7 +202,7 @@ function readableFieldNames(
   const plan = buildReadAccessPlan({
     app: ctx.app,
     table: table as TableLike,
-    principal: readPrincipalFromSession(ctx.session),
+    principal: tableReadPrincipal(table, callerReaderFromSession(ctx.session, ctx.app)),
     policy: CANONICAL_READ_POLICY,
   })
   if (!plan.allowed) return undefined

@@ -199,57 +199,110 @@ export const toSqliteFtsMatch = (tokens: readonly string[]): string =>
   tokens.map((token) => `"${token.replace(/"/g, '""')}"*`).join(' OR ')
 
 /**
+ * The side map a mirror keeps when the table's `id` is NOT SQLite's rowid (a
+ * TEXT or composite primary key): one row per record, mapping its key to the
+ * rowid its FTS5 entry was written under.
+ *
+ * The `:` cannot occur in a table name (`^[a-z][a-z0-9_]*$`), so the name can
+ * never collide with another table's mirror, and it still sits in the reserved
+ * `fts__` namespace the pre-migration sweep drops.
+ */
+export const sqliteFtsKeyTableName = (relation: string): string =>
+  `${sqliteFtsTableName(relation)}:keys`
+
+/** A trigger row's record key, as the TEXT the mirror stores it under. */
+const keyOf = (row: 'new' | 'old'): string => `CAST(${row}."id" AS TEXT)`
+
+/** The input every SQLite mirror statement is generated from. */
+export interface SqliteFtsInput {
+  readonly queriedRelation: string
+  readonly physicalTable: string
+  readonly columns: readonly string[]
+  /**
+   * Whether the table's `id` is an alias of SQLite's rowid (`INTEGER PRIMARY
+   * KEY`). Then the mirror entry is written under the record's own id; any
+   * other key goes through {@link sqliteFtsKeyTableName}.
+   */
+  readonly idIsRowid: boolean
+}
+
+/**
  * The idempotent SQLite DDL that creates the FTS5 mirror of `physicalTable`,
- * the three triggers that keep it in lock-step, and the initial backfill.
+ * the three triggers that keep it in lock-step, and — for a table whose `id` is
+ * not the rowid — the key map they address it through.
  *
  * NOT the external-content (`content=`/`content_rowid=`) pattern that
  * `lookup/admin-search-fts-ddl.ts` uses. External content couples the index to
  * the base table's `rowid`, and a Sovrium table may declare a TEXT primary key
  * (`auth.scopeTables` parents do so implicitly), for which no such coupling
- * exists. Storing `record_id` as an UNINDEXED TEXT column costs a copy of the
- * key and works at every primary-key type.
+ * exists. The record key is also stored in an UNINDEXED TEXT `record_id`
+ * column, which is what the palette's query joins back on.
+ *
+ * ## Every trigger statement reaches its entry by key
+ *
+ * FTS5 cannot serve a predicate on an UNINDEXED column: `WHERE record_id = …`
+ * reads the whole mirror, so one edit on a 50,000-row table cost ~4.5 ms and
+ * grew with the table. Each entry is therefore written under a rowid the
+ * triggers can name — the record's own id when that IS the rowid, else the
+ * rowid the key map assigned it — and every UPDATE and DELETE addresses the
+ * entry by that rowid, which FTS5 serves directly. The key map is a real table
+ * with a UNIQUE key, so its lookups are index searches too. SQLite's own rowid
+ * is NOT used for a TEXT key: `VACUUM` may renumber it.
  *
  * The UPDATE trigger deletes-then-inserts because an FTS index has no in-place
  * update. The DELETE is a plain `DELETE FROM` — available here precisely because
  * this is an ordinary FTS5 table and not an external-content one, which would
  * have required the `'delete'` command-row incantation.
  *
- * @param queriedRelation the relation the palette SELECTs from — the view name
- *   for a view-backed table, otherwise the table itself. Names the FTS table so
- *   the runtime query can derive it from what it is already querying.
- * @param physicalTable the real TABLE the triggers attach to. Differs from
- *   `queriedRelation` for view-backed tables; a trigger cannot be hung on a view.
+ * `queriedRelation` names the FTS table (the view name for a view-backed table)
+ * so the runtime query can derive it from what it is already querying;
+ * `physicalTable` is the real TABLE the triggers attach to — a trigger cannot be
+ * hung on a view.
  */
-export const sqliteFtsStatements = (input: {
-  readonly queriedRelation: string
-  readonly physicalTable: string
-  readonly columns: readonly string[]
-}): readonly string[] => {
-  const { queriedRelation, physicalTable, columns } = input
+export const sqliteFtsStatements = (input: SqliteFtsInput): readonly string[] => {
+  const { queriedRelation, physicalTable, columns, idIsRowid } = input
   const fts = sqliteFtsTableName(queriedRelation)
+  const keys = sqliteFtsKeyTableName(queriedRelation)
   const quoted = columns.map((column) => `"${column}"`).join(', ')
   const newValues = columns.map((column) => `new."${column}"`).join(', ')
-  const idColumns = `${SQLITE_FTS_RECORD_ID_COLUMN}, ${quoted}`
+  const insertColumns = `rowid, ${SQLITE_FTS_RECORD_ID_COLUMN}, ${quoted}`
+  const rowidOf = (row: 'new' | 'old'): string =>
+    idIsRowid ? `${row}."id"` : `(SELECT fts_rowid FROM "${keys}" WHERE record_id = ${keyOf(row)})`
+  const insertEntry = `INSERT INTO "${fts}"(${insertColumns})
+         VALUES (${rowidOf('new')}, ${keyOf('new')}, ${newValues});`
+  const deleteEntry = `DELETE FROM "${fts}" WHERE rowid = ${rowidOf('old')};`
+  const mapNew = idIsRowid ? '' : `INSERT INTO "${keys}"(record_id) VALUES (${keyOf('new')});`
+  const unmapOld = idIsRowid ? '' : `DELETE FROM "${keys}" WHERE record_id = ${keyOf('old')};`
 
   return [
     `CREATE VIRTUAL TABLE IF NOT EXISTS "${fts}" USING fts5(
        ${SQLITE_FTS_RECORD_ID_COLUMN} UNINDEXED,
        ${quoted}
      )`,
+    ...(idIsRowid
+      ? []
+      : [
+          `CREATE TABLE IF NOT EXISTS "${keys}" (
+             fts_rowid INTEGER PRIMARY KEY,
+             record_id TEXT NOT NULL UNIQUE
+           )`,
+        ]),
     `CREATE TRIGGER IF NOT EXISTS "${fts}_ai"
        AFTER INSERT ON "${physicalTable}" BEGIN
-         INSERT INTO "${fts}"(${idColumns})
-         VALUES (CAST(new."id" AS TEXT), ${newValues});
+         ${mapNew}
+         ${insertEntry}
        END`,
     `CREATE TRIGGER IF NOT EXISTS "${fts}_ad"
        AFTER DELETE ON "${physicalTable}" BEGIN
-         DELETE FROM "${fts}" WHERE ${SQLITE_FTS_RECORD_ID_COLUMN} = CAST(old."id" AS TEXT);
+         ${deleteEntry}
+         ${unmapOld}
        END`,
     `CREATE TRIGGER IF NOT EXISTS "${fts}_au"
        AFTER UPDATE ON "${physicalTable}" BEGIN
-         DELETE FROM "${fts}" WHERE ${SQLITE_FTS_RECORD_ID_COLUMN} = CAST(old."id" AS TEXT);
-         INSERT INTO "${fts}"(${idColumns})
-         VALUES (CAST(new."id" AS TEXT), ${newValues});
+         ${deleteEntry}
+         ${unmapOld}
+         ${mapNew}
+         ${insertEntry}
        END`,
   ]
 }
@@ -262,27 +315,44 @@ export const sqliteFtsDropStatements = (queriedRelation: string): readonly strin
     `DROP TRIGGER IF EXISTS "${fts}_ad"`,
     `DROP TRIGGER IF EXISTS "${fts}_au"`,
     `DROP TABLE IF EXISTS "${fts}"`,
+    `DROP TABLE IF EXISTS "${sqliteFtsKeyTableName(queriedRelation)}"`,
   ]
 }
 
 /**
- * Backfill the FTS mirror from the rows already in `physicalTable`.
+ * Backfill the FTS mirror (and its key map) from the rows already in
+ * `physicalTable`, each entry under the rowid the triggers will address it by.
  *
  * Run once, immediately after (re)creation. The triggers only see writes that
  * happen AFTER they exist, so without this every row predating the index — every
  * row in an existing deployment — would be permanently unfindable.
  */
-export const sqliteFtsBackfillStatement = (input: {
-  readonly queriedRelation: string
-  readonly physicalTable: string
-  readonly columns: readonly string[]
-}): string => {
-  const { queriedRelation, physicalTable, columns } = input
+export const sqliteFtsBackfillStatements = (input: SqliteFtsInput): readonly string[] => {
+  const { queriedRelation, physicalTable, columns, idIsRowid } = input
   const fts = sqliteFtsTableName(queriedRelation)
+  const keys = sqliteFtsKeyTableName(queriedRelation)
   const quoted = columns.map((column) => `"${column}"`).join(', ')
-  return `INSERT INTO "${fts}"(${SQLITE_FTS_RECORD_ID_COLUMN}, ${quoted})
-          SELECT CAST("id" AS TEXT), ${quoted} FROM "${physicalTable}"`
+  const qualified = columns.map((column) => `t."${column}"`).join(', ')
+  if (idIsRowid) {
+    return [
+      `INSERT INTO "${fts}"(rowid, ${SQLITE_FTS_RECORD_ID_COLUMN}, ${quoted})
+          SELECT "id", CAST("id" AS TEXT), ${quoted} FROM "${physicalTable}"`,
+    ]
+  }
+  return [
+    `INSERT INTO "${keys}"(record_id) SELECT CAST("id" AS TEXT) FROM "${physicalTable}"`,
+    `INSERT INTO "${fts}"(rowid, ${SQLITE_FTS_RECORD_ID_COLUMN}, ${quoted})
+          SELECT k.fts_rowid, k.record_id, ${qualified}
+          FROM "${physicalTable}" t JOIN "${keys}" k ON k.record_id = CAST(t."id" AS TEXT)`,
+  ]
 }
+
+/**
+ * Whether an existing mirror's triggers already address entries by rowid.
+ * A mirror built by an earlier binary deletes by `record_id` and is rebuilt.
+ */
+export const sqliteFtsTriggerIsKeyed = (triggerSql: string): boolean =>
+  /WHERE\s+rowid\s*=/i.test(triggerSql)
 
 /**
  * `CREATE INDEX IF NOT EXISTS` for the PostgreSQL GIN expression index.

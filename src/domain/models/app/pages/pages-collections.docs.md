@@ -31,7 +31,7 @@ pages:
       - { type: text, content: '$record.body', props: { format: markdown } }
 ```
 
-The generated record is exposed as `$record.*` to the whole tree, including `meta` — so per-record SEO comes for free. A URL matching no record returns `404`, and so does the URL of a deleted record. The record follows the visitor's own read permissions: a field they may not read resolves to nothing, in the components and in `meta` alike, so its value never reaches the page. A visitor the table's `read` refuses gets `404` for every record, as does a visitor who is not signed in when the table has a row-level `read` rule. The `$collection.previous.*` and `$collection.next.*` neighbours follow the same permissions: their unreadable fields resolve to nothing, and a record the visitor may not see is skipped for the nearest one they may.
+The generated record is exposed as `$record.*` to the whole tree, including `meta` — so per-record SEO comes for free. A URL matching no record returns `404`, and so does the URL of a deleted record. The record follows the visitor's own read permissions: a field they may not read resolves to nothing, in the components and in `meta` alike, so its value never reaches the page. A visitor the table's `read` refuses gets `404` for every record, as does a visitor who is not signed in when the table's row-level `read` rule names the signed-in person; a rule naming no one, such as `status = published`, applies to them as to anyone else. A record the row-level `read` rule hides from its visitor — signed in or not — answers exactly as a record that does not exist: the same `404` and the same page, so the answer never tells her the record is there. The `$collection.previous.*` and `$collection.next.*` neighbours follow the same permissions: their unreadable fields resolve to nothing, and a record the visitor may not see is skipped for the nearest one they may.
 
 ## `markdown`
 
@@ -67,6 +67,10 @@ A `::: callout` block renders an alert inside the article. Name its kind with `t
 `nav` accepts `enabled`, `groupBy` — the frontmatter key that buckets articles into sidebar groups — and `labelFrom`, the frontmatter key supplying each link's label, plus `groupLabels`, `groupIcons`, `collapsed` and `tabs` for presentation.
 
 The previous and next links at the foot of each article follow the sidebar: they walk its groups in the order it lists them, so the last article of one group leads to the first article of the next. Articles the sidebar leaves out, such as drafts excluded by `filter`, are skipped.
+
+An article may say who reads it in its own front matter: `access: authenticated`, or a list of roles such as `access: [admin]` — the page `access` grammar. The collection page's `access` still applies first; a reader outside the article's gets the same 404 as for any page they may not open, and the article leaves their sidebar, their previous and next links and their session search. Gate a folder by gating its articles, so one handbook keeps one sidebar while its managers' folder stays with the managers. An article gated this way is never published outside a signed-in page: the static search index, `llms.txt` and the markdown files `sovrium build` writes carry only the articles that declare no access, while the live `<article>.md` address answers exactly the readers the article does. A present `access` the front matter cannot read — an empty value, `[]`, or a YAML block list — keeps the article from everyone but an unrestricted admin, rather than publishing it.
+
+Under `markdown.layout: docs` the four parts around an article carry their component types, like any drawn component: `sidebar` on the navigation, `toc` on the outline, `breadcrumb` on the breadcrumb and `pagination` on the previous and next links. On a phone the navigation folds behind a Menu button, in a bar across the column; the bar is a `container`, the button a `button`.
 
 ```yaml
 name: my-docs

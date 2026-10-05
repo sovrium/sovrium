@@ -7,6 +7,7 @@
 
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
+import { databaseTableName } from '../statement/validation'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 /**
@@ -34,7 +35,7 @@ async function checkAuthorshipColumns(
   tableName: string,
   columnNames: readonly string[]
 ): Promise<ReadonlySet<string>> {
-  return getExistingColumnNames(tx, tableName, columnNames)
+  return getExistingColumnNames(tx, databaseTableName(tableName), columnNames)
 }
 
 /**

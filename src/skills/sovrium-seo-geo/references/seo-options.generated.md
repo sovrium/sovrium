@@ -50,7 +50,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.openGraph.description` | string | Open Graph description |
 | `sovrium docs config pages[].meta.openGraph.type` | enum | Open Graph object type |
 | `sovrium docs config pages[].meta.openGraph.url` | string | Canonical URL for this page |
-| `sovrium docs config pages[].meta.openGraph.image` | string | Image URL for social sharing: PNG, JPEG or WebP, 1200x630px recommended. An AVIF path is refused, because X, LinkedIn, Slack and iMessage do not render AVIF sharing images. |
+| `sovrium docs config pages[].meta.openGraph.image` | string | Image URL for social sharing: PNG, JPEG or WebP, 1200x630px recommended. A path starting with `/` or a `$t:` key (one image per language) is emitted as a full address on the host the request arrived on. An AVIF path is refused, because X, LinkedIn, Slack and iMessage do not render AVIF sharing images. |
 | `sovrium docs config pages[].meta.openGraph.imageAlt` | string | Alternative text for the Open Graph image |
 | `sovrium docs config pages[].meta.openGraph.siteName` | string | Name of the overall website |
 | `sovrium docs config pages[].meta.openGraph.locale` | string | Locale in format language_TERRITORY |
@@ -153,6 +153,8 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | --- | --- | --- |
 | `sovrium docs config pages[].rss` | boolean \| object | RSS feed generation for collection pages |
 | `sovrium docs config pages[].rss.limit` | number | Maximum number of items in the RSS feed |
+| `sovrium docs config pages[].rss.title` | string | The feed's name as a feed reader lists it. Takes precedence over the page's `meta.title`, and is the way to name the feed of a collection page whose title names one record. Accepts a `$t:` key. |
+| `sovrium docs config pages[].rss.description` | string | One line a feed reader shows under the feed's name. Takes precedence over the page's `meta.description`. Accepts a `$t:` key. |
 
 ## `pages[].contentDir`
 

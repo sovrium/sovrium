@@ -1,0 +1,127 @@
+# All content: the live campaigns on a strip against today, then every piece
+# grouped under its campaign's name, with its status, channels, owner and day.
+# The lead's page for the whole picture; a row opens the piece.
+name: content
+path: /content
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: All content · Loomwork Content
+  description: Every piece grouped by campaign, and the campaigns on a strip.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: All content
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New piece
+                props:
+                  data-testid: new-piece
+                  className: h-8 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-piece-dialog
+          - $ref: ./_new-piece-dialog.yaml
+          - type: container
+            props:
+              className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Each live campaign's window, with today marked. A campaign
+              # leaves the strip when it is marked Closed.
+              - type: timeline
+                dataSource:
+                  table: campaigns
+                  filter:
+                    - { field: status, operator: eq, value: Live }
+                  sort:
+                    - { field: starts, direction: asc }
+                props:
+                  startField: starts
+                  endField: ends
+                  labelField: name
+                  colorField: status
+                  showToday: true
+                  defaultZoom: month
+                  emptyMessage: Live campaigns appear here as bars from their first day to their last. Mark a campaign Live to place it.
+              - type: filter-bar
+                publishes:
+                  bindTo: content-filter
+                fields:
+                  - { name: title, label: Search pieces, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Idea, label: Idea }
+                      - { value: Draft, label: Draft }
+                      - { value: Review, label: Review }
+                      - { value: Scheduled, label: Scheduled }
+                      - { value: Published, label: Published }
+                  - name: channel
+                    label: Channel
+                    kind: select
+                    options:
+                      - { value: Website, label: Website }
+                      - { value: LinkedIn, label: LinkedIn }
+                      - { value: X, label: X }
+                      - { value: Email, label: Email }
+                      - { value: Instagram, label: Instagram }
+                      - { value: YouTube, label: YouTube }
+              - type: table
+                props:
+                  # Status is an outlined word, not a filled chip: the steps stay
+                  # neutral and only a published piece turns green.
+                  className: '[&_td:nth-child(2)_span]:!border [&_td:nth-child(2)_span]:!border-border [&_td:nth-child(2)_span]:!rounded-full [&_td:nth-child(2)_span]:!bg-transparent [&_td:nth-child(2)_span_span]:!border-0'
+                dataSource:
+                  table: content
+                  bindTo: content-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: publish_at, direction: asc }
+                rowHeight: short
+                columns:
+                  - { field: title, label: Piece, sortable: true }
+                  - field: status
+                    label: Status
+                    cellStyle:
+                      - { when: { eq: Published }, className: '[&_*]:!text-success' }
+                  - { field: content_type, label: Type }
+                  - { field: channels, label: Channels }
+                  - { field: owner, label: Owner }
+                  - {
+                      field: publish_at,
+                      label: Date,
+                      format: short-date,
+                      align: right,
+                      sortable: true,
+                    }
+                groupBy:
+                  field: campaign
+                summary:
+                  - { field: title, function: count, label: Pieces }
+                pagination:
+                  pageSize: 100
+                onRowClick:
+                  action: openDrawer
+                  component: piece-detail
+                emptyMessage: Every piece you plan lands here, grouped by campaign. Start with an idea — it needs only a title.
+      - $ref: ./_piece-detail.yaml

@@ -7,8 +7,10 @@
 
 import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity-programs'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
-import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { handleRouteError } from './error-handlers'
+import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -32,11 +34,16 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const limit = limitParam !== undefined ? parseInt(limitParam, 10) : undefined
   const offset = offsetParam !== undefined ? parseInt(offsetParam, 10) : undefined
 
-  // Find table by ID
-  const table = app.tables?.find((t) => String(t.id) === String(tableId))
+  // Find table by ID OR name, as every records route addresses it
+  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
   if (!table) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
+
+  // A history entry IS the record's values: it is gated exactly as a read of
+  // the record, so `/history` never shows what `GET /records/:id` would refuse.
+  const gateError = await checkRecordReadGate(c, app, table, recordId)
+  if (gateError) return gateError
 
   // Run Effect program
   const program = getRecordHistoryProgram({
@@ -45,6 +52,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     recordId,
     limit: Number.isNaN(limit) ? undefined : limit,
     offset: Number.isNaN(offset) ? undefined : offset,
+    app,
+    userRole: getTableContext(c).userRole,
+    userGroups: getTableContext(c).userGroups,
   })
 
   const result = await runTableProgram(program)

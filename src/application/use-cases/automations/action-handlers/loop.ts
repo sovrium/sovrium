@@ -8,8 +8,9 @@
 import { Data, Effect } from 'effect'
 import {
   asArray,
+  authoredActionProps,
   buildRunContextView,
-  rawActionProps,
+  resolveOwnProp,
   resolveRunContextValue,
 } from './run-context-resolution'
 import { actionAttributes, itemLoopOutcome } from './shared'
@@ -35,21 +36,17 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * handler and stringifies non-scalar values — it would both flatten the
  * `items` array and erase the `{{loop.*}}` placeholders inside the nested
  * `actions` (which only exist once iteration is under way). So the handler
- * reads the RAW pre-substitution action (`runContext.rawAction.props`),
+ * reads its props as AUTHORED (`authoredActionProps`, nothing filled in yet),
  * resolves `items` against the trigger/steps context, and re-resolves each
  * nested action's props against a per-item context before dispatching it
  * through `runContext.invokeNativeAction`. The raw-props/`{{path}}`-or-raw
  * resolution machinery is shared with `data.ts` via
  * `./run-context-resolution`.
  *
- * Known limitation: a nested non-`code` action that references `{{loop.*}}`
- * AND is itself a raw-props handler (e.g. `data:sort` with
- * `input: '{{loop.item.orders}}'`) would re-read `rawAction.props` from a
- * context lacking `loop`. `loop` pre-resolves the nested action's props
- * here, so the nested handler sees a literal — fine for `code` (which the
- * specs use) and for any handler that consumes the resolved props. A nested
- * raw-props handler that re-resolves would miss `{{loop.*}}`. Unifying that
- * needs the run-loop refactor the #63 audit deferred.
+ * A nested action receives its props FINAL (`propsFinal`): filled in once
+ * here, per item, and taken as given by its handler — a raw-props handler
+ * (e.g. `data:sort` with `input: '{{loop.item.orders}}'`) gets the array this
+ * pass unwrapped, and `{{...}}` text an item carries is never rendered again.
  *
  * Spec: [internal ref] + REGRESSION.
  */
@@ -167,6 +164,16 @@ const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutc
     fallbackError: 'loop.each: an item failed',
   })
 
+/** How a nested action's props are filled in for one item. */
+type FillProps = (props: unknown, itemContext: Readonly<Record<string, unknown>>) => unknown
+
+interface IterationInput {
+  readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
+  readonly itemContext: Readonly<Record<string, unknown>>
+  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+  readonly fill: FillProps
+}
+
 /**
  * Run the nested action sub-sequence for one loop item. Each action's props
  * are re-resolved against the per-item context (so `{{loop.item.*}}` /
@@ -175,22 +182,14 @@ const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutc
  * step's return value surfaces) or `{}` when the sub-sequence produced
  * nothing.
  */
-const runIteration = (input: {
-  readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly itemContext: Readonly<Record<string, unknown>>
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
-}): Promise<unknown> => {
-  const { actions, itemContext, invoke } = input
+const runIteration = (input: IterationInput): Promise<unknown> => {
+  const { actions, itemContext, invoke, fill } = input
   return actions.reduce<Promise<unknown>>(
     (prev, nested) =>
       prev.then(() => {
         const type = String(nested['type'] ?? '')
         const operator = String(nested['operator'] ?? '')
-        const resolvedProps = resolveRunContextValue(propsOf(nested), itemContext) as Record<
-          string,
-          unknown
-        >
-        return invoke(type, operator, resolvedProps)
+        return invoke(type, operator, fill(propsOf(nested), itemContext) as Record<string, unknown>)
       }),
     Promise.resolve<unknown>(undefined)
   )
@@ -202,11 +201,7 @@ const runIteration = (input: {
  * a failure outcome); catching it here is what lets the caller DECIDE whether
  * to continue rather than having the whole chain unwound for it.
  */
-const runIterationSafely = (input: {
-  readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly itemContext: Readonly<Record<string, unknown>>
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
-}): Promise<IterationOutcome> =>
+const runIterationSafely = (input: IterationInput): Promise<IterationOutcome> =>
   runIteration(input).then(
     (output): IterationOutcome => ({ kind: 'ok', output }),
     (cause: unknown): IterationOutcome => ({
@@ -223,15 +218,16 @@ const runAllIterations = (input: {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
   readonly base: Readonly<Record<string, unknown>>
   readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+  readonly fill: FillProps
   readonly continueOnItemError: boolean
 }): Promise<LoopTally> => {
-  const { items, limit, actions, base, invoke, continueOnItemError } = input
+  const { items, limit, actions, base, invoke, fill, continueOnItemError } = input
   const indices = Array.from({ length: limit }, (_v, i) => i)
   return indices.reduce<Promise<LoopTally>>(async (prev, i) => {
     const tally = await prev
     if (tally.stopped) return tally
     const itemContext = { ...base, loop: { item: items[i], index: i } }
-    const outcome = await runIterationSafely({ actions, itemContext, invoke })
+    const outcome = await runIterationSafely({ actions, itemContext, invoke, fill })
     return foldIteration(tally, outcome, continueOnItemError)
   }, Promise.resolve(EMPTY_TALLY))
 }
@@ -242,9 +238,15 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
       return ok({ results: [], iterations: 0 })
     }
     const invoke = runContext.invokeNativeAction
-    const props = rawActionProps(runContext)
+    const props = authoredActionProps(runContext)
     const base = buildRunContextView(runContext)
-    const items = asArray(resolveRunContextValue(props['items'], base))
+    const items = asArray(resolveOwnProp(runContext, props['items']))
+    // The loop body is the configuration as written, filled in once per item.
+    // A loop whose props a step handed over (final) runs them as given.
+    const fill: FillProps =
+      runContext.propsFinal === true
+        ? (nestedProps) => nestedProps
+        : (nestedProps, itemContext) => resolveRunContextValue(nestedProps, itemContext)
     const actions = asActionList(props['actions'])
     const limit = Math.min(items.length, maxIterationsOf(props))
     const continueOnItemError = props['continueOnItemError'] === true
@@ -252,7 +254,8 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
     return yield* Effect.tryPromise({
       // A per-item rejection is now caught inside the sequence, so this catch
       // only fires for a defect in the iteration machinery itself.
-      try: () => runAllIterations({ items, limit, actions, base, invoke, continueOnItemError }),
+      try: () =>
+        runAllIterations({ items, limit, actions, base, invoke, fill, continueOnItemError }),
       catch: (cause) =>
         new LoopIterationError({
           message: cause instanceof Error ? cause.message : String(cause),

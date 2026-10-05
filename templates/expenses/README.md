@@ -1,6 +1,6 @@
-# Sovrium Expenses
+# Halden Expenses
 
-> Receipts, approvals, and spend by category.
+> A small team's expense claims: receipts, a decision in the app, and one transfer.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,10 +19,23 @@ sovrium init my-expenses --template expenses
 
 ## What's inside
 
-Members file expenses with receipts and see only their own (row-level permissions); admins approve and see spend by category. Includes a receipts file bucket.
+- **My expenses** (`/`) — your own claims and nobody else's: what waits on a decision, what
+  is approved and on its way, what was repaid and what was rejected, with the reason. The
+  table's row-level rule scopes every read to its owner on the server, for every page and
+  every API call. **Add expense** takes the receipt, a description and the amount; it never
+  asks who you are, because the server stamps whoever is signed in.
+- **Review** (finance) — what waits on finance first, spend by category (rejected claims
+  left out) and by month, then every claim with the person who filed it, its receipt, and
+  Approve and Reject on each waiting row. Opening a claim shows the receipt beside the
+  amount. A claim filed in the app also starts an approval run that only an admin can
+  resolve — listed below the queue, where approving it resumes the run and marks the claim
+  Approved.
+- **Reimburse** (finance) — the approved claims, oldest first. Mark each one repaid once the
+  money has gone out; the day is written on the claim.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Sign-up is closed: an admin adds each account. Everything is declared in
+[`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+config, restart, done.
 
 ## Run locally
 
@@ -32,10 +45,35 @@ sovrium start app.yaml
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+email, demo data).
 
-> Email flows (sign-in links, notifications) need `SMTP_*` variables. Without them the app
-> runs with email disabled.
+## What to try
+
+Load the demo data first. It creates four accounts — the people of Halden, a small studio —
+and seventeen claims filed between July and September, each with a sample receipt, dated
+relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+Sign in as **camille.roux@halden.example** (admin, runs finance) or
+**lea.morel@halden.example** (member), with the password you chose. Then:
+
+1. As Camille, land on **Review**: five claims wait on you, and the spend chart leaves the
+   two rejected claims out.
+2. As Léa, land on **My expenses**: seven claims, hers only. Click **Add expense** and file
+   one with a photo of a receipt.
+3. As Camille, open **Review**: Léa's new claim waits in the approval runs below the queue.
+   Approve it, and it turns Approved on Léa's page. Only finance can resolve it: Léa, who
+   filed it, cannot.
+4. Open the Lyon dinner on Review to see the receipt beside the amount, then approve or
+   reject it — a rejection takes a reason, which Léa reads on her claim.
+5. On **Reimburse**, mark the approved claims repaid once the transfer has gone out.
+
+"Spent this quarter" and "Repaid this quarter" add up every claim that was not rejected, and
+every repaid one: on the demo data, which is all this quarter, that is the quarter.
 
 ## Deploy
 

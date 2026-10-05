@@ -16,6 +16,7 @@ import {
   type OutboundUrlReason,
 } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 /**
  * Shared helpers for the `file:*` action handlers — MIME inference,
@@ -63,9 +64,32 @@ export const extOf = (key: string | undefined): string => {
 export const tempKey = (suffix: string): string =>
   `${TEMP_STORAGE_PREFIX}${globalThis.crypto.randomUUID()}${suffix}`
 
+/** The bytes a `file:*` action writes, with the MIME type they are stored under. */
+interface ArtifactFile {
+  readonly bytes: Uint8Array
+  readonly contentType: string
+}
+
+/** The write + temp sweep both exported write paths share; each opens its own span. */
+const writeArtifact = (
+  storage: Effect.Success<typeof StorageService>,
+  key: string,
+  file: ArtifactFile,
+  bucket: BucketBinding
+): Effect.Effect<boolean, never> =>
+  Effect.gen(function* () {
+    const wrote = yield* Effect.result(storage.upload(key, file.bytes, file.contentType, bucket))
+    if (wrote._tag === 'Failure') return false
+    if (key.startsWith(TEMP_STORAGE_PREFIX)) {
+      yield* sweepAgedTempFiles(storage, { preserve: key })
+    }
+    return true
+  })
+
 /**
  * Store a `file:*` action's output bytes, returning `false` when the write
- * failed so callers can shape their own `error` outcome.
+ * failed so callers can shape their own `error` outcome. `bucket` is the
+ * binding the write records; {@link uploadArtifact} records none.
  *
  * This is the single write path for every file action, and therefore the one
  * place temp-storage reclamation hooks in: when the artifact lands under
@@ -73,20 +97,24 @@ export const tempKey = (suffix: string): string =>
  * That is the whole trigger model — there is no scheduler — so any future
  * temp write must go through here to keep `tmp/automations/` bounded.
  */
+export const uploadArtifactTo = (
+  storage: Effect.Success<typeof StorageService>,
+  key: string,
+  file: ArtifactFile,
+  bucket: BucketBinding
+): Effect.Effect<boolean, never> =>
+  writeArtifact(storage, key, file, bucket).pipe(Effect.withSpan('automations.upload-artifact'))
+
+/** {@link uploadArtifactTo} with no bucket: the write path of every artifact a step makes. */
 export const uploadArtifact = (
   storage: Effect.Success<typeof StorageService>,
   key: string,
   bytes: Uint8Array,
   contentType: string
 ): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    const wrote = yield* Effect.result(storage.upload(key, bytes, contentType, UNATTRIBUTED_BUCKET))
-    if (wrote._tag === 'Failure') return false
-    if (key.startsWith(TEMP_STORAGE_PREFIX)) {
-      yield* sweepAgedTempFiles(storage, { preserve: key })
-    }
-    return true
-  }).pipe(Effect.withSpan('automations.upload-artifact'))
+  writeArtifact(storage, key, { bytes, contentType }, UNATTRIBUTED_BUCKET).pipe(
+    Effect.withSpan('automations.upload-artifact')
+  )
 
 // ---------------------------------------------------------------------------
 // Source resolution: data: URI | http(s) URL | storage key

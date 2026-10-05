@@ -1,39 +1,113 @@
+# The requester's side, and the whole of it: one form, and what happens after
+# sending. No account, no internal words. The form itself is declared once in
+# config/forms/contact-support.yaml and rendered here.
 name: home
 path: /
 meta:
-  title: Support
-  description: Get help — submit a ticket and we'll get back to you
+  title: Contact support · Tallyline
+  description: Tell us what went wrong. A person on the team reads every ticket and usually replies within one business day.
 components:
   - type: container
-    element: section
     props:
-      className: py-20 px-6
+      className: flex min-h-screen flex-col bg-background text-foreground
     children:
+      - $ref: ./_site-header.yaml
       - type: container
+        element: main
         props:
-          className: max-w-2xl mx-auto text-center
+          className: mx-auto flex w-full max-w-[1100px] flex-1 items-start gap-14 px-6 py-10 max-md:flex-col max-md:gap-8 max-md:px-4 max-md:py-6
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-4
-            content: How can we help?
-          - type: text
-            element: p
-            props:
-              className: text-xl mb-8
-            content: Send us a ticket and a real person will get back to you — usually within one business day.
           - type: container
             props:
-              className: flex gap-4 justify-center
+              className: flex min-w-0 flex-1 flex-col gap-6
             children:
-              - type: link
+              - type: form
+                formRef: contact-support
+              - type: text
+                element: p
                 props:
-                  href: /support
-                  className: inline-block px-6 py-3 rounded-lg font-medium border
-                content: Submit a ticket
-              - type: link
+                  className: text-xs text-foreground-muted
+                content: No account needed. We only use your email to answer this ticket.
+          # What happens after sending: three steps, and the promise the app
+          # keeps — a copy by email straight away, then a person.
+          - type: container
+            element: aside
+            props:
+              className: flex w-[300px] flex-none flex-col gap-3.5 pt-1 max-md:w-full
+              aria-label: What happens next
+            children:
+              - type: text
+                element: h2
                 props:
-                  href: /sign-in
-                  className: inline-block px-6 py-3 rounded-lg font-medium
-                content: Team sign-in
+                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: What happens next
+              - type: container
+                props:
+                  className: flex items-start gap-3
+                children:
+                  - type: icon
+                    props:
+                      name: mail
+                      size: 16
+                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                  - type: container
+                    props:
+                      className: flex flex-col gap-0.5
+                    children:
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm font-medium text-foreground
+                        content: We confirm by email
+                      - type: text
+                        element: p
+                        props:
+                          className: text-[13px] text-foreground-muted
+                        content: Straight away, with a copy of what you sent.
+              - type: container
+                props:
+                  className: flex items-start gap-3
+                children:
+                  - type: icon
+                    props:
+                      name: users
+                      size: 16
+                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                  - type: container
+                    props:
+                      className: flex flex-col gap-0.5
+                    children:
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm font-medium text-foreground
+                        content: A person replies
+                      - type: text
+                        element: p
+                        props:
+                          className: text-[13px] text-foreground-muted
+                        content: Usually within one business day, by email.
+              - type: container
+                props:
+                  className: flex items-start gap-3
+                children:
+                  - type: icon
+                    props:
+                      name: circle-check
+                      size: 16
+                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                  - type: container
+                    props:
+                      className: flex flex-col gap-0.5
+                    children:
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm font-medium text-foreground
+                        content: You tell us if it worked
+                      - type: text
+                        element: p
+                        props:
+                          className: text-[13px] text-foreground-muted
+                        content: One question once it is resolved.
+      - $ref: ./_site-footer.yaml

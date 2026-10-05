@@ -1,10 +1,18 @@
-name: knowledge-base
-version: 1.0.0
+# Corvel handbook — a private company handbook in one config.
+#
+# The articles are plain markdown files under `content/`, read by the app at
+# request time: a public door that names the sections, a sign-in, and behind
+# it the handbook — a sidebar of sections, the article with its outline, the
+# date it was last updated, previous and next. Managers read one more section.
+# A search box answers with what the reader may open, and an assistant answers
+# from the handbook. This is the file you diff, fork and redeploy.
+name: corvel-handbook
+version: 2.0.0
 description: >-
-  Internal knowledge base — the markdown pages feature behind sign-in. Company
-  handbook articles live as plain `.md` files in Git; a single contentDir page
-  turns the folder into a private, sidebar-navigated handbook only employees
-  can read.
+  A private company handbook: markdown articles in sections, readable by
+  everyone at the company once they sign in, a managers' section only managers
+  can open, a search that answers with what the reader may read, and an
+  assistant that answers from the handbook.
 
 auth:
   $ref: ./config/auth.yaml
@@ -12,9 +20,21 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# The assistant on /assistant. It reads the handbook's articles and nothing else.
+agents:
+  - $ref: ./config/agents/handbook-assistant.yaml
+
+# Listed in the order a reader meets them, then the public pages.
 pages:
-  # Public landing with the sign-in call to action.
+  # The managers' section comes first: its path is the more specific one, and
+  # the first page whose path matches a URL is the page that serves it.
+  - $ref: ./config/pages/kb-managers.yaml
+  - $ref: ./config/pages/kb.yaml
+  - $ref: ./config/pages/assistant.yaml
   - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/sign-in.yaml
-  # The handbook itself — same contentDir mechanics as docs-site, but gated.
-  - $ref: ./config/pages/kb.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over an article.
+badge:
+  placement: footer

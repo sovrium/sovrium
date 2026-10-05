@@ -92,6 +92,7 @@ const renderToc = (
   return (
     <nav
       data-component="markdown-toc"
+      data-component-type="toc"
       data-position={markdown.tocPosition ?? 'top'}
       aria-label="Table of contents"
       className={

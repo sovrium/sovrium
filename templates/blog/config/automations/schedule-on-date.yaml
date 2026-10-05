@@ -1,0 +1,43 @@
+# Giving a draft a publish date schedules it. This is what the Schedule button
+# of the edit page does: it saves the date, and this automation moves the post
+# from Draft to Scheduled. config/automations/publish-scheduled.yaml takes it
+# from there.
+#
+# It watches `publish_at` and writes only `status`, so it never starts itself
+# again.
+name: schedule-on-date
+label: Schedule — a draft with a publish date is scheduled
+description: When a draft is given a publish date, move it to Scheduled.
+enabled: true
+trigger:
+  type: record
+  table: posts
+  events:
+    - create
+    - update
+  watchFields:
+    - publish_at
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: Draft
+      - field: '{{trigger.data.record.publish_at}}'
+        operator: isNotEmpty
+actions:
+  - name: schedule
+    type: record
+    operator: update
+    props:
+      table: posts
+      filter:
+        logic: and
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+          - field: status
+            operator: equals
+            value: Draft
+      data:
+        status: Scheduled

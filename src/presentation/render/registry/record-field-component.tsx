@@ -6,7 +6,7 @@
  */
 
 /**
- * `record-field` renderer (GAP-5 / [internal ref]).
+ * `record-field` renderer.
  *
  * Read-only display of a single bound record field. The data-source resolver
  * (single-mode / collection `$record`) injects the raw value as
@@ -24,6 +24,7 @@
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -153,6 +154,7 @@ function renderAttachment(chrome: RecordFieldChrome, value: unknown, bucket: str
       className={chrome.className}
       data-testid={chrome.testId}
       data-component="record-field"
+      data-component-type="record-field"
     >
       {items.map((item, i) => {
         const href = attachmentHref(item, bucket)
@@ -182,6 +184,7 @@ function renderRichText(chrome: RecordFieldChrome, value: unknown): ReactElement
       className={chrome.className}
       data-testid={chrome.testId}
       data-component="record-field"
+      data-component-type="record-field"
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; HTML is canonically sanitised before injection (security S2)
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
@@ -218,6 +221,7 @@ function renderRecordFieldSystemIsland(
       className={chrome.className}
       data-island="record-field-system"
       data-component="record-field"
+      data-component-type="record-field"
       data-testid={chrome.testId}
       data-island-props={islandProps}
     >
@@ -249,6 +253,7 @@ function renderPlainText(
   const text = format
     ? formatCellValue(value, format, SSR_FORMAT_LOCALE, {
         timeZone: parseSovriumTimezone().zoneId,
+        now: serverNow(),
       })
     : value === undefined || value === null
       ? ''
@@ -259,6 +264,7 @@ function renderPlainText(
       className={chrome.className}
       data-testid={chrome.testId}
       data-component="record-field"
+      data-component-type="record-field"
     >
       {text}
     </div>

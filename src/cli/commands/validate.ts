@@ -93,26 +93,19 @@ export const loadConfigForValidationWithSources = async (
 }
 
 /**
- * Check if a field type is recognized or plausible.
+ * Check if a field type is recognized.
  *
- * A type is considered recognized if:
+ * A type is recognized if:
  * 1. It exactly matches a known type
  * 2. Its hyphenated form (underscores -> hyphens) matches a known type
- * 3. It is a single-word type (no separators) -- common SQL/programming aliases
  *
- * Multi-segment types that don't normalize to a known type are flagged as unknown.
+ * Anything else is unknown — a single word included. An earlier third rule
+ * waved through any separator-free string as a "plausible alias" (`number`,
+ * `text`), so `foobar` validated and then refused to boot. `number` is now a
+ * catalogued type in its own right; nothing else single-word is an alias.
  */
-const isRecognizedFieldType = (fieldType: string, knownTypes: readonly string[]): boolean => {
-  if (knownTypes.includes(fieldType as (typeof knownTypes)[number])) {
-    return true
-  }
-  const normalized = fieldType.replace(/_/g, '-')
-  if (knownTypes.includes(normalized as (typeof knownTypes)[number])) {
-    return true
-  }
-  // Single-word types without separators are plausible type aliases (e.g. "number", "text")
-  return !fieldType.includes('_') && !fieldType.includes('-')
-}
+const isRecognizedFieldType = (fieldType: string, knownTypes: readonly string[]): boolean =>
+  knownTypes.includes(fieldType) || knownTypes.includes(fieldType.replace(/_/g, '-'))
 
 /**
  * Detect unknown field types in tables and report with source file attribution
@@ -155,7 +148,7 @@ export const detectUnknownFieldTypes = async (
       )
       .map((field: Readonly<Record<string, unknown>>) => {
         const prefix = sourceLabel ? `${sourceLabel}: ` : ''
-        return `${prefix}Unknown field type "${field.type}" in field "${field.name}"`
+        return `${prefix}Unknown field type "${field.type}" in field "${field.name}". Known field types: ${KNOWN_FIELD_TYPES.join(', ')}`
       })
   })
 }

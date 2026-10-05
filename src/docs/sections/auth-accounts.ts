@@ -42,6 +42,7 @@ export const authAccounts = defineSection({
       documents: [],
       stories: [
         'US-AUTH-ACTIVE-SCOPE-SESSION',
+        'US-AUTH-SESSION-MANAGEMENT-ADMIN-ROLE-UPDATE',
         'US-AUTH-SESSION-MANAGEMENT-SESSION-INSPECTION-AND-SIGN-OUT',
         'US-AUTH-SESSION-MANAGEMENT-SESSION-REVOCATION',
       ],
@@ -94,6 +95,7 @@ export const authAccounts = defineSection({
         'US-ACCOUNT-ACCOUNT-DELETION',
         'US-ACCOUNT-DATA-EXPORT',
         'US-ACCOUNT-ERASURE-COVERAGE',
+        'US-ACCOUNT-IMMEDIATE-DELETION',
         'US-ACCOUNT-PENDING-ERASURE',
         'US-USER-MGMT-ADMIN-BOOTSTRAP',
         'US-USER-MGMT-ADMIN-USER-MANAGEMENT-001',

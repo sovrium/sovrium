@@ -1,3 +1,6 @@
+# The campaigns a piece can belong to: a name, a window and a budget. The
+# All content page draws the live ones on a strip and groups every piece
+# under its campaign's name.
 id: 1
 name: campaigns
 fields:
@@ -5,11 +8,13 @@ fields:
     name: name
     type: single-line-text
     required: true
+  # The window the campaign runs in. A piece may go out outside it; the strip
+  # shows where each campaign starts and ends against today.
   - id: 2
-    name: start_date
+    name: starts
     type: date
   - id: 3
-    name: end_date
+    name: ends
     type: date
   - id: 4
     name: goal
@@ -17,14 +22,32 @@ fields:
   - id: 5
     name: created_at
     type: created-at
+  # What the campaign may spend, in euros, whole units.
+  - id: 6
+    name: budget
+    type: currency
+    currency: EUR
+    precision: 0
+  # Written by whoever runs the campaign. The strip shows only the live ones,
+  # so a finished campaign leaves it without being deleted. One quiet grey for
+  # every value: the strip's bars are a window, not an outcome.
+  - id: 7
+    name: status
+    type: single-select
+    options:
+      - value: Planned
+        color: '#dcd6d4'
+      - value: Live
+        color: '#dcd6d4'
+      - value: Closed
+        color: '#dcd6d4'
+    default: Planned
 
 permissions:
   read: authenticated
   create:
     - admin
-    - member
   update:
     - admin
-    - member
   delete:
     - admin

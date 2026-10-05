@@ -29,7 +29,7 @@ The row is stamped with the time and the acting user, then excluded from default
 DELETE /api/tables/orders/records/123?permanent=true
 ```
 
-Hard delete removes the row irreversibly and is reserved for the admin role on **every** table — it is not something table permissions can grant. A non-admin receives `404` rather than `403`, for the same anti-enumeration reason the rest of the records path answers that way.
+Hard delete removes the row irreversibly and is reserved for an **admin-equivalent role** on **every** table — it is not something table permissions can grant. Admin-equivalent is defined once, under Roles & RBAC: the app's highest role, and the built-in admin. Any other caller, even one granted `delete`, receives `404` rather than `403`, for the same anti-enumeration reason the rest of the records path answers that way, and nothing is deleted.
 
 **Reserve this for genuine erasure**, such as answering a right-to-erasure request over personal data. A financial ledger or anything audit-adjacent should rely on soft delete alone: there is no restore after a permanent delete, and the change history cannot reconstitute the row.
 
@@ -43,9 +43,9 @@ DELETE /api/tables/orders/records/123?purge=true
 
 A file key another record still points at is left alone — each attachment is checked for other references before it is removed, so purging one row never blanks an attachment on a row you kept.
 
-**It is gated differently, and that is worth reading twice.** `purge` requires only the ordinary `delete` permission on the table, where `permanent` requires the `admin` role. So a role you granted `delete` to can erase a row irreversibly through `purge` even though the same role gets a `404` from `permanent`. Grant `delete` accordingly.
+**It is gated exactly as `permanent` is.** A purge erases, so the ordinary `delete` grant is not enough: it is reserved for an admin-equivalent role, and any other caller — a member or a custom role granted `delete` included — receives the `404` of a missing record, while the row and its files stay where they were. A role granted `delete` trashes rows; it never erases them.
 
-If both parameters are present, `permanent` is evaluated first and wins — including its admin gate.
+If both parameters are present, `permanent` is evaluated first and wins: the row is removed and its files are left in storage.
 
 ## What happens to related rows
 
@@ -92,6 +92,8 @@ Restore clears `deletedAt`, returning the row to ordinary queries, stamps the ti
 
 Batch restore recovers many rows in one transaction: rows that are not currently deleted are skipped, while a missing id rolls the whole batch back.
 
+On a table with row-level rules, a restore is judged on the trashed row itself: its `read` and `delete` rules must admit the caller, counting every role the caller holds, assignment roles included. A row they exclude answers `404`, exactly as a missing one, and stays in the trash; a batch naming one such row is refused whole and restores nothing.
+
 ## Reading deleted rows
 
 Soft-deleted rows are excluded from list and read responses by default. Two parameters reach them:
@@ -103,13 +105,17 @@ Soft-deleted rows are excluded from list and read responses by default. Two para
 
 `includeDeleted` is compared against the exact string `true`, so any other value is read as "exclude deleted" and narrows nothing. A trash-only listing is `?deleted=true`, or the dedicated trash endpoint above.
 
+The trash listing takes the same `filter` as the live listing, every operator included, and narrows the trash exactly as that filter narrows the live listing. Row-level read rules apply to the trash as they do to live rows.
+
 On a single-record read, `?includeDeleted=true` is what reaches a trashed row; without it the row answers `404` exactly as an absent one would.
+
+Deleted rows are never public. On a table whose `read` is `'all'`, a signed-out visitor asking for `?deleted=true` or `?includeDeleted=true` gets the `401` any anonymous call to a private route gets, and no deleted row.
 
 ## Who may do what
 
-| Operation             | Permission                                                    |
-| --------------------- | ------------------------------------------------------------- |
-| Soft delete           | The table's `delete` grant, plus the role's own               |
-| Permanent delete      | The admin role only — not reachable through table permissions |
-| Purge (`?purge=true`) | The `delete` grant only — no admin gate, though it erases     |
-| Restore               | The `delete` grant, on both the single and the batch endpoint |
+| Operation             | Permission                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Soft delete           | The table's `delete` grant, plus the role's own                                                                               |
+| Permanent delete      | An admin-equivalent role only, single or batch — not reachable through table permissions                                      |
+| Purge (`?purge=true`) | An admin-equivalent role only — not reachable through table permissions                                                       |
+| Restore               | The `delete` grant, on both the single and the batch endpoint, and the row-level `read` and `delete` rules on the trashed row |

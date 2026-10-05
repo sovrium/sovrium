@@ -1,0 +1,44 @@
+# The demo request at the foot of the page (config/pages/home.yaml renders it
+# with `formRef`). It needs no account; each answer becomes a row in
+# `demo_requests`, which the owner reads in the admin, and every request is
+# also kept in the admin's list of this form's submissions.
+#
+# The honeypot silently drops naive bots. The confirmation quotes the address
+# the visitor typed, so a mistake is caught on the spot. Every label is a `$t:`
+# key: the French page asks in French.
+id: 1
+name: demo-request
+title: $t:form.title
+description: $t:form.description
+access:
+  require: all
+submitTo:
+  table: demo_requests
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: $t:form.submit
+onSuccess:
+  type: successPage
+  title: $t:form.receivedTitle
+  message: $t:form.received
+fields:
+  - kind: table-field
+    column: name
+    required: true
+    label: $t:form.name
+    placeholder: Nadia Benali
+  - kind: table-field
+    column: restaurant
+    required: true
+    label: $t:form.restaurant
+    placeholder: Le Comptoir
+  - kind: table-field
+    column: email
+    required: true
+    label: $t:form.email
+    placeholder: you@restaurant.fr
+  - kind: table-field
+    column: covers
+    label: $t:form.covers
+    placeholder: $t:form.choose

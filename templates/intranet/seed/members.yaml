@@ -1,82 +1,572 @@
-# The people directory, shown in the manager-tools panel on /portal.
+# The directory: forty-six colleagues across six offices.
 #
-# Eight members across five locations, because the Location column is the one
-# that makes the directory look like a real company rather than a fixture — a
-# roster where everyone sits in the same city has nothing to sort by.
+# The eight people the demo walks through — Priya, Dan, Mateo, Hannah, Jules,
+# Sofia, Omar and Keiko — sit among thirty-eight more, all invented, so the
+# directory, the filters and "31 of 46" read like a real company. Replace
+# them with your own people, or import them from your HR tool.
 #
-# `joined_at` is a `created-at` field, so the database stamps it at insert time
-# and a seed value would be ignored. The Joined column therefore reads as
-# "everyone joined the day you seeded", which is honest about what a
-# `created-at` field is rather than pretending otherwise.
+# Every colleague has a manager except the chief executive: `manager` points
+# at another row of this file by its `key`. Keiko joined eight days before
+# the seed runs (`{{today-8d}}`), so Home lists her among the colleagues new
+# in the last 30 days for three weeks after seeding, whatever the day of the
+# month; every other date is fixed. The eight with an `account` can sign in
+# (seed/users.yaml).
 records:
+  - key: anna
+    fields:
+      name: Anna Berg
+      known_as: Anna
+      title: Chief executive
+      team: Leadership
+      office: London
+      email: anna.berg@halden.example
+      joined_on: '2019-03-04'
+      company: '@company.halden'
+
   - key: priya
     fields:
       name: Priya Raghunathan
-      email: priya.raghunathan@example.com
-      location: London
-      bio: >-
-        Head of operations. Owns the policy set, the supplier list, and most of
-        the questions that begin "who do I ask about".
-
-  - key: mateo
-    fields:
-      name: Mateo Ferrer
-      email: mateo.ferrer@example.com
-      location: Barcelona
-      bio: >-
-        Engineering lead on the platform team. Currently rebuilding the parts of
-        the deployment pipeline everyone is afraid of.
-
-  - key: hannah
-    fields:
-      name: Hannah Okonkwo
-      email: hannah.okonkwo@example.com
-      location: London
-      bio: >-
-        People and hiring. Runs onboarding, which is why the checklist in the
-        resources list is actually maintained.
-
-  - key: jules
-    fields:
-      name: Jules Marchand
-      email: jules.marchand@example.com
-      location: Lyon
-      bio: >-
-        Support lead. Reads every ticket that comes in before nine, which is a
-        habit nobody has managed to talk him out of.
-
-  - key: sofia
-    fields:
-      name: Sofia Lindqvist
-      email: sofia.lindqvist@example.com
-      location: Stockholm
-      bio: >-
-        Product design. Interested in the seam between what a screen shows and
-        what support then has to explain.
+      known_as: Priya
+      title: Head of operations
+      team: Operations
+      office: London
+      email: priya.raghunathan@halden.example
+      manager: '@members.anna'
+      joined_on: '2021-03-01'
+      company: '@company.halden'
+      account: '@user:priya.raghunathan@halden.example'
 
   - key: dan
     fields:
       name: Dan Whitfield
-      email: dan.whitfield@example.com
-      location: Manchester
-      bio: >-
-        Finance. Approves the expenses, chases the receipts, and wrote the
-        expense policy that keeps getting linked in this intranet.
+      known_as: Dan
+      title: Finance lead
+      team: Finance
+      office: Manchester
+      email: dan.whitfield@halden.example
+      manager: '@members.anna'
+      joined_on: '2022-06-06'
+      company: '@company.halden'
+      account: '@user:dan.whitfield@halden.example'
 
-  - key: keiko
+  - key: mateo
     fields:
-      name: Keiko Tanaka
-      email: keiko.tanaka@example.com
-      location: Berlin
-      bio: >-
-        Data and reporting. Builds the dashboards everyone quotes in meetings
-        without knowing where the numbers come from.
+      name: Mateo Ferrer
+      known_as: Mateo
+      title: Engineering lead
+      team: Platform
+      office: Barcelona
+      email: mateo.ferrer@halden.example
+      manager: '@members.anna'
+      joined_on: '2022-01-10'
+      company: '@company.halden'
+      account: '@user:mateo.ferrer@halden.example'
+
+  - key: hannah
+    fields:
+      name: Hannah Okonkwo
+      known_as: Hannah
+      title: People and hiring
+      team: People
+      office: London
+      email: hannah.okonkwo@halden.example
+      manager: '@members.priya'
+      joined_on: '2023-09-04'
+      company: '@company.halden'
+      account: '@user:hannah.okonkwo@halden.example'
+
+  - key: jules
+    fields:
+      name: Jules Marchand
+      known_as: Jules
+      title: Support lead
+      team: Support
+      office: Lyon
+      email: jules.marchand@halden.example
+      manager: '@members.priya'
+      joined_on: '2023-04-03'
+      company: '@company.halden'
+      account: '@user:jules.marchand@halden.example'
+
+  - key: sofia
+    fields:
+      name: Sofia Lindqvist
+      known_as: Sofia
+      title: Product designer
+      team: Product
+      office: Stockholm
+      email: sofia.lindqvist@halden.example
+      manager: '@members.lena'
+      joined_on: '2024-02-05'
+      company: '@company.halden'
+      account: '@user:sofia.lindqvist@halden.example'
 
   - key: omar
     fields:
       name: Omar Haddad
-      email: omar.haddad@example.com
-      location: Lyon
-      bio: >-
-        IT and internal systems. If your laptop is doing something strange, this
-        is the person who has seen it before.
+      known_as: Omar
+      title: IT and internal systems
+      team: Operations
+      office: Lyon
+      email: omar.haddad@halden.example
+      manager: '@members.priya'
+      joined_on: '2021-10-04'
+      company: '@company.halden'
+      account: '@user:omar.haddad@halden.example'
+
+  - key: keiko
+    fields:
+      name: Keiko Tanaka
+      known_as: Keiko
+      title: Data and reporting
+      team: Data
+      office: Berlin
+      email: keiko.tanaka@halden.example
+      manager: '@members.felix'
+      joined_on: '{{today-8d}}'
+      company: '@company.halden'
+      account: '@user:keiko.tanaka@halden.example'
+
+  - key: lena
+    fields:
+      name: Lena Holm
+      known_as: Lena
+      title: Head of product
+      team: Product
+      office: Stockholm
+      email: lena.holm@halden.example
+      manager: '@members.anna'
+      joined_on: '2020-11-02'
+      company: '@company.halden'
+
+  - key: felix
+    fields:
+      name: Felix Wagner
+      known_as: Felix
+      title: Data lead
+      team: Data
+      office: Berlin
+      email: felix.wagner@halden.example
+      manager: '@members.mateo'
+      joined_on: '2022-04-04'
+      company: '@company.halden'
+
+  - key: marcus
+    fields:
+      name: Marcus Reid
+      known_as: Marcus
+      title: Head of sales
+      team: Sales
+      office: London
+      email: marcus.reid@halden.example
+      manager: '@members.anna'
+      joined_on: '2020-05-11'
+      company: '@company.halden'
+
+  - key: claire
+    fields:
+      name: Claire Dubois
+      known_as: Claire
+      title: Marketing lead
+      team: Marketing
+      office: Lyon
+      email: claire.dubois@halden.example
+      manager: '@members.anna'
+      joined_on: '2021-01-18'
+      company: '@company.halden'
+
+  - key: tom
+    fields:
+      name: Tom Ashworth
+      known_as: Tom
+      title: Account executive
+      team: Sales
+      office: Manchester
+      email: tom.ashworth@halden.example
+      manager: '@members.marcus'
+      joined_on: '2023-02-13'
+      company: '@company.halden'
+
+  - key: nadia
+    fields:
+      name: Nadia Rahman
+      known_as: Nadia
+      title: Account executive
+      team: Sales
+      office: London
+      email: nadia.rahman@halden.example
+      manager: '@members.marcus'
+      joined_on: '2024-03-04'
+      company: '@company.halden'
+
+  - key: pablo
+    fields:
+      name: Pablo Serrano
+      known_as: Pablo
+      title: Sales engineer
+      team: Sales
+      office: Barcelona
+      email: pablo.serrano@halden.example
+      manager: '@members.marcus'
+      joined_on: '2022-09-19'
+      company: '@company.halden'
+
+  - key: ines
+    fields:
+      name: Inès Laurent
+      known_as: Inès
+      title: Content marketer
+      team: Marketing
+      office: Lyon
+      email: ines.laurent@halden.example
+      manager: '@members.claire'
+      joined_on: '2023-06-05'
+      company: '@company.halden'
+
+  - key: erik
+    fields:
+      name: Erik Nilsson
+      known_as: Erik
+      title: Growth marketer
+      team: Marketing
+      office: Stockholm
+      email: erik.nilsson@halden.example
+      manager: '@members.claire'
+      joined_on: '2024-01-08'
+      company: '@company.halden'
+
+  - key: grace
+    fields:
+      name: Grace Mensah
+      known_as: Grace
+      title: Accountant
+      team: Finance
+      office: Manchester
+      email: grace.mensah@halden.example
+      manager: '@members.dan'
+      joined_on: '2022-11-07'
+      company: '@company.halden'
+
+  - key: oliver
+    fields:
+      name: Oliver Brandt
+      known_as: Oliver
+      title: Payroll specialist
+      team: Finance
+      office: Berlin
+      email: oliver.brandt@halden.example
+      manager: '@members.dan'
+      joined_on: '2023-05-02'
+      company: '@company.halden'
+
+  - key: ruth
+    fields:
+      name: Ruth Kowalski
+      known_as: Ruth
+      title: Office manager
+      team: Operations
+      office: London
+      email: ruth.kowalski@halden.example
+      manager: '@members.priya'
+      joined_on: '2020-08-24'
+      company: '@company.halden'
+
+  - key: samuel
+    fields:
+      name: Samuel Oduya
+      known_as: Samuel
+      title: Office coordinator
+      team: Operations
+      office: Manchester
+      email: samuel.oduya@halden.example
+      manager: '@members.ruth'
+      joined_on: '2024-06-03'
+      company: '@company.halden'
+
+  - key: alba
+    fields:
+      name: Alba Puig
+      known_as: Alba
+      title: Office coordinator
+      team: Operations
+      office: Barcelona
+      email: alba.puig@halden.example
+      manager: '@members.ruth'
+      joined_on: '2023-10-02'
+      company: '@company.halden'
+
+  - key: noah
+    fields:
+      name: Noah Fischer
+      known_as: Noah
+      title: Recruiter
+      team: People
+      office: Berlin
+      email: noah.fischer@halden.example
+      manager: '@members.hannah'
+      joined_on: '2024-04-15'
+      company: '@company.halden'
+
+  - key: maya
+    fields:
+      name: Maya Coleman
+      known_as: Maya
+      title: People partner
+      team: People
+      office: Manchester
+      email: maya.coleman@halden.example
+      manager: '@members.hannah'
+      joined_on: '2022-07-11'
+      company: '@company.halden'
+
+  - key: lucas
+    fields:
+      name: Lucas Moreau
+      known_as: Lucas
+      title: Support engineer
+      team: Support
+      office: Lyon
+      email: lucas.moreau@halden.example
+      manager: '@members.jules'
+      joined_on: '2023-08-21'
+      company: '@company.halden'
+
+  - key: amira
+    fields:
+      name: Amira Benali
+      known_as: Amira
+      title: Support engineer
+      team: Support
+      office: Lyon
+      email: amira.benali@halden.example
+      manager: '@members.jules'
+      joined_on: '2024-05-06'
+      company: '@company.halden'
+
+  - key: daniel
+    fields:
+      name: Daniel Evans
+      known_as: Daniel
+      title: Support engineer
+      team: Support
+      office: Manchester
+      email: daniel.evans@halden.example
+      manager: '@members.jules'
+      joined_on: '2022-02-14'
+      company: '@company.halden'
+
+  - key: chloe
+    fields:
+      name: Chloé Martin
+      known_as: Chloé
+      title: Support specialist
+      team: Support
+      office: Lyon
+      email: chloe.martin@halden.example
+      manager: '@members.jules'
+      joined_on: '2025-01-13'
+      company: '@company.halden'
+
+  - key: jonas
+    fields:
+      name: Jonas Berg
+      known_as: Jonas
+      title: Backend engineer
+      team: Platform
+      office: Stockholm
+      email: jonas.berg@halden.example
+      manager: '@members.mateo'
+      joined_on: '2021-06-14'
+      company: '@company.halden'
+
+  - key: carmen
+    fields:
+      name: Carmen Vidal
+      known_as: Carmen
+      title: Backend engineer
+      team: Platform
+      office: Barcelona
+      email: carmen.vidal@halden.example
+      manager: '@members.mateo'
+      joined_on: '2022-10-03'
+      company: '@company.halden'
+
+  - key: arjun
+    fields:
+      name: Arjun Mehta
+      known_as: Arjun
+      title: Site reliability engineer
+      team: Platform
+      office: London
+      email: arjun.mehta@halden.example
+      manager: '@members.mateo'
+      joined_on: '2021-09-06'
+      company: '@company.halden'
+
+  - key: elena
+    fields:
+      name: Elena Rossi
+      known_as: Elena
+      title: Frontend engineer
+      team: Platform
+      office: Barcelona
+      email: elena.rossi@halden.example
+      manager: '@members.mateo'
+      joined_on: '2023-03-06'
+      company: '@company.halden'
+
+  - key: victor
+    fields:
+      name: Victor Lambert
+      known_as: Victor
+      title: Frontend engineer
+      team: Platform
+      office: Lyon
+      email: victor.lambert@halden.example
+      manager: '@members.mateo'
+      joined_on: '2024-09-02'
+      company: '@company.halden'
+
+  - key: hugo
+    fields:
+      name: Hugo Petit
+      known_as: Hugo
+      title: Security engineer
+      team: Platform
+      office: Lyon
+      email: hugo.petit@halden.example
+      manager: '@members.mateo'
+      joined_on: '2022-12-05'
+      company: '@company.halden'
+
+  - key: sara
+    fields:
+      name: Sara Lindberg
+      known_as: Sara
+      title: Product manager
+      team: Product
+      office: Stockholm
+      email: sara.lindberg@halden.example
+      manager: '@members.lena'
+      joined_on: '2021-04-12'
+      company: '@company.halden'
+
+  - key: ben
+    fields:
+      name: Ben Carter
+      known_as: Ben
+      title: Product manager
+      team: Product
+      office: London
+      email: ben.carter@halden.example
+      manager: '@members.lena'
+      joined_on: '2023-01-09'
+      company: '@company.halden'
+
+  - key: mia
+    fields:
+      name: Mia Schmidt
+      known_as: Mia
+      title: User researcher
+      team: Product
+      office: Berlin
+      email: mia.schmidt@halden.example
+      manager: '@members.lena'
+      joined_on: '2024-07-01'
+      company: '@company.halden'
+
+  - key: leon
+    fields:
+      name: Leon Weber
+      known_as: Leon
+      title: Data engineer
+      team: Data
+      office: Berlin
+      email: leon.weber@halden.example
+      manager: '@members.felix'
+      joined_on: '2023-11-06'
+      company: '@company.halden'
+
+  - key: zoe
+    fields:
+      name: Zoe Harper
+      known_as: Zoe
+      title: Data analyst
+      team: Data
+      office: Manchester
+      email: zoe.harper@halden.example
+      manager: '@members.felix'
+      joined_on: '2024-10-07'
+      company: '@company.halden'
+
+  - key: rafael
+    fields:
+      name: Rafael Costa
+      known_as: Rafael
+      title: Analytics engineer
+      team: Data
+      office: Barcelona
+      email: rafael.costa@halden.example
+      manager: '@members.felix'
+      joined_on: '2025-03-03'
+      company: '@company.halden'
+
+  - key: ingrid
+    fields:
+      name: Ingrid Sundberg
+      known_as: Ingrid
+      title: IT support
+      team: Operations
+      office: Stockholm
+      email: ingrid.sundberg@halden.example
+      manager: '@members.omar'
+      joined_on: '2023-07-03'
+      company: '@company.halden'
+
+  - key: kofi
+    fields:
+      name: Kofi Asante
+      known_as: Kofi
+      title: IT support
+      team: Operations
+      office: London
+      email: kofi.asante@halden.example
+      manager: '@members.omar'
+      joined_on: '2025-02-10'
+      company: '@company.halden'
+
+  - key: julia
+    fields:
+      name: Julia Nowak
+      known_as: Julia
+      title: Legal counsel
+      team: Leadership
+      office: Berlin
+      email: julia.nowak@halden.example
+      manager: '@members.anna'
+      joined_on: '2022-03-07'
+      company: '@company.halden'
+
+  - key: ella
+    fields:
+      name: Ella Thompson
+      known_as: Ella
+      title: Executive assistant
+      team: Leadership
+      office: London
+      email: ella.thompson@halden.example
+      manager: '@members.anna'
+      joined_on: '2023-12-04'
+      company: '@company.halden'
+
+  - key: matteo
+    fields:
+      name: Matteo Bianchi
+      known_as: Matteo
+      title: Customer success manager
+      team: Sales
+      office: Barcelona
+      email: matteo.bianchi@halden.example
+      manager: '@members.marcus'
+      joined_on: '2024-08-05'
+      company: '@company.halden'

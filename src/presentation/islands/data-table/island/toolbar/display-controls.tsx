@@ -7,6 +7,7 @@
 
 import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
 import { DensityMenu } from '../density-menu'
+import { useGridString } from '../grid-strings'
 import { SettingsDialog } from '../settings-dialog'
 import { ColumnsMenu } from '../toolbar-menus'
 import { ExportControl, ExportSelectedButton } from './export-controls'
@@ -59,6 +60,8 @@ export interface DisplayControlsProps {
 }
 
 export function DisplayControls(props: DisplayControlsProps) {
+  const columnsLabel = useGridString('datatable.columns', 'Columns')
+  const refreshLabel = useGridString('datatable.refresh', 'Refresh')
   return (
     <>
       {props.columnToggleEnabled && (
@@ -66,10 +69,10 @@ export function DisplayControls(props: DisplayControlsProps) {
           <button
             type="button"
             className={computeTableToolbarButtonClasses({ active: props.columnsMenuOpen })}
-            aria-label="Columns"
+            aria-label={columnsLabel}
             onClick={props.onToggleColumnsMenu}
           >
-            Columns
+            {columnsLabel}
           </button>
           {props.columnsMenuOpen && <ColumnsMenu table={props.table} />}
         </div>
@@ -98,10 +101,10 @@ export function DisplayControls(props: DisplayControlsProps) {
         <button
           type="button"
           className={computeTableToolbarButtonClasses()}
-          aria-label="Refresh"
+          aria-label={refreshLabel}
           onClick={props.onRefresh}
         >
-          Refresh
+          {refreshLabel}
         </button>
       )}
       {props.densityEnabled && (

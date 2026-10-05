@@ -85,7 +85,6 @@ import {
   handleRecordList,
   handleRecordRead,
   handleRecordUpdate,
-  handleRecordUpsert,
 } from './record'
 import {
   handleRecordBatchCreate,
@@ -93,6 +92,7 @@ import {
   handleRecordBatchUpdate,
   handleRecordBatchUpsert,
 } from './record-batch'
+import { handleRecordUpsert } from './record-upsert'
 import { actionKey } from './shared'
 import { handleSovriumValidateConfig } from './sovrium'
 import {

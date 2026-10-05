@@ -260,11 +260,9 @@ function MenuPanel({
  *
  * Provides a contextual menu with keyboard navigation (arrow keys), item icons,
  * keyboard-shortcut hints, separators, destructive variants, and config
- * `action` wiring (`navigate` link items + `auth` `logout`). The root carries
- * `data-component-type="dropdown-menu"` so the rendered menu is recognisable as
- * the config component regardless of whether it is hydrated from an SSR host or
- * composed inline (e.g. the admin operator identity bar). Shared by both
- * `dropdown-menu` and `context-menu`.
+ * `action` wiring (`navigate` link items + `auth` `logout`). The component's
+ * type is named on its SSR host, which this island mounts into, so
+ * the root names nothing. Shared by both `dropdown-menu` and `context-menu`.
  */
 export default function MenuIsland({
   menuItems = NO_MENU_ITEMS,
@@ -291,7 +289,7 @@ export default function MenuIsland({
   const hoverEnabled = triggerLabel !== undefined && openOnHover === true
   useSessionBoundTrigger()
   return (
-    <div data-component-type="dropdown-menu">
+    <div>
       <Menu.Root>
         <Menu.Trigger
           className={computeMenuTriggerClasses({

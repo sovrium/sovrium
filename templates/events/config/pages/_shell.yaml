@@ -1,0 +1,69 @@
+# The organizers' persistent navigation, included at the top of both organizer
+# pages: the app's name, three entries and a sign-out control. The last entry
+# is the public page, the one visitors see.
+#
+# On a laptop narrower than `lg` the sidebar shrinks to a column of icons, and
+# on a phone (below `md`) it leaves the layout: a menu button opens the same
+# entries in a drawer, so the page gets the whole width of the screen — the
+# door is often run from a phone.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: ticket
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Fieldday
+  - type: sidebar
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      # Row metrics tuned to a short navigation: 32px rows, 13.5px labels, the
+      # current page on the accent's quiet ground, and the Public heading as a
+      # small monospace overline.
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-foreground-subtle
+    groups:
+      - landmark: Organizer
+        items:
+          - { label: Overview, href: /calendar, icon: calendar }
+          # The count is every confirmed seat across the events, read from the
+          # records endpoint of the page it links to.
+          - label: Registrations
+            href: /registrations
+            icon: users
+            badge:
+              endpoint: /api/tables/registrations/records?limit=1&filter=status:Confirmed
+              valuePath: pagination.total
+      - label: Public
+        landmark: Organizer
+        headingLevel: 2
+        items:
+          - { label: Public page, href: /, icon: globe }
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

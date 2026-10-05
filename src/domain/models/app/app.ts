@@ -27,6 +27,7 @@ import { DesignSchema } from './design'
 import { validateAllDesignConsoleComponents } from './design/design-console-component-validation'
 import { validateAllDesignReferences } from './design/design-validation'
 import { EnvVarsSchema } from './env'
+import { validateAllEnvReferences } from './env-reference-validation'
 import { FormsSchema } from './forms'
 import { validateAllFormsReferences } from './forms/forms-validation'
 import { validateAllShareRules } from './forms/share-validation'
@@ -37,6 +38,7 @@ import { validateAllQrCodePayloads } from './links/qr-code-validation'
 import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
 import { PagesSchema } from './pages'
+import { validateAllComponentReferences } from './pages/component-reference-validation'
 import { validateAllPageAccessGroups } from './pages/page-access-validation'
 import { validateAllSelectEmptyOptions } from './pages/select-empty-option-validation'
 import { validateAllMultipleSearchableSelects } from './pages/select-multiple-searchable-validation'
@@ -239,6 +241,36 @@ const validateSelectDeclarations = (
   const emptyOptionError = validateAllSelectEmptyOptions(app)
   if (emptyOptionError !== true) return emptyOptionError
   return validateAllMultipleSearchableSelects(app)
+}
+
+/**
+ * The page-component checks of the final filter, as one branch: the design
+ * console's plotted tokens, then every bare `$ref` placement against
+ * `app.components`. Grouped for the same complexity-budget reason as
+ * {@link validateSelectDeclarations}.
+ */
+const validateComponentPlacements = (
+  app: Parameters<typeof validateAllDesignConsoleComponents>[0] &
+    Parameters<typeof validateAllComponentReferences>[0]
+): true | string => {
+  const designConsoleError = validateAllDesignConsoleComponents(app)
+  if (designConsoleError !== true) return designConsoleError
+  return validateAllComponentReferences(app)
+}
+
+/**
+ * The declaration checks closing the final filter, as one branch: table
+ * permission groups, then every `$env.NAME` anywhere in the configuration
+ * against the variables `app.env` declares. Grouped for the same
+ * complexity-budget reason as {@link validateSelectDeclarations}.
+ */
+const validateDeclaredReferences = (
+  app: Parameters<typeof validateAllTablePermissionGroups>[0] &
+    Parameters<typeof validateAllEnvReferences>[0]
+): true | string => {
+  const permissionGroupError = validateAllTablePermissionGroups(app)
+  if (permissionGroupError !== true) return permissionGroupError
+  return validateAllEnvReferences(app)
 }
 
 export const AppSchema = Schema.Struct({
@@ -916,10 +948,17 @@ export const AppSchema = Schema.Struct({
   // Automation cross-validation: approval actions require auth config
   Schema.check(
     Schema.makeFilter((app) => {
-      if (!app.automations) return true
-
-      const hasApprovalAction = app.automations.some((a) =>
-        a.actions.some((action) => action.type === 'approval')
+      // Every step a run can reach: an approval inside a `loop` body or a
+      // `path` branch waits on a signed-in approver exactly like a top-level one,
+      // and so does one declared as an `app.actions[]` template — a `$ref` is
+      // rewritten to its template before the run dispatches anything, and a
+      // template exposed through `aiAccess` runs with no automation at all.
+      const declared: ReadonlyArray<Action> = [
+        ...(app.automations ?? []).flatMap((a) => a.actions as ReadonlyArray<Action>),
+        ...(app.actions ?? []).map((template) => template.action),
+      ]
+      const hasApprovalAction = collectAllActions(declared).some(
+        (action) => action.type === 'approval'
       )
       if (hasApprovalAction && !app.auth) {
         return 'Approval actions require auth configuration to be enabled'
@@ -1104,9 +1143,18 @@ export const AppSchema = Schema.Struct({
       // that resolves to nothing draws an empty box, which a reader reads as
       // "this one is linear". Bundled here (not a new `Schema.filter`) for the
       // deep-instantiation reason documented above.
-      const designConsoleError = validateAllDesignConsoleComponents(app)
-      if (designConsoleError !== true) return designConsoleError
-      return validateAllTablePermissionGroups(app)
+      //
+      // Component-template placement: a bare `$ref` names a template in
+      // `app.components`, and a name no template carries is refused here rather
+      // than drawn as a request-time "not found" box. Grouped with the design
+      // console check in `validateComponentPlacements` because this filter is
+      // at its complexity budget.
+      const componentError = validateComponentPlacements(app)
+      if (componentError !== true) return componentError
+      // Declarations: table permission groups, and every `$env` reference
+      // anywhere in the configuration naming a variable the app declares. One
+      // branch, for the complexity budget — see `validateDeclaredReferences`.
+      return validateDeclaredReferences(app)
     })
   )
 )

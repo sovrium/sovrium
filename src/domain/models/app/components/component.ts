@@ -17,7 +17,10 @@ import { ComponentReferenceNameSchema } from './reference'
  * Must be in kebab-case:
  * - Start with lowercase letter
  * - Contain only lowercase letters, numbers, and hyphens
- * - Used for data-testid generation: data-testid="component-{name}"
+ * - Names the placed template's root: `data-component="{name}"`, and
+ *   `data-testid="component-{name}"` (with an index suffix when the template is
+ *   placed more than once) unless the template's own `props` declare a
+ *   `data-testid`, which wins
  *
  * @example
  * ```typescript
@@ -26,7 +29,8 @@ import { ComponentReferenceNameSchema } from './reference'
  */
 export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotate({
   title: 'Component Template Name',
-  description: 'Unique component template identifier in kebab-case',
+  description:
+    'Unique component template identifier in kebab-case. A placed template\'s root carries `data-testid="component-<name>"` (with an index suffix when it is placed more than once) unless its own `props` declare a `data-testid`, which wins.',
   examples: ['icon-badge', 'section-header', 'feature-card', 'cta-button-2'],
 })
 

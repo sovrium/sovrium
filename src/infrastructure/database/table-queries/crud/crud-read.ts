@@ -24,10 +24,11 @@ import {
   type OrderByAppView,
   type OrderByPrimaryKey,
 } from '../query-helpers/aggregation-helpers'
+import { maskedRelation, type LookupReadMaskSpec } from '../query-helpers/lookup-read-mask'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
-import { validateTableName } from '../statement/validation'
+import { tableIdentifier } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
@@ -58,6 +59,8 @@ export function listRecords(config: {
   readonly limit?: number
   readonly offset?: number
   readonly columns?: readonly string[]
+  /** Lookups evaluated as empty where the reader may not read the linked row. */
+  readonly lookupMasks?: readonly LookupReadMaskSpec[]
   readonly app?: OrderByAppView
   /**
    * The table's declared primary key. Consulted ONLY to pick the default sort
@@ -68,6 +71,7 @@ export function listRecords(config: {
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   const { tableName, filter, includeDeleted, sort, limit, offset, columns, app, primaryKey } =
     config
+  const { lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list records from ${tableName}`)
   return traceDbQuery(
     'select',
@@ -76,8 +80,6 @@ export function listRecords(config: {
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-
           const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           // Build query clauses
@@ -92,12 +94,13 @@ export function listRecords(config: {
           // non-DISTINCT select may order by a column it does not return, on
           // both dialects, so a sort key never has to be force-projected.
           const selectList = yield* buildSelectListClause(tx, tableName, columns)
+          const relation = yield* maskedRelation(tx, tableName, lookupMasks)
 
           return yield* Effect.tryPromise({
             try: () =>
               typedExecute(
                 tx,
-                sql`SELECT ${selectList} FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}${pageClause}`
+                sql`SELECT ${selectList} FROM ${relation}${whereClause}${orderByClause}${pageClause}`
               ),
             catch: onFailure,
           })
@@ -116,13 +119,13 @@ type AggregationSpec = {
   readonly max?: readonly string[]
 }
 
-/** What {@link computeAggregations} resolves to. */
+/** What {@link computeAggregations} resolves to; `null` is an aggregate over no values. */
 type AggregationResult = {
   readonly count?: string
-  readonly sum?: Record<string, number>
-  readonly avg?: Record<string, number>
-  readonly min?: Record<string, number>
-  readonly max?: Record<string, number>
+  readonly sum?: Record<string, number | null>
+  readonly avg?: Record<string, number | null>
+  readonly min?: Record<string, number | string | null>
+  readonly max?: Record<string, number | string | null>
 }
 
 /**
@@ -140,25 +143,22 @@ const runAggregationsInTx = (
     readonly filter?: { readonly and?: readonly FilterNode[] }
     readonly includeDeleted?: boolean
     readonly aggregate: AggregationSpec
+    readonly lookupMasks?: readonly LookupReadMaskSpec[]
   },
   // eslint-disable-next-line functional/prefer-immutable-types -- receives the shared `wrapDatabaseError` factory, which returns a mutable Error subclass; same rationale as the file-level disable in `shared/error-handling.ts`
   onFailure: (error: unknown) => DatabaseError
 ): Effect.Effect<AggregationResult, DatabaseError> =>
   Effect.gen(function* () {
-    const { tableName, filter, includeDeleted, aggregate } = params
-    validateTableName(tableName)
+    const { tableName, filter, includeDeleted, aggregate, lookupMasks } = params
     const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
     const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
     const aggregationSelects = buildAggregationSelects(aggregate)
     if (aggregationSelects.length === 0) return {}
 
     const selectClause = sql.raw(aggregationSelects.join(', '))
+    const relation = yield* maskedRelation(tx, tableName, lookupMasks)
     const rows = yield* Effect.tryPromise({
-      try: () =>
-        typedExecute(
-          tx,
-          sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
-        ),
+      try: () => typedExecute(tx, sql`SELECT ${selectClause} FROM ${relation}${whereClause}`),
       catch: onFailure,
     })
     if (rows.length === 0) return {}
@@ -186,15 +186,21 @@ export function computeAggregations(config: {
   }
   readonly includeDeleted?: boolean
   readonly aggregate: AggregationSpec
+  readonly lookupMasks?: readonly LookupReadMaskSpec[]
 }): Effect.Effect<AggregationResult, DatabaseError> {
-  const { tableName, filter, includeDeleted, aggregate } = config
+  const { tableName, filter, includeDeleted, aggregate, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to compute aggregations from ${tableName}`)
   return traceDbQuery(
     'select',
     tableName,
     withTransaction(
       db,
-      (tx) => runAggregationsInTx(tx, { tableName, filter, includeDeleted, aggregate }, onFailure),
+      (tx) =>
+        runAggregationsInTx(
+          tx,
+          { tableName, filter, includeDeleted, aggregate, lookupMasks },
+          onFailure
+        ),
       onFailure
     )
   )
@@ -332,9 +338,10 @@ export function listTrash(config: {
   readonly filter?: {
     readonly and?: readonly FilterNode[]
   }
+  readonly lookupMasks?: readonly LookupReadMaskSpec[]
   readonly sort?: string
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
-  const { tableName, filter, sort } = config
+  const { tableName, filter, sort, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list trash from ${tableName}`)
   return traceDbQuery(
     'select',
@@ -343,8 +350,6 @@ export function listTrash(config: {
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-
           const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           if (!hasDeletedAt) {
@@ -355,7 +360,10 @@ export function listTrash(config: {
 
           const selectFields = buildAuthorshipSelectFields(authorshipColumns)
           const selectClause = sql.raw(selectFields.join(', '))
-          const initialQuery = sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)} t`
+          // A lookup the reader may not read is evaluated as empty wherever the
+          // filter or the sort names it, as the live list does.
+          const relation = yield* maskedRelation(tx, tableName, lookupMasks, 't')
+          const initialQuery = sql`SELECT ${selectClause} FROM ${relation}`
 
           const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
           const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
@@ -400,8 +408,6 @@ export function getRecord(
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-
           const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           // Build WHERE clause with soft-delete filter if applicable
@@ -415,7 +421,7 @@ export function getRecord(
             try: () =>
               typedExecute(
                 tx,
-                sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
+                sql`SELECT * FROM ${tableIdentifier(tableName)}${whereClause} LIMIT 1`
               ),
             catch: onFailure,
           })

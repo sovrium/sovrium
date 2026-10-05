@@ -1,3 +1,5 @@
+# One row per piece of content: what it is, where it goes out, when, who owns
+# it, which campaign it serves, and where it stands from idea to published.
 id: 2
 name: content
 fields:
@@ -14,6 +16,7 @@ fields:
       - Newsletter
       - Video
       - Podcast
+  # Every channel the piece goes out on.
   - id: 3
     name: channels
     type: multi-select
@@ -21,27 +24,62 @@ fields:
       - Website
       - LinkedIn
       - X
+      - Email
       - Instagram
       - YouTube
-      - Email
+  # The channel the calendar colours the piece by: its first one. Channel
+  # colour is data colour — five hues at one lightness, none near the accent
+  # or the colour of a late piece, so a channel never reads as a button or an
+  # outcome. LinkedIn and X share a colour; both are the social feed.
+  - id: 11
+    name: channel
+    type: single-select
+    options:
+      - value: Website
+        color: '#347ec4'
+      - value: LinkedIn
+        color: '#06915f'
+      - value: X
+        color: '#06915f'
+      - value: Email
+        color: '#8c64b7'
+      - value: Instagram
+        color: '#9d7200'
+      - value: YouTube
+        color: '#008f9f'
+  # Idea → Draft → Review → Scheduled → Published. The four steps stay grey;
+  # only a published piece carries an outcome colour. Moving a piece to Review
+  # asks the lead to approve it (config/automations/approve-for-scheduling.yaml).
   - id: 4
     name: status
     type: status
     options:
       - value: Idea
-        color: '#94A3B8'
+        color: '#a99f9d'
       - value: Draft
-        color: '#3B82F6'
+        color: '#a99f9d'
       - value: Review
-        color: '#A855F7'
+        color: '#a99f9d'
       - value: Scheduled
-        color: '#F59E0B'
+        color: '#a99f9d'
       - value: Published
-        color: '#10B981'
+        color: '#187c49'
     default: Idea
+  # When the lead approved the piece, written by the approval automation
+  # (config/automations/approve-for-scheduling.yaml) as it schedules it.
+  - id: 18
+    name: approved_at
+    type: datetime
+  # The day the piece goes out. An idea has none, which keeps it off the
+  # calendar until someone gives it a date.
   - id: 5
-    name: publish_date
-    type: date
+    name: publish_at
+    type: datetime
+  # The hour it goes out, as people read it ("10:00"). Kept as words beside
+  # the day so the demo data can stay relative to today.
+  - id: 12
+    name: time_label
+    type: single-line-text
   - id: 6
     name: owner
     type: user
@@ -51,17 +89,62 @@ fields:
     type: relationship
     relatedTable: campaigns
     relationType: many-to-one
+    # Group headers, the drawer and the form show the campaign's name; the
+    # stored value stays its id.
+    displayField: name
+  # The campaign's name, read through the relationship, for the filter bars.
+  - id: 15
+    name: campaign_name
+    type: lookup
+    relationshipField: campaign
+    relatedField: name
   - id: 8
     name: brief
-    type: rich-text
+    type: long-text
+  # The cover image a channel shows before the piece is opened.
+  - id: 16
+    name: thumbnail
+    type: single-attachment
+    allowedFileTypes:
+      - image/png
+      - image/jpeg
+      - image/webp
+  # Everything else the piece needs: the cut, the captions, the source files.
   - id: 9
     name: assets
     type: multiple-attachments
     maxFiles: 10
+  # The attached files' names, as the piece drawer lists them. A drawer does
+  # not render an attachment yet, so the names are kept beside the files.
+  - id: 13
+    name: asset_names
+    type: single-line-text
   - id: 10
     name: created_at
     type: created-at
+  # Who added the piece. A piece added without an owner is given to them
+  # (config/automations/own-new-piece.yaml), so every piece has one.
+  - id: 17
+    name: created_by
+    type: created-by
+  # "Late" when the day has passed and the piece is still an idea, a draft or
+  # in review. Computed when the piece is saved, so a piece that slips past
+  # its day without anyone touching it is flagged at its next edit.
+  - id: 14
+    name: flag
+    type: formula
+    formula: "CASE WHEN publish_at IS NOT NULL AND status IN ('Idea', 'Draft', 'Review') AND substr(CAST(publish_at AS TEXT), 1, 10) < CAST(CURRENT_DATE AS TEXT) THEN 'Late' ELSE '' END"
+    resultType: string
 
+views:
+  # Everything not yet out: the count beside Pipeline in the sidebar.
+  - id: not_published
+    name: Not published
+    filters:
+      and:
+        - { field: status, operator: notEquals, value: Published }
+
+# Everyone on the team plans and writes; only an admin deletes a piece.
 permissions:
   read: authenticated
   create:

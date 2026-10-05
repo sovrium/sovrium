@@ -223,7 +223,7 @@ export const CommandService = Context.Service<CommandService>('CommandService')
  * Get environment with PATH extended to include common tool locations
  * Ensures commands like 'gh' (GitHub CLI) can be found
  */
-const getExtendedEnv = (): Record<string, string> => {
+export const getExtendedEnv = (): Record<string, string> => {
   const env = { ...process.env } as Record<string, string>
   const currentPath = env.PATH || ''
 
@@ -430,21 +430,20 @@ const runCommand = (
     // The scope is INSIDE the timeout on purpose: a timeout interrupts the
     // fiber, interruption closes the scope, and closing the scope terminates
     // the child. Putting the timeout inside would abandon the process again.
-    Effect.timeout(Duration.millis(opts.timeout)),
-    Effect.catchTag('TimeoutError', () =>
-      Effect.fail(new CommandTimeoutError({ command: display, timeoutMs: opts.timeout }))
-    ),
-    Effect.flatMap((result) =>
-      opts.throwOnError && result.exitCode !== 0
-        ? Effect.fail(
-            new CommandFailedError({
-              command: display,
-              exitCode: result.exitCode,
-              stderr: result.stderr,
-              stdout: result.stdout,
-            })
-          )
-        : Effect.succeed(result)
+    Effect.timeoutOrElse({
+      duration: Duration.millis(opts.timeout),
+      orElse: () =>
+        Effect.fail(new CommandTimeoutError({ command: display, timeoutMs: opts.timeout })),
+    }),
+    Effect.filterOrFail(
+      (result) => !(opts.throwOnError && result.exitCode !== 0),
+      (result) =>
+        new CommandFailedError({
+          command: display,
+          exitCode: result.exitCode,
+          stderr: result.stderr,
+          stdout: result.stdout,
+        })
     ),
     Effect.tap((result) =>
       opts.verbose ? Effect.log(`Command completed in ${result.duration}ms`) : Effect.void

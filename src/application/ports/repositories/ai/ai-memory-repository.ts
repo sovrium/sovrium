@@ -94,12 +94,13 @@ export class AiMemoryRepository extends Context.Service<
     }) => Effect.Effect<ReadonlyArray<AiMemoryConversationSummary>, AiMemoryDatabaseError>
     /**
      * Delete a conversation (and, by ON DELETE CASCADE, all its messages) for
-     * a `(userId, sessionId)` pair. A no-op when no matching thread exists.
+     * a `(userId, sessionId)` pair. Answers whether a thread was removed:
+     * `false` when the caller owns no thread by that id.
      */
     readonly deleteConversation: (input: {
       readonly userId: string
       readonly sessionId: string
-    }) => Effect.Effect<void, AiMemoryDatabaseError>
+    }) => Effect.Effect<boolean, AiMemoryDatabaseError>
     /**
      * Delete every conversation owned by `userId` whose `updatedAt` is older
      * than `maxAgeDays` days. Returns the number of threads removed. Drives

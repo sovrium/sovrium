@@ -88,7 +88,11 @@ export interface HonoAppConfig {
       readonly callerCapabilities?: readonly CallerCapability[]
     }
   ) => PageRenderResult | Promise<PageRenderResult>
-  readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderNotFoundPage: (
+    app?: App,
+    detectedLanguage?: string,
+    requestPath?: string
+  ) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   /**
    * RSS feed renderer ([internal ref] — [internal ref]).

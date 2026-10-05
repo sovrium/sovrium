@@ -16,7 +16,7 @@ trigger:
 
 <!-- sovrium:options ManualTriggerSchema -->
 
-Every property is optional; `requiredRole` defaults to `admin`. Input supplied at trigger time is read at **`{{trigger.input.*}}`** — not `{{trigger.inputData}}`, which is the property name on the calling side and does not resolve here.
+Every property is optional; `requiredRole` defaults to `admin`, which the app's highest role satisfies too. Input supplied at trigger time is read at **`{{trigger.input.*}}`** — not `{{trigger.inputData}}`, which is the property name on the calling side and does not resolve here.
 
 ### Manual is the only trigger eligible for AI access
 

@@ -225,6 +225,19 @@ const scheduleImpl =
       return jobId
     })
 
+/**
+ * Fork one run of `callback` into the scheduler's scope. Not entered in the job
+ * registry — there is nothing to cancel or list once it ends — but the scope
+ * still interrupts it on server stop.
+ */
+const runOnceImpl =
+  (scope: Scope.Scope) =>
+  (
+    callback: () => Effect.Effect<void, unknown>,
+    options: { readonly jobId: string }
+  ): Effect.Effect<void> =>
+    Effect.asVoid(Effect.forkIn(runCallbackSafely(options.jobId, callback), scope))
+
 const cancelImpl =
   (jobs: JobRegistry) =>
   (jobId: string): Effect.Effect<void, CronSchedulerError> =>
@@ -271,6 +284,7 @@ export const CronSchedulerLive = Layer.effect(
     return CronScheduler.of({
       schedule: scheduleImpl(jobs, scope),
       cancel: cancelImpl(jobs),
+      runOnce: runOnceImpl(scope),
       listJobs: listJobsImpl(jobs),
     })
   })

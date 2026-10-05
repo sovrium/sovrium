@@ -10,7 +10,10 @@ import { Suspense, useEffect, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { ISLANDS, PRIORITY_ISLAND_LOADERS } from './island-registry'
-import { clearPageQueryClient, getPageQueryClient } from './runtime/query-client'
+import {
+  getPageQueryClient,
+  staleInactivePageQueries as staleInactivePageQueryCache,
+} from './runtime/query-client'
 
 /**
  * Priority islands whose loader has already resolved, keyed by island type.
@@ -584,13 +587,14 @@ export function unmountIslandsWithin(root: ParentNode = document.body): void {
 }
 
 /**
- * Drop the page's shared query cache. Called by a client-side navigation right
- * after it unmounts the outgoing surface, so the incoming surface reads fresh
- * rather than from answers cached for the page it replaced.
+ * Mark the page's cached answers no mounted island reads as stale. Called by a
+ * client-side navigation right after it unmounts the outgoing surface, so a
+ * surface revisited remounts from its cached answers and refreshes them in the
+ * background (see `staleInactivePageQueries` in `runtime/query-client.ts`).
  */
 // eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module
-export function clearPageQueryCache(): void {
-  clearPageQueryClient()
+export function staleInactivePageQueries(): void {
+  staleInactivePageQueryCache()
 }
 
 /**

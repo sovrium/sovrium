@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { speechFileName } from './speech-file-name'
 import { audioPart, parseTranscript, postTranscription } from './speech-request'
 import type {
   SpeechProviderError,
@@ -45,7 +46,11 @@ const appendOptional = (form: FormData, key: string, value: string | undefined):
 const openAiForm = (request: SpeechRequest): FormData => {
   const { config, input, model } = request
   const form = new FormData()
-  form.append('file', audioPart(input.bytes, input.mimeType), input.fileName)
+  form.append(
+    'file',
+    audioPart(input.bytes, input.mimeType),
+    speechFileName(input.fileName, input.mimeType)
+  )
   appendOptional(form, 'model', model)
   appendOptional(form, 'language', input.language)
   appendOptional(form, 'prompt', input.prompt)
@@ -58,7 +63,11 @@ const openAiForm = (request: SpeechRequest): FormData => {
 const whisperCppForm = (request: SpeechRequest): FormData => {
   const { input } = request
   const form = new FormData()
-  form.append('file', audioPart(input.bytes, input.mimeType), input.fileName)
+  form.append(
+    'file',
+    audioPart(input.bytes, input.mimeType),
+    speechFileName(input.fileName, input.mimeType)
+  )
   appendOptional(form, 'language', input.language)
   appendOptional(form, 'prompt', input.prompt)
   form.append('response_format', 'verbose_json')

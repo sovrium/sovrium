@@ -1,10 +1,37 @@
+# The Task API — a backend in one config file.
+#
+# Two tables, projects and tasks, behind a REST API the engine generates from
+# them: list, filter, sort and page, create, update, soft delete and restore,
+# and the history of every record. Scripts call it with an API key on the
+# `x-api-key` header; each table's `permissions` block decides what an admin, a
+# member and a viewer may do, and a call that is not allowed answers 404.
+#
+# There is one page, at `/`: what the API is, the command that starts it, one
+# call that works as pasted, and the tables it serves. Everything else is the
+# API itself, and the admin console at `/_admin` for the people who hold the
+# keys.
+#
+# The Task API is a fictional team's backlog; rename it, replace the tables,
+# and it is yours. This is the file you diff, fork and redeploy.
 name: task-api
 version: 1.0.0
-description: Headless API for task management
+description: >-
+  A headless API: projects and tasks behind a REST API, called with an API key,
+  with per-role rules on every table and one page that says how to call it.
 
 auth:
   $ref: ./config/auth.yaml
 
+design:
+  $ref: ./config/design.yaml
+
 tables:
   - $ref: ./config/tables/projects.yaml
   - $ref: ./config/tables/tasks.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+
+# The page's footer carries its own "Built with Sovrium" line, so the engine's
+# badge is switched off.
+badge: false

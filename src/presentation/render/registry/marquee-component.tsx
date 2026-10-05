@@ -51,6 +51,7 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { CSSProperties, ReactElement } from 'react'
 
@@ -141,6 +142,7 @@ export const marqueeComponent: ComponentRenderer = ({
   return (
     <div
       data-marquee="true"
+      data-component-type={hostComponentType(elementProps)}
       data-marquee-direction={direction}
       data-marquee-axis={resolveAxis(direction)}
       data-marquee-pause-on-hover={c['pauseOnHover'] === true ? 'true' : undefined}

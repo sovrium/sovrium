@@ -1,26 +1,31 @@
-# content-calendar
+# loomwork-content
 
-Marketing content calendar — plan pieces on a month view, move them through an editorial kanban, and keep briefs and assets attached to every piece. A Monday-morning cron emails the team what ships this week.
+Loomwork Content — a small software company's content calendar. Every piece, from idea to
+published, sits on one month coloured by its channel, on a board by status, and in a grid
+grouped by campaign. A piece sent to Review waits for the lead's approval before it is
+scheduled, and every Monday the team gets the week's pieces by email.
 
 ## This app at a glance
 
-- **Tables** (2): campaigns, content
-- **Pages** (4): sign-in, calendar, pipeline, grid
-- **Automations** (1): weekly-digest
-- **Singletons**: auth, design
+- **Tables** (2): campaigns (a window, a budget and a status), content (the pieces; `flag`
+  marks a late one, `campaign_name` reads the campaign's name for the filter bars)
+- **Forms** (1): new-piece (opened in the New piece dialog on every page)
+- **Pages** (4): calendar (`/`), pipeline, content (`/content`, All content), sign-in
+- **Automations** (3): own-new-piece, approve-for-scheduling, monday-digest (a cron)
+- **Singletons**: auth, design, env
+- **Seed data**: `seed/` — two sign-in accounts, four campaigns and fifteen pieces, dated
+  relative to the day you seed, with one thumbnail in `seed/assets/`
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, keep
+one accent, and keep colour for the channels on the calendar and the outcomes of a piece
+(published, late). Never call a piece a "record" or a "row" in the interface.
 
 ---
 

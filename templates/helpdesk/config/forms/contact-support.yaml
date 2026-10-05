@@ -1,0 +1,53 @@
+# The public ticket form. It renders on the home page (config/pages/home.yaml)
+# and needs no account; its title and description are the page's heading. A submission becomes a New ticket, which starts
+# config/automations/when-a-ticket-arrives.yaml: the due time is set and the
+# requester gets a copy by email.
+#
+# The honeypot silently drops naive bots. Every form also answers at
+# `/forms/contact-support`.
+id: 1
+name: contact-support
+title: How can we help?
+description: A person on the team reads every ticket. We usually reply within one business day.
+access:
+  require: all
+submitTo:
+  table: tickets
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Send ticket
+onSuccess:
+  type: redirect
+  url: /thanks
+  delaySeconds: 0
+fields:
+  - kind: section
+    heading: What happened?
+  - kind: table-field
+    column: subject
+    required: true
+    label: Subject
+  - kind: table-field
+    column: category
+    label: Topic
+  - kind: table-field
+    column: attachment
+    label: Screenshot or file
+    helpText: PNG, JPG or PDF, up to 10 MB.
+    accept: 'image/png,image/jpeg,image/webp,application/pdf,text/plain'
+    maxFileSize: 10485760
+    dropZone: true
+  - kind: table-field
+    column: details
+    label: Details
+    helpText: The steps you took and what you expected help us answer on the first reply.
+  - kind: section
+    heading: How do we reach you?
+  - kind: table-field
+    column: requester_name
+    label: Your name
+  - kind: table-field
+    column: requester_email
+    required: true
+    label: Email

@@ -145,6 +145,7 @@ const getMetadataFromCatalog = (
     readonly contentType: string
     readonly size: number
     readonly lastModified: string
+    readonly bucket?: string
   },
   StorageError
 > =>
@@ -156,6 +157,7 @@ const getMetadataFromCatalog = (
             contentType: meta.contentType,
             size: meta.size,
             lastModified: meta.lastModified,
+            ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
           })
         : Effect.fail(makeError(storageObjectNotFound(key)))
     )

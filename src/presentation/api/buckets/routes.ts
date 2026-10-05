@@ -52,6 +52,7 @@ import {
   permits,
   SESSION_WITH_UNRESOLVED_ROLE,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   buildTransformCacheKey,
   buildTransformETag,
@@ -87,13 +88,13 @@ import {
   transformFailureResponse,
   TRANSFORM_CACHE_CONTROL,
 } from '@/presentation/api/buckets/download-response'
+import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
 import {
-  createHandleBatchSign,
   createHandleSign,
   createHandleSignedServe,
   createHandleSignedUpload,
 } from '@/presentation/api/buckets/signed-urls'
-import { storageErrorBody } from '@/presentation/api/runtime/auth-helpers'
+import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -140,7 +141,7 @@ function createHandleGetBucketFile(app: App) {
       resolveUploadBucket(app, bucketName) ??
       (bucketName === AVATAR_BUCKET_NAME ? resolveAvatarBucket(app.buckets) : undefined)
     if (!bucket) {
-      return c.json(storageErrorBody('Bucket not found', 'NOT_FOUND'), 404)
+      return notFound(c, 'Bucket not found')
     }
 
     const key = c.req.param('filename')
@@ -165,19 +166,13 @@ function createHandleGetBucketFile(app: App) {
         action: 'download',
         session,
         undeclaredGrant: session !== undefined,
+        app,
       })
       if (!allowed) {
         // 404 for BOTH the anonymous and the wrong-role denial: `GET` is the
         // enumeration surface, so it must never distinguish "absent" from
         // "forbidden" (S1 — [internal ref] sets the anonymous half).
-        return c.json(
-          {
-            success: false,
-            message: 'Resource not found',
-            code: 'NOT_FOUND',
-          },
-          404
-        )
+        return notFound(c)
       }
     }
 
@@ -341,9 +336,11 @@ async function canAct(
     readonly action: BucketFileAction
     readonly session: UserSession | undefined
     readonly undeclaredGrant: boolean
+    /** The app's role ladder: its top role outranks a role list like `admin`. */
+    readonly app: App
   }
 ): Promise<boolean> {
-  const { bucket, action, session, undeclaredGrant } = input
+  const { bucket, action, session, undeclaredGrant, app } = input
   const permission = bucket.permissions?.[action]
   const policy = {
     whenUndeclared: grantWhenUndeclared(undeclaredGrant),
@@ -360,7 +357,9 @@ async function canAct(
 
   if (!session) return permits(evaluatePermission(permission, undefined, policy))
   const role = await runDomainPromise(c, getUserRole(session.userId))
-  return permits(evaluatePermission(permission, { role }, policy))
+  return permits(
+    evaluatePermission(permission, { role, adminEquivalent: isAdminEquivalent(role, app) }, policy)
+  )
 }
 
 /**
@@ -405,7 +404,7 @@ function denyWrite(c: Context, session: UserSession | undefined): Response {
       401
     )
   }
-  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  return notFound(c, 'Resource not found')
 }
 
 /**
@@ -445,7 +444,7 @@ function createHandlePostBucketFile(app: App) {
   return async (c: Context) => {
     const bucket = resolveUploadBucket(app, c.req.param('bucketName'))
     if (!bucket) {
-      return c.json(storageErrorBody('Bucket not found', 'NOT_FOUND'), 404)
+      return notFound(c, 'Bucket not found')
     }
 
     // Parse multipart body to access file metadata
@@ -477,6 +476,7 @@ function createHandlePostBucketFile(app: App) {
         action: 'upload',
         session,
         undeclaredGrant: defaultWriteGrant(app, bucket, session),
+        app,
       }))
     ) {
       return denyWrite(c, session)
@@ -531,7 +531,7 @@ async function persistUpload(
     // with the generic message rather than echoing it inside a 500, so the
     // refusal is indistinguishable from an absent key (S1).
     if (isNotFoundError(cause)) {
-      return c.json(storageErrorBody('File not found', 'NOT_FOUND'), 404)
+      return notFound(c, 'File not found')
     }
     const message = cause instanceof Error ? cause.message : String(cause)
     return c.json(storageErrorBody(`Upload failed: ${message}`, 'STORAGE_ERROR'), 500)
@@ -551,7 +551,7 @@ function createHandleDeleteBucketFile(app: App) {
   return async (c: Context) => {
     const bucket = resolveUploadBucket(app, c.req.param('bucketName'))
     if (!bucket) {
-      return c.json(storageErrorBody('Bucket not found', 'NOT_FOUND'), 404)
+      return notFound(c, 'Bucket not found')
     }
 
     const session = getSessionContext(c)
@@ -561,6 +561,7 @@ function createHandleDeleteBucketFile(app: App) {
         action: 'delete',
         session,
         undeclaredGrant: defaultWriteGrant(app, bucket, session),
+        app,
       }))
     ) {
       return denyWrite(c, session)
@@ -582,13 +583,9 @@ function createHandleDeleteBucketFile(app: App) {
         logError('[buckets] delete failed', result.failure)
       }
       const message = cause instanceof Error ? cause.message : String(cause)
-      return c.json(
-        storageErrorBody(
-          isNotFound ? 'File not found' : `Delete failed: ${message}`,
-          isNotFound ? 'NOT_FOUND' : 'STORAGE_ERROR'
-        ),
-        isNotFound ? 404 : 500
-      )
+      return isNotFound
+        ? notFound(c, 'File not found')
+        : c.json(storageErrorBody(`Delete failed: ${message}`, 'STORAGE_ERROR'), 500)
     }
 
     // The file is gone from storage — drop every cached transform derived from

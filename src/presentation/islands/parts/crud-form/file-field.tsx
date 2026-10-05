@@ -12,6 +12,10 @@
 
 import { useState } from 'react'
 import {
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/design/form-layout-classes'
+import {
   computeAttachmentRemoveButtonClasses,
   computeAttachmentTileClasses,
   computeAttachmentTileFileIconClasses,
@@ -288,6 +292,7 @@ function FileUploadProgress({ uploading }: FileUploadProgressProps) {
     <div
       role="progressbar"
       data-testid="upload-progress"
+      className={computeFormHelpTextClasses()}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={uploading ? 50 : 100}
@@ -332,6 +337,7 @@ function FileInput({ field, multiple, inputKey, onChange }: FileInputProps) {
       key={inputKey}
       id={`file-${field.name}`}
       type="file"
+      data-component-type="file-upload"
       name={field.name}
       multiple={multiple}
       onChange={onChange}
@@ -362,7 +368,12 @@ function FileFieldBody({
 }: FileFieldBodyProps) {
   return (
     <div>
-      <label htmlFor={`file-${field.name}`}>{labelOf(field)}</label>
+      <label
+        htmlFor={`file-${field.name}`}
+        className={computeFormFieldLabelClasses()}
+      >
+        {labelOf(field)}
+      </label>
       {field.dropZone === true ? (
         <div data-dropzone="true">
           <span>Drag and drop or browse to choose a file</span>

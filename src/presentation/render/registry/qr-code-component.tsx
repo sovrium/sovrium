@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveQrCode } from '@/presentation/render/resolve/qr-code-resolver'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
+import { resolveQrCode, resolveQrPayload } from '@/presentation/render/resolve/qr-code-resolver'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { QrCodeSpec } from '@/presentation/render/resolve/qr-code-resolver'
 import type { ReactElement } from 'react'
@@ -56,6 +57,42 @@ import type { ReactElement } from 'react'
  */
 type QrCodeComponentFields = Pick<QrCodeSpec, 'link' | 'value' | 'size' | 'ecc'>
 
+/** The attributes every host this renderer writes carries. */
+interface QrHostAttributes {
+  readonly className: string | undefined
+  readonly dataTestId: string | undefined
+  readonly componentType: string | undefined
+  readonly accessibleName: string | undefined
+}
+
+/**
+ * A value naming `$record.` belongs to a record the server does not hold here
+ * (a record drawer's slot): the host carries the template, and the island draws
+ * the symbol once the record lands (`islands/runtime/qr-template.ts`).
+ * `undefined` for every other QR, which the server draws itself.
+ */
+function recordTemplateHost(
+  component: QrCodeComponentFields,
+  host: QrHostAttributes
+): ReactElement | undefined {
+  const payload = resolveQrPayload({
+    ...(component.link === undefined ? {} : { link: component.link }),
+    ...(component.value === undefined ? {} : { value: component.value }),
+  })
+  if (payload === undefined || !payload.includes('$record.')) return undefined
+  return (
+    <div
+      className={host.className}
+      data-testid={host.dataTestId}
+      data-component-type={host.componentType}
+      data-qr-template={payload}
+      data-qr-title={host.accessibleName}
+      data-qr-size={component.size}
+      data-qr-ecc={component.ecc}
+    />
+  )
+}
+
 export const qrCodeComponent: ComponentRenderer = (
   config: ComponentDispatchConfig
 ): ReactElement | null => {
@@ -64,6 +101,15 @@ export const qrCodeComponent: ComponentRenderer = (
   const className = elementProps['className'] as string | undefined
   const dataTestId = elementProps['data-testid'] as string | undefined
   const accessibleName = elementProps['aria-label'] as string | undefined
+  const componentType = hostComponentType(elementProps)
+
+  const template = recordTemplateHost(component, {
+    className,
+    dataTestId,
+    componentType,
+    accessibleName,
+  })
+  if (template !== undefined) return template
 
   const resolved = resolveQrCode({
     ...(component.link === undefined ? {} : { link: component.link }),
@@ -84,6 +130,7 @@ export const qrCodeComponent: ComponentRenderer = (
       <div
         className={className}
         data-testid={dataTestId}
+        data-component-type={componentType}
         data-qr-value={resolved.payload}
         data-qr-error={resolved.errorCode}
       />
@@ -94,6 +141,7 @@ export const qrCodeComponent: ComponentRenderer = (
     <div
       className={className}
       data-testid={dataTestId}
+      data-component-type={componentType}
       data-qr-value={resolved.payload}
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; the markup is deterministic output of a pure domain encoder, never user HTML
       dangerouslySetInnerHTML={{ __html: resolved.svg }}

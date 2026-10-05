@@ -1,6 +1,17 @@
-name: sovrium-landing
-version: 1.0.0
-description: Build apps faster with configuration-driven development
+# Tablée — the landing page of a product, in English and in French.
+#
+# One page says what the product does in one sentence, shows it, lists three
+# things it does and three steps to start, and ends on a form that asks for a
+# demo. It answers at `/en/` and `/fr/`: the words live in
+# `config/languages.yaml`, and the page cites them with `$t:` keys. A request
+# lands in a table only the owner reads, in the admin. Tablée is a fictional
+# product; rename it, rewrite the words, and it is yours.
+name: tablee
+version: 2.0.0
+description: >-
+  A bilingual landing page for a product: one sentence, the product itself,
+  three things it does, three steps, and a demo request the owner reads in the
+  admin.
 
 languages:
   $ref: ./config/languages.yaml
@@ -8,12 +19,23 @@ languages:
 design:
   $ref: ./config/design.yaml
 
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/demo-requests.yaml
+
+forms:
+  - $ref: ./config/forms/demo-request.yaml
+
 components:
-  - $ref: ./config/components/hero-section.yaml
   - $ref: ./config/components/feature-card.yaml
   - $ref: ./config/components/step-card.yaml
-  - $ref: ./config/components/cta-button.yaml
   - $ref: ./config/components/language-switcher.yaml
 
 pages:
   - $ref: ./config/pages/home.yaml
+
+# The page's own footer carries the "Built with Sovrium" line, on the same row
+# as the product's name, so the engine's badge is switched off.
+badge: false

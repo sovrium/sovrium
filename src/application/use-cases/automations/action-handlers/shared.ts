@@ -19,6 +19,7 @@ import type { AutomationStateRepository } from '@/application/ports/repositories
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
@@ -26,6 +27,7 @@ import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
+import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 
 /** One log entry a step wrote — see {@link ActionOutcome.logs}. */
 export interface StepLogEntry {
@@ -55,6 +57,12 @@ export interface ActionOutcome {
   readonly error?: string
   readonly output?: Record<string, unknown>
   /**
+   * Whether a FAILED outcome is worth another attempt under a `retry` policy,
+   * when the handler knows: `false` for a refusal that answers the same way on
+   * every try. Absent, the retry loop classifies by `output.response.status`.
+   */
+  readonly retryable?: boolean
+  /**
    * `context.log` entries a code action wrote, in call order. Kept OFF
    * `output` so a log never reaches step chaining or the trigger response;
    * persisted on the step (redacted) and read back by the runs API.
@@ -68,7 +76,7 @@ export interface ActionOutcome {
    * callee (early-exit semantics) and surfaces this object as
    * `RunAutomationResult.returnData`, which the caller's `automation:call`
    * step exposes as `steps.{name}.result`. Distinct from `output` — which
-   * is shallow-merged into `lastOutput`/the webhook response — so a
+   * is shallow-merged into `lastOutput`/the manual-trigger response — so a
    * `return` action's payload does not pollute the parent's `output`.
    */
   readonly returnData?: Readonly<Record<string, unknown>>
@@ -83,6 +91,12 @@ export interface ActionOutcome {
    * run is resumable, an early-`return` run is complete.
    */
   readonly pause?: boolean
+  /**
+   * What the action read as it ran, when its handler can tell more precisely
+   * than its declaration: the records an agent's tool calls named. Kept OFF
+   * `output`; persisted on the step and read by the erasure index.
+   */
+  readonly reads?: readonly StepRead[]
 }
 
 /**
@@ -110,6 +124,12 @@ export interface AutomationContext {
   readonly id: string
   readonly userId?: string
   readonly runId?: string
+  /**
+   * Set when a person started the run by hand and `userId` names them: record
+   * actions then write as that person, under the table's rules. See
+   * `ExecuteAutomationRunInput.startedByHand`.
+   */
+  readonly startedByHand?: true
 }
 
 /**
@@ -137,6 +157,30 @@ export interface ActionRunContext {
    * `{{steps.X.Y}}` and `{{trigger.data.X}}` see the flattened shape).
    */
   readonly rawAction: Readonly<Record<string, unknown>>
+  /**
+   * The action's props AS AUTHORED, ready for the template pass: `$env.X`
+   * (and a named template's `$name`) references are values the pass inserts
+   * without parsing (`{{$env.NAME}}`, `{{$vars.name}}`), and no `{{...}}` is
+   * filled in yet. A handler that renders its own props (loop, path, code's
+   * `inputData`, the raw-props readers) reads this through
+   * `authoredActionProps`, so it renders the configuration as written exactly
+   * once. When {@link propsFinal} is set it holds the final props as given.
+   */
+  readonly authoredProps?: Readonly<Record<string, unknown>>
+  /**
+   * Set when the props are values another step handed over — a code action's
+   * `context.actions.<type>.<operator>(props)` call, an item a loop filled in,
+   * a branch action its path resolved. Such props are FINAL: a handler uses
+   * them as given and never renders them as a template again, so template
+   * text a caller sent stays text.
+   */
+  readonly propsFinal?: true
+  /**
+   * A named template's variables (its declared defaults under the caller's
+   * `vars`), read by the `{{$vars.name}}` references its authored body holds.
+   * Absent outside a template.
+   */
+  readonly templateVars?: Readonly<Record<string, unknown>>
   /** Resolved env lookup for `$env.X` substitution + sandbox `context.env`. */
   readonly envLookup: Readonly<Record<string, string>>
   /**
@@ -162,9 +206,10 @@ export interface ActionRunContext {
   /**
    * Invoke a native action type directly without declaring a template.
    * Used by the `code/runTypescript` sandbox's
-   * `context.actions.<actionType>.<operator>(props)` proxy. Synthesises
-   * a concrete action with the supplied `props`, resolves env
-   * substitution, dispatches through the same handler pipeline as
+   * `context.actions.<actionType>.<operator>(props)` proxy, and by the
+   * `loop` and `path` handlers for their nested actions. Synthesises a
+   * concrete action with the supplied `props`, which are final (see
+   * {@link propsFinal}), dispatches through the same handler pipeline as
    * templates and top-level steps, and returns the handler's
    * `ActionOutcome.output`. Threads the same cycle-detection stack as
    * `invokeTemplate` so a native action whose handler is itself a code
@@ -202,6 +247,8 @@ export interface ActionRunContext {
     readonly inputData: Readonly<Record<string, unknown>>
     readonly mode: 'sync' | 'async'
     readonly maxDepth: number
+    /** Told the id of the run the call started, once it has one. */
+    readonly onRun?: (runId: string) => void
   }) => Promise<{ readonly result: Readonly<Record<string, unknown>> }>
 
   /**
@@ -223,6 +270,48 @@ export interface ActionRunContext {
    * index. Optional; the runtime always supplies it.
    */
   readonly stepIndex?: number
+
+  /**
+   * The record-event channel of this run: a record a step writes
+   * starts the record automations of its table, exactly as the same write
+   * through the records API does. Built by the run loop; optional so a handler
+   * run outside one (a unit test, a template invoked from the sandbox) writes
+   * without dispatching.
+   */
+  readonly recordEvents?: RecordEventChannel
+}
+
+/** One write an automation step made, as the record triggers read it. */
+export interface RecordWriteEvent {
+  readonly tableName: string
+  readonly event: 'create' | 'update' | 'delete'
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord?: Readonly<Record<string, unknown>>
+}
+
+/**
+ * How a step's writes reach the record triggers.
+ *
+ * `refusal` answers BEFORE a write: a chain of record events started by
+ * automation writes stops at a depth limit, and the step that would pass it
+ * fails with the reason instead of writing — the bound on a cycle the config
+ * cannot show (a visible one is refused at validation). `dispatch` starts the
+ * matching automations AFTER a write, in the background.
+ */
+export interface RecordEventChannel {
+  /** True when some record automation fires on this event in this table. */
+  readonly watches: (tableName: string, event: RecordWriteEvent['event']) => boolean
+  /**
+   * The refusal a write meets past the depth limit. `fields` are the fields an
+   * update writes: a write no record automation watches starts nothing and is
+   * never refused.
+   */
+  readonly refusal: (
+    tableName: string,
+    event: RecordWriteEvent['event'],
+    fields?: readonly string[]
+  ) => string | undefined
+  readonly dispatch: (write: RecordWriteEvent) => void
 }
 
 /**
@@ -262,6 +351,7 @@ export type ActionHandler = (
   ActionOutcome,
   never,
   | TableRepository
+  | DataSourceRepository
   | AutomationStateRepository
   | AutomationDigestRepository
   | AutomationApprovalRepository

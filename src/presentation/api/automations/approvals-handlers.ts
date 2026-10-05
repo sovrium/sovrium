@@ -31,6 +31,7 @@ import { toApproverList } from '@/domain/models/app/automations/actions/approval
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { requireSession, validationError } from '@/presentation/api/runtime/auth-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { approvalsAsSeenByCaller } from './run-step-output-reach'
 import type { App } from '@/domain/models/app'
 import type { ApprovalCaller } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import type { Context } from 'hono'
@@ -96,7 +97,13 @@ export async function handleListApprovals(c: Context, app: App): Promise<Respons
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
   if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
+  // A message is rendered from what its run carries: judged as the request
+  // step's output is, for a reader who does not read every run.
+  const seen = await approvalsAsSeenByCaller(c, app, {
+    readsEveryRun: false,
+    approvals: result.success,
+  })
   // S4: the body leaves through its published contract.
-  const body = { approvals: result.success.map(toWireApproval) }
+  const body = { approvals: seen.map(toWireApproval) }
   return c.json(decodeOrThrow(listAutomationApprovalsResponseSchema)(body), 200)
 }

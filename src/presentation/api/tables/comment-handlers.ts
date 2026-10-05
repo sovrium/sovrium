@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
+import {
+  attachCommentMentions,
+  attachSingleCommentMentions,
+} from '@/application/use-cases/tables/comment-mention-programs'
 import {
   deleteCommentProgram,
   getCommentProgram,
@@ -12,14 +17,18 @@ import {
   updateCommentProgram,
   updateCommentStatusProgram,
 } from '@/application/use-cases/tables/comment-programs'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { notFoundResponse } from './comment-handler-shared'
+import {
+  notFoundResponse,
+  resolveGatedComment,
+  resolveTableForListing,
+} from './comment-handler-shared'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
+import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -40,7 +49,7 @@ function handleDeleteCommentError(c: Context, error: unknown) {
     // S1 anti-enumeration: both "forbidden" (user is not author) and "not found"
     // (comment deleted / no access) collapse to a uniform 404 so the author-vs-
     // existence boundary is not discoverable.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
 
   // All other errors - use shared sanitization
@@ -52,20 +61,16 @@ function handleDeleteCommentError(c: Context, error: unknown) {
  */
 export async function handleDeleteComment(c: Context, app: App) {
   const { session } = getTableContext(c)
-  const tableId = c.req.param('tableId')!
-  const commentId = c.req.param('commentId')!
-
-  // Find table by ID OR name (validateTable middleware accepts both)
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-  if (!table) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
+  const target = await resolveGatedComment(c, app)
+  if (target instanceof Response) return target
 
   // Delete comment
   const program = deleteCommentProgram({
+    app,
     session,
-    commentId,
-    tableName: table.name,
+    commentId: target.commentId,
+    tableName: target.table.name,
+    address: target.address,
   })
 
   const result = await runTableProgram(program)
@@ -83,41 +88,31 @@ export async function handleDeleteComment(c: Context, app: App) {
  * Handle get comment by ID
  */
 export async function handleGetComment(c: Context, app: App) {
-  const { session, userRole, userGroups } = getTableContext(c)
-  const tableId = c.req.param('tableId')!
-  const commentId = c.req.param('commentId')!
+  const { session, userRole } = getTableContext(c)
+  const target = await resolveGatedComment(c, app)
+  if (target instanceof Response) return target
+  const { table, address } = target
 
-  // Find table by ID OR name (validateTable middleware accepts both)
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-  if (!table) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
-
-  // Check read permission (group-aware — a bare role can never match a
-  // `group:<name>` entry, so `userRole` alone left group grants inert here)
-  if (!hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)) {
-    // S1 anti-enumeration: read-permission denial returns 404.
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
+  // The comment carries the people its markup names, resolved among the
+  // record's readers exactly as the thread resolves them.
+  const result = await runTableProgram(
+    getCommentProgram({
+      session,
+      commentId: target.commentId,
+      tableName: table.name,
+      address,
+      // The thread's moderation rule: only an
+      // admin-equivalent caller reads a pending or rejected comment by id.
+      viewerIsAdmin: isAdminEquivalent(userRole, app),
+    }).pipe(
+      Effect.flatMap((envelope) =>
+        attachSingleCommentMentions({ app, table, recordId: address.recordId, session }, envelope)
+      )
     )
-  }
-
-  // Get comment
-  const program = getCommentProgram({
-    session,
-    commentId,
-    tableName: table.name,
-  })
-
-  const result = await runTableProgram(program)
+  )
 
   if (result._tag === 'Failure') {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFoundResponse(c)
   }
 
   return c.json(result.success, 200)
@@ -173,7 +168,7 @@ function handleUpdateCommentError(c: Context, error: unknown) {
   if (isAuthorizationError(error)) {
     // S1 anti-enumeration: both "forbidden" (user is not author) and "not found"
     // (comment deleted / no access) collapse to a uniform 404.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    return notFound(c)
   }
 
   // Internal server error
@@ -199,12 +194,14 @@ async function handleModerationStatusUpdate(input: {
   readonly status: 'approved' | 'rejected' | 'pending'
   readonly userRole: string
   readonly session: ReturnType<typeof getTableContext>['session']
+  readonly app: App
 }): Promise<Response> {
   const { c, table, commentId, status, userRole } = input
 
-  // RBAC: only admins can moderate. Non-admins get a 404 (anti-enumeration).
-  if (!isAdminRole(userRole)) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  // RBAC: only admin-equivalent callers (the built-in `admin` and the app's
+  // top role) can moderate. Everyone else gets a 404 (anti-enumeration).
+  if (!isAdminEquivalent(userRole, input.app)) {
+    return notFound(c)
   }
 
   const result = await runTableProgram(
@@ -224,7 +221,7 @@ async function handleModerationStatusUpdate(input: {
   if (result.success !== undefined) {
     return c.json(result.success, 200)
   }
-  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  return notFound(c)
 }
 
 /**
@@ -232,14 +229,9 @@ async function handleModerationStatusUpdate(input: {
  */
 export async function handleUpdateComment(c: Context, app: App) {
   const { session, userRole } = getTableContext(c)
-  const tableId = c.req.param('tableId')!
-  const commentId = c.req.param('commentId')!
-
-  // Find table by ID OR name (validateTable middleware accepts both)
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-  if (!table) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
+  const target = await resolveGatedComment(c, app)
+  if (target instanceof Response) return target
+  const { table, commentId, address } = target
 
   // Parse and validate request body
   const body = await c.req.json().catch(() => undefined)
@@ -261,18 +253,25 @@ export async function handleUpdateComment(c: Context, app: App) {
       status: validated.status,
       userRole,
       session,
+      app,
     })
   }
 
-  // Content edit (author-only).
-  const program = updateCommentProgram({
-    session,
-    commentId,
-    tableName: table.name,
-    content: validated.content,
-  })
-
-  const result = await runTableProgram(program)
+  // Content edit (author-only). The edited comment answers with the people its
+  // new body names, resolved as the created one's are.
+  const result = await runTableProgram(
+    updateCommentProgram({
+      session,
+      commentId,
+      tableName: table.name,
+      content: validated.content,
+      address,
+    }).pipe(
+      Effect.flatMap((envelope) =>
+        attachSingleCommentMentions({ app, table, recordId: address.recordId, session }, envelope)
+      )
+    )
+  )
 
   if (result._tag === 'Failure') {
     return handleUpdateCommentError(c, result.failure)
@@ -298,41 +297,18 @@ function parseSortOrder(sortParam: string | undefined): 'asc' | 'desc' | undefin
 }
 
 /**
- * Resolve the bound table for a list/read request and enforce the
- * role-based read permission. Returns the table on success, or a Hono
- * 404 response (S1 anti-enumeration — both "not found" and
- * "read denied" collapse to the same response). Extracted to keep
- * `handleListComments` under the function-size limits.
- */
-function resolveTableForListing(
-  c: Context,
-  app: App,
-  tableId: string,
-  effectiveRoles: readonly string[]
-): NonNullable<App['tables']>[number] | Response {
-  const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-  if (!table || !hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
-    return notFoundResponse(c)
-  }
-  return table
-}
-
-/**
  * Handle list comments for a record
  */
 export async function handleListComments(c: Context, app: App) {
-  const { session, userRole, userGroups } = getTableContext(c)
+  const { session, userRole } = getTableContext(c)
   const tableId = c.req.param('tableId')!
   const recordId = c.req.param('recordId')!
 
-  const tableOrResponse = resolveTableForListing(
-    c,
-    app,
-    tableId,
-    buildEffectiveRoles(userRole, userGroups)
-  )
+  const tableOrResponse = await resolveTableForListing(c, app, tableId)
   if (tableOrResponse instanceof Response) return tableOrResponse
   const table = tableOrResponse
+  const gateError = await checkRecordReadGate(c, app, table, recordId)
+  if (gateError) return gateError
 
   // Parse query parameters
   const limitParam = c.req.query('limit')
@@ -341,11 +317,12 @@ export async function handleListComments(c: Context, app: App) {
   const offset = offsetParam ? Number(offsetParam) : undefined
   const sortOrder = parseSortOrder(c.req.query('sort'))
 
-  // Moderation visibility: only admins see
+  // Moderation visibility: only an
+  // admin-equivalent caller (the built-in `admin` or the app's top role) sees
   // pending/rejected comments; everyone else (members, viewers, guests,
-  // unauthenticated) sees approved-only. Fail-closed — any non-'admin' role
+  // unauthenticated) sees approved-only. Fail-closed — any other role
   // (including an unknown/empty role) resolves to approved-only.
-  const viewerIsAdmin = isAdminRole(userRole)
+  const viewerIsAdmin = isAdminEquivalent(userRole, app)
 
   // [internal ref]: project a per-user `unreadCount` only when the table opts into
   // `comments.readTracking`. Thread the raw `:tableId` so the read-state
@@ -353,6 +330,9 @@ export async function handleListComments(c: Context, app: App) {
   // are stored under.
   const readTracking = table.comments?.readTracking === true
 
+  // Each comment carries the people its `@[<user id>]` markup names, resolved
+  // to their current names among the record's readers — the thread renders
+  // every other token as a neutral placeholder, never the markup.
   const result = await runTableProgram(
     listCommentsProgram({
       session,
@@ -364,7 +344,13 @@ export async function handleListComments(c: Context, app: App) {
       sortOrder,
       viewerIsAdmin,
       readTracking,
-    })
+    }).pipe(
+      Effect.flatMap((listed) =>
+        attachCommentMentions({ app, table, recordId, session }, listed.comments).pipe(
+          Effect.map((comments) => ({ ...listed, comments }))
+        )
+      )
+    )
   )
 
   if (result._tag === 'Failure') {

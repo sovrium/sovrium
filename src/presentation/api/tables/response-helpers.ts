@@ -19,6 +19,7 @@
  * helpers in this directory.
  */
 
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { Context } from 'hono'
 
 /**
@@ -29,15 +30,7 @@ import type { Context } from 'hono'
  * both the single-record `handleCreateRecord` path and the bulk
  * `enforceBulkCreateGate` path so the wording stays aligned.
  */
-export const forbiddenCreateResponse = (c: Context): Response =>
-  c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
+export const forbiddenCreateResponse = (c: Context): Response => notFound(c)
 
 /**
  * Canonical 404 returned when the user passes `permissions.create` (and
@@ -47,12 +40,4 @@ export const forbiddenCreateResponse = (c: Context): Response =>
  * by both the single-record `checkCreatePredicate` path and the bulk
  * `enforceBulkCreateGate` path.
  */
-export const forbiddenCreateScopeResponse = (c: Context): Response =>
-  c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
+export const forbiddenCreateScopeResponse = (c: Context): Response => notFound(c)

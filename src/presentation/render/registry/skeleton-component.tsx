@@ -29,6 +29,7 @@
  * radius, animate-pulse shimmer) with zero theme-layer dependency.
  */
 
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { computeSkeletonClasses, type SkeletonVariant } from '../../design/feedback-default-classes'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -69,7 +70,7 @@ function resolveSkeletonFields(
 /**
  * Skeleton component renderer.
  */
-export const skeletonComponent: ComponentRenderer = ({ component, rawProps }) => {
+export const skeletonComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
   const f = resolveSkeletonFields(component, rawProps)
   const className = computeSkeletonClasses({ variant: f.variant, animate: f.animate })
   const skeleton: ReactElement = (
@@ -77,6 +78,7 @@ export const skeletonComponent: ComponentRenderer = ({ component, rawProps }) =>
       id={f.id}
       data-skeleton=""
       data-component="skeleton"
+      data-component-type={hostComponentType(elementProps)}
       data-skeleton-variant={f.variant}
       data-animate={f.animate ? 'true' : 'false'}
       aria-hidden="true"

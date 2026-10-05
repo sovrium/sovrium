@@ -24,7 +24,7 @@ import type { DataSourceDb } from '@/presentation/render/resolve/data-source-con
  * - `record` — `mode: 'single'` returned a row. Expose to inline-prefill.
  *   The row is WHOLE: this resolver holds no session, so its caller gates it
  *   for the visitor (`gateRecordForCaller`) before any of it reaches the page.
- * - `not-found` — `mode: 'single'` produced no row → 404 the page.
+ * - `not-found` — `mode: 'single'` produced no live row → 404 the page.
  * - `none` — no dataSource (or list/search mode); no parent context to
  *   expose. The form-ref expander should fall through to declarative
  *   defaults.
@@ -69,7 +69,10 @@ export async function resolvePageParentRecord(
   const paramName = dataSource.param ?? dataSource.table
   const paramValue = routeParams[paramName]
   if (paramValue === undefined) return { kind: 'not-found' }
-  const record = await db.fetchSingleRecord(dataSource.table, paramName, paramValue)
+  // A trashed row answers as missing, as it does on the records API.
+  const record = await db.fetchSingleRecord(dataSource.table, paramName, paramValue, undefined, {
+    liveOnly: true,
+  })
   if (record === undefined) return { kind: 'not-found' }
   return { kind: 'record', table: dataSource.table, record }
 }

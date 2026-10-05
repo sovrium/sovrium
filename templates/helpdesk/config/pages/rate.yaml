@@ -1,0 +1,21 @@
+# The page the resolution email links to, `/rate?ticket=<id>`: one question
+# about the answer, no account. The form is config/forms/rate-answer.yaml.
+name: rate
+path: /rate
+meta:
+  title: Rate this answer · Tallyline
+  description: One question about the answer you got from the Tallyline support team.
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        element: main
+        props:
+          className: mx-auto flex w-full max-w-[620px] flex-1 flex-col gap-5 px-6 pt-12 pb-10 max-md:px-4 max-md:pt-8
+        children:
+          - type: form
+            formRef: rate-answer
+      - $ref: ./_site-footer.yaml

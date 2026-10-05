@@ -14,6 +14,7 @@ import {
   type ResolvedSidebarEntry,
 } from '@/domain/models/app/pages/sidebar-filter'
 import { resolveFilters, hasCurrentUserRef, scopeTablesOf } from './current-user-resolver'
+import { readRowsForCaller } from './record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { SidebarItem } from '@/domain/models/app/pages/layout'
@@ -32,7 +33,7 @@ export interface ResolvedSidebarSection {
  * Resolves a single sidebar item:
  *   1. Substitute `$currentUser.*` filter values (assignment-scoped reads,
  *      unrestricted bypass for global admins).
- *   2. Fetch records from the database.
+ *   2. Read the records through the records gate (`readRowsForCaller`).
  *   3. If `activeIndicator: '$currentUser.activeAssignment'` is set,
  *      resolve the active assignment for the table's scope.
  *   4. Hand the records + active id off to the pure
@@ -67,9 +68,18 @@ export const resolveSidebarSection = async (
 
   if (resolvedFilters.kind === 'unauthorized') return undefined
 
-  const records = await ctx.db.fetchRecords(dataSource.table, {
-    filter: resolvedFilters.filter,
-    sort: dataSource.sort,
+  // Through the records gate: a table the visitor may not read lists nothing,
+  // and a readable one lists the rows its row-level rule shows her, less the
+  // fields she may not read — what the records API would list her.
+  const { rows: records } = await readRowsForCaller({
+    app,
+    tableName: dataSource.table,
+    session: ctx.session,
+    db: ctx.db,
+    query: {
+      filter: resolvedFilters.filter,
+      ...(dataSource.sort !== undefined ? { sort: dataSource.sort } : {}),
+    },
   })
 
   // Resolve the active assignment for this section's scope-table if the

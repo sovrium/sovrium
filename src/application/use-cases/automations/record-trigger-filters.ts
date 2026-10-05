@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { transformRecord } from '@/application/use-cases/tables/record-transformer'
 import { COMPARATORS } from '@/domain/models/app/automations/comparison-operators'
 import { resolveTriggerInString } from './resolve-trigger-data'
+import type { App } from '@/domain/models/app'
 import type { ConditionGroup } from '@/domain/models/app/automations/conditions'
 
 /**
@@ -73,4 +75,41 @@ export const evaluateRecordTriggerCondition = (
     return group.conditions.some((c) => evaluateOne(c.field, c.operator, c.value, record))
   }
   return group.conditions.every((c) => evaluateOne(c.field, c.operator, c.value, record))
+}
+
+/**
+ * Whether at least one of `watchFields` differs between the record before an
+ * update and after it — the gate that narrows an update trigger to the columns
+ * it watches.
+ *
+ * Both sides are read through the records API's own typing first. The two rows
+ * seldom arrive in one shape: the previous row is read raw (a PostgreSQL
+ * `numeric` is the string `'1'`) while the written one has been typed (`1`), so
+ * a raw comparison saw every numeric watched field as changed — and a record
+ * automation whose own write touched another column re-fired itself until the
+ * loop limit stopped it.
+ *
+ * No `previousRecord` (create/delete, or a previous row that could not be read)
+ * cannot be diffed and fails open: the trigger fires.
+ */
+export const watchFieldsChanged = (input: {
+  readonly app: App
+  readonly tableName: string
+  readonly watchFields: readonly string[]
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>> | undefined
+}): boolean => {
+  const { app, tableName, watchFields, record, previousRecord } = input
+  if (previousRecord === undefined) return true
+  const typed = (row: Readonly<Record<string, unknown>>) =>
+    transformRecord(row, { app, tableName }).fields as Readonly<Record<string, unknown>>
+  const before = typed(previousRecord)
+  const after = typed(record)
+  return watchFields.some((field) => {
+    // `!==` settles primitives; JSON settles an object-valued field. A
+    // pragmatic safety net for the scalar columns watched in practice, not a
+    // deep-equality contract.
+    if (before[field] === after[field]) return false
+    return JSON.stringify(before[field]) !== JSON.stringify(after[field])
+  })
 }

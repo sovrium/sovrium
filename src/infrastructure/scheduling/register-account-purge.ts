@@ -66,7 +66,8 @@ const PURGE_JOB_ID = 'account-purge-due'
  * timer keeps firing.
  *
  * @param app - Validated application configuration (its `tables[]` names are
- *   scanned for authored records during a purge).
+ *   scanned for authored records during a purge; its roles say who can
+ *   administer it, so the sweep never erases the last admin).
  * @returns Effect yielding the scheduled job id, or `undefined` when the
  *   scheduler could not be armed (logged, non-fatal).
  */
@@ -91,7 +92,7 @@ export const registerAccountPurgeScheduler = (
           // signature is `void`. Any DB error is caught and logged so the
           // timer re-arms for the next hourly tick.
           Effect.tryPromise({
-            try: () => purgeDueAccounts(appTables),
+            try: () => purgeDueAccounts(appTables, app),
             catch: (cause) => new AccountPurgeSweepError({ cause }),
           }).pipe(
             Effect.tapError((error) =>

@@ -7,7 +7,9 @@
 
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { ContextWithSession } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -110,7 +112,7 @@ export function validateTable(appOrResolver: App | (() => App)) {
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
 
     if (!table) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+      return notFound(c)
     }
 
     // Attach to context for downstream handlers
@@ -118,6 +120,44 @@ export function validateTable(appOrResolver: App | (() => App)) {
     c.set('tableId', tableId)
 
     await next()
+  }
+}
+
+/**
+ * The fixed words a records path takes where a record id would otherwise sit
+ * (`/records/batch`, `/records/upsert`, …) — they route to their own handlers.
+ */
+const RECORDS_PATH_WORDS: ReadonlySet<string> = new Set([
+  'batch',
+  'bulk-delete',
+  'bulk-update',
+  'upsert',
+])
+
+/**
+ * Middleware answering 404 to a record id that cannot be a key of the table.
+ *
+ * Mounted on the single-record routes after `validateTable`. An id that no key
+ * of the table's type could hold — `abc`, `1.5`, an integer past the key's
+ * range — names no record, and is answered exactly as a key no record holds,
+ * before any query runs: on PostgreSQL the cast would otherwise fail and read
+ * as a 400, telling a caller probing ids something about their shape.
+ */
+export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
+  return async (c: Context, next: Next) => {
+    const recordId = c.req.param('recordId')
+    if (recordId === undefined || RECORDS_PATH_WORDS.has(recordId)) {
+      await next()
+      return undefined
+    }
+    const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
+    const tableId = c.req.param('tableId')
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+    if (table !== undefined && !isRecordKeyShaped(recordId, table)) {
+      return notFound(c)
+    }
+    await next()
+    return undefined
   }
 }
 

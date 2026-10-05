@@ -1,164 +1,225 @@
-# Sample expense claims.
+# Seventeen claims filed at Halden over the last two months, each with its
+# receipt from `seed/assets/` and the person whose money it is.
 #
-# All five categories carry rows, because the spend-by-category chart on /review
-# sums `amount` grouped by `category` — a data set concentrated in one category
-# renders a single bar and proves nothing. All four statuses appear too, so the
-# "Pending" and "Approved" KPI tiles are real numbers.
+# Five wait on finance, five are approved and wait for the next transfer,
+# five were repaid in an earlier transfer, and two were rejected with the
+# policy they miss. Every date is relative to the day the seed runs, so the
+# demo never ages; `--today <YYYY-MM-DD>` pins them to one day, so the same
+# figures come back on any machine.
 #
-# `expense_date` straddles `{{today}}` so the grid's date sort has something to
-# sort and a "this month" reading is never empty.
-#
-# TWO FIELDS ARE DELIBERATELY UNSEEDED:
-#
-#   `receipt` is a `single-attachment` bound to the `receipts` bucket. Signed
-#   attachment URLs are always built against `/api/buckets/default/signed`
-#   regardless of the field's declared bucket, so a seeded receipt would carry a
-#   link that can never resolve — and `sovrium seed` refuses the whole file
-#   rather than write one. Upload receipts through /my-expenses instead.
-#
-#   `submitted_by` is a `created-by` field: the platform writes it from the
-#   session of whoever created the row. The CLI has no session, so every seeded
-#   claim is attributed to `system` in the "Filed by" column — verified in the
-#   running app, not assumed. That is left as-is deliberately, because it is
-#   also what makes the row-level rule demonstrable: `rowLevelPermissions`
-#   scopes reads to `submitted_by = $currentUser.id`, so a MEMBER sees NONE of
-#   these seventeen rows while an ADMIN (unrestricted) sees all of them. Signing
-#   in as each in turn is the clearest demonstration of row-level scoping this
-#   template can offer, and a member's own claims are the ones they file
-#   themselves through /my-expenses.
+# `sovrium seed` writes rows and runs no automation, so the claims waiting here
+# have no approval run behind them: finance decides them from the Approve and
+# Reject buttons on the Review page. A claim filed in the app starts its
+# approval run as well.
 records:
-  - key: berlin-flights
+  - key: claim-201
     fields:
-      description: Return flights — Berlin customer visit
-      amount: 412.60
-      category: Travel
-      expense_date: '{{today-4d}}'
-      status: Pending
-
-  - key: berlin-hotel
-    fields:
-      description: Hotel, two nights — Berlin
-      amount: 268.00
-      category: Travel
-      expense_date: '{{today-4d}}'
-      status: Pending
-
-  - key: client-dinner-lyon
-    fields:
-      description: Client dinner — Lyon, four covers
-      amount: 187.45
+      description: New-starter breakfast
+      amount: 63.4
       category: Meals
-      expense_date: '{{today-2d}}'
-      status: Pending
-
-  - key: design-tool-seats
-    fields:
-      description: Design tool — three additional seats
-      amount: 144.00
-      category: Software
-      expense_date: '{{today-1d}}'
-      status: Pending
-
-  - key: standing-desk
-    fields:
-      description: Standing desk converter
-      amount: 229.90
-      category: Equipment
-      expense_date: '{{today-6d}}'
-      status: Pending
-
-  - key: taxi-airport
-    fields:
-      description: Airport transfer
-      amount: 54.20
-      category: Travel
-      expense_date: '{{today-9d}}'
-      status: Approved
-
-  - key: team-lunch-q1
-    fields:
-      description: Quarterly team lunch
-      amount: 312.75
-      category: Meals
-      expense_date: '{{today-13d}}'
-      status: Approved
-
-  - key: error-tracking
-    fields:
-      description: Error-tracking subscription — annual
-      amount: 588.00
-      category: Software
-      expense_date: '{{today-16d}}'
-      status: Approved
-
-  - key: monitor-27
-    fields:
-      description: 27-inch monitor for the new starter
-      amount: 349.00
-      category: Equipment
-      expense_date: '{{today-11d}}'
-      status: Approved
-
-  - key: conference-ticket
-    fields:
-      description: Conference ticket — engineering track
-      amount: 475.00
-      category: Other
-      expense_date: '{{today-19d}}'
-      status: Approved
-
-  - key: rail-paris-brussels
-    fields:
-      description: Rail — Paris to Brussels, return
-      amount: 138.00
-      category: Travel
-      expense_date: '{{today-38d}}'
+      expense_date: '{{today-58d}}'
+      kind: Receipt
+      policy: Meals policy
+      receipt: '@asset:breakfast.jpg'
+      receipt_name: breakfast.jpg
       status: Reimbursed
-
-  - key: coffee-supplies
-    fields:
-      description: Office coffee and kitchen supplies
-      amount: 96.30
-      category: Other
-      expense_date: '{{today-41d}}'
-      status: Reimbursed
-
-  - key: password-manager
-    fields:
-      description: Password manager — team plan renewal
-      amount: 240.00
-      category: Software
-      expense_date: '{{today-47d}}'
-      status: Reimbursed
-
-  - key: headset-support
+      filer: '@user:lea.morel@halden.example'
+      reimbursed_at: '{{today-55d}}'
+  - key: claim-202
     fields:
       description: Noise-cancelling headset — support desk
       amount: 179.99
       category: Equipment
       expense_date: '{{today-52d}}'
+      kind: Receipt
+      policy: Equipment policy
+      receipt: '@asset:headset.pdf'
+      receipt_name: headset.pdf
       status: Reimbursed
-
-  - key: onboarding-breakfast
+      filer: '@user:jonas.weber@halden.example'
+      reimbursed_at: '{{today-24d}}'
+  - key: claim-203
     fields:
-      description: New-starter breakfast
-      amount: 63.40
-      category: Meals
-      expense_date: '{{today-58d}}'
+      description: Password manager — team plan renewal
+      amount: 240
+      category: Software
+      expense_date: '{{today-47d}}'
+      kind: Invoice
+      policy: Software policy
+      receipt: '@asset:pm.pdf'
+      receipt_name: pm.pdf
       status: Reimbursed
-
-  - key: first-class-upgrade
+      filer: '@user:karim.benali@halden.example'
+      reimbursed_at: '{{today-24d}}'
+  - key: claim-204
     fields:
-      description: Seat upgrade on the Brussels train
-      amount: 84.00
+      description: Office coffee and kitchen supplies
+      amount: 96.3
+      category: Other
+      expense_date: '{{today-41d}}'
+      kind: Receipt
+      policy: Other spend
+      receipt: '@asset:coffee.jpg'
+      receipt_name: coffee.jpg
+      status: Reimbursed
+      filer: '@user:jonas.weber@halden.example'
+      reimbursed_at: '{{today-24d}}'
+  - key: claim-205
+    fields:
+      description: Rail — Paris to Brussels, return
+      amount: 138
       category: Travel
-      expense_date: '{{today-26d}}'
-      status: Rejected
-
-  - key: personal-tablet
+      expense_date: '{{today-38d}}'
+      kind: Receipt
+      policy: Travel policy
+      receipt: '@asset:rail.pdf'
+      receipt_name: rail.pdf
+      status: Reimbursed
+      filer: '@user:lea.morel@halden.example'
+      reimbursed_at: '{{today-24d}}'
+  - key: claim-206
     fields:
       description: Tablet — no business justification given
-      amount: 649.00
+      amount: 649
       category: Equipment
       expense_date: '{{today-33d}}'
+      kind: Receipt
+      policy: Equipment policy
+      receipt: '@asset:tablet.pdf'
+      receipt_name: tablet.pdf
       status: Rejected
+      filer: '@user:jonas.weber@halden.example'
+      decision_reason: Over the €300 equipment limit without a note from a lead.
+  - key: claim-207
+    fields:
+      description: Seat upgrade on the Brussels train
+      amount: 84
+      category: Travel
+      expense_date: '{{today-26d}}'
+      kind: Receipt
+      policy: Travel policy
+      receipt: '@asset:upgrade.pdf'
+      receipt_name: upgrade.pdf
+      status: Rejected
+      filer: '@user:lea.morel@halden.example'
+      decision_reason: Upgrades are not covered by the travel policy.
+  - key: claim-208
+    fields:
+      description: Conference ticket — engineering track
+      amount: 475
+      category: Other
+      expense_date: '{{today-19d}}'
+      kind: Receipt
+      policy: Other spend
+      receipt: '@asset:ticket.pdf'
+      receipt_name: ticket.pdf
+      status: Approved
+      filer: '@user:karim.benali@halden.example'
+  - key: claim-209
+    fields:
+      description: 27-inch monitor for the new starter
+      amount: 349
+      category: Equipment
+      expense_date: '{{today-11d}}'
+      kind: Receipt
+      policy: Equipment policy
+      receipt: '@asset:monitor.pdf'
+      receipt_name: monitor.pdf
+      status: Approved
+      filer: '@user:jonas.weber@halden.example'
+  - key: claim-210
+    fields:
+      description: Error-tracking subscription — annual
+      amount: 588
+      category: Software
+      expense_date: '{{today-16d}}'
+      kind: Invoice
+      policy: Software policy
+      receipt: '@asset:saas-annual.pdf'
+      receipt_name: saas-annual.pdf
+      status: Approved
+      filer: '@user:karim.benali@halden.example'
+  - key: claim-211
+    fields:
+      description: Quarterly team lunch
+      amount: 312.75
+      category: Meals
+      expense_date: '{{today-13d}}'
+      kind: Receipt
+      policy: Meals policy
+      receipt: '@asset:lunch.jpg'
+      receipt_name: lunch.jpg
+      status: Approved
+      filer: '@user:karim.benali@halden.example'
+  - key: claim-212
+    fields:
+      description: Airport transfer
+      amount: 54.2
+      category: Travel
+      expense_date: '{{today-9d}}'
+      kind: Receipt
+      policy: Travel policy
+      receipt: '@asset:transfer.jpg'
+      receipt_name: transfer.jpg
+      status: Approved
+      filer: '@user:lea.morel@halden.example'
+  - key: claim-213
+    fields:
+      description: Standing desk converter
+      amount: 229.9
+      category: Equipment
+      expense_date: '{{today-6d}}'
+      kind: Receipt
+      policy: Equipment policy
+      receipt: '@asset:desk.jpg'
+      receipt_name: desk.jpg
+      status: Pending
+      filer: '@user:jonas.weber@halden.example'
+  - key: claim-214
+    fields:
+      description: Design tool — three additional seats
+      amount: 144
+      category: Software
+      expense_date: '{{today-1d}}'
+      kind: Invoice
+      policy: Software policy
+      receipt: '@asset:invoice-seats.pdf'
+      receipt_name: invoice-seats.pdf
+      status: Pending
+      filer: '@user:karim.benali@halden.example'
+  - key: claim-215
+    fields:
+      description: Client dinner — Lyon, four covers
+      amount: 187.45
+      category: Meals
+      expense_date: '{{today-2d}}'
+      kind: Receipt
+      policy: Meals policy
+      receipt: '@asset:dinner-lyon.jpg'
+      receipt_name: dinner-lyon.jpg
+      status: Pending
+      filer: '@user:lea.morel@halden.example'
+  - key: claim-216
+    fields:
+      description: Hotel, two nights — Berlin
+      amount: 268
+      category: Travel
+      expense_date: '{{today-4d}}'
+      kind: Receipt
+      policy: Travel policy
+      receipt: '@asset:hotel-ber.pdf'
+      receipt_name: hotel-ber.pdf
+      status: Pending
+      filer: '@user:lea.morel@halden.example'
+  - key: claim-217
+    fields:
+      description: Return flights — Berlin customer visit
+      amount: 412.6
+      category: Travel
+      expense_date: '{{today-4d}}'
+      kind: Receipt
+      policy: Travel policy
+      receipt: '@asset:flights-ber.pdf'
+      receipt_name: flights-ber.pdf
+      status: Pending
+      filer: '@user:lea.morel@halden.example'

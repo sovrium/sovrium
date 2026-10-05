@@ -87,7 +87,7 @@ export class Logger extends Context.Service<
  *
  * `emitTelemetryLog` crosses onto the observability runtime, and that crossing
  * starts a FRESH fiber. `OtlpLogger` stamps a record's `traceId`/`spanId` from
- * `fiber.currentSpan`, so a fresh fiber has none — which meant that until this
+ * `fiber.cache.span`, so a fresh fiber has none — which meant that until this
  * was threaded through, NO log line written by application code could be
  * correlated to the request that produced it, however deep inside a span it was
  * written. The one correlated line in the whole system was the request log in
@@ -107,7 +107,7 @@ const currentSpanOrNone: Effect.Effect<Tracer.Span | undefined> = Effect.current
   // to mean "there is no span here", which is an ordinary, expected answer for
   // anything running outside a request.
   // effect-swallow: "no span here" is the answer, not a failure — anything outside a request has none, and the log line is emitted either way.
-  Effect.orElseSucceed<Tracer.Span | undefined>(() => undefined)
+  Effect.orElseSucceed((): Tracer.Span | undefined => undefined)
 )
 
 /** Where a `Logger` service line goes. The live sink is `emitTelemetryLog`. */

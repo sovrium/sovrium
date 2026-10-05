@@ -1,25 +1,37 @@
-# knowledge-base
+# corvel-handbook
 
-Internal knowledge base — the markdown pages feature behind sign-in. Company handbook articles live as plain `.md` files in Git; a single contentDir page turns the folder into a private, sidebar-navigated handbook only employees can read.
+Corvel handbook — a private company handbook. A public welcome page that names the
+sections, a sign-in, and behind it the handbook itself: a sidebar of sections, the article
+with its outline and the date it was last updated, previous and next across sections. A
+managers' section only managers can open, a search box that answers with what the reader may
+read, and an assistant that answers from the handbook.
 
 ## This app at a glance
 
-- **Pages** (3): home, sign-in, kb
+- **Pages** (5): kb (`/kb/:path*`, one route per article under `content/kb/`, `/kb` itself is
+  `start.md`), kb-managers (`/kb/managers/:path*`, managers and the admin only), assistant,
+  home (`/`), sign-in
+- **Agents** (1): handbook-assistant (reads the five articles everyone may read)
+- **Markdown content**: `content/kb/` — the handbook, one folder per section; each article's
+  frontmatter carries `title`, `category`, `order` and `updated`. `content/kb-managers/` —
+  the managers' section, served by its own page
 - **Singletons**: auth, design
-- **Markdown content**: 5 file(s) under `content/`
-- **Static assets**: `public/` (served at the site root)
+- **Seed data**: `seed/users.yaml` — the two demo accounts
+- **Static assets**: `public/` (served at the site root; the laptop article's image is in
+  `public/handbook/`)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. An article
+is a markdown file: add one under `content/kb/<section>/` with a `category` the sidebar
+already knows (`config/pages/kb.yaml`, `groupLabels`), and an `order` that places it where
+previous and next should find it. The design system is in `config/design.yaml`: read its
+comments before changing a colour, keep one accent, and keep colour for the outcomes an
+article can have (checked, past its review date). Never call an article a "record", a "row"
+or a "file" in front of a reader.
 
 ---
 

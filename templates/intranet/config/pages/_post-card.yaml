@@ -1,0 +1,44 @@
+# One announcement as a card: its topic, its title (which opens it in the
+# drawer), the first lines, and who wrote it when. A must-read adds what it
+# asks of you and how many people have acknowledged it so far.
+#
+# Placed inside a section bound to `posts`, it is drawn once per announcement.
+type: card
+props:
+  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-left
+children:
+  - type: link
+    props:
+      href: ?record=$record.id
+      className: text-[15px] font-semibold leading-snug text-foreground hover:underline
+    content: $record.title
+  - type: text
+    element: p
+    props:
+      className: text-sm leading-relaxed text-foreground-muted
+    content: $record.excerpt
+  - type: container
+    props:
+      className: flex flex-wrap items-center gap-x-2 text-xs text-foreground-muted
+    children:
+      - type: text
+        element: span
+        props:
+          className: font-medium text-foreground
+        content: $record.author_name
+      - type: text
+        element: span
+        props:
+          aria-hidden: 'true'
+        content: ·
+      - type: text
+        element: span
+        props:
+          className: font-mono
+        content: $record.published_label
+      # The topic is a word, never a colour.
+      - type: text
+        element: span
+        props:
+          className: rounded-sm border border-border px-1.5 py-px text-[11px] text-foreground-muted
+        content: $record.topic

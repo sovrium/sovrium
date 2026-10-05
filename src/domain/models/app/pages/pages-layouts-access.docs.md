@@ -40,6 +40,8 @@ pages:
 
 A sidebar filtered on `$currentUser.assignments.<table>` renders only the records the signed-in user is assigned to; an unrestricted administrator sees them all. Unlike a page-level data source, a sidebar section that cannot resolve its `$currentUser` reference is **dropped silently** rather than failing the request — the page still renders, minus that section.
 
+A section lists what the records API would list the visitor, whatever its filter says: a section over a table she may not read lists nothing, and a readable one lists only the records the table's row-level read rule shows her, without the fields she may not read.
+
 ## Access control
 
 <!-- sovrium:options PageAccessExtendedSchema depth=2 -->

@@ -19,16 +19,20 @@
  */
 
 import { Duration, Effect, Ref } from 'effect'
+import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import {
   actionKey,
   missingActionHandler,
   type ActionHandler,
   type ActionOutcome,
 } from '../action-handlers'
+import { buildStepsResultView } from '../action-handlers/run-context-resolution'
+import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
 import { redactSecretsForApp } from '../redact-secrets'
-import { resolveEnvInValue } from '../resolve-env-vars'
 import { resolveTriggerInValue } from '../resolve-trigger-data'
 import { buildNativeActionInvoker, buildTemplateInvoker } from './action-invokers'
+import { referenceAuthoredProps } from './prop-substitution'
+import { createReadTracker, redactedReads, trackedInvoker, withRecordedReads } from './read-tracker'
 import {
   isTransientFailure,
   MAX_RETRY_AFTER_MS,
@@ -168,6 +172,7 @@ const buildStep = (
           })),
         }
       : {}),
+    ...redactedReads(outcome.reads, ctx),
   }
 }
 
@@ -355,8 +360,11 @@ const dispatchWithRetry = (input: {
     // the field — it's optional on `ActionRunContext`.
     const invoke = (attempt: number): Effect.Effect<ActionOutcome, never, StepRequirements> => {
       const contextForAttempt = runContext === undefined ? runContext : { ...runContext, attempt }
+      // One announcing scope per attempt: every record the step writes — a
+      // loop of a thousand rows included — is announced as ONE write, so the
+      // per-write resync threshold counts the step, not each row of it.
       return withActionTimeout(
-        handler(action, app, automation, contextForAttempt),
+        announceRecordWrites(app)(handler(action, app, automation, contextForAttempt)),
         timeoutMs,
         action
       )
@@ -433,25 +441,6 @@ const foldStepOutput = (
         lastOutput: { ...(acc.lastOutput ?? {}), ...out },
       }
     : { actions: acc.actions, lastOutput: acc.lastOutput }
-
-/**
- * Expose each prior step's output under a `.result` alias as well as its
- * bare keys, so a downstream action can reference either `{{step.key}}` or
- * `{{step.result.key}}`. The `.result` alias is the canonical step-chaining
- * path the file-action specs depend on (`{{generateReport.result.key}}`) and
- * mirrors the `automation:call` output, whose payload natively nests under
- * `result`. An output that ALREADY carries a `result` key (automation:call)
- * is passed through untouched so its own `result` is not double-wrapped.
- */
-const buildStepsResultView = (
-  actions: Readonly<Record<string, Record<string, unknown>>>
-): Readonly<Record<string, Record<string, unknown>>> =>
-  Object.fromEntries(
-    Object.entries(actions).map(([name, output]) => [
-      name,
-      'result' in output ? output : { ...output, result: output },
-    ])
-  )
 
 /**
  * Decide the new run-level status when an action propagates a failure.
@@ -590,8 +579,57 @@ const foldOutcome = (input: {
   })
 }
 
+type StepProps = Record<string, unknown>
+
 /**
- * Execute one action: resolve `$env.VAR` references in its props, dispatch
+ * Fill in one action's props for dispatch, ONCE.
+ *
+ * Non-code actions get prior step outputs exposed three ways in their
+ * props: under `{{steps.X.Y}}` (e.g. `automation:return`'s `data`
+ * referencing `{{steps.charge.transactionId}}`), at the top level as
+ * `{{X.Y}}`, and under a `.result` alias as `{{X.result.Y}}` /
+ * `{{steps.X.result.Y}}`. The `.result` alias is the canonical chaining
+ * path the file-action specs use (`{{generateReport.result.key}}`) and
+ * mirrors the `automation:call` output which natively nests under
+ * `result`. The code sandbox already exposes `context.steps.X` via its
+ * own internal context, so it skips this (and re-resolves `inputData` itself).
+ *
+ * The AUTHORED props are filled in once. `$env.X` becomes a value the
+ * template pass inserts without parsing it, so neither an env value nor
+ * text a template pulls in from a caller is ever read as a template or for
+ * `$env.` (see referenceAuthoredProps). A code action's source is never a
+ * template: its env references are filled in as text. Final props (an
+ * invoked template, filled in once before the run) are taken as given, here
+ * and by the handler.
+ */
+const fillStepProps = (
+  acc: RunAccumulator,
+  rawAction: Readonly<Record<string, unknown>>,
+  ctx: StepContext
+): { readonly authored: unknown; readonly resolvedProps: StepProps; readonly final: boolean } => {
+  const props = rawAction['props'] ?? {}
+  if (ctx.propsFinal === true)
+    return { authored: props, resolvedProps: props as StepProps, final: true }
+  const authored = referenceAuthoredProps(props, ctx)
+  if (String(rawAction['type'] ?? '') === 'code') {
+    const filled = fillAuthoredReferences(props, { envLookup: ctx.envLookup })
+    return { authored, resolvedProps: filled as StepProps, final: false }
+  }
+  const stepsView = buildStepsResultView(acc.actions)
+  const stepTemplateContext = {
+    ...ctx.templateContext,
+    ...stepsView,
+    steps: stepsView,
+    // The env values an authored `$env.X` inserts, read under `$env`.
+    ...authoredReferenceRoots({ envLookup: ctx.envLookup }),
+  }
+  const resolvedProps = resolveTriggerInValue(authored, stepTemplateContext) as StepProps
+  return { authored, resolvedProps, final: false }
+}
+
+/**
+ * Execute one action: resolve `$env.VAR` references in its authored props
+ * (then its `{{...}}` templates), dispatch
  * to the registered handler, retry per policy, and fold the outcome into
  * the accumulator.
  *
@@ -603,27 +641,11 @@ export const executeStep = (
   acc: RunAccumulator,
   rawAction: Readonly<Record<string, unknown>>,
   ctx: StepContext,
-  buildAutomationInvoker: (ctx: StepContext) => AutomationInvoker
+  buildAutomationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
 ): Effect.Effect<RunAccumulator, never, StepRequirements> =>
   Effect.gen(function* () {
-    // Code actions skip global trigger pass — sandbox re-resolves inputData itself.
-    const props = rawAction['props'] ?? {}
-    const isCode = String(rawAction['type'] ?? '') === 'code'
-    // Non-code actions get prior step outputs exposed three ways in their
-    // props: under `{{steps.X.Y}}` (e.g. `automation:return`'s `data`
-    // referencing `{{steps.charge.transactionId}}`), at the top level as
-    // `{{X.Y}}`, and under a `.result` alias as `{{X.result.Y}}` /
-    // `{{steps.X.result.Y}}`. The `.result` alias is the canonical chaining
-    // path the file-action specs use (`{{generateReport.result.key}}`) and
-    // mirrors the `automation:call` output which natively nests under
-    // `result`. The code sandbox already exposes `context.steps.X` via its
-    // own internal context, so it skips this.
-    const stepsView = buildStepsResultView(acc.actions)
-    const stepTemplateContext = isCode
-      ? ctx.templateContext
-      : { ...ctx.templateContext, ...stepsView, steps: stepsView }
-    const subst = isCode ? props : resolveTriggerInValue(props, stepTemplateContext)
-    const resolvedProps = resolveEnvInValue(subst, ctx.envLookup) as Record<string, unknown>
+    const { authored, resolvedProps, final } = fillStepProps(acc, rawAction, ctx)
+    const tracker = createReadTracker()
     // An unregistered key FAILS the step rather than silently succeeding. Every
     // action AppSchema can declare has a handler — asserted by
     // `registry-schema-coverage.test.ts` — so no config an author can write
@@ -637,14 +659,17 @@ export const executeStep = (
       previousSteps: acc.actions,
       triggerData: ctx.triggerData,
       rawAction,
+      authoredProps: authored as Readonly<Record<string, unknown>>,
+      ...(final ? { propsFinal: true as const } : {}),
       envLookup: ctx.envLookup,
       // The 0-indexed position of this action: the count of steps already
       // recorded equals the index of the action about to run. Threaded so the
       // approval handler can record the paused step's index.
       stepIndex: acc.steps.length,
-      invokeTemplate: buildTemplateInvoker(ctx, acc, new Set()),
-      invokeNativeAction: buildNativeActionInvoker(ctx, acc, new Set()),
-      invokeAutomation: buildAutomationInvoker(ctx),
+      invokeTemplate: buildTemplateInvoker(ctx, acc, new Set(), tracker),
+      invokeNativeAction: buildNativeActionInvoker(ctx, acc, new Set(), tracker),
+      invokeAutomation: trackedInvoker(buildAutomationInvoker(ctx, acc.steps.length), tracker),
+      recordEvents: ctx.recordEvents,
     }
     const outcome: ActionOutcome = yield* dispatchWithRetry({
       handler,
@@ -654,7 +679,8 @@ export const executeStep = (
       runContext,
       retry: resolveRetryForAction(rawAction, ctx.automationRetry),
     })
-    return foldOutcome({ acc, rawAction, resolvedProps, outcome, ctx })
+    const tracked = withRecordedReads(outcome, rawAction, tracker)
+    return foldOutcome({ acc, rawAction, resolvedProps, outcome: tracked, ctx })
   }).pipe(Effect.withSpan('automations.execute-step'))
 
 /**

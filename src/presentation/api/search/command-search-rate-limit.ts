@@ -26,7 +26,7 @@
  * being present; an anonymous caller here has no id to key on. Anything coarser
  * (a global counter) would let one abusive client lock out every reader, which
  * converts an abuse problem into an outage. The address comes from the canonical
- * `getRequestClientIp` so a forged forwarding header cannot buy a fresh bucket
+ * `getRequestRateLimitKey` (an IPv6 client by its /64) so a forged forwarding header cannot buy a fresh bucket
  * here that it cannot buy at any other abuse-controlled endpoint.
  *
  * Operator-tunable env-var contract (both optional):
@@ -45,7 +45,7 @@
 import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
-import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import type { MiddlewareHandler } from 'hono'
 
 const limiter = createSlidingWindowLimiter()
@@ -103,7 +103,7 @@ export const checkCommandSearchRateLimit = (clientIp: string): CommandSearchRate
  * reaches the per-table fan-out it is there to bound.
  */
 export const commandSearchRateLimitMiddleware: MiddlewareHandler = async (c, next) => {
-  const decision = checkCommandSearchRateLimit(getRequestClientIp(c))
+  const decision = checkCommandSearchRateLimit(getRequestRateLimitKey(c))
   if (decision.limited) {
     return rateLimitedResponse(c, decision.retryAfter)
   }

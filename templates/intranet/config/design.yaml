@@ -1,130 +1,199 @@
-# Intranet theming — cyan.
+# Halden — the design system of this intranet.
 #
-# The cyan identity is not new: `#0891b2` was already here, and the sign-in CTA
-# on the home page already painted itself that colour by hand. What was new was
-# that the design barely reached the page.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every reader's address to a third party.
 #
-# WHAT WAS BROKEN
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens every prestyled island consumes. Everything
-#   else emits `--color-*` and does nothing until something cites it. Of the six
-#   colours declared before, `text` and `text-secondary` were off the map
-#   entirely — they painted nothing, anywhere. The pages compensated by
-#   hard-coding the same two hexes inline forty-one times, which is why the
-#   template LOOKED themed while its theme was half inert.
-#
-#   So `text` → `foreground` and `text-secondary` → `foreground-muted`: same
-#   intent, now reaching the page. `foreground-muted` maps to `fg-muted`, which
-#   the baseline registers as `--color-muted-foreground`, so the
-#   `text-muted-foreground` utility resolves from it too.
-#
-#   The mapping is not identity elsewhere either — `background-raised` →
-#   `bg-raised`, `background-overlay` → `bg-overlay`, `ring` → `focus-ring`,
-#   `success` → `success-solid`.
-#
-# WHY THERE IS NO `muted` KEY
-#   Because `muted` and `background-subtle` BOTH map to `--sv-bg-subtle`, and
-#   the compiler emits one `--sv-*` line per authored key in declaration order,
-#   so the later of the two silently wins. Declaring both gave the page two
-#   different subtle backgrounds: the prestyled islands took `muted`'s value
-#   from `--sv-bg-subtle`, while the migrated inline styles below took
-#   `background-subtle`'s from its own `--color-background-subtle` — a mismatch
-#   that is invisible in the config and obvious on screen.
-#
-#   Only `background-subtle` is declared, and nothing is lost: the baseline
-#   registers `--color-muted: var(--sv-bg-subtle)`, so the `bg-muted` utility
-#   still resolves — now to the same colour everything else uses.
-#
-#
-# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
-#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
-#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
-#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
-#   `<key>-foreground: #ffffff` companion whenever the base key is declared
-#   without one. On a white card that companion is white text on white. Worse,
-#   the derivation runs over the LIGHT block only and is never mirrored into
-#   `darkColors`, so it is a light-surface guess that silently persists into
-#   dark mode. The `background-*` spellings carry no such companion.
-#
-# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
-#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
-#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
-#   lightens and white-on-light is unreadable. The derived companion is not
-#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
-#   in both schemes is to name it twice, which is what happens below.
-# THE NEW KEYS EXIST BECAUSE THE PAGES NOW CITE THEM
-#   `background-subtle`, `background-raised`, `warning-subtle` and the rest
-#   were added together with the inline-hex migration in `config/pages/`: each inline
-#   `style:` literal became a `var(--color-*)` reference, so the page banding,
-#   the card chrome and the manager-tools callout now all derive from this one
-#   file. Change a value here and three pages follow.
-#
-#   `warning-subtle`, `warning-border` and `warning-strong` are off the `--sv-*`
-#   map on purpose: they exist ONLY to be cited by the manager-tools callout,
-#   which needs a soft amber wash, a matching rule and a legible amber text
-#   colour — a three-part treatment the single `warning` role token cannot
-#   supply. Being cited is what makes a non-role key worth declaring.
-#
-# NO `fonts` BLOCK
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, dropping the page onto the OS default and locking the shipped
-#   face out of its own stack.
+# Everyone at the company opens this hub, often first thing in the morning:
+# the must-read, the news, who joined, the tools. One accent, a cool cyan,
+# carries the actions and the current page. The three outcomes an
+# announcement can have — acknowledged, due by a date, a sign-in link that
+# expired — get success, warning and error. A topic, a team or an office is a
+# word, never a colour.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (cards, lists, the directory, the
+# drawer, buttons and forms) with no class changes anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 colors:
-  primary: '#0891b2'
-  primary-hover: '#0e7490'
-  primary-foreground: '#ffffff'
-  primary-subtle: '#cffafe'
-  ring: '#06b6d4'
-  background: '#ffffff'
-  background-subtle: '#f4fbfc'
-  foreground: '#0c1e24'
-  foreground-muted: '#456a73'
-  foreground-subtle: '#74979f'
-  background-raised: '#ffffff'
-  background-overlay: '#ffffff'
-  border: '#d6ebef'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
-  # Cited by the manager-tools callout in config/pages/portal.yaml, and by
-  # nothing else. See the note above on why these three are off the role map.
-  warning-subtle: '#fefce8'
-  warning-border: '#fde047'
-  warning-strong: '#713f12'
+  primary: oklch(0.52 0.16 210)
+  primary-hover: oklch(0.46 0.15 210)
+  primary-active: oklch(0.42 0.141 210)
+  primary-foreground: oklch(0.985 0.003 210)
+  primary-subtle: oklch(0.95 0.03 210)
+  primary-subtle-foreground: oklch(0.38 0.12 210)
+  ring: oklch(0.6 0.16 210)
+  background: oklch(0.985 0.003 210)
+  background-subtle: oklch(0.967 0.005 210)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 210)
+  foreground: oklch(0.21 0.008 210)
+  foreground-muted: oklch(0.45 0.012 210)
+  foreground-subtle: oklch(0.51 0.012 210)
+  foreground-disabled: oklch(0.71 0.012 210)
+  foreground-inverse: oklch(0.985 0.003 210)
+  border: oklch(0.925 0.008 210)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 210)
 
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way, under
-# `html:is(.dark, [data-theme='dark'])`. The inline `var(--color-*)` references
-# in `config/pages/` resolve through this block automatically, so the migrated
-# pages get a dark mode the hard-coded hexes could never have had.
 darkColors:
-  primary: '#22d3ee'
-  primary-hover: '#67e8f9'
-  primary-foreground: '#07161a'
-  primary-subtle: '#083344'
-  ring: '#06b6d4'
-  background: '#07161a'
-  background-subtle: '#0d2027'
-  foreground: '#e2f3f6'
-  foreground-muted: '#a0c5cd'
-  foreground-subtle: '#769aa3'
-  background-raised: '#0d2027'
-  background-overlay: '#0d2027'
-  border: '#1a343d'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
-  warning-subtle: '#2a2205'
-  warning-border: '#5c4708'
-  warning-strong: '#fde68a'
+  primary: oklch(0.78 0.12 210)
+  primary-hover: oklch(0.83 0.09 210)
+  primary-active: oklch(0.87 0.07 210)
+  primary-foreground: oklch(0.16 0.006 210)
+  primary-subtle: oklch(0.28 0.06 210)
+  primary-subtle-foreground: oklch(0.9 0.06 210)
+  ring: oklch(0.72 0.13 210)
+  background: oklch(0.16 0.006 210)
+  background-subtle: oklch(0.19 0.007 210)
+  background-raised: oklch(0.21 0.008 210)
+  background-overlay: oklch(0.23 0.008 210)
+  background-inset: oklch(0.13 0.005 210)
+  foreground: oklch(0.95 0.005 210)
+  foreground-muted: oklch(0.75 0.01 210)
+  foreground-subtle: oklch(0.68 0.012 210)
+  foreground-disabled: oklch(0.45 0.01 210)
+  foreground-inverse: oklch(0.16 0.006 210)
+  border: oklch(0.3 0.01 210)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 210)
 
+# Sans for every sentence, mono for dates, counts and overlines, so a column
+# of dates lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Standard corners: a company notice board, neither a ledger nor a toy.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
-  xl: 1rem
   full: 9999px
+
+# Cards carry a one-pixel lift; the drawer floats clearly above the hub.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a status colour, and a topic from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Primary action fill, the current nav entry, the focus ring, the Sign in and Publish buttons. Never a category and never a team.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states on quiet surfaces — the current page, the pinned announcement's band, the row open in the drawer.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: An announcement you have acknowledged, a post published, and nothing else.
+    pairsWith: foreground
+  warning:
+    usage: A must-read whose acknowledgement is due within the week.
+    pairsWith: foreground
+  error:
+    usage: A sign-in link that expired or failed, a publish that did not go through, a destructive action.
+    pairsWith: foreground
+
+# A coloured option is an outlined chip with a dot of its colour, so a column
+# of states stays quiet and only the dot tells them apart.
+badgeForm: outline-dot
+
+# The hub and the directory are read every day, so the signed-in pages run at
+# `cozy`; the welcome and sign-in pages are read once, so they run at `roomy`.
+# The three steps are the platform's own values, written out so one number
+# can be tuned.
+density:
+  default: cozy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+  byZone:
+    product: cozy
+    marketing: roomy
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - warm
+    - clear
+    - inclusive
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Sign in, Publish, Acknowledge, Add a colleague.'
+    - Name the person and the date on every announcement.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "Oops", no corporate cheer ("exciting news").
+    - Never "record", "row" or "table" in front of an employee.
+    - Never tell someone they lack a role; show them what they can do.
+  tone:
+    empty: Say what this space will hold, then the one action that fills it.
+    loading: Name what is loading — the news, the directory — never a bare spinner.
+    error: State what did not work and the one thing that fixes it; keep what the person typed.
+    success: Confirm in past tense what happened and who can now see it.
+    destructive: Name the announcement or the colleague and whether it comes back.
+
+# Who sees which page. The five signed-in pages are the product; the welcome
+# and the two sign-in pages are the public side, which also refuses internal
+# names. The most specific pattern wins, and `everything else` comes last.
+zones:
+  - pattern: /portal
+    zone: product
+    accentBudget: product
+  - pattern: /news
+    zone: product
+    accentBudget: product
+  - pattern: /people
+    zone: product
+    accentBudget: product
+  - pattern: /resources
+    zone: product
+    accentBudget: product
+  - pattern: /publish
+    zone: product
+    accentBudget: product
+  - pattern: everything else
+    zone: marketing
+    accentBudget: public
+    voice:
+      avoid:
+        - No internal names on the public side — no team names, no colleague names, no policy titles.
+
+principles:
+  - Everyone sees the same news first; managers see one more section, never a different app.
+  - Every announcement shows who wrote it and when, and what it asks of you.
+  - Colour means an outcome — acknowledged, due, failed — or it is not used.
+  - The hub is understood without a tour.

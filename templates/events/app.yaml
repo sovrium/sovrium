@@ -1,9 +1,17 @@
-name: events
-version: 1.0.0
+# Fieldday Events — a community's workshops and meetups in one config.
+#
+# Visitors see what is on, when, where and how full, and register in under a
+# minute with no account; a full event offers its waitlist. The organizers
+# read the month and the seats taken on one Overview, find everyone grouped
+# by event, and check people in at the door. This is the file you diff, fork
+# and redeploy.
+name: fieldday-events
+version: 2.0.0
 description: >-
-  Event management — publish a public events page, take registrations through
-  a public form, confirm each attendee by email, and run the schedule from a
-  calendar and a registrations grid.
+  A community's events: a public page listing what is on with the seats left,
+  registration with no account and a waitlist when an event is full, an
+  Overview of the month and the seats taken, and every registration grouped
+  by event with a check-in at the door.
 
 auth:
   $ref: ./config/auth.yaml
@@ -11,21 +19,44 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# The address the links in the emails point at. Set it to your own domain in
+# production.
+env:
+  - key: BASE_URL
+    description: The public address of this app, used in the links the emails carry.
+    required: false
+    default: http://localhost:3000
+    secret: false
+
 tables:
   - $ref: ./config/tables/events.yaml
   - $ref: ./config/tables/registrations.yaml
 
-# Standalone public form — mounted at /register, no sign-in required.
+# The two public forms render on `/register` and `/waitlist/<event>`; the third opens
+# in a dialog on the Overview.
 forms:
   - $ref: ./config/forms/register.yaml
+  - $ref: ./config/forms/join-waitlist.yaml
+  - $ref: ./config/forms/new-event.yaml
 
-pages:
-  - $ref: ./config/pages/home.yaml
-  - $ref: ./config/pages/thanks.yaml
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/calendar.yaml
-  - $ref: ./config/pages/registrations.yaml
-
-# Automations run server-side with full history in your own database.
+# Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/confirm-registration.yaml
+  - $ref: ./config/automations/recount-seats.yaml
+
+# Listed in the order of the sidebar, then the public pages.
+pages:
+  - $ref: ./config/pages/calendar.yaml
+  - $ref: ./config/pages/registrations.yaml
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/register.yaml
+  - $ref: ./config/pages/waitlist.yaml
+  - $ref: ./config/pages/thanks.yaml
+  - $ref: ./config/pages/thanks-event.yaml
+  - $ref: ./config/pages/on-the-waitlist.yaml
+  - $ref: ./config/pages/sign-in.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last card.
+badge:
+  placement: footer

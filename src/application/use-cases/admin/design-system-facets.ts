@@ -38,7 +38,7 @@
 
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
 import { splitGuidanceLine } from '@/domain/models/app/design/guidance-line'
-import { PLATFORM_TYPE_LADDER } from '@/domain/models/app/design/inherited-tokens.generated'
+import { PLATFORM_TYPE_LADDER } from '@/domain/models/app/design/inherited-tokens'
 import { buildDesignSystem } from './design-system'
 import { imageryLines, markMisuseLines } from './design-system-brand-facet'
 import { renderDesignSystemMarkdown } from './design-system-markdown'

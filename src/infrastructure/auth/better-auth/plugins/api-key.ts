@@ -8,6 +8,7 @@
 import { apiKey } from '@better-auth/api-key'
 import { APIError } from 'better-auth/api'
 import { adminAc, userAc } from 'better-auth/plugins/admin/access'
+import { isBanInForce } from '@/domain/models/app/auth/ban-standing-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import type { Auth } from '@/domain/models/app/auth'
 import type { GenericEndpointContext } from '@better-auth/core'
@@ -85,8 +86,10 @@ const permissionsForRole = (roleName: string | null | undefined, authConfig?: Au
  * through by reference, so the session the vendor just fabricated is readable
  * here the moment its handler resolves.
  *
- * `=== true` is deliberate: the column is nullable, and `banned = NULL` means
- * "never banned", exactly as `unbanUser`'s explicit `banned = false` does.
+ * The ban is read by the one rule every gate shares (`isBanInForce`): the
+ * column is nullable, and `banned = NULL` means "never banned", exactly as
+ * `unbanUser`'s explicit `banned = false` does; a ban whose `banExpires` has
+ * passed no longer holds, as Better Auth lifts it at sign-in.
  *
  * 401, matching the anonymous caller (-003) and the revoked key (-004): the
  * credential fails to AUTHENTICATE, so the request is indistinguishable from a
@@ -108,7 +111,9 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
       input as { readonly context?: { readonly session?: { readonly user?: unknown } } }
     ).context?.session?.user
 
-    if ((owner as { readonly banned?: unknown } | undefined)?.banned === true) {
+    const standing = owner as
+      { readonly banned?: unknown; readonly banExpires?: unknown } | undefined
+    if (isBanInForce(standing?.banned, standing?.banExpires)) {
       // eslint-disable-next-line functional/no-throw-statements -- throwing an `APIError` IS Better Auth's hook-rejection protocol; the dispatcher maps it to the HTTP status, exactly as `admin-role-guards.ts` does
       throw new APIError('UNAUTHORIZED', { message: 'User is banned' })
     }

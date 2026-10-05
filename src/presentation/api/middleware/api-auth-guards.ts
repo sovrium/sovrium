@@ -7,8 +7,9 @@
 
 /**
  * Every middleware an `/api/*` request passes before it reaches a handler,
- * in the ONE order that is the contract: transport guards, then rate limits,
- * then session extraction, then the per-path authorisation gates.
+ * in the ONE order that is the contract: transport guards, then the
+ * per-address ceiling, then the per-route rate limits, then session
+ * extraction, then the per-path authorisation gates.
  *
  * Kept beside `admin-route-guards.ts` and applied as a single call from the
  * chain, so that adding a route can never silently land upstream of a gate.
@@ -18,6 +19,7 @@ import {
   chainAdminRouteGuards,
   chainAdminRouteGuardsWithoutAuth,
 } from '@/presentation/api/middleware/admin-route-guards'
+import { applyApiIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import {
   authMiddleware,
   requireAdmin,
@@ -43,12 +45,25 @@ export const applyApiAuthGuards = (
   // Apply request timeout + body-size guards before rate limiting / auth so
   // oversized or slow requests are rejected as early as possible.
   // (Streaming routes are exempted from the timeout — see applyRequestGuards.)
-  const honoWithGuards = applyRequestGuards(honoWithHealth)
+  // The per-address ceiling, ahead of EVERY session lookup below — generous
+  // enough that each per-route limit keeps refusing first. See api-ip-ceiling.ts.
+  const honoWithGuards = applyApiIpCeiling(
+    applyRequestGuards(honoWithHealth),
+    app,
+    auth !== undefined
+  )
 
-  // Apply rate limiting middleware BEFORE auth middleware
-  // This prevents auth bypass by rate limiting all requests first
-  // Middleware order: rate limiting → authMiddleware (extracts session) → requireAuth (enforces auth)
-  const honoWithTablesRateLimit = applyTablesRateLimitMiddleware(honoWithGuards)
+  // Rate limits run BEFORE every authorisation gate, so a refused or
+  // unauthenticated request is still counted. The records limiter counts a
+  // signed-in caller by user and an anonymous one by IP, so the session is
+  // EXTRACTED (never enforced) first on `/api/tables*`:
+  // authMiddleware (extracts session) → tables rate limit → requireAuth (enforces auth)
+  const honoWithTablesSession = auth
+    ? honoWithGuards
+        .use('/api/tables', authMiddleware(auth))
+        .use('/api/tables/*', authMiddleware(auth))
+    : honoWithGuards
+  const honoWithTablesRateLimit = applyTablesRateLimitMiddleware(honoWithTablesSession)
   const honoWithActivityRateLimit = applyActivityRateLimitMiddleware(honoWithTablesRateLimit)
 
   // Apply auth middleware to protected routes
@@ -91,9 +106,8 @@ export const applyApiAuthGuards = (
     : honoWithActivityRateLimit
   const honoWithPreAdminGuards = auth
     ? honoWithFormPathAuth
-        .use('/api/tables', authMiddleware(auth))
+        // The session on `/api/tables*` was extracted ahead of the rate limit.
         .use('/api/tables', requireAuth())
-        .use('/api/tables/*', authMiddleware(auth))
         .use('/api/tables/*', requireAuthOrGuestComment(resolveAppForGuestCommentExemption))
         // Cycle 6 ([internal ref]..026): shared-view lookup-by-id.
         // Mounted at a sibling path to `/api/tables/*` because the lookup is

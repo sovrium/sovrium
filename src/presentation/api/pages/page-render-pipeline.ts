@@ -28,26 +28,39 @@
 import { Data, Effect } from 'effect'
 import { type Context } from 'hono'
 import { PageCache, type CachedPage } from '@/application/ports/services/page-cache'
-import { isSharedViewAccessDenied } from '@/domain/models/app/pages/page-shared-view-guard'
+import { getUserAccessRoles, tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import {
+  isSharedViewAccessDenied,
+  type SharedViewReader,
+} from '@/domain/models/app/pages/page-shared-view-guard'
 import { runDomainPromise, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import {
   recordPageCacheOutcome,
   type PageCacheOutcome,
 } from '@/infrastructure/process/page-cache-telemetry'
+import { isPartialRequest } from '@/presentation/api/runtime/content-partial'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
+import { varyOnPartial } from '@/presentation/api/runtime/vary'
 import { pageCapturesMicrophone } from '@/presentation/render/page/page-microphone-detection'
+import { absolutizeSharingImage } from '@/presentation/render/page/sharing-image-address'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
+import { readTableAsCaller } from './caller-table-reader'
 import {
   CACHED_PAGE_CACHE_CONTROL,
   buildPageCacheKey,
   decidePageCache,
 } from './page-cache-decision'
+import { isPartialEligible, pagePartialOf } from './page-partial'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
-import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type {
+  PageRenderResult,
+  ReadTableAsCaller,
+} from '@/application/ports/services/page-renderer'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
 /**
@@ -111,7 +124,7 @@ export interface PageRequestContext {
   readonly session?: SessionInfo
   readonly cookies?: Readonly<Record<string, string>>
   readonly previewMode?: boolean
-  /** GAP-3 / [internal ref]: request query string for embedded `$query` prefill. */
+  /** [internal ref]: request query string for embedded `$query` prefill. */
   readonly requestQuery?: Readonly<Record<string, string>>
   /**
    * G1: the scheme + host this request arrived on, feeding `$app.origin`. Never
@@ -147,6 +160,12 @@ export interface PageRequestContext {
    * distinguishable, because only IT outranks a page's own `meta.lang`.
    */
   readonly urlLanguage?: string
+  /**
+   * The table API's answer to "what may this caller see of this table?" — the
+   * views, permission map and fields a data-table grid hands its reader. Never
+   * supplied by a route: {@link renderWithCache} attaches it beside the readers.
+   */
+  readonly readTableAsCaller?: ReadTableAsCaller
 }
 
 /**
@@ -168,11 +187,16 @@ interface ResponseDisposition {
    * record value or a query-string prefill can put any string into.
    */
   readonly grants: Readonly<Record<string, string>>
+  /**
+   * Whether the matched page may answer a content-only partial (see
+   * `page-partial.ts`) — decided from its CONFIG, beside `grants`.
+   */
+  readonly partialEligible: boolean
 }
 
 function sendResolved(
   resolved: ReturnType<typeof resolvePageResult>,
-  { cacheStatus, cacheControl, grants }: ResponseDisposition,
+  { cacheStatus, cacheControl, grants, partialEligible }: ResponseDisposition,
   c: Context
 ): Response | undefined {
   if (!resolved) return undefined
@@ -187,11 +211,15 @@ function sendResolved(
   // was never asked about.
 
   recordPageCacheOutcome(cacheStatus)
-  return c.html(resolved.html, 200, {
-    'X-Render-Cache': cacheStatus,
-    'Cache-Control': cacheControl,
-    ...grants,
-  })
+  // One URL answers the document or its main region, by request header — so
+  // every page response says so, partial or not.
+  varyOnPartial(c)
+  const headers = { 'X-Render-Cache': cacheStatus, 'Cache-Control': cacheControl, ...grants }
+  // Past every gate above: a partial is the same answer, cut down — never a
+  // way around a redirect, a 401 or a 404.
+  const partial = partialEligible && isPartialRequest(c) ? pagePartialOf(resolved.html) : undefined
+  if (partial !== undefined) return c.html(partial.body, 200, { ...headers, ...partial.headers })
+  return c.html(resolved.html, 200, headers)
 }
 
 /**
@@ -217,12 +245,31 @@ async function checkSharedViewGate(
     config.app,
     path,
     `userView=${encodeURIComponent(userViewParam)}`,
-    reqCtx.session
-      ? { role: reqCtx.session.role, effectiveRoles: reqCtx.session.effectiveRoles }
-      : undefined
+    await sharedViewReaderOf(config, reqCtx.session, c)
   )
   if (!denied) return undefined
   return c.html(await config.renderNotFoundPage(config.app, reqCtx.detectedLanguage), 404)
+}
+
+/**
+ * The reader of a shared-view link as the records route sees her on each table:
+ * her role, her groups and — on a table with row-level rules, and only there —
+ * the roles her assignments give her (`tableEffectiveRoles`). Her assignments
+ * are read only when the app has such a table.
+ */
+async function sharedViewReaderOf(
+  config: HonoAppConfig,
+  session: SessionInfo | undefined,
+
+  c: Context
+): Promise<SharedViewReader | undefined> {
+  if (session === undefined) return undefined
+  const base = { role: session.role, effectiveRoles: session.effectiveRoles }
+  const scoped = (config.app.tables ?? []).some((table) => table.rowLevelPermissions !== undefined)
+  if (!scoped || isGuestSession(session.userId)) return base
+  const accessRoles = await runDomainPromise(c, getUserAccessRoles(session.userId))
+  const caller = { role: session.role, groups: session.groups ?? [], accessRoles }
+  return { ...base, rolesForTable: (table) => tableEffectiveRoles(table, caller) }
 }
 
 /**
@@ -298,12 +345,18 @@ export async function renderWithCache(
     // PRINTS this instance's address already uses, so a page and a sitemap
     // entry cannot disagree about what the instance is called.
     requestOrigin: resolveRequestBaseUrl(c),
+    // A grid's payload carries only what the table API answers its reader —
+    // computed by that API's own programs, which the renderer cannot reach.
+    readTableAsCaller,
   }
 
   const decision = decidePageCache(app, path, reqCtx)
-  const grants = microphonePolicyHeaders(pageCapturesMicrophone(decision.classification.page, app))
+  const pageDisposition = {
+    grants: microphonePolicyHeaders(pageCapturesMicrophone(decision.classification.page, app)),
+    partialEligible: isPartialEligible(decision.classification.page),
+  }
   const send = (resolved: ResolvedPage, cacheStatus: CacheStatus, cacheControl: string) =>
-    sendResolved(resolved, { cacheStatus, cacheControl, grants }, c)
+    sendResolved(resolved, { cacheStatus, cacheControl, ...pageDisposition }, c)
   if (!decision.usable) {
     return send(
       resolvePageResult(await renderPage(app, path, renderCtx)),
@@ -318,15 +371,23 @@ export async function renderWithCache(
     request: reqCtx,
     classification: decision.classification,
   })
+  // The cache key names no host, so the stored document must name none either:
+  // it is rendered WITHOUT the request's origin, and the one origin-bearing
+  // part a cacheable page carries — a sharing image given as a path or a `$t:`
+  // key — is made absolute per response. Rendered with the origin, the first
+  // request's `Host` / `X-Forwarded-Host` was frozen into every later
+  // visitor's `og:image` (a page naming `$app.origin` is never cacheable).
+  const { requestOrigin, ...originFreeCtx } = renderCtx
+  const onThisHost = (html: string): string => absolutizeSharingImage(html, requestOrigin)
   const cached = await readCachedPage(c, cacheKey)
   if (cached !== undefined) {
-    return send({ html: cached.html }, 'hit', CACHED_PAGE_CACHE_CONTROL)
+    return send({ html: onThisHost(cached.html) }, 'hit', CACHED_PAGE_CACHE_CONTROL)
   }
 
-  const resolved = resolvePageResult(await renderPage(app, path, renderCtx))
+  const resolved = resolvePageResult(await renderPage(app, path, originFreeCtx))
   if (resolved !== undefined && 'html' in resolved) {
     await storeRenderedPage(c, cacheKey, resolved.html)
-    return send(resolved, 'miss', CACHED_PAGE_CACHE_CONTROL)
+    return send({ html: onThisHost(resolved.html) }, 'miss', CACHED_PAGE_CACHE_CONTROL)
   }
   return send(resolved, 'bypass', decision.bypassCacheControl)
 }

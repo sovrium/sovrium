@@ -49,13 +49,13 @@ import { DesignZonesSchema } from './zones'
  *    co-located, so a rename cannot half-apply. `design.components` is the
  *    operator's per-engine-type STYLE key.)
  *
- * ## Four bands, twenty keys, no second spelling of anything
+ * ## Four bands, twenty-one keys, no second spelling of anything
  *
  * - **Colour** — `colorScheme`, `colors`, `darkColors`, `ramps`, `colorRoles`.
  * - **Foundations** — `typeScale`, `spacing`, `radius`, `elevation`, `motion`,
  *   `breakpoints`.
- * - **Application** — `density`, `baseline`, `codeBlock`, `components`,
- *   `zones`.
+ * - **Application** — `density`, `badgeForm`, `baseline`, `codeBlock`,
+ *   `components`, `zones`.
  * - **Charter** — `logo`, `imagery`, `principles`, `voice`.
  *
  * The order above is the narrative order, and it is also the order the design
@@ -168,6 +168,23 @@ export const DesignSchema = Schema.Struct({
    * re-picks for them, per zone.
    */
   density: Schema.optional(DensitySchema),
+
+  /**
+   * The one form every option-coloured badge takes, app-wide: the status pill
+   * in a grid cell, a list item's badge, a kanban footer badge and a drawer's
+   * read-only value draw the same chip, and this key picks its shape.
+   *
+   * `filled` paints the option colour as the chip's fill (today's look);
+   * `outline-dot` draws a transparent chip with an outline and a leading dot in
+   * the option colour. An option with no colour stays neutral in both forms.
+   */
+  badgeForm: Schema.optional(
+    Schema.Literals(['filled', 'outline-dot']).annotate({
+      title: 'Badge Form',
+      description:
+        "How every badge that shows a coloured option is drawn, on every surface: 'filled' paints the option colour as the fill (default); 'outline-dot' draws an outline and a leading dot in the option colour on a transparent chip. An option with no colour stays neutral either way.",
+    })
+  ),
 
   /**
    * Whether prebuilt components extend Sovrium's default design system look

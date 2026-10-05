@@ -13,12 +13,18 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 // ============================================================================
 
 /**
- * Activity log user reference schema
+ * Activity log user reference schema. The email reaches an admin reader, and
+ * any other reader on her own entries only.
  */
 export const activityLogUserSchema = Schema.Struct({
   id: Schema.String.annotate({ description: 'User identifier' }),
   name: Schema.String.annotate({ description: 'User display name' }),
-  email: Schema.String.annotate({ description: 'User email address' }),
+  email: optionalField(
+    Schema.String.annotate({
+      description:
+        "User email address. Present for an admin reader, and on the reader's own entries; absent when another reader is shown someone else's entry",
+    })
+  ),
 }).annotate({ identifier: 'ActivityLogUser' })
 
 /**
@@ -28,12 +34,12 @@ export const activityLogSchema = Schema.Struct({
   id: Schema.String.annotate({ description: 'Activity log identifier' }),
   createdAt: Schema.String.annotate({ description: 'ISO 8601 timestamp of the activity' }),
   userId: optionalField(Schema.String.annotate({ description: 'User who performed the action' })),
-  action: Schema.Literals(['create', 'update', 'delete', 'restore']).annotate({
+  action: Schema.Literals(['create', 'update', 'delete', 'restore', 'permanent_delete']).annotate({
     description: 'Action type',
   }),
   tableName: Schema.String.annotate({ description: 'Name of the affected table' }),
-  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
-    description: 'ID of the affected record',
+  recordId: Schema.String.annotate({
+    description: 'ID of the affected record, as the records API names it',
   }),
   user: Schema.NullOr(
     activityLogUserSchema.annotate({ description: 'User details (null for system activities)' })

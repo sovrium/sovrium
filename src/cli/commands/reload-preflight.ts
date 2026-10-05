@@ -6,6 +6,7 @@
  */
 
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 /**
  * The questions a restart-class `--watch` reload can answer BEFORE it stops the
@@ -93,9 +94,15 @@ const unanswerableRefusal = (cause: string): string =>
   `again.\n  ${cause}`
 
 /** Why a restart-class reload must not proceed, or an empty list. */
-export const preflightRestartReload = async (app: App): Promise<readonly string[]> => {
+export const preflightRestartReload = async (
+  app: App,
+  authoredTableIds: AuthoredTableIds
+): Promise<readonly string[]> => {
   const { planDatabaseRefusals } = await import('./app-prelude')
-  const [migration, env] = await Promise.all([planDatabaseRefusals(app), envRefusals(app)])
+  const [migration, env] = await Promise.all([
+    planDatabaseRefusals(app, authoredTableIds),
+    envRefusals(app),
+  ])
   return [
     ...(migration.kind === 'planned' ? migration.refusals : [unanswerableRefusal(migration.cause)]),
     ...env,

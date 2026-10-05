@@ -25,7 +25,10 @@ export type RealtimeConnectionState = RealtimeConnectionStatus['status']
  * automatically — the client never has to re-implement the predicate.
  *
  * The browser `EventSource` auto-reconnects when the server closes the stream
- * after its bounded lifetime, so a long-lived page keeps receiving events.
+ * — after its bounded lifetime, or at once when the subscriber's grant changes
+ * — so a long-lived page keeps receiving events, judged against its current
+ * grant. A reconnect the server now refuses (`404`) leaves the state
+ * `disconnected`.
  *
  * The hook also surfaces the transport connection state:
  * `EventSource.onopen` resolves it to `'connected'`, while `onerror` resolves
@@ -76,9 +79,10 @@ export function useRealtimeSubscription(params: {
     const handleMessage = (event: MessageEvent) => {
       try {
         const parsed = JSON.parse(event.data) as { type?: string }
-        // Only a `change` event warrants a re-fetch; `subscribed`/`heartbeat`
-        // are connection-keepalive noise.
-        if (parsed.type === 'change') {
+        // A `change` warrants a re-fetch, and so does a `resync` — the notice a
+        // write too large to announce row by row sends instead; `subscribed`/
+        // `heartbeat` are connection-keepalive noise.
+        if (parsed.type === 'change' || parsed.type === 'resync') {
           onChangeRef.current()
         }
       } catch {

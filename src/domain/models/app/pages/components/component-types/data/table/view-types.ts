@@ -78,8 +78,8 @@ export const DataTableViewsSchema = Schema.Array(DataTableViewTypeSchema).pipe(
  * `noMatchMessage` / `emptyColumnMessage` — the established Sovrium pattern
  * for a localizable island string.
  *
- * Every key is optional and falls back to the English default, so existing
- * configs keep their current output byte-for-byte.
+ * Every key is optional and falls back to the engine default — the page
+ * language's word for grid and calendar, English otherwise.
  */
 export const DataTableViewLabelsSchema = Schema.Struct({
   /** Accessible name of the switcher group itself (default: "View") */
@@ -93,7 +93,8 @@ export const DataTableViewLabelsSchema = Schema.Struct({
   /** Label + aria-label of the grid button (default: "Grid") */
   grid: Schema.optional(
     Schema.String.annotate({
-      description: 'Label and aria-label of the grid view button. Default: "Grid".',
+      description:
+        'Label and aria-label of the grid view button. Default: the engine\'s word in the page language — "Grid", « Grille » on a French page.',
       examples: ['Grid', 'Grille'],
     })
   ),
@@ -107,7 +108,8 @@ export const DataTableViewLabelsSchema = Schema.Struct({
   /** Label + aria-label of the calendar button (default: "Calendar") */
   calendar: Schema.optional(
     Schema.String.annotate({
-      description: 'Label and aria-label of the calendar view button. Default: "Calendar".',
+      description:
+        'Label and aria-label of the calendar view button. Default: the engine\'s word in the page language — "Calendar", « Calendrier » on a French page.',
       examples: ['Calendar', 'Agenda'],
     })
   ),

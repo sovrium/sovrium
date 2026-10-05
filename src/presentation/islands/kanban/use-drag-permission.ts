@@ -61,14 +61,15 @@ async function probeAuthSession(): Promise<SessionProbeResult> {
  *
  * A two-axis board's drag writes `kanbanGroupBy.field`, `swimlanes.field`, or
  * both, so a role permitted one and refused the other would be offered a board
- * whose vertical drags paint and then fail at the API. Absent entries (a board
- * with no lane axis) are vacuously writable.
+ * whose vertical drags paint and then fail at the API. An absent axis (a board
+ * with no lanes) is vacuously writable; an axis field absent from the map is
+ * one the reader may not read, which the map never names, so it is not.
  */
 function areFieldsWritable(
   perms: PermissionsResult,
   writeFields: readonly (string | undefined)[]
 ): boolean {
-  return writeFields.every((field) => !field || perms.fields[field]?.write !== false)
+  return writeFields.every((field) => !field || perms.fields[field]?.write === true)
 }
 
 /**

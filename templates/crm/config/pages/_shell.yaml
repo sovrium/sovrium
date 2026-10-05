@@ -29,17 +29,41 @@ children:
     drawer:
       below: md
       label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
     props:
       # Row metrics tuned to a five-entry navigation: 32px rows, 13.5px labels,
       # and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:tracking-wider
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:tracking-wider
     groups:
       - landmark: Workspace
         items:
-          - { label: Pipeline, href: /, icon: kanban }
-          - { label: Contacts, href: /contacts, icon: users }
-          - { label: Companies, href: /companies, icon: building-2 }
-          - { label: Tasks, href: /tasks, icon: square-check }
+          # Each count reads the records endpoint of the page it links to: the
+          # deals still in play, every contact and company, the tasks not done.
+          - label: Pipeline
+            href: /
+            icon: kanban
+            badge:
+              endpoint: /api/tables/deals/records?limit=1&view=open_deals
+              valuePath: pagination.total
+          - label: Contacts
+            href: /contacts
+            icon: users
+            badge:
+              endpoint: /api/tables/contacts/records?limit=1
+              valuePath: pagination.total
+          - label: Companies
+            href: /companies
+            icon: building-2
+            badge:
+              endpoint: /api/tables/companies/records?limit=1
+              valuePath: pagination.total
+          - label: Tasks
+            href: /tasks
+            icon: square-check
+            badge:
+              endpoint: /api/tables/tasks/records?limit=1&filter=status:Todo
+              valuePath: pagination.total
       - label: Tools
         landmark: Workspace
         headingLevel: 2

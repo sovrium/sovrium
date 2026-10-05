@@ -135,8 +135,6 @@ export function KanbanColumn({
   column,
   emptyMessage,
   card,
-  draggableEnabled,
-  colorFieldColors,
   expanded,
   onToggle,
   idPrefix,
@@ -144,9 +142,6 @@ export function KanbanColumn({
   readonly column: KanbanColumnData
   readonly emptyMessage?: string
   readonly card?: KanbanCard
-  readonly draggableEnabled: boolean
-  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
-  readonly colorFieldColors?: Readonly<Record<string, string>>
   /** Open state, present only on a board that declares `kanbanGroupBy.collapsed`. */
   readonly expanded?: boolean
   readonly onToggle?: (value: string) => void
@@ -160,8 +155,6 @@ export function KanbanColumn({
       dropId={columnDropId(column.value)}
       emptyMessage={emptyMessage}
       card={card}
-      draggableEnabled={draggableEnabled}
-      colorFieldColors={colorFieldColors}
       header={
         <KanbanColumnHeader
           column={column}

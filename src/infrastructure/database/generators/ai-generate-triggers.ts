@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   buildAiComputeTriggerStatements,
@@ -65,7 +66,7 @@ const buildInterpolatedPromptExpr = (prompt: string, sourceFields: readonly stri
 const buildGenerateGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
   IF TG_OP = 'INSERT' THEN
-    IF NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -74,15 +75,15 @@ const buildGenerateGuardSql = (fieldName: string, sourceFields: readonly string[
       RETURN NEW;
     END IF;
     -- User changed the generated column directly in this statement: honour it.
-    IF NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName}
-       AND NEW.${fieldName} IS NOT NULL AND NEW.${fieldName} <> '' THEN
+    IF NEW.${quoteSqlIdentifier(fieldName)} IS DISTINCT FROM OLD.${fieldName}
+       AND NEW.${quoteSqlIdentifier(fieldName)} IS NOT NULL AND NEW.${quoteSqlIdentifier(fieldName)} <> '' THEN
       RETURN NEW;
     END IF;
   END IF;
 
   -- NULL result when source content is empty
   IF source_content IS NULL OR btrim(source_content) = '' THEN
-    NEW.${fieldName} = NULL;
+    NEW.${quoteSqlIdentifier(fieldName)} = NULL;
     RETURN NEW;
   END IF;`
 
@@ -111,7 +112,7 @@ const buildGenerateNotifySql = (
   const temperatureLiteral = sqlNumberLiteral(field.temperature, 'real')
   const maxTokensLiteral = sqlNumberLiteral(field.maxTokens, 'int')
 
-  return `  NEW.${fieldName} = ${interpolatedExpr};
+  return `  NEW.${quoteSqlIdentifier(fieldName)} = ${interpolatedExpr};
 
   -- Emit NOTIFY so the application layer can observe + log the generate
   -- compute event and invoke the AI provider for the canonical generated text.
@@ -122,8 +123,8 @@ const buildGenerateNotifySql = (
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
     'record_id', NEW.id,
-    'value', NEW.${fieldName},
-    'prompt', NEW.${fieldName},
+    'value', NEW.${quoteSqlIdentifier(fieldName)},
+    'prompt', NEW.${quoteSqlIdentifier(fieldName)},
     'source', left(source_content, 4000),
     'systemPrompt', ${systemPromptLiteral},
     'model', ${modelLiteral},

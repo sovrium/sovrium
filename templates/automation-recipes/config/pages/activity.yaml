@@ -135,7 +135,7 @@ components:
             dataSource:
               table: activity_log
             props:
-              title: Run
+              title: $record.recipe
             recordFields:
               - { name: recipe, type: single-select, label: Recipe }
               - { name: outcome, type: single-select, label: Outcome }

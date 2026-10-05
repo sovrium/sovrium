@@ -63,7 +63,7 @@
  * The OTLP unit is carried as a constant `unit` ATTRIBUTE: the metrics exporter
  * reads the instrument's UCUM unit from a `unit`/`time_unit` attribute (this is
  * how `Metric.timer` surfaces `time_unit` too). Verified unchanged in v4 —
- * `effect/unstable/observability/OtlpMetrics.js:78` still reads
+ * `effect/observability/OtlpMetrics.js` still reads
  * `attributes?.unit ?? attributes?.time_unit ?? "1"`, so the mechanism that
  * gives every instrument below its unit survives the rename intact.
  *

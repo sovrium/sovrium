@@ -1,0 +1,43 @@
+# Every piece has one owner. A piece added without one — from the New piece
+# dialog, say — is given to the person who added it, who can hand it on
+# afterwards.
+#
+# The trigger carries what was submitted, not who submitted it, so the row is
+# read back first for the account the server stamped on it.
+name: own-new-piece
+label: New piece — give it to whoever added it
+description: Set a new piece's owner to the person who added it, when none was given.
+enabled: true
+trigger:
+  type: record
+  table: content
+  events:
+    - create
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.owner}}'
+        operator: isEmpty
+actions:
+  - name: readPiece
+    type: record
+    operator: list
+    props:
+      table: content
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      limit: 1
+  - name: giveToAuthor
+    type: record
+    operator: update
+    props:
+      table: content
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        owner: '{{readPiece.result.record.createdBy}}'

@@ -14,15 +14,21 @@
  * `role` props, validates the target role against the set of known roles
  * (the three built-in roles — `admin`, `member`, `viewer` — plus any
  * custom roles declared at `app.auth.roles[]`), confirms the user exists
- * in `auth.user`, and writes the new role into that row's `role` column.
+ * in `auth.user`, refuses a write that would demote the last admin who can
+ * still sign in (checked before the write and again after it), writes the new
+ * role into that row's `role` column, and records a change that stood on the
+ * admin audit trail as `user.role.changed`, attributed to the automation.
  *
  * `auth/banUser` — ban a user account.
  *
  * The handler resolves the `userId` and optional `reason` props, confirms
- * the user exists in `auth.user`, and sets `banned = true` (plus the
+ * the user exists in `auth.user`, refuses to ban the last admin who can still
+ * sign in (before the write and again after it), and sets `banned = true` (plus the
  * optional `ban_reason` column) on that row — the same columns Better
  * Auth's admin plugin toggles via its native `banUser` API. A banned user
- * is rejected at sign-in by Better Auth's session check.
+ * is rejected at sign-in by Better Auth's session check. A ban that stood is
+ * recorded on the admin audit trail as `user.banned`, attributed to the
+ * automation, with no end and never with its reason.
  *
  * `auth/unbanUser` — re-enable a previously banned user account.
  *
@@ -30,7 +36,9 @@
  * confirms the user exists in `auth.user`, and clears the ban columns
  * (`banned = false`, `ban_reason = null`) on that row — the same columns
  * Better Auth's admin plugin clears via its native `unbanUser` API. The
- * reinstated user can sign in again immediately.
+ * reinstated user can sign in again immediately. A ban that was really lifted
+ * is recorded as `user.unbanned`; running it for an account that was not
+ * banned records nothing.
  *
  * `auth/createUser` — provision a new user account.
  *
@@ -61,7 +69,18 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
+import {
+  assignRoleUnderLastAdminRail,
+  banUnderLastAdminRail,
+} from '@/application/use-cases/auth/last-admin-rail'
+import { readUserBannedById } from '@/application/use-cases/auth/read-user-ban-state'
+import {
+  recordBan,
+  recordRoleChange,
+  recordUnban,
+} from '@/application/use-cases/auth/record-user-acts'
 import { isAssignableRole } from '@/domain/models/app/auth/roles'
+import { roleChangeOf } from '@/domain/models/app/auth/roles/role-write-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -113,40 +132,42 @@ const requireExistingUser = (
   })
 
 /**
- * Run a best-effort user mutation through `AuthRepository`. Shared by the
- * `assignRole` / `banUser` / `unbanUser` handlers — each supplies the port call
- * it needs, so the column payloads stay behind the port instead of travelling
- * as a Drizzle `$inferInsert` patch through the application layer.
+ * Run a best-effort user mutation through `AuthRepository` (the `unbanUser`
+ * handler; `assignRole` and `banUser` write under the last-admin rail, which
+ * reports whether the write applied). The column payload stays behind the port
+ * instead of travelling as a Drizzle `$inferInsert` patch through the
+ * application layer.
  *
- * The `Effect.catchAll` keeps the Effect total: a transient DB error degrades to
- * a no-op rather than crashing the run (callers have already confirmed the row
- * exists via `requireExistingUser`).
+ * Yields whether the write applied. A transient DB error degrades to `false`
+ * rather than crashing the run (callers have already confirmed the row exists
+ * via `requireExistingUser`), and the caller records nothing for it.
  */
 const mutateUser = (
   run: (
     repo: Context.Service.Shape<typeof AuthRepository>
   ) => Effect.Effect<void, AuthDatabaseError>
-): Effect.Effect<void, never, AuthRepository> =>
+): Effect.Effect<boolean, never, AuthRepository> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     yield* run(repo)
+    return true
   }).pipe(
-    // These are the `assignRole` and `banUser` handlers. The automation run is
-    // deliberately not failed by them — but a role that was never assigned or a
-    // ban that never landed is a SECURITY-relevant no-op, and it left no trace
-    // at all before this.
+    // The automation run is deliberately not failed by a write that did not
+    // apply — but a lifted ban that never landed is a SECURITY-relevant no-op,
+    // so it is logged rather than left without a trace.
     Effect.tapCause((cause) =>
       Effect.sync(() => {
         logError('[automations] auth mutation did not apply', cause)
       })
     ),
-    Effect.ignore
+    // effect-swallow: logged above; a write that did not apply is reported as `false`, which records nothing on the audit trail.
+    Effect.orElseSucceed(() => false)
   )
 
 /**
  * `auth/assignRole` — assign a role to an existing user.
  */
-export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
+export const handleAuthAssignRole: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const userId = stringProp(props, 'userId').trim()
@@ -166,7 +187,28 @@ export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.assignRole')
     if (guard !== 'ok') return guard
 
-    yield* mutateUser((repo) => repo.updateUserRole(userId, role))
+    // The last-admin rail the admin endpoints hold, from the same shared
+    // decisions, before AND after the write: an automation removes the last
+    // admin no more than a person can. The role often arrives in a webhook
+    // payload the author does not control, and payloads arrive concurrently.
+    const written = yield* assignRoleUnderLastAdminRail(userId, role, app)
+    if (written._tag === 'Refused') {
+      return {
+        status: 'failure',
+        error: `auth.assignRole: ${written.message}`,
+      } as const satisfies ActionOutcome
+    }
+
+    // Only a change that stood reaches the audit trail, attributed to the
+    // automation by name: setting the role a user already holds changes nothing.
+    const change = written._tag === 'Written' ? roleChangeOf(written.previous, role) : undefined
+    if (change !== undefined) {
+      yield* recordRoleChange({
+        author: { kind: 'automation', automation: automation.name },
+        userId,
+        ...change,
+      })
+    }
 
     return {
       status: 'success',
@@ -183,7 +225,7 @@ export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
  * reason leaves the column untouched (matching Better Auth's optional
  * ban-reason semantics).
  */
-export const handleAuthBanUser: ActionHandler = (action, _app, _automation) =>
+export const handleAuthBanUser: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const userId = stringProp(props, 'userId').trim()
@@ -193,7 +235,28 @@ export const handleAuthBanUser: ActionHandler = (action, _app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.banUser')
     if (guard !== 'ok') return guard
 
-    yield* mutateUser((repo) => repo.banUser(userId, reason))
+    // A banned admin cannot sign in, so the ban holds the last-admin rail a
+    // demotion holds, before and after the write: the step fails, and neither
+    // `banned` nor `ban_reason` is left written.
+    const banned = yield* banUnderLastAdminRail(userId, reason, app)
+    if (banned._tag === 'Refused') {
+      return {
+        status: 'failure',
+        error: `auth.banUser: ${banned.message}`,
+      } as const satisfies ActionOutcome
+    }
+
+    // Only a ban that stood reaches the audit trail, attributed to the
+    // automation by name. `auth/banUser` sets no end, and its reason stays on
+    // the account row, never on the trail.
+    if (banned._tag === 'Written') {
+      yield* recordBan({
+        author: { kind: 'automation', automation: automation.name },
+        userId,
+        // eslint-disable-next-line unicorn/no-null -- a ban without an end is `null` on the trail
+        expiresAt: null,
+      })
+    }
 
     return {
       status: 'success',
@@ -212,7 +275,7 @@ export const handleAuthBanUser: ActionHandler = (action, _app, _automation) =>
  * explicit `false` so the column reflects an intentional reinstatement, and an
  * explicit `NULL` reason so no stale reason is left behind.
  */
-export const handleAuthUnbanUser: ActionHandler = (action, _app, _automation) =>
+export const handleAuthUnbanUser: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const userId = stringProp(props, 'userId').trim()
@@ -220,7 +283,13 @@ export const handleAuthUnbanUser: ActionHandler = (action, _app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.unbanUser')
     if (guard !== 'ok') return guard
 
-    yield* mutateUser((repo) => repo.unbanUser(userId))
+    // Read BEFORE the write: afterwards the columns say "not banned" whether or
+    // not a ban was lifted, and lifting a ban nobody had records nothing.
+    const wasBanned = yield* readUserBannedById(userId)
+    const lifted = yield* mutateUser((repo) => repo.unbanUser(userId))
+    if (lifted && wasBanned === true) {
+      yield* recordUnban({ author: { kind: 'automation', automation: automation.name }, userId })
+    }
 
     return {
       status: 'success',

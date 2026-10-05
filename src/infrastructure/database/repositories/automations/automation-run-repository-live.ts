@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AutomationRunDatabaseError,
@@ -15,17 +15,21 @@ import {
   type ListRunsOptions,
   type PersistedRun,
   type PersistedStep,
+  type RunReaderScope,
+  type RunRecordRef,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDefinitions as automationDefinitionsPg,
+  automationRunRefs as automationRunRefsPg,
   automationRuns as automationRunsPg,
   automationRunSteps as automationRunStepsPg,
 } from '@/infrastructure/database/drizzle/schema/automation'
 import {
   automationDefinitions as automationDefinitionsSqlite,
+  automationRunRefs as automationRunRefsSqlite,
   automationRuns as automationRunsSqlite,
   automationRunSteps as automationRunStepsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
@@ -38,6 +42,7 @@ const automationDefinitions = resolveDialectSchema(
 )
 const automationRuns = resolveDialectSchema(automationRunsPg, automationRunsSqlite)
 const automationRunSteps = resolveDialectSchema(automationRunStepsPg, automationRunStepsSqlite)
+const automationRunRefs = resolveDialectSchema(automationRunRefsPg, automationRunRefsSqlite)
 
 /** Wrap a DB promise, adapting failures to AutomationRunDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
@@ -72,6 +77,10 @@ const toRun = (
   completedAt: toIso(runRow.completedAt),
   durationMs: runRow.durationMs,
   error: runRow.error,
+  triggeredByUserId: runRow.triggeredByUserId,
+  startedByHand: runRow.startedByHand,
+  relay: runRow.relay,
+  valuesErasedAt: toIso(runRow.valuesErasedAt),
 })
 
 const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): PersistedStep => ({
@@ -87,6 +96,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   durationMs: row.durationMs,
   error: row.error,
   logs: row.logs,
+  reads: row.reads,
 })
 
 /**
@@ -97,6 +107,8 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
 const runInsertOptionals = (input: Readonly<CreateRunInput>) => ({
   ...(input.triggerData !== undefined ? { triggerData: input.triggerData as object } : {}),
   ...(input.triggeredByUserId !== undefined ? { triggeredByUserId: input.triggeredByUserId } : {}),
+  ...(input.startedByHand === true ? { startedByHand: true } : {}),
+  ...(input.relay !== undefined ? { relay: input.relay as object } : {}),
   ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
   ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
   ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
@@ -116,7 +128,63 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
     ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
     ...(step.logs !== undefined ? { logs: step.logs as object } : {}),
+    ...(step.reads !== undefined ? { reads: step.reads as object } : {}),
   }))
+
+/**
+ * Index the records a run read (`system.automation_run_refs`), its own and
+ * those the runs its synchronous calls started read. A ref already there is
+ * kept as it is, so a run finalised twice indexes nothing twice.
+ */
+const insertRunRefs = async (
+  runId: string,
+  input: {
+    readonly refs?: readonly RunRecordRef[]
+    readonly refsFromRuns?: readonly string[]
+  }
+): Promise<void> => {
+  const own = (input.refs ?? []).map((ref) => ({
+    runId,
+    tableName: ref.table,
+    recordId: ref.record,
+  }))
+  const inherited =
+    input.refsFromRuns === undefined || input.refsFromRuns.length === 0
+      ? []
+      : await db
+          .select({ tableName: automationRunRefs.tableName, recordId: automationRunRefs.recordId })
+          .from(automationRunRefs)
+          .where(inArray(automationRunRefs.runId, [...input.refsFromRuns]))
+  const rows = [
+    ...own,
+    ...inherited
+      .filter((ref) => ref.tableName !== '')
+      .map((ref) => ({ runId, tableName: ref.tableName, recordId: ref.recordId })),
+  ]
+  if (rows.length === 0) return
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await db.insert(automationRunRefs).values(rows).onConflictDoNothing()
+}
+
+/**
+ * The runs a scoped caller may read: those they started by hand, and the runs
+ * a request names them an approver of. In the WHERE clause, so a count over
+ * the same filters counts only these.
+ */
+const readableByFilters = (readableBy: RunReaderScope | undefined): ReadonlyArray<SQL> =>
+  readableBy === undefined
+    ? []
+    : [
+        or(
+          and(
+            eq(automationRuns.startedByHand, true),
+            eq(automationRuns.triggeredByUserId, readableBy.userId)
+          ),
+          ...(readableBy.runIds.length === 0
+            ? []
+            : [inArray(automationRuns.id, [...readableBy.runIds])])
+        ) as SQL,
+      ]
 
 /**
  * Build the SQL filter list for {@link listAllRuns}. Spreads optional
@@ -129,7 +197,7 @@ const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
       : []
   const statusFilter: ReadonlyArray<SQL> =
     options.status !== undefined ? [eq(automationRuns.status, options.status)] : []
-  return [...nameFilter, ...statusFilter]
+  return [...nameFilter, ...statusFilter, ...readableByFilters(options.readableBy)]
 }
 
 /**
@@ -209,7 +277,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return head ? toRun(head.run, head.definitionName) : undefined
     }),
 
-  listByAutomationName: (automationName) =>
+  listByAutomationName: (automationName, readableBy) =>
     wrap(async () => {
       const rows = await db
         .select({
@@ -218,7 +286,9 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         })
         .from(automationRuns)
         .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(eq(automationDefinitions.name, automationName))
+        .where(
+          and(eq(automationDefinitions.name, automationName), ...readableByFilters(readableBy))
+        )
         .orderBy(desc(automationRuns.createdAt))
       return rows.map((row) => toRun(row.run, row.definitionName))
     }),
@@ -255,6 +325,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(runRow.id, steps))
       }
+      await insertRunRefs(runRow.id, input)
 
       // Look up the definition name so the returned shape includes it.
       // The same query path the readers use, no caching needed at this layer.
@@ -290,6 +361,18 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return toRun(updated, defRows[0]?.name ?? '')
     }),
 
+  recordStepOutput: ({ runId, stepIndex, output }) =>
+    wrap(async () => {
+      const updated = await db
+        .update(automationRunSteps)
+        .set({ output: output as object })
+        .where(
+          and(eq(automationRunSteps.runId, runId), eq(automationRunSteps.stepIndex, stepIndex))
+        )
+        .returning({ id: automationRunSteps.id })
+      return updated.length > 0
+    }),
+
   finaliseRun: (input) =>
     wrap(async () => {
       // Update terminal status + timings on the existing run row.
@@ -314,6 +397,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
       }
+      await insertRunRefs(updated.id, input)
 
       const defRows = await db
         .select({ name: automationDefinitions.name })

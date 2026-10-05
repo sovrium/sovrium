@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { COMMENTS_FORM_READY_MARK } from '@/presentation/design/runtime-ready-marks'
+
 /**
  * Inline runtime for the SSR guest comment form (PG-02). Mirrors the
  * `favorites-button` and `reorderable-list` inline-runtime patterns —
@@ -122,13 +124,17 @@ export const GUEST_COMMENT_FORM_RUNTIME = `(function () {
     }
   }
   function setup(form) {
-    if (form.getAttribute('data-comments-form-ready') === 'true') return;
-    form.setAttribute('data-comments-form-ready', 'true');
+    if (form.getAttribute('${COMMENTS_FORM_READY_MARK}') === 'true') return;
+    form.setAttribute('${COMMENTS_FORM_READY_MARK}', 'true');
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       if (!validate(form)) return;
       submitForm(form);
     });
+    // The submit is drawn disabled so nothing is sent before this script
+    // runs; now that the form is wired, it may be pressed.
+    var submits = form.querySelectorAll('button[type="submit"]');
+    for (var s = 0; s < submits.length; s++) submits[s].disabled = false;
     // Session prefill: if a session user is exposed
     // via the section's data-* attributes (set when the SSR renderer
     // resolves an authenticated session), prefill the name/email inputs

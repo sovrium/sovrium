@@ -1,11 +1,12 @@
 # A new time-off request asks the admins for a decision. The run pauses on the
-# approval step; once an admin approves, the next step marks the request
-# Approved. On a rejection or after seven days without an answer the run
-# stops, and the request stays Pending on the People page until someone
-# decides.
+# approval step; `onReject: continue` resumes it whatever the answer, and the
+# step records which in `decision`. Approved, the request is marked Approved;
+# rejected, or left seven days without an answer, it is marked Rejected. Both
+# writes only touch a request still Pending, so a decision already written on
+# the People page stands.
 name: approve-time-off
 label: Time off — ask for approval
-description: Ask an admin to approve each new time-off request, then mark it Approved.
+description: Ask an admin to decide each new time-off request, then mark it Approved or Rejected.
 enabled: true
 trigger:
   type: record
@@ -23,15 +24,51 @@ actions:
         {{trigger.data.record.end_date}}. Approve?
       timeout: 7d
       onTimeout: reject
-  - name: markApproved
-    type: record
-    operator: update
+      onReject: continue
+  - name: recordDecision
+    type: path
+    operator: branch
     props:
-      table: time_off_requests
-      filter:
-        conditions:
-          - field: id
-            operator: equals
-            value: '{{trigger.data.record.id}}'
-      data:
-        status: Approved
+      mode: first-match
+      paths:
+        - name: approved
+          condition:
+            conditions:
+              - field: '{{askAdmins.decision}}'
+                operator: equals
+                value: approved
+          actions:
+            - name: markApproved
+              type: record
+              operator: update
+              props:
+                table: time_off_requests
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Pending
+                data:
+                  status: Approved
+        - name: rejected
+          actions:
+            - name: markRejected
+              type: record
+              operator: update
+              props:
+                table: time_off_requests
+                filter:
+                  logic: and
+                  conditions:
+                    - field: id
+                      operator: equals
+                      value: '{{trigger.data.record.id}}'
+                    - field: status
+                      operator: equals
+                      value: Pending
+                data:
+                  status: Rejected

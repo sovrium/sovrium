@@ -32,8 +32,13 @@
 import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/kernel/markdown/markdown-renderer'
+import {
+  frontmatterAccess,
+  type ContentDirArticleBody,
+} from '@/domain/models/app/pages/content-dir-access'
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
+import type { PageAccess } from '@/domain/models/app/pages/access'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
 /**
@@ -57,6 +62,11 @@ export interface ContentDirEntry {
   readonly path: string
   /** The source file's modification time — the sitemap's `<lastmod>`. */
   readonly modifiedAt?: Date
+  /**
+   * The article's own `access`, from its front matter. Absent means
+   * the article follows its page alone; a public artefact skips any other.
+   */
+  readonly access?: PageAccess
 }
 
 /**
@@ -214,7 +224,16 @@ const toEntry = (
     description: file.frontmatter['description'],
     path: resolveEntryPath(contentDir, pagePath, slug),
     ...(file.modifiedAtMs !== undefined ? { modifiedAt: new Date(file.modifiedAtMs) } : {}),
+    ...accessOverlay(file.frontmatter),
   }
+}
+
+/** The `access` overlay of one entry: its front matter's, when it declares one. */
+const accessOverlay = (
+  frontmatter: Readonly<Record<string, string>>
+): Pick<ContentDirEntry, 'access'> => {
+  const access = frontmatterAccess(frontmatter)
+  return access === undefined ? {} : { access }
 }
 
 /** A cached scan+parse result for one `(directory, include)` pair. */
@@ -382,10 +401,15 @@ export const readContentDirBodies = async (
 
 /**
  * Read a single contentDir article's frontmatter-stripped markdown body by slug
- * — the per-page `.md` export twin. Returns
- * `undefined` when no included file resolves to that slug: an unknown slug, or a
- * file hidden by `contentDir.filter` (e.g. a draft). Both are a genuine
- * not-found for the `.md` route, so restricted content is never leaked.
+ * — the per-page `.md` export twin — with
+ * the article's own front matter `access`. Returns `undefined` when no
+ * included file resolves to that slug: an unknown slug, or a file hidden by
+ * `contentDir.filter` (e.g. a draft). Both are a genuine not-found for the `.md`
+ * route, so restricted content is never leaked.
+ *
+ * The article's `access` is RETURNED rather than decided here: the route asks
+ * the router's own question of it for the caller's session, so the Markdown of
+ * an article answers exactly the readers its HTML answers.
  *
  * Reuses the same scan → filter → parse pipeline as {@link readContentDirBodies}
  * (which backs `/llms-full.txt`), so the served body is frontmatter-stripped and
@@ -394,8 +418,9 @@ export const readContentDirBodies = async (
 export const readContentDirBodyForSlug = async (
   contentDir: ContentDir,
   slug: string
-): Promise<string | undefined> => {
+): Promise<ContentDirArticleBody | undefined> => {
   const sorted = await collectSortedFiles(contentDir)
   const match = sorted.find((file) => deriveSlug(file.relativePath, contentDir.slugFrom) === slug)
-  return match?.body
+  if (match === undefined) return undefined
+  return { body: match.body, ...accessOverlay(match.frontmatter) }
 }

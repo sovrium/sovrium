@@ -61,6 +61,7 @@
  * slot here that READS a response rather than writing to a request.
  */
 
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { dispatch as dispatchIslandEvent } from './event-bus'
 import { followAddress } from './follow-address'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
@@ -317,21 +318,15 @@ async function performFetchAction(
   }
 }
 
-/** Matches a `$record.<field>` reference in a target `url` / `filename`. */
-const RECORD_FIELD_PATTERN = /\$record\.(\w+)/g
-
 /**
  * Substitute `$record.<field>` references in a target string (any mode's `url`,
- * plus the `download` `filename`) against the injected row record. A no-op when
- * no `record` is supplied or the template carries no reference, so static targets
- * pass through untouched.
+ * the `download` `filename`, a `body` string) against the injected row record,
+ * through the one shared reader: its `|` fallback chain, its null-as-empty rule
+ * and its escape (`\$record.x` is sent as the token itself). With no `record`
+ * nothing is filled, so a backslash there stays as written.
  */
 function substituteRecord(template: string, record: Record<string, unknown> | undefined): string {
-  if (record === undefined || !template.includes('$record.')) return template
-  return template.replaceAll(RECORD_FIELD_PATTERN, (_full, field: string) => {
-    const cell = record[field]
-    return cell === undefined ? '' : String(cell)
-  })
+  return record === undefined ? template : substituteRecordVars(template, record)
 }
 
 /**

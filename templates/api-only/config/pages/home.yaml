@@ -1,0 +1,336 @@
+# The one page of a headless app: a signpost, not a product surface.
+#
+# It answers four questions in the order a developer asks them — what is this,
+# how do I run it, what does one call look like, what does it serve — and then
+# gets out of the way. The API and its reference are the product.
+#
+# `$app.origin` prints the address this request arrived on, so the call shown
+# here is right on any port and any host, and works when pasted once
+# `TASK_API_KEY` holds a key.
+name: home
+path: /
+meta:
+  title: Task API
+  description: Projects and tasks behind a REST API, generated from one config file. Every call carries a key.
+  favicon: ./favicon.svg
+components:
+  - type: container
+    props:
+      className: flex min-h-screen flex-col bg-background text-foreground
+    children:
+      # The header: the app, its version, and the three places a developer
+      # goes next. The reference and the console answer an admin session only,
+      # which the rail below says in words.
+      - type: container
+        element: header
+        props:
+          role: banner
+          className: flex h-14 shrink-0 items-center gap-3.5 border-b border-border px-8 max-md:h-[52px] max-md:gap-2 max-md:px-3
+        children:
+          - type: container
+            props:
+              className: flex h-9 items-center gap-2.5 px-2 text-[14px] font-semibold
+            children:
+              - type: container
+                props:
+                  className: inline-flex size-[22px] shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground
+                  aria-hidden: 'true'
+                children:
+                  - type: icon
+                    props:
+                      name: terminal
+                      size: 14
+              - type: text
+                element: span
+                content: Task API
+          - type: text
+            element: span
+            props:
+              className: rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-foreground-muted
+            content: v$app.version
+          - type: container
+            props:
+              className: grow
+          - type: container
+            element: nav
+            props:
+              aria-label: Reference
+              className: flex items-center gap-3.5 max-md:hidden
+            children:
+              - type: link
+                props:
+                  href: /api/scalar
+                  className: text-[14px] text-foreground-muted hover:text-foreground
+                content: Explorer
+              - type: link
+                props:
+                  href: /api/openapi.json
+                  className: text-[14px] text-foreground-muted hover:text-foreground
+                content: OpenAPI
+              - type: link
+                props:
+                  href: /_admin
+                  className: text-[14px] text-foreground-muted hover:text-foreground
+                content: Admin
+          - type: link
+            props:
+              href: /api/scalar
+              className: inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground hover:bg-primary-hover max-md:size-7 max-md:bg-transparent max-md:px-0 max-md:justify-center max-md:text-foreground-muted
+              aria-label: Open the explorer
+            children:
+              - type: icon
+                props:
+                  name: braces
+                  size: 14
+              - type: text
+                element: span
+                props:
+                  className: max-md:sr-only
+                content: Open the explorer
+
+      # The body: four blocks on the left, and a rail with what a first call
+      # needs to know on the right.
+      - type: container
+        props:
+          className: flex flex-1 justify-center gap-10 px-12 py-10 max-md:flex-col max-md:justify-start max-md:gap-[18px] max-md:px-4 max-md:py-5
+        children:
+          - type: container
+            props:
+              className: flex min-w-0 flex-[0_1_760px] flex-col gap-[18px] max-md:flex-none
+            children:
+              - type: container
+                props:
+                  className: flex flex-col gap-2.5
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: flex h-[22px] items-center font-mono max-md:h-auto text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Headless API · two tables · one page
+                  - type: text
+                    element: h1
+                    props:
+                      className: font-mono text-[36px] leading-[1.1] font-semibold tracking-[-0.01em] text-foreground max-md:text-[28px]
+                    content: Task API
+                  - type: text
+                    element: p
+                    props:
+                      className: max-w-[620px] text-[17px] leading-[1.6] text-foreground-muted max-md:text-[15px]
+                    content: Projects and tasks behind a REST API, generated from one config file. Every call carries a key; members read and write, viewers read.
+
+              # 1 · Run it. The code blocks keep one dark theme in both schemes;
+              # the wrapper paints their file bar in the same ground.
+              - type: container
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 1 · Run it
+                  - type: container
+                    props:
+                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
+                    children:
+                      - type: code
+                        props:
+                          language: bash
+                        filename: terminal
+                        content: |-
+                          sovrium start app.yaml
+                          sovrium seed app.yaml    # 5 projects, 10 tasks
+
+              # 2 · Call it. The call a developer pastes first: the eight open
+              # tasks, the one due soonest — three days late — first.
+              - type: container
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 2 · Call it
+                  - type: container
+                    props:
+                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
+                    children:
+                      - type: code
+                        props:
+                          language: bash
+                        filename: terminal
+                        content: |-
+                          curl -H "x-api-key: $TASK_API_KEY" \
+                            "$app.origin/api/tables/tasks/records?filter=done:false&sort=due_date:asc"
+                  - type: container
+                    props:
+                      className: flex flex-wrap items-center gap-2.5
+                    children:
+                      - type: container
+                        props:
+                          className: inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-foreground-muted
+                        children:
+                          - type: icon
+                            props:
+                              name: circle-check
+                              size: 14
+                          - type: text
+                            element: span
+                            content: 200 · 8 open tasks, the overdue one first
+                      - type: link
+                        props:
+                          href: /_admin/api-keys
+                          className: text-[13px] text-primary-subtle-foreground hover:underline
+                        content: Create a key in the admin →
+
+              # 3 · What it serves. The endpoints are the tables' names; the
+              # fields are the ones each record carries.
+              - type: container
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
+                    content: 3 · What it serves
+                  - type: container
+                    props:
+                      className: 'overflow-x-auto rounded-lg max-md:hidden border border-border bg-background-raised [&_table]:w-full [&_table]:border-collapse [&_table]:text-[13px] [&_th]:h-auto [&_th]:border-b [&_th]:border-border [&_th]:bg-background-subtle [&_th]:px-3 [&_th]:py-[7px] [&_th]:text-left [&_th]:text-[12px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-foreground-subtle [&_td]:h-9 [&_td]:text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-[5px] [&_td]:whitespace-nowrap [&_tr:last-child_td]:border-b-0 [&_td:first-child]:font-medium [&_td:nth-child(2)]:text-foreground-muted [&_td:nth-child(3)]:font-mono'
+                    children:
+                      - type: table
+                        caption: The tables the API serves, with their endpoints
+                        props:
+                          className: '!table !w-full !rounded-none !border-0 !bg-transparent [&_caption]:sr-only'
+                        tableHeaders: [Table, Fields, Endpoint]
+                        tableRows:
+                          - [
+                              projects,
+                              name · description · status · created_by,
+                              /api/tables/projects/records,
+                            ]
+                          - [
+                              tasks,
+                              title · project · priority · done · due_date · assigned_to,
+                              /api/tables/tasks/records,
+                            ]
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] text-foreground-muted max-md:hidden
+                    content: Every endpoint answers 404 to a caller who may not see the record — never 403. The full reference is in the explorer.
+                  # On a phone the table becomes the two endpoints, one per row,
+                  # and the rail below becomes one button.
+                  - type: container
+                    props:
+                      className: flex flex-col overflow-hidden rounded-lg border border-border bg-background-raised md:hidden
+                    children:
+                      - type: text
+                        element: p
+                        props:
+                          className: border-b border-border px-3 py-2.5 font-mono text-[13px]
+                        content: /api/tables/projects/records
+                      - type: text
+                        element: p
+                        props:
+                          className: px-3 py-2.5 font-mono text-[13px]
+                        content: /api/tables/tasks/records
+                  - type: link
+                    props:
+                      href: /api/scalar
+                      className: inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-background-raised text-[13px] font-medium text-foreground hover:bg-background-subtle md:hidden
+                    children:
+                      - type: icon
+                        props:
+                          name: braces
+                          size: 14
+                      - type: text
+                        element: span
+                        content: Open the explorer
+
+          # The rail: where the reference is, and what a key is.
+          - type: container
+            element: aside
+            props:
+              aria-label: About the API
+              className: flex flex-[0_0_280px] flex-col gap-3.5 pt-1.5 max-md:hidden
+            children:
+              - type: container
+                props:
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: mb-0.5 font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Explorer
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] text-foreground-muted
+                    content: Every endpoint of both tables, with a request and a response you can send. Sign in as an admin to open it.
+                  - type: link
+                    props:
+                      href: /api/scalar
+                      className: inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-background-raised px-[11px] text-[13px] font-medium text-foreground hover:bg-background-subtle
+                    children:
+                      - type: icon
+                        props:
+                          name: arrow-right
+                          size: 14
+                      - type: text
+                        element: span
+                        content: Open the explorer
+              - type: container
+                props:
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: mb-0.5 font-mono text-[11px] font-medium uppercase leading-[1.3] tracking-[0.04em] text-foreground-subtle
+                    content: Access
+                  - type: container
+                    props:
+                      className: flex items-center gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: key-round
+                          size: 14
+                      - type: text
+                        element: span
+                        props:
+                          format: markdown
+                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        content: API key on `x-api-key`
+                  - type: container
+                    props:
+                      className: flex items-center gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: users
+                          size: 14
+                      - type: text
+                        element: span
+                        content: member · viewer · admin
+
+      - type: container
+        element: footer
+        props:
+          role: contentinfo
+          className: flex h-12 shrink-0 items-center gap-2.5 border-t border-border px-8 text-[12.5px] text-foreground-subtle max-md:hidden
+        children:
+          - type: text
+            element: span
+            content: Task API · generated from app.yaml
+          - type: container
+            props:
+              className: grow
+          - type: link
+            props:
+              href: https://sovrium.com
+              className: font-mono text-foreground-subtle hover:text-foreground
+            content: Built with Sovrium

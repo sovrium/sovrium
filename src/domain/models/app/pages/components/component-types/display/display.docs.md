@@ -138,6 +138,8 @@ A vertical rail of events, in one of two shapes — the `dataSource` decides whi
 
 A timeline laned by a `user` or a labelled relationship heads each lane with the label, not the stored key.
 
+A reader who may read the table but not a field the timeline names sees the timeline without that field, and the page carries neither its name nor its options: a hidden `colorField` draws every bar uncoloured, a hidden `groupBy` draws the bars without lanes, and a hidden `endField`, `labelField` or `dependencyField` is left out. A timeline whose `startField` she may not read has nothing to place on its axis and is left out of her page, as over a table she may not read.
+
 **`children` and `dataSource` are mutually exclusive.** A timeline declaring both is refused at validation. Elsewhere a key belonging to the other shape is simply ignored; here the binding would win and your authored children would vanish from the page with nothing to explain why. Drop `dataSource` to keep the rail, or drop `children` to keep the records.
 
 ## `accordion`
@@ -159,6 +161,8 @@ Each entry of `panels` takes `label`, plus optional `id`, `description`, `disabl
 A tab set whose panels all carry a `body` string needs no `children` at all. When a panel's body is a component rather than a string, it goes in `children` at the same index.
 
 **`panels` and `children` must be the same length** when both are present; a different number of each is refused at startup by name. The alignment is positional, so an off-by-one puts the wrong body under every tab after the mistake, and nothing on the page says so. That carries a known limitation, stated rather than designed around: once any panel has a component body, every panel needs a slot, including those whose body would have been a string. An explicit `childIndex` per panel would put the correlation back in the author's hands, which is the thing the refusal exists to take away.
+
+A form placed in a panel works there exactly as it does on the page — whether it embeds a top-level form with `formRef` or is declared in place. It keeps its validation, submits in the background without leaving the page, and runs its richer controls such as the audio recorder, in the panel open on arrival as in one opened later.
 
 **`tab-panel` is no longer a component type** and there is no alias — a config declaring it is refused at startup with a message naming `tabs.panels[]`. Move each panel's `props.id`, `props.label`, `props.description`, `props.disabled` and `content.body` into an entry of `panels`, and leave its own children in the parent's `children`, in the same order.
 

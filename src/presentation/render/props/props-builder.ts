@@ -46,12 +46,16 @@ function buildDefaultTestId(type: string): string | undefined {
 function buildTestId(config: TestIdConfig): string | undefined {
   const { type, componentName, componentInstanceIndex, substitutedProps, childIndex } = config
 
-  if (componentName) {
-    return buildComponentTestId(componentName, componentInstanceIndex)
+  // An id the author wrote (after `$var` substitution) wins over every derived
+  // one — including a template's `component-<name>`, which is only a default
+  // for a template that names nothing. `data-component` still carries the name.
+  const authored = substitutedProps?.['data-testid']
+  if (typeof authored === 'string' && authored !== '') {
+    return authored
   }
 
-  if (substitutedProps?.['data-testid']) {
-    return substitutedProps['data-testid'] as string
+  if (componentName) {
+    return buildComponentTestId(componentName, componentInstanceIndex)
   }
 
   if (childIndex !== undefined) {

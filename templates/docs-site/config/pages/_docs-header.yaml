@@ -1,0 +1,98 @@
+# The bar above every documentation page: the site's name, the search box and
+# the way back to the landing page.
+#
+# On a markdown page the FIRST component renders above the article and the
+# rest below it, so this bar is always the first entry of `components`.
+#
+# On a phone the sections sit behind the layout's menu button; the classes
+# below lift that button into the bar, left of the site's name.
+#
+# It also tunes the reading frame that follows it: the `[&~div_…]` classes
+# reach the sidebar, the article, the outline and the callouts rendered after
+# the bar, so the current page and the links carry the accent and each kind of
+# callout sits on its own ground in light and dark. Delete them and the pages
+# fall back to the built-in docs look.
+#
+# `#0d0d0d` is the ground of the `github-dark` code theme (`codeBlock.theme` in
+# design.yaml): the bar naming each code block — "terminal", or the file it
+# belongs in — is painted the same, so block and bar read as one dark panel.
+# Change the code theme, change this colour with it.
+type: container
+element: header
+props:
+  className: >-
+    sticky top-0 z-30 border-b border-border bg-background
+    max-lg:[&~div_article]:px-0 max-lg:[&~div_article]:pt-0 max-lg:[&~div>div]:pt-0
+    [&~div_[data-component=docs-article-header]]:mb-3.5
+    max-lg:[&~div>div>[data-component-type=container]>button]:fixed max-lg:[&~div>div>[data-component-type=container]>button]:top-2
+    max-lg:[&~div>div>[data-component-type=container]>button]:left-2 max-lg:[&~div>div>[data-component-type=container]>button]:z-40
+    max-lg:[&~div>div>[data-component-type=container]>button]:h-9 max-lg:[&~div>div>[data-component-type=container]>button]:border-0
+    max-lg:[&~div>div>[data-component-type=container]>button]:bg-transparent max-lg:[&~div>div>[data-component-type=container]>button]:px-2
+    max-lg:[&~div>div>[data-component-type=container]>button]:text-[0px]
+    max-lg:[&~div>div>[data-component-type=container]]:contents
+    lg:[&~div>div]:max-w-none lg:[&~div>div]:gap-0 lg:[&~div>div]:px-0
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:top-14
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:h-[calc(100dvh-3.5rem)]
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:w-[248px]
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:px-3.5
+    lg:[&~div_nav[data-component=docs-sidebar-nav]]:py-5
+    [&~div_nav_[data-nav-group]]:mb-0.5 [&~div_nav_[data-nav-group]]:border-t-0
+    [&~div_nav_[data-nav-group]]:pt-0
+    [&~div_nav_[data-nav-group]>p]:font-mono [&~div_nav_[data-nav-group]>p]:text-[12px]
+    [&~div_nav_[data-nav-group]>p]:mb-0.5 [&~div_nav_[data-nav-group]>p]:pb-1.5
+    [&~div_nav_[data-nav-group]>p]:leading-[15.6px] [&~div_nav_[data-nav-group]+[data-nav-group]>p]:pt-3.5
+    [&~div_nav_[data-nav-group]>p]:font-medium [&~div_nav_[data-nav-group]>p]:px-2.5
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:text-[14px]
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:px-2.5 [&~div_nav[data-component=docs-sidebar-nav]_a]:py-1
+    [&~div_nav[data-component=docs-sidebar-nav]_a]:border-l-0
+    lg:[&~div_article]:px-12 lg:[&~div_article]:pt-8
+    lg:[&~div_[data-component=markdown-toc]]:block
+    lg:[&~div_[data-component=markdown-toc]]:w-[220px]
+    lg:[&~div_[data-component=markdown-toc]]:top-14
+    lg:[&~div_[data-component=markdown-toc]]:max-h-[calc(100dvh-6rem)]
+    lg:[&~div_[data-component=markdown-toc]]:py-8
+    lg:[&~div_[data-component=markdown-toc]]:self-stretch
+    lg:[&~div_[data-component=markdown-toc]]:border-l
+    lg:[&~div_[data-component=markdown-toc]]:border-border
+    lg:[&~div_[data-component=markdown-toc]]:px-5
+    [&~div_li[data-toc-level="1"]]:hidden
+    lg:[&~div_article>*]:max-w-[653px]
+    [&~div_article_h1]:!text-[36px] [&~div_article_h1]:tracking-tight
+    [&~div_article>div:not([data-component])>h1]:!mb-3.5
+    [&~div_article>div:not([data-component])>*]:!my-3
+    [&~div_article_h2]:!text-[24px] [&~div_article>div:not([data-component])>h2]:!mt-6
+    [&~div_article>div:not([data-component])>h2]:!mb-3
+    [&~div_article>div:not([data-component])_:is(p,li)]:!text-[15px]
+    [&~div_article>div:not([data-component])>h1+p]:!mt-0
+    [&~div_article>div:not([data-component])>h1+p]:!mb-3.5
+    [&~div_article>div:not([data-component])>h1+p]:!text-[16px]
+    [&~div_article>div:not([data-component])>h1+p]:!leading-[1.6]
+    [&~div_article_h1+p]:text-foreground-muted
+    [&~div_[data-component=docs-article-header]>div:last-child>:is(a,button)]:hidden
+    [&~div_article>div:not([data-component])_:is(p,li)]:!leading-[1.7]
+    [&~div_article>div:not([data-component])_a]:!text-primary-subtle-foreground
+    [&~div_nav_a[aria-current=page]]:!bg-primary-subtle
+    [&~div_nav_a[aria-current=page]]:!text-primary-subtle-foreground
+    [&~div_[data-component=alert]]:!text-foreground
+    [&~div_[data-component=alert]]:!py-3
+    [&~div_[data-component=alert]_:is(p,li)]:!my-0 [&~div_[data-component=alert]_:is(p,li)]:!text-[14px]
+    [&~div_[data-component=alert]_:is(p,li)]:!leading-[1.6]
+    [&~div_[data-component=alert][data-type=note]]:!bg-primary-subtle
+    [&~div_[data-component=alert][data-type=note]]:!border-l-primary
+    [&~div_[data-component=alert][data-type=tip]]:!bg-success/10
+    [&~div_[data-component=alert][data-type=tip]]:!border-l-success
+    [&~div_[data-component=alert][data-type=warning]]:!bg-background-subtle
+    [&~div_[data-component=alert][data-type=warning]]:!border-l-warning
+    [&~div_[data-component=alert]_p>strong:first-child]:block
+    [&~div_[data-component=alert]_p>strong:first-child]:mb-0.5
+    [&~div_article_figure[data-code-frame]]:!border-[#0d0d0d]
+    [&~div_article_figure[data-code-frame]>figcaption]:!h-[34px] [&~div_article_figure[data-code-frame]>figcaption]:!py-0
+    [&~div_article_figure[data-code-frame]_pre]:!py-3 [&~div_article_figure[data-code-frame]_pre]:!text-[13px]
+    [&~div_article_figure[data-code-frame]_pre]:!leading-[1.65]
+    [&~div_article_figure[data-code-frame]>figcaption]:!bg-[#0d0d0d]
+    [&~div_article_figure[data-code-frame]>figcaption]:!text-[#8b949e]
+    [&~div_article_figure[data-code-frame]>figcaption]:!border-white/10
+    [&~div_[data-component=docs-last-updated]]:!mt-5
+    [&~div_article_img]:rounded-lg [&~div_article_img]:border [&~div_article_img]:border-border
+children:
+  - $ref: ./_brand-bar.yaml

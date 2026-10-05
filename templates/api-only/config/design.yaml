@@ -1,0 +1,167 @@
+# The design system of the Task API, a backend with one page in front of it.
+#
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. A headless app is read through its responses, so the
+# one page it serves is a signpost: what the API is, the command that starts
+# it, one call that works as pasted, and the tables it serves. Paths, commands
+# and JSON are the content, which is why the headings are set in mono.
+#
+# Type stays on the two faces the platform self-hosts (IBM Plex Sans and
+# JetBrains Mono): a face pulled from a font CDN would hand every visitor's
+# address to a third party.
+baseline: extend
+
+# Follow the visitor's operating system: light by day, dark by night.
+# `darkColors` below is what the dark scheme paints.
+colorScheme: system
+
+# One accent, a teal, marks the one thing to act on: the button on the page,
+# the method of an endpoint, the focus ring. The neutrals lean toward the same
+# hue at a whisper of chroma.
+#
+# No `success` and no `warning`: a 200 is the normal case, not an outcome to
+# celebrate. `error` is declared because a refused call — a 401 without a key,
+# a 404 for a record the caller may not see — is the one state worth a colour.
+#
+# Every role is spelled out in BOTH schemes: a key missing from `darkColors`
+# keeps its light value, and a pale dark-mode accent needs a dark label, so the
+# dark block names every companion itself.
+colors:
+  primary: oklch(0.52 0.12 190)
+  primary-hover: oklch(0.46 0.112 190)
+  primary-active: oklch(0.42 0.106 190)
+  primary-foreground: oklch(0.985 0.003 190)
+  primary-subtle: oklch(0.95 0.03 190)
+  primary-subtle-foreground: oklch(0.38 0.09 190)
+  ring: oklch(0.6 0.12 190)
+  background: oklch(0.985 0.003 190)
+  background-subtle: oklch(0.967 0.005 190)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 190)
+  foreground: oklch(0.21 0.008 190)
+  foreground-muted: oklch(0.45 0.012 190)
+  foreground-subtle: oklch(0.51 0.012 190)
+  foreground-disabled: oklch(0.71 0.012 190)
+  foreground-inverse: oklch(0.985 0.003 190)
+  border: oklch(0.925 0.008 190)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 190)
+
+darkColors:
+  primary: oklch(0.78 0.09 190)
+  primary-hover: oklch(0.83 0.068 190)
+  primary-active: oklch(0.87 0.053 190)
+  primary-foreground: oklch(0.16 0.006 190)
+  primary-subtle: oklch(0.28 0.045 190)
+  primary-subtle-foreground: oklch(0.9 0.045 190)
+  ring: oklch(0.72 0.098 190)
+  background: oklch(0.16 0.006 190)
+  background-subtle: oklch(0.19 0.007 190)
+  background-raised: oklch(0.21 0.008 190)
+  background-overlay: oklch(0.23 0.008 190)
+  background-inset: oklch(0.13 0.005 190)
+  foreground: oklch(0.95 0.005 190)
+  foreground-muted: oklch(0.75 0.01 190)
+  foreground-subtle: oklch(0.68 0.012 190)
+  foreground-disabled: oklch(0.45 0.01 190)
+  foreground-inverse: oklch(0.16 0.006 190)
+  border: oklch(0.3 0.01 190)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 190)
+
+# Mono-forward: JetBrains Mono for the display, the headings, captions and the
+# overline, because a path or a status code is never set in a sans face; IBM
+# Plex Sans for sentences. Sizes are compact — a reference is scanned, not read.
+typeScale:
+  families:
+    sans:
+      family: IBM Plex Sans Variable
+      fallback: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.03em, font: mono }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.02em, font: mono }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600, font: mono }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4, font: mono }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# One Shiki theme for every block of code, in both schemes: the commands and
+# the calls are the product here, and they read the same by day and by night.
+codeBlock:
+  theme: github-dark
+
+# Standard corners.
+radius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  full: 9999px
+
+# Flat: a hairline stands in for the small shadow; only an overlay floats.
+elevation:
+  none: none
+  sm: none
+  md: 0 0 0 1px rgb(16 32 36 / 0.08)
+  lg: 0 12px 32px rgb(16 32 36 / 0.14)
+
+# A chip is outlined, with a dot when it carries a state, so a column of them
+# stays quiet.
+badgeForm: outline-dot
+
+# One step everywhere: `compact`. Endpoint lists and response bodies are
+# scanned, not read. The three steps are the platform's own values, written out
+# so one number can be tuned.
+density:
+  default: compact
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. The method of the endpoint in view, the focus ring, the one action on the page.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The endpoint selected in a list of endpoints.
+    pairsWith: primary-subtle-foreground
+  error:
+    usage: A refused call — 401 without a key, 404 for a record the caller may not see.
+    pairsWith: foreground
+
+# How the API speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message follows.
+voice:
+  personality:
+    - exact
+    - terse
+    - unhurried
+  pronoun: you
+  prefer:
+    - Show the request, then the response, then one sentence on what it proved.
+    - Name the endpoint and the status code — "GET /api/tables/tasks/records → 200".
+    - Every empty state names the one call that fills it.
+  avoid:
+    - No exclamation marks, no "simply", "just" or "blazing".
+    - Never a command that fails when pasted as written.
+    - No claim about another product.
+  tone:
+    empty: Say which table is empty and give the one call that adds its first record.
+    loading: Name the request in flight — the method and the path.
+    error: Give the status, the reason, and the header or role that would change it.
+    success: State the status and what the response holds — "200 · 10 tasks".
+    destructive: Name the record and say it goes to the trash and can be restored.
+
+principles:
+  - A developer copies the first command and the first call within ten seconds of landing.
+  - Every call on the page works when pasted as written, credential included.
+  - Colour means a refused call, or it is not used.
+  - The API is understood without a tour.

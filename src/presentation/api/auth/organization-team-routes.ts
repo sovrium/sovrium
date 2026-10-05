@@ -35,6 +35,7 @@ import { type Hono } from 'hono'
 import { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 
@@ -151,7 +152,7 @@ const handleGetTeam = async (
     })
   )
   if (!team) {
-    return c.json({ message: 'Team not found' }, 404)
+    return c.json(notFoundBody('Team not found'), 404)
   }
   return c.json(team, 200)
 }

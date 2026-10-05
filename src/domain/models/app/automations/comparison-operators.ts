@@ -26,6 +26,8 @@
  * than by growing a switch in each caller.
  */
 
+import { isEmptyValue } from '@/domain/kernel/matching/empty-value'
+
 /** Canonical string form used for equality, substring and regex comparisons. */
 const formatComparable = (value: unknown): string => {
   if (value === undefined || value === null) return ''
@@ -35,6 +37,16 @@ const formatComparable = (value: unknown): string => {
 }
 
 const isDefined = (v: unknown): boolean => v !== undefined && v !== null
+
+/**
+ * The presence rule behind `isEmpty` / `isNotEmpty` — the one rule every
+ * surface shares: missing, `null`, `''`, `` and `{}` are empty,
+ * nothing else is. An object with a key is a value even when its key holds
+ * nothing, so a step's whole output `{ record, records }` is always a value:
+ * test `{{<step>.records}}` to ask whether a `record/list` found anything.
+ */
+export const isEmptyComparable = (value: unknown): boolean => isEmptyValue(value)
+
 const isDateInput = (v: unknown): boolean => v instanceof Date || typeof v === 'string'
 
 /**
@@ -141,8 +153,8 @@ export const COMPARATORS: Readonly<Record<string, (lhs: unknown, expected: unkno
     const cmp = compareOrdered(lhs, expected)
     return cmp !== undefined && cmp <= 0
   },
-  isEmpty: (lhs) => lhs === undefined || lhs === null || lhs === '',
-  isNotEmpty: (lhs) => lhs !== undefined && lhs !== null && lhs !== '',
+  isEmpty: (lhs) => isEmptyComparable(lhs),
+  isNotEmpty: (lhs) => !isEmptyComparable(lhs),
   isNull: (lhs) => lhs === null || lhs === undefined,
   isNotNull: (lhs) => lhs !== null && lhs !== undefined,
   matches: tryRegexTest,

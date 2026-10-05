@@ -1,0 +1,13 @@
+# The two people of the Tallyline support team, created as sign-in accounts
+# before any table is filled, so tickets can name who holds them.
+#
+# Clara leads the team and is the admin; Yann is a member. No password is
+# written here: every account takes `SOVRIUM_SEED_PASSWORD` from the
+# environment, so a password never lands in a file you might commit.
+users:
+  - email: clara.dumas@tallyline.example
+    name: Clara Dumas
+    role: admin
+  - email: yann.kerbrat@tallyline.example
+    name: Yann Kerbrat
+    role: member

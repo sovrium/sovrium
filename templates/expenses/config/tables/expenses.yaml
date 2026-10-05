@@ -1,3 +1,5 @@
+# One row per claim: what was paid, when, for what, with its receipt, who filed
+# it, and the one decision it waits for.
 id: 1
 name: expenses
 fields:
@@ -5,48 +7,147 @@ fields:
     name: description
     type: single-line-text
     required: true
+  # Euros with cents. The KPI cards, the charts and the grids all read the
+  # currency from here.
   - id: 2
     name: amount
     type: currency
     currency: EUR
     precision: 2
     required: true
+  # A category is a word, not a verdict: its colours are steps of the one
+  # accent, strongest where the most money goes, so the spend chart reads as
+  # one colour at different strengths rather than a colour per category.
   - id: 3
     name: category
     type: single-select
     options:
-      - Travel
-      - Meals
-      - Software
-      - Equipment
-      - Other
+      - value: Software
+        color: '#006F39'
+      - value: Travel
+        color: '#008347'
+      - value: Meals
+        color: '#93DAB3'
+      - value: Equipment
+        color: '#009C5E'
+      - value: Other
+        color: '#4CBD88'
   - id: 4
     name: expense_date
     type: date
+  # The receipt photo or PDF. Kept in the built-in file store, which is also
+  # the one `sovrium seed` can fill from `seed/assets/`.
   - id: 5
     name: receipt
     type: single-attachment
-    bucket: receipts
+    allowedFileTypes:
+      - image/jpeg
+      - image/png
+      - image/webp
+      - application/pdf
+    maxFileSize: 10485760
+  # Pending waits on finance, in the warning colour; Approved and Reimbursed
+  # share the outcome colour; Rejected keeps its reason in `decision_reason`.
   - id: 6
     name: status
     type: status
     options:
       - value: Pending
-        color: '#F59E0B'
+        color: '#8A5700'
       - value: Approved
-        color: '#3B82F6'
+        color: '#007B89'
       - value: Reimbursed
-        color: '#10B981'
+        color: '#007B89'
       - value: Rejected
-        color: '#EF4444'
+        color: '#BA3535'
     default: Pending
+  # Stamped by the server from the session of whoever files the claim, so a
+  # member can only ever file for themselves.
   - id: 7
     name: submitted_by
     type: created-by
   - id: 8
     name: created_at
     type: created-at
+  # What backs the claim: a receipt, an invoice, or a distance or a day away
+  # when there is no receipt to attach.
+  - id: 9
+    name: kind
+    type: single-select
+    options:
+      - value: Receipt
+        color: '#6D7571'
+      - value: Invoice
+        color: '#6D7571'
+      - value: Mileage
+        color: '#6D7571'
+      - value: Per diem
+        color: '#6D7571'
+    default: Receipt
+  # The rule finance checks the claim against.
+  - id: 10
+    name: policy
+    type: single-select
+    options:
+      - value: Travel policy
+        color: '#6D7571'
+      - value: Meals policy
+        color: '#6D7571'
+      - value: Software policy
+        color: '#6D7571'
+      - value: Equipment policy
+        color: '#6D7571'
+      - value: Other spend
+        color: '#6D7571'
+  # Whose money it is. A claim filed in the app gets it from `submitted_by`
+  # (see config/automations/approve-expense.yaml); a seeded claim names its
+  # person directly, which a session stamp cannot do.
+  - id: 11
+    name: filer
+    type: user
+  # Why a claim was rejected: the policy it misses and what to do next. The
+  # person who filed it reads it on their own claim.
+  - id: 12
+    name: decision_reason
+    type: long-text
+  # The day finance repaid the claim, written when it is marked Reimbursed.
+  - id: 13
+    name: reimbursed_at
+    type: date
+  # 0 while a claim waits, 1 once it is approved: the review queue sorts on it
+  # so what needs a decision comes first.
+  - id: 14
+    name: queue_rank
+    type: formula
+    formula: "CASE WHEN status = 'Pending' THEN 0 ELSE 1 END"
+    resultType: number
+  # The receipt's file name, as the claim drawer shows it. A drawer does not
+  # render an attachment yet, so the name is kept beside it: written by the
+  # seed, and by the approval automation for a claim filed in the app.
+  - id: 15
+    name: receipt_name
+    type: single-line-text
 
+views:
+  # Finance's queue: what waits first, then the newest.
+  - id: review_queue
+    name: Review queue
+    sorts:
+      - { field: queue_rank, direction: asc }
+      - { field: expense_date, direction: desc }
+  # A person's own claims, newest first.
+  - id: my_claims
+    name: My claims
+    sorts:
+      - { field: expense_date, direction: desc }
+  # Approved claims, oldest first: the order they go out in the transfer.
+  - id: to_repay
+    name: To repay
+    sorts:
+      - { field: expense_date, direction: asc }
+
+# Anyone signed in files a claim; only finance decides, changes or removes one.
+# A member asking to delete a claim, even their own, is answered 404.
 permissions:
   read: authenticated
   create:
@@ -56,13 +157,25 @@ permissions:
     - admin
   delete:
     - admin
+  fields:
+    - field: decision_reason
+      write:
+        - admin
+    - field: reimbursed_at
+      write:
+        - admin
 
-# Row-level scoping, enforced server-side at the API layer: members only ever
-# see their own expenses ($currentUser resolves per request from the session);
-# admins are unrestricted and see everything. Denied rows return 404, never 403.
+# Each member reads only their own claims, enforced on the server for every
+# page and every API call: a claim belongs to its `filer`, or to whoever filed
+# it in the app. Admins are unrestricted and read every claim.
 rowLevelPermissions:
   read:
     when:
-      field: submitted_by
-      operator: eq
-      value: $currentUser.id
+      logic: or
+      conditions:
+        - field: filer
+          operator: eq
+          value: $currentUser.id
+        - field: submitted_by
+          operator: eq
+          value: $currentUser.id

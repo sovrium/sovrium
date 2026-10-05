@@ -1,121 +1,344 @@
+# Finance's queue: what waits on a decision first, where the money went, then
+# every claim with the person who filed it and its receipt. Only an admin opens
+# this page; a member asking for it is sent away.
 name: review
 path: /review
-# Admin-only page: non-admins never see it (denied access is a 404, not a 403 —
-# the page's existence is not revealed).
 access:
-  - admin
+  require: [admin]
+  redirectTo: /sign-in
 meta:
-  title: Review
-  description: Every expense across the team, with spend by category
+  title: Review · Halden Expenses
+  description: The claims waiting on finance, spend by category and by month, and the decision on each.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Review
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: The whole team's expenses — admins bypass the row-level scoping. Approve or reject from the pending approval emails.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: kpi
-            label: Pending approval
-            dataSource:
-              table: expenses
-              mode: list
-              filter:
-                - field: status
-                  operator: eq
-                  value: Pending
-            kpiAggregate:
-              function: count
-          - type: kpi
-            label: Approved, to reimburse
-            dataSource:
-              table: expenses
-              mode: list
-              filter:
-                - field: status
-                  operator: eq
-                  value: Approved
-            kpiAggregate:
-              function: count
-          - type: kpi
-            label: Total filed
-            dataSource:
-              table: expenses
-              mode: list
-            kpiAggregate:
-              function: sum
-              field: amount
-            # `options.currency` is NOT optional in practice. `kpiFormat.type:
-            # currency` alone falls back to USD (kpi-compute.ts:71), so this
-            # tile read "$4,471.59" while every amount beneath it in the grid
-            # read "€84.00" — the two disagreed on the same column. The KPI does
-            # not inherit the currency declared on the `amount` field, so it has
-            # to be restated here; if that field's currency changes, change it
-            # in both places.
-            kpiFormat:
-              type: currency
-              options:
-                currency: EUR
-
-      - type: container
-        props:
-          className: border rounded-lg p-5 mb-8
-        children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Spend by category
-          - type: chart
-            chartType: bar
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: font-mono text-[15px] font-semibold text-foreground
+                content: Review
+              - type: container
+                props:
+                  className: grow
+              - type: link
+                props:
+                  href: /reimburse
+                  className: inline-flex h-7 items-center rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary-hover
+                content: Mark repaid
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Four figures, each summed from every claim on every visit.
+              # Rejected money is never counted as spend.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Waiting on you
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: status, operator: eq, value: Pending }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Approved, to repay
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: status, operator: eq, value: Approved }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Spent this quarter
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: status, operator: in, value: [Pending, Approved, Reimbursed] }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Rejected
+                    dataSource:
+                      table: expenses
+                      filter:
+                        - { field: status, operator: eq, value: Rejected }
+                    kpiAggregate: { function: sum, field: amount }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+              - type: container
+                props:
+                  className: grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]
+                children:
+                  # Largest first, rejected claims left out. The slices take
+                  # the category colours: one accent at different strengths.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-1
+                      aria-label: Spend by category
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-[14px] font-semibold text-foreground
+                        content: Spend by category
+                      - type: text
+                        element: p
+                        props:
+                          className: text-xs text-foreground-muted
+                        content: Largest first · rejected claims left out
+                      - type: chart
+                        chartType: donut
+                        props:
+                          # The slice labels collide on the small slices; the
+                          # legend beside the ring names every category.
+                          className: h-[220px] [&_svg_text]:hidden
+                        dataSource:
+                          table: expenses
+                          filter:
+                            - {
+                                field: status,
+                                operator: in,
+                                value: [Pending, Approved, Reimbursed],
+                              }
+                        chartAggregate:
+                          function: sum
+                          field: amount
+                          groupBy: category
+                          order: value-desc
+                        legend:
+                          position: right
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-1
+                      aria-label: Spend by month
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-[14px] font-semibold text-foreground
+                        content: Spend by month
+                      - type: text
+                        element: p
+                        props:
+                          className: text-xs text-foreground-muted
+                        content: Claims by the date they were spent
+                      - type: chart
+                        chartType: bar
+                        props:
+                          # A date grouping has no option colours, so the bars
+                          # are painted in the accent here.
+                          className: h-[220px] [&_svg_rect]:fill-primary
+                        dataSource:
+                          table: expenses
+                          filter:
+                            - {
+                                field: status,
+                                operator: in,
+                                value: [Pending, Approved, Reimbursed],
+                              }
+                        chartAggregate:
+                          function: sum
+                          field: amount
+                          groupBy: expense_date
+                          interval: month
+                        yAxis:
+                          field: amount
+                          format: currency
+              - type: filter-bar
+                publishes:
+                  bindTo: review-filter
+                fields:
+                  - { name: description, label: Search claims, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Pending, label: Pending }
+                      - { value: Approved, label: Approved }
+                  - name: category
+                    label: Category
+                    kind: select
+                    options:
+                      - { value: Software, label: Software }
+                      - { value: Travel, label: Travel }
+                      - { value: Meals, label: Meals }
+                      - { value: Equipment, label: Equipment }
+                      - { value: Other, label: Other }
+              # Bound to the `review_queue` view: what waits first, then the
+              # approved claims going out in the next transfer. Read-only — a
+              # decision is a button, not a cell edit.
+              - type: table
+                props:
+                  id: review-queue
+                  # A stored receipt name carries a unique prefix; the
+                  # cell shows its start and the link opens the file.
+                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle'
+                dataSource:
+                  table: expenses
+                  view: review_queue
+                  bindTo: review-filter
+                  sharedFilter: {}
+                  filter:
+                    - { field: status, operator: in, value: [Pending, Approved] }
+                columns:
+                  - { field: filer, label: Filed by }
+                  - { field: description, label: Description }
+                  - { field: expense_date, label: Date, format: short-date }
+                  - { field: receipt, label: Receipt }
+                  - { field: status, label: Status }
+                  - { field: amount, label: Amount, format: currency }
+                  - type: actions
+                    actions:
+                      - label: Approve
+                        icon: check
+                        visibleWhen: { field: status, eq: Pending }
+                        action:
+                          type: fetch
+                          url: /api/tables/expenses/records/$record.id
+                          method: PATCH
+                          body:
+                            fields:
+                              status: Approved
+                          onSuccess:
+                            type: toast
+                            message: Claim approved — it goes out in the next transfer
+                            variant: success
+                            refetch: review-queue
+                      - label: Reject
+                        icon: x
+                        variant: ghost
+                        visibleWhen: { field: status, eq: Pending }
+                        action:
+                          action: openDrawer
+                          component: claim-reason
+                onRowClick:
+                  action: openDrawer
+                  component: claim-decision
+                pagination:
+                  pageSize: 25
+                emptyMessage: Nothing waits on you. Claims appear here the moment someone files one, with its receipt.
+              # A claim filed in the app also starts an approval run that waits
+              # on finance. This list reads those runs, so approving or rejecting
+              # here resumes the run and decides the claim. A rejection from here
+              # tells the person to ask finance why; to spell the reason out,
+              # use Reject on the claim's row above instead. A run nobody answers
+              # rejects the claim on its own, with a reason saying so, on the
+              # date shown.
+              - type: text
+                element: h2
+                props:
+                  className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: Approval runs waiting on you
+              - type: table
+                props:
+                  id: approval-runs
+                dataSource:
+                  system:
+                    endpoint: /api/automations/approvals
+                    rowsKey: approvals
+                    idKey: approvalId
+                    query:
+                      status: pending
+                columns:
+                  - { field: message, label: Claim }
+                  - { field: requestedAt, label: Asked, format: relative-date }
+                  - { field: expiresAt, label: Rejected automatically, format: short-date }
+                  - type: actions
+                    actions:
+                      - label: Approve
+                        icon: check
+                        action:
+                          type: fetch
+                          url: /api/automations/runs/$record.runId/approvals/$record.approvalId/approve
+                          method: POST
+                          onSuccess:
+                            type: toast
+                            message: Approved — the claim is marked Approved
+                            variant: success
+                            refetch: [approval-runs, review-queue]
+                      - label: Reject
+                        icon: x
+                        variant: ghost
+                        confirm: Reject this claim? The person who filed it is told to ask finance why.
+                        action:
+                          type: fetch
+                          url: /api/automations/runs/$record.runId/approvals/$record.approvalId/reject
+                          method: POST
+                          onSuccess:
+                            type: toast
+                            message: Rejected — the claim is marked Rejected
+                            variant: success
+                            refetch: [approval-runs, review-queue]
+                emptyMessage: No approval run waits on you. A claim filed in the app appears here until finance decides.
+          # One claim, from `/review?record=<id>` or a click on its row: who
+          # filed it and the receipt beside the amount, with Approve in the
+          # footer. Rejecting goes through Reject on the row, which asks why.
+          # Declared first on purpose: when several drawers show the same
+          # table, a `?record=` link opens the first one declared.
+          - type: drawer
+            id: claim-decision
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
             dataSource:
               table: expenses
-              mode: list
-            chartAggregate:
-              function: sum
-              field: amount
-              groupBy: category
-            emptyMessage: No expenses yet.
-
-      - type: table
-        dataSource:
-          table: expenses
-          sort:
-            - field: created_at
-              direction: desc
-        columns:
-          - field: description
-            label: Description
-          - field: submitted_by
-            label: Filed by
-          - field: amount
-            label: Amount
-            format: currency
-            sortable: true
-          - field: category
-            label: Category
-            filterable: true
-          - field: status
-            label: Status
-            filterable: true
-          - field: created_at
-            label: Filed
-            format: relative-date
-            sortable: true
-        pagination:
-          pageSize: 20
-        emptyMessage: No expenses across the team yet.
+            props:
+              title: Claim
+            recordFields:
+              - { name: description, type: single-line-text, label: Description }
+              - { name: filer, type: user, label: Filed by }
+              - { name: amount, type: currency, label: Amount }
+              - { name: receipt_name, type: single-line-text, label: Receipt }
+              - { name: category, type: single-select, label: Category }
+              - { name: expense_date, type: date, label: Date }
+              - { name: policy, type: single-select, label: Policy }
+              - { name: status, type: status, label: Decision }
+              - { name: decision_reason, type: long-text, label: Why it was rejected }
+            actions:
+              - label: Approve
+                action:
+                  type: fetch
+                  url: /api/tables/expenses/records/$record.id
+                  method: PATCH
+                  body:
+                    fields:
+                      status: Approved
+                  onSuccess:
+                    type: toast
+                    message: Claim approved — it goes out in the next transfer
+                    variant: success
+                    refetch: review-queue
+          # Rejecting a claim, from Reject on its row: write why and save. The
+          # claim is then marked Rejected (config/automations/reject-with-reason.yaml),
+          # and the person who filed it reads why on their own claim.
+          - type: drawer
+            id: claim-reason
+            drawerSide: right
+            drawerSize: md
+            canEdit: true
+            dataSource:
+              table: expenses
+            props:
+              title: Reject this claim
+            recordFields:
+              - {
+                  name: decision_reason,
+                  type: long-text,
+                  label: 'Why — the policy it misses and what to do next. Saving rejects the claim.',
+                }

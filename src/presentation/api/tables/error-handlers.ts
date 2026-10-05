@@ -29,6 +29,9 @@ export function handleRouteError(c: Context, error: unknown): Response {
   return c.json(
     {
       success: false,
+      // The same four keys `runEffect` answers with, so a missing record reads
+      // the same whether this handler or another seam refused it.
+      error: sanitized.error,
       message: sanitized.message,
       code: sanitized.code,
       // Carried when the failure could be attributed to one submitted field, so

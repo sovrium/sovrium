@@ -5,39 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 
 /**
- * Substitute `$record.fieldName` tokens against a record snapshot. Mirrors
- * the kanban card-template substituter so navigate paths like
- * `/events/$record.id` resolve to `/events/42`.
- */
-export function substituteRecordTokens(text: string, record: TableRecord): string {
-  return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
-    const value = record[fieldName]
-    return value === undefined || value === null ? '' : String(value)
-  })
-}
-
-/** Imperative SPA navigation. Wrapped to keep mutating call out of JSX. */
-export function navigateTo(path: string): void {
-  if (typeof globalThis !== 'undefined' && globalThis.location) {
-    globalThis.location.assign(path)
-  }
-}
-
-/**
  * Pull the navigate path out of an action and resolve `$record.X` tokens
- * against the FullCalendar event's extended record snapshot. Returns
- * undefined for non-navigate action types.
+ * against the FullCalendar event's extended record snapshot, through the one
+ * shared reader — so `/events/$record.id` resolves to `/events/42`, a `|`
+ * fallback chain resolves as it does on every surface, and an escaped
+ * `\$record.x` is followed as the token itself. Returns undefined for
+ * non-navigate action types.
  */
 export function resolveEventNavigatePath(
   action: Action | undefined,
   record: TableRecord
 ): string | undefined {
   if (!action || !('type' in action) || action.type !== 'navigate') return undefined
-  return substituteRecordTokens(action.path, record)
+  return substituteRecordVars(action.path, record)
 }
 
 /** Two-digit zero-pad for slot-duration components. */
@@ -55,6 +40,17 @@ export function minutesToSlotDuration(minutes: number | undefined): string | und
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${padTwo(hours)}:${padTwo(mins)}:00`
+}
+
+/**
+ * The record's last day for an all-day event whose calendar end is `endStr` —
+ * FullCalendar's all-day end is the day AFTER the range.
+ */
+export function inclusiveDayEnd(endStr: string): string | undefined {
+  if (endStr === '') return undefined
+  const last = new Date(`${endStr.slice(0, 10)}T00:00:00Z`)
+  last.setUTCDate(last.getUTCDate() - 1)
+  return last.toISOString().slice(0, 10)
 }
 
 /**

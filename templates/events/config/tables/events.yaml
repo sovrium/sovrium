@@ -1,3 +1,9 @@
+# The events Fieldday runs: when and where each one happens, how many seats
+# it has, how many are taken, how many people wait, and how many seats are
+# left.
+#
+# Only `Open` events are on the public page. A `Draft` is being prepared and
+# a `Past` event keeps its registrations for the record.
 id: 1
 name: events
 fields:
@@ -5,38 +11,122 @@ fields:
     name: name
     type: single-line-text
     required: true
+  # A paragraph for the organizers; the public card shows the date, the place
+  # and the seats instead.
   - id: 2
     name: description
     type: long-text
-  - id: 3
-    name: event_date
-    type: date
+  - id: 8
+    name: starts_at
+    type: datetime
     required: true
-  - id: 4
-    name: location
+  - id: 9
+    name: ends_at
+    type: datetime
+  # The shorter form the event cards print, "30 Sep · 14:00 – 17:30".
+  - id: 21
+    name: card_when
+    type: formula
+    formula: "CAST(substr(CAST(starts_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(starts_at AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END || CASE WHEN time_label IS NULL OR time_label = '' THEN '' ELSE ' · ' || time_label END"
+    resultType: string
+  # The hours as people read them, "14:00 – 17:30". A seeded date carries no
+  # time of day, so the hours are written here in words.
+  - id: 20
+    name: time_label
     type: single-line-text
+  - id: 4
+    name: place
+    type: single-line-text
+  # Seats. Capacity is advisory: nothing refuses a registration once it is
+  # reached, so the public page stops offering Register and offers the
+  # waitlist instead (see config/pages/home.yaml).
   - id: 5
     name: capacity
     type: integer
+  # Words, not colours: colour on this app is kept for an outcome — a
+  # registration confirmed, few seats left, an event full.
   - id: 6
     name: status
     type: status
     options:
       - value: Draft
-        color: '#94A3B8'
+        color: '#6B6B76'
       - value: Open
-        color: '#10B981'
-      - value: Sold out
-        color: '#F59E0B'
+        color: '#6B6B76'
+      - value: Past
+        color: '#6B6B76'
       - value: Cancelled
-        color: '#EF4444'
+        color: '#6B6B76'
     default: Draft
   - id: 7
     name: created_at
     type: created-at
 
-# The events list is public (the / page shows it without sign-in); writes stay
-# with the organizing team.
+  # ── Seats ───────────────────────────────────────────────────────────
+  # Every registration of the event.
+  - id: 10
+    name: registrations
+    type: relationship
+    relatedTable: registrations
+    relationType: one-to-many
+  # The seats taken and the people waiting, as plain numbers on the event.
+  # They could be rollups over `registrations`, but a rollup shows its count
+  # only to someone who may read the rows it counts — and the registrations,
+  # with their names and emails, stay with the organizers. A visitor reads
+  # these two numbers instead. The automation in
+  # config/automations/recount-seats.yaml counts them again after every
+  # registration is added, changed or removed, so they never drift.
+  - id: 22
+    name: seats_taken
+    type: integer
+    default: 0
+  - id: 23
+    name: on_waitlist
+    type: integer
+    default: 0
+  - id: 13
+    name: seats_left
+    type: formula
+    formula: 'CASE WHEN capacity - seats_taken < 0 THEN 0 ELSE capacity - seats_taken END'
+    resultType: number
+  # "83 / 90" — the seats taken beside the seats there are.
+  - id: 14
+    name: taken_label
+    type: formula
+    formula: "seats_taken || ' / ' || capacity"
+    resultType: string
+  # 1 for an open event with no seat left, so the Overview can count them.
+  - id: 15
+    name: is_full
+    type: formula
+    formula: "CASE WHEN status = 'Open' AND seats_taken >= capacity THEN 1 ELSE 0 END"
+    resultType: number
+  - id: 16
+    name: coming_today
+    type: formula
+    formula: 'CASE WHEN substr(CAST(starts_at AS TEXT), 1, 10) = CAST(CURRENT_DATE AS TEXT) THEN seats_taken ELSE 0 END'
+    resultType: number
+  # The date as the cards and the confirmation print it — "30", "Sep",
+  # "30 September · 14:00 – 17:30" — spelled out with plain string functions
+  # so the same formula runs on SQLite and PostgreSQL.
+  - id: 17
+    name: day_label
+    type: formula
+    formula: 'CAST(substr(CAST(starts_at AS TEXT), 9, 2) AS INTEGER)'
+    resultType: number
+  - id: 18
+    name: month_label
+    type: formula
+    formula: "CASE substr(CAST(starts_at AS TEXT), 6, 2) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END"
+    resultType: string
+  - id: 19
+    name: when_label
+    type: formula
+    formula: "CAST(substr(CAST(starts_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(starts_at AS TEXT), 6, 2) WHEN '01' THEN 'January' WHEN '02' THEN 'February' WHEN '03' THEN 'March' WHEN '04' THEN 'April' WHEN '05' THEN 'May' WHEN '06' THEN 'June' WHEN '07' THEN 'July' WHEN '08' THEN 'August' WHEN '09' THEN 'September' WHEN '10' THEN 'October' WHEN '11' THEN 'November' WHEN '12' THEN 'December' END || CASE WHEN time_label IS NULL OR time_label = '' THEN '' ELSE ' · ' || time_label END"
+    resultType: string
+
+# The events are public — the home page lists the open ones to anyone. Only
+# the organizers change them, and only an admin removes one.
 permissions:
   read: all
   create:

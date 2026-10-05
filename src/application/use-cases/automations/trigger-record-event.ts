@@ -8,12 +8,18 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  relationshipFieldNames,
+  withStringRecordId,
+  withStringRelationshipValues,
+} from '@/domain/models/app/tables/record-id-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
-import { evaluateRecordTriggerCondition } from './record-trigger-filters'
+import { evaluateRecordTriggerCondition, watchFieldsChanged } from './record-trigger-filters'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -49,33 +55,12 @@ export interface TriggerRecordEventInput {
   readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The user who triggered the record event (creator/updater). */
   readonly userId?: string
-}
-
-/**
- * Return true if at least one of `watchFields` differs between the
- * pre-update and post-update record. Used to suppress update-event triggers
- * whose `watchFields` config narrows them to specific columns.
- *
- * No `previousRecord` (e.g. create/delete events, or upstream skipped the
- * pre-fetch) means we cannot diff — falls open to "trigger fires" so
- * create/delete behaviour is unchanged.
- */
-const watchFieldsChanged = (
-  watchFields: readonly string[],
-  record: Readonly<Record<string, unknown>>,
-  previousRecord: Readonly<Record<string, unknown>> | undefined
-): boolean => {
-  if (previousRecord === undefined) return true
-  return watchFields.some((field) => {
-    const before = previousRecord[field]
-    const after = record[field]
-    // Compare with !== first (handles primitives) and fall back to
-    // JSON.stringify for object-valued fields. The watchFields use case
-    // here is single-line scalar fields (status, priority) so the JSON
-    // path is a pragmatic safety net, not a deep-equality contract.
-    if (before === after) return false
-    return JSON.stringify(before) !== JSON.stringify(after)
-  })
+  /**
+   * How many automation writes separate this event from a person's write — 0
+   * (the default) for a records API write, N+1 for a write by a step of an
+   * N-deep run. Carried into the runs it starts.
+   */
+  readonly depth?: number
 }
 
 interface RecordEventMatchInput {
@@ -110,7 +95,13 @@ const findMatchingRecordAutomations = (
     if (
       event === 'update' &&
       trigger.watchFields !== undefined &&
-      !watchFieldsChanged(trigger.watchFields, record, previousRecord)
+      !watchFieldsChanged({
+        app,
+        tableName,
+        watchFields: trigger.watchFields,
+        record,
+        previousRecord,
+      })
     ) {
       return false
     }
@@ -129,7 +120,7 @@ const findMatchingRecordAutomations = (
 
 /**
  * Names of the single-user (`allowMultiple !== true`) `user`-typed fields
- * declared on the named table. GAP-20 scopes hydration to single-user fields
+ * declared on the named table. [internal ref] scopes hydration to single-user fields
  * — multi-user (`allowMultiple: true`) fields are intentionally left as the
  * raw id list (NOT full relationship hydration).
  */
@@ -141,7 +132,7 @@ const singleUserFieldNames = (app: App, tableName: string): readonly string[] =>
       if (field.type !== 'user') return false
       // Scope to single-user fields. A `user` field carries an optional
       // `allowMultiple`; multi-user fields are left as the raw id list
-      // (GAP-20 is single-user only — NOT full relationship hydration).
+      // ([internal ref] is single-user only — NOT full relationship hydration).
       const { allowMultiple } = field as { readonly allowMultiple?: boolean }
       return allowMultiple !== true
     })
@@ -149,7 +140,7 @@ const singleUserFieldNames = (app: App, tableName: string): readonly string[] =>
 }
 
 /**
- * GAP-20: hydrate single-user `user`-typed fields of the triggering record so
+ * [internal ref]: hydrate single-user `user`-typed fields of the triggering record so
  * `{{trigger.data.record.<userField>.email}}` / `.name` / `.id` resolve to the
  * referenced user rather than the bare id STRING. For each declared single-user
  * field whose record value is a non-empty id, resolve `{ id, email, name }`
@@ -205,7 +196,7 @@ const firstReverseRowOrEmpty = (
 ): Readonly<Record<string, unknown>> => rows[0] ?? {}
 
 /**
- * Generic single-field hydration core shared by the user (GAP-20) and
+ * Generic single-field hydration core shared by the user and
  * relationship (GAP-J1) hydrators. Both: filter the table's declared fields,
  * resolve each declared field's value to a column map via a repository read,
  * `withIdToString`-wrap it (so the field stringifies as its original id while
@@ -269,7 +260,7 @@ const hydrateUserFields = (input: {
  * `relationship`-typed fields on the named table, paired with their related
  * table name. GAP-J1 scopes hydration to single many-to-one relationships —
  * multi-relationship (`allowMultiple: true`) fields are left as the raw id
- * list (NOT full hydration), mirroring the GAP-20 single-user scoping.
+ * list (NOT full hydration), mirroring the [internal ref] single-user scoping.
  */
 const singleRelationshipFields = (
   app: App,
@@ -471,6 +462,34 @@ const hydrateRelationshipFields = (input: {
   })
 
 /**
+ * The record and the pre-update row as an action reads them. Both carry the id
+ * as the records API names it — a string on every event, where the delete road
+ * hands over a driver row whose serial id is a number — and the raw pre-update
+ * row has its dates read as the record's own values are:
+ * `{{trigger.data.previousRecord.<date>}}` reads the day on both engines, not a
+ * PostgreSQL `Date`.
+ */
+const readableRecords = (
+  input: TriggerRecordEventInput
+): {
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>> | undefined
+} => {
+  // A relationship value is the related record's id, and reads as a string too.
+  const links = relationshipFieldNames(input.app.tables?.find((t) => t.name === input.tableName))
+  return {
+    record: withStringRelationshipValues(withStringRecordId(input.record), links),
+    previousRecord:
+      input.previousRecord === undefined
+        ? undefined
+        : withStringRelationshipValues(
+            withStringRecordId(serializeDriverRow(input.previousRecord, input)),
+            links
+          ),
+  }
+}
+
+/**
  * Fire all record-triggered automations matching the given event.
  *
  * Matching applies, in order: (table, event) tuple, then `watchFields` for
@@ -492,7 +511,8 @@ export const triggerRecordEventAutomations = (
   | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { app, tableName, event, record, previousRecord, processEnv, userId } = input
+    const { app, tableName, event, processEnv, userId } = input
+    const { record, previousRecord } = readableRecords(input)
     // Entry point: one read of the operational pauses per record event.
     const pausedNames = yield* loadPausedAutomationNames
     const matching = findMatchingRecordAutomations({
@@ -505,7 +525,7 @@ export const triggerRecordEventAutomations = (
     })
     if (matching.length === 0) return
 
-    // GAP-20: hydrate single-user `user`-typed fields so action templates can
+    // [internal ref]: hydrate single-user `user`-typed fields so action templates can
     // read `{{trigger.data.record.<userField>.email}}` / `.name` / `.id`.
     const userHydratedRecord = yield* hydrateUserFields({ app, tableName, record, userId })
 
@@ -527,6 +547,7 @@ export const triggerRecordEventAutomations = (
           processEnv,
           triggerData: { record: hydratedRecord } as unknown as TriggerData,
           userId,
+          recordEventDepth: input.depth ?? 0,
         }),
       { concurrency: 1, discard: true }
     )

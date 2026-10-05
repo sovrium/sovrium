@@ -109,8 +109,6 @@ export {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
   computeFormHelpTextClasses,
-  computeFormGroupClasses,
-  computeFormGroupLabelClasses,
 } from '@/presentation/design/form-layout-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────

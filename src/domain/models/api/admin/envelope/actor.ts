@@ -89,7 +89,7 @@ export const actorSchema = Schema.Struct({
   id: Schema.NullOr(
     Schema.String.annotate({
       description:
-        'Stable identifier of the actor (user id, api-token id, automation id). Null for `system` actors.',
+        'Stable identifier of the actor (user id, api-token id, automation id). Null for `system` actors, and for a `user` actor whose account has since been erased.',
     })
   ),
   type: actorTypeSchema,
@@ -97,7 +97,7 @@ export const actorSchema = Schema.Struct({
   email: optionalField(
     email({
       description:
-        'Email address (only present for `user` actors; absent for system / api-token / automation actors).',
+        'Email address (only present for `user` actors; absent for system / api-token / automation actors). Removed when the actor’s account is erased: the entry stays, with the actor’s tier and neither id nor address.',
     })
   ),
 }).annotate({ identifier: 'AuditActor' })

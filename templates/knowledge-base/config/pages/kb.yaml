@@ -1,22 +1,25 @@
+# The handbook: one page definition, one route per markdown file under
+# `content/kb/`.
+#
+# The sidebar is built from the files themselves — grouped by their
+# `category`, ordered by their `order` — and previous / next at the foot of an
+# article follow the sidebar, across sections. `start.md` is the `index`:
+# it is what `/kb` answers, the handbook's start page.
+#
+# Everyone signed in reads it; a visitor is sent to sign in, and neither the
+# search, the sitemap nor `/llms.txt` lists a gated article.
 name: kb
-# Empty component tree — this page renders each markdown file (via `markdown`
-# + `contentDir` below), not a hand-built component layout.
-components: []
-# `:path*` captures nested slugs, so content/kb/policies/expenses.md would be
-# served at /kb/policies/expenses (slugFrom: filepath preserves structure).
 path: /kb/:path*
-# The whole handbook is private — unauthenticated readers are sent to sign in.
 access:
   require: authenticated
   redirectTo: /sign-in
 
-# Same mechanics as the public docs-site template, but behind auth: scan a
-# directory of markdown files and generate one route per file.
 contentDir:
   directory: content/kb
+  # `content/kb/policies/expense-policy.md` is served at
+  # `/kb/policies/expense-policy`: the folder is the section in the URL.
   slugFrom: filepath
-  filter:
-    draft: false
+  index: start
   sort:
     field: order
     direction: asc
@@ -24,13 +27,24 @@ contentDir:
     enabled: true
     groupBy: category
     labelFrom: title
+    # The folder-style keys in each article's `category`, and how the
+    # sidebar and the breadcrumb spell them.
+    groupLabels:
+      getting-started: Getting started
+      it: IT
+      policies: Policies
 
 markdown:
   layout: docs
   toc:
-    maxDepth: 3
+    maxDepth: 2
     position: sidebar
 
+# The first component renders above the article, the rest below it.
+components:
+  - $ref: ./_kb-header.yaml
+  - $ref: ./_managers-nav.yaml
+
 meta:
-  title: Company handbook
-  description: Internal knowledge base — onboarding, IT, and policies.
+  title: $frontmatter.title · Corvel handbook
+  description: How Corvel works, written down — onboarding, IT and the policies we keep.

@@ -77,7 +77,6 @@ export function GalleryEmpty({ message }: { readonly message: string | undefined
   return (
     <div
       className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
-      data-component="gallery"
       data-empty="true"
     >
       <p>{message ?? 'No records yet.'}</p>

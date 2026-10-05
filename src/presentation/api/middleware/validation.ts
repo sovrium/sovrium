@@ -104,6 +104,14 @@ export class ValidationContext extends Context.Service<
     readonly app: App
     readonly tableName: string
     readonly userRole: string
+    /** The caller's groups: a field the caller may not read is not hers to write. */
+    readonly userGroups: readonly string[]
+    /**
+     * The caller is a visitor who is not signed in — decided from the
+     * session's identity, never from the name of her role: an app may call one
+     * of its own roles `guest`.
+     */
+    readonly signedOut: boolean
   }
 >()('ValidationContext') {}
 
@@ -123,13 +131,23 @@ export type ValidationError =
 export type ValidationResult<T> = Effect.Effect<T, ValidationError, never>
 
 /**
- * Create a validation layer from app, tableName, and userRole
+ * Create a validation layer from app, tableName, and the writing caller
  */
-export function createValidationLayer(app: App, tableName: string, userRole: string) {
+export function createValidationLayer(
+  app: App,
+  tableName: string,
+  writer: {
+    readonly role: string
+    readonly groups: readonly string[]
+    readonly signedOut: boolean
+  }
+) {
   return Layer.succeed(ValidationContext, {
     app,
     tableName,
-    userRole,
+    userRole: writer.role,
+    userGroups: writer.groups,
+    signedOut: writer.signedOut,
   })
 }
 
@@ -225,6 +243,7 @@ const VALIDATION_ERROR_ENVELOPES = {
     status: 404,
     body: {
       success: false,
+      error: 'Not Found',
       message: 'Resource not found',
       code: 'NOT_FOUND',
     },

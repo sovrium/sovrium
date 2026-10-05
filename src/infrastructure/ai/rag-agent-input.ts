@@ -20,6 +20,12 @@ export interface RagKnowledgeTable {
   readonly table: string
   readonly fields: ReadonlyArray<string>
   readonly filter?: Readonly<Record<string, unknown>>
+  /**
+   * `fields` partitioned by their effective read grant
+   * (`partitionFieldsByReaders`); each group is embedded as its own
+   * chunk sequence. Absent means one group holding every field.
+   */
+  readonly fieldGroups?: ReadonlyArray<ReadonlyArray<string>>
 }
 
 /** The slice of an `app.agents[]` entry the RAG infrastructure consumes. */

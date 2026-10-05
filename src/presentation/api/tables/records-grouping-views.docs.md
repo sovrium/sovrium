@@ -10,9 +10,11 @@
 GET /api/tables/orders/records?groupBy=region,status&aggregate=amount:sum
 ```
 
-`groupBy` takes a comma-separated list of fields, outermost first; three nesting levels is what it was designed around, and a blank entry is dropped so a trailing comma degrades to the levels actually named. Every field must exist and be readable by the caller — a level naming an unreadable field answers `404`, because a group header would otherwise report that field's distinct values to someone not allowed to see them.
+`groupBy` takes a comma-separated list of fields, outermost first; three nesting levels is what it was designed around, and a blank entry is dropped so a trailing comma degrades to the levels actually named. Every field must exist and be readable by the caller — a level naming an unreadable field answers `404`, because a group header would otherwise report that field's distinct values to someone not allowed to see them, and a level naming a field the table does not have answers that same `404`.
 
-Each `aggregate` entry is **`field:function`**, in that order. The functions are `sum`, `count`, `avg`, `min` and `max`.
+Each `aggregate` entry is **`field:function`**, in that order. The functions are `sum`, `count`, `avg`, `min` and `max`. `sum` and `avg` take numbers; naming a field of any other kind is refused with `400`, naming the field. `min` and `max` take a number or a date: a `date` or `datetime` field — or a lookup of one — answers the earliest or latest as an ISO string, the day alone for a `date` (`2026-10-02`) and the full timestamp for a `datetime`. Any other field answers `400`, naming it; a lookup through a link to many records joins its values into text, so it is refused too — a `rollup` aggregates across linked records. An aggregate naming a field the table does not have answers the `404` an aggregate over a field the caller may not read gets, whatever its function, so the two cannot be told apart.
+
+A `min`, `max`, `sum` or `avg` over no values answers `null`, never `0`. That covers a column no row fills, such as `deleted_at` on the live list, and a filter that finds no row. A `count` of no rows answers `0`.
 
 **Getting the order backwards fails silently.** `?aggregate=sum:amount` parses as the field `sum` with the function `amount`, which is not a known function, so the entry is discarded. If every entry is discarded the parameter becomes absent and the request answers `200` with no aggregation at all — and nothing in the response says so. A JSON form is also accepted: `?aggregate={"count":true,"sum":["amount"]}`.
 
@@ -43,7 +45,7 @@ A view bundles a filter tree and a sort order under a stable id, so a recurring 
 GET /api/tables/tasks/records?view=2
 ```
 
-`?view=` matches on either the view's id or its name. A value matching neither — or any view reference against a table declaring no views — answers `404`.
+`?view=` matches on either the view's id or its name. A value matching neither — or any view reference against a table declaring no views — answers `404`, and so does a view the caller may not open: a view that declares a grant is opened on that grant, one that declares none on the table's read, exactly as on the view's own records route.
 
 ```yaml
 tables:
@@ -71,9 +73,11 @@ Explicit parameters interact with the view differently depending on which one th
 | `fields`  | The view's field configuration is **ignored** on this endpoint            |
 | `groupBy` | The view's grouping is **ignored** on this endpoint                       |
 
-**`?view=` applies filters and sorts only.** A view's `fields` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the view's column list should apply. **Neither endpoint applies a view's `groupBy`**, and the view endpoint accepts no `groupBy` or `aggregate` parameter: it answers rows and a `pagination` envelope, never `groups` or `aggregations`. For grouped figures, call the records list with `?view=` and an explicit `groupBy`.
+**`?view=` applies filters and sorts only.** A view's `fields` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the view's column list should apply. **Neither endpoint applies a view's `groupBy`**, and the view endpoint accepts no `groupBy` parameter: it never answers `groups`. It does accept `aggregate`, and answers `aggregations` computed over the rows the view returns — the totals of a summary row on a grid bound to the view; an aggregate on a column the view does not list is refused. For grouped figures, call the records list with `?view=` and an explicit `groupBy`.
 
-`GET /api/tables/:t/views/:v/records` accepts `page`, `limit`, `sort`, `q` and a `filter` that only narrows the view's own; `fields` is intersected with the view's list. It needs no session when the view is public. The view is named by its id or its name, the answer carries the same `pagination` envelope as the records list, deleted rows are never included whatever `deleted` or `includeDeleted` say, and a `filter`, `sort` or search on a column the view does not list is refused or skipped rather than answered.
+`GET /api/tables/:t/views/:v/records` accepts `page`, `limit`, `sort`, `q`, `aggregate` and a `filter` that only narrows the view's own; `fields` is intersected with the view's list. It needs no session when the view is public. The view is named by its id or its name, the answer carries the same `pagination` envelope as the records list, deleted rows are never included whatever `deleted` or `includeDeleted` say, and a `filter`, `sort` or search on a column the view does not list is refused or skipped rather than answered.
+
+A view definition, read from `GET /api/tables/:t/views`, `GET /api/tables/:t/views/:v` or the `views` of `GET /api/tables/:t`, lists only the fields, filter conditions, sorts and grouping the caller may read; a view whose filter or sort rests on fields hidden from the caller is still listed, without those entries. Its own filter still decides which records it serves, and those records are masked as the records API masks them.
 
 ## Reaching deleted rows
 

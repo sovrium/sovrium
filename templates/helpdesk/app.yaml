@@ -1,9 +1,17 @@
-name: helpdesk
-version: 1.0.0
+# Tallyline Support — a small software company's helpdesk in one config.
+#
+# Requesters write in from a public form with a screenshot and no account.
+# The team works every ticket from one queue — who holds it, how urgent it is,
+# when its first reply is due — opens a ticket over the grid to read its
+# conversation, and asks the requester to rate the answer once it is resolved.
+# This is the file you diff, fork and redeploy.
+name: tallyline-support
+version: 2.0.0
 description: >-
-  Customer support helpdesk — a public intake form feeds a triage kanban and a
-  ticket grid, with automations confirming receipt and announcing resolutions.
-  No per-agent licence, and every ticket lives in your own database.
+  A small team's helpdesk: a public ticket form with attachments and no
+  account, one queue by status with who holds each ticket, every ticket with
+  its conversation in a drawer, reports for the team lead, and a rating once a
+  ticket is resolved.
 
 auth:
   $ref: ./config/auth.yaml
@@ -11,21 +19,41 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# The address the rating link in the resolution email points at. Set it to
+# your own domain in production.
+env:
+  - key: BASE_URL
+    description: The public address of this app, used in the links the emails carry.
+    required: false
+    default: http://localhost:3000
+    secret: false
+
 tables:
   - $ref: ./config/tables/tickets.yaml
+  - $ref: ./config/tables/ticket_replies.yaml
+  - $ref: ./config/tables/ratings.yaml
 
-# Standalone public form — mounted at /support, no sign-in required.
+# The public ticket form renders on `/`, the rating form on `/rate`.
 forms:
-  - $ref: ./config/forms/submit-ticket.yaml
+  - $ref: ./config/forms/contact-support.yaml
+  - $ref: ./config/forms/rate-answer.yaml
 
+# Automations run on the server, with their history kept in your own database.
+automations:
+  - $ref: ./config/automations/when-a-ticket-arrives.yaml
+  - $ref: ./config/automations/when-resolved.yaml
+
+# Listed in the order of the sidebar, then the public pages.
 pages:
-  - $ref: ./config/pages/home.yaml
-  - $ref: ./config/pages/thanks.yaml
-  - $ref: ./config/pages/sign-in.yaml
   - $ref: ./config/pages/triage.yaml
   - $ref: ./config/pages/tickets.yaml
+  - $ref: ./config/pages/reports.yaml
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/thanks.yaml
+  - $ref: ./config/pages/rate.yaml
+  - $ref: ./config/pages/sign-in.yaml
 
-# Automations run server-side with full history in your own database.
-automations:
-  - $ref: ./config/automations/confirm-new-ticket.yaml
-  - $ref: ./config/automations/notify-requester-on-resolved.yaml
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last card of the board.
+badge:
+  placement: footer

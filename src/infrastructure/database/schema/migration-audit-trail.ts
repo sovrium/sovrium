@@ -41,17 +41,11 @@ import {
   sovriumMigrationLog,
   sovriumSchemaChecksum,
 } from '../drizzle/schema'
+import { FORMULA_ENGINE_VERSION } from '../formula/formula-engine-version'
 import { qualifiedSystemTable, systemObjectExistsSql, nowSqlLiteral } from '../sql/dialect-ddl'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { escapeSqlString } from '../sql/sql-utils'
 import type { App } from '@/domain/models/app'
-
-// Re-export types from Drizzle schema for consumers
-export type {
-  SovriumMigrationHistory,
-  SovriumMigrationLog,
-  SovriumSchemaChecksum,
-} from '../drizzle/schema'
 
 /**
  * Table name constants derived from Drizzle schema.
@@ -232,11 +226,15 @@ export const storeSchemaChecksum = (
     // `INSERT ... ON CONFLICT (id) DO UPDATE SET col = excluded.col`.
     const now = nowSqlLiteral()
     const escapedSchema = escapeSqlString(fullSchemaJson)
+    // The formula engine that computed the values this migration left behind
+    // (see `formula-engine-version.ts`): stored beside the checksum, so the
+    // next boot knows whether they need recomputing although the config did not move.
     const upsertSQL = `
-      INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at)
-      VALUES ('singleton', '${checksum}', '${escapedSchema}', ${now})
+      INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at, formula_engine_version)
+      VALUES ('singleton', '${checksum}', '${escapedSchema}', ${now}, ${FORMULA_ENGINE_VERSION})
       ON CONFLICT (id)
-      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now}
+      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now},
+        formula_engine_version = EXCLUDED.formula_engine_version
     `
     yield* executeSQL(tx, upsertSQL)
     logDebug('[migrations] schema checksum stored')
@@ -267,6 +265,23 @@ export const getPreviousSchema = (
       (result[0] as { schema?: unknown } | undefined)?.schema
     )
     return schemaData
+  })
+
+/**
+ * The formula engine version stored beside the checksum, or `undefined` when no
+ * migration has completed yet (no singleton row). `0` is the value the column's
+ * own migration leaves on a database an earlier binary migrated.
+ */
+export const getStoredFormulaEngineVersion = (
+  tx: TransactionLike
+): Effect.Effect<number | undefined, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const result = yield* executeSQL(
+      tx,
+      `SELECT formula_engine_version FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    )
+    const row = result[0] as { formula_engine_version?: number | string | null } | undefined
+    return row === undefined ? undefined : Number(row.formula_engine_version ?? 0)
   })
 
 /**

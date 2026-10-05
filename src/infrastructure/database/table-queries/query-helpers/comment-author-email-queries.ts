@@ -6,7 +6,7 @@
  */
 
 /**
- * GAP-13 email-resolution queries for the comment-posted trigger.
+ * [internal ref] email-resolution queries for the comment-posted trigger.
  *
  * Split from `comment-queries.ts` (which is at the 400-line cap) so the
  * email-addressable `threadParticipants` derivation lives next to the other
@@ -60,7 +60,7 @@ export function listCommentAuthorsForRecord(config: {
 
 /**
  * Distinct EMAIL ADDRESSES of every comment author on a given record
- * (excluding soft-deleted comments and guest authors). Powers GAP-13: the
+ * (excluding soft-deleted comments and guest authors). Powers [internal ref]: the
  * comment-posted trigger's `threadParticipants` must be email-addressable so
  * `{{trigger.threadParticipants}}` is usable directly as an `email.send`
  * `to`. JOINs `recordComments.userId` → `auth.user.email`; the resulting
@@ -101,7 +101,7 @@ export function listCommentAuthorEmailsForRecord(config: {
 }
 
 /**
- * Resolve a single user id to their email address (GAP-13 owner fallback).
+ * Resolve a single user id to their email address ([internal ref] owner fallback).
  * Used when a record's FIRST comment yields no prior-author thread
  * participants — the trigger falls back to the record OWNER's email so a
  * notify-thread automation still has a recipient. Returns `undefined` when
@@ -128,7 +128,7 @@ export function getUserEmailById(config: {
 }
 
 /**
- * Resolve a single user id to `{ id, email, name }` (GAP-20 record-event
+ * Resolve a single user id to `{ id, email, name }` ([internal ref] record-event
  * trigger USER-field hydration). Reuses the same `auth.user` lookup
  * mechanism as `getUserEmailById`, just projecting the display `name`
  * alongside the email so a record-event envelope can hydrate `user`-typed

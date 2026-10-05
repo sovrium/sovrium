@@ -1,3 +1,8 @@
+# The knowledge base: runbooks, decisions, incident write-ups, onboarding notes.
+#
+# Written to be retrieved by an assistant, so `body` is prose that answers a
+# real question. The four fields an assistant sees are the four a reader needs;
+# who wrote a document and when stay on the server.
 name: documents
 fields:
   - id: 1
@@ -12,6 +17,8 @@ fields:
     type: relationship
     relatedTable: tags
     relationType: many-to-one
+    # A tool result and the admin console print the tag's name, not its id.
+    displayField: name
   - id: 4
     name: status
     type: single-select
@@ -19,6 +26,7 @@ fields:
       - draft
       - published
       - archived
+    default: draft
   - id: 5
     name: created_by
     type: created-by
@@ -28,26 +36,62 @@ fields:
   - id: 7
     name: updated_at
     type: updated-at
+
+# Who may do what — over the REST API, in the admin console, and through a
+# tool, because a tool call runs as the key's owner. Every role reads; an
+# editor adds and edits; only an admin deletes. A call a role may not make
+# answers 404, never 403, so the server does not confirm what it refuses.
 permissions:
   read: authenticated
-  create:
-    - editor
-  update:
-    - editor
-  delete:
-    - editor
+  create: [admin, editor]
+  update: [admin, editor]
+  delete: [admin]
+  # Naming the fields every role reads. Without this list a built-in `viewer`
+  # falls back to the platform's cautious default and reads a title and
+  # nothing else — no body to answer from.
+  fields:
+    - field: body
+      read: authenticated
+    - field: tag
+      read: authenticated
+    - field: status
+      read: authenticated
+
+# A draft stays with its author until it is published: everyone else, and
+# their assistants, read published and archived documents only. An admin reads
+# everything.
+rowLevelPermissions:
+  read:
+    when:
+      logic: or
+      conditions:
+        - field: status
+          operator: neq
+          value: draft
+        - field: created_by
+          operator: eq
+          value: $currentUser.id
+
+# What an assistant is offered. Three tools — list, read and create — and no
+# update or delete: adding a document is easy to review and easy to undo, a
+# silent edit or a deletion is not. The description is written for the model:
+# it is the first thing it reads before deciding which tool to call.
 aiAccess:
-  description: Knowledge-base documents the agent can browse and add to. Each document has a title, a long-form body, and an optional tag. Use list/get to discover existing content; use create to record new findings on behalf of the user.
+  description: >-
+    The team's knowledge base: runbooks, decisions, incident write-ups and
+    onboarding notes. Each document has a title, a long-form body, a tag and a
+    status. List the documents first, then read the one that answers the
+    question and name it in your answer. Create a document only when the user
+    asks you to record something, and leave it as a draft.
   operations:
-    - read
     - list
+    - read
     - create
+  # Only these four fields reach the model; the author and the timestamps
+  # never leave the server.
   fieldExposure: whitelist
   whitelistFields:
     - title
     - body
     - tag
     - status
-  annotations:
-    readOnly: false
-    idempotent: false

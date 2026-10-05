@@ -7,21 +7,27 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
+import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
+import { buildUpdateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
+import { buildGuestSession, buildSyntheticSession } from '../build-guest-session'
 import {
-  createRecordProgram,
-  updateRecordProgram,
-} from '@/application/use-cases/tables/write-record-programs'
-import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+  callerRefusal,
+  deletesOf,
+  runLinkReader,
+  runReadAccess,
+  type RunReadAccess,
+  updatesOf,
+  writeRefusal,
+  writerActorOf,
+} from './record-caller-gate'
+import { automationCreateFields } from './record-create-fields'
 import {
-  buildCreateAuthorshipOverrides,
-  buildUpdateAuthorshipOverrides,
-} from '@/domain/models/app/tables/authorship-fields'
-import {
-  buildGuestSession,
-  buildSyntheticSession,
-  buildSystemSession,
-} from '../build-guest-session'
+  announceRecordWrite,
+  deleteAndAnnounce,
+  flattenWrittenRecord,
+  recordEventLoopRefusal,
+  updateAndAnnounce,
+} from './record-events'
 import {
   declaredFieldNames,
   extractIdFromFilter,
@@ -32,34 +38,49 @@ import {
   sortFieldRefusal,
   toQueryFilter,
 } from './record-filters'
+import { buildReadOutput } from './record-read-output'
+import {
+  listableFields,
+  listForRun,
+  READ_REFUSAL,
+  readableRows,
+  scopedListFilter,
+} from './record-read-scope'
 import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
+import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App } from '@/domain/models/app'
 
 /**
  * Resolve the actor id a record write should be attributed to.
  *
- * When the action opts into `runAs: 'triggering-user'` AND the automation
- * carries a triggering user (form submitter, record-event actor, authenticated
- * webhook caller), the write — both its session and its authorship overrides —
- * is attributed to that user. An absent/`'system'` `runAs`, or a user-less
- * trigger (cron, `automation:call`), falls back to the durable system actor,
- * byte-identical to the pre-runAs default. `actorId` is only ever a runtime
- * trigger actor, never author-supplied config, so there is no spoofing surface.
+ * A run someone started by hand is always attributed to them ([internal ref], which
+ * subsumes `runAs` there). Otherwise, when the action opts into
+ * `runAs: 'triggering-user'` AND the automation carries a triggering user
+ * (form submitter, record-event actor, authenticated webhook caller), the
+ * write — both its session and its authorship overrides — is attributed to
+ * that user. An absent/`'system'` `runAs`, or a user-less trigger (cron,
+ * `automation:call`), falls back to the durable system actor, byte-identical to
+ * the pre-runAs default. `actorId` is only ever a runtime trigger actor, never
+ * author-supplied config, so there is no spoofing surface.
  */
-const resolveRunAsActor = (
+export const resolveRunAsActor = (
   props: Readonly<Record<string, unknown>>,
   automation: AutomationContext
 ): string =>
-  props['runAs'] === 'triggering-user' && automation.userId ? automation.userId : SYSTEM_USER_ID
+  props['runAs'] === 'triggering-user' && automation.userId
+    ? automation.userId
+    : writerActorOf(automation)
 
 /**
  * `record/create` handler — creates a row in the named table using the
  * automation's guest session. Accepts `data` or `fields` as the payload key
  * (the spec uses `data`; older shapes use `fields`).
  */
-export const handleRecordCreate: ActionHandler = (action, app, automation) =>
+export const handleRecordCreate: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -78,6 +99,11 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
     if (multiSelectError) {
       return { status: 'failure', error: multiSelectError } as const
     }
+    const refused = yield* writeRefusal({
+      ...{ app, automation, runContext, tableName, event: 'create' },
+      requests: [{ op: 'create', tableName, fields }],
+    })
+    if (refused !== undefined) return refused
 
     // Actor authority: the automation engine writes with a durable, non-null
     // actor id (not the NULL-normalized guest id) so NOT-NULL authorship
@@ -90,10 +116,7 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
     const program = createRecordProgram({
       session: buildSyntheticSession(actorId),
       tableName,
-      fields: {
-        ...fields,
-        ...buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
-      },
+      fields: automationCreateFields(app, tableName, fields, actorId),
     })
     const result = yield* Effect.result(program)
     if (result._tag === 'Failure') {
@@ -101,7 +124,11 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
       const message = err instanceof Error ? err.message : String(err)
       return { status: 'failure', error: message } as const
     }
-    return { status: 'success' } as const
+    // [internal ref]: the new record starts the record automations of its table, and
+    // a later step reads its id as `{{<step>.result.id}}`.
+    const record = flattenWrittenRecord(result.success)
+    yield* announceRecordWrite(runContext, { tableName, event: 'create', record })
+    return { status: 'success', output: { id: record['id'] } } as const
   }).pipe(
     Effect.withSpan('automations.handle-record-create', { attributes: actionAttributes(action) })
   )
@@ -118,7 +145,7 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
  * express the natural "update by business key" pattern. The fast-path for
  * `id equals` is preserved so single-record updates skip the list query.
  */
-export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
+export const handleRecordUpdate: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -135,6 +162,8 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
     if (multiSelectError) {
       return { status: 'failure', error: multiSelectError } as const
     }
+    const loop = recordEventLoopRefusal(runContext, tableName, 'update', Object.keys(data))
+    if (loop !== undefined) return loop
 
     // Lenient lookup — a failed query reads as "matched nothing" and the update
     // then no-ops successfully. Pre-existing behaviour, preserved explicitly;
@@ -156,13 +185,17 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
       // semantics.
       return { status: 'success' } as const
     }
+    const refused = yield* callerRefusal(app, automation, updatesOf(tableName, idsToUpdate, data))
+    if (refused !== undefined) return refused
 
     return yield* applyRecordUpdates({
       actorId: resolveRunAsActor(props, automation),
       tableName,
       idsToUpdate,
       data,
-      tables: app.tables,
+      app,
+      linkReader: yield* runLinkReader(automation),
+      runContext,
     })
   }).pipe(
     Effect.withSpan('automations.handle-record-update', { attributes: actionAttributes(action) })
@@ -187,20 +220,30 @@ const applyRecordUpdates = (config: {
   readonly tableName: string
   readonly idsToUpdate: readonly string[]
   readonly data: Readonly<Record<string, unknown>>
-  readonly tables: App['tables']
-}): Effect.Effect<ActionOutcome, never, TableRepository> =>
+  readonly app: App
+  readonly linkReader: LinkReader | undefined
+  readonly runContext: ActionRunContext | undefined
+}): Effect.Effect<ActionOutcome, never, TableRepository | DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
-    const { actorId, tableName, idsToUpdate, data, tables } = config
+    const { actorId, tableName, idsToUpdate, data, app, linkReader, runContext } = config
     const session = buildSyntheticSession(actorId)
     const fieldsWithAuthorship = {
       ...data,
-      ...buildUpdateAuthorshipOverrides(tables, tableName, actorId),
+      ...buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
     }
     const updates = yield* Effect.result(
       Effect.forEach(
         idsToUpdate,
         (recordId) =>
-          updateRecordProgram(session, tableName, recordId, { fields: fieldsWithAuthorship }),
+          updateAndAnnounce({
+            session,
+            tableName,
+            recordId,
+            fields: fieldsWithAuthorship,
+            runContext,
+            app,
+            linkReader,
+          }),
         { discard: true }
       )
     )
@@ -224,117 +267,6 @@ const applyRecordUpdates = (config: {
  * match the specs exercise (upsert by email).
  */
 /**
- * Create branch of `record/upsert` — no existing match was found.
- *
- * Single-arg config so the helper stays within the `max-params` budget once the
- * [internal ref] `actorId` is threaded alongside the table/data/overrides.
- */
-const upsertCreate = (config: {
-  readonly actorId: string
-  readonly tableName: string
-  readonly data: Readonly<Record<string, unknown>>
-  readonly createOverrides: Readonly<Record<string, string>>
-}): Effect.Effect<ActionOutcome, never, TableRepository> =>
-  Effect.gen(function* () {
-    const { actorId, tableName, data, createOverrides } = config
-    const created = yield* Effect.result(
-      createRecordProgram({
-        session: buildSyntheticSession(actorId),
-        tableName,
-        fields: { ...data, ...createOverrides },
-      })
-    )
-    return created._tag === 'Failure'
-      ? failureFromError(created.failure)
-      : ({ status: 'success', output: { operation: 'created' } } as const)
-  })
-
-/**
- * Update branch of `record/upsert` — one or more rows matched.
- *
- * Single-arg config so the helper stays within the `max-params` budget once the
- * [internal ref] `actorId` is threaded alongside the table/matchedIds/data/overrides.
- */
-const upsertUpdate = (config: {
-  readonly actorId: string
-  readonly tableName: string
-  readonly matchedIds: readonly string[]
-  readonly data: Readonly<Record<string, unknown>>
-  readonly updateOverrides: Readonly<Record<string, string>>
-}): Effect.Effect<ActionOutcome, never, TableRepository> =>
-  Effect.gen(function* () {
-    const { actorId, tableName, matchedIds, data, updateOverrides } = config
-    const session = buildSyntheticSession(actorId)
-    const fields = { ...data, ...updateOverrides }
-    const updates = yield* Effect.result(
-      Effect.forEach(
-        matchedIds,
-        (recordId) => updateRecordProgram(session, tableName, recordId, { fields }),
-        { discard: true }
-      )
-    )
-    return updates._tag === 'Failure'
-      ? failureFromError(updates.failure)
-      : ({ status: 'success', output: { operation: 'updated' } } as const)
-  })
-
-export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
-  Effect.gen(function* () {
-    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const tableName = stringProp(props, 'table')
-    const data = recordProp(props, 'data') ?? recordProp(props, 'fields') ?? {}
-
-    if (!tableName) {
-      return { status: 'failure', error: 'record.upsert requires a table name' } as const
-    }
-
-    // Multi-select membership + cardinality — see `handleRecordCreate`. Checked
-    // once here rather than inside `upsertCreate`/`upsertUpdate`: `data` is the
-    // same payload on both branches, and neither branch receives `app`.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
-    if (multiSelectError) {
-      return { status: 'failure', error: multiSelectError } as const
-    }
-
-    // Lenient lookup — pre-existing behaviour, preserved explicitly. Note this
-    // is the sharpest of the four lenient sites: a failed query reads as "no
-    // existing row", so the upsert takes its CREATE branch and every retry
-    // duplicates. See `resolveIdsByFilterLenient`. An unresolvable filter field
-    // is refused outright rather than degraded into that create branch.
-    const targets = yield* resolveActionTargetIds({
-      operator: 'record.upsert',
-      tableName,
-      filter: props['filter'],
-      declaredFields: declaredFieldNames(app, tableName),
-      idFastPath: stringProp(props, 'id'),
-    })
-    if (!targets.resolved) return targets.outcome
-    const matchedIds: readonly string[] = targets.ids
-
-    // Actor authority: `runAs: 'triggering-user'` attributes both
-    // branches — create-branch `created-by` and update-branch `updated-by` —
-    // to the triggering user when one exists, else the system actor.
-    const actorId = resolveRunAsActor(props, automation)
-
-    return matchedIds.length === 0
-      ? yield* upsertCreate({
-          actorId,
-          tableName,
-          data,
-          createOverrides: buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
-        })
-      : yield* upsertUpdate({
-          actorId,
-          tableName,
-          matchedIds,
-          data,
-          updateOverrides: buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
-        })
-  }).pipe(
-    Effect.withSpan('automations.handle-record-upsert', { attributes: actionAttributes(action) })
-  )
-
-/**
  * `record/delete` handler — apply a filter, then soft-delete each matched
  * row via the existing `deleteRecordProgram` (which goes through the table
  * repository's permission + cascade pipeline, so `deleted_at` is set rather
@@ -348,7 +280,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
  * already requires a non-empty `filter` at decode time; this guard defends
  * the code-action invoker path that bypasses schema validation.
  */
-export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
+export const handleRecordDelete: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -385,14 +317,21 @@ export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
       // DELETE semantics: zero rows affected is not an error).
       return { status: 'success', output: { deletedCount: 0 } } as const
     }
+    const refused = yield* writeRefusal({
+      ...{ app, automation, runContext, tableName, event: 'delete' },
+      requests: deletesOf(tableName, idsToDelete),
+    })
+    if (refused !== undefined) return refused
 
-    // System authority — soft-delete stamps `deleted_by` with the durable
-    // system actor instead of NULL under the guest id.
-    const session = buildSystemSession()
+    // Soft-delete stamps `deleted_by` with the caller of a hand-started run,
+    // else the durable system actor — never NULL under the guest id.
+    const session = buildSyntheticSession(writerActorOf(automation))
     const deletes = yield* Effect.result(
-      Effect.forEach(idsToDelete, (recordId) => deleteRecordProgram(session, tableName, recordId), {
-        discard: true,
-      })
+      Effect.forEach(
+        idsToDelete,
+        (recordId) => deleteAndAnnounce({ session, tableName, recordId, runContext }),
+        { discard: true }
+      )
     )
     if (deletes._tag === 'Failure') {
       const err = deletes.failure
@@ -404,27 +343,8 @@ export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
     Effect.withSpan('automations.handle-record-delete', { attributes: actionAttributes(action) })
   )
 
-/**
- * Build the canonical read success output, SHARED by `record/read` and
- * `record/list`. Surfaces both `record` (first row or undefined) and
- * `records` (the whole array), so `{{getUser.record.email}}` works for the
- * single-row case AND `{{listActive.records}}` for the set case.
- *
- * Sharing it is what makes the [internal ref] operator split invisible downstream:
- * a config migrating a filtered `read` to a `list` keeps every template it
- * had. Do not give `list` its own envelope.
- *
- * The webhook dispatcher serialises this object under the response's
- * top-level `output` key, so any field on the row appears verbatim
- * somewhere in the response JSON (the contract [internal ref] asserts against).
- */
-const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]): ActionOutcome => ({
-  status: 'success',
-  output: {
-    record: records[0] ?? undefined,
-    records,
-  },
-})
+/** What a read step needs: the table, the starter's role and the related rows' rules. */
+type ReadRequirements = TableRepository | AuthRepository | DataSourceRepository
 
 /**
  * `record/read`'s only path: straight to `getRecord` (single SELECT by id).
@@ -432,15 +352,28 @@ const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]):
  * template substitution sees one shape whichever operator produced it.
  */
 const readByPrimaryKey = (
-  tableName: string,
-  recordId: string
-): Effect.Effect<ActionOutcome, never, TableRepository> =>
+  target: { readonly app: App; readonly tableName: string; readonly recordId: string },
+  access: RunReadAccess,
+  automation: AutomationContext
+): Effect.Effect<ActionOutcome, never, ReadRequirements> =>
   Effect.gen(function* () {
+    const { app, tableName, recordId } = target
+    if (access.kind === 'refused') return READ_REFUSAL
     const repo = yield* TableRepository
     const result = yield* Effect.result(repo.getRecord(buildGuestSession(), tableName, recordId))
     if (result._tag === 'Failure') return failureFromError(result.failure)
-    const record = result.success
-    return buildReadOutput(record ? [record] : [])
+    const record = result.success ?? undefined
+    const context = { app, tableName, access, automation }
+    if (access.kind === 'system') return yield* buildReadOutput(record ? [record] : [], context)
+    // A hand-started run reads as its starter: a row they may not read — or one
+    // that does not exist, so the two cannot be told apart — fails the step as
+    // the records API answers them, and a column they may not read is dropped.
+    if (record === undefined || !access.scope.admits(record)) return READ_REFUSAL
+    const rows = yield* Effect.result(
+      readableRows({ app, tableName, rows: [record], access, automation })
+    )
+    if (rows._tag === 'Failure') return failureFromError(rows.failure)
+    return yield* buildReadOutput(rows.success, context)
   })
 
 /** One decoded `record/list` sort key, with its direction already resolved. */
@@ -528,54 +461,6 @@ const readFieldNames = (value: unknown): readonly string[] | undefined => {
 }
 
 /**
- * The keys a trim keeps whatever the caller asked for.
- *
- * `id` is the addressable handle downstream steps use to act on what the list
- * found — a trim that removed it would return rows nothing else could
- * reference. The two timestamps are here so this surface answers the SAME shape
- * as the records API's `?fields=`, which keeps `createdAt`/`updatedAt` on the
- * envelope whatever is requested. The first version of this trim kept only
- * `id`, so the two read surfaces answered differently for the same table and a
- * template author had to know which one they were standing in.
- *
- * Guarded by `Object.hasOwn` at the call site, so a table without a timestamp
- * column simply does not get the key rather than getting an `undefined` one.
- */
-const ALWAYS_KEPT_COLUMNS = ['id', 'created_at', 'updated_at'] as const
-
-/**
- * Trim each row to {@link ALWAYS_KEPT_COLUMNS} plus the requested columns.
- *
- * ⚠️ This is a PAYLOAD TRIM, not a permission boundary. Every read-permission
- * decision lives in `filterReadableFields`, which needs a `userRole` the
- * automation path does not have — record actions run under the engine's guest
- * session. `fields` narrows what a template or a webhook response carries; it
- * grants and withholds nothing. Anyone who can edit the config can already read
- * the whole row by deleting the prop.
- *
- * The keys are raw snake_case column names, not the API envelope's camelCase:
- * an automation returns FLAT database rows, which is also why
- * `applyFieldSelection` cannot be reused here — it answers the nested
- * `{ id, fields: {…} }` envelope instead.
- *
- * `formula`, `lookup`, `rollup` and `count` columns need no special handling:
- * the relation `listRecords` targets is the VIEW when one exists, so each is
- * addressable under its own name and arrives already computed. Trimming by key
- * therefore keeps them, where a trim built on "does this field own a base
- * column" would drop exactly the computed values that were asked for.
- */
-const trimToFields = (
-  records: readonly Readonly<Record<string, unknown>>[],
-  fields: readonly string[]
-): readonly Readonly<Record<string, unknown>>[] =>
-  records.map((record) =>
-    [...ALWAYS_KEPT_COLUMNS, ...fields].reduce<Record<string, unknown>>(
-      (acc, key) => (Object.hasOwn(record, key) ? { ...acc, [key]: record[key] } : acc),
-      {}
-    )
-  )
-
-/**
  * Adjudicate a `record/list`'s two author-supplied identifier surfaces, or
  * return the refusal that stops it before any SQL is built.
  *
@@ -635,7 +520,7 @@ const listRefusal = (config: {
  * validation), which must get a clean failure rather than a NPE inside the
  * repository.
  */
-export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
+export const handleRecordRead: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -647,10 +532,57 @@ export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
     if (idValue === undefined) {
       return { status: 'failure', error: 'record.read requires props.id' } as const
     }
-    return yield* readByPrimaryKey(tableName, idValue)
+    return yield* readByPrimaryKey(
+      { app, tableName, recordId: idValue },
+      yield* runReadAccess(app, automation, tableName),
+      automation
+    )
   }).pipe(
     Effect.withSpan('automations.handle-record-read', { attributes: actionAttributes(action) })
   )
+
+/**
+ * The query half of `record/list`: page, order, scope, fetch, trim.
+ *
+ * The implicit `id ASC` is appended only when a page is actually being cut. An
+ * unpaged list returns the whole set, so ties within it can neither hide nor
+ * duplicate a row, and adding a key the author never wrote would change the
+ * ordering they DID ask for.
+ *
+ * Each optional argument reaches the port as an explicit `undefined` rather than
+ * a conditional spread: the port destructures its config, so an absent key and
+ * an undefined one reach the query builders identically.
+ */
+const runListQuery = (config: {
+  readonly app: App
+  readonly tableName: string
+  readonly props: Readonly<Record<string, unknown>>
+  readonly access: RunReadAccess
+  readonly queryFilter: QueryFilter | undefined
+  readonly sortKeys: readonly SortKey[]
+  readonly fields: readonly string[] | undefined
+  readonly automation: AutomationContext
+}): Effect.Effect<ActionOutcome, never, ReadRequirements> =>
+  Effect.gen(function* () {
+    const { app, tableName, props, access, queryFilter, sortKeys, fields } = config
+    const limit = optionalIntProp(props, 'limit')
+    const offset = optionalIntProp(props, 'offset')
+    const paginates = limit !== undefined || offset !== undefined
+    const sort = sortToPortString(paginates ? withDeterministicTiebreak(sortKeys) : sortKeys)
+    const filter = scopedListFilter(queryFilter, access)
+    const { automation } = config
+    const context = { app, tableName, access, automation, fields }
+    if (filter === 'nothing') return yield* buildReadOutput([], context)
+    const result = yield* Effect.result(
+      listForRun({ app, tableName, access, automation, filter, sort, limit, offset })
+    )
+    if (result._tag === 'Failure') return failureFromError(result.failure)
+    const read = yield* Effect.result(
+      readableRows({ app, tableName, rows: result.success, access, automation: config.automation })
+    )
+    if (read._tag === 'Failure') return failureFromError(read.failure)
+    return yield* buildReadOutput(read.success, context)
+  })
 
 /**
  * `record/list` handler — the set-shaped read.
@@ -670,15 +602,17 @@ export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
  * answer on a successful run, which is the failure mode this whole surface is
  * built to avoid.
  */
-export const handleRecordList: ActionHandler = (action, app, _automation) =>
+export const handleRecordList: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
     if (!tableName) {
       return { status: 'failure', error: 'record.list requires a table name' } as const
     }
+    const access = yield* runReadAccess(app, automation, tableName)
+    if (access.kind === 'refused') return READ_REFUSAL
 
-    const declaredFields = declaredFieldNames(app, tableName)
+    const declaredFields = listableFields(app, tableName, access)
     const queryFilter = props['filter'] === undefined ? undefined : toQueryFilter(props['filter'])
     const sortKeys = readSortKeys(props['sort'])
     const fields = readFieldNames(props['fields'])
@@ -695,36 +629,10 @@ export const handleRecordList: ActionHandler = (action, app, _automation) =>
       return { status: 'failure', error: refusal } as const
     }
 
-    const limit = optionalIntProp(props, 'limit')
-    const offset = optionalIntProp(props, 'offset')
-    // The implicit `id ASC` is appended only when a page is actually being cut.
-    // An unpaged list returns the whole set, so ties within it can neither hide
-    // nor duplicate a row, and adding a key the author never wrote would change
-    // the ordering they DID ask for.
-    const paginates = limit !== undefined || offset !== undefined
-    const sort = sortToPortString(paginates ? withDeterministicTiebreak(sortKeys) : sortKeys)
-
-    const repo = yield* TableRepository
-    // Each optional argument is passed as an explicit `undefined` rather than
-    // conditionally spread: the port destructures its config, so an absent key
-    // and an undefined one reach the query builders identically, and four
-    // spread-ternaries here would buy nothing but branches.
-    const result = yield* Effect.result(
-      repo.listRecords({
-        session: buildGuestSession(),
-        tableName,
-        app,
-        filter: queryFilter,
-        sort,
-        limit,
-        offset,
-      })
-    )
-    if (result._tag === 'Failure') return failureFromError(result.failure)
-
-    return buildReadOutput(
-      fields === undefined ? result.success : trimToFields(result.success, fields)
-    )
+    return yield* runListQuery({
+      ...{ app, tableName, props, access, queryFilter, sortKeys, fields },
+      automation,
+    })
   }).pipe(
     Effect.withSpan('automations.handle-record-list', { attributes: actionAttributes(action) })
   )

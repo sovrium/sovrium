@@ -104,12 +104,10 @@
  * `--sv-*` were somehow unresolved, `var()` falls through to FullCalendar's own
  * `:root` default rather than to `unset`, which is the correct degrade.
  *
- * The event TEXT is the scheme-invariant `--sv-neutral-950`, not
- * `--sv-fg-inverse`, because the fill it sits on is scheme-invariant too:
- * `--sv-chart-1` is the same blue in both palettes, while `--sv-fg-inverse`
- * flips to near-white in the light one. White on that blue measured 3.5:1 in
- * the light week view, under the 4.5:1 of body text; the near-black it is in
- * dark reads 5.5:1, and now reads so in both.
+ * An event with no `colorField` wears the theme's `primary`, in its dark value
+ * under the dark scheme, and its text the `primary-fg` the theme pairs with it
+ * — the pair every primary button already reads at. A `colorField` chip keeps
+ * its option colour: the island sets that per event, and it outranks these.
  */
 const FC_VAR_BRIDGE = `.fc {
       --fc-border-color: var(--sv-border);
@@ -117,9 +115,9 @@ const FC_VAR_BRIDGE = `.fc {
       --fc-neutral-bg-color: var(--sv-bg-subtle);
       --fc-neutral-text-color: var(--sv-fg-muted);
       --fc-today-bg-color: var(--sv-bg-subtle);
-      --fc-event-bg-color: var(--sv-chart-1);
-      --fc-event-border-color: var(--sv-chart-1);
-      --fc-event-text-color: var(--sv-neutral-950);
+      --fc-event-bg-color: var(--sv-primary);
+      --fc-event-border-color: var(--sv-primary);
+      --fc-event-text-color: var(--sv-primary-fg);
       --fc-now-indicator-color: var(--sv-error-solid);
       --fc-list-event-hover-bg-color: var(--sv-bg-subtle);
       --fc-highlight-color: var(--sv-bg-subtle);

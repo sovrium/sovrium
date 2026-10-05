@@ -205,6 +205,15 @@ function CreateField({
 }
 
 /**
+ * A field the create dialog draws a control for: one a single control can
+ * capture, and that the reader may write (the server marks the others
+ * `readOnly` in their metadata).
+ */
+function offersCreateControl(type: string, meta: FieldMetaMap[string] | undefined): boolean {
+  return !UNSUPPORTED_CREATE_TYPES.has(type) && meta?.readOnly !== true
+}
+
+/**
  * Resolve the ordered writable field descriptors from the table's field-name
  * list + the resolved `fieldMeta`. A field with no metadata falls back to a
  * plain `text` control; relationship/formula/lookup/rollup/count fields are
@@ -217,7 +226,7 @@ function resolveWritableFields(
   return fields.flatMap((name): ReadonlyArray<CreateFieldDef> => {
     const meta = fieldMeta?.[name]
     const type = meta?.type ?? 'text'
-    if (UNSUPPORTED_CREATE_TYPES.has(type)) return []
+    if (!offersCreateControl(type, meta)) return []
     return [
       {
         name,

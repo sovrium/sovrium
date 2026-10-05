@@ -19,6 +19,9 @@
  * "No answer" has exactly one representation, and it is `null` — not `''`,
  * and not the column's first option.
  *
+ * An `email`, `url` or `phone-number` column is typed text: an empty answer
+ * there is no address at all, so it stores `null` like any other typed column.
+ *
  * Free-text columns keep what the visitor typed, empty included: an empty
  * text input stores a genuine empty string, which several shipped behaviours
  * rely on, and there is no constraint for it to violate — except a `unique`
@@ -43,9 +46,6 @@ const FREE_TEXT_COLUMN_TYPES: ReadonlySet<string> = new Set([
   'single-line-text',
   'long-text',
   'rich-text',
-  'email',
-  'url',
-  'phone-number',
   'code',
   'barcode',
 ])

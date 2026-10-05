@@ -1,0 +1,43 @@
+# The bar on the public pages: the handbook's name and the way in. Nothing
+# internal appears here — no article, no policy, no colleague.
+type: container
+element: header
+props:
+  className: border-b border-border bg-background
+children:
+  - type: container
+    props:
+      className: flex h-[60px] items-center gap-[18px] px-10 max-md:h-14 max-md:gap-2.5 max-md:px-3.5
+    children:
+      - type: link
+        props:
+          href: /
+          className: flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: book-open
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: Corvel handbook
+      - type: container
+        props:
+          className: grow
+      - type: container
+        element: nav
+        props:
+          aria-label: Site
+          className: flex items-center gap-[18px] text-sm
+        children:
+          - type: link
+            props:
+              href: /
+              className: font-medium text-foreground max-md:hidden
+            content: About the handbook
+          - type: link
+            props:
+              href: /sign-in
+              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-background-subtle
+            content: Sign in

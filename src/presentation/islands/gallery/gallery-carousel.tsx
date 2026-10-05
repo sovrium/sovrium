@@ -42,9 +42,11 @@ const PAGE_FRACTION = 0.9
 export function GalleryCarousel({
   records,
   card,
+  table,
 }: {
   readonly records: readonly TableRecord[]
   readonly card: GalleryCard | undefined
+  readonly table?: string
 }): ReactElement {
   const track = useRef<HTMLUListElement>(null)
 
@@ -54,13 +56,10 @@ export function GalleryCarousel({
     element.scrollBy({ left: direction * element.clientWidth * PAGE_FRACTION, behavior: 'smooth' })
   }
 
+  // The layout is declared, so the host that names the gallery carries it
+  // from the server; the track draws inside it and names nothing.
   return (
-    <div
-      data-component="gallery"
-      data-layout="carousel"
-      data-gallery-layout="carousel"
-      className="relative w-full"
-    >
+    <div className="relative w-full">
       <ul
         ref={track}
         data-gallery-track=""
@@ -75,6 +74,7 @@ export function GalleryCarousel({
             <GalleryCardView
               record={record}
               card={card}
+              table={table}
             />
           </li>
         ))}

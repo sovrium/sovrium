@@ -6,11 +6,10 @@
  */
 
 import { markRecordCommentsReadProgram } from '@/application/use-cases/tables/comment-read-state-programs'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { notFoundResponse } from './comment-handler-shared'
+import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -29,7 +28,7 @@ import type { Context } from 'hono'
  * cannot access — never 403.
  */
 export async function handleMarkCommentsRead(c: Context, app: App) {
-  const { session, userRole, userGroups } = getTableContext(c)
+  const { session } = getTableContext(c)
   const tableId = c.req.param('tableId')!
   const recordId = c.req.param('recordId')!
 
@@ -42,12 +41,11 @@ export async function handleMarkCommentsRead(c: Context, app: App) {
     return notFoundResponse(c)
   }
 
-  // S1: read-permission denial returns 404 (anti-enumeration), like list.
-  // Group-aware: a bare role can never match a `group:<name>` entry, so passing
-  // `userRole` alone left every group-granted read inert on this endpoint.
-  if (!hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)) {
-    return notFoundResponse(c)
-  }
+  // S1: the thread's read state answers to the same gates as a read of the
+  // record — table read grant (group-aware), then its row-level read rule —
+  // and every refusal is the missing-record 404 (anti-enumeration).
+  const gateError = await checkRecordReadGate(c, app, table, recordId)
+  if (gateError) return gateError
 
   const result = await runTableProgram(
     markRecordCommentsReadProgram({ session, tableId, recordId, tableName: table.name })

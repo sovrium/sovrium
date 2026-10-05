@@ -5,32 +5,75 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
+  GALLERY_CARD_AVATAR_CLASSES,
   GALLERY_CARD_BODY_CLASSES,
   GALLERY_CARD_BODY_NO_COVER_CLASSES,
   GALLERY_CARD_DEFAULT_TITLE_CLASSES,
   GALLERY_COVER_FALLBACK_HEIGHT_CLASS,
+  computeGalleryCardBadgeClasses,
   computeGalleryCardClasses,
   computeGalleryImageClasses,
   computeGalleryOverlayClasses,
   resolveGalleryAspectRatio,
 } from '@/presentation/design/gallery-default-classes'
-import { renderCardChild, substitute } from '../kanban/card-template'
+import {
+  renderCardChild,
+  resolveImageSource,
+  substitute,
+  type CardChildClasses,
+} from '../kanban/card-template'
+import { cardPathClick, openCardDrawer } from '../runtime/card-click'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 import type { GalleryCard } from '@/domain/models/app/pages/components/component-types/data/gallery'
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactElement } from 'react'
 
-interface CardData {
-  readonly navigatePath: string | undefined
-  readonly coverImageSrc: string | undefined
+/** A card that opens a record: the pointer and the hover border say so. */
+const CLICKABLE_CARD_CLASSES = 'cursor-pointer hover:border-primary'
+
+/** The link a navigating card wraps its content in: a block, in the card's own colours. */
+const GALLERY_CARD_LINK_CLASSES = 'block text-inherit no-underline'
+
+/** The gallery's classes for the record components a card slot draws. */
+const CARD_CHILD_CLASSES: CardChildClasses = {
+  avatar: GALLERY_CARD_AVATAR_CLASSES,
+  badge: computeGalleryCardBadgeClasses(),
 }
 
-/** Resolve onClick navigate action to a concrete path with $record.* substitutions. */
-function resolveNavigatePath(onClick: Action | undefined, record: TableRecord): string | undefined {
-  if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
-  return substitute(onClick.path, record)
+/** An absent key reads as `undefined` when destructured, so a no-op result omits it. */
+interface CardData {
+  readonly navigatePath?: string
+  readonly openDrawer?: () => void
+  readonly coverImageSrc?: string
+}
+
+/**
+ * Resolve onClick navigate action to a concrete path with $record.* substitutions.
+ *
+ * The path becomes a link's `href` and may carry record data, so it is held to
+ * a board card's rule: a page on this site only. A filled path that points to
+ * another site or at a script draws no link.
+ */
+function resolveNavigatePath(
+  onClick: GalleryCard['onClick'],
+  record: TableRecord
+): string | undefined {
+  if (!onClick || !('type' in onClick)) return undefined
+  return toSafeRedirectPath(substitute(onClick.path, record))
+}
+
+/** The card's `openDrawer` click on this record, as a board card's opens it. */
+function resolveDrawerOpener(
+  onClick: GalleryCard['onClick'],
+  record: TableRecord,
+  table: string | undefined
+): (() => void) | undefined {
+  if (!onClick || !('action' in onClick)) return undefined
+  const { component } = onClick
+  return () => openCardDrawer(component, record, table)
 }
 
 /** Resolve `coverImage` template to a usable URL or undefined. */
@@ -38,27 +81,20 @@ function resolveCoverImage(
   coverImage: string | undefined,
   record: TableRecord
 ): string | undefined {
-  if (coverImage === undefined) return undefined
-  const resolved = substitute(coverImage, record)
-  // Empty string means the referenced field was null/undefined — drop it so we
-  // don't render `<img src="">` which would still satisfy `toBeVisible()`.
-  return resolved === '' ? undefined : resolved
+  return coverImage === undefined ? undefined : resolveImageSource(coverImage, record)
 }
 
 /** Resolve all card-template-derived values in one pass. */
-function resolveCardData(card: GalleryCard | undefined, record: TableRecord): CardData {
-  if (!card) {
-    return { navigatePath: undefined, coverImageSrc: undefined }
-  }
+function resolveCardData(
+  card: GalleryCard | undefined,
+  record: TableRecord,
+  table: string | undefined
+): CardData {
+  if (!card) return {}
   return {
     navigatePath: resolveNavigatePath(card.onClick, record),
+    openDrawer: resolveDrawerOpener(card.onClick, record, table),
     coverImageSrc: resolveCoverImage(card.coverImage, record),
-  }
-}
-
-function navigateTo(path: string): void {
-  if (typeof globalThis !== 'undefined' && globalThis.location) {
-    globalThis.location.assign(path)
   }
 }
 
@@ -129,12 +165,15 @@ function GalleryCardBody({
           <img
             src={coverImageSrc}
             alt=""
+            loading={card.loading ?? 'lazy'}
             className={computeGalleryImageClasses({ part: 'img' })}
           />
         </div>
       )}
       <div className={GALLERY_CARD_BODY_CLASSES}>
-        {card.children?.map((child, index) => renderCardChild(child, record, index))}
+        {card.children?.map((child, index) =>
+          renderCardChild(child, record, index, CARD_CHILD_CLASSES)
+        )}
       </div>
     </>
   )
@@ -142,20 +181,22 @@ function GalleryCardBody({
 
 /**
  * Build the hover-overlay button click handler. Stops bubbling so the card's
- * own onClick (navigate) doesn't fire when the button is clicked.
+ * own click doesn't fire when the button is clicked. The filled path is held
+ * to the card's rule: followed only when it stays on this site.
  */
 function buildOverlayClickHandler(
   navigatePath: string | undefined
 ): (e: MouseEvent<HTMLButtonElement>) => void {
+  const follow = navigatePath === undefined ? undefined : cardPathClick(navigatePath)
   return (e) => {
     e.stopPropagation()
-    if (navigatePath) navigateTo(navigatePath)
+    follow?.()
   }
 }
 
 /**
- * Render an action button inside the hover overlay. Uses `globalThis.location`
- * for `navigate` actions to mirror the card's primary onClick navigation.
+ * Render an action button inside the hover overlay. A `navigate` action goes
+ * where the card's own link would: a page on this site only.
  */
 function HoverOverlayButton({
   child,
@@ -226,31 +267,6 @@ function HoverOverlay({
   )
 }
 
-interface CardNavigation {
-  readonly onClick: (() => void) | undefined
-  readonly onKeyDown: ((e: KeyboardEvent<HTMLDivElement>) => void) | undefined
-  readonly navigateProps: { readonly role?: string; readonly tabIndex?: number }
-  readonly cursorClass: string
-}
-
-/** Build the navigation handlers + a11y props for a card with a navigate action. */
-function buildCardNavigation(navigatePath: string | undefined): CardNavigation {
-  if (!navigatePath) {
-    return { onClick: undefined, onKeyDown: undefined, navigateProps: {}, cursorClass: '' }
-  }
-  return {
-    onClick: () => navigateTo(navigatePath),
-    onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        navigateTo(navigatePath)
-      }
-    },
-    navigateProps: { role: 'button', tabIndex: 0 },
-    cursorClass: 'cursor-pointer hover:border-primary',
-  }
-}
-
 /** Render the card body — either configured template or default fallback. */
 function CardBody({
   card,
@@ -277,30 +293,87 @@ function CardBody({
   )
 }
 
-/** Render a single card. */
+/** Enter or Space on a card that opens a drawer opens it, as a click does. */
+function buildDrawerKeyHandler(open: () => void): (e: KeyboardEvent<HTMLDivElement>) => void {
+  return (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    open()
+  }
+}
+
+/** The card's content, wrapped in what its click does: a link, a drawer opener, or nothing. */
+function CardClickTarget({
+  navigatePath,
+  openDrawer,
+  body,
+}: {
+  readonly navigatePath: string | undefined
+  readonly openDrawer: (() => void) | undefined
+  readonly body: ReactElement
+}): ReactElement {
+  if (navigatePath) {
+    return (
+      <a
+        href={navigatePath}
+        className={GALLERY_CARD_LINK_CLASSES}
+      >
+        {body}
+      </a>
+    )
+  }
+  if (!openDrawer) return body
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openDrawer}
+      onKeyDown={buildDrawerKeyHandler(openDrawer)}
+    >
+      {body}
+    </div>
+  )
+}
+
+/**
+ * Render a single card.
+ *
+ * A card whose `onClick` navigates is a LINK to that address: its cover and
+ * body sit inside a real `<a href>`, so a reader can open the record in a new
+ * tab and a crawler can follow it from the index. A card whose `onClick` opens
+ * a drawer wraps them in a button that does. The hover overlay stays outside
+ * either, since a button may not sit inside one.
+ */
 export function GalleryCardView({
   record,
   card,
+  table,
 }: {
   readonly record: TableRecord
   readonly card?: GalleryCard
+  readonly table?: string
 }): ReactElement {
-  const { navigatePath, coverImageSrc } = resolveCardData(card, record)
-  const { onClick, onKeyDown, navigateProps, cursorClass } = buildCardNavigation(navigatePath)
+  const { navigatePath, openDrawer, coverImageSrc } = resolveCardData(card, record, table)
+  const clickable = navigatePath !== undefined || openDrawer !== undefined
+  const body = (
+    <CardBody
+      card={card}
+      record={record}
+      coverImageSrc={coverImageSrc}
+    />
+  )
 
   return (
     <div
       data-role="gallery-card"
-      data-clickable={navigatePath ? 'true' : undefined}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      {...navigateProps}
-      className={`${computeGalleryCardClasses()} ${cursorClass}`}
+      data-component-type="card"
+      data-clickable={clickable ? 'true' : undefined}
+      className={`${computeGalleryCardClasses()} ${clickable ? CLICKABLE_CARD_CLASSES : ''}`}
     >
-      <CardBody
-        card={card}
-        record={record}
-        coverImageSrc={coverImageSrc}
+      <CardClickTarget
+        navigatePath={navigatePath}
+        openDrawer={openDrawer}
+        body={body}
       />
       {card ? (
         <HoverOverlay

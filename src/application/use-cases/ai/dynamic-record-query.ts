@@ -23,12 +23,10 @@ import {
   DynamicRecordRepository,
   type DynamicRecordAggregateInput,
   type DynamicRecordCountInput,
-  type DynamicRecordDeleteInput,
   type DynamicRecordError,
   type DynamicRecordInsertInput,
   type DynamicRecordListInput,
-  type DynamicRecordUpdateAllInput,
-  type DynamicRecordUpdateByIdInput,
+  type DynamicRecordUpdateByIdsInput,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
 
 /** Run a `COUNT(*)` over a dynamic table. */
@@ -71,30 +69,11 @@ export const insertDynamicRecord = (
     return yield* repo.insert(input)
   }).pipe(Effect.withSpan('ai.insert-dynamic-record'))
 
-/** Update a single row of a dynamic table by its `id`. */
-export const updateDynamicRecordById = (
-  input: DynamicRecordUpdateByIdInput
-): Effect.Effect<boolean, DynamicRecordError, DynamicRecordRepository> =>
+/** Update the rows of a dynamic table named by `ids`; resolves the affected ids. */
+export const updateDynamicRecordsByIds = (
+  input: DynamicRecordUpdateByIdsInput
+): Effect.Effect<ReadonlyArray<number | string>, DynamicRecordError, DynamicRecordRepository> =>
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
-    return yield* repo.updateById(input)
-  }).pipe(Effect.withSpan('ai.update-dynamic-record-by-id'))
-
-/** Update every row of a dynamic table; resolves the affected ids. */
-export const updateAllDynamicRecords = (
-  input: DynamicRecordUpdateAllInput
-): Effect.Effect<ReadonlyArray<number>, DynamicRecordError, DynamicRecordRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* DynamicRecordRepository
-    return yield* repo.updateAll(input)
-  }).pipe(Effect.withSpan('ai.update-all-dynamic-records'))
-
-/** Hard-delete rows from a dynamic table; resolves the deleted ids. */
-export const deleteDynamicRecords = (
-  input: DynamicRecordDeleteInput
-): Effect.Effect<ReadonlyArray<number>, DynamicRecordError, DynamicRecordRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* DynamicRecordRepository
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo` is the DynamicRecordRepository port, not a Drizzle table; the WHERE filter lives in `input.filter`
-    return yield* repo.delete(input)
-  }).pipe(Effect.withSpan('ai.delete-dynamic-records'))
+    return yield* repo.updateByIds(input)
+  }).pipe(Effect.withSpan('ai.update-dynamic-records-by-ids'))

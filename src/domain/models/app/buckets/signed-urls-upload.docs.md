@@ -28,7 +28,7 @@ Cookie: <session>
 | `contentType` | no       | any     | Enforced on the write                             |
 | `maxSize`     | no       | 10 MB   | A byte ceiling, enforced on the write             |
 
-Unlike a download token, an upload token does **not** require the file to exist — that is the point. The `signUpload` permission gates who may mint one, and it defaults to admin-only.
+Unlike a download token, an upload token does **not** require the file to exist — that is the point. The `signUpload` permission gates who may mint one, and it defaults to admin-only (the built-in `admin` and the app's highest role).
 
 ### The constraints are signed
 
@@ -66,11 +66,23 @@ Cookie: <session>
   "files": [
     { "path": "photo-1.jpg", "expiresIn": 3600 },
     { "path": "photo-2.jpg", "expiresIn": 3600 },
-    { "path": "uploads/new.jpg", "expiresIn": 600, "operation": "upload" }
+    {
+      "path": "uploads/new.jpg",
+      "expiresIn": 600,
+      "operation": "upload",
+      "contentType": "image/jpeg",
+      "maxSize": 5242880
+    }
   ]
 }
 ```
 
-Each entry carries its own lifetime and its own operation. A download entry whose file is missing comes back with an error **instead of failing the batch** — a gallery with one dead reference still renders the other ninety-nine.
+Each entry carries its own lifetime and its own operation.
 
-Two things do fail the whole request: more than a hundred entries, and any single out-of-range lifetime. The asymmetry is intentional — a missing file is a data condition you can render around, while a bad expiry is a bug in the caller.
+Each entry is judged by the same grants as the single form: a download entry needs the bucket's `sign` permission, an upload entry needs `signUpload`. A caller who lacks either is refused the whole request, with `404` when signed in and `401` when anonymous, and gets the same answer whether the named files exist or not. A batch never lets anyone sign more than they could one file at a time.
+
+An upload entry takes the same `contentType` and `maxSize` fields as a single upload request, with the same defaults (any type, 10 MB). Both are bound into its signature and enforced on the write.
+
+A download entry whose file is missing comes back with an error **instead of failing the batch** — a gallery with one dead reference still renders the other ninety-nine.
+
+A few things do fail the whole request, and sign nothing: more than a hundred entries, an entry that names no path (or a path that is not text, answered `400` with `Missing path` as the single form answers it), and any single out-of-range lifetime or size limit. The asymmetry is intentional — a missing file is a data condition you can render around, while a malformed entry is a bug in the caller.

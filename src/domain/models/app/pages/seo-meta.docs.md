@@ -62,6 +62,8 @@ Open Graph metadata for rich social previews, where `determiner` is the word pre
 
 **The sharing image is the part platforms are strictest about.** Use a PNG or JPEG of 1200 by 630 pixels — a 1.91:1 ratio, under 8 MB. WebP is acceptable, since every major platform has rendered it since late 2024. **Never AVIF**: X, LinkedIn, Slack and iMessage all fail to render it, and the link then shares with no image at all, so `sovrium validate` refuses an `openGraph.image` or `twitter.image` whose path ends in `.avif`. Only the path is read, so a query string such as `og.avif?v=2` is refused too. This is the one place the rule for committed images is reversed — imagery on the page itself should be AVIF or WebP, but a sharing card should not. `imageAlt` renders `og:image:alt`; Sovrium does not yet emit the image's width and height, so a platform fetches the image before it can draw the first preview. The refusal covers the two sharing images only: a favicon and an image named in structured data are read by search engines, which render AVIF, so neither is checked.
 
+`openGraph.image` also takes a `$t:` key, for a card per language, and a path starting with `/`; either is emitted as a full address on the host the request arrived on.
+
 ## `twitter`
 
 <!-- sovrium:options TwitterCardSchema depth=2 -->

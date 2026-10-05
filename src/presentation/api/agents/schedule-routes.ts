@@ -101,7 +101,7 @@ const resolveScheduleTarget = async (
 ): Promise<ScheduleTarget> => {
   const agent = findAgent(app, c.req.param('name') ?? '')
   if (!agent) return { refusal: agentNotFound(c) }
-  const triggerRefusal = await checkTriggerPermission(c, agent)
+  const triggerRefusal = await checkTriggerPermission(c, agent, app)
   if (triggerRefusal) return { refusal: triggerRefusal }
   const { schedule } = agent
   if (schedule === undefined) return { refusal: agentNotFound(c) }

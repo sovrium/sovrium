@@ -419,9 +419,13 @@ const renderSkeletonBody = (
 
     {specimen === 'error' && renderSpecimenErrorBanner(labels)}
 
-    {/* Message input row — the island upgrades this to a live form */}
+    {/* Message input row — the island upgrades this to a live form. A live
+        panel's row is a POST form, so no submit that slips past the disabled
+        Send can put the message in the address; a specimen keeps no method
+        ([internal ref] A3 clause 1: a specimen form element carries neither). */}
     <form
       data-ai-chat-form
+      {...(specimen === undefined && { method: 'post' })}
       className={computeAiChatInputRowClasses()}
     >
       <label
@@ -443,9 +447,9 @@ const renderSkeletonBody = (
       {voiceInput !== undefined && renderVoiceSkeleton()}
       {/*
         `type="button"` on a specimen, and it is the whole of what makes the
-        drawing inert. The row already carries no `action` and no `method`, so a
-        submit control is the only remaining way this markup could put something
-        on the wire — and [internal ref] A3 clause 1 permits a specimen form element
+        drawing inert. A specimen's row carries no `action` and no `method`, so
+        a submit control is the only remaining way this markup could put
+        something on the wire — and [internal ref] A3 clause 1 permits a specimen form element
         only while it has none. A live panel keeps its submit; the island is
         what gives that submit somewhere to go.
       */}

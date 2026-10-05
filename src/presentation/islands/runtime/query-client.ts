@@ -53,17 +53,29 @@ export function getPageQueryClient(): QueryClient {
 }
 
 /**
- * Drop every cached answer no mounted island is still reading. Called when a
- * client-side navigation replaces the page's content, right after the outgoing
- * surface's islands unmounted, so the next surface starts from a fresh read
- * (revalidated cheaply by ETag) rather than the previous surface's answers.
+ * Mark every cached answer no mounted island is still reading as stale.
+ * Called when a client-side navigation replaces the page's content, right
+ * after the outgoing surface's islands unmounted.
  *
- * Inactive queries only, rather than `clear()`: the islands OUTSIDE the swapped
- * region (the shell's own) are still mounted, and wiping the queries they
- * observe would strand them on a removed cache entry.
+ * Stale, not dropped. A swapped-in surface that asks a question already
+ * answered remounts from the cached answer — no skeleton — and refetches it in
+ * the background, because an invalidated query refetches on mount regardless
+ * of `staleTime`. That holds for the {@link READ_ONCE_QUERY_OPTIONS} readers
+ * too, whose `staleTime: Infinity` would otherwise keep a revisited surface on
+ * the answer it read the first time. Dropping them instead made every revisit
+ * a cold load.
+ *
+ * Inactive queries only: the islands OUTSIDE the swapped region (the shell's
+ * own) are still mounted and still reading theirs, and a navigation is no
+ * reason to refetch what they show. Invalidating per query through the cache,
+ * rather than `invalidateQueries`, is what keeps this a type-scoped call the
+ * key guard (`query-client-key-guard.test.ts`) sanctions by name.
  */
-export function clearPageQueryClient(): void {
-  pageQueryClient?.removeQueries({ type: 'inactive' })
+export function staleInactivePageQueries(): void {
+  pageQueryClient
+    ?.getQueryCache()
+    .findAll({ type: 'inactive' })
+    .forEach((query) => query.invalidate())
 }
 
 /**

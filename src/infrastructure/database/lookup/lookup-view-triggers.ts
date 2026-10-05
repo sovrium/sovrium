@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getColumnDefaultExpression } from '../sql/sql-column-generators'
 import type { Table } from '@/domain/models/app/tables'
@@ -143,8 +144,8 @@ export const getInsertValueExpressions = (table: Table): readonly string[] =>
     .map((field) => {
       const defaultExpr = getColumnDefaultExpression(field)
       return defaultExpr === undefined
-        ? `NEW.${field.name}`
-        : `COALESCE(NEW.${field.name}, ${defaultExpr})`
+        ? `NEW.${quoteSqlIdentifier(field.name)}`
+        : `COALESCE(NEW.${quoteSqlIdentifier(field.name)}, ${defaultExpr})`
     })
 
 /**
@@ -162,8 +163,10 @@ export const generateInsertTrigger = (
 ): readonly string[] => {
   const insertTriggerFunction = `${viewName}_instead_of_insert`
   const insertTrigger = `${viewName}_insert_trigger`
-  const insertFieldsList = baseFields.join(', ')
-  const insertValuesList = (insertValues ?? baseFields.map((name) => `NEW.${name}`)).join(', ')
+  const insertFieldsList = baseFields.map((name) => quoteSqlIdentifier(name)).join(', ')
+  const insertValuesList = (
+    insertValues ?? baseFields.map((name) => `NEW.${quoteSqlIdentifier(name)}`)
+  ).join(', ')
 
   return [
     `CREATE OR REPLACE FUNCTION ${insertTriggerFunction}()
@@ -192,7 +195,9 @@ export const generateUpdateTrigger = (
 ): readonly string[] => {
   const updateTriggerFunction = `${viewName}_instead_of_update`
   const updateTrigger = `${viewName}_update_trigger`
-  const updateSetList = baseFields.map((name) => `${name} = NEW.${name}`).join(', ')
+  const updateSetList = baseFields
+    .map((name) => `${quoteSqlIdentifier(name)} = NEW.${quoteSqlIdentifier(name)}`)
+    .join(', ')
 
   return [
     `CREATE OR REPLACE FUNCTION ${updateTriggerFunction}()
@@ -271,8 +276,10 @@ export const generateInsertTriggerSqlite = (
   insertValues?: readonly string[]
 ): readonly string[] => {
   const triggerName = `${viewName}_insert_trigger`
-  const insertFieldsList = baseFields.join(', ')
-  const insertValuesList = (insertValues ?? baseFields.map((name) => `NEW.${name}`)).join(', ')
+  const insertFieldsList = baseFields.map((name) => quoteSqlIdentifier(name)).join(', ')
+  const insertValuesList = (
+    insertValues ?? baseFields.map((name) => `NEW.${quoteSqlIdentifier(name)}`)
+  ).join(', ')
 
   return [
     `DROP TRIGGER IF EXISTS ${triggerName}`,
@@ -297,7 +304,9 @@ export const generateUpdateTriggerSqlite = (
   baseFields: readonly string[]
 ): readonly string[] => {
   const triggerName = `${viewName}_update_trigger`
-  const updateSetList = baseFields.map((name) => `${name} = NEW.${name}`).join(', ')
+  const updateSetList = baseFields
+    .map((name) => `${quoteSqlIdentifier(name)} = NEW.${quoteSqlIdentifier(name)}`)
+    .join(', ')
 
   return [
     `DROP TRIGGER IF EXISTS ${triggerName}`,

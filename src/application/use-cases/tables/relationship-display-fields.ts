@@ -21,10 +21,7 @@
  * consult and everything else ignores.
  */
 
-import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
-import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
-import { buildEffectiveRoles } from './user-groups'
+import { mayReadRelatedField } from '@/domain/models/app/tables/related-field-read-service'
 import type { App } from '@/domain/models/app'
 
 type SchemaField = {
@@ -62,6 +59,12 @@ const tableDeclares = (tables: App['tables'], table: string, fieldName: string):
 export interface LabelReader {
   readonly role: string
   readonly groups?: readonly string[]
+  /**
+   * The reader is a visitor who is not signed in — her session is the guest
+   * sentinel. Decided from the session's identity, never from her role's name:
+   * an app may call one of its own roles `guest`.
+   */
+  readonly signedOut: boolean
 }
 
 /**
@@ -117,48 +120,12 @@ const mergeSpecs = (
 }
 
 /**
- * The role an unauthenticated caller carries in an app that HAS auth.
- *
- * Such a caller reaches a table's records only when its `read` is `'all'` —
- * the auth middleware answers 401 before any evaluator runs, because the
- * evaluator's ladder admits every role, `guest` included, on `'authenticated'`
- * and on an undeclared read. A label bypasses that middleware (it is read from
- * the RELATED table inside another table's request), so the same one-rung rule
- * is applied here. An app without auth has no anonymous caller to tell apart:
- * every request is `guest` and the evaluator is the whole gate.
+ * May `reader` see the label a spec would resolve? The shared related-value
+ * rule — the related TABLE must admit the reader and the named FIELD of it
+ * must be readable by them — the one a lookup answers to as well.
  */
-const ANONYMOUS_ROLE = 'guest'
-
-const isAnonymousReader = (app: App, reader: LabelReader): boolean =>
-  app.auth !== undefined && reader.role === ANONYMOUS_ROLE
-
-/**
- * May `reader` see the label a spec would resolve?
- *
- * Exactly the two checks a direct read of the same column goes through: the
- * related TABLE must admit the reader, and the named FIELD of it must be
- * readable by them. Without this a column reserved for admins on `authors`
- * reached every viewer of `posts` one hop away, as the label of its key.
- */
-const readerMaySee = (app: App, reader: LabelReader, spec: RelationshipDisplaySpec): boolean => {
-  const relatedTable = app.tables?.find((t) => t.name === spec.relatedTable)
-  if (relatedTable === undefined) return false
-  if (
-    isAnonymousReader(app, reader) &&
-    !isOpenToEveryone(toPermissionValue(relatedTable.permissions?.read))
-  ) {
-    return false
-  }
-  const groups = reader.groups ?? []
-  const effectiveRoles = buildEffectiveRoles(reader.role, groups)
-  if (!hasReadPermissionForRoles(relatedTable, effectiveRoles, app.tables)) return false
-  return isFieldReadableByCaller(
-    app,
-    spec.relatedTable,
-    { role: reader.role, groups },
-    spec.displayField
-  )
-}
+const readerMaySee = (app: App, reader: LabelReader, spec: RelationshipDisplaySpec): boolean =>
+  mayReadRelatedField(app, reader, spec.relatedTable, spec.displayField)
 
 /**
  * The relationship columns on `tableName` whose target `reader` may see

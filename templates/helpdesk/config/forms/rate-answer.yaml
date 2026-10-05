@@ -1,0 +1,39 @@
+# One question once a ticket is resolved. The resolution email links to
+# `/rate?ticket=<id>`; the ticket rides into the rating from the link, so the
+# requester only picks a score.
+#
+# Anyone with the link can rate, because the requester has no account. Two
+# things keep that small: a ticket takes one rating only (`unique` on
+# `ratings.ticket`), and the honeypot drops naive bots. A rating on a ticket
+# that is not resolved yet is still accepted — the form cannot check the
+# ticket's status — so the team reads ratings next to the ticket they rate.
+id: 2
+name: rate-answer
+title: How did we do?
+description: Your ticket is resolved. Tell us whether the answer worked — it takes one click.
+access:
+  require: all
+submitTo:
+  table: ratings
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Send rating
+onSuccess:
+  type: successPage
+  title: Thank you
+  message: Your rating is with the team. It helps us answer the next ticket better.
+prefill:
+  ticket: $query.ticket
+fields:
+  - kind: table-field
+    column: ticket
+    hidden: true
+  - kind: table-field
+    column: score
+    required: true
+    label: How did we do?
+    helpText: 1 is poor, 5 is excellent.
+  - kind: table-field
+    column: comment
+    label: Anything we should know?

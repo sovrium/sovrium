@@ -7,6 +7,10 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import {
+  reportCommittedRows,
+  type CommittedRowChange,
+} from '@/application/ports/services/record-change-feed'
 import { findConstraintFieldName } from '@/domain/errors/driver-failure'
 import {
   db,
@@ -45,7 +49,7 @@ import {
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
-import { validateTableName } from '../statement/validation'
+import { tableIdentifier, databaseTableName } from '../statement/validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -61,11 +65,6 @@ async function executeCreateRecordTx(
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): Promise<Readonly<Record<string, unknown>>> {
-  validateTableName(tableName)
-  if (Object.keys(fields).length === 0) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
-    throw new DatabaseError('Cannot create record with no fields', undefined)
-  }
   const fieldsWithAuthorship = await injectCreateAuthorship(fields, session.userId, tx, tableName)
   // Introspect array-typed columns so multi-select (`text[]`) and JSONB
   // columns receiving arrays (e.g. `multiple-attachments`) get the
@@ -102,7 +101,7 @@ async function executeCreateRecordTx(
  * unique. PostgreSQL attaches a `constraint` name to FK violations too, so the
  * looser uniqueness test would otherwise claim them.
  *
- * Bug 3 / [internal ref]; [internal ref].
+ * [internal ref]; [internal ref].
  */
 function wrapCreateRecordFailure(
   error: unknown,
@@ -168,6 +167,9 @@ export function createRecord(
       recordId: String(record.id),
       changes: { after: record },
     })
+    yield* reportCommittedRows([
+      { tableName, event: 'insert', recordId: String(record.id), row: record },
+    ])
 
     return record
   })
@@ -223,8 +225,6 @@ export function updateRecord(
       Effect.tryPromise({
         try: () =>
           db.transaction(async (tx) => {
-            validateTableName(tableName)
-
             // Inject updated_by from session
             const fieldsWithUpdatedBy = await injectUpdateAuthorship(
               fields,
@@ -259,6 +259,11 @@ export function updateRecord(
       },
       app,
     })
+    if (updatedRecord['id'] !== undefined) {
+      yield* reportCommittedRows([
+        { tableName, event: 'update', recordId, row: updatedRecord, previous: recordBefore },
+      ])
+    }
 
     return updatedRecord
   })
@@ -290,6 +295,8 @@ type DeleteTransactionOutcome = {
   readonly recordBeforeData: Record<string, unknown> | undefined
   readonly setNullPerformed: boolean
   readonly restrictViolation: boolean
+  /** Every row the delete removed or changed — the record and its cascaded children. */
+  readonly committed: readonly CommittedRowChange[]
 }
 
 /**
@@ -317,7 +324,6 @@ async function runDeleteTransaction(
   config: Readonly<DeleteTransactionConfig>
 ): Promise<DeleteTransactionOutcome> {
   const { tx, session, tableName, recordId, app } = config
-  validateTableName(tableName)
 
   if (app) {
     const isRestricted = await checkRestrictConstraint(tx, tableName, recordId, app)
@@ -327,12 +333,18 @@ async function runDeleteTransaction(
         recordBeforeData: undefined,
         setNullPerformed: false,
         restrictViolation: true,
+        committed: [],
       }
     }
   }
 
   const hasSoftDelete = await checkDeletedAtColumn(tx, tableName)
   const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
+
+  const removedRecord = (): readonly CommittedRowChange[] =>
+    recordBeforeData === undefined
+      ? []
+      : [{ tableName, event: 'delete', recordId, previous: recordBeforeData }]
 
   if (!hasSoftDelete) {
     const success = await executeHardDelete(tx, tableName, recordId)
@@ -341,6 +353,7 @@ async function runDeleteTransaction(
       recordBeforeData: undefined,
       setNullPerformed: false,
       restrictViolation: false,
+      committed: success ? removedRecord() : [],
     }
   }
 
@@ -351,15 +364,21 @@ async function runDeleteTransaction(
       recordBeforeData: undefined,
       setNullPerformed: false,
       restrictViolation: false,
+      committed: [],
     }
   }
 
-  if (app) {
-    await cascadeSoftDelete(tx, tableName, recordId, app, session.userId)
+  const cascaded = app ? await cascadeSoftDelete(tx, tableName, recordId, app, session.userId) : []
+  const setNull = app
+    ? await cascadeSetNull(tx, tableName, recordId, app)
+    : { performed: false, changes: [] }
+  return {
+    success: true,
+    recordBeforeData,
+    setNullPerformed: setNull.performed,
+    restrictViolation: false,
+    committed: [...removedRecord(), ...cascaded, ...setNull.changes],
   }
-
-  const setNullPerformed = app ? await cascadeSetNull(tx, tableName, recordId, app) : false
-  return { success: true, recordBeforeData, setNullPerformed, restrictViolation: false }
 }
 
 /**
@@ -407,6 +426,7 @@ export function deleteRecord(
         changes: { before: result.recordBeforeData },
       })
     }
+    yield* reportCommittedRows(result.committed)
 
     return {
       success: result.success,
@@ -441,8 +461,6 @@ export function permanentlyDeleteRecord(
       Effect.tryPromise({
         try: () =>
           db.transaction(async (tx) => {
-            validateTableName(tableName)
-
             // Fetch record before deletion for activity logging
             const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
 
@@ -464,6 +482,9 @@ export function permanentlyDeleteRecord(
         recordId,
         changes: { before: result.recordBeforeData },
       })
+      yield* reportCommittedRows([
+        { tableName, event: 'delete', recordId, previous: result.recordBeforeData },
+      ])
     }
 
     return result.success
@@ -494,8 +515,7 @@ export function restoreRecord(
       Effect.tryPromise({
         try: () =>
           db.transaction(async (tx) => {
-            validateTableName(tableName)
-            const tableIdent = sql.identifier(tableName)
+            const tableIdent = tableIdentifier(tableName)
 
             // Check if record exists (including soft-deleted records)
             const checkResult = await typedExecute(
@@ -517,7 +537,7 @@ export function restoreRecord(
             }
 
             // Check if table has deleted_by column (dialect-aware introspection)
-            const hasDeletedBy = await columnExists(tx, tableName, 'deleted_by')
+            const hasDeletedBy = await columnExists(tx, databaseTableName(tableName), 'deleted_by')
 
             // Restore record by clearing deleted_at and deleted_by (if column exists)
             const result = hasDeletedBy
@@ -545,6 +565,11 @@ export function restoreRecord(
         recordId,
         changes: { after: restoredRecord },
       })
+      // A restored row comes back into view: announced as an insert, the
+      // inverse of the delete that took it out.
+      if (restoredRecord['id'] !== undefined) {
+        yield* reportCommittedRows([{ tableName, event: 'insert', recordId, row: restoredRecord }])
+      }
     }
 
     return restoredRecord

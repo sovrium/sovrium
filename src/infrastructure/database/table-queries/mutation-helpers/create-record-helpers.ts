@@ -11,8 +11,9 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { validateColumnName } from '../statement/validation'
+import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
+import { rowAfterTriggers } from './record-fetch-helpers'
 
 /**
  * Check if an error is a uniqueness conflict, on EITHER dialect.
@@ -37,7 +38,7 @@ export function isUniqueConstraintViolation(error: unknown): boolean {
  * Matched on the driver's own result code — Postgres SQLSTATE `23503`, SQLite
  * `SQLITE_CONSTRAINT_FOREIGNKEY` — both measured, rather than on wire text.
  *
- * Bug 3 / [internal ref].
+ * [internal ref].
  */
 export function isForeignKeyViolation(error: unknown): boolean {
   return findConstraintViolation(error) === 'foreign-key'
@@ -71,6 +72,8 @@ export function buildInsertClauses(
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Readonly<{ columnsClause: unknown; valuesClause: unknown }> {
   const entries = Object.entries(fields)
+  // No column to write: `insertAndResolveRow` inserts `DEFAULT VALUES`.
+  if (entries.length === 0) return { columnsClause: undefined, valuesClause: undefined }
 
   // Build column identifiers and values
   const columnIdentifiers = entries.map(([key]) => {
@@ -127,13 +130,13 @@ async function resolveViewBackedInsertRow(
   const idQuery =
     dialect === 'postgres'
       ? sql`SELECT lastval() AS id`
-      : sql`SELECT MAX(id) AS id FROM ${sql.identifier(getBaseTableName(tableName))}`
+      : sql`SELECT MAX(id) AS id FROM ${tableIdentifier(getBaseTableName(tableName))}`
   const idRows = await executeRaw(tx, idQuery)
   const newId = idRows[0]?.id
   if (newId === null || newId === undefined) return undefined
   const rows = await executeRaw(
     tx,
-    sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${newId} LIMIT 1`
+    sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${newId} LIMIT 1`
   )
   return rows[0]
 }
@@ -148,9 +151,15 @@ export async function insertAndResolveRow(
   columnsClause: unknown,
   valuesClause: unknown
 ): Promise<Readonly<Record<string, unknown>>> {
+  // A record carrying nothing but its many-to-many links has no column to
+  // write: it is inserted with every column at its default, then linked.
+  const insertBody =
+    columnsClause === undefined
+      ? sql`DEFAULT VALUES`
+      : sql`(${columnsClause}) VALUES (${valuesClause})`
   const insertResult = await executeRaw(
     tx,
-    sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+    sql`INSERT INTO ${tableIdentifier(tableName)} ${insertBody} RETURNING *`
   )
   const raw = insertResult[0] ?? {}
   // A view-backed insert returns the `id` COLUMN as an explicit null (the view
@@ -165,5 +174,5 @@ export async function insertAndResolveRow(
     const resolved = await resolveViewBackedInsertRow(tx, tableName)
     if (resolved) return resolved
   }
-  return raw
+  return rowAfterTriggers(tx, tableName, raw)
 }

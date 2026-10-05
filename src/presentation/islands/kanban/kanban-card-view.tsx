@@ -16,13 +16,13 @@ import {
   computeKanbanDragGhostClasses,
 } from '@/presentation/design/kanban-default-classes'
 import {
-  navigateTo,
+  resolveCardActivation,
   resolveCardColors,
   resolveCoverImage,
   resolveDataColor,
-  resolveNavigatePath,
 } from './card-resolvers'
 import { KanbanCardBody, KanbanCardDefault } from './kanban-card-body'
+import { useKanbanFormat, type KanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
@@ -36,38 +36,40 @@ import type {
   ReactNode,
 } from 'react'
 
+/** An absent key reads as `undefined` when destructured, so a no-op result is `{}`. */
 interface NavigateHandlers {
-  readonly onClick: (() => void) | undefined
-  readonly onKeyDown: ((e: KeyboardEvent<HTMLDivElement>) => void) | undefined
+  readonly onClick?: () => void
+  readonly onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void
 }
 
 interface CardData {
-  readonly navigatePath: string | undefined
-  readonly dataColor: string | undefined
-  readonly cardColors: OptionChipColors | undefined
-  readonly coverImageSrc: string | undefined
+  readonly activate?: () => void
+  readonly dataColor?: string
+  readonly cardColors?: OptionChipColors
+  readonly coverImageSrc?: string
 }
 
 /**
- * Build click + keyboard handlers for a clickable (navigate) card.
+ * Build click + keyboard handlers for a clickable card (navigate or
+ * openDrawer).
  *
- * When the card is also clickable (navigate action), we must avoid
- * triggering navigation while a drag is in flight. We bail out of click /
- * keyboard handlers when @dnd-kit reports an active drag for this card.
+ * When the card is also draggable, we must avoid activating it while a drag
+ * is in flight. We bail out of click / keyboard handlers when @dnd-kit
+ * reports an active drag for this card.
  */
 function buildNavigateHandlers(
-  navigatePath: string | undefined,
+  activate: (() => void) | undefined,
   isDragging: boolean
 ): NavigateHandlers {
-  if (!navigatePath || isDragging) {
-    return { onClick: undefined, onKeyDown: undefined }
+  if (!activate || isDragging) {
+    return {}
   }
   return {
-    onClick: () => navigateTo(navigatePath),
+    onClick: activate,
     onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
-        navigateTo(navigatePath)
+        activate()
       }
     },
   }
@@ -77,18 +79,11 @@ function buildNavigateHandlers(
 function resolveCardData(
   card: KanbanCard | undefined,
   record: TableRecord,
-  colorFieldColors: Readonly<Record<string, string>> | undefined
+  { table, colorFieldColors }: KanbanFormat
 ): CardData {
-  if (!card) {
-    return {
-      navigatePath: undefined,
-      dataColor: undefined,
-      cardColors: undefined,
-      coverImageSrc: undefined,
-    }
-  }
+  if (!card) return {}
   return {
-    navigatePath: resolveNavigatePath(card.onClick, record),
+    activate: resolveCardActivation(card.onClick, record, table),
     dataColor: resolveDataColor(card, record),
     cardColors: resolveCardColors(card, record, colorFieldColors),
     coverImageSrc: resolveCoverImage(card, record),
@@ -105,11 +100,11 @@ function resolveCardData(
  * from.
  */
 function buildCardClassName(
-  navigatePath: string | undefined,
+  clickable: boolean,
   draggableEnabled: boolean,
   isDragging: boolean
 ): string {
-  const navClass = navigatePath ? 'cursor-pointer hover:border-primary' : ''
+  const navClass = clickable ? 'cursor-pointer hover:border-primary' : ''
   const dragClass = draggableEnabled ? 'cursor-grab active:cursor-grabbing' : ''
   const ghostClass = isDragging ? computeKanbanDragGhostClasses() : ''
   return `${computeKanbanCardClasses()} ${navClass} ${dragClass} ${ghostClass}`
@@ -172,7 +167,7 @@ interface CardWrapperProps {
   readonly dragAttributes: DraggableAttributes | undefined
   readonly dragListeners: DraggableSyntheticListeners | undefined
   readonly draggableEnabled: boolean
-  readonly navigatePath: string | undefined
+  readonly clickable: boolean
   readonly dataColor: string | undefined
   readonly cardColors: OptionChipColors | undefined
   readonly isDragging: boolean
@@ -200,7 +195,7 @@ function CardWrapper({
   dragAttributes,
   dragListeners,
   draggableEnabled,
-  navigatePath,
+  clickable,
   dataColor,
   cardColors,
   isDragging,
@@ -209,7 +204,7 @@ function CardWrapper({
   onKeyDown,
   children,
 }: CardWrapperProps): ReactElement {
-  const navigateProps = navigatePath ? { role: 'button', tabIndex: 0 } : {}
+  const navigateProps = clickable ? { role: 'button', tabIndex: 0 } : {}
   const onDragStart = draggableEnabled ? (e: DragEvent) => e.preventDefault() : undefined
   // The KEYBOARD alternative to the drag lives in dnd-kit's `listeners.onKeyDown`
   // (that is where `KeyboardSensor` binds), and `onKeyDown={onKeyDown}` below is
@@ -228,14 +223,14 @@ function CardWrapper({
       ref={setNodeRef}
       data-card
       data-color={dataColor}
-      data-clickable={navigatePath ? 'true' : undefined}
+      data-clickable={clickable ? 'true' : undefined}
       draggable={draggableEnabled || undefined}
       onDragStart={onDragStart}
       style={style}
       onClick={onClick}
       onKeyDown={keyDownHandler}
       {...navigateProps}
-      className={buildCardClassName(navigatePath, draggableEnabled, isDragging)}
+      className={buildCardClassName(clickable, draggableEnabled, isDragging)}
     >
       <CardStripe colors={cardColors} />
       {children}
@@ -305,25 +300,17 @@ function useCardStyle({
 export function KanbanCardView({
   record,
   card,
-  draggableEnabled,
-  colorFieldColors,
 }: {
   readonly record: TableRecord
   readonly card?: KanbanCard
-  readonly draggableEnabled: boolean
-  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
-  readonly colorFieldColors?: Readonly<Record<string, string>>
 }): ReactElement {
+  const format = useKanbanFormat()
+  const draggableEnabled = format.draggableEnabled === true
   const recordId = String(record['id'] ?? '')
   const sortable = useSortable({ id: recordId, disabled: !draggableEnabled })
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable
-
-  const { navigatePath, dataColor, cardColors, coverImageSrc } = resolveCardData(
-    card,
-    record,
-    colorFieldColors
-  )
-  const { onClick, onKeyDown } = buildNavigateHandlers(navigatePath, isDragging)
+  const { activate, dataColor, cardColors, coverImageSrc } = resolveCardData(card, record, format)
+  const { onClick, onKeyDown } = buildNavigateHandlers(activate, isDragging)
   const style = useCardStyle({ transform, transition, isDragging, cardColors })
 
   // Spread @dnd-kit listeners only when the card is actually draggable.
@@ -342,7 +329,7 @@ export function KanbanCardView({
       dragAttributes={dragAttributes}
       dragListeners={dragListeners}
       draggableEnabled={draggableEnabled}
-      navigatePath={navigatePath}
+      clickable={activate !== undefined}
       dataColor={dataColor}
       cardColors={cardColors}
       isDragging={isDragging}

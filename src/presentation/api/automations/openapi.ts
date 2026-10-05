@@ -15,6 +15,7 @@ import {
   replayRunRequestSchema,
   runDetailSchema,
   triggerResponseSchema,
+  webhookDefaultResponseSchema,
 } from '@/domain/models/api/automations'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
@@ -61,7 +62,10 @@ const routes: readonly RouteSpec[] = [
       body: { content: { 'application/json': { schema: effectSchema(Schema.Unknown) } } },
     },
     responses: {
-      200: effectJsonResponse(triggerResponseSchema, 'Synchronous run result'),
+      200: effectJsonResponse(
+        webhookDefaultResponseSchema,
+        'Synchronous run: the run id and status. A `webhook/response` action or `trigger.response` replaces this body with the one it declares.'
+      ),
       202: effectJsonResponse(
         Schema.Struct({
           id: Schema.String,
@@ -128,6 +132,7 @@ const routes: readonly RouteSpec[] = [
     responses: {
       200: effectJsonResponse(Schema.Array(runDetailSchema), 'Run list'),
       400: errorResponse('Invalid request'),
+      404: errorResponse('Automation not found'),
     },
   },
   {
@@ -147,6 +152,8 @@ const routes: readonly RouteSpec[] = [
     responses: {
       200: effectJsonResponse(triggerResponseSchema, 'Replay run result'),
       400: errorResponse('Invalid request'),
+      401: errorResponse('Not signed in'),
+      403: errorResponse("New trigger data is an admin's alone"),
       404: errorResponse('Run not found'),
       500: errorResponse('Internal error'),
     },
@@ -236,6 +243,8 @@ export const automationCollectionGroup: StaticGroupSpec = {
       responses: {
         200: effectJsonResponse(triggerResponseSchema, 'Replay accepted'),
         400: errorResponse('Invalid request'),
+        401: errorResponse('Not signed in'),
+        403: errorResponse("New trigger data is an admin's alone"),
         404: errorResponse('Run not found'),
         500: errorResponse('Internal error'),
       },
@@ -278,7 +287,8 @@ export const automationCollectionGroup: StaticGroupSpec = {
       method: 'post',
       pathTemplate: '/api/automations/runs/{id}/cancel',
       summary: 'Cancel an automation run',
-      description: 'Cancels an in-progress automation run.',
+      description:
+        'Cancels a run that is queued, running or waiting for an approval, rejecting its pending approval request. A run that already ended is refused with 409.',
       operationIdBase: 'cancelAutomationRun',
 
       parameters: effectParameters(
@@ -291,6 +301,7 @@ export const automationCollectionGroup: StaticGroupSpec = {
         200: effectJsonResponse(cancelRunResponseSchema, 'Run cancelled'),
         400: errorResponse('Invalid request'),
         404: errorResponse('Run not found'),
+        409: errorResponse('The run already ended'),
       },
     },
   ],

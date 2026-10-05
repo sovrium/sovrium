@@ -21,7 +21,7 @@
  *
  * Extracted from `submit-form.ts` to keep that file under the per-file
  * `max-lines` cap as the form-submission validation surface grew with
- * Bug 3 (FK) + Bug 5 (format).
+ * [internal ref] (FK) + [internal ref] (format).
  */
 
 import { Data, Effect } from 'effect'

@@ -130,7 +130,7 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
   } catch (cause) {
     if (classifyKeyReadError(cause) === 'absent') return undefined
     // eslint-disable-next-line functional/no-throw-statements -- fail-loud: generating a replacement key would silently orphan every secret encrypted under the unreadable one
-    throw new Error(unreadableMessage(keyFilePath, cause))
+    throw new Error(unreadableMessage(keyFilePath, cause), { cause })
   }
 }
 
@@ -178,7 +178,7 @@ const generateAndPersist = (keyFilePath: string): string => {
     writeKeyFileAtomically(keyFilePath, `${generated}\n`)
   } catch (cause) {
     // eslint-disable-next-line functional/no-throw-statements -- fail-loud: a process-local key would silently orphan every token it wrote
-    throw new Error(unwritableMessage(keyFilePath, cause))
+    throw new Error(unwritableMessage(keyFilePath, cause), { cause })
   }
   return generated
 }

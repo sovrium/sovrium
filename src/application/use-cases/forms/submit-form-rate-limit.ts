@@ -48,13 +48,18 @@ export const checkRateLimit = (input: {
   readonly form: Readonly<Form>
   readonly body: Readonly<Record<string, unknown>>
   readonly submitterIpHash: string
+  /**
+   * The digest the per-address bucket counts under (an IPv6 client by its
+   * /64); `submitterIpHash` when the caller supplied none.
+   */
+  readonly rateLimitKeyHash: string | undefined
   readonly userAgent: string | undefined
 }) =>
   Effect.gen(function* () {
-    const { form, body, submitterIpHash, userAgent } = input
+    const { form, body, submitterIpHash, rateLimitKeyHash, userAgent } = input
     const policy = effectiveAntiSpam(form).rateLimit
     const result = checkAndRecord({
-      ipHash: submitterIpHash,
+      ipHash: rateLimitKeyHash ?? submitterIpHash,
       formName: form.name,
       policy,
     })

@@ -1,0 +1,44 @@
+# The managers' section: hiring and pay. A content directory is opened or
+# closed as a whole, so these articles live in their own directory and are
+# served by their own page, which only managers and the admin may open. A
+# member asking for one is sent to sign in, and the search never offers them.
+name: kb-managers
+path: /kb/managers/:path*
+access:
+  require: [admin, managers]
+  redirectTo: /sign-in
+
+contentDir:
+  directory: content/kb-managers
+  slugFrom: filepath
+  sort:
+    field: order
+    direction: asc
+  nav:
+    enabled: true
+    groupBy: category
+    labelFrom: title
+    groupLabels:
+      managers: For managers
+
+markdown:
+  layout: docs
+  toc:
+    maxDepth: 2
+    position: sidebar
+
+components:
+  - $ref: ./_kb-header.yaml
+  - type: container
+    props:
+      className: mx-auto max-w-7xl px-6 pb-8 text-sm
+    children:
+      - type: link
+        props:
+          href: /kb
+          className: text-foreground-muted underline hover:text-foreground
+        content: Back to the handbook
+
+meta:
+  title: $frontmatter.title · Corvel handbook
+  description: Hiring and pay reviews at Corvel.

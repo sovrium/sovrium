@@ -11,8 +11,9 @@ import { omitsEmptyValue } from '@/presentation/design/field-type-behavior'
 import { evaluateCondition, isFieldVisible } from '../parts/crud-form/conditions'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { showSuccessToast } from '../parts/crud-form/toast'
-import { toWireFields } from '../parts/crud-form/wire-values'
+import { isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
+import { formString } from './form-strings'
 import { type SubmitContext } from './types'
 
 export function findMissingRequiredFields(
@@ -97,13 +98,14 @@ type MutationResult = { readonly record?: Record<string, unknown> }
 
 async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   // Exclude values for fields that are conditionally hidden (visibleWhen not met).
-  // Always include hidden-input fields (field.hidden) — they are submitted unconditionally.
+  // Hidden-input fields (field.hidden) are submitted unconditionally — except an
+  // EMPTY one whose column cannot hold '' (below): a hidden link nothing filled
+  // is no link, stored as NULL, not a reference to a record that does not exist.
   const heldValues = Object.fromEntries(
     Object.entries(ctx.values).filter(([key, value]) => {
       const field = ctx.fields.find((f) => f.name === key)
       if (!field) return true
-      if (field.hidden) return true
-      if (!isFieldVisible(field, ctx.values)) return false
+      if (!field.hidden && !isFieldVisible(field, ctx.values)) return false
       // Omit untouched fields whose column cannot hold an empty string: '' is
       // the browser's "nothing entered" sentinel, never a legal value for a
       // choice / numeric / temporal / relational / attachment column. Omitting
@@ -117,7 +119,9 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
       // The whole FIELD is passed, not just its type: `barcode`'s CHECK is
       // opt-in via its own `format`, so two fields of one type legitimately
       // answer differently.
-      if (omitsEmptyValue(field) && value.trim() === '') return false
+      if (omitsEmptyValue(field) && value.trim() === '' && !isMarkedCleared(ctx.values, key)) {
+        return false
+      }
       return true
     })
   )
@@ -256,7 +260,10 @@ function handleMutationError(ctx: SubmitContext, err: unknown): void {
       isPending: false,
     })
   } else {
-    ctx.setState({ error: error.message ?? 'Operation failed', isPending: false })
+    ctx.setState({
+      error: error.message ?? formString(ctx.uiStrings, 'form.operationFailed', 'Operation failed'),
+      isPending: false,
+    })
   }
 }
 
@@ -266,7 +273,10 @@ function validateCrudInputs(ctx: SubmitContext): boolean {
   if (missing.length > 0) {
     const first = missing[0]!
     ctx.setState({
-      fieldError: { field: first, message: 'This field is required' },
+      fieldError: {
+        field: first,
+        message: formString(ctx.uiStrings, 'form.required', 'This field is required'),
+      },
       invalidFields: missing,
       isPending: false,
     })

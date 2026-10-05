@@ -45,12 +45,6 @@ export interface SeedTableConfig {
   readonly fields: readonly SeedField[]
 }
 
-/** Attachment field types, whose value is a storage key rather than data. */
-export const ATTACHMENT_TYPES: ReadonlySet<string> = new Set([
-  'single-attachment',
-  'multiple-attachments',
-])
-
 /**
  * The single projection point.
  *

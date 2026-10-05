@@ -56,7 +56,7 @@ export const RecordUpsertActionSchema = Schema.Struct({
       Schema.Literals(['system', 'triggering-user']).pipe(
         Schema.annotate({
           description:
-            "Action-ownership attribution for the write. 'system' (default): authorship (created-by on the create branch, updated-by on both branches) is attributed to the durable system actor. 'triggering-user': attribute authorship — and the write session — to the user who triggered the automation when one exists (form submitter, record-event actor, authenticated webhook caller), falling back to the system actor for user-less triggers (cron, automation-call). Omitting the field is byte-identical to 'system'.",
+            "Action-ownership attribution for the write. 'system' (default): authorship (created-by on the create branch, updated-by on both branches) is attributed to the durable system actor. 'triggering-user': attribute authorship — and the write session — to the user who triggered the automation when one exists (form submitter, record-event actor, authenticated webhook caller), falling back to the system actor for user-less triggers (cron, automation-call). Omitting the field is byte-identical to 'system'. A run someone started by hand (a manual trigger, a table button, an MCP action template or automation tool) is always attributed to that person, whatever this option says.",
         })
       )
     ),

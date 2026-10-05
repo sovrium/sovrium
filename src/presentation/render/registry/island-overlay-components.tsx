@@ -20,6 +20,7 @@ import {
   renderOpenMenuPopup,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import { computeLinkClasses } from '../../design/interactive-content-default-classes'
+import { substitutePropsTranslationTokens } from '../i18n/translation-handler'
 import { renderEnhancerDrivenDialog } from './enhancer-driven-dialog'
 import {
   buildAlertDialogProps,
@@ -28,15 +29,35 @@ import {
   buildDropdownMenuProps,
   buildHoverCardProps,
   buildTooltipProps,
+  overlayCloseLabel,
   withResolvedMenuItemIcons,
 } from './island-overlay-props-builders'
 import { renderRecordBoundDrawer } from './record-bound-drawer'
-import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
+import type {
+  ComponentDispatchConfig,
+  ComponentRenderer,
+  DispatchableComponentType,
+} from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
 /** Stable identity for `style={{ display: 'none' }}` placeholder containers. */
 const HIDDEN_STYLE = { display: 'none' } as const
+
+/**
+ * The overlay's authored props with their `$t:` keys resolved. `rawProps` is the
+ * config verbatim — only `elementProps` passes through the translation pass — so
+ * a `title` / `description` read from it reached the island payload and the
+ * pre-hydration accessible name as the raw key.
+ */
+const withTranslatedProps = <T extends ComponentDispatchConfig>(context: T): T => ({
+  ...context,
+  rawProps: substitutePropsTranslationTokens(
+    context.rawProps,
+    context.currentLang,
+    context.languages
+  ),
+})
 
 /**
  * The design-system console's `open` state cell for a menu, or `undefined`
@@ -87,7 +108,8 @@ function splitPopoverChildren(
 export const islandOverlayComponents: Partial<
   Record<DispatchableComponentType, ComponentRenderer>
 > = {
-  dialog: ({ rawProps, elementProps, renderedChildren, component }) => {
+  dialog: (context) => {
+    const { rawProps, elementProps, renderedChildren, component } = withTranslatedProps(context)
     // `formRef` dialogs carry their resolved form-body HTML on a render-time
     // `_formRefHtml` field (stamped by `expandFormRefs` in the page filter
     // pipeline). When present it forms the modal body; otherwise the body is
@@ -109,7 +131,10 @@ export const islandOverlayComponents: Partial<
       typeof formRefHtml === 'string'
         ? formRefHtml
         : renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
-    const propsJson = JSON.stringify(buildDialogProps(rawProps, elementProps, childrenHtml))
+    const propsJson = JSON.stringify({
+      ...buildDialogProps(rawProps, elementProps, childrenHtml, component),
+      closeLabel: overlayCloseLabel(context),
+    })
 
     return (
       <div
@@ -130,7 +155,8 @@ export const islandOverlayComponents: Partial<
     )
   },
 
-  'alert-dialog': ({ rawProps, elementProps, component }) => {
+  'alert-dialog': (context) => {
+    const { rawProps, elementProps, component } = withTranslatedProps(context)
     const dialogProps = buildAlertDialogProps(rawProps, elementProps, component)
     const propsJson = JSON.stringify(dialogProps)
 
@@ -247,7 +273,8 @@ export const islandOverlayComponents: Partial<
   // record island keeps its own registry key and its PRIORITY loading: its
   // `sovrium:open-drawer` listener has to be wired before a data-table row
   // click can fire, and that dispatch arrives synchronously.
-  drawer: (context) => {
+  drawer: (untranslated) => {
+    const context = withTranslatedProps(untranslated)
     const { rawProps, elementProps, component, renderedChildren } = context
     if ((component as { dataSource?: unknown } | undefined)?.dataSource !== undefined) {
       return renderRecordBoundDrawer(context)
@@ -257,7 +284,7 @@ export const islandOverlayComponents: Partial<
       <div
         data-island="drawer"
         data-component-type={hostComponentType(elementProps)}
-        data-island-props={JSON.stringify(props)}
+        data-island-props={JSON.stringify({ ...props, closeLabel: overlayCloseLabel(context) })}
         data-testid={elementProps['data-testid'] as string | undefined}
         style={HIDDEN_STYLE}
       >
@@ -296,6 +323,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island={depicted ? undefined : 'dropdown-menu'}
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={depicted ? undefined : JSON.stringify(props)}
         data-specimen-open={depicted ? 'true' : undefined}
         data-testid={elementProps['data-testid'] as string | undefined}

@@ -5,6 +5,10 @@
 A connection stores the credentials for one external service under the top-level `connections` array. HTTP and AI actions then reference it as `$connection.NAME`, and Sovrium attaches the right authentication to each request — refreshing OAuth2 tokens as they expire.
 
 ```yaml
+env:
+  - { key: GOOGLE_CLIENT_ID, description: Google OAuth client id }
+  - { key: GOOGLE_CLIENT_SECRET, description: Google OAuth client secret }
+
 connections:
   - name: crm-oauth
     label: Acme CRM
@@ -25,6 +29,7 @@ The authorization-code flow, with PKCE, automatic token refresh, and a choice be
 <!-- sovrium:options OAuth2ConnectionSchema -->
 
 ```yaml
+# Requires env: [{ key: HUBSPOT_CLIENT_ID }, { key: HUBSPOT_CLIENT_SECRET }] at the top of the app
 - name: hubspot
   type: oauth2
   props:
@@ -48,6 +53,7 @@ The authorization-code flow, with PKCE, automatic token refresh, and a choice be
 `grantType: clientCredentials` is the machine-to-machine grant, for an API that authenticates the client itself rather than a user. The connection needs only `clientId`, `clientSecret` and `tokenUrl`; there is no consent step and no connect button to click.
 
 ```yaml
+# Requires env: [{ key: ANALYTICS_CLIENT_ID }, { key: ANALYTICS_CLIENT_SECRET }] at the top of the app
 - name: analytics-export
   type: oauth2
   props:
@@ -82,6 +88,7 @@ Some providers — LinkedIn, Meta — issue no refresh token: the token simply l
 <!-- sovrium:options ApiKeyConnectionSchema -->
 
 ```yaml
+# Requires env: [{ key: GITHUB_TOKEN }] at the top of the app
 - name: github-api
   type: apiKey
   props: { key: $env.GITHUB_TOKEN, header: Authorization, prefix: Bearer }
@@ -94,6 +101,7 @@ Some providers — LinkedIn, Meta — issue no refresh token: the token simply l
 <!-- sovrium:options BasicConnectionSchema -->
 
 ```yaml
+# Requires env: [{ key: LEGACY_USER }, { key: LEGACY_PASS }] at the top of the app
 - name: legacy-api
   type: basic
   props: { username: $env.LEGACY_USER, password: $env.LEGACY_PASS }
@@ -106,6 +114,7 @@ An API that takes its key as the Basic password with no username (Lemlist) is de
 <!-- sovrium:options BearerConnectionSchema -->
 
 ```yaml
+# Requires env: [{ key: INTERNAL_SERVICE_TOKEN }] at the top of the app
 - name: internal-svc
   type: bearer
   props: { token: $env.INTERNAL_SERVICE_TOKEN }
@@ -120,6 +129,7 @@ Some APIs issue short-lived tokens from a key without being OAuth2 servers: Spen
 <!-- sovrium:options TokenExchangeConnectionSchema -->
 
 ```yaml
+# Requires env: [{ key: SPENDESK_CLIENT_ID }, { key: SPENDESK_CLIENT_SECRET }] at the top of the app
 - name: spendesk
   type: tokenExchange
   props:
@@ -143,6 +153,10 @@ The first call that needs a token posts `body` to `tokenUrl` — as JSON, or as 
 A connection can also declare the endpoints of its service as `operations`, against a `baseUrl`. Each operation names the method, the path and the parameters it takes, with where each one goes and its type; an automation step then calls it by name with `type: connection`, `operator: call`.
 
 ```yaml
+env:
+  - { key: QONTO_API_KEY, description: Qonto API key }
+  - { key: BANK_IBAN, description: IBAN of the account to read, secret: false }
+
 connections:
   - name: qonto
     type: apiKey

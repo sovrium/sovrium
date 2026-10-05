@@ -33,6 +33,7 @@ import { formatDiscoveredConfigNotice } from '@/domain/kernel/config-parsing/def
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 import type { App } from '@/domain/models/app'
+import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 /**
  * The path reported when discovery finds nothing.
@@ -65,8 +66,18 @@ export const discoverConfigFile = async (): Promise<string> => {
   return discovered
 }
 
+/**
+ * A decoded config and the table ids its author WROTE — the second half is
+ * what the decode alone can tell, and every migration needs it to read a table
+ * rename (`rename-detection.ts`).
+ */
+export interface LoadedApp {
+  readonly app: App
+  readonly authoredTableIds: AuthoredTableIds
+}
+
 /** Load and decode the app config, refusing with the path the operator typed. */
-export const requireApp = async (configFile: string): Promise<App> => {
+export const requireApp = async (configFile: string): Promise<LoadedApp> => {
   if (!(await Bun.file(configFile).exists())) {
     return refuse(`Error: File not found: ${configFile}`)
   }
@@ -81,7 +92,7 @@ export const requireApp = async (configFile: string): Promise<App> => {
   const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
   const decoded = decodeAppConfigObject(parsed)
   return decoded.valid
-    ? decoded.app
+    ? { app: decoded.app, authoredTableIds: decoded.authoredTableIds }
     : refuse(
         `Error: ${configFile} is not a valid configuration:\n` +
           decoded.errors.map((error) => `  ${error}`).join('\n')
@@ -101,11 +112,15 @@ export const requireApp = async (configFile: string): Promise<App> => {
  *
  * `allowDestructive` is `sovrium migrate --allow-destructive`'s one-shot consent
  * to drop a table the config no longer declares while it still holds rows.
- * Every other caller omits it, so they refuse such a drop.
+ * Every other caller omits it, so they refuse such a drop. `authoredTableIds`
+ * is the decode's, handed on so a rename under an author-written id is read.
  */
 export const applyDatabaseMigrations = async (
   app: App,
-  options: { readonly allowDestructive?: boolean } = {}
+  options: {
+    readonly allowDestructive?: boolean
+    readonly authoredTableIds?: AuthoredTableIds
+  } = {}
 ): Promise<void> => {
   const { parseDatabaseDialectConfig } =
     await import('@/domain/models/process-env/database/database-dialect')
@@ -170,7 +185,10 @@ export type DatabasePlanOutcome =
 const describePlanCause = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
-export const planDatabaseRefusals = async (app: App): Promise<DatabasePlanOutcome> => {
+export const planDatabaseRefusals = async (
+  app: App,
+  authoredTableIds: AuthoredTableIds
+): Promise<DatabasePlanOutcome> => {
   const { parseDatabaseDialectConfig } =
     await import('@/domain/models/process-env/database/database-dialect')
   const { planConfigTableChanges } = await import('@/infrastructure/database/schema/schema-dry-run')
@@ -181,7 +199,7 @@ export const planDatabaseRefusals = async (app: App): Promise<DatabasePlanOutcom
   // sees it, and `tapCause` sits BEFORE the recovery so the cause is logged rather
   // than only summarised into a sentence (standing rule E6).
   return Effect.runPromise(
-    planConfigTableChanges(app, parseDatabaseDialectConfig()).pipe(
+    planConfigTableChanges(app, parseDatabaseDialectConfig(), { authoredTableIds }).pipe(
       Effect.map((changes): DatabasePlanOutcome => ({
         kind: 'planned',
         refusals: changes.flatMap((change) => change.refusals),

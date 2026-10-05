@@ -15,8 +15,13 @@
  *
  * Unlike `listUserViews` / `updateUserView` (per-user-scoped), the share
  * endpoint must be callable by any authenticated user. Authorisation is
- * enforced at the table layer: the response is only returned when the
- * session's effective roles satisfy `app.tables[view.tableName].permissions.read`.
+ * enforced at the table layer: the response is only returned when the records
+ * route of the view's table admits the caller (`tableReadAdmits` — her role,
+ * her groups and, on a table with row-level rules, her assignment roles).
+ *
+ * The definition handed back is masked to the caller's field read grants: a
+ * filter condition, sort, column, grouping or column width on a field the
+ * caller may not read is left out.
  *
  * Anti-enumeration: missing view AND permission denial BOTH surface as
  * `UserViewNotFoundError` / `UserViewForbiddenError`; the route maps either
@@ -31,10 +36,13 @@ import {
   UserViewRepository,
   type UserViewResponse,
 } from '@/application/ports/repositories/tables/user-view-repository'
-import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { tableReadAdmits } from '@/application/use-cases/tables/table-operations'
+import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { maskSavedViewDefinition } from '@/domain/models/app/tables/views/view-read-service'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -66,7 +74,7 @@ export const getSharedView = (
 ): Effect.Effect<
   UserViewResponse,
   UserViewDbError | UserViewForbiddenError | UserViewNotFoundError,
-  UserViewRepository | AuthRepository
+  UserViewRepository | AuthRepository | DataSourceRepository
 > =>
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
@@ -100,10 +108,22 @@ export const getSharedView = (
       ],
       { concurrency: 2 }
     )
-    const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-    if (!hasReadPermissionForRoles(targetTable, effectiveRoles, input.app.tables)) {
+    // The records route's own table gate: role, groups and — on a table with
+    // row-level rules, and only there — the roles the caller's assignments give
+    // her. Read on a table without such rules, assignments would not count.
+    const accessRoles =
+      targetTable.rowLevelPermissions === undefined ? [] : yield* getUserAccessRoles(input.userId)
+    const caller = { role: userRole, groups: userGroups, accessRoles }
+    if (!tableReadAdmits(input.app, targetTable, caller)) {
       return yield* new UserViewForbiddenError({ viewId: input.viewId })
     }
 
-    return view
+    // The view is the reader's to open, but its definition was drawn by its
+    // owner: its filter conditions, sorts, columns, grouping and widths name
+    // fields — and values filtered on them — the reader may not read. Each part
+    // keeps only the fields the reader's role and groups read, as a config
+    // view's definition does on the views routes.
+    return maskSavedViewDefinition(view, (field) =>
+      isFieldReadableByCaller(input.app, targetTable.name, caller, field)
+    )
   }).pipe(Effect.withSpan('tables.get-shared-view'))

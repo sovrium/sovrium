@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveEnvInString } from '@/application/use-cases/automations/resolve-env-vars'
+import { resolveSecretInString } from '@/application/use-cases/automations/resolve-env-vars'
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
 import {
   DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
@@ -22,7 +22,8 @@ import type { Context } from 'hono'
  * with `crypto.timingSafeEqual` to defeat per-byte timing attacks. Secret
  * values are resolved from `$env.X` references just before comparison so
  * literal credentials never appear in the schema-decoded `App` object after
- * a redaction pass.
+ * a redaction pass. A credential whose variable resolves to empty is empty as
+ * a whole, literal around it included, so every checker below refuses it.
  *
  * Extracted from `webhook-handler.ts` to keep the dispatch handler under
  * the `max-lines` cap and to make the auth logic independently testable
@@ -37,7 +38,7 @@ export type AuthResult = { readonly ok: true } | { readonly ok: false }
 const resolveSecret = (
   value: string | undefined,
   envLookup: Readonly<Record<string, string>>
-): string => (value === undefined ? '' : resolveEnvInString(value, envLookup))
+): string => (value === undefined ? '' : resolveSecretInString(value, envLookup))
 
 const checkBearer = (
   c: Context,

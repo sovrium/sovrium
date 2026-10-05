@@ -7,6 +7,7 @@
 
 import { NotFoundError } from '@/domain/errors'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { handleRouteError } from './error-handlers'
 import type { Context } from 'hono'
 
@@ -140,14 +141,7 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
   // S1 anti-enumeration: authorization denials return 404 so the caller cannot
   // distinguish "exists but forbidden" from "doesn't exist".
   if (error instanceof Error && error.name === 'ForbiddenError') {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
+    return notFound(c)
   }
 
   // A record the validator proved absent. `recordId` is reported as a number
@@ -157,6 +151,7 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     return c.json(
       {
         success: false,
+        error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
         recordId: error.recordId === undefined ? undefined : Number.parseInt(error.recordId),

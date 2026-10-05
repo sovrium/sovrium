@@ -175,7 +175,8 @@ export const computeDataTableShellClasses = (): string => computeTableShellClass
  * Layout (`grid grid-cols-N gap-2`) stays the consumer's responsibility because
  * column count varies — the computer only ships padding, type, and colour.
  */
-export const computeDataTableHeaderClasses = (): string => computeTableHeaderCellClasses()
+export const computeDataTableHeaderClasses = (): string =>
+  computeTableHeaderCellClasses({ inTable: false })
 
 // ──────────────────────────────────────────────────────────────────────────────
 // DATA-TABLE BODY ROW — selection + last-row variants

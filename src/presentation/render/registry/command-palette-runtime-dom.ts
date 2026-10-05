@@ -112,13 +112,20 @@ export const COMMAND_PALETTE_RUNTIME_DOM = `
   // with a real \`form\` component's fields (an SSR \`<label>product</label>\`
   // would otherwise make \`getByLabel(/product/i)\` ambiguous). One dialog per
   // table is cached after first construction.
+  // The dialog's words, resolved in the page language by the server.
+  function paletteString(key, english) {
+    var strings = config.strings || {};
+    return typeof strings[key] === 'string' ? strings[key] : english;
+  }
+
   function buildCreateDialog(tableName) {
+    var title = paletteString('createTitle', 'New {table} record').split('{table}').join(tableName);
     var dialog = document.createElement('div');
     dialog.setAttribute('data-create-record-dialog', tableName);
     dialog.setAttribute('data-open', 'false');
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'New ' + tableName + ' record');
+    dialog.setAttribute('aria-label', title);
     dialog.style.display = 'none';
     dialog.style.position = 'fixed';
     dialog.style.inset = '0';
@@ -132,7 +139,7 @@ export const COMMAND_PALETTE_RUNTIME_DOM = `
     panel.style.maxWidth = '32rem';
 
     var heading = document.createElement('h2');
-    heading.textContent = 'New ' + tableName + ' record';
+    heading.textContent = title;
     panel.appendChild(heading);
 
     var form = document.createElement('form');
@@ -147,7 +154,7 @@ export const COMMAND_PALETTE_RUNTIME_DOM = `
       var inputId = 'create-' + tableName + '-' + field.name;
       var label = document.createElement('label');
       label.setAttribute('for', inputId);
-      label.textContent = field.name;
+      label.textContent = typeof field.label === 'string' ? field.label : field.name;
       var control = document.createElement('input');
       control.setAttribute('id', inputId);
       control.setAttribute('name', field.name);
@@ -160,11 +167,11 @@ export const COMMAND_PALETTE_RUNTIME_DOM = `
     var actions = document.createElement('div');
     var submit = document.createElement('button');
     submit.setAttribute('type', 'submit');
-    submit.textContent = 'Create';
+    submit.textContent = paletteString('create', 'Create');
     var cancel = document.createElement('button');
     cancel.setAttribute('type', 'button');
     cancel.setAttribute('data-create-record-close', 'true');
-    cancel.textContent = 'Cancel';
+    cancel.textContent = paletteString('cancel', 'Cancel');
     cancel.addEventListener('click', function () { closeCreateDialog(dialog); });
     actions.appendChild(submit);
     actions.appendChild(cancel);

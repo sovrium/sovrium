@@ -182,3 +182,179 @@ export const fieldsOutsideView = (
   if (viewFields === undefined || viewFields.length === 0) return undefined
   return names.find((name) => !viewFields.includes(name) && !ENVELOPE_COLUMNS.has(name))
 }
+
+/** The parts of a view definition that name fields. */
+interface ViewDefinitionParts {
+  readonly filters?: unknown
+  readonly sorts?: readonly { readonly field: string; readonly direction: string }[]
+  readonly fields?: readonly string[]
+  readonly groupBy?: { readonly field: string }
+}
+
+/** The parts that name fields may be left out once masked; the rest is unchanged. */
+type MaskedViewDefinition<V extends ViewDefinitionParts> = Omit<
+  V,
+  'filters' | 'sorts' | 'fields' | 'groupBy'
+> &
+  Partial<Pick<V, 'filters' | 'sorts' | 'fields' | 'groupBy'>>
+
+/**
+ * A filter node with every condition on a field `canRead` refuses left out, or
+ * `undefined` when nothing is left.
+ *
+ * The node is checked at every depth rather than trusted to its type: a saved
+ * view's `filters` reach here as stored, and the create route stores them
+ * without a shape check. So a condition hands back ONLY its `field`, `operator`
+ * and `value` — any other key it carries (a nested `and`, say) could name a
+ * hidden field — a condition whose `field` is not text is left out, and so is a
+ * group whose children are not a list, or a child that is not a node.
+ */
+const maskFilterNode = (
+  node: unknown,
+  canRead: (field: string) => boolean
+): ViewFilterNode | undefined => {
+  if (!isFilterNode(node)) return undefined
+  if ('field' in node) {
+    const { field, operator } = node
+    if (typeof field !== 'string' || !canRead(field)) return undefined
+    return 'value' in node
+      ? { field, operator, value: node.value }
+      : ({ field, operator } as ViewFilterNode)
+  }
+  const children: unknown = 'and' in node ? node.and : node.or
+  if (!Array.isArray(children)) return undefined
+  const kept = children.flatMap((child: unknown) => {
+    const masked = maskFilterNode(child, canRead)
+    return masked === undefined ? [] : [masked]
+  })
+  if (kept.length === 0) return undefined
+  return 'and' in node ? { and: kept } : { or: kept }
+}
+
+/**
+ * A definition's `filters` with every condition on a field `canRead` refuses
+ * left out.
+ *
+ * Two shapes reach here. A config view declares ONE node — an `and` / `or`
+ * group or a single condition — and a group or filter left with no condition is
+ * dropped (`undefined`). A saved view stores a FLAT ARRAY of conditions: each
+ * entry is masked on its own, an entry that is not a filter node is left out
+ * rather than handed over unread, and the array keeps its shape even when it
+ * ends up empty, so a client reading `filters` as a list still gets one.
+ * Anything else is returned as it came: the masking only removes, it never
+ * invents a shape.
+ */
+const maskViewFilters = (filters: unknown, canRead: (field: string) => boolean): unknown => {
+  if (Array.isArray(filters)) {
+    return filters.flatMap((entry: unknown) => {
+      const masked = maskFilterNode(entry, canRead)
+      return masked === undefined ? [] : [masked]
+    })
+  }
+  return isFilterNode(filters) ? maskFilterNode(filters, canRead) : filters
+}
+
+/**
+ * A view definition as one reader may see it: its `fields`, filter conditions
+ * (at any depth, in a node or a flat array), `sorts` and `groupBy` keep only
+ * the fields `canRead` admits.
+ *
+ * The definition describes the columns and values a view was drawn around, so
+ * handing it over verbatim names a field kept from the reader — and the value
+ * filtered on it. The view itself stays listed: what it serves is masked by the
+ * records read, and the reader is told only what they may read of how. A group
+ * left with no condition is dropped, and a filter left with none is omitted.
+ */
+export const maskViewDefinition = <V extends ViewDefinitionParts>(
+  view: V,
+  canRead: (field: string) => boolean
+): MaskedViewDefinition<V> => {
+  const filters = maskViewFilters(view.filters, canRead)
+  const { filters: _filters, groupBy, ...rest } = view
+  return {
+    ...rest,
+    ...(filters === undefined ? {} : { filters }),
+    ...(view.sorts === undefined ? {} : { sorts: view.sorts.filter((s) => canRead(s.field)) }),
+    ...(view.fields === undefined ? {} : { fields: view.fields.filter(canRead) }),
+    ...(groupBy === undefined || !canRead(groupBy.field) ? {} : { groupBy }),
+  } as MaskedViewDefinition<V>
+}
+
+/** The parts of a saved (user) view that name fields, as stored: loosely typed. */
+interface SavedViewDefinitionParts {
+  readonly filters?: unknown
+  readonly sorts?: unknown
+  readonly fields?: unknown
+  readonly groupBy?: unknown
+  readonly columnWidths?: unknown
+}
+
+const namesField = (entry: unknown): entry is { readonly field: string } =>
+  typeof entry === 'object' &&
+  entry !== null &&
+  typeof (entry as { readonly field?: unknown }).field === 'string'
+
+/**
+ * A saved view's `groupBy` — a field name, `{ field }`, or `null` — kept only
+ * when readable. The object form hands back `{ field }` alone: it is stored
+ * unchecked, and any other key it carried could name a hidden field.
+ */
+const maskSavedGroupBy = (groupBy: unknown, canRead: (field: string) => boolean): unknown => {
+  if (groupBy === null) return groupBy
+  if (typeof groupBy === 'string') return canRead(groupBy) ? groupBy : undefined
+  if (namesField(groupBy)) return canRead(groupBy.field) ? { field: groupBy.field } : undefined
+  return undefined
+}
+
+/** A saved view's sorts: readable `{ field, direction }` entries only, each with no other key. */
+const maskSavedSorts = (
+  sorts: readonly unknown[],
+  canRead: (field: string) => boolean
+): readonly unknown[] =>
+  sorts.flatMap((sort: unknown) => {
+    if (!namesField(sort) || !canRead(sort.field)) return []
+    const { direction } = sort as { readonly direction?: unknown }
+    return [direction === undefined ? { field: sort.field } : { field: sort.field, direction }]
+  })
+
+/** A saved view's `columnWidths`, keyed by field name, without the unreadable keys. */
+const maskColumnWidths = (widths: unknown, canRead: (field: string) => boolean): unknown =>
+  typeof widths === 'object' && widths !== null && !Array.isArray(widths)
+    ? Object.fromEntries(Object.entries(widths).filter(([field]) => canRead(field)))
+    : undefined
+
+/**
+ * A saved view as one reader may see it — the rule {@link maskViewDefinition}
+ * applies to a config view, for the looser shape a saved view is stored in.
+ *
+ * Its filters are a flat array of conditions, its sorts and columns arrays, its
+ * `groupBy` a field name and its `columnWidths` a map keyed by field name: each
+ * keeps only what `canRead` admits. Every entry whose shape is not recognised
+ * is left out, because a part that names fields and cannot be read is a part
+ * that cannot be shown to be safe. Keys the definition does not carry stay
+ * absent, and every other key of the view passes unchanged.
+ */
+export const maskSavedViewDefinition = <V extends SavedViewDefinitionParts>(
+  view: V,
+  canRead: (field: string) => boolean
+): V => {
+  const { filters, sorts, fields, groupBy, columnWidths, ...rest } = view
+  const maskedFilters =
+    Array.isArray(filters) || isFilterNode(filters) ? maskViewFilters(filters, canRead) : undefined
+  const maskedGroupBy = maskSavedGroupBy(groupBy, canRead)
+  const maskedWidths = maskColumnWidths(columnWidths, canRead)
+  return {
+    ...rest,
+    ...(maskedFilters === undefined ? {} : { filters: maskedFilters }),
+    ...(Array.isArray(sorts) ? { sorts: maskSavedSorts(sorts, canRead) } : {}),
+    ...(Array.isArray(fields)
+      ? {
+          fields: fields.filter(
+            (field: unknown): field is string => typeof field === 'string' && canRead(field)
+          ),
+        }
+      : {}),
+    ...(maskedGroupBy === undefined ? {} : { groupBy: maskedGroupBy }),
+    ...(maskedWidths === undefined ? {} : { columnWidths: maskedWidths }),
+  } as V
+}

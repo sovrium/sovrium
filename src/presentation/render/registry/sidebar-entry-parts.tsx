@@ -75,6 +75,7 @@ export function renderBadge(badge: SidebarNavItem['badge']): ReactElement | unde
     return (
       <span
         aria-hidden="true"
+        data-component-type="badge"
         className={computeSidebarEntryBadgeClasses()}
       >
         {badge}
@@ -84,6 +85,7 @@ export function renderBadge(badge: SidebarNavItem['badge']): ReactElement | unde
   return (
     <span
       aria-hidden="true"
+      data-component-type="badge"
       className={computeSidebarEntryBadgeClasses()}
       data-island="sidebar-badge"
       data-island-props={JSON.stringify({

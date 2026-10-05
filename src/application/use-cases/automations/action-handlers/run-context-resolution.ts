@@ -5,7 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { buildAutomationContext, lookupPath, resolveTriggerInString } from '../resolve-trigger-data'
+import { authoredReferenceRoots } from '../authored-references'
+import {
+  buildAutomationContext,
+  isTemplateHelperName,
+  lookupPath,
+  resolveTriggerInString,
+} from '../resolve-trigger-data'
 import type { ActionRunContext } from './shared'
 
 /**
@@ -51,9 +57,14 @@ export const resolveRunContextValue = (
 ): unknown => {
   if (typeof value === 'string') {
     const whole = SIMPLE_PATH.exec(value.trim())
-    return whole !== null
-      ? lookupPath(context, whole[1] as string)
-      : resolveTriggerInString(value, context)
+    if (whole === null) return resolveTriggerInString(value, context)
+    const name = whole[1] as string
+    const found = lookupPath(context, name)
+    // A helper (`{{now}}`) is rendered, as it is at the top level of a run. Only
+    // a helper: an unknown path stays `undefined` rather than rendering to ''.
+    return found === undefined && isTemplateHelperName(name)
+      ? resolveTriggerInString(value, context)
+      : found
   }
   if (Array.isArray(value)) return value.map((v) => resolveRunContextValue(v, context))
   if (value !== null && typeof value === 'object') {
@@ -67,6 +78,30 @@ export const resolveRunContextValue = (
   return value
 }
 
+/** The action's props as authored, ready for the template pass (see
+ *  `ActionRunContext.authoredProps`) — or, for final props, the props as
+ *  given. Falls back to the raw props when neither was threaded. */
+export const authoredActionProps = (
+  runContext: ActionRunContext
+): Readonly<Record<string, unknown>> => runContext.authoredProps ?? rawActionProps(runContext)
+
+/**
+ * Fill in a value of the action's own props against the run context, once —
+ * or return it as given when the props are final (`propsFinal`): a value a
+ * step handed over is never rendered as a template again.
+ *
+ * The single entry point for a handler that renders its own props, so the
+ * "final" rule lives here rather than in each of them.
+ */
+export const resolveOwnProp = (runContext: ActionRunContext, value: unknown): unknown =>
+  runContext.propsFinal === true
+    ? value
+    : resolveRunContextValue(value, buildRunContextView(runContext))
+
+/** {@link resolveOwnProp} over the whole of the action's own props. */
+export const resolveOwnProps = (runContext: ActionRunContext): Readonly<Record<string, unknown>> =>
+  resolveOwnProp(runContext, authoredActionProps(runContext)) as Readonly<Record<string, unknown>>
+
 /** The `props` map of the raw, pre-substitution action carried on the run
  *  context. `{}` when absent. */
 export const rawActionProps = (runContext: ActionRunContext): Readonly<Record<string, unknown>> => {
@@ -75,20 +110,54 @@ export const rawActionProps = (runContext: ActionRunContext): Readonly<Record<st
 }
 
 /**
+ * Expose each prior step's output under a `.result` alias as well as its
+ * bare keys, so a downstream action can reference either `{{step.key}}` or
+ * `{{step.result.key}}`. The `.result` alias is the canonical step-chaining
+ * path the file-action specs depend on (`{{generateReport.result.key}}`) and
+ * mirrors the `automation:call` output, whose payload natively nests under
+ * `result`. An output that ALREADY carries a `result` key (automation:call)
+ * is passed through untouched so its own `result` is not double-wrapped.
+ *
+ * The run loop builds its top-level template context with it, and
+ * {@link buildRunContextView} builds a handler's, so a template reads the same
+ * inside a `path` branch or a loop body as it does at the top level.
+ */
+export const buildStepsResultView = (
+  actions: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
+  Object.fromEntries(
+    Object.entries(actions).map(([name, output]) => [
+      name,
+      'result' in output ? output : { ...output, result: output },
+    ])
+  )
+
+/**
  * The substitution context a handler sees during a run: the trigger view
  * (`{{trigger.data.X}}`), prior step outputs both as top-level keys
- * (`{{stepName.X}}`) and under `steps` (`{{steps.stepName.X}}`).
+ * (`{{stepName.X}}`, `{{stepName.result.X}}`) and under `steps`
+ * (`{{steps.stepName.X}}`), and the env and template-variable values the
+ * authored text references.
  *
  * Callers that add their own keys (e.g. `loop` adds `loop: { item, index }`)
  * spread this and override.
  */
 export const buildRunContextView = (
   runContext: ActionRunContext
-): Readonly<Record<string, unknown>> => ({
-  ...runContext.previousSteps,
-  ...buildAutomationContext(runContext.triggerData as never),
-  steps: runContext.previousSteps,
-})
+): Readonly<Record<string, unknown>> => {
+  const stepsView = buildStepsResultView(runContext.previousSteps)
+  return {
+    ...stepsView,
+    ...buildAutomationContext(runContext.triggerData as never),
+    steps: stepsView,
+    // Written last so no step name shadows them: the values an authored
+    // `$env.X` / `$name` reference inserts (see `../authored-references`).
+    ...authoredReferenceRoots({
+      envLookup: runContext.envLookup,
+      vars: runContext.templateVars,
+    }),
+  }
+}
 
 /** Narrow an `unknown` to an array, else `[]`. */
 export const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : [])

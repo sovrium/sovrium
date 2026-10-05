@@ -28,13 +28,20 @@ import {
   type FormRefExpansionContext,
 } from '@/presentation/render/forms/form-ref-resolver'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
+import {
+  markDrawerFieldAccess,
+  unreadableTableFields,
+  unreadableTables,
+} from '@/presentation/render/props/resolve-record-drawer-access'
 import { markRelatedGuestCaller } from '@/presentation/render/props/resolve-record-drawer-related'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-drawer-dispatch-resolver'
+import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import { resolveRuntimeCapabilities } from '@/presentation/render/resolve/runtime-capability-resolver'
 import { resolvePageToc } from '@/presentation/render/resolve/toc-resolver'
 import {
   applyCallerCapabilityGate,
+  applyOverlayTriggerGate,
   applyVisibilityToComponents,
 } from '@/presentation/render/resolve/visibility-filter'
 import { stripAuthActionsIfUnconfigured, stripUnconfiguredOAuthForms } from './page-access-gating'
@@ -119,7 +126,20 @@ const buildCommandPaletteComponent = (app: App, session: SessionInfo | undefined
         app.languages
       ),
     }))
-  return { type: 'command-palette', props: { pages: navigablePages } } as unknown as Component
+  // The create dialogs name each table's text fields: never one this caller may not read.
+  const unreadableFields = unreadableTableFields(app, session)
+  // A table this caller may not read is not named at all, nor its fields.
+  const hiddenTables = unreadableTables(app, session)
+  return {
+    type: 'command-palette',
+    props: {
+      pages: navigablePages,
+      ...(Object.keys(unreadableFields).length === 0
+        ? {}
+        : { _unreadableFields: unreadableFields }),
+      ...(hiddenTables.length === 0 ? {} : { _unreadableTables: hiddenTables }),
+    },
+  } as unknown as Component
 }
 
 /**
@@ -191,7 +211,7 @@ const withNavigablePages = (
 /**
  * Inputs to {@link applyPageComponentFilters}. An options object rather than a
  * positional list: the pipeline has accumulated a per-request locale (P9), a
- * request query (GAP-3) and a URL-prefix locale ([internal ref]..039), and a
+ * request query and a URL-prefix locale ([internal ref]..039), and a
  * seventh positional argument is a call site nobody can read.
  */
 interface PageComponentFilterInput {
@@ -219,6 +239,11 @@ interface PageComponentFilterInput {
   readonly callerCapabilities?: readonly CallerCapability[]
   /** The table-backed choices of each embedded form, read before this pass. */
   readonly formOptions?: FormRefOptionSets
+  /**
+   * The tree {@link gatePageComponents} already produced for this request,
+   * when the caller needed it first; computed here when absent.
+   */
+  readonly gatedComponents?: Page['components']
 }
 
 /**
@@ -234,14 +259,28 @@ function formRefContext(
     ...(parentRecord !== undefined ? { parentRecord } : {}),
     session,
     activeLang,
-    // GAP-3 / [internal ref]: host request query for embedded `$query` prefill.
+    // [internal ref]: host request query for embedded `$query` prefill.
     ...(requestQuery !== undefined ? { query: requestQuery } : {}),
     ...(formOptions !== undefined ? { formOptions } : {}),
   }
 }
 
-export function applyPageComponentFilters(input: PageComponentFilterInput): Page {
-  const { rawPage, app, session, detectedLanguage, requestQuery, urlLanguage } = input
+/**
+ * The ACCESS half of {@link applyPageComponentFilters}: every gate that
+ * removes a component this viewer may not have — auth-unconfigured actions,
+ * caller powers, `when` / `roles` / `condition`, the overlays those left with
+ * no trigger, and the CRUD create/update permissions.
+ *
+ * Exported because a read that must happen BEFORE the synchronous filter pass
+ * (the choices of an embedded form, `resolveFormRefOptionSets`) has to walk
+ * the tree this viewer will actually receive: a form inside a dialog whose
+ * only trigger is gated away must not cost — or reveal to a log — a read of
+ * its choices.
+ */
+export function gatePageComponents(
+  input: Omit<PageComponentFilterInput, 'formOptions' | 'gatedComponents'>
+): Page['components'] {
+  const { rawPage, app, session, requestQuery } = input
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
   const oauthFiltered = stripUnconfiguredOAuthForms(authStripped, app)
   // P10: the CALLER-power gate runs before the three session gates below and
@@ -280,9 +319,28 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
       ? { grantedCapabilities: input.callerCapabilities }
       : {}),
   })
-  const visibilityFiltered = applyVisibilityToComponents(capabilityGated, session, app)
+  // An overlay goes with the triggers that open it: when the two gates above
+  // left this viewer none of them, the dialog/drawer they addressed is removed
+  // too, rather than shipped (and, for a dialog with no trigger to wait on,
+  // shown open).
+  //
+  // Every dialog a trigger in the page config names is then marked as having
+  // an opener, so it mounts closed and waits for it — even when that trigger is
+  // not drawn yet (an unopened tab panel, another view of the page).
+  const visibilityFiltered = markAddressedDialogs(
+    oauthFiltered,
+    applyOverlayTriggerGate(
+      oauthFiltered,
+      applyVisibilityToComponents(capabilityGated, session, app)
+    )
+  )
   const createPermFiltered = applyCrudCreatePermissions(visibilityFiltered, app.tables, session)
-  const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+  return applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+}
+
+export function applyPageComponentFilters(input: PageComponentFilterInput): Page {
+  const { rawPage, app, session, detectedLanguage, urlLanguage } = input
+  const updatePermFiltered = input.gatedComponents ?? gatePageComponents(input)
   // P9: resolve the host page's active language the SAME way the page's own
   // `$t:` components resolve (URL prefix > page.meta.lang > detectedLanguage >
   // default) so an embedded `formRef` localizes its `$t:` title/label/onSuccess
@@ -315,9 +373,15 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // A drawer's `related` sections must answer an anonymous caller the way the
   // records API does, and only this pass knows whether the app has auth — see
   // `RELATED_GUEST_CALLER_KEY`.
-  const withDrawerDispatches = markRelatedGuestCaller(
-    resolveOpenDrawerDispatches(withToc ?? []),
-    app.auth !== undefined && session === undefined
+  // Likewise its fields: what the reader may read and write needs the whole
+  // `app`, which the drawer's renderer does not hold.
+  const withDrawerDispatches = markDrawerFieldAccess(
+    markRelatedGuestCaller(
+      resolveOpenDrawerDispatches(withToc ?? []),
+      app.auth !== undefined && session === undefined
+    ),
+    app,
+    session
   )
   // The platform Cmd+K command palette is appended to every page by default.
   // An app may opt out via `palette: { enabled: false }` — e.g. when it

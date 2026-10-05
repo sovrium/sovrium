@@ -102,5 +102,5 @@ export const SearchReadablePages = (
 ): Effect.Effect<readonly PageSearchHit[], never> =>
   Effect.gen(function* () {
     const documents = yield* loadReadablePageDocuments(app, session)
-    return searchPageDocuments(documents, query, { matchText: () => true })
+    return searchPageDocuments(documents, query, { matchText: () => true, titleFirst: true })
   }).pipe(Effect.withSpan('pages.search-readable-pages'))

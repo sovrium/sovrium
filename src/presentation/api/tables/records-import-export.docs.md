@@ -59,7 +59,7 @@ The file is streamed with an attachment disposition named `<table>-<YYYY-MM-DD>`
 
 Export honours field-level read permissions: columns the caller may not read are absent from the file rather than blank in it.
 
-**The read gate answers `403`, not `404`** — the one place in the records path that does. Everywhere else a denial is made indistinguishable from absence, but an export is an action the caller explicitly asked for on a table they can already see listed, so it is refused as a refusal. Do not write a client that treats `404` as the only denial here.
+**A caller who may not read the table gets `404`**, with the same body a table that does not exist answers, as everywhere else in the records path: an export never tells a table kept from its caller apart from an absent one.
 
 ## Clipboard
 

@@ -250,6 +250,40 @@ export const computeCommentComposerFieldClasses = (): string =>
     `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
   ].join(' ')
 
+/**
+ * The composer's `@` picker: a listbox on the cell editor's raised surface, but
+ * IN FLOW under the textarea rather than floating over it. The thread frame
+ * clips its overflow (it owns the rounded corners), and the composer sits at
+ * its foot, so an absolutely positioned list there would be cut off at the
+ * frame's edge. Its rows and caption take the same paint as a cell editor's
+ * candidate list (`table-overlay-default-classes.ts`), spelled here rather than
+ * imported: the thread island mounts on pages with no data table, and reaching
+ * into the grid's recipe module would ship its shared chunk to all of them.
+ */
+export const computeCommentMentionPickerClasses = (): string =>
+  [
+    'flex max-h-56 min-w-40 flex-col overflow-auto border text-sm',
+    `rounded-[${v('radius-md', T.radiusMd)}]`,
+    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+    `border-[${v('sv-border', T.border)}]`,
+  ].join(' ')
+
+export const computeCommentMentionOptionClasses = ({
+  active,
+}: {
+  readonly active: boolean
+}): string =>
+  [
+    'flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left text-sm',
+    `rounded-[${v('radius-base', T.radiusBase)}]`,
+    active
+      ? `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
+      : `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  ].join(' ')
+
+export const computeCommentMentionCaptionClasses = (): string =>
+  `px-2 py-1 text-xs font-medium text-[${v('sv-fg-muted', T.fgMuted)}]`
+
 /** "Sign in to comment" — the same block, holding a link instead of a form. */
 export const computeCommentSignedOutClasses = (): string =>
   [

@@ -44,11 +44,12 @@ function ViewLoading(): ReactElement {
 }
 
 /**
- * Board branch. Kanban is the one view type whose `data-component` marker lives
- * on the SSR island wrapper rather than on the mounted component (the board
- * deliberately does not duplicate it), so the embedded board supplies the
- * wrapper itself. Calendar and gallery carry their own marker and must NOT be
- * wrapped, or `[data-component="calendar"]` would resolve to two nodes.
+ * Board branch. No view island names itself: on a page the SSR island host
+ * carries the `data-component` marker, and the mounted component deliberately
+ * does not duplicate it. Embedded here there is no such host, so every view
+ * supplies the naming wrapper itself — the board below, the calendar and the
+ * gallery in {@link AlternateView}, each with the view or layout it opens on,
+ * as the island host would carry it.
  */
 function KanbanView({
   records,
@@ -111,16 +112,27 @@ export function AlternateView({
         />
       )}
       {activeView === 'calendar' && (
-        <CalendarIslandLazy
-          records={records}
-          dateField={dateField}
-        />
+        <div
+          data-component="calendar"
+          data-view="month"
+        >
+          <CalendarIslandLazy
+            records={records}
+            dateField={dateField}
+          />
+        </div>
       )}
       {activeView === 'gallery' && (
-        <GalleryIslandLazy
-          records={records}
-          emptyMessage={emptyMessage}
-        />
+        <div
+          data-component="gallery"
+          data-layout="grid"
+          data-gallery-layout="grid"
+        >
+          <GalleryIslandLazy
+            records={records}
+            emptyMessage={emptyMessage}
+          />
+        </div>
       )}
     </Suspense>
   )

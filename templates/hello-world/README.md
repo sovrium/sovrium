@@ -19,16 +19,23 @@ sovrium init my-hello-world --template hello-world
 
 ## What's inside
 
-A single `app.yaml` rendering one page — the smallest possible Sovrium app.
+One file, one page. The page says the app runs, shows the lines of
+[`app.yaml`](./app.yaml) that make it, and links the documentation and the other
+templates. Any address that answers nothing gets a 404 page with the way back. The page
+follows the system's light or dark scheme.
 
-Everything is declared in [`app.yaml`](./app.yaml) — no application code, and no
-`config/` tree to split it across. Edit the config, restart, done.
+Everything is declared in `app.yaml` — no application code, and no `config/` tree to
+split it across. [`app.ts`](./app.ts) is the same app in TypeScript, kept in sync; start
+whichever you prefer.
 
 ## Run locally
 
 ```bash
-sovrium start app.yaml
+sovrium start app.yaml --watch
 ```
+
+Open the address it prints, change the heading in `app.yaml`, and save: `--watch`
+reloads the page. Write your own page at `/` and the starter page is gone.
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,

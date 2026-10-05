@@ -27,7 +27,7 @@
 //
 // There is no `/api/admin/links/overview` and no per-link click endpoint,
 // however natural either looks: a second aggregation path over the same click
-// rows would eventually disagree with the first ([internal ref] D6). Both pages ask the
+// rows would eventually disagree with the first. Both pages ask the
 // SAME readers a narrower question, with `event_type=link_click`, and the
 // deep-dive adds `event_name`. The ONE links-specific endpoint either page binds
 // is the catalog, and it lists definitions rather than metrics.
@@ -49,7 +49,7 @@
 // The last blocker was ONE token. The whole surface passed 84 specs on its first
 // run and was reverted anyway, because the builder heads the deep-dive
 // `title ?? slug` and `AdminLink.title` is nullable — a console-minted link put
-// the literal word `null` at the top of an operator page. [internal ref] closed it in
+// the literal word `null` at the top of an operator page. It was closed in
 // the `$` grammar rather than in this file: `$record.title|$record.slug` resolves
 // to the first candidate that is non-empty, so every consumer of that
 // substitution gained a fallback at once and this page declares no special case.
@@ -375,7 +375,7 @@ const analyticsDisabledNote = (): PageComponent =>
  * than a detail-page footnote: a `config` link is declared in a file the console
  * may not write and its mutation endpoints answer 409, so no Edit or Delete
  * affordance is painted for it at all. Painting a control the backend refuses is
- * a defect, not a cosmetic issue ([internal ref] D2).
+ * a defect, not a cosmetic issue.
  *
  * `state` is derived by the resolver — the SAME function the redirect handler
  * uses — so the grid can never report `active` for a link whose visitors get a
@@ -415,7 +415,7 @@ const CATALOG_COLUMNS = [
  * Delete needs only the first half, so it is the one that fits here. It is gated
  * on `source` rather than offered to everything, because `DELETE` naming a
  * config-declared slug answers **409 `LINK_IS_CONFIG_DECLARED`** by design
- * ([internal ref] D2) — painting a control the backend refuses is a defect, not a
+ * — painting a control the backend refuses is a defect, not a
  * cosmetic issue, and the refusal is the same whatever the link's state.
  *
  * Both confirm labels are EXPLICIT. The confirm-gate runtime defaults its two
@@ -730,7 +730,7 @@ const definitionPanel = (): PageComponent =>
  * No `password` in any cell, because there is none in the payload: the endpoint
  * does not emit one, which is what makes the redaction real rather than
  * cosmetic — masking in the UI would still ship the value to the browser, the
- * proxy and the error tracker ([internal ref] D5).
+ * proxy and the error tracker.
  */
 const definitionDrawer = (): PageComponent =>
   ({
@@ -1206,12 +1206,12 @@ const detailAnalytics = (): PageComponent =>
  * the console's first real write surface. A config-declared slug gets a note
  * naming the file instead: `POST`, `PATCH` and `DELETE` answer 409
  * `LINK_IS_CONFIG_DECLARED` for one, and a control the backend refuses is a
- * defect rather than a cosmetic issue ([internal ref] D2).
+ * defect rather than a cosmetic issue.
  *
  * And no `password`, in any cell or any payload the page fetches — the catalog
  * and detail endpoints do not emit one, which is what makes the redaction real
  * rather than cosmetic: masking in the UI would still ship the value to the
- * browser, the proxy and the error tracker ([internal ref] D5).
+ * browser, the proxy and the error tracker.
  */
 const detail = withShell(
   {

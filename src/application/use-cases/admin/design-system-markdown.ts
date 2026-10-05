@@ -65,9 +65,9 @@ const table = (
 
 /** Drop sections with no rows — an empty H2 is chrome, which this format has none of. */
 const renderSections = (sections: readonly Section[]): readonly string[] =>
-  sections
-    .filter((section) => section.lines.length > 0)
-    .flatMap((section) => [`## ${section.title}`, '', ...section.lines, ''])
+  sections.flatMap((section) =>
+    section.lines.length > 0 ? [`## ${section.title}`, '', ...section.lines, ''] : []
+  )
 
 /** A dimension rendered for a table cell, or an empty cell when it is absent. */
 const formatOptionalMeasure = (

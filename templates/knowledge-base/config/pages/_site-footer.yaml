@@ -1,0 +1,16 @@
+# The line under every public page. The "Built with Sovrium" line follows it
+# (`badge.placement: footer` in app.yaml).
+type: container
+element: footer
+props:
+  className: border-t border-border
+children:
+  - type: container
+    props:
+      className: flex h-[52px] items-center px-10 text-[12.5px] text-foreground-subtle max-md:px-3.5
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-[12.5px] text-foreground-subtle
+        content: Corvel · internal handbook

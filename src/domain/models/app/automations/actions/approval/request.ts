@@ -43,7 +43,7 @@ export const ApprovalRequestActionSchema = Schema.Struct({
       ]).pipe(
         Schema.annotate({
           description:
-            'Who may resolve the request: "all-admins" (any admin-tier role) or an array of email addresses and role names. Anyone else is answered as if the request did not exist. Omitted means all-admins.',
+            'Who may resolve the request: "all-admins" (any admin: the built-in admin role or the top role the app declares; a read-only operator role is not one) or an array of email addresses and role names. Anyone else is answered as if the request did not exist. Omitted means all-admins.',
         })
       )
     ),
@@ -81,7 +81,8 @@ export const ApprovalRequestActionSchema = Schema.Struct({
     timeout: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
-          description: 'How long to wait for approval (e.g., "24h", "7d"). No timeout by default.',
+          description:
+            'How long to wait for an answer (e.g., "24h", "7d"). Needs `onTimeout`. Omitted, the request waits indefinitely.',
         }),
         Schema.check(Schema.isPattern(/^\d+\s*(m|h|d)$/))
       )
@@ -92,7 +93,23 @@ export const ApprovalRequestActionSchema = Schema.Struct({
       Schema.Literals(['approve', 'reject', 'escalate']).pipe(
         Schema.annotate({
           description:
-            'Action on timeout: approve (auto-approve), reject (auto-reject), escalate (notify escalation)',
+            'What the engine decides once `timeout` passes: approve (resumes the run) or reject (ends it, or continues it under `onReject: continue`). Required when `timeout` is set.',
+        })
+      )
+    ),
+
+    /**
+     * What a rejection does to the run. `stop` (the default) ends it there, as a
+     * rejection always has. `continue` resumes it past this step exactly as an
+     * approval does, with the step output's `decision` reading `rejected`, so a
+     * later step can record the outcome. A timeout resolved by `onTimeout:
+     * reject` is a rejection and follows the same rule.
+     */
+    onReject: Schema.optional(
+      Schema.Literals(['stop', 'continue']).pipe(
+        Schema.annotate({
+          description:
+            "What a rejection does to the run: 'stop' ends it (default); 'continue' resumes it past this step, as an approval does, with the step output's `decision` set to `rejected` so a later step can record the outcome. A timeout resolved by `onTimeout: reject` follows the same rule.",
         })
       )
     ),

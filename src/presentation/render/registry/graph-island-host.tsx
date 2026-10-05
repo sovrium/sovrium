@@ -99,6 +99,7 @@ export function GraphIslandHost({
       <div className="overflow-x-auto">
         <div
           data-island="graph"
+          data-component-type="graph"
           data-island-props={JSON.stringify(islandProps(component, view))}
         >
           {/* Loading skeleton — preserved as the Suspense fallback. Placeholder

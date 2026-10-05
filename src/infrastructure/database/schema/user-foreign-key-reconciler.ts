@@ -298,7 +298,10 @@ const repairSqliteTable = (
   maps: GeneratorMaps
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const existingColumns = yield* getExistingColumns(tx, candidate.table.name)
+    // The PHYSICAL relation, never the config name: probing `Report Requests`
+    // finds no columns, and a recreate with nothing in common copies nothing
+    // before it drops the original.
+    const existingColumns = yield* getExistingColumns(tx, candidate.relation)
     yield* recreateTableWithDataEffect({
       tx,
       table: candidate.table,

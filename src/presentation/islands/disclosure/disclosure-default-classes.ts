@@ -253,15 +253,20 @@ const TAB_ACCENT_RESERVED_VERTICAL = 'border-l-2 border-transparent'
 // a rail down the leading edge of a vertical column. The colours are canonical
 // role utilities, NOT `var(--sv-…)` arbitrary values — see the note at the top
 // of this file for why a bracketed variant cannot carry one.
+//
+// The active LABEL is the foreground, not the primary: the accent edge carries
+// the primary and is free to be any hue, while the label has to read at 4.5:1
+// on whatever ground the strip sits on — and an app's primary, chosen for fills
+// and edges, often does not (a mid teal read 4.26:1 on a subtle strip).
 const TAB_ACTIVE_SURFACE_HORIZONTAL = [
   'data-[active]:border-primary',
-  'data-[active]:text-primary',
+  'data-[active]:text-foreground',
 ].join(' ')
 
 const TAB_ACTIVE_SURFACE_VERTICAL = [
   'data-[active]:border-primary',
   'data-[active]:bg-background-subtle',
-  'data-[active]:text-primary',
+  'data-[active]:text-foreground',
 ].join(' ')
 
 /**
@@ -271,8 +276,8 @@ const TAB_ACTIVE_SURFACE_VERTICAL = [
  * directly, so the recipe paints all three branches via data-attribute
  * variants without an explicit branch at call time. The default tone is
  * muted foreground (so non-active tabs read as orientation, not focal
- * content); the active tab flips to the primary tone with a primary accent
- * edge; disabled tabs dim to 50% opacity via the shared `DISABLED_INLINE`
+ * content); the active tab flips to the foreground tone with a primary
+ * accent edge; disabled tabs dim to 50% opacity via the shared `DISABLED_INLINE`
  * recipe.
  *
  * A tab list is roving-tabindex — exactly one trigger is tabbable and the arrow

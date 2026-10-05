@@ -1,62 +1,119 @@
+# All tickets: every ticket ever filed, newest first, with who asked, where it
+# stands, who holds it and when its first reply is due. A click opens the
+# ticket in a drawer over the grid — its properties and its conversation — so
+# the agent never loses their place in the list.
 name: tickets
 path: /tickets
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: All tickets
-  description: The full ticket grid — search, sort, and group
+  title: All tickets · Tallyline Support
+  description: Every ticket ever filed, with its requester, its status and who holds it.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: All tickets
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Everything ever filed — nothing expires, nothing is capped.
-
-      - type: table
-        dataSource:
-          table: tickets
-          sort:
-            - field: created_at
-              direction: desc
-        columns:
-          - field: subject
-            label: Subject
-            sortable: true
-            filterable: true
-          - field: status
-            label: Status
-            sortable: true
-            filterable: true
-          - field: priority
-            label: Priority
-            sortable: true
-            filterable: true
-          - field: category
-            label: Category
-            filterable: true
-          - field: requester_email
-            label: Requester
-          - field: assignee
-            label: Assignee
-          - field: created_at
-            label: Created
-            format: relative-date
-            sortable: true
-        search:
-          enabled: true
-          placeholder: Search tickets...
-        pagination:
-          pageSize: 20
-        emptyMessage: No tickets yet — share the /support form with your customers.
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: All tickets
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: tickets-filter
+                fields:
+                  - { name: subject, label: Search subject, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: New, label: New }
+                      - { value: Open, label: Open }
+                      - { value: Waiting on customer, label: Waiting on customer }
+                      - { value: Resolved, label: Resolved }
+                      - { value: Closed, label: Closed }
+                  - name: category
+                    label: Topic
+                    kind: select
+                    options:
+                      - { value: Question, label: Question }
+                      - { value: Bug report, label: Bug report }
+                      - { value: Billing, label: Billing }
+                      - { value: Feature request, label: Feature request }
+              - type: table
+                props:
+                  id: all-tickets
+                dataSource:
+                  table: tickets
+                  bindTo: tickets-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: opened_at, direction: desc }
+                columns:
+                  - { field: subject, label: Subject }
+                  - { field: requester_name, label: Requester }
+                  - { field: company, label: Company }
+                  - { field: status, label: Status }
+                  - { field: priority, label: Priority }
+                  - { field: assignee, label: Held by }
+                  - { field: first_reply_due, label: First reply due, format: short-date }
+                  - { field: opened_at, label: Opened, format: short-date }
+                onRowClick:
+                  action: openDrawer
+                  component: ticket-detail
+                pagination:
+                  pageSize: 25
+                emptyMessage: Every ticket ever sent stays here — nothing expires. Share the support form with your customers to receive the first one.
+          # One ticket, from `/tickets?record=<id>` or a click on its row: who
+          # asked, where it stands, who holds it, and the conversation so far —
+          # what the requester wrote, the team's replies and internal notes.
+          - type: drawer
+            id: ticket-detail
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
+            dataSource:
+              table: tickets
+            # Named by the ticket it opens: its number, then its subject.
+            props:
+              title: '#$record.id · $record.subject'
+            recordFields:
+              - { name: subject, type: single-line-text, label: Subject }
+              - { name: requester_name, type: single-line-text, label: Requester }
+              - { name: company, type: single-line-text, label: Company }
+              - { name: requester_email, type: email, label: Email }
+              - { name: status, type: status, label: Status }
+              - { name: priority, type: single-select, label: Priority }
+              - { name: category, type: single-select, label: Topic }
+              - { name: assignee, type: user, label: Held by }
+              - { name: first_reply_due, type: datetime, label: First reply due }
+              - { name: opened_at, type: datetime, label: Opened }
+              - { name: details, type: long-text, label: Details }
+            related:
+              - label: Conversation
+                table: ticket_replies
+                field: ticket
+                columns:
+                  - { field: posted_at, label: When }
+                  - { field: author_name, label: From }
+                  - { field: kind, label: Kind }
+                  - { field: body, label: Message }
+                sort:
+                  - { field: posted_at, direction: asc }
+                emptyMessage: No message yet. The requester's first words are in Details above.

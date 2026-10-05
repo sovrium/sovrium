@@ -20,6 +20,7 @@
 
 import { rename, writeFile, mkdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { undeclaredEnvMessage } from './library-add-env'
 import {
   digest,
   findConfig,
@@ -372,6 +373,16 @@ export const runLibraryAdd = async (request: LibraryAddRequest): Promise<void> =
     )
 
   const installs = await planInstalls({ request, configPath, format, parsed: before.parsed })
+  // An entry reading a variable the config does not declare would leave it
+  // refusing to boot: refused before anything is written, naming the lines.
+  const envProblem = undeclaredEnvMessage({
+    entryId: primaryId,
+    configName,
+    format,
+    parsed: before.parsed,
+    reads: installs.flatMap((install) => install.entry.env),
+  })
+  if (envProblem !== undefined) return refuse(envProblem)
   const wiring = planWiring(rootText, installs, format, request.noWire)
   const env = await planEnv(configPath, installs)
   const rewrites = installs.some((install) => install.operations !== undefined && !install.present)

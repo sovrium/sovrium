@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useCallback } from 'react'
 import { resolvePageLocale } from '../runtime/page-locale'
+import { isRateLimitedRead } from '../runtime/read-failure'
 import { KpiCard, type KpiTrendConfig } from './kpi-card'
 import {
   aggregateKpi,
@@ -17,7 +19,7 @@ import {
   type KpiSparklineConfig,
   type KpiThresholdConfig,
 } from './kpi-compute'
-import { KpiError, KpiLoading, KpiMissingTable } from './kpi-states'
+import { KpiError, KpiLoading, KpiMissingTable, KpiRateLimited } from './kpi-states'
 import { useKpiRecords } from './use-kpi-records'
 import { KPI_NEUTRAL_VALUE, useKpiSystemValue } from './use-kpi-system-value'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
@@ -45,6 +47,8 @@ interface KpiPresentationProps {
   /** Server-resolved geometry for `icon` (see `@/presentation/utils/lucide-glyph`). */
   readonly iconNode?: unknown
   readonly trend?: KpiTrendConfig
+  /** The rate-limited notice's words in the page language (`rateLimit.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
 
 interface KpiIslandProps extends KpiPresentationProps {
@@ -111,6 +115,7 @@ function KpiTableTile({
   thresholds,
   sparkline,
   valueCurrency,
+  uiStrings,
 }: KpiPresentationProps & {
   readonly source: KpiTableSource
   readonly kpiAggregate?: KpiAggregateConfig
@@ -118,9 +123,20 @@ function KpiTableTile({
   readonly sparkline?: KpiSparklineConfig
   readonly valueCurrency?: CurrencyDisplayOptions
 }): ReactElement {
-  const { data, isLoading, isError, error } = useKpiRecords(source)
+  const { data, isLoading, isError, error, refetch } = useKpiRecords(source)
+  const retry = useCallback(() => {
+    void refetch()
+  }, [refetch])
 
   if (isLoading) return <KpiLoading />
+  if (isError && isRateLimitedRead(error))
+    return (
+      <KpiRateLimited
+        label={label}
+        onRetry={retry}
+        strings={uiStrings}
+      />
+    )
   if (isError)
     return (
       <KpiError
@@ -157,8 +173,8 @@ function KpiTableTile({
  * - `{ table, ... }`    → {@link KpiTableTile} (records aggregated client-side)
  * - neither            → {@link KpiMissingTable}
  *
- * Every branch emits `data-component="kpi"` so spec assertions on that canonical
- * attribute resolve in every state.
+ * The island host names the KPI (`data-component="kpi"`); every branch writes
+ * its `data-kpi-state` there.
  */
 export default function KpiIsland({
   dataSource,
@@ -171,6 +187,7 @@ export default function KpiIsland({
   thresholds,
   sparkline,
   valueCurrency,
+  uiStrings,
 }: KpiIslandProps): ReactElement {
   if (isSystemSource(dataSource)) {
     return (
@@ -198,6 +215,7 @@ export default function KpiIsland({
         thresholds={thresholds}
         sparkline={sparkline}
         valueCurrency={valueCurrency}
+        uiStrings={uiStrings}
       />
     )
   }

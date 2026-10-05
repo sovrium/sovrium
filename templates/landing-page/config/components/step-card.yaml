@@ -1,29 +1,21 @@
+# One step to get started: its number in the accent, a title, one sentence.
 name: step-card
-type: container
+type: card
 props:
-  data-component: step-card
-  className: text-center
+  className: flex flex-col items-start gap-2.5 border-0 bg-transparent p-0 text-left shadow-none
 children:
-  - type: container
+  - type: text
+    element: span
     props:
-      className: w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-3xl font-bold mx-auto mb-4
-      style:
-        backgroundColor: var(--color-primary)
-        color: '#ffffff'
-        width: 4rem
-        height: 4rem
-        borderRadius: 9999px
-        display: flex
-        alignItems: center
-        justifyContent: center
+      className: flex size-9 items-center justify-center rounded-full border-[1.5px] border-primary font-mono text-[15px] font-semibold text-primary
     content: $number
   - type: text
     element: h3
     props:
-      className: text-2xl font-semibold mb-2
+      className: text-[20px] leading-[1.35] font-semibold text-foreground
     content: $title
   - type: text
     element: p
     props:
-      className: text-gray-600
-    content: $description
+      className: text-[15px] leading-[1.6] text-foreground-muted
+    content: $text

@@ -22,6 +22,7 @@
  * by the time this runs, so a subtree hidden from the session cannot trip it.
  */
 
+import { resolveRelativeDatesIn } from '@/domain/models/app/pages/components/relative-date-filter'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { hasCurrentUserRef, resolveFilters } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
@@ -30,6 +31,12 @@ import type { Component } from '@/domain/models/app/pages/components'
 
 /** What resolving a `$currentUser` reference needs about the request. */
 export interface CurrentUserFilterContext {
+  /**
+   * The request's UTC calendar day, `YYYY-MM-DD` — what a relative date token
+   * (`$today`, `$today+14d`, `$startOfMonth`) in a filter value resolves
+   * against. Omitted: the tokens are left as written.
+   */
+  readonly today?: string
   readonly session: SessionInfo | undefined
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
@@ -51,8 +58,9 @@ export async function resolveCurrentUserFilters(
   component: Component,
   ctx: CurrentUserFilterContext
 ): Promise<Component | typeof UNAUTHORIZED> {
-  const filters = component.dataSource?.filter
-  if (!hasCurrentUserRef(filters)) return component
+  const dated = withRelativeDates(component, ctx.today)
+  const filters = dated.dataSource?.filter
+  if (!hasCurrentUserRef(filters)) return dated
 
   const result = await resolveFilters(filters, {
     session: ctx.session,
@@ -63,12 +71,28 @@ export async function resolveCurrentUserFilters(
   if (result.kind === 'unauthorized') return UNAUTHORIZED
 
   return {
-    ...component,
+    ...dated,
     dataSource: {
-      ...component.dataSource!,
+      ...dated.dataSource!,
       filter: result.filter,
     },
   }
+}
+
+/**
+ * The component with every relative date token in its filter resolved to the
+ * request's day — here, beside `$currentUser`, because both are
+ * facts about the REQUEST that must be concrete before an island serialises
+ * the binding for the browser. Returned by reference when there is nothing to
+ * resolve.
+ */
+function withRelativeDates(component: Component, today: string | undefined): Component {
+  const filter = component.dataSource?.filter
+  if (today === undefined || filter === undefined) return component
+  const resolved = resolveRelativeDatesIn(filter, today)
+  return resolved === filter
+    ? component
+    : { ...component, dataSource: { ...component.dataSource!, filter: resolved } }
 }
 
 type TreeNode = unknown

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 
 /**
  * Internal Table Registry
@@ -219,19 +220,19 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   },
   {
     schema: 'system',
-    name: 'sovrium_migration_history',
+    name: 'migration_history',
     denylistFields: [],
     description: 'Schema migration version history with checksums.',
   },
   {
     schema: 'system',
-    name: 'sovrium_migration_log',
+    name: 'migration_log',
     denylistFields: [],
     description: 'Migration operation history (rollbacks, reasons, applied-by).',
   },
   {
     schema: 'system',
-    name: 'sovrium_schema_checksum',
+    name: 'schema_checksum',
     denylistFields: [],
     description: 'Singleton row tracking the current schema state checksum.',
   },
@@ -352,7 +353,14 @@ export const getDenylistFields = (
  * Query helper: returns true if a given table name uses an internal-reserved
  * prefix. Used by AppSchema cross-validation to reject user-defined tables
  * that would collide with the auto-generated admin internals tools.
+ *
+ * Read on the DERIVED name, the one the table is stored and its tools named
+ * under. `Auth User` and `System Activity Logs` passed a check on the name as
+ * written, yet are stored as `auth_user` and `system_activity_logs` — on SQLite,
+ * the very tables the engine keeps its accounts and activity log in — and their
+ * MCP tools shadowed the internals tools of the same name.
  */
 export const isReservedInternalPrefix = (tableName: string): boolean => {
-  return tableName.startsWith('auth_') || tableName.startsWith('system_')
+  const derived = sanitizeTableName(tableName)
+  return derived.startsWith('auth_') || derived.startsWith('system_')
 }

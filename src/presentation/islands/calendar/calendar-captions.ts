@@ -30,6 +30,8 @@ import type { CalendarView } from '@/domain/models/app/pages/components/componen
 export interface CalendarCaptions {
   readonly today: string
   readonly views: Readonly<Record<CalendarView, string>>
+  /** The month's name in the switch on a phone, where it is drawn as an agenda. */
+  readonly agenda: string
   readonly previousPeriod: string
   readonly nextPeriod: string
   readonly viewGroup: string
@@ -38,6 +40,7 @@ export interface CalendarCaptions {
 const EN_CAPTIONS: CalendarCaptions = {
   today: 'Today',
   views: { month: 'Month', week: 'Week', day: 'Day' },
+  agenda: 'Agenda',
   previousPeriod: 'Previous period',
   nextPeriod: 'Next period',
   viewGroup: 'Calendar view',
@@ -48,6 +51,7 @@ const CALENDAR_CAPTIONS: Readonly<Record<string, CalendarCaptions>> = {
   fr: {
     today: 'Aujourd’hui',
     views: { month: 'Mois', week: 'Semaine', day: 'Jour' },
+    agenda: 'Agenda',
     previousPeriod: 'Période précédente',
     nextPeriod: 'Période suivante',
     viewGroup: 'Vue du calendrier',

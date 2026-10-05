@@ -63,11 +63,11 @@ const foldItemResult = (tally: BatchTally, result: ItemResult): BatchTally => ({
  * rather than concurrent so a partial batch is a prefix of the declared order
  * — an operator can tell exactly where it stopped.
  */
-export const runBatchItems = (input: {
+export const runBatchItems = <R = TableRepository>(input: {
   readonly items: readonly unknown[]
   readonly continueOnItemError: boolean
-  readonly runItem: (item: unknown) => Effect.Effect<ItemResult, never, TableRepository>
-}): Effect.Effect<BatchTally, never, TableRepository> =>
+  readonly runItem: (item: unknown) => Effect.Effect<ItemResult, never, R>
+}): Effect.Effect<BatchTally, never, R> =>
   Effect.reduce(input.items, emptyTally, (tally, item) =>
     tally.stopped
       ? Effect.succeed(tally)

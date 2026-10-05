@@ -192,7 +192,8 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
       db
         .delete(aiConversations)
         .where(and(eq(aiConversations.userId, userId), eq(aiConversations.sessionId, sessionId)))
-        .then(() => undefined)
+        .returning({ id: aiConversations.id })
+        .then((removed) => removed.length > 0)
     ),
 
   purgeExpired: ({ userId, maxAgeDays }) =>

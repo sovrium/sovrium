@@ -9,6 +9,8 @@ import { Effect } from 'effect'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   createVolatileFormulaTriggers,
+  generatePostgresFormulaBackfill,
+  generateSqliteFormulaBackfill,
   generateSqliteFormulaTriggers,
 } from '../formula/formula-trigger-generators'
 import { generateAiCategorizeTriggers } from '../generators/ai-categorize-triggers'
@@ -32,6 +34,7 @@ import {
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
+import { generateSqliteDateNormalisation } from './sqlite-date-normalisation'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
@@ -160,3 +163,57 @@ export const applyTableFeaturesWithoutIndexes = (
       { concurrency: 'unbounded' }
     )
   })
+
+/**
+ * The statements that compute every trigger-computed formula for the rows
+ * already in the table — what {@link backfillTriggerFormulas} runs, and what
+ * `sovrium migrate --dry-run` prints for it. Empty for a table with none.
+ */
+export const triggerFormulaBackfillStatements = (table: Table): readonly string[] => {
+  const physicalTableName = getPhysicalTableName(table)
+  const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
+  return isSqliteRuntime()
+    ? generateSqliteFormulaBackfill(
+        physicalTableName,
+        physicalTable.fields,
+        generateUpdatedAtTriggers(physicalTable)
+      )
+    : generatePostgresFormulaBackfill(physicalTableName, physicalTable.fields)
+}
+
+/**
+ * Compute every trigger-computed formula for the rows already in the table.
+ *
+ * A formula trigger fills its column when a row is written, so the migration
+ * that adds or edits such a formula runs this once, after the triggers are in
+ * place: the rows already in the table then read the new values rather than
+ * `null` or what the previous formula computed.
+ */
+export const backfillTriggerFormulas = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  executeSQLStatements(tx, triggerFormulaBackfillStatements(table))
+
+/**
+ * SQLite: rewrite the datetimes and times written before the write path stored
+ * them in one form (see `sqlite-date-normalisation.ts`). A no-op on PostgreSQL,
+ * which has always stored both as native values, and a scan that writes
+ * nothing on a table whose values are already in the stored form.
+ */
+export const normaliseSqliteDateValues = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> => {
+  if (!isSqliteRuntime()) return Effect.void
+  const physicalTableName = getPhysicalTableName(table)
+  const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
+  return executeSQLStatements(
+    tx,
+    generateSqliteDateNormalisation(
+      physicalTableName,
+      table,
+      generateUpdatedAtTriggers(physicalTable)
+    )
+  )
+}

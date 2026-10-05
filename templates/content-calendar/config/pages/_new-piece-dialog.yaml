@@ -1,0 +1,8 @@
+# New piece, in a dialog over the page. The form is config/forms/new-piece.yaml;
+# every new piece starts as an idea.
+type: dialog
+formRef: new-piece
+props:
+  id: new-piece-dialog
+  title: New piece
+  description: It starts as an idea. Give it a date to put it on the calendar.

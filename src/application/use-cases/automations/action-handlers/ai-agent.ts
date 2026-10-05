@@ -24,9 +24,14 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
+import { readsOfToolCalls } from '@/domain/models/app/automations/step-read-service'
 import { aiErrorOutcome } from './ai'
+import { chunksWithinStarterReach } from './ai-agent-starter-reach'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type {
   ChatInput,
   ChatMessage,
@@ -49,8 +54,11 @@ const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
 /**
  * Search the agent's knowledge base for chunks semantically relevant to the
  * task. Returns
- * the matched chunks, scoped to the agent's declared `sources` (each source
- * names a path-prefix under `AI_KNOWLEDGE_DIR`).
+ * the matched chunks of the agent's OWN table index and of the global document
+ * knowledge, the documents narrowed to the agent's declared `sources` (each
+ * source names a path-prefix under `AI_KNOWLEDGE_DIR`). Another agent's index
+ * is never read: an agent whose role reads less must not retrieve what an agent
+ * whose role reads more had embedded.
  *
  * A provider/DB failure resolves to an empty list — knowledge retrieval is a
  * best-effort augmentation that must never break the agent invocation.
@@ -65,10 +73,12 @@ const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
 const retrieveKnowledgeChunks = (input: {
   readonly task: string
   readonly agent: Agent
+  readonly app: App
+  readonly automation: AutomationContext
 }): Effect.Effect<
   ReadonlyArray<{ readonly content: string; readonly sourceRef: string | null }>,
   never,
-  AiService | AiEmbeddingRepository
+  AiService | AiEmbeddingRepository | TableRepository | AuthRepository | DataSourceRepository
 > =>
   Effect.gen(function* () {
     const memory = input.agent.memory?.knowledge
@@ -85,10 +95,12 @@ const retrieveKnowledgeChunks = (input: {
       const repo = yield* AiEmbeddingRepository
       return yield* repo.search({
         embedding: embedResult.success.embedding,
-        // Document knowledge is stored with `agent_name = null` (global). The
-        // agent's `sources` allowlist is applied as a sourceRef-prefix filter
-        // post-search rather than at the SQL layer.
-        agentName: undefined,
+        // The agent's own index, plus the document knowledge stored with
+        // `agent_name = null` (global) — never another agent's index. The
+        // agent's `sources` allowlist is applied to the documents as a
+        // sourceRef-prefix filter post-search rather than at the SQL layer.
+        agentName: input.agent.name,
+        includeGlobal: true,
         minSimilarity: threshold,
         maxResults: limit,
       })
@@ -98,19 +110,22 @@ const retrieveKnowledgeChunks = (input: {
     )
     const results = yield* searchProgram
 
-    // Honour `agent.memory.knowledge.sources` by keeping only chunks whose
-    // sourceRef path falls under one of the named sources. An empty `sources`
-    // array (or omitted) means no filtering — every retrieved chunk counts.
-    const filtered =
-      sources.length === 0
-        ? results
-        : results.filter((row) => {
-            const ref = row.sourceRef ?? ''
-            // Document refs are shaped `document:<path>:<chunkIndex>` where
-            // `<path>` is relative to AI_KNOWLEDGE_DIR (e.g. `product-docs/password.md`).
-            return sources.some((source) => ref.startsWith(`document:${source}/`))
-          })
-    return filtered.map((row) => ({ content: row.content, sourceRef: row.sourceRef }))
+    // Honour `agent.memory.knowledge.sources` by keeping only the document
+    // chunks whose path falls under one of the named sources. An empty
+    // `sources` array (or omitted) means every document counts. The agent's
+    // own table chunks are not documents and are kept.
+    const filtered = results.filter((row) => {
+      if (row.agentName !== null) return row.agentName === input.agent.name
+      if (sources.length === 0) return true
+      const ref = row.sourceRef ?? ''
+      // Document refs are shaped `document:<path>:<chunkIndex>` where
+      // `<path>` is relative to AI_KNOWLEDGE_DIR (e.g. `product-docs/password.md`).
+      return sources.some((source) => ref.startsWith(`document:${source}/`))
+    })
+    // A run started by hand reads as its starter too: of the agent's chunks,
+    // only those she may read herself ground the answer.
+    const reachable = yield* chunksWithinStarterReach(input.app, input.automation, filtered)
+    return reachable.map((row) => ({ content: row.content, sourceRef: row.sourceRef }))
   })
 
 /**
@@ -253,6 +268,8 @@ interface AgentLoopState {
   readonly messages: ReadonlyArray<ChatMessage>
   readonly stepsExecuted: number
   readonly toolsUsed: ReadonlyArray<string>
+  /** The allowlisted tool calls the model asked for, with their arguments. */
+  readonly toolCalls: ReadonlyArray<ChatToolCall>
   readonly lastReply: ChatReply | undefined
 }
 
@@ -288,6 +305,7 @@ const advanceState = (
       ...toolCalls.map((call) => buildToolResult(call, allowedActions)),
     ],
     toolsUsed: [...state.toolsUsed, ...honoured],
+    toolCalls: [...state.toolCalls, ...toolCalls.filter((call) => allowedActions.has(call.name))],
     ...base,
   }
 }
@@ -392,7 +410,7 @@ const composeSystemPrompt = (
  * cross-validator rejects `ai:agent` actions naming an unknown agent at
  * decode time), but the handler still presence-guards defensively.
  */
-export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
+export const handleAiAgent: ActionHandler = (action, app: App, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const resolved = resolveAgentTask(props, app)
@@ -404,7 +422,7 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
     // retrieved chunks are surfaced as `output.knowledgeUsed` (count) and
     // prepended to the system prompt so the model can ground its answer in
     // ingested knowledge.
-    const knowledgeChunks = yield* retrieveKnowledgeChunks({ task, agent })
+    const knowledgeChunks = yield* retrieveKnowledgeChunks({ task, agent, app, automation })
     const systemPrompt = composeSystemPrompt(agent, knowledgeChunks)
 
     const initial: AgentLoopState = {
@@ -414,6 +432,7 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
       ],
       stepsExecuted: 0,
       toolsUsed: [],
+      toolCalls: [],
       lastReply: undefined,
     }
     const outcome = yield* runAgentLoop(initial, {
@@ -437,5 +456,7 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
         // one chunk above the configured similarity threshold.
         knowledgeUsed: knowledgeChunks.length,
       },
+      // The records the tool calls named, for the erasure index.
+      reads: readsOfToolCalls(outcome.toolCalls),
     } as const
   }).pipe(Effect.withSpan('automations.handle-ai-agent', { attributes: actionAttributes(action) }))

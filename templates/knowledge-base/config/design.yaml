@@ -1,98 +1,186 @@
-# Knowledge-base theming — sky blue.
+# Corvel — the design system of this handbook.
 #
-# The file used to carry `baseline: extend` and nothing else, which is a
-# perfectly valid choice and also the reason this template rendered identically
-# to every other themeless demo. Sky blue is assigned centrally and stays clear
-# of the docs site's teal (its nearest neighbour on the wheel) by leaning
-# distinctly blue rather than green.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every reader's address to a third party.
 #
-# WHY THESE KEY NAMES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens every prestyled island consumes. Everything
-#   else emits `--color-*` and does nothing until something cites it. This
-#   template cites nothing — it carries no inline styles anywhere — so an
-#   off-map key here would paint literally nothing.
-#
-#   The mapping is not identity. `muted` → `bg-subtle`, `background-raised` →
-#   `bg-raised`, `background-overlay` → `bg-overlay`, `ring` → `focus-ring`,
-#   `success` → `success-solid`. And `foreground-muted` → `fg-muted`, which the baseline has
-#   already registered as `--color-muted-foreground`, so the
-#   `text-muted-foreground` utility the pages use resolves from it.
-#
-#
-# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
-#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
-#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
-#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
-#   `<key>-foreground: #ffffff` companion whenever the base key is declared
-#   without one. On a white card that companion is white text on white. Worse,
-#   the derivation runs over the LIGHT block only and is never mirrored into
-#   `darkColors`, so it is a light-surface guess that silently persists into
-#   dark mode. The `background-*` spellings carry no such companion.
-#
-# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
-#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
-#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
-#   lightens and white-on-light is unreadable. The derived companion is not
-#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
-#   in both schemes is to name it twice, which is what happens below.
-# NO SEED DIRECTORY, AND THAT IS CORRECT
-#   This template declares ZERO tables. Its content is markdown under
-#   `content/kb/`, read through `contentDir` at request time, so there is
-#   nothing for `sovrium seed` to write. Adding a `seed/` folder here would be
-#   inventing a table to hold data the template deliberately keeps in files.
-#
-# NO `fonts` BLOCK
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`: the page silently falls to the OS default and the shipped face
-#   is locked out of its own stack. The previous note here worried about a
-#   Google Fonts CDN leak; that was the older, louder failure mode. Nothing is
-#   fetched now — the quiet one is what remains, and the fix is the same.
+# A handbook is read, not operated. One accent, a clear sky blue, marks the
+# links, the current article and the focus ring; everything else is the page.
+# The outcomes the handbook draws — an article checked, an article past its
+# review date, a sign-in that failed — get success, warning and error. A
+# section is a word, never a colour.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (the article, the sidebar, cards,
+# buttons and forms) with no class changes anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 colors:
-  primary: '#0284c7'
-  primary-hover: '#0369a1'
-  primary-foreground: '#ffffff'
-  primary-subtle: '#e0f2fe'
-  ring: '#0ea5e9'
-  background: '#ffffff'
-  background-subtle: '#f5fafe'
-  foreground: '#0c1a26'
-  foreground-muted: '#42606f'
-  foreground-subtle: '#7392a3'
-  background-raised: '#ffffff'
-  background-overlay: '#ffffff'
-  border: '#dbeafe'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.16 240)
+  primary-hover: oklch(0.46 0.15 240)
+  primary-active: oklch(0.42 0.141 240)
+  primary-foreground: oklch(0.985 0.003 240)
+  primary-subtle: oklch(0.95 0.03 240)
+  primary-subtle-foreground: oklch(0.38 0.12 240)
+  ring: oklch(0.6 0.16 240)
+  background: oklch(0.985 0.003 240)
+  background-subtle: oklch(0.967 0.005 240)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 240)
+  foreground: oklch(0.21 0.008 240)
+  foreground-muted: oklch(0.45 0.012 240)
+  foreground-subtle: oklch(0.51 0.012 240)
+  foreground-disabled: oklch(0.71 0.012 240)
+  foreground-inverse: oklch(0.985 0.003 240)
+  border: oklch(0.925 0.008 240)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 240)
 
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way, under
-# `html:is(.dark, [data-theme='dark'])`.
 darkColors:
-  primary: '#38bdf8'
-  primary-hover: '#7dd3fc'
-  primary-foreground: '#08151d'
-  primary-subtle: '#082f49'
-  ring: '#0ea5e9'
-  background: '#08151d'
-  background-subtle: '#0f1f2b'
-  foreground: '#e3eff7'
-  foreground-muted: '#a2c0d1'
-  foreground-subtle: '#7695a8'
-  background-raised: '#0f1f2b'
-  background-overlay: '#0f1f2b'
-  border: '#1b3042'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.12 240)
+  primary-hover: oklch(0.83 0.09 240)
+  primary-active: oklch(0.87 0.07 240)
+  primary-foreground: oklch(0.16 0.006 240)
+  primary-subtle: oklch(0.28 0.06 240)
+  primary-subtle-foreground: oklch(0.9 0.06 240)
+  ring: oklch(0.72 0.13 240)
+  background: oklch(0.16 0.006 240)
+  background-subtle: oklch(0.19 0.007 240)
+  background-raised: oklch(0.21 0.008 240)
+  background-overlay: oklch(0.23 0.008 240)
+  background-inset: oklch(0.13 0.005 240)
+  foreground: oklch(0.95 0.005 240)
+  foreground-muted: oklch(0.75 0.01 240)
+  foreground-subtle: oklch(0.68 0.012 240)
+  foreground-disabled: oklch(0.45 0.01 240)
+  foreground-inverse: oklch(0.16 0.006 240)
+  border: oklch(0.3 0.01 240)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 240)
 
+# Sans for every sentence, mono for dates and overlines. The article body runs
+# at the `lead` step with a long line height: a handbook is read in paragraphs,
+# so the text sits a step above the chrome around it.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2.25rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.875rem, lineHeight: 1.15, weight: 600, letterSpacing: -0.015em }
+    h2: { size: 1.25rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 1rem, lineHeight: 1.4, weight: 600 }
+    lead: { size: 1rem, lineHeight: 1.7 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Standard corners: a reference you trust, neither a ledger nor a toy.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
+
+# Cards on the welcome page carry a one-pixel lift; nothing else floats.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a status colour, and a section from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Links in the article, the current page in the sidebar and the outline, the focus ring, the Sign in button. Never a section and never a tag.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: The current page in the sidebar, the note callout's ground, the search result under the pointer.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: An article its owner checked within the review period, and nothing else.
+    pairsWith: foreground
+  warning:
+    usage: An article past its review date, and the warning callout inside an article.
+    pairsWith: foreground
+  error:
+    usage: A sign-in that failed, a destructive action.
+    pairsWith: foreground
+
+# The handbook is scanned every day, so its sidebar and outline run at `cozy`;
+# the welcome and sign-in pages are read once, so they run at `roomy`. The
+# three steps are the platform's own values, written out so one number can be
+# tuned.
+density:
+  default: cozy
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+  byZone:
+    product: cozy
+    marketing: roomy
+
+# How the handbook speaks. Nothing reads these at runtime; they are the brief
+# anyone writing an article, a label or an empty state follows.
+voice:
+  personality:
+    - plain
+    - exact
+    - helpful
+  pronoun: you
+  prefer:
+    - Answer first, then the detail; one question per article.
+    - Name the owner of a policy and the date it was last checked.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "Oops", no "simply" or "just".
+    - Never "record", "row" or "file" for an article in front of a reader.
+    - Never tell a reader to ask someone without naming who.
+  tone:
+    empty: Say what this section will hold, then who writes the first article.
+    loading: Name what is loading — the handbook, the results — never a bare spinner.
+    error: State what did not open and the one thing that fixes it.
+    success: Confirm in past tense what happened.
+    destructive: Name the article and whether it comes back.
+
+# Who sees which page. The handbook and the assistant are the product; the
+# welcome and sign-in pages are the public side, which also refuses article
+# titles. The most specific pattern wins, and `everything else` comes last.
+zones:
+  - pattern: /kb/*
+    zone: product
+    accentBudget: product
+  - pattern: /assistant
+    zone: product
+    accentBudget: product
+  - pattern: everything else
+    zone: marketing
+    accentBudget: public
+    voice:
+      avoid:
+        - No article titles or policy names on the public side — they are the team's.
+
+principles:
+  - A reader can tell where they are, what comes next and who owns the answer.
+  - The article is the page; everything around it gets out of the way.
+  - Colour means an outcome — checked, overdue, failed — or it is not used.
+  - The handbook is understood without a tour.

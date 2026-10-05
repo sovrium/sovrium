@@ -63,7 +63,7 @@ export const regexHelper = (value: unknown, pattern: unknown, flags?: unknown): 
     // error only, so catastrophic backtracking in an operator-authored pattern is
     // unmitigated — accepted because config is authored by the operator, who
     // already controls the process.
-    // eslint-disable-next-line sovrium/no-dynamic-regexp -- operator-supplied pattern is the documented feature
+    // eslint-disable-next-line sovrium/no-dynamic-regexp -- the pattern is guaranteed an authored literal: the template engine refuses at compile time any `regex` call whose pattern is not a quoted string
     try: () => new RegExp(patternStr, typeof flags === 'string' ? flags : ''),
     catch: () => undefined,
   })

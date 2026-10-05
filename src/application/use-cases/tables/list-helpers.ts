@@ -16,12 +16,12 @@ import type { App } from '@/domain/models/app'
  * They live at the ROOT of the response envelope rather than inside `fields`,
  * so a selection may name one but never places it in the selected object.
  *
- * Exported because two layers held two different vocabularies for the same
- * question: this module has always served `id`, `createdAt` AND `updatedAt`,
- * while `validateFieldsParam` allowed only `id` — so `?fields=id,createdAt` was
- * refused with a 400 before reaching the selection that knew exactly how to
- * answer it. One set, imported by both, is what keeps them from drifting apart
- * again.
+ * Two layers once held two vocabularies for the same question: this module
+ * served `id`, `createdAt` AND `updatedAt` while a gate in front of it allowed
+ * only `id`, so `?fields=id,createdAt` was refused with a 400 before reaching
+ * the selection. That gate is gone — a name matching nothing the caller may
+ * read is omitted, as a field they may not read is — and this set is the one
+ * vocabulary left.
  */
 export const SELECTABLE_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
   'id',
@@ -158,15 +158,18 @@ export function processRecords(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
   readonly format?: 'display'
   readonly timezone?: string
   readonly fields?: string
 }): readonly TransformedRecord[] {
-  const { records, app, tableName, userRole, format, timezone, fields } = config
+  const { records, app, tableName, userRole, userGroups, format, timezone, fields } = config
 
   // Apply field-level read permissions filtering
+  const caller = { role: userRole, groups: userGroups }
   const filteredRecords = records.map((record) =>
-    filterReadableFields({ app, tableName, userRole, record })
+    filterReadableFields({ app, tableName, caller, record })
   )
 
   const transformedRecords = transformRecords(filteredRecords, {

@@ -10,6 +10,7 @@ import { recordValueText } from '@/presentation/design/field-type-behavior'
 import { readResponseToken } from '../hooks/use-save-tokens'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/use-table-mutations'
 import { type FieldDef } from '../parts/crud-form/fields'
+import { clearMarkOf, isMarkedCleared } from '../parts/crud-form/wire-values'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 function buildInitialValues(
@@ -55,6 +56,20 @@ function buildResetValues(
   )
 }
 
+/**
+ * The held values with one field set. A value entered after a Clear takes the
+ * field back, so its clear mark goes with it.
+ */
+function withFieldValue(
+  prev: Record<string, string>,
+  name: string,
+  value: string
+): Record<string, string> {
+  const next = { ...prev, [name]: value }
+  if (value === '' || !isMarkedCleared(prev, name)) return next
+  return Object.fromEntries(Object.entries(next).filter(([key]) => key !== clearMarkOf(name)))
+}
+
 export function useCrudFormState(props: CrudFormIslandProps) {
   const {
     operation,
@@ -68,8 +83,6 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     preserveFields,
     successPage,
     initialValues,
-    automationName,
-    inputData,
   } = props
   const [values, setValues] = useState(() => buildInitialValues(fields, record, initialValues))
   const [state, setState] = useState<FormState>({ isPending: false })
@@ -100,10 +113,11 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     createRecord: useCreateRecord(table),
     updateRecord: useUpdateRecord(table),
     deleteRecord: useDeleteRecord(table),
-    automationName,
-    inputData,
+    automationName: props.automationName,
+    inputData: props.inputData,
+    uiStrings: props.uiStrings,
   }
   const handleFieldChange = (name: string, value: string) =>
-    setValues((prev) => ({ ...prev, [name]: value }))
+    setValues((prev) => withFieldValue(prev, name, value))
   return { values, state, ctx, handleFieldChange }
 }

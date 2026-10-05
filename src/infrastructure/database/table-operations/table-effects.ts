@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { triggerFormulaSignature } from '../formula/formula-trigger-generators'
 import {
   shouldUseView,
   getPhysicalTableName,
@@ -19,6 +20,9 @@ import {
   generateAlterTableStatements,
   needsTableRecreation,
   needsDefinitionReconciliation,
+  findPreviousTableDefinition,
+  formulaColumnsNeedRebuild,
+  hasDriftedFormulaColumns,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
   syncCheckConstraints,
@@ -34,13 +38,20 @@ import {
   type TransactionLike,
 } from '../sql/sql-execution'
 import {
-  generateTableViewStatements,
   generateReadOnlyViewTrigger,
+  generateViewSQL,
   emitsMaterializedView,
+  sqlBackedViews,
 } from '../views/view-generators'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
-import { applyTableFeatures, applyTableFeaturesWithoutIndexes } from './table-features'
+import { sqliteCheckClausesStale } from './sqlite-check-drift'
+import {
+  applyTableFeatures,
+  applyTableFeaturesWithoutIndexes,
+  backfillTriggerFormulas,
+  normaliseSqliteDateValues,
+} from './table-features'
 import {
   detectUnconvertibleRows,
   planTypeChangeProbes,
@@ -134,9 +145,15 @@ const reconcileTableStructure = (params: {
     const { tx, table, existingColumns, previousSchema, inputs } = params
     const { tableUsesView, tablePrimaryKeyTypes, hasAuthConfig } = inputs
 
-    if (needsTableRecreation(table, existingColumns)) {
+    const previousTable = findPreviousTableDefinition(table, tablePrimaryKeyTypes, previousSchema)
+    if (
+      needsTableRecreation(table, existingColumns) ||
+      formulaColumnsNeedRebuild(table, existingColumns, previousTable)
+    ) {
       // Incompatible change (an `id` column whose type disagrees with the
-      // declared primary-key type) — recreate preserving data.
+      // declared primary-key type, a formula column moving between a generated
+      // column and a trigger-filled one, or a formula column an earlier version
+      // converted to TEXT) — recreate preserving data.
       yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
       return
@@ -153,6 +170,11 @@ const reconcileTableStructure = (params: {
     if (alterStatements.length > 0) {
       // Incremental, column-level migration.
       yield* executeSQLStatements(tx, alterStatements)
+      // SQLite carries a CHECK only in the CREATE TABLE text, which no ALTER
+      // rewrites: an option added in the same edit as a field added or renamed
+      // would otherwise stay refused. Rebuild from the columns as they stand
+      // AFTER the ALTERs, so a renamed column is copied under its new name.
+      yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
       return
     }
 
@@ -172,8 +194,9 @@ const reconcileTableStructure = (params: {
       // collides with the live catalog ([internal ref] fix #2).
       yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
+      return
     }
-    // else: the change has no DDL consequence — either the definition is
+    // The change has no DDL consequence — either the definition is
     // byte-identical to the previous run (a genuine no-op, [internal ref] fix #1) or
     // only a display-only property moved (e.g. a currency `thousandsSeparator`,
     // which never leaves `formatCurrencyValue`). Do NOT recreate: recreating a
@@ -182,6 +205,30 @@ const reconcileTableStructure = (params: {
     // incident), and on SQLite orphaning the rows of every table that
     // references it. The caller's constraint/index sync is idempotent and still
     // runs, so anything outside the CREATE TABLE DDL is reconciled regardless.
+    //
+    // The one exception is a SQLite table whose stored CHECK clauses are not the
+    // declared ones — left so by an earlier boot that ALTERed it — which only a
+    // rebuild repairs.
+    yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
+  })
+
+/**
+ * Rebuild a SQLite table whose stored CHECK clauses differ from the ones its
+ * definition declares (see `sqlite-check-drift.ts`). A no-op on PostgreSQL and
+ * on a table whose clauses are current, which is every table after one rebuild.
+ */
+const rebuildIfSqliteChecksStale = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly previousSchema?: { readonly tables: readonly object[] }
+  readonly inputs: TableDdlInputs
+}): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, table, previousSchema, inputs } = params
+    if (!(yield* sqliteCheckClausesStale(tx, table))) return
+    const existingColumns = yield* getExistingColumns(tx, getPhysicalTableName(table))
+    yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
+    yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
   })
 
 /**
@@ -209,6 +256,9 @@ export const migrateExistingTableEffect = (
     }
 
     const physicalTableName = getPhysicalTableName(table)
+    // Read before the rebuild below repairs them: a drifted column is rebuilt
+    // without its values, so its trigger formulas are computed again.
+    const formulaTypesDrifted = hasDriftedFormulaColumns(table, existingColumns)
 
     yield* reconcileTableStructure({ tx, table, existingColumns, previousSchema, inputs })
 
@@ -226,7 +276,44 @@ export const migrateExistingTableEffect = (
 
     // Apply table features (triggers, RLS) - indexes handled by syncIndexes above
     yield* applyTableFeaturesWithoutIndexes(tx, table)
+
+    // Datetimes and times written before SQLite stored them in one form are
+    // rewritten first, so the formulas below compute from the stored values.
+    yield* normaliseSqliteDateValues(tx, table)
+
+    // A trigger-computed formula added or edited since the last migration
+    // reaches the rows already in the table, not only the rows written next.
+    if (
+      formulaTypesDrifted ||
+      triggerFormulasChanged(table, params.tablePrimaryKeyTypes, previousSchema)
+    ) {
+      yield* backfillTriggerFormulas(tx, table)
+    }
   })
+
+/**
+ * Whether the table's trigger-computed formulas differ from the previous
+ * migration's — added, removed, edited or moved onto the trigger path. With no
+ * previous definition to compare, the rows are recomputed: the values are the
+ * formulas' own, so recomputing them is always safe, only slower.
+ */
+const triggerFormulasChanged = (
+  table: Table,
+  declared: ReadonlyMap<string, unknown>,
+  previousSchema?: { readonly tables: readonly object[] }
+): boolean => {
+  const previous = findPreviousTableDefinition(table, declared, previousSchema) as
+    { readonly fields?: unknown } | undefined
+  if (previous === undefined || !Array.isArray(previous.fields)) return true
+  try {
+    return (
+      triggerFormulaSignature(previous.fields as Table['fields']) !==
+      triggerFormulaSignature(table.fields)
+    )
+  } catch {
+    return true
+  }
+}
 
 /**
  * Create new table (CREATE statement + indexes + triggers)
@@ -428,22 +515,21 @@ export const createTableViewsEffect = (
     }
 
     // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views).
-    // Filter out JSON config views with numeric IDs — those are handled at the API layer
-    // via ?view= param (unquoted numeric identifiers are invalid SQL).
-    const sqlViews = table.views.filter((v) => v.query || typeof v.id !== 'number')
-    const viewSQL = generateTableViewStatements(table)
-
+    // JSON config views with numeric IDs are left out — those are handled at the
+    // API layer via ?view= param (unquoted numeric identifiers are invalid SQL).
     // Process each view sequentially (views may depend on each other)
     /* eslint-disable functional/no-loop-statements */
-    for (const view of sqlViews) {
+    for (const view of sqlBackedViews(table)) {
       // Convert view.id to string (ViewId can be number or string)
       const viewIdStr = String(view.id)
 
       // Drop existing view or materialized view (if any)
       yield* dropExistingView(tx, view, viewIdStr)
 
-      // Create view (regular or materialized)
-      const createSQL = viewSQL.find((sql) => sql.includes(viewIdStr))
+      // Create view (regular or materialized), from this view's own statement:
+      // a search of every statement by id text picked the wrong one whenever an
+      // id occurs inside another view's statement (a view `order` over `orders`).
+      const createSQL = generateViewSQL(table, view)
       if (createSQL) {
         yield* executeSQL(tx, createSQL)
 

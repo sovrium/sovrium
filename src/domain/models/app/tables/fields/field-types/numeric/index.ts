@@ -7,6 +7,7 @@
 
 export * from './integer-field'
 export * from './decimal-field'
+export * from './number-field'
 export * from './currency-field'
 export * from './percentage-field'
 export * from './rating-field'

@@ -62,7 +62,7 @@ export const ColumnFormatSchema = Schema.Literals([
 ]).annotate({
   title: 'Column Format',
   description:
-    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB, NOT the SI compact 11.5K; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable.',
+    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB, NOT the SI compact 11.5K; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024).',
 })
 
 // ---------------------------------------------------------------------------

@@ -39,13 +39,13 @@ Exactly one `trigger`, at least one entry in `actions`. Everything else is optio
 
 Every string property of an action can interpolate runtime values.
 
-| Source           | Syntax                     | Notes                                                                                     |
-| ---------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
-| Trigger payload  | `{{trigger.data.field}}`   | What the trigger carried — a record row, a webhook body, form values                      |
-| Previous step    | `{{stepName.result}}`      | The output of any earlier action, by its `name`                                           |
-| Environment      | `$env.VAR_NAME`            | Resolved from the declared `env` block, and redacted in logs                              |
-| Connection       | `$connection.NAME`         | Resolved credentials for an external service                                              |
-| Helper functions | `{{helperName arg "lit"}}` | Formatting helpers for text, numbers, dates, logic and collections; nest with parentheses |
+| Source           | Syntax                     | Notes                                                                                                                 |
+| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Trigger payload  | `{{trigger.data.field}}`   | What the trigger carried — a record row, a webhook body, form values                                                  |
+| Previous step    | `{{stepName.result}}`      | The output of any earlier action, by its `name`                                                                       |
+| Environment      | `$env.VAR_NAME`            | Resolved from the declared `env` block in the text you wrote, never in a value a template brings in; redacted in logs |
+| Connection       | `$connection.NAME`         | Resolved credentials for an external service                                                                          |
+| Helper functions | `{{helperName arg "lit"}}` | Formatting helpers for text, numbers, dates, logic and collections; nest with parentheses                             |
 
 ### Dates
 
@@ -71,6 +71,8 @@ subject: '{{formatDate trigger.data.created_at "dd MMMM yyyy" "Europe/Paris" "fr
 ```
 
 `{{now}}` and `{{today}}` take no value argument, and the template engine only calls a zero-argument helper in helper position. Passed bare to another helper, `now` becomes a variable lookup that resolves to nothing and the whole expression renders empty — silently. Wrap it in parentheses: `{{formatDate (now) "yyyy-MM-dd"}}`, never `{{formatDate now "yyyy-MM-dd"}}`.
+
+The pattern of `{{regex}}` and `{{matchAll}}` must be a quoted string written in the configuration: a pattern that reaches the helper from data — a trigger field, a step output, a variable, an `$env` reference or a subexpression — is refused, and the expression is kept as its own source text, as an unknown helper is. A pattern you write is compiled as written and runs on the server's only thread, so avoid nested quantifiers such as `(a+)+`: past the JavaScript engine's backtracking limit the match reports nothing rather than an error, and the helper renders an empty string even where the text matches. How long the match runs before the engine gives up depends on the server: around half a second on a fast, idle machine, and longer on a slower or busier one, during which that thread does nothing else.
 
 ## Concurrency
 

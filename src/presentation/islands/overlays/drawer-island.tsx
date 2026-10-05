@@ -25,6 +25,8 @@ import type { ReactElement } from 'react'
 interface DrawerIslandProps {
   readonly title?: string
   readonly description?: string
+  /** The close button's name, in the page language (`dialog.close`). */
+  readonly closeLabel?: string
   readonly drawerSide?: 'left' | 'right' | 'top' | 'bottom'
   readonly drawerSize?: 'sm' | 'md' | 'lg' | 'full'
   readonly childrenHtml?: string
@@ -197,6 +199,7 @@ function getSizeInlineStyle(
 interface DrawerPopupBodyProps {
   readonly title?: string
   readonly description?: string
+  readonly closeLabel: string
   readonly childrenHtml?: string
   readonly onInjected?: (container: HTMLElement) => void
 }
@@ -231,6 +234,7 @@ function DrawerChildren({
 function DrawerPopupBody({
   title,
   description,
+  closeLabel,
   childrenHtml,
   onInjected,
 }: DrawerPopupBodyProps): ReactElement {
@@ -248,8 +252,11 @@ function DrawerPopupBody({
           />
         )}
       </div>
-      <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
-        ✕
+      <Dialog.Close
+        aria-label={closeLabel}
+        className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors"
+      >
+        <span aria-hidden="true">✕</span>
       </Dialog.Close>
     </div>
   )
@@ -302,6 +309,7 @@ function useDrawerController(id: string | undefined, defaultOpen: boolean) {
 export default function DrawerIsland({
   title,
   description,
+  closeLabel = 'Close',
   drawerSide = 'right',
   drawerSize = 'md',
   childrenHtml,
@@ -342,6 +350,7 @@ export default function DrawerIsland({
           <DrawerPopupBody
             title={title}
             description={description}
+            closeLabel={closeLabel}
             childrenHtml={childrenHtml}
             onInjected={handleBodyInjected}
           />

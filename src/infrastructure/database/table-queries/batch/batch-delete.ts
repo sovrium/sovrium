@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
 import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
@@ -20,7 +21,7 @@ import {
   wrapDatabaseError,
   type PassthroughError,
 } from '../statement/error-handling'
-import { validateTableName } from '../statement/validation'
+import { tableIdentifier, databaseTableName } from '../statement/validation'
 import { BATCH_FANOUT_CONCURRENCY, BatchValidationError } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -41,8 +42,9 @@ const validateRecordsForDelete = (
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, PassthroughError | BatchValidationError> =>
-  Effect.all(
-    recordIds.map((recordId) =>
+  Effect.forEach(
+    recordIds,
+    (recordId) =>
       // The `catch` TAGS the rejection into a `PassthroughError` carrier,
       // which `validateRecordsForDeleteWithEffect` unwraps before it
       // composes its message and stores its `cause`. That keeps the error
@@ -65,8 +67,7 @@ const validateRecordsForDelete = (
             : { recordId, error: undefined }
         },
         catch: passthroughError,
-      })
-    ),
+      }),
     { concurrency: BATCH_FANOUT_CONCURRENCY }
   ).pipe(
     Effect.flatMap((validationResults) => {
@@ -116,7 +117,7 @@ function checkSoftDeleteSupport(
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => columnExists(tx, tableName, 'deleted_at'),
+    try: () => columnExists(tx, databaseTableName(tableName), 'deleted_at'),
     catch: (error) => new DatabaseError('Failed to check deleted_at column', error),
   })
 }
@@ -129,7 +130,7 @@ function checkDeletedBySupport(
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
-    try: () => columnExists(tx, tableName, 'deleted_by'),
+    try: () => columnExists(tx, databaseTableName(tableName), 'deleted_by'),
     catch: (error) => new DatabaseError('Failed to check deleted_by column', error),
   })
 }
@@ -150,7 +151,7 @@ function executeDeleteQuery(
 ): Effect.Effect<number, DatabaseError> {
   return Effect.tryPromise({
     try: async () => {
-      const tableIdent = sql.identifier(params.tableName)
+      const tableIdent = tableIdentifier(params.tableName)
       const idParams = sql.join(
         params.recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
@@ -216,8 +217,7 @@ export function batchDeleteRecords(
       db,
       (tx) =>
         Effect.gen(function* () {
-          validateTableName(tableName)
-          const tableIdent = sql.identifier(tableName)
+          const tableIdent = tableIdentifier(tableName)
 
           yield* validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds)
 
@@ -240,6 +240,14 @@ export function batchDeleteRecords(
     )
 
     yield* logDeleteActivities(session, tableName, recordsBefore)
+    yield* reportCommittedRows(
+      recordsBefore.map((previous) => ({
+        tableName,
+        event: 'delete' as const,
+        recordId: String(previous['id']),
+        previous,
+      }))
+    )
 
     return deletedCount
   })

@@ -19,6 +19,23 @@
 
 <!-- sovrium:options RecordActionSchema -->
 
+A `read` or `list` step's output is `{ record, records }`: `records` is the list of rows and `record` the first of them. Each record is the one `GET /api/tables/<table>/records/<id>` answers the run's caller: its `id` and relationship values as strings, every field both at the top level (`{{<step>.record.title}}`) and under `fields`, its many-to-many links, the `_display` labels, `createdAt` and `updatedAt`. A field named `created_by` or `updated_by` reads as `createdBy` or `updatedBy`, as the records API answers it. A run nobody started reads as an admin does. An attachment's `url` or `signedUrl` is a full address on your `BASE_URL` when one is set, so an email or a webhook call can carry it as a link, and a path from the site root otherwise. To act only when rows were found, branch or filter on `{{<step>.records}}` with `isNotEmpty` (or `isEmpty` for the opposite), and hand the list to a `code` step as `inputData: { rows: '{{<step>.records}}' }`.
+
+### Upgrading to 0.30
+
+Before 0.30, a `read` or `list` step handed the run the stored row: numeric ids, snake_case timestamps, and no many-to-many links or `_display` labels. From 0.30 each record is the records API's answer, so a template reading one of those keys must be renamed:
+
+| Before 0.30                                  | From 0.30                                            |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `{{<step>.record.created_by}}`               | `{{<step>.record.createdBy}}`                        |
+| `{{<step>.record.updated_by}}`               | `{{<step>.record.updatedBy}}`                        |
+| `{{<step>.record.created_at}}`, `updated_at` | `{{<step>.record.createdAt}}`, `updatedAt`           |
+| `{{<step>.record.deleted_at}}`               | not carried: a `read` or `list` returns live records |
+
+Record ids and relationship values are strings (`"12"`, not `12`): compare them as strings in a condition or a `code` step. The same holds for every item of `{{<step>.records}}`.
+
+A `create` step's output carries the new record's `id`, so a later step reads it as `{{<step>.result.id}}`; an `upsert` that creates carries it too. A record written by `create`, `update`, `upsert` or `delete` starts the record automations of its table, as a write through the records API does.
+
 `batchUpsert` requires **`matchField`**: the field name used to decide, per item, between an update and an insert. A configuration without it is refused at validation rather than guessing at a key.
 
 `continueOnItemError` defaults to `false` on all three item-wise batch operators, so a batch stops at the first failing item. Set it to `true` to process the remainder and collect the failures instead.
@@ -73,9 +90,11 @@ An implicit ascending `id` is appended as the **final** ordering key whenever pa
 
 ### `fields` is a payload trim, not a permission boundary
 
-It chooses which columns are carried into the step payload, and each returned record still carries `id`, `created_at` and `updated_at`.
+It chooses which fields are carried into the step payload, and each returned record still carries `id`, `createdAt` and `updatedAt`.
 
-An automation run has **no user role**, so field-level read permissions never apply to it: whatever an automation may read the table for, it may read every column of. Do not reach for `fields` as a way to keep a column away from a workflow.
+A run nobody started — a schedule (including "run now"), a webhook, a record event, a form submission, an `automation:call` — has **no user role** and writes as the system, so field-level read permissions never apply to it: whatever an automation may read the table for, it may read every column of. Do not reach for `fields` as a way to keep a column away from a workflow.
+
+A run someone started by hand — a manual trigger, a table button, an MCP action template or automation tool — writes as that person. Before a `create`, `update`, `upsert`, `delete` or batch step touches anything, it is checked against the table's grants, row-level rules (an update also on the row as it would be written) and field write permissions for them; a record those rules exclude fails the step with `Resource not found`, nothing is written, and the run history records the failure. The rows it does write carry that person in their `created-by`, `updated-by` and `deleted-by` fields, whatever `runAs` says. It reads as that person too: a `read` of a record they may not read fails the step with `Resource not found`, a `list` holds only the records they may read, and a field they may not read is left out of the output, as is a lookup of a record they may not read. Clearing a many-to-many field unlinks only the links that person may read. A run that pauses on an approval resumes as the same person, whoever approves it, and, if that person has been banned or removed meanwhile, fails with `Resource not found` before any of its remaining steps runs — an email or an HTTP call after the approval included.
 
 ### `limit` means two different things
 

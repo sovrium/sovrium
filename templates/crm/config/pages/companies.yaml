@@ -63,7 +63,7 @@ components:
                 dataSource:
                   table: companies
                 props:
-                  title: Company
+                  title: $record.name
                 recordFields:
                   - { name: name, type: single-line-text, label: Company }
                   - { name: industry, type: single-select, label: Industry }

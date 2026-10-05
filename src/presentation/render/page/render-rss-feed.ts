@@ -11,8 +11,10 @@
  * Mirrors the `render-page.tsx` orchestration layer for `/feed.xml`:
  *   1. Find the first PUBLIC page in `app.pages` that opts in via `page.rss`
  *      (`findRssPage` — a gated page never builds the feed).
- *   2. Pull the published collection records from the database, applying
- *      `collection.filter` and the rss limit.
+ *   2. Read the collection's records as an anonymous visitor through the
+ *      records gate (`readRowsForCaller`), applying `collection.filter` and
+ *      the rss limit: only live rows a signed-out reader may read, each less
+ *      the fields she may not read.
  *   3. Hand off to the pure `buildRssFeedXml` builder.
  *
  * Returns `undefined` when no page opts in — the route handler 404s. The
@@ -41,6 +43,7 @@ import {
 } from '@/domain/models/app/pages/rss-feed-builder'
 import { slugify } from '@/infrastructure/markdown/markdown-it-renderer'
 import { getContentBaseDir } from '@/presentation/render/resolve/content-base-dir'
+import { readRowsForCaller } from '@/presentation/render/resolve/record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -149,11 +152,22 @@ export async function renderRssFeed(
   const sort = resolveRssSort(app, page)
   const filter = collection.filter as readonly DataFilter[] | undefined
 
-  const records = await db.fetchRecords(collection.table, {
-    ...(filter !== undefined ? { filter } : {}),
-    sort,
-    pageSize: limit,
-    page: 1,
+  // A feed reader is anonymous: the rows reach the feed through the records
+  // gate as a signed-out visitor, exactly as the records API answers her — no
+  // row of a table she may not read, none the row-level rule hides from her,
+  // no trashed row, and every row less the fields she may not read.
+  const { rows: records } = await readRowsForCaller({
+    app,
+    tableName: collection.table,
+    session: undefined,
+    db,
+    query: {
+      ...(filter !== undefined ? { filter } : {}),
+      sort,
+      pageSize: limit,
+      page: 1,
+      liveOnly: true,
+    },
   })
 
   return buildRssFeedXml({

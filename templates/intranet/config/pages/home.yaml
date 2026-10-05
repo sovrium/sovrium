@@ -1,137 +1,134 @@
+# The public door: what the hub holds, in three sentences, and one way in.
+# It names nobody and no team — a visitor learns what is behind the door, not
+# who is. On a phone, where most people open the sign-in email, the email
+# field sits right here.
 name: home
 path: /
 meta:
-  title: Company Intranet
-  description: A company intranet — a public welcome page plus a private employee hub
+  title: Halden · for everyone who works here
+  description: The company's news, people and tools in one place. Sign in with your work email.
 components:
+  - $ref: ./_site-header.yaml
   - type: container
-    element: section
+    element: main
     props:
-      className: py-20 px-6
-      style:
-        backgroundColor: var(--color-background-subtle)
+      className: flex flex-col gap-10 px-6 pt-[72px] pb-16 max-md:gap-5 max-md:px-3.5 max-md:pt-6
     children:
       - type: container
         props:
-          className: max-w-4xl mx-auto text-center
+          className: mx-auto flex w-full max-w-[760px] flex-col items-center gap-[18px] text-center max-md:items-start max-md:gap-2.5 max-md:text-left
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-6xl font-bold mb-6
-              style:
-                color: var(--color-foreground)
-            content: One place for the whole company
           - type: text
             element: p
             props:
-              className: text-2xl mb-8
-              style:
-                color: var(--color-foreground-muted)
-            content: A public welcome page for everyone. A private hub where the team finds announcements, colleagues, and shared resources.
-          - type: container
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle max-md:hidden
+            content: Halden · for everyone who works here
+          - type: text
+            element: p
             props:
-              className: flex gap-4 justify-center
+              className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle md:hidden
+            content: For everyone at Halden
+          - type: text
+            element: h1
+            props:
+              className: text-[40px] font-semibold leading-[1.1] tracking-tight text-foreground max-md:text-left max-md:text-[26px] max-md:leading-[1.15]
+            content: The company's news, people and tools in one place
+          - type: text
+            element: p
+            props:
+              className: max-w-[600px] text-[17px] text-foreground-muted max-md:hidden
+            content: Sign in with your work email. We send you a link — no password to remember.
+          - type: text
+            element: p
+            props:
+              className: text-[15px] text-foreground-muted md:hidden
+            content: Sign in with your work email — we send you a link.
+          - type: link
+            props:
+              href: /sign-in
+              className: inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground hover:bg-primary-hover max-md:hidden
             children:
-              - type: link
+              - type: icon
                 props:
-                  href: /sign-in
-                  className: inline-block px-6 py-3 rounded-lg font-medium
-                  style:
-                    backgroundColor: var(--color-primary)
-                    # Stays a literal: this is text ON a filled primary button,
-                    # so it must contrast with `primary` and not with the page
-                    # background. `foreground-inverse` would be the token for it,
-                    # but it is a neutral role that flips with the colour scheme
-                    # — and this fill does not flip, so the neutral would go dark
-                    # on cyan in dark mode. The only remaining hex in this
-                    # template, and it earns its place.
-                    color: '#ffffff'
-                content: Sign in to the intranet
-              - type: link
-                props:
-                  href: '#features'
-                  className: inline-block px-6 py-3 rounded-lg font-medium border
-                  style:
-                    color: var(--color-foreground)
-                    borderColor: var(--color-border)
-                content: Learn more
-
-  - type: container
-    element: section
-    props:
-      id: features
-      className: py-16 px-6
-    children:
+                  name: mail
+                  size: 14
+              - type: text
+                element: span
+                content: Sign in with your work email
+      # The same sign-in, on a phone.
       - type: container
         props:
-          className: max-w-5xl mx-auto
+          className: md:hidden
         children:
-          - type: text
-            element: h2
+          - type: form
             props:
-              className: text-4xl font-bold mb-10 text-center
-              style:
-                color: var(--color-foreground)
-            content: What's inside
-          - type: container
+              id: home-magic-link
+            action:
+              type: auth
+              method: login
+              strategy: magicLink
+              submitLabel: Email me a sign-in link
+              onSuccess:
+                navigate: /portal
+      - type: container
+        props:
+          className: mx-auto grid w-full max-w-[1040px] grid-cols-3 gap-4 max-md:grid-cols-1 max-md:gap-5
+        children:
+          - type: card
             props:
-              style:
-                display: grid
-                gridTemplateColumns: repeat(auto-fit, minmax(260px, 1fr))
-                gap: 1.5rem
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
             children:
-              - type: container
+              - type: icon
                 props:
-                  className: p-6 rounded-xl border
-                  style:
-                    backgroundColor: var(--color-card)
-                    borderColor: var(--color-border)
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-xl font-semibold mb-2
-                    content: People directory
-                  - type: text
-                    element: p
-                    props:
-                      style:
-                        color: var(--color-foreground-muted)
-                    content: Find colleagues across teams and see what they are working on.
-              - type: container
+                  name: megaphone
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
                 props:
-                  className: p-6 rounded-xl border
-                  style:
-                    backgroundColor: var(--color-card)
-                    borderColor: var(--color-border)
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-xl font-semibold mb-2
-                    content: Announcements
-                  - type: text
-                    element: p
-                    props:
-                      style:
-                        color: var(--color-foreground-muted)
-                    content: Company news in one feed — read the latest and publish your own once you sign in.
-              - type: container
+                  className: text-[17px] font-semibold text-foreground max-md:text-sm max-md:font-medium
+                content: News that asks something of you
+              - type: text
+                element: p
                 props:
-                  className: p-6 rounded-xl border
-                  style:
-                    backgroundColor: var(--color-card)
-                    borderColor: var(--color-border)
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-xl font-semibold mb-2
-                    content: Manager tools
-                  - type: text
-                    element: p
-                    props:
-                      style:
-                        color: var(--color-foreground-muted)
-                    content: Managers get extra tools to publish announcements and keep the directory current.
+                  className: text-sm text-foreground-muted max-md:hidden
+                content: Announcements from every team, with the must-reads you acknowledge in one click.
+          - type: card
+            props:
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
+            children:
+              - type: icon
+                props:
+                  name: users
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
+                props:
+                  className: text-[17px] font-semibold text-foreground max-md:text-sm max-md:font-medium
+                content: Everyone, findable
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted max-md:hidden
+                content: A directory of every colleague with their role, team and office.
+          - type: card
+            props:
+              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
+            children:
+              - type: icon
+                props:
+                  name: link
+                  size: 20
+                  className: text-foreground-muted
+              - type: text
+                element: h2
+                props:
+                  className: text-[17px] font-semibold text-foreground max-md:text-sm max-md:font-medium
+                content: The tools you use every day
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-muted max-md:hidden
+                content: Policies, guides and the links to every internal tool, grouped.
+  - $ref: ./_site-footer.yaml

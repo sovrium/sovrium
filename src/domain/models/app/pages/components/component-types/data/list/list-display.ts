@@ -6,10 +6,33 @@
  */
 
 import { Schema } from 'effect'
+import { CurrencyCodeSchema } from '@/domain/models/app/tables/fields/field-types/currency-display'
 
 // ---------------------------------------------------------------------------
 // ListItemMetadataSchema
 // ---------------------------------------------------------------------------
+
+/**
+ * Per-entry format options. Mirrors a KPI's `kpiFormat.options.currency`: a
+ * list has no other place to say which currency a bare number is in.
+ *
+ * A column declared as a `currency` field already carries its own code, and its
+ * code wins — the option exists for the number, decimal and computed columns
+ * that carry none, which otherwise print in US dollars.
+ */
+const ListItemMetadataOptionsSchema = Schema.Struct({
+  currency: Schema.optional(
+    CurrencyCodeSchema.annotate({
+      description:
+        'ISO 4217 code a `format: currency` entry prints in, when its field is a plain number that declares no currency of its own. A `currency` field keeps the code it declares.',
+      defaultNote: 'the field currency, else USD',
+      examples: ['EUR', 'GBP', 'CHF'],
+    })
+  ),
+}).annotate({
+  title: 'List Item Metadata Options',
+  description: 'Format options for one metadata entry',
+})
 
 /**
  * A single metadata field displayed in the list item footer area.
@@ -21,6 +44,10 @@ import { Schema } from 'effect'
  *     format: currency
  *   - field: updatedAt
  *     format: relative-date
+ *   # a plain number column, printed in euros
+ *   - field: budget
+ *     format: currency
+ *     options: { currency: EUR }
  * ```
  */
 export const ListItemMetadataSchema = Schema.Struct({
@@ -35,6 +62,8 @@ export const ListItemMetadataSchema = Schema.Struct({
       examples: ['currency', 'relative-date', 'badge', 'text', 'short-date'],
     })
   ),
+  /** Format options, e.g. the currency a plain number prints in */
+  options: Schema.optional(ListItemMetadataOptionsSchema),
 }).annotate({
   title: 'List Item Metadata',
   description: 'Metadata field displayed in the list item footer',

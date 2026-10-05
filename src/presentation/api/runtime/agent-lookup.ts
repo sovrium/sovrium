@@ -14,8 +14,7 @@
  * the schedule routes stay consistent.
  */
 
-import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context } from 'hono'
@@ -44,7 +43,4 @@ export const findAgent = (app: App | undefined, name: string): Agent | undefined
  * [internal ref] asserts the two responses match byte for byte).
  */
 export const agentNotFound = (c: Readonly<Context>): Response =>
-  c.json(
-    errorBody({ error: 'Agent not found or access denied.', code: ApiErrorCode.NOT_FOUND }),
-    404
-  )
+  c.json(notFoundBody('Agent not found or access denied.'), 404)

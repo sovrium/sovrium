@@ -103,7 +103,7 @@ export interface SchemaNode {
  * refinement in Effect 4 are CHECKS on a base node, not nodes of their own —
  * `Schema.Finite` is a `Number` carrying one `isFinite` filter. `Schema.annotate`
  * piped after any of them therefore lands on the LAST check rather than on the
- * node, measured on `effect@4.0.0-rc.108`:
+ * node, measured on `effect@4.0.0`:
  *
  * ```
  * Finite.pipe(annotate({description}))          ast.annotations = null

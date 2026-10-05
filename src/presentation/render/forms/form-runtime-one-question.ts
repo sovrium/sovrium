@@ -206,8 +206,8 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       var input = inputs[i]
       if (input.type === 'hidden') continue
       input.setCustomValidity('')
-      if (!input.checkValidity()) {
-        var msg = fieldErrorMessage(input)
+      var msg = invalidMessageOf(input)
+      if (msg !== null) {
         showFieldError(input, msg)
         if (!firstError) firstError = input
       }

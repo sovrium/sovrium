@@ -24,7 +24,9 @@ import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
+import { findUnpinnedHiddenField } from '@/application/use-cases/forms/submit-form-hidden-pins'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
+import { findUnofferedLinkField } from '@/application/use-cases/forms/submit-form-offered-links'
 import { checkRateLimit } from '@/application/use-cases/forms/submit-form-rate-limit'
 import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
@@ -84,7 +86,7 @@ export class FormFieldRequiredError extends Data.TaggedError('FormFieldRequiredE
 }> {}
 
 // FormFieldFormatError + validateFieldFormats moved to submit-form-format-validation.ts
-// (Bug 5 / [internal ref]). Re-exported so existing callers
+//. Re-exported so existing callers
 // (presentation/api/routes/forms.ts) keep their import surface stable.
 export { FormFieldFormatError }
 export { FormFieldConstraintError } from '@/application/use-cases/forms/submit-form-constraint-errors'
@@ -96,12 +98,23 @@ export { FormFieldConstraintError } from '@/application/use-cases/forms/submit-f
  * an inline error against the offending field instead of the previous opaque
  * 422 `{error:'submission_invalid', message:'Failed to create record in X'}`.
  *
- * Bug 3 (sovrium-partner repro / [internal ref]).
+ * [internal ref] (sovrium-partner repro / [internal ref]).
  */
 export class FormFieldForeignKeyError extends Data.TaggedError('FormFieldForeignKeyError')<{
   readonly fieldName: string
   readonly message: string
 }> {}
+
+/** The field error a reference to a row that does not exist gets. */
+const missingRowError = (fieldName: string | undefined) =>
+  new FormFieldForeignKeyError({
+    fieldName: fieldName ?? '',
+    message: `${fieldName ?? ''} references a record that does not exist`.trimStart(),
+  })
+
+/** A link the form did not offer, or a hidden link it did not render, is answered as a missing row. */
+const refuseAsMissingRow = (fieldName: string | undefined) =>
+  fieldName === undefined ? Effect.void : Effect.fail(missingRowError(fieldName))
 
 /**
  * Submission rejected because the form is not yet open (`availability.opensAt`
@@ -211,6 +224,13 @@ interface SubmitFormConfig {
    * in-process rate-limiter's per-IP bucket.
    */
   readonly submitterIpHash?: string
+  /**
+   * SHA-256(salt + rate-limit key): the same digest over the address as every
+   * per-address limit counts it — an IPv6 client by its /64. Keys the
+   * in-process rate-limiter's per-address bucket; never stored. Falls back to
+   * `submitterIpHash` when absent.
+   */
+  readonly rateLimitKeyHash?: string
   readonly userAgent?: string
   /**
    * Query-string parameters captured at the route boundary. Used to resolve
@@ -232,6 +252,12 @@ interface SubmitFormConfig {
    *. Absent for anonymous submissions.
    */
   readonly submitterUserId?: string
+  /**
+   * The signed-in submitter as the form's choices see them (`id`, `email`,
+   * `role`), so a `$currentUser` option filter selects at submission exactly
+   * the rows it offered on the page. Absent for anyone else.
+   */
+  readonly visitor?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -393,7 +419,7 @@ const checkAvailabilityWindow = (
   return Effect.void
 }
 
-// validateFieldFormats moved to submit-form-format-validation.ts (Bug 5 / [internal ref]).
+// validateFieldFormats moved to submit-form-format-validation.ts.
 
 /**
  * Run the body-processing pipeline: overlay defaults, drop hidden /
@@ -427,7 +453,7 @@ const processSubmissionBody = (
     // [internal ref]: enforce form-level required fields before
     // any write so a missing field surfaces a focused 400.
     yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields)
-    // [internal ref] / Bug 5: server-side format validation (email, etc.)
+    // [internal ref]: server-side format validation (email, etc.)
     // before any DB write so garbage never lands in the bound table.
     yield* validateFieldFormats(app, form, visibilityFiltered)
     return applyMapping(filterDeclaredFields(visibilityFiltered, form), form.submitTo.mapping)
@@ -438,6 +464,11 @@ interface PersistOutcome {
   readonly submissionId: string | undefined
   readonly linkedRecordPresent: boolean
   readonly linkedRecordId: string | undefined
+  /**
+   * The bound-table row AS STORED — server stamps (`created-by`, `created-at`)
+   * and column defaults included — which its record automations receive.
+   */
+  readonly linkedRecordFields?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -551,16 +582,18 @@ const persistSubmission = (input: {
       submissionId,
       linkedRecordPresent: linkedRecord !== undefined,
       linkedRecordId,
+      ...(linkedRecord !== undefined && { linkedRecordFields: linkedRecord.fields }),
     } satisfies PersistOutcome
   })
 
 /**
- * GAP-15: fire the bound table's `record`/`create` automations for a
+ * [internal ref]: fire the bound table's `record`/`create` automations for a
  * form-created row, exactly like the direct records-API create path
  * (`record-write-handlers.ts` taps `triggerRecordEventAutomations`). The form
  * path bypasses that handler by calling `createRecordProgram` directly, so we
  * fire the same trigger here — AFTER the row commits, only when
- * `submitTo.table` produced a row. The created row's column-keyed fields are
+ * `submitTo.table` produced a row. The STORED row's column-keyed fields —
+ * server stamps and defaults included, not only the posted answers — are
  * surfaced under `{{trigger.data.record.X}}`. Errors are absorbed inside the
  * use case so a failing automation never rolls back the submission. No-op when
  * no bound-table row was written.
@@ -574,21 +607,23 @@ const fireBoundTableRecordCreateAutomations = (input: {
   readonly submitterUserId: string | undefined
 }) => {
   const { app, form, mapped, outcome, processEnv, submitterUserId } = input
-  const { linkedRecordPresent, linkedRecordId } = outcome
+  const { linkedRecordPresent, linkedRecordId, linkedRecordFields } = outcome
   if (!linkedRecordPresent || form.submitTo.table === undefined || linkedRecordId === undefined) {
     return Effect.void
   }
+  // The row as stored wins over the answers posted: a record automation reads
+  // the same row whatever created it — the stamps and the defaults included.
   return triggerRecordEventAutomations({
     app,
     tableName: form.submitTo.table,
     event: 'create',
-    record: { id: linkedRecordId, ...mapped },
+    record: { id: linkedRecordId, ...mapped, ...linkedRecordFields },
     processEnv,
     ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
   })
 }
 
-// eslint-disable-next-line max-lines-per-function -- single-pass form-submission generator: 8 sequential gates (validate / honeypot / rate-limit / availability / format-validate / coerce / persist / emit + trigger). Each step needs the prior step's resolved state. F-04 added the analytics emit call.
+// eslint-disable-next-line max-lines-per-function -- single-pass form-submission generator: 8 sequential gates (validate / honeypot / rate-limit / availability / format-validate / coerce / persist / emit + trigger). Each step needs the prior step's resolved state. [internal ref] added the analytics emit call.
 export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
   // eslint-disable-next-line max-lines-per-function -- see comment on submitFormProgram
   Effect.gen(function* () {
@@ -622,16 +657,24 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       form,
       body,
       submitterIpHash: submitterIpHash ?? '',
+      rateLimitKeyHash: config.rateLimitKeyHash,
       userAgent,
     })
 
     const mapped = yield* processSubmissionBody(app, form, body, query ?? {})
 
-    // Bug 3 / [internal ref]: translate FK violations on the bound-table
+    // A link must name a row the form offers, and a hidden link or account only
+    // what the server would have put in it for this submitter — both answered
+    // like a missing row.
+    const links = { app, form, mapped, visitor: config.visitor, submitterUserId }
+    yield* findUnofferedLinkField(links).pipe(Effect.flatMap(refuseAsMissingRow))
+    yield* findUnpinnedHiddenField(links).pipe(Effect.flatMap(refuseAsMissingRow))
+
+    // [internal ref]: translate FK violations on the bound-table
     // write into a structured FormFieldForeignKeyError so the route layer
     // emits a 400 with `fieldErrors[]` instead of a generic 422. Mirrors the
     // FormFieldFormatError translation in `processSubmissionBody`.
-    const { submissionId, linkedRecordPresent, linkedRecordId } = yield* persistSubmission({
+    const persisted = yield* persistSubmission({
       app,
       form,
       mapped,
@@ -640,13 +683,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submitterUserId,
     }).pipe(
       Effect.catchTags({
-        ForeignKeyViolationError: (fk) => {
-          const fieldName = fk.fieldName ?? ''
-          const message = fk.fieldName
-            ? `${fk.fieldName} references a record that does not exist`
-            : 'references a record that does not exist'
-          return Effect.fail(new FormFieldForeignKeyError({ fieldName, message }))
-        },
+        ForeignKeyViolationError: (fk) => Effect.fail(missingRowError(fk.fieldName)),
         // A value refused by a unique, CHECK or NOT NULL rule is reported
         // against the field it came from, so the page can draw it there.
         UniqueConstraintViolationError: (unique) =>
@@ -654,8 +691,9 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
         DatabaseError: (failure) => Effect.fail(constraintRefusalForField(failure) ?? failure),
       })
     )
+    const { submissionId, linkedRecordPresent, linkedRecordId } = persisted
 
-    // F-04: write the unified analytics_events row for
+    // [internal ref]: write the unified analytics_events row for
     // every successful submission. Three-layer gate (env / app / form);
     // emission failures are absorbed so a missing analytics row never
     // rolls back the committed submission.
@@ -666,14 +704,14 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submitterIpHash,
     })
 
-    // GAP-15: fire the bound table's record/create automations for the
+    // [internal ref]: fire the bound table's record/create automations for the
     // form-created row (no-op when no bound-table row was written). See
     // fireBoundTableRecordCreateAutomations.
     yield* fireBoundTableRecordCreateAutomations({
       app,
       form,
       mapped,
-      outcome: { submissionId, linkedRecordPresent, linkedRecordId },
+      outcome: persisted,
       processEnv: processEnv ?? {},
       submitterUserId,
     })

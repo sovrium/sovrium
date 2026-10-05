@@ -8,6 +8,11 @@
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  OUTSIDE_RELAY,
+  parseRelay,
+  type RunRelay,
+} from '@/domain/models/app/automations/run-relay-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -58,6 +63,10 @@ export interface ReplayAutomationRunOptions {
    */
   readonly triggerData?: TriggerData
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
+  /**
+   * The person the replay acts as, when one is named (the console's retry
+   * names its admin). Omitted: the run's own starter, or the system.
+   */
   readonly userId?: string
 }
 
@@ -83,27 +92,44 @@ const resolveReplayTarget = (
 }
 
 /**
- * Build the set of action names that already executed (success or failure)
- * in the original run. The replay endpoint records each of these as a
- * `'skipped'` step in the new run so callers retain the side-effects-once
- * guarantee — a record/create that fired in the original run is NOT fired
- * again on replay.
+ * The actions a replay records as `'skipped'` without running: every action of
+ * the automation EXCEPT those the original run recorded `'skipped'` — the tail
+ * a failure cut off ([internal ref] records it so). The replay runs
+ * that tail and nothing else.
  *
- * Steps with status `'skipped'` from the original run (post-failure
- * actions that never executed) are NOT added to this set — the replay
- * fires them fresh, which is the whole point of resume-from-failure.
- *
- * [internal ref].
+ * The complement, rather than "everything that ran", because what a run did
+ * NOT record matters as much as what it did. A filter that stopped the run, an
+ * approval it waits on or was refused, an early `return` — each leaves the
+ * actions after it unrecorded ON PURPOSE. Running "whatever did not execute"
+ * ran exactly those: a replay of a run held for approval executed the actions
+ * the approval guards, the request still pending. Under the complement such a
+ * run has no tail to resume, and its replay runs no step.
  */
-const collectExecutedActionNames = (
+const collectSkipActionNames = (
+  actions: ReadonlyArray<{ readonly name?: unknown }>,
   steps: ReadonlyArray<{ readonly actionName: string; readonly status: string }>
-): ReadonlySet<string> =>
-  new Set(
-    steps
-      .filter((s) => s.status !== 'skipped')
-      .map((s) => s.actionName)
-      .filter((name) => name !== '')
+): ReadonlySet<string> => {
+  const resumable = new Set(steps.filter((s) => s.status === 'skipped').map((s) => s.actionName))
+  return new Set(
+    actions
+      .map((action) => String(action.name ?? ''))
+      .filter((name) => name !== '' && !resumable.has(name))
   )
+}
+
+/** Who a replay runs as — see the call site. A starter banned since is not run as. */
+const replayActorOf = (
+  run: { readonly startedByHand: boolean; readonly triggeredByUserId: string | null },
+  actingUserId: string | undefined
+) => {
+  if (actingUserId !== undefined) return { userId: actingUserId }
+  if (!run.startedByHand) return { userId: undefined }
+  return {
+    startedByHand: true,
+    userId: run.triggeredByUserId ?? undefined,
+    checkStarterStanding: true,
+  } as const
+}
 
 /**
  * Coerce the persisted `triggerData` JSON column into a `TriggerData`
@@ -135,6 +161,13 @@ const coerceTriggerData = (raw: unknown): TriggerData => {
  * The original run's trigger data is reused unless the caller supplied an
  * override via the POST body.
  */
+/** The relay a replay records: the replayed run's own, or `outside` for new trigger data. */
+const replayRelayOf = (relay: unknown, supplied: boolean): { readonly relay?: RunRelay } => {
+  if (supplied) return { relay: OUTSIDE_RELAY }
+  const kept = parseRelay(relay)
+  return kept === undefined ? {} : { relay: kept }
+}
+
 export const replayAutomationRun = (
   options: ReplayAutomationRunOptions
 ): Effect.Effect<
@@ -143,7 +176,7 @@ export const replayAutomationRun = (
   AutomationRunRepository | ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { name, runId, app, processEnv, triggerData, userId } = options
+    const { name, runId, app, processEnv, triggerData } = options
     const handlers = options.handlers ?? defaultActionHandlers
 
     const repo = yield* AutomationRunRepository
@@ -160,7 +193,10 @@ export const replayAutomationRun = (
     const pausedNames = yield* loadPausedAutomationNames
     const automation = yield* resolveReplayTarget(app, name, pausedNames)
     const steps = yield* repo.findStepsByRunId(runId)
-    const skipActionNames = collectExecutedActionNames(steps)
+    const skipActionNames = collectSkipActionNames(
+      automation.actions as ReadonlyArray<{ readonly name?: unknown }>,
+      steps
+    )
 
     const automationId = yield* resolveAutomationId(name, automation)
     const replayTriggerData = triggerData ?? coerceTriggerData(run.triggerData)
@@ -173,7 +209,15 @@ export const replayAutomationRun = (
       processEnv,
       triggerData: replayTriggerData,
       handlers,
-      userId,
+      // Who the replay runs as. The console's retry names its admin (`userId`).
+      // Otherwise a hand-started run replays as the person who started it —
+      // under their permissions, and still theirs to read — as an approval
+      // resume does, and any other replays system-side. Never the replayer: an
+      // approver replaying someone's run does not borrow, nor become, its starter.
+      ...replayActorOf(run, options.userId),
       skipActionNames,
+      // A replay keeps the relay of the run it replays; new trigger data an
+      // admin supplied came from outside the app.
+      ...replayRelayOf(run.relay, triggerData !== undefined),
     })
   }).pipe(Effect.withSpan('automations.replay-automation-run'))

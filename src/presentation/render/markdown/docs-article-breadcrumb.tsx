@@ -111,6 +111,7 @@ export function DocsArticleBreadcrumb({
   return (
     <nav
       aria-label="Breadcrumb"
+      data-component-type="breadcrumb"
       className="min-w-0 flex-1 text-sm"
     >
       <ol className="text-foreground-subtle flex min-w-0 list-none flex-nowrap items-center gap-1.5 overflow-hidden">
@@ -120,7 +121,12 @@ export function DocsArticleBreadcrumb({
             className="flex items-center gap-1.5"
           >
             {crumb.node}
-            <span aria-hidden="true">/</span>
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground"
+            >
+              /
+            </span>
           </li>
         ))}
         <li

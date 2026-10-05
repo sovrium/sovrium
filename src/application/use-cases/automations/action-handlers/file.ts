@@ -20,11 +20,7 @@ import {
   tempKey,
   uploadArtifact,
 } from './file-support'
-import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
+import { resolveOwnProps } from './run-context-resolution'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
@@ -129,12 +125,7 @@ const resolvedProps = (
   action: Readonly<Record<string, unknown>>,
   runContext: ActionRunContext | undefined
 ): Readonly<Record<string, unknown>> =>
-  runContext
-    ? (resolveRunContextValue(
-        rawActionProps(runContext),
-        buildRunContextView(runContext)
-      ) as Record<string, unknown>)
-    : props(action)
+  runContext ? (resolveOwnProps(runContext) as Record<string, unknown>) : props(action)
 
 const columnsFor = (
   defs: ReadonlyArray<Record<string, unknown>> | undefined,

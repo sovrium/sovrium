@@ -15,6 +15,7 @@
 import { type ReactNode } from 'react'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/app/forms/field-groups-flow'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeFormGroupClasses,
@@ -22,8 +23,13 @@ import {
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
-import { FormFieldElement, type PrefillValue } from './form-field-elements'
-import { resolveAllFields, resolveText, stepDescriptionsHtml } from './form-field-resolver'
+import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
+import {
+  resolveAllFields,
+  resolveDocumentLang,
+  resolveText,
+  stepDescriptionsHtml,
+} from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { FormBodyMultiStep, type FormBodyShared } from './form-renderer-multi-step'
 import { FormBodyOneQuestion } from './form-renderer-one-question'
@@ -49,6 +55,28 @@ import type { FormOptionSets } from '@/domain/models/app/forms/form-option-sourc
 export interface EmbeddedFormPrefillContext {
   readonly prefill: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  /**
+   * With `lockPrefill`, the keys the lock applies to — the ones the host's
+   * inline prefill names. Every other prefilled value (a field's own default,
+   * the form's `prefill` map) stays an editable starting value. Absent, the
+   * lock covers every key in `prefill`.
+   */
+  readonly lockedKeys?: readonly string[]
+}
+
+/**
+ * Mark the fields whose prefilled value stays editable although the prefill is
+ * locked: those the lock does not name (`lockedKeys`).
+ */
+function markEditablePrefill(
+  fields: readonly ResolvedFormField[],
+  prefillContext: EmbeddedFormPrefillContext | undefined
+): readonly ResolvedFormField[] {
+  const lockedKeys = prefillContext?.lockPrefill === true ? prefillContext.lockedKeys : undefined
+  if (lockedKeys === undefined) return fields
+  return fields.map((field) =>
+    lockedKeys.includes(field.name) ? field : { ...field, prefillEditable: true }
+  )
 }
 
 /**
@@ -116,11 +144,23 @@ function buildFormBodyShared({
     ...(form.steps !== undefined
       ? { stepDescriptionsHtml: stepDescriptionsHtml(form.steps, languages, activeLang) }
       : {}),
-    submitLabel: resolveText(form.display?.submitLabel, languages, 'Submit', activeLang),
-    resolvedFields: resolveAllFields(app, form, activeLang, {
-      conditionValues: prefillMap,
-      ...(optionSets !== undefined ? { optionSets } : {}),
-    }),
+    submitLabel: resolveText(
+      form.display?.submitLabel,
+      languages,
+      resolveInterpreterString(
+        'form.submit',
+        resolveDocumentLang(languages, activeLang),
+        languages
+      ),
+      activeLang
+    ),
+    resolvedFields: markEditablePrefill(
+      resolveAllFields(app, form, activeLang, {
+        conditionValues: prefillMap,
+        ...(optionSets !== undefined ? { optionSets } : {}),
+      }),
+      prefillContext
+    ),
     prefillMap,
     lockPrefill,
     titleAs: titleAs ?? 'h1',
@@ -174,6 +214,22 @@ interface FormBodyProps {
    * title, its own or the form's (`expandDialogFormRef`).
    */
   readonly omitTitle?: boolean
+  /** A Cancel beside the submit, labelled — drawn by a dialog hosting the form. */
+  readonly cancelLabel?: string
+}
+
+/**
+ * What a host changes on the form it holds: `''` draws no title (the host
+ * heads the form itself), and a dialog adds a Cancel beside the submit.
+ */
+function hostOverrides(
+  omitTitle: boolean | undefined,
+  cancelLabel: string | undefined
+): Partial<Pick<FormBodyShared, 'title' | 'cancelLabel'>> {
+  return {
+    ...(omitTitle === true ? { title: '' } : {}),
+    ...(cancelLabel === undefined ? {} : { cancelLabel }),
+  }
 }
 
 export function FormBody({
@@ -187,12 +243,12 @@ export function FormBody({
   titleAs,
   optionSets,
   omitTitle,
+  cancelLabel,
 }: FormBodyProps) {
   const shouldMountRuntime = mountRuntime ?? !embed
   const commonProps: FormBodyShared = {
     ...buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs, optionSets }),
-    // `''` draws no title: the host heads the form itself.
-    ...(omitTitle === true ? { title: '' } : {}),
+    ...hostOverrides(omitTitle, cancelLabel),
     embedded,
   }
   const isMultiStep = form.layout === 'multi-step' && form.steps && form.steps.length > 0
@@ -324,6 +380,39 @@ function HoneypotInput() {
   )
 }
 
+/**
+ * The actions row of a form a dialog hosts: Cancel, then the submit, on one
+ * line at the row's end. Cancel is `type="button"` so it never posts the form;
+ * it carries `data-dialog-cancel`, which the dialog island closes on.
+ */
+function FormDialogActions({
+  cancelLabel,
+  submitLabel,
+}: {
+  readonly cancelLabel: string
+  readonly submitLabel: string
+}) {
+  return (
+    <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        data-component-type="button"
+        data-dialog-cancel=""
+        className={computeButtonDefaultClasses({ variant: 'secondary' })}
+      >
+        {cancelLabel}
+      </button>
+      <button
+        type="submit"
+        data-component-type="button"
+        className={computeButtonDefaultClasses()}
+      >
+        {submitLabel}
+      </button>
+    </div>
+  )
+}
+
 function FormBodyFlat({
   title,
   descriptionHtml,
@@ -336,6 +425,7 @@ function FormBodyFlat({
   antiSpamHoneypot,
   titleAs = 'h1',
   embedded = false,
+  cancelLabel,
 }: FormBodyShared) {
   const TitleTag = titleAs
   // Embedded/dialog bodies have no `.form-page` shell, so the standalone
@@ -360,12 +450,20 @@ function FormBodyFlat({
       >
         {antiSpamHoneypot && <HoneypotInput />}
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
-        <button
-          type="submit"
-          className={`${computeButtonDefaultClasses()} mt-2 w-full sm:w-auto ${submitAlign}`}
-        >
-          {submitLabel}
-        </button>
+        {cancelLabel === undefined ? (
+          <button
+            type="submit"
+            data-component-type="button"
+            className={`${computeButtonDefaultClasses()} mt-2 w-full sm:w-auto ${submitAlign}`}
+          >
+            {submitLabel}
+          </button>
+        ) : (
+          <FormDialogActions
+            cancelLabel={cancelLabel}
+            submitLabel={submitLabel}
+          />
+        )}
       </form>
     </>
   )

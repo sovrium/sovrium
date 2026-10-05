@@ -82,9 +82,13 @@ Update Sovrium to the latest release. What happens depends on how it was install
 - **docker** — prints the `docker pull` instruction.
 - **desktop** — declines, and points at the app that owns it.
 
-A self-replace downloads the release archive and checks it against the published checksum when one is available. It gives up on a download that makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was.
+A self-replace downloads the release archive and checks it against the published checksum when one is available. It gives up on a download that makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was. The new binary is written beside the old one and then swapped in with a single rename, so the update either completes or changes nothing. If the binary lives in a directory you cannot write to — typically one it was installed into with `sudo` — the command says so and exits `1` without touching it; run it as that directory's owner, or reinstall with the install script into a directory you own.
 
 Delegating to Homebrew and Scoop rather than self-replacing is deliberate: it keeps the package manager's own version ledger correct. Docker containers cannot self-update, so that path prints the pull command instead.
+
+Homebrew and Scoop installs are recognised by where the binary itself lives — under Homebrew's `Cellar/sovrium/` or Scoop's `apps/sovrium/` — not by the package manager's environment variables. A binary installed with the install script therefore updates itself in place, even on a machine that also has Homebrew or Scoop.
+
+A container is not detected either: the official `ghcr.io/sovrium/sovrium` image declares itself by setting `SOVRIUM_INSTALL_METHOD=docker`, which is what makes it print the pull command — under Docker, Podman or Kubernetes alike. A binary installed with the install script inside a container, such as a devcontainer or a CI job, updates itself like any other. If you build your own image by copying the binary in, set `SOVRIUM_INSTALL_METHOD=docker` there too, so `sovrium update` does not try to replace a file your image owns.
 
 Detection is overridable with `SOVRIUM_INSTALL_METHOD`, which honours those five names and ignores anything else. A raw Windows binary that Scoop does not manage is pointed at Scoop or Docker rather than attempting to overwrite a running `.exe`.
 

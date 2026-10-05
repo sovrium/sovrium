@@ -33,6 +33,7 @@
  */
 
 import { Result } from 'effect'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { dropOptions, isOptionsHash, optionalStr, toNumber, toStr } from './helper-coercion'
 import {
   flatten,
@@ -282,7 +283,7 @@ const registerDateFormatHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('now', isoNow)
   hbs.registerHelper('today', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
-    return formatDate(new Date(), 'yyyy-MM-dd', optionalStr(ops, 0))
+    return formatDate(serverNow(), 'yyyy-MM-dd', optionalStr(ops, 0))
   })
 }
 

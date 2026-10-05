@@ -1,0 +1,82 @@
+# News: every published announcement, newest first, as the same cards Home
+# shows. Beside them, an index of every announcement narrows by topic or by a
+# word of the title.
+name: news
+path: /news
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: News · Halden
+  description: Every announcement published at Halden, newest first.
+components:
+  - $ref: ./_shell.yaml
+  - type: container
+    element: header
+    props:
+      className: flex h-12 items-center gap-3 border-b border-border px-5 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-[15px] font-semibold text-foreground
+        content: News
+  # The index: every announcement as one line, narrowed by the bar above it.
+  - type: container
+    element: aside
+    props:
+      aria-label: Find an announcement
+      className: flex flex-col gap-2 px-5 pt-5 md:ml-[57px] lg:float-right lg:ml-5 lg:w-[350px] lg:pl-0
+    children:
+      - type: text
+        element: h2
+        props:
+          className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+        content: Find an announcement
+      - type: filter-bar
+        publishes:
+          bindTo: news-filter
+        fields:
+          - { name: title, label: Title, kind: text }
+          - name: topic
+            label: Topic
+            kind: select
+            options:
+              - { value: Company, label: Company }
+              - { value: Security, label: Security }
+              - { value: Offices, label: Offices }
+              - { value: Policy, label: Policy }
+              - { value: People, label: People }
+              - { value: Engineering, label: Engineering }
+      - type: list
+        props:
+          className: rounded-lg border border-border bg-background-raised [&_li]:px-3 [&_li]:flex-wrap [&_li]:gap-y-0.5 [&_li>div:first-child]:basis-full [&_li>div:first-child]:min-w-0 [&_[data-list-title]]:whitespace-normal
+        dataSource:
+          table: posts
+          bindTo: news-filter
+          sharedFilter: {}
+          filter:
+            - { field: status, operator: eq, value: Published }
+          sort:
+            - { field: published_at, direction: desc }
+        listDisplay:
+          emptyMessage: No announcement matches. Clear the filter to see them all.
+          itemTemplate:
+            title: $record.title
+            badge: $record.topic
+            metadata:
+              - { field: published_label, format: text }
+  - type: container
+    element: section
+    props:
+      aria-label: Announcements
+      className: flex flex-col gap-3 px-5 pt-5 pb-8 md:ml-[57px] lg:ml-[232px] [&>li]:list-none
+    dataSource:
+      table: posts
+      filter:
+        - { field: status, operator: eq, value: Published }
+      sort:
+        - { field: published_at, direction: desc }
+    children:
+      - $ref: ./_post-card.yaml
+  - $ref: ./_post-drawer.yaml

@@ -256,7 +256,7 @@ const performHttpWithResponseOutput = async (input: {
     }
     // Expose a STRUCTURED, JSON-parsed `body` ALONGSIDE the raw-text
     // `response.body` so a later step can read a field via
-    // `{{steps.X.body.<key>}}` (GAP-18). The raw text stays at
+    // `{{steps.X.body.<key>}}`. The raw text stays at
     // `{{steps.X.response.body}}` for back-compat. Non-JSON responses leave
     // `parsedBody` undefined → only the raw envelope is exposed.
     const parsedBody = parseJsonResponseBody(body, responseHeaders)

@@ -115,18 +115,22 @@ const TIMELINE_SHELL = [
   `border-[${v('sv-border', T.border)}]`,
   `rounded-[${v('radius-md', T.radiusMd)}]`,
   `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  // The error, missing-binding and empty states are semantic status surfaces
+  // on the `error` / `warning` / muted tones: the frame steps out of the box so
+  // a misconfiguration never reads as a timeline that happens to be empty.
+  'has-[>[role=alert]]:contents has-[>[data-timeline-state=empty]]:contents',
 ].join(' ')
 
 /**
- * Compute the default className for the outer timeline surface — the element
- * that carries `data-component="data-timeline"`.
+ * Compute the default className for the outer timeline surface — the island
+ * HOST, the one element that carries `data-component="data-timeline"`.
  *
  * Bordered and raised on `radius-md`, with no elevation: the canvas separates a
  * data view from the page by layer and hairline, never by a lift.
  *
- * Consumed by the populated view, by the loading state, and by the SSR
- * skeleton, so the frame is byte-identical across hydration and the chrome
- * never re-draws under the records as they arrive.
+ * Drawn by the host, which stands for the timeline before and after the island
+ * mounts, around the SSR skeleton, the loading state and the populated view
+ * alike — so the frame never re-draws under the records as they arrive.
  */
 export const computeTimelineShellClasses = (): string => TIMELINE_SHELL
 

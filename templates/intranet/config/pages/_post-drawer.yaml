@@ -1,0 +1,19 @@
+# One announcement, opened over the page from its title or from
+# `?record=<id>`: who wrote it and when, what it asks of you, how many of the
+# company have acknowledged it, and the full text.
+type: drawer
+id: post-detail
+drawerSide: right
+drawerSize: md
+canEdit: false
+dataSource:
+  table: posts
+props:
+  title: Announcement
+recordFields:
+  - { name: title, type: single-line-text, label: Announcement }
+  - { name: byline, type: single-line-text, label: From }
+  - { name: due_label, type: single-line-text, label: Asks you to }
+  - { name: audience_line, type: single-line-text, label: Audience }
+  - { name: ack_line, type: single-line-text, label: Acknowledged }
+  - { name: body, type: long-text, label: The announcement }

@@ -44,6 +44,7 @@ import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { detectFormatFromUrl } from '@/domain/kernel/config-parsing/format-detection'
+import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
 import { parseSchemaContent } from '@/domain/models/app/app-content-parsing'
 import { fetchFollowingRedirects } from '@/infrastructure/egress/follow-redirects'
 import {
@@ -218,13 +219,17 @@ const readCappedText = async (response: Response, rawUrl: string): Promise<strin
   return read.text
 }
 
-/** Every `$ref` value in the document, at any depth. */
+/**
+ * Every FILE `$ref` value in the document, at any depth. A bare name places a
+ * component template and is never fetched, so it is not collected.
+ */
 const collectRefValues = (node: unknown): readonly string[] => {
   if (Array.isArray(node)) return node.flatMap(collectRefValues)
   if (typeof node !== 'object' || node === null) return []
-  return Object.entries(node as Record<string, unknown>).flatMap(([key, value]) =>
-    key === '$ref' && typeof value === 'string' ? [value] : collectRefValues(value)
-  )
+  return Object.entries(node as Record<string, unknown>).flatMap(([key, value]) => {
+    if (key !== '$ref' || typeof value !== 'string') return collectRefValues(value)
+    return isFileRefValue(value) ? [value] : []
+  })
 }
 
 /** Refuse a document that points at another host to be complete. */

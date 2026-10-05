@@ -14,8 +14,8 @@
  * `$`-substitution passes, then `resolveCollectionAndFilter` hands
  * `resolveCollectionPage` a row-level read predicate built from the table's own
  * `rowLevelPermissions.read.when`. A slug that resolves to a row this caller
- * cannot read is `permission-blocked` rather than `not-found` — a distinction
- * only a resolver holding both halves can draw.
+ * cannot read answers exactly as a slug naming no row: the page's own 404, so
+ * the status tells her nothing the records API would not.
  *
  * Named for the page shape it resolves; the record-level resolver it calls is
  * `render/resolve/page-collection-resolver.ts`, which is a different question
@@ -23,17 +23,15 @@
  */
 
 import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
-import {
-  stripRestrictedColumns,
-  type TableLike,
-} from '@/domain/models/app/tables/read-access-plan-service'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
-import { resolveRenderPlan } from '@/presentation/render/resolve/data-source-modes'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
 import {
-  rowLevelCheckForVisitor,
+  callerRecordGateOf,
+  readRowsForCaller,
+  type CallerRowsQuery,
   type RowLevelReadCheck,
 } from '@/presentation/render/resolve/record-read-gate'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
@@ -65,7 +63,8 @@ import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-sys
  *    action URL the resolution below is about to read, a set of island props it
  *    is about to serialise, a breadcrumb root label derived further down.
  *
- * The window is resolved ONCE, against a single `Date.now()`. A page whose
+ * The window is resolved ONCE, against a single reading of the server clock
+ * (`serverNow()`, which `SOVRIUM_DEV_CLOCK` pins on a development server). A page whose
  * panels each read the clock would drift their windows apart by however long
  * the render took, and a surface reporting two periods at once invites the
  * operator to compare them.
@@ -83,6 +82,7 @@ function prepareRequestPage(input: {
   readonly requestOrigin?: string
   readonly basePath?: string
   readonly engineVersion?: string
+  readonly requestPath?: string
 }): Page | 'not-found' {
   const {
     matchedPage,
@@ -94,6 +94,7 @@ function prepareRequestPage(input: {
     requestOrigin,
     basePath,
     engineVersion,
+    requestPath,
   } = input
   const routeBound = resolveRouteBoundTables(matchedPage, app, routeParams, session)
   if (routeBound === 'not-found') return 'not-found'
@@ -114,9 +115,9 @@ function prepareRequestPage(input: {
           resolvePageQueryProps(resolveTabsLazyPanels(routeBound), requestQuery),
           hostApp ?? app,
           requestOrigin,
-          { basePath, engineVersion }
+          { basePath, engineVersion, ...(requestPath !== undefined ? { path: requestPath } : {}) }
         ),
-        resolvePageWindow(matchedPage.window, requestQuery, Date.now())
+        resolvePageWindow(matchedPage.window, requestQuery, serverNow().getTime())
       ),
       routeParams
     )
@@ -141,7 +142,7 @@ interface ResolveCollectionAndFilterInput {
   readonly previewMode: boolean
   /** P9: the host page's active language, forwarded to `resolveAndFilterPage`. */
   readonly detectedLanguage?: string
-  /** GAP-3: the host request query, forwarded to `resolveAndFilterPage`. */
+  /** [internal ref]: the host request query, forwarded to `resolveAndFilterPage`. */
   readonly requestQuery?: Readonly<Record<string, string>>
   /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
   readonly urlLanguage?: string
@@ -162,6 +163,12 @@ interface ResolveCollectionAndFilterInput {
    * config value, and under a mount never the same number as `$app.version`.
    */
   readonly engineVersion?: string
+  /**
+   * The path the visitor asked for, feeding `$app.path` — decoded, without the
+   * query string. On the page answering a missing address it is THAT address,
+   * not the page's own `/404`.
+   */
+  readonly requestPath?: string
   /** P9: server-side reader for a SYSTEM-backed select option source. */
   readonly fetchSystemRows?: SystemRowsFetcher
   /** [internal ref]: server-side reader for a page-level `{ system }` record binding. */
@@ -187,9 +194,7 @@ interface ResolveCollectionAndFilterInput {
  */
 export async function resolveCollectionAndFilter(
   input: ResolveCollectionAndFilterInput
-): Promise<
-  Page | { readonly unauthorized: true } | { readonly permissionBlocked: true } | undefined
-> {
+): Promise<Page | { readonly unauthorized: true } | undefined> {
   const { app, routeParams, session, cookies, db, previewMode } = input
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
@@ -204,19 +209,21 @@ export async function resolveCollectionAndFilter(
   // only `true` for editorial sessions, so the resolver does not need
   // to recheck the role here.
   //
-  // Bug 2 / [internal ref]: when the matched page is a
-  // collection page over a table with `rowLevelPermissions.read.when`,
-  // build a per-request predicate so a row the user can't see returns
-  // `permission-blocked` (a distinct outcome from `not-found`) and the
-  // caller renders a structured access-denied response instead of a
-  // silent 404. The table-read and field-read halves ride with it — see
-  // `collectionReadGateOf`.
+  // When the matched page is a collection page over a table with
+  // `rowLevelPermissions.read.when`, build a per-request predicate: a row the
+  // reader may not read answers as a missing one — the same 404 and the same
+  // page, signed in or not, as the records API answers her. The table-read and
+  // field-read halves ride with it — see `collectionReadGateOf`.
   const collectionResolution = await resolveCollectionPage(matchedPage, routeParams, db, {
     bypassFilter: previewMode,
     ...collectionReadGateOf(matchedPage, app, session, db),
   })
-  if (collectionResolution.kind === 'not-found') return undefined
-  if (collectionResolution.kind === 'permission-blocked') return { permissionBlocked: true }
+  if (
+    collectionResolution.kind === 'not-found' ||
+    collectionResolution.kind === 'permission-blocked'
+  ) {
+    return undefined
+  }
   const rawPage = collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage
   // A collection page resolves its host record here (not via
   // `resolvePageParentRecord`, which only handles `dataSource: single`).
@@ -250,24 +257,24 @@ export async function resolveCollectionAndFilter(
 
 /**
  * The records API's three read gates, as the option bag `resolveCollectionPage`
- * applies to the collection record — the same three, in the same order, that
- * `gateRecordForCaller` (`record-read-gate.ts`) applies to every other record a
- * page resolves:
+ * applies to the collection record — asked through the one gate every record a
+ * page resolves answers (`callerRecordGateOf`, `record-read-gate.ts`):
  *
  *  1. **table read** refused — the visitor may read no row of this table, so
  *     every slug answers `refuseRecord` (404, S1). The page's own `access` does
  *     not stand in for it: a public page over a table the visitor may not read
- *     printed the whole row, where the records API gives them nothing.
- *  2. **row-level read** — for a signed-in visitor, the predicate whose `false`
- * is the 200 access-denied page. An anonymous
- *     visitor on a row-scoped table has no user to evaluate it against, so the
- *     table is refused outright rather than every row answering "access
+ *     printed the whole row, where the records API gives them nothing. An
+ *     anonymous visitor on a table whose rows are scoped to the signed-in
+ *     person is refused the same way, rather than every row answering "access
  *     denied" — which would confirm each slug exists.
+ *  2. **row-level read** — the predicate whose `false` answers the slug as a
+ *     missing row's 404.
  *  3. **field read** — `projectRecord`, the record less its unreadable columns,
  *     applied before any `$record.*` or `$collection.*` token is substituted.
  *
- * An empty bag — the record used whole — when the page is not a collection page
- * or the app declares no `auth` (the full-access model).
+ * `readRows` reads the collection's `$collection.previous` / `.next` neighbours
+ * through the records gate as well (`readRowsForCaller`). An empty bag when the
+ * page is not a collection page.
  */
 function collectionReadGateOf(
   page: Page,
@@ -279,18 +286,17 @@ function collectionReadGateOf(
   readonly rowLevelReadCheck?: RowLevelReadCheck
   readonly projectRecord?: (
     record: Readonly<Record<string, unknown>>
-  ) => Readonly<Record<string, unknown>>
+  ) => Promise<Readonly<Record<string, unknown>>>
+  readonly readRows?: (query: CallerRowsQuery) => Promise<readonly Record<string, unknown>[]>
 } {
   if (page.collection === undefined) return {}
   const tableName = page.collection.table
-  const table = app.tables?.find((t) => t.name === tableName) as TableLike | undefined
-  const plan = resolveRenderPlan({ matchedTable: table, app, session })
-  if (plan === undefined) return {}
-  if (table === undefined || !plan.allowed) return { refuseRecord: true }
-  const rowLevelReadCheck = rowLevelCheckForVisitor(table, session, db)
-  if (rowLevelReadCheck !== undefined && session === undefined) return { refuseRecord: true }
+  const gate = callerRecordGateOf({ app, tableName, session, db })
+  if (gate.kind === 'refused') return { refuseRecord: true }
   return {
-    projectRecord: (record) => stripRestrictedColumns(plan, record),
-    ...(rowLevelReadCheck !== undefined ? { rowLevelReadCheck } : {}),
+    projectRecord: gate.project,
+    ...(gate.rowCheck !== undefined ? { rowLevelReadCheck: gate.rowCheck } : {}),
+    readRows: async (query) =>
+      (await readRowsForCaller({ app, tableName, session, db, query })).rows,
   }
 }

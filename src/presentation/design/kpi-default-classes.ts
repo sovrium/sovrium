@@ -57,6 +57,13 @@
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 
+/**
+ * The column rhythm of whatever the KPI host holds: the SSR skeleton, and then
+ * the mounted card's label row, value, trend and sparkline. The host draws the
+ * card chrome ({@link computeKpiCardClasses}); this is only the stack inside it.
+ */
+export const KPI_STACK_CLASSES = 'flex flex-col gap-1'
+
 // ──────────────────────────────────────────────────────────────────────────────
 // CARD — the outer `data-component="kpi"` surface
 // ──────────────────────────────────────────────────────────────────────────────
@@ -79,25 +86,31 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 //     own top margin against the value; with a gap the spacing is a property
 //     of the stack and is correct for every combination of optional children.
 const KPI_CARD = [
-  'flex flex-col gap-1',
+  KPI_STACK_CLASSES,
   'px-3.5 py-3',
   'border',
   `border-[${v('sv-border', T.border)}]`,
   `rounded-[${v('radius-md', T.radiusMd)}]`,
   `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  // An error or missing-binding state is a semantic status surface of its own
+  // (`role="alert"` on the `error` / `warning` tone): the card steps out of the
+  // box so the alert is not framed as a metric that happens to be broken.
+  'has-[>[role=alert]]:contents',
 ].join(' ')
 
 /**
- * Compute the default className for the outer KPI card surface — the element
- * that carries `data-component="kpi"`.
+ * Compute the default className for the outer KPI card surface — the island
+ * HOST, the one element that carries `data-component="kpi"`.
  *
  * Bordered and raised, on `radius-md`, with NO shadow: the canvas separates a
  * KPI from the page by layer and hairline, never by elevation. Padding is the
  * canvas' 12px/14px pair (`py-3` / `px-3.5`), tighter than the `p-4` that
  * shipped, because a KPI is a dense readout rather than a content card.
  *
- * Consumed by BOTH the hydrated `KpiCard` and the SSR skeleton, so the card
- * chrome is byte-identical across hydration and the metric never reflows.
+ * Drawn by the host, which stands for the KPI before and after the island
+ * mounts, so the chrome never re-draws across hydration and the metric never
+ * reflows. What the host holds — the SSR skeleton, then the mounted card —
+ * stacks on {@link KPI_STACK_CLASSES} inside it.
  */
 export const computeKpiCardClasses = (): string => KPI_CARD
 

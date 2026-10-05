@@ -1,0 +1,76 @@
+# People: everyone at the company, findable by name, team or office, with who
+# they report to. Everyone reads it; IT keeps it current.
+name: people
+path: /people
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: People · Halden
+  description: Everyone at Halden, by name, team and office.
+components:
+  - $ref: ./_shell.yaml
+  - type: container
+    element: header
+    props:
+      className: flex h-12 items-center gap-3 border-b border-border px-5 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-[15px] font-semibold text-foreground
+        content: People
+  - type: container
+    element: main
+    props:
+      className: flex flex-col gap-3 px-5 pt-4 pb-8 md:ml-[57px] lg:ml-[232px]
+    children:
+      - type: filter-bar
+        publishes:
+          bindTo: people-filter
+        fields:
+          - name: team
+            label: Team
+            kind: select
+            options:
+              - { value: Leadership, label: Leadership }
+              - { value: Operations, label: Operations }
+              - { value: Finance, label: Finance }
+              - { value: People, label: People }
+              - { value: Support, label: Support }
+              - { value: Platform, label: Platform }
+              - { value: Product, label: Product }
+              - { value: Data, label: Data }
+              - { value: Sales, label: Sales }
+              - { value: Marketing, label: Marketing }
+          - name: office
+            label: Office
+            kind: select
+            options:
+              - { value: London, label: London }
+              - { value: Manchester, label: Manchester }
+              - { value: Lyon, label: Lyon }
+              - { value: Barcelona, label: Barcelona }
+              - { value: Stockholm, label: Stockholm }
+              - { value: Berlin, label: Berlin }
+      - type: table
+        dataSource:
+          table: members
+          bindTo: people-filter
+          sharedFilter: {}
+          sort:
+            - { field: name, direction: asc }
+        # Search by name, title or anything in the row; the bar above narrows
+        # by team and office.
+        toolbar:
+          search: true
+        columns:
+          - { field: name, label: Name, sortable: true }
+          - { field: title, label: Role }
+          - { field: team, label: Team }
+          - { field: office, label: Office }
+          - { field: manager, label: Reports to }
+          - { field: joined_label, label: Joined }
+        pagination:
+          pageSize: 50
+        emptyMessage: Nobody matches. Clear the filter to see everyone.

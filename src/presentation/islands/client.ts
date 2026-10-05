@@ -579,39 +579,11 @@ function setupSessionBoundChrome(): void {
   hydrateSessionBindings(document)
 }
 
-// ─── Island form guard (prevent native submission before island hydration) ──
-
-/**
- * The one binder here that stays a LOAD-TIME SWEEP, deliberately.
- *
- * Its whole subject is the window between the served HTML and the island taking
- * over, so it is a page-load concern by definition: the skeleton form it guards
- * stops existing the moment React replaces it. Delegating it would widen it to
- * every island form for the rest of the page's life — including the HYDRATED
- * one, whose own handler owns the submit — which is a behaviour change, not a
- * hardening.
- *
- * It also has nothing to gain on the refresh seam: a region holding a mounted
- * island is left alone by the refresh rather than swapped (see
- * `refetch-server-rendered-region.ts`), so no guarded form ever arrives that
- * way.
- */
-function setupIslandFormGuards(): void {
-  document
-    .querySelectorAll<HTMLFormElement>('[data-island] form[data-action-type]')
-    .forEach((form) => {
-      form.addEventListener('submit', (event) => {
-        event.preventDefault()
-      })
-    })
-}
-
 // ─── Initialization ─────────────────────────────────────────────────────────
 
 function initClientRuntime(): void {
   setupFilterFormHandlers()
   setupModalHandlers()
-  setupIslandFormGuards()
   setupAutomationButtonHandlers()
   setupAuthButtonHandlers()
   setupFetchButtonHandlers()

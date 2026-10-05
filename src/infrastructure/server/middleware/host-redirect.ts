@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  confineForwardedScheme,
+  confineHost,
+  trustedForwarding,
+} from '@/domain/kernel/url/request-base-url'
 import type { MiddlewareHandler } from 'hono'
 
 /**
@@ -25,8 +30,9 @@ import type { MiddlewareHandler } from 'hono'
  *
  * Env-var contract (both must be set to activate — otherwise a complete no-op):
  * - `SOVRIUM_REDIRECT_HOST` — the retired hostname to match, compared
- *   case-insensitively against the incoming `X-Forwarded-Host` (falling back
- *   to `Host`), with any `:port` suffix stripped before comparing.
+ *   case-insensitively against the incoming `X-Forwarded-Host` when a proxy
+ *   is declared (`TRUSTED_PROXY_HOPS` >= 1), and against `Host` otherwise, with
+ *   any `:port` suffix stripped before comparing.
  * - `SOVRIUM_REDIRECT_HOST_TARGET` — the path prefix to redirect matched
  *   requests under (e.g. `/en/docs`; no trailing slash).
  *
@@ -118,7 +124,9 @@ const resolveRedirectOrigin = (host: string | undefined, forwardedProto?: string
   if (fromEnv) return fromEnv.replace(/\/$/, '')
 
   if (host) {
-    const proto = forwardedProto || 'https'
+    // A forwarded scheme is confined to `http`/`https`: the header is client
+    // text unless a declared proxy wrote it, and the 301 prints it.
+    const proto = confineForwardedScheme(forwardedProto) ?? 'https'
     return `${proto}://${host}`.replace(/\/$/, '')
   }
 
@@ -138,7 +146,14 @@ export const hostRedirect: MiddlewareHandler = async (c, next) => {
   // Fast no-op when unconfigured — zero blast radius on every other deployment.
   if (!configuredHost || !targetPrefix) return next()
 
-  const rawHost = c.req.header('X-Forwarded-Host') ?? c.req.header('Host')
+  // A forwarding header is client text unless a proxy the operator DECLARED
+  // wrote it: without `TRUSTED_PROXY_HOPS`, any caller could send
+  // `X-Forwarded-Host: <retired host>` and be bounced to the canonical app.
+  // Both hosts are confined to a host before use: the matched one is printed
+  // into the 301 `Location` when `BASE_URL` is unset, and a chained proxy's
+  // comma-joined `X-Forwarded-Host` must not carry its tail into that header.
+  const forwarded = trustedForwarding((name) => c.req.header(name))
+  const rawHost = forwarded.host ?? confineHost(c.req.header('Host'))
   const url = new URL(c.req.url)
   const location = resolveHostRedirect({
     requestHost: rawHost,
@@ -146,7 +161,7 @@ export const hostRedirect: MiddlewareHandler = async (c, next) => {
     requestSearch: url.search,
     configuredHost,
     targetPrefix,
-    resolvedOrigin: resolveRedirectOrigin(rawHost, c.req.header('X-Forwarded-Proto')),
+    resolvedOrigin: resolveRedirectOrigin(rawHost, forwarded.proto),
   })
 
   return location === undefined ? next() : c.redirect(location, 301)

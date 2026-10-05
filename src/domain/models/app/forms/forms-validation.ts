@@ -16,6 +16,7 @@
  * returns `true` when all rules pass.
  */
 
+import { validateTranslatedFormAddresses } from './form-address-validation'
 import { validateFormOptionSources } from './form-option-source-validation'
 
 /**
@@ -93,6 +94,7 @@ interface AppForFormsValidation {
   readonly pages?: ReadonlyArray<PageShape>
   readonly tables?: ReadonlyArray<TableShape>
   readonly automations?: ReadonlyArray<{ readonly name: string }>
+  readonly languages?: Parameters<typeof validateTranslatedFormAddresses>[0]['languages']
 }
 
 /**
@@ -758,6 +760,8 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateGoToWhenTargets(forms),
     // Choices read from a table: structure first, then what a form may publish.
     () => validateFormOptionSources(app),
+    // A `$t:` address a form sends its visitor to, checked in every language.
+    () => validateTranslatedFormAddresses(app),
   ]
 
   const firstError = rules.reduce<string | undefined>((acc, rule) => acc ?? rule(), undefined)

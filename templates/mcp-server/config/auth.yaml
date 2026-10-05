@@ -1,9 +1,30 @@
+# Who may connect an assistant, and with what rights.
+#
+# Nobody can open an account from outside: the first admin comes from
+# `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the first start (see
+# `.env.example`), and anyone else is added with `sovrium admin create
+# <email>`. The demo editor and viewer come from `seed/users.yaml`.
+#
+# Three roles, and each table's `permissions` block says what each may do: an
+# `admin` does everything, an `editor` reads and adds documents, a `viewer`
+# (built in) only reads. An assistant holds the role of the person whose key it
+# carries.
+allowSignUp: false
+defaultRole: viewer
 strategies:
   - type: emailAndPassword
     minPasswordLength: 12
-# Self-service API keys — the credential a non-interactive MCP client presents on the
-# `x-api-key` header. A key acts as its owner, so its role is resolved live on every call.
+
+# API keys: the credential an MCP client holds. A signed-in person mints one
+# with `POST /api/auth/api-key/create` (an admin can also use the admin
+# console), and the client sends it on the `x-api-key` header. A key acts as
+# the person who minted it, with their role read afresh on every call — demote
+# them and the same key narrows at once.
 apiKeys: true
+
+# `level` places the role on the ladder of the built-in ones (admin 80,
+# member 40, viewer 10): above a viewer, below an admin.
 roles:
   - name: editor
-    description: Can read and create documents/tags via MCP tools (the built-in `viewer` role is read-only by default)
+    description: Reads documents and tags, and adds or edits documents. Cannot delete.
+    level: 40

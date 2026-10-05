@@ -5,8 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { SELECTABLE_SYSTEM_FIELDS } from '@/application/use-cases/tables/list-helpers'
-import { isFieldReadableByRole } from '@/domain/models/app/tables/field-read-filter-service'
+import {
+  isFieldReadableByCaller,
+  isSystemField,
+} from '@/domain/models/app/tables/field-read-filter-service'
+import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -40,23 +44,44 @@ type FieldAccessContext = {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
   readonly c: Context
 }
+
+/**
+ * May the caller read `field`? The records response's own predicate, groups
+ * included — a field the response returns must stay queryable, and one it
+ * strips must not.
+ */
+const canRead = (access: Omit<FieldAccessContext, 'c'>, field: string): boolean =>
+  isFieldReadableByCaller(
+    access.app,
+    access.tableName,
+    { role: access.userRole, groups: access.userGroups },
+    field
+  )
 
 /**
  * S1 anti-enumeration: hide the field-permission boundary by returning 404
  * rather than a 403 that would confirm the field exists.
  */
 function fieldPermissionDenied(c: Context) {
-  return c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
+  return notFound(c)
 }
+
+/**
+ * Whether `field` is a column a filter may name: a field the table declares, or
+ * a system column. A name the table does not have is refused with the same 404
+ * as a field the caller may not read, so the two cannot be told apart — and
+ * before it reaches SQL, where PostgreSQL failed the query and SQLite matched
+ * nothing.
+ */
+const isFilterableField = (app: App, tableName: string, field: string): boolean =>
+  isSystemField(field) ||
+  (app.tables?.find((table) => table.name === tableName)?.fields ?? []).some(
+    (declared) => declared.name === field
+  )
 
 /**
  * The first field in `node` this role may not read, or `undefined` when every
@@ -73,26 +98,23 @@ function fieldPermissionDenied(c: Context) {
  * value, not a fact about it.
  */
 function findForbiddenFilterField(
-  app: App,
-  tableName: string,
-  userRole: string,
+  access: Omit<FieldAccessContext, 'c'>,
   node: unknown
 ): string | undefined {
   if (Array.isArray(node)) {
     return (node as readonly unknown[])
-      .map((child) => findForbiddenFilterField(app, tableName, userRole, child))
+      .map((child) => findForbiddenFilterField(access, child))
       .find((forbidden) => forbidden !== undefined)
   }
   if (typeof node !== 'object' || node === null) return undefined
 
   const { field, and, or } = node as UnknownFilterNode
   if (typeof field === 'string') {
-    return isFieldReadableByRole(app, tableName, userRole, field) ? undefined : field
+    return isFilterableField(access.app, access.tableName, field) && canRead(access, field)
+      ? undefined
+      : field
   }
-  return (
-    findForbiddenFilterField(app, tableName, userRole, and) ??
-    findForbiddenFilterField(app, tableName, userRole, or)
-  )
+  return findForbiddenFilterField(access, and) ?? findForbiddenFilterField(access, or)
 }
 
 /**
@@ -110,50 +132,10 @@ function findForbiddenFilterField(
  * server-derived (`buildSearchFilter` only ever names readable columns).
  */
 export function validateFilterParam(filter: unknown, access: FieldAccessContext) {
-  const { app, tableName, userRole, c } = access
-
   if (!filter) return undefined
-  if (findForbiddenFilterField(app, tableName, userRole, filter) === undefined) return undefined
+  if (findForbiddenFilterField(access, filter) === undefined) return undefined
+  const { c } = access
   return fieldPermissionDenied(c)
-}
-
-/**
- * Validate fields parameter - ensure all requested field names exist in the table
- *
- * The accepted system names come from {@link SELECTABLE_SYSTEM_FIELDS}, the
- * same set the selection itself reads. This gate previously allowed `id`
- * alone while `applyFieldSelection` served `id`, `createdAt` and `updatedAt`,
- * so `?fields=id,createdAt` was refused with a 400 by the layer in front of the
- * one that could answer it. Two vocabularies for one question is what made that
- * possible, so there is now one.
- */
-export function validateFieldsParam(
-  fields: string | undefined,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
-  c: Context
-) {
-  if (!fields) return undefined
-
-  const requestedFields = fields.split(',').map((f) => f.trim())
-  const tableFieldNames = new Set(table?.fields.map((f) => f.name) ?? [])
-
-  const invalidField = requestedFields.find(
-    (fieldName) => !SELECTABLE_SYSTEM_FIELDS.has(fieldName) && !tableFieldNames.has(fieldName)
-  )
-
-  if (invalidField) {
-    return c.json(
-      {
-        success: false,
-        message: `Invalid field name: '${invalidField}'`,
-        code: 'VALIDATION_ERROR',
-      },
-      400
-    )
-  }
-
-  return undefined
 }
 
 /**
@@ -171,7 +153,7 @@ export function validateFieldsParam(
  * header per distinct salary.
  */
 export function validateGroupByParam(groupBy: string | undefined, access: FieldAccessContext) {
-  const { app, tableName, userRole, c } = access
+  const { app, tableName, c } = access
 
   if (!groupBy) return undefined
 
@@ -183,26 +165,61 @@ export function validateGroupByParam(groupBy: string | undefined, access: FieldA
 
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Ensure every named field exists on the table (400 if not)
-  const unknownField = fieldNames.find(
-    (fieldName) => !(table?.fields.some((f) => f.name === fieldName) ?? false)
+  // A level the table does not have and a level the caller may not read get
+  // the same 404, so the two cannot be told apart.
+  const refused = fieldNames.some(
+    (fieldName) =>
+      !(table?.fields.some((f) => f.name === fieldName) ?? false) || !canRead(access, fieldName)
   )
-  if (unknownField !== undefined) {
-    return c.json(
-      {
-        success: false,
-        message: `Invalid groupBy field: '${unknownField}'`,
-        code: 'VALIDATION_ERROR',
-      },
-      400
-    )
-  }
+  return refused ? fieldPermissionDenied(c) : undefined
+}
 
-  if (fieldNames.some((fieldName) => !isFieldReadableByRole(app, tableName, userRole, fieldName))) {
-    return fieldPermissionDenied(c)
-  }
+/**
+ * The first aggregated name the table does not have. It is refused as `sort`
+ * refuses one, with the 404 a field the caller may not read gets — left to the
+ * query it answered 400 on PostgreSQL, nothing on SQLite, and 500 on either
+ * when it was not a column name at all; answered with a 400 of its own, it
+ * told a hidden field from a missing one.
+ */
+function unknownAggregateField(
+  aggregateFields: readonly string[],
+  { app, tableName }: Pick<FieldAccessContext, 'app' | 'tableName'>
+): string | undefined {
+  const table = app.tables?.find((t) => t.name === tableName)
+  return aggregateFields.find(
+    (fieldName) => !isSystemField(fieldName) && !table?.fields.some((f) => f.name === fieldName)
+  )
+}
 
-  return undefined
+/**
+ * The first `min`/`max` field with no order the answer could mean: `min` and
+ * `max` order numbers and dates, and a field of any other kind is refused
+ * rather than left out.
+ */
+function unorderedAggregateField(
+  aggregate: AggregateParams,
+  { app, tableName }: Pick<FieldAccessContext, 'app' | 'tableName'>
+): string | undefined {
+  return [...(aggregate.min ?? []), ...(aggregate.max ?? [])].find(
+    (fieldName) => minMaxKindOf(app, tableName, fieldName) === 'refused'
+  )
+}
+
+/**
+ * The first `sum`/`avg` field that is not a number: they add values up, so a
+ * text, a choice, a date or a lookup copying one is refused rather than
+ * answered with `0` (SQLite) or a driver error (PostgreSQL). A lookup is judged
+ * as the field it copies, as `min`/`max` judge it; a kind this list does not
+ * know (`unknown`) is left to the query.
+ */
+function nonNumericAggregateField(
+  aggregate: AggregateParams,
+  { app, tableName }: Pick<FieldAccessContext, 'app' | 'tableName'>
+): string | undefined {
+  return [...(aggregate.sum ?? []), ...(aggregate.avg ?? [])].find((fieldName) => {
+    const kind = minMaxKindOf(app, tableName, fieldName)
+    return kind !== 'number' && kind !== 'unknown'
+  })
 }
 
 /**
@@ -212,7 +229,7 @@ export function validateAggregateParam(
   aggregate: AggregateParams | undefined,
   access: FieldAccessContext
 ) {
-  const { app, tableName, userRole, c } = access
+  const { c } = access
 
   if (!aggregate) return undefined
 
@@ -224,12 +241,24 @@ export function validateAggregateParam(
     ...(aggregate.max ?? []),
   ]
 
-  // Check if user has permission to read each aggregated field using find instead of for loop
-  const inaccessibleField = aggregateFields.find(
-    (fieldName) => !isFieldReadableByRole(app, tableName, userRole, fieldName)
-  )
+  // A name the table does not have and a field the caller may not read get the
+  // same 404 (S1), before the shape check below can tell them apart.
+  const inaccessibleField = aggregateFields.find((fieldName) => !canRead(access, fieldName))
+  if (unknownAggregateField(aggregateFields, access) !== undefined || inaccessibleField) {
+    return fieldPermissionDenied(c)
+  }
 
-  if (inaccessibleField) return fieldPermissionDenied(c)
+  const nonNumeric = nonNumericAggregateField(aggregate, access)
+  if (nonNumeric !== undefined) {
+    const message = `\`sum\` and \`avg\` take numbers; '${nonNumeric}' is not a number`
+    return c.json({ success: false, message, code: 'VALIDATION_ERROR' }, 400)
+  }
+
+  const unordered = unorderedAggregateField(aggregate, access)
+  if (unordered !== undefined) {
+    const message = `\`min\` and \`max\` take numbers or dates; '${unordered}' is neither`
+    return c.json({ success: false, message, code: 'VALIDATION_ERROR' }, 400)
+  }
 
   return undefined
 }

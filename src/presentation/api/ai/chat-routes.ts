@@ -12,8 +12,6 @@ import {
   type ChatMessage,
   type ChatToolDefinition,
 } from '@/application/ports/services/ai-service'
-import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { chatRequestSchema } from '@/domain/models/api/ai/chat'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
@@ -23,7 +21,6 @@ import { buildChatToolDefinitions } from '@/domain/models/app/agents/ai-chat-too
 import {
   provideDomain,
   requireDomainContext,
-  runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
@@ -57,6 +54,12 @@ import {
   checkChatRateLimit,
   type ChatRateLimitDecision,
 } from '@/presentation/api/ai/chat-rate-limit'
+import {
+  agentCaller,
+  agentReader,
+  resolveUserPrincipal,
+  type ChatReader,
+} from '@/presentation/api/ai/chat-read-scope'
 import { buildStreamResponse } from '@/presentation/api/ai/chat-stream'
 import {
   completeToolCallingTurn,
@@ -65,7 +68,7 @@ import {
 } from '@/presentation/api/ai/chat-tool-calling'
 import { finishChatTurn, type ChatTurnInput } from '@/presentation/api/ai/chat-turn-completion'
 import { chainAiConversationRoutes } from '@/presentation/api/ai/conversations-routes'
-import { errorBody } from '@/presentation/api/runtime/auth-helpers'
+import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
@@ -176,43 +179,9 @@ const parseRequestBody = async (
 const aiDisabledResponse = (c: Readonly<Context>): Response | undefined => {
   const provider = process.env.AI_PROVIDER
   if (provider === undefined) {
-    return c.json(
-      errorBody({
-        error: 'AI is not enabled. Set AI_PROVIDER to enable AI features.',
-        code: ApiErrorCode.NOT_FOUND,
-      }),
-      404
-    )
+    return notFound(c, 'AI is not enabled. Set AI_PROVIDER to enable AI features.')
   }
   return undefined
-}
-
-/**
- * Resolve the current user's role AND group memberships from the authenticated
- * session, returning both the bare role and the effective-role list that table
- * RBAC is evaluated against.
- *
- * The generic `/api/ai/chat` route is `requireAuth`-gated, so a session is
- * normally present. The `'member'` fallback keeps the handler total in the
- * defensive case where the session is somehow absent — the context builder
- * then describes only tables the default role can read.
- *
- * Groups matter here because a table permission may name `group:<name>`, which
- * a bare role string can never match. Unlike the HTTP table routes there is no
- * `enrichUserRole` middleware on this path, so the lookup is made explicitly —
- * `getUserGroups` is documented as a plain async lookup with no request
- * context for exactly this caller shape, and never throws.
- */
-const resolveUserPrincipal = async (
-  c: Readonly<Context>
-): Promise<{ readonly userRole: string; readonly effectiveRoles: readonly string[] }> => {
-  const session = getSessionContext(c as unknown as Context)
-  if (session === undefined) return { userRole: 'member', effectiveRoles: ['member'] }
-  const [userRole, userGroups] = await runDomainPromise(
-    c,
-    Effect.all([getUserRole(session.userId), getUserGroups(session.userId)])
-  )
-  return { userRole, effectiveRoles: buildEffectiveRoles(userRole, userGroups) }
 }
 
 /**
@@ -276,6 +245,7 @@ export const runAgentBoundChatTurn = async (
     actorName,
     userRole: scope.userRole,
     effectiveRoles: scope.effectiveRoles,
+    reader: scope.reader,
     app,
     agent: scope.binding,
   })
@@ -285,6 +255,7 @@ interface AgentTurnScope {
   readonly binding: AgentTurnBinding
   readonly userRole: string
   readonly effectiveRoles: readonly string[]
+  readonly reader: ChatReader
 }
 
 /**
@@ -297,6 +268,13 @@ interface AgentTurnScope {
  * its declared role alone: widening this to the CALLER's groups would be a
  * privilege escalation, not a group-awareness fix.
  *
+ * Its reach is a ceiling, never a grant to its caller: when a signed-in person
+ * chats with it, its tools read the intersection of its reach and hers
+ * (`agentReader`), so an admin-role agent never hands a member a row her
+ * row-level rule hides or a field she may not read. A visitor signed in to
+ * nothing, using an agent open to everyone, reads the anonymous reach
+ * (`agentCaller`).
+ *
  * The built-in System Agent is the one exception, and deliberately so: it is
  * the caller's own read-only assistant, so it reads AS the caller. Its prompt
  * and its tools are built from the tables the caller may read, which is what
@@ -308,12 +286,24 @@ const resolveAgentTurnScope = async (
   agentName: string
 ): Promise<AgentTurnScope | undefined> => {
   if (isSystemAgentName(agentName)) {
-    const { userRole, effectiveRoles } = await resolveUserPrincipal(c)
-    const readable = toToolCallTables(app, userRole, effectiveRoles)
-    return { binding: resolveSystemAgentTurnBinding(app, readable), userRole, effectiveRoles }
+    const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
+    const readable = toToolCallTables(app, reader)
+    return {
+      binding: resolveSystemAgentTurnBinding(app, readable),
+      userRole,
+      effectiveRoles,
+      reader,
+    }
   }
   const binding = resolveAgentTurnBinding(app, agentName)
-  return binding && { binding, userRole: binding.role, effectiveRoles: [binding.role] }
+  if (binding === undefined) return undefined
+  const caller = await agentCaller(c, app)
+  return {
+    binding,
+    userRole: binding.role,
+    effectiveRoles: [binding.role],
+    reader: agentReader(binding.role, caller),
+  }
 }
 
 const handleChat = async (
@@ -351,7 +341,7 @@ const handleChat = async (
   // and resolve their role — drives table RBAC and the per-request context.
   const session = getSessionContext(c as unknown as Context)
   const actorName = session?.userId ?? 'anonymous'
-  const { userRole, effectiveRoles } = await resolveUserPrincipal(c)
+  const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
 
   // Build the per-request context block ([internal ref]-*), regenerated on
   // every turn so it always reflects the caller's current role.
@@ -367,6 +357,7 @@ const handleChat = async (
       actorName,
       userRole,
       effectiveRoles,
+      reader,
       app,
       confirmationToken: parsed.confirmationToken,
       pageContext: parsed.pageContext,
@@ -387,6 +378,7 @@ const buildChatTurnInput = (parts: {
   readonly actorName: string
   readonly userRole: string
   readonly effectiveRoles: readonly string[]
+  readonly reader: ChatReader
   readonly app: App | undefined
   readonly confirmationToken: string | undefined
   readonly pageContext: ContextPageScope | undefined
@@ -400,6 +392,7 @@ const buildChatTurnInput = (parts: {
   actorName: parts.actorName,
   userRole: parts.userRole,
   effectiveRoles: parts.effectiveRoles,
+  reader: parts.reader,
   ...(parts.app !== undefined && { app: parts.app }),
   ...(parts.confirmationToken !== undefined && { confirmationToken: parts.confirmationToken }),
   ...(parts.pageContext !== undefined && { pageContext: parts.pageContext }),
@@ -435,7 +428,7 @@ const withChatRetries = (
  */
 const resolveTurnToolTables = (input: ChatTurnInput): ReturnType<typeof toToolCallTables> => {
   const allowlist = input.agent?.toolTables
-  return toToolCallTables(input.app, input.userRole, input.effectiveRoles).filter(
+  return toToolCallTables(input.app, input.reader).filter(
     (table) => allowlist === undefined || allowlist.includes(table.name)
   )
 }
@@ -570,8 +563,8 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
       baseMessages,
       tools,
       tables: toolTables,
-      userRole: input.userRole,
-      effectiveRoles: input.effectiveRoles,
+      app: input.app,
+      reader: input.reader,
       actorName: input.actorName,
       sessionId: input.sessionId,
       userMessage: input.message,

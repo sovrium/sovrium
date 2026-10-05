@@ -49,8 +49,6 @@ export interface KanbanSwimlaneProps {
   readonly onToggle: (laneValue: string) => void
   readonly emptyMessage?: string
   readonly card?: KanbanCard
-  readonly draggableEnabled: boolean
-  readonly colorFieldColors?: Readonly<Record<string, string>>
   /** Prefix for the body's DOM id, so `aria-controls` is unique per board. */
   readonly idPrefix: string
 }
@@ -85,8 +83,6 @@ export function KanbanSwimlane({
   onToggle,
   emptyMessage,
   card,
-  draggableEnabled,
-  colorFieldColors,
   idPrefix,
 }: KanbanSwimlaneProps): ReactElement {
   const bodyId = `${idPrefix}-lane-${encodeURIComponent(lane.value)}`
@@ -127,8 +123,6 @@ export function KanbanSwimlane({
                 dropId={cellDropId({ lane: lane.value, column: column.value })}
                 emptyMessage={emptyMessage}
                 card={card}
-                draggableEnabled={draggableEnabled}
-                colorFieldColors={colorFieldColors}
               />
             ))
           : undefined}

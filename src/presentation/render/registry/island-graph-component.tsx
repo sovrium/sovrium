@@ -79,9 +79,13 @@ export const islandGraphComponent: ComponentRenderer = (config): ReactElement =>
   const view: GraphView = component?.graphView ?? { kind: 'unavailable' }
   const elementProps = config.elementPropsWithSpacing
   const notice = noticeMessage(view)
+  // The name goes on ONE element: the island host while there is a drawing
+  // (the element the island stands in for), else this wrapper — an empty or
+  // unavailable map has no host to carry it.
+  const drawn = view.kind === 'drawing' && component !== undefined
   return (
     <div
-      data-component-type="graph"
+      data-component-type={drawn ? undefined : 'graph'}
       className={elementProps['className'] as string | undefined}
       id={elementProps['id'] as string | undefined}
       data-testid={elementProps['data-testid'] as string | undefined}
@@ -102,7 +106,7 @@ export const islandGraphComponent: ComponentRenderer = (config): ReactElement =>
           {component?.emptyMessage ?? DEFAULT_EMPTY_MESSAGE}
         </p>
       ) : undefined}
-      {view.kind !== 'drawing' || component === undefined ? undefined : (
+      {!drawn ? undefined : (
         <GraphIslandHost
           component={component}
           view={view}

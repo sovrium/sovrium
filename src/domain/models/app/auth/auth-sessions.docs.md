@@ -72,4 +72,4 @@ Beyond that, **every write and every read is re-validated server-side**. A write
 
 That is what makes context-switching safe without re-authenticating: the cookie is a _preference_, and the access rows remain the authority.
 
-`$currentUser.activeAssignment` is consumable in data-source filters and in row-level permission predicates, so every assignment-bound view refreshes when the active scope changes.
+`$currentUser.activeAssignment` is consumable in page data-source filters, so every view filtered by it follows the active scope on its next render. It is not resolved in row-level permission rules: `sovrium validate` and the boot refuse a rule that names it, in either form, so scope a rule with `$currentUser.assignments.<table>` instead.

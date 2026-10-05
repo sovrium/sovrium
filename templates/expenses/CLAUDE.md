@@ -1,27 +1,31 @@
-# expenses
+# halden-expenses
 
-Expense tracking — members file expenses with receipts and see only their own (row-level permissions); admins approve each one through a paused automation and watch spend by category on a dashboard. Not an accounting system — a clean approval trail in your own database.
+Halden Expenses — a small team's expense claims. Each person files what they paid with its
+receipt and sees only their own claims, on the server; finance reviews with the receipt beside
+the claim and decides in the app; approved claims wait on Reimburse until they are marked
+repaid.
 
 ## This app at a glance
 
 - **Tables** (1): expenses
-- **Pages** (3): sign-in, my-expenses, review
-- **Automations** (1): approve-expense
-- **Buckets** (1): receipts
+- **Forms** (1): add-expense (opened from the Add expense button)
+- **Pages** (5): my-expenses (`/`), review (admin), reimburse (admin), home (the sign-in
+  landing), sign-in
+- **Automations** (2): approve-expense, mark-reimbursed
 - **Singletons**: auth, design
+- **Seed data**: `seed/` — four sign-in accounts and seventeen claims with their receipts
+  (`seed/assets/`), dated relative to the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, keep
+one accent, and keep colour for the decisions (approved, waiting, rejected). Who may read a
+claim is the table's `rowLevelPermissions`, never a page filter alone.
 
 ---
 

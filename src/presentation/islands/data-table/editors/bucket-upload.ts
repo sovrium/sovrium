@@ -28,6 +28,8 @@ interface BucketUploadResponse {
   readonly size?: number
   readonly mimeType?: string
   readonly error?: string
+  /** The sentence every API error body carries; `error` is its short label. */
+  readonly message?: string
 }
 
 export async function uploadToBucket(file: File, bucket: string): Promise<BucketUpload> {
@@ -43,7 +45,7 @@ export async function uploadToBucket(file: File, bucket: string): Promise<Bucket
 
   if (!res.ok || json.success !== true || !json.key) {
     // eslint-disable-next-line functional/no-throw-statements -- Rejection is how the caller distinguishes a failed upload from an empty one.
-    throw new Error(json.error ?? `Upload failed with status ${res.status}`)
+    throw new Error(json.message ?? json.error ?? `Upload failed with status ${res.status}`)
   }
 
   return {

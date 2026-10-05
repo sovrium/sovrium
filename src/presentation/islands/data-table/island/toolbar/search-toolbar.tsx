@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { computeTableSearchClasses } from '@/presentation/design/table-default-classes'
+import { useGridString } from '../grid-strings'
 import type { ComponentSearch } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 interface SearchToolbarProps {
@@ -28,6 +29,8 @@ interface SearchToolbarProps {
 }
 
 export function SearchToolbar({ search, value, onChange, onPendingChange }: SearchToolbarProps) {
+  const defaultPlaceholder = useGridString('datatable.search', 'Search...')
+  const defaultLabel = useGridString('datatable.searchLabel', 'Search')
   const [localValue, setLocalValue] = useState(value)
   const debounceMs = search.debounceMs ?? 300
 
@@ -55,11 +58,11 @@ export function SearchToolbar({ search, value, onChange, onPendingChange }: Sear
   return (
     <input
       type="search"
-      placeholder={search.placeholder ?? 'Search...'}
+      placeholder={search.placeholder ?? defaultPlaceholder}
       value={localValue}
       onChange={onInputChange}
       className={computeTableSearchClasses()}
-      aria-label={search.placeholder ?? 'Search'}
+      aria-label={search.placeholder ?? defaultLabel}
     />
   )
 }

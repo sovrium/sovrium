@@ -8,6 +8,10 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
+  reportCommittedRows,
+  type CommittedRowChange,
+} from '@/application/ports/services/record-change-feed'
+import {
   db,
   DatabaseError,
   ValidationError,
@@ -18,9 +22,10 @@ import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspe
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
+import { rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
-import { logActivity } from '../query-helpers/activity-log-helpers'
-import { validateTableName, validateColumnName } from '../statement/validation'
+import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
+import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { BatchValidationError, createSingleRecord } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -71,17 +76,32 @@ async function updateSingleRecord(
 
   const result = await executeRaw(
     tx,
-    sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+    sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
   )
 
-  return result[0] ?? undefined
+  const [updated] = result
+  return updated === undefined ? undefined : { ...(await rowAfterTriggers(tx, tableName, updated)) }
 }
 
 type UpsertResult = {
   readonly records: readonly Record<string, unknown>[]
   readonly created: number
   readonly updated: number
+  /** Every row the upsert wrote, reported once the transaction commits. */
+  readonly committed: readonly CommittedRowChange[]
 }
+
+/** The accumulator after one row was written — counted, echoed, and kept for the change stream. */
+const withCommitted = (
+  acc: UpsertResult,
+  kind: 'created' | 'updated',
+  change: CommittedRowChange & { readonly row: Record<string, unknown> }
+): UpsertResult => ({
+  records: [...acc.records, change.row],
+  created: acc.created + (kind === 'created' ? 1 : 0),
+  updated: acc.updated + (kind === 'updated' ? 1 : 0),
+  committed: [...acc.committed, change],
+})
 
 /**
  * Check if record exists based on merge fields
@@ -102,7 +122,7 @@ function findExistingRecord(
     try: async () => {
       const result = await executeRaw(
         tx,
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause} LIMIT 1`
+        sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE ${whereClause} LIMIT 1`
       )
       return result[0]
     },
@@ -142,22 +162,17 @@ function handleUpsertUpdate(
         records: [...params.acc.records, params.existing],
         created: params.acc.created,
         updated: params.acc.updated + 1,
+        committed: params.acc.committed,
       }
     }
 
-    yield* logActivity({
-      session: params.session,
+    return withCommitted(params.acc, 'updated', {
       tableName: params.tableName,
-      action: 'update',
+      event: 'update',
       recordId,
-      changes: { before: params.existing, after: updated },
+      row: updated,
+      previous: params.existing,
     })
-
-    return {
-      records: [...params.acc.records, updated],
-      created: params.acc.created,
-      updated: params.acc.updated + 1,
-    }
   })
 }
 
@@ -207,19 +222,12 @@ function handleUpsertCreate(
 
     if (!created) return params.acc
 
-    yield* logActivity({
-      session: params.session,
+    return withCommitted(params.acc, 'created', {
       tableName: params.tableName,
-      action: 'create',
+      event: 'insert',
       recordId: String(created.id),
-      changes: { after: created },
+      row: created,
     })
-
-    return {
-      records: [...params.acc.records, created],
-      created: params.acc.created + 1,
-      updated: params.acc.updated,
-    }
   })
 }
 
@@ -291,7 +299,7 @@ async function validateRequiredFieldsInRecord(
 ): Promise<readonly string[]> {
   // Query table schema (dialect-aware) to get required fields: NOT NULL
   // columns that have no DB-side default.
-  const columns = await listTableColumns(tx, tableName)
+  const columns = await listTableColumns(tx, databaseTableName(tableName))
   const requiredFields = columns
     .filter((col) => !col.isNullable && col.columnDefault === null)
     .map((col) => col.name)
@@ -354,11 +362,12 @@ export function upsertRecords(
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields?: readonly string[]
   }
-): Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError> {
+): Effect.Effect<
+  Omit<UpsertResult, 'committed'>,
+  DatabaseError | BatchValidationError | ValidationError
+> {
   const { fieldsToMergeOn, insertOnlyFields = [] } = options
   return Effect.gen(function* () {
-    validateTableName(tableName)
-
     if (recordsData.length === 0) {
       return yield* Effect.fail(new DatabaseError('Cannot upsert batch with no records', undefined))
     }
@@ -381,7 +390,7 @@ export function upsertRecords(
 
           return yield* Effect.reduce(
             recordsData,
-            () => ({ records: [], created: 0, updated: 0 }) as UpsertResult,
+            () => ({ records: [], created: 0, updated: 0, committed: [] }) as UpsertResult,
             (acc, fields) => processSingleUpsert(tx, { session, tableName, fields, ...merge, acc })
           )
         }),
@@ -404,6 +413,10 @@ export function upsertRecords(
       }
     )
 
-    return result
+    const { committed, ...outcome } = result
+    // Logged once the transaction has committed — a rolled-back batch changed nothing.
+    yield* logCommittedRowChanges(session, committed)
+    yield* reportCommittedRows(committed)
+    return outcome
   })
 }

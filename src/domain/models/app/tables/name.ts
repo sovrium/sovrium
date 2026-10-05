@@ -20,12 +20,12 @@ import { createDatabaseIdentifierSchema } from '@/domain/kernel/sql/database-ide
  */
 export const NameSchema = createDatabaseIdentifierSchema(
   'table',
-  'Name of the table. It may contain spaces, capitals and accents; the database name is derived from it in lowercase with underscores, up to 63 characters.'
+  'Name of the table. It may contain capitals, hyphens and plain spaces; the database name is derived from it in lowercase with underscores, up to 63 characters.'
 ).pipe(
   Schema.annotate({
     title: 'Name',
     description:
-      'User-friendly name for the table. Can contain spaces, mixed case, and special characters. Will be automatically sanitized for database use (lowercase with underscores). Maximum 63 characters. Choose descriptive names that clearly indicate the purpose.',
+      'User-friendly name for the table. Starts with a letter and may contain capitals, digits, underscores, hyphens and plain spaces; a tab, a line break or any other whitespace is refused. Will be automatically sanitized for database use (lowercase with underscores). Maximum 63 characters. Choose descriptive names that clearly indicate the purpose.',
     examples: [
       'Person',
       'Product',

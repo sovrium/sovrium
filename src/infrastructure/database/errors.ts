@@ -15,7 +15,6 @@
 export {
   DatabaseError,
   NotFoundError,
-  ForbiddenError,
   ForeignKeyViolationError,
   UniqueConstraintViolationError,
   ValidationError,

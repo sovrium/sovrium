@@ -28,13 +28,16 @@ function createDataSourceDbAdapter(
 ): DataSourceDb {
   return {
     fetchRecords: (tableName, options) => Effect.runPromise(repo.fetchRecords(tableName, options)),
-    countRecords: (tableName, filter) => Effect.runPromise(repo.countRecords(tableName, filter)),
+    countRecords: (tableName, filter, options) =>
+      Effect.runPromise(repo.countRecords(tableName, filter, options)),
     // eslint-disable-next-line max-params -- implements the port's positional signature; `options` is its optional fifth argument
     fetchSingleRecord: (tableName, paramField, paramValue, fields, options) =>
       Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields, options)),
+    fetchManyToManyLinks: (tableName, recordId, fields) =>
+      Effect.runPromise(repo.fetchManyToManyLinks(tableName, recordId, fields)),
     fetchUserAssignments: (userId, tableSlug) =>
       Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
-    // Bug 2 / [internal ref]: overlay user_access roles onto the
+    // [internal ref]: overlay user_access roles onto the
     // Better Auth session role so page access checks see the engineer role.
     fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
     // The accounts an embedded form's `user` picker offers a signed-in visitor.
@@ -84,13 +87,18 @@ export const PageRendererLive = Layer.effect(
     const engineVersion = yield* Effect.promise(() => getSovriumVersion())
 
     return {
-      renderPage: (app, path, requestContext) =>
-        renderPage(app, path, {
-          ...(requestContext ?? {}),
-          db,
+      renderPage: (app, path, requestContext) => {
+        // The route's table reader travels on `db`, beside the other readers
+        // the data-source pass is handed, so it reaches every grid that pass
+        // stamps without a parameter threaded through each page stage.
+        const { readTableAsCaller, ...context } = requestContext ?? {}
+        return renderPage(app, path, {
+          ...context,
+          db: readTableAsCaller === undefined ? db : { ...db, readTableAsCaller },
           islandBuilder,
           engineVersion,
-        }),
+        })
+      },
       renderNotFound: renderNotFoundPage,
       renderError: renderErrorPage,
       renderRssFeed: (app, baseUrl) => renderRssFeed(app, baseUrl, db),

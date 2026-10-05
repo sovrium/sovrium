@@ -24,6 +24,7 @@
  */
 
 import { TOOL_FILTER_OPERATORS, MAX_QUERY_ROWS } from '@/domain/models/app/agents/ai-chat-tools'
+import { unknownTermRefusal } from '@/domain/models/app/tables/closed-vocabulary'
 import type { DynamicRecordCondition } from '@/application/ports/repositories/tables/dynamic-record-repository'
 
 /** Map the AI-facing operator token to the internal builder vocabulary. */
@@ -38,6 +39,7 @@ const OPERATOR_MAP: Record<string, string> = {
   startsWith: 'startsWith',
   endsWith: 'endsWith',
   in: 'in',
+  notIn: 'notIn',
   isNull: 'isNull',
   isNotNull: 'isNotNull',
 }
@@ -75,24 +77,31 @@ export type StructuredCountValidation =
 const asRecord = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 
-/** Validate the `select` array against the readable-column allowlist. */
+/**
+ * Validate the `select` array against the readable-column allowlist. A column
+ * in `withheld` — one a declared agent reads but the person it answers may not —
+ * is dropped rather than refused: asking for it reveals nothing, and the answer
+ * is the rest of what she asked.
+ */
 const validateSelect = (
   raw: unknown,
-  readable: ReadonlySet<string>
+  readable: ReadonlySet<string>,
+  withheld: ReadonlySet<string>
 ):
   | { readonly ok: true; readonly columns: ReadonlyArray<string> | undefined }
   | { readonly ok: false; readonly error: string } => {
   if (raw === undefined) return { ok: true, columns: undefined }
   if (!Array.isArray(raw))
     return { ok: false, error: 'Invalid select: must be an array of column names.' }
-  const unknown = raw.find((c) => typeof c !== 'string' || !readable.has(c))
+  const asked = raw.filter((c) => typeof c !== 'string' || !withheld.has(c))
+  const unknown = asked.find((c) => typeof c !== 'string' || !readable.has(c))
   if (unknown !== undefined) {
     return {
       ok: false,
       error: `Invalid select: unknown or not-allowed column "${String(unknown)}".`,
     }
   }
-  return { ok: true, columns: raw.length === 0 ? undefined : (raw as ReadonlyArray<string>) }
+  return { ok: true, columns: asked.length === 0 ? undefined : (asked as ReadonlyArray<string>) }
 }
 
 type ConditionResult =
@@ -107,7 +116,17 @@ const validateOneFilter = (entry: unknown, readable: ReadonlySet<string>): Condi
     return { ok: false, error: `Invalid filter: unknown or not-allowed field "${String(field)}".` }
   }
   if (typeof operator !== 'string' || !TOOL_OPERATOR_SET.has(operator)) {
-    return { ok: false, error: `Invalid filter: unknown operator "${String(operator)}".` }
+    // The records API's refusal, in the tool's own vocabulary: the model reads
+    // which operators exist and can retry with one.
+    return {
+      ok: false,
+      error: unknownTermRefusal({
+        kind: 'filter operator',
+        value: String(operator),
+        subject: `field "${field}"`,
+        vocabulary: { terms: TOOL_FILTER_OPERATORS, caseInsensitive: false },
+      }),
+    }
   }
   const internalOperator = OPERATOR_MAP[operator] ?? 'equals'
   return {
@@ -184,15 +203,18 @@ const resolveLimit = (
  * Validate + translate the `query_<table>` structured args against the
  * role-readable columns. Returns a discriminated union — `ok` carries
  * builder-ready inputs (with the limit clamped to the hard cap), otherwise an
- * error string fed back to the model.
+ * error string fed back to the model. `withheldColumns` are dropped from
+ * `select` (see `validateSelect`); a filter or sort on one is refused exactly as
+ * on a column that does not exist, so its answer never depends on its values.
  */
 export const buildStructuredQuery = (
   args: Record<string, unknown>,
-  readableColumns: ReadonlyArray<string>
+  readableColumns: ReadonlyArray<string>,
+  withheldColumns: ReadonlyArray<string> = []
 ): StructuredQueryValidation => {
   const readable = new Set(readableColumns)
 
-  const select = validateSelect(args['select'], readable)
+  const select = validateSelect(args['select'], readable, new Set(withheldColumns))
   if (!select.ok) return { ok: false, error: select.error }
 
   const filters = validateFilters(args['filters'], readable)

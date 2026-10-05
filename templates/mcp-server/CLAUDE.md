@@ -1,23 +1,33 @@
 # mcp-server-example
 
-A headless Sovrium app that exposes tables to an LLM client via MCP
+The Team knowledge base — a fictional engineering team's runbooks, decisions, incident
+write-ups and onboarding notes, served over MCP. An assistant lists, reads and adds documents
+through tools the engine generates from each table's `aiAccess` block, with an API key on
+`x-api-key`, and every call runs as the key's owner. One landing page at `/` says how to switch
+the server on and connect a client. Nobody can open an account; the admin comes from
+`AUTH_ADMIN_*`, the demo editor and viewer from the seed.
 
 ## This app at a glance
 
-- **Tables** (2): tags, documents
-- **Singletons**: auth
+- **Tables** (2): tags, documents (each with `aiAccess` — the tools and the fields a model sees —
+  and `permissions`: every role reads, an editor also creates and updates documents, only an
+  admin deletes; a draft is read by its author and an admin)
+- **Pages** (1): home (`/`, the developer landing)
+- **Singletons**: design (compact, mono headings, one cyan accent), auth (sign-up closed, API
+  keys on, an `editor` role)
+- **Seed**: `seed/` — four tags, eight documents (six published, one draft, one archived), and
+  three accounts, one per role
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The MCP
+server is switched on with `MCP_ENABLED=true` in the environment, never in the config. Tool
+names are the app's `name`, the table and the operation (`mcp-server-example_documents_read`):
+when you rename the app or change an `aiAccess.operations` list, update the tool list on the
+landing page and in `README.md` in the same change.
 
 ---
 

@@ -1,0 +1,99 @@
+# The app's persistent navigation, included at the top of every workspace page.
+#
+# A column holding the app's name, the `sidebar` and a sign-out control. The
+# sidebar is drawn twice, once per role, and `visibility` keeps exactly one of
+# them in each response: finance (the admin) gets Review and Reimburse under
+# their own heading, a member their own claims only. A member's page carries
+# no link to a page they may not open — the pages refuse a member too
+# (`access` on review.yaml and reimburse.yaml).
+#
+# On a laptop narrower than `lg` the sidebar shrinks to a column of icons, and
+# on a phone (below `md`) it leaves the layout: a menu button opens the same
+# entries in a drawer, so the page gets the whole width of the screen.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: receipt
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Halden Expenses
+  - type: sidebar
+    visibility:
+      roles: [admin]
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      # Row metrics tuned to a short navigation: 32px rows, 13.5px labels, the
+      # current page on the accent's quiet ground, and the Finance heading as
+      # a small monospace overline.
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:tracking-wider [&_h2]:text-foreground-subtle [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+    groups:
+      - landmark: Workspace
+        items:
+          - { label: My expenses, href: /, icon: file-text }
+      - label: Finance
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - label: Review
+            href: /review
+            icon: check-check
+            badge:
+              endpoint: /api/tables/expenses/records?limit=1&filter=status:Pending
+              valuePath: pagination.total
+          - label: Reimburse
+            href: /reimburse
+            icon: arrow-left-right
+            badge:
+              endpoint: /api/tables/expenses/records?limit=1&filter=status:Approved
+              valuePath: pagination.total
+  - type: sidebar
+    visibility:
+      roles: [member]
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    # Sidebar clicks swap only the main region; revisited views open from cache.
+    clientSideNavigation: true
+    props:
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+    groups:
+      - landmark: Workspace
+        items:
+          - label: My expenses
+            href: /
+            icon: file-text
+            badge:
+              endpoint: /api/tables/expenses/records?limit=1
+              valuePath: pagination.total
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

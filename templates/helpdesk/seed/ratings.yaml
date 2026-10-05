@@ -1,0 +1,16 @@
+# Three answers rated by the people who asked, one per finished ticket.
+records:
+  - key: rating-1
+    fields:
+      ticket: '@tickets.t1036'
+      score: 5
+      comment: Fixed the same morning. Thank you.
+  - key: rating-2
+    fields:
+      ticket: '@tickets.t1033'
+      score: 4
+      comment: Refund arrived two days later.
+  - key: rating-3
+    fields:
+      ticket: '@tickets.t1030'
+      score: 3

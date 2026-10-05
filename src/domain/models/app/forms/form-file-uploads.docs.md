@@ -73,14 +73,14 @@ forms:
 
 ## What the field does for you
 
-| Behaviour            | Detail                                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| Type filter          | `accept` restricts both the dialog and the drop zone; a mismatch is an inline error       |
-| Size validation      | `maxFileSize` refuses an oversized file before any upload begins                          |
-| Progress             | A progress indicator shows while each file uploads                                        |
-| Preview              | An image renders a thumbnail after upload; anything else renders its name and size        |
-| Remove               | A selected file can be removed before submit, from the keyboard; the others are untouched |
-| Required enforcement | A required attachment field with no file blocks submission with an inline error           |
+| Behaviour            | Detail                                                                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type filter          | `accept` restricts both the dialog and the drop zone; a mismatch is an inline error                                                                                                      |
+| Size validation      | `maxFileSize` refuses an oversized file before any upload begins                                                                                                                         |
+| Progress             | A progress indicator shows while each file uploads                                                                                                                                       |
+| Preview              | An image renders a thumbnail after upload; anything else renders its name and size                                                                                                       |
+| Remove               | A selected file can be removed before submit, from the keyboard; the others are untouched                                                                                                |
+| Required enforcement | A required attachment field with no file blocks submission with an inline error; a recorded, dropped or picked file satisfies it, and removing the last file blocks the submission again |
 
 Validating before the upload rather than after is the part worth noticing: a visitor who picked the wrong file learns immediately instead of after waiting for twenty megabytes to travel.
 
@@ -111,4 +111,4 @@ fields:
     recordAudio: { maxDurationSeconds: 1800 }
 ```
 
-`recordAudio.maxDurationSeconds` (1 to 7200, default 7200) stops the recording automatically. The file size is still limited by the field's or the bucket's `maxFileSize`. Browsers record `audio/webm` (Opus), or `audio/mp4` where WebM is unavailable. If microphone access is refused, the field says so and uploading still works. The recorder does not transcribe. To put the text on the record, add a record-created automation with an `ai/transcribe` step followed by `record/update`.
+`recordAudio.maxDurationSeconds` (1 to 7200, default 7200) stops the recording automatically. The file size is still limited by the field's or the bucket's `maxFileSize`. Browsers record `audio/webm` (Opus), or `audio/mp4` where WebM is unavailable. If microphone access is refused, the field says so and uploading still works. On a required field, a finished recording counts as the field's file: the form submits with it, and a one-question form moves on to the next question. The recorder does not transcribe. To put the text on the record, add a record-created automation with an `ai/transcribe` step followed by `record/update`.

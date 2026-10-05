@@ -70,9 +70,9 @@ Upload's `400` and `413` validations — filename, size, MIME type — run **bef
 
 ## Two rules cut across every check
 
-**Admin always passes a role list.** The admin role is admitted on any bucket regardless of what the array names.
+**Admin always passes a role list.** An admin-equivalent role — the built-in `admin` or the app's highest role — is admitted on any bucket regardless of what the array names, and satisfies the admin-only signing default.
 
-**`all` on a signing permission still needs a session.** The signing endpoints refuse an anonymous caller before any permission is evaluated, so `sign: all` widens signing to every **signed-in** user rather than to the public. To serve files with no session at all, make the bucket public or list its prefix as a public path — that is the switch for an anonymous read.
+**`all` on a signing permission admits anonymous callers.** The signing endpoints evaluate the permission before they require a session, so with `sign: all` (or `signUpload: all`) anyone, signed in or not, can mint a signed URL for the bucket, and the URL then works with no session. Any other value refuses an anonymous caller with `401`. To serve files with no session at all, the plainer switch is still a public bucket or a public path prefix; reach for `sign: all` only when minting URLs for the public is genuinely the intent.
 
 ## The `system` bucket inherits your strictest role list
 

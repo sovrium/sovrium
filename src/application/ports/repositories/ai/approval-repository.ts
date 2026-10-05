@@ -17,7 +17,7 @@ import type { Effect } from 'effect'
  * `system.automation_approval_requests` so DB-readback spec assertions
  * (e.g. `SELECT status FROM system.automation_approval_requests`) observe the
  * row. It also owns the agent runtime's single read-side query — the
- * approver's email lookup.
+ * approver's identity (email and name) lookup.
  *
  * The mirror writes are best-effort: a DB failure must never break the agent
  * runtime. The repository surfaces a typed {@link ApprovalDatabaseError} on
@@ -52,6 +52,17 @@ export interface ApprovalMirrorRecord {
   readonly executedAs: string | undefined
   readonly escalatedTo: string | undefined
   readonly expiresAtMs: number
+  /**
+   * The user who started the run that opened the request, written to
+   * `requested_by_id`. `undefined` for a run nobody started (a schedule).
+   */
+  readonly requestedById: string | undefined
+}
+
+/** A user as the agent runtime names her: `''` fields for a missing row. */
+export interface ApprovalUserIdentity {
+  readonly email: string
+  readonly name: string
 }
 
 /**
@@ -75,9 +86,12 @@ export class ApprovalRepository extends Context.Service<
     ) => Effect.Effect<void, ApprovalDatabaseError>
 
     /**
-     * Look up a user's email address by id. Returns `''` when the id has no
-     * matching row (the read-side default for a missing/unreadable user).
+     * Look up a user's email address and name by id. Returns `''` for both
+     * when the id has no matching row (the read-side default for a
+     * missing/unreadable user).
      */
-    readonly lookupUserEmail: (userId: string) => Effect.Effect<string, ApprovalDatabaseError>
+    readonly lookupUserIdentity: (
+      userId: string
+    ) => Effect.Effect<ApprovalUserIdentity, ApprovalDatabaseError>
   }
 >()('ApprovalRepository') {}

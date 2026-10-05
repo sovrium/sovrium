@@ -70,6 +70,7 @@ Two operators: `send` fires a signed outgoing webhook, and `response` writes the
 <!-- sovrium:options WebhookActionSchema -->
 
 ```yaml
+# Requires env: [{ key: OUTGOING_WEBHOOK_SECRET }] at the top of the app
 - name: notifyDownstream
   type: webhook
   operator: send
@@ -96,3 +97,5 @@ They are different mechanisms and the names collide badly:
 - A **table** webhook fires automatically on a record event, with no automation authored at all.
 
 The `response` action applies only to an automation a webhook trigger started. Used anywhere else there is no inbound request to answer, so it has nothing to write to.
+
+It is also the only way a webhook-started run hands back what its steps produced. Without it, the caller is answered the run's `id` and `status` and nothing else; with it, the caller gets exactly the status, headers and body the action declares. A body value that is exactly one template, such as `'{{steps.lookup.record}}'`, keeps the type of what it names (an object, a list, a number, a boolean or `null`), and a template that names nothing leaves its key out; a value mixing text with a template is a string. A whole record carries every field the step read, so name the fields to return when some are not the caller's to see.

@@ -49,6 +49,13 @@ export interface EmbeddingSearchResult {
   readonly content: string
   /** Cosine similarity in `[0, 1]` — `1 - cosine_distance`. */
   readonly similarity: number
+  /**
+   * The names of the fields whose values a table chunk holds (its
+   * `metadata.fields`). `undefined` when the chunk records none: a document
+   * chunk, or a table chunk written before chunks recorded their fields, which
+   * a search must therefore treat as unreadable.
+   */
+  readonly fields?: ReadonlyArray<string> | undefined
 }
 
 /**
@@ -85,6 +92,11 @@ export class AiEmbeddingRepository extends Context.Service<
       readonly query?: string
       /** Scope the search to one agent's embeddings; `undefined` searches all. */
       readonly agentName: string | undefined
+      /**
+       * With `agentName`, also search the global knowledge — the document
+       * chunks, stored with no agent — but never another agent's index.
+       */
+      readonly includeGlobal?: boolean
       readonly minSimilarity: number
       readonly maxResults: number
     }) => Effect.Effect<ReadonlyArray<EmbeddingSearchResult>, AiEmbeddingDatabaseError>

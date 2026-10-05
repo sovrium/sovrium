@@ -19,7 +19,7 @@ import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
 
 /**
- * SSR picker for `user`-typed columns (Bug 4 / [internal ref]).
+ * SSR picker for `user`-typed columns.
  *
  * Emits a `<div data-field-type="user" data-field-name="..."
  * data-allow-multiple="true|false">` wrapping a native `<select>` whose
@@ -53,6 +53,7 @@ export const UserInput = ({
       </label>
       <select
         id={`field-${field.name}`}
+        data-component-type="select"
         name={field.name}
         required={field.required}
         {...ariaRequired(field.required)}
@@ -118,6 +119,7 @@ export const FileInput = ({
     <input
       id={`field-${field.name}`}
       type="file"
+      data-component-type="file-upload"
       name={field.name}
       required={field.required}
       {...ariaRequired(field.required)}

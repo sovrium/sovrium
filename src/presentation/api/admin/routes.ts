@@ -60,7 +60,7 @@ export const chainAdminApiRoutes = <T extends Hono>(
   // resolves the live App via `resolveLiveApp` so a `POST /draft/publish`
   // is reflected without restart.
   //
-  // F-04: the analytics+export routes register BEFORE the existing
+  // [internal ref]: the analytics+export routes register BEFORE the existing
   // `:submissionId` dynamic segment so `/submissions/export` resolves
   // to the export handler rather than being captured as a submission id.
   const honoWithAdminFormsAnalytics = chainAdminFormsAnalyticsExportRoutes(

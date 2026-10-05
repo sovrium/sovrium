@@ -15,6 +15,8 @@
 
 import { Effect } from 'effect'
 import { websocket } from 'hono/bun'
+import { confineHost } from '@/domain/kernel/url/request-base-url'
+import { drainBackgroundRuns } from '@/infrastructure/automations/background-runs'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import { ServerStopError } from '@/infrastructure/errors/server-stop-error'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
@@ -43,6 +45,15 @@ export const parsePort = (value: string | undefined): number | undefined => {
  * requests, then a forced close.
  */
 const SHUTDOWN_DRAIN_MS = 150
+
+/**
+ * How long a stop waits for background automation runs to finish before
+ * interrupting them — each interrupted run is then recorded as stopped by the
+ * shutdown, so none is left `running`. Short, like the request drain above: a
+ * supervisor escalates to SIGKILL soon after SIGTERM (the E2E fixture after
+ * 500 ms), and a run killed there is exactly the run left `running` forever.
+ */
+const BACKGROUND_RUN_GRACE_MS = 150
 
 /**
  * What a stop needs to know beyond the socket and the runtime.
@@ -139,6 +150,10 @@ export const createStopEffect = (
       try: () => server.stop(true),
       catch: (cause) => new ServerStopError(cause),
     })
+    // A run an automation's write started in the background finishes now, or
+    // is interrupted and recorded as stopped — while the services it writes
+    // its row through are still up ([internal ref], `background-runs.ts`).
+    yield* drainBackgroundRuns(BACKGROUND_RUN_GRACE_MS)
     // The socket is closed; nothing can still be running against these services.
     // `dispose` releases the layer scope — which is what makes a scoped resource
     // reachable at all, since a scope is only useful when something holds it for
@@ -171,6 +186,73 @@ export const createStopEffect = (
   })
 
 /**
+ * Whether a request names a `Host` that is not a host name.
+ *
+ * Bun accepts ANY `Host` text, and when that text carries a path, userinfo or
+ * markup it hands the handler a URL built from it — Hono then reads the path
+ * out of the wrong segment and the SEO routes throw on an unparseable URL, so a
+ * client typing a bogus `Host` could turn any route into a 500. The header is
+ * judged by the same rule the address resolver applies ({@link confineHost}),
+ * applied to the WHOLE value: `confineHost` keeps the first entry of a
+ * comma-joined list (a forwarded header's shape), but a `Host` is one host, and
+ * `a.example,evil.example/x` reaches Hono as a relative URL exactly as the
+ * bare markup does. So the refused hosts are the ones no address would ever be
+ * built from, lists included.
+ *
+ * A request with no `Host` at all is not malformed — HTTP/1.0 omits it — and is
+ * rebuilt on the listener's own address instead ({@link withBindAddressUrl}).
+ */
+export const hasMalformedHost = (request: Readonly<Request>): boolean => {
+  const host = request.headers.get('Host')
+  return host !== null && confineHost(host) !== host
+}
+
+/** The authority part of a URL for a bound address — an IPv6 literal in brackets. */
+const authorityOf = (hostname: string, port: number): string =>
+  `${hostname.includes(':') ? `[${hostname}]` : hostname}:${String(port)}`
+
+/**
+ * A request that sent no `Host`, rebuilt as if it had named the address this
+ * listener is bound to.
+ *
+ * HTTP/1.0 does not require `Host`, and without one Bun hands the handler a
+ * RELATIVE URL (`/robots.txt`), which the router and every route that parses
+ * `request.url` cannot read — so an old client got a 500 for a request that is
+ * perfectly well formed. Rebuilding the URL on the bind address routes it
+ * exactly as a request carrying a correct `Host` would. The live server's own
+ * port is preferred to the configured one, which is `0` when the OS picked it.
+ * A request that carries a `Host` is returned untouched.
+ */
+export const withBindAddressUrl = (
+  request: Request,
+  bound: { readonly hostname: string; readonly port: number }
+): Request => {
+  if (request.headers.get('Host') !== null) return request
+  const origin = `http://${authorityOf(bound.hostname, bound.port)}`
+  const { pathname, search } = new URL(request.url, origin)
+  return new Request(new URL(`${pathname}${search}`, origin), request)
+}
+
+/** The address the live server reports, falling back to the configured one. */
+const boundAddress = (
+  server: unknown,
+  configured: { readonly hostname: string; readonly port: number }
+): { readonly hostname: string; readonly port: number } => {
+  const live = server as { readonly hostname?: unknown; readonly port?: unknown } | undefined
+  return {
+    hostname: typeof live?.hostname === 'string' ? live.hostname : configured.hostname,
+    port: typeof live?.port === 'number' && live.port > 0 ? live.port : configured.port,
+  }
+}
+
+/**
+ * The refusal for a malformed `Host`: a bare `400`, echoing nothing of the
+ * value the client sent.
+ */
+const malformedHostResponse = (): Response =>
+  new Response('Bad Request', { status: 400, headers: { 'Content-Type': 'text/plain' } })
+
+/**
  * Build the `Bun.serve` options for the Hono app.
  *
  * The `websocket` handler powers the Records API real-time WebSocket
@@ -187,7 +269,11 @@ const buildBunServeOptions = (honoApp: Readonly<Hono>, port: number, hostname: s
   port,
   hostname,
   fetch: (request: Request, server: unknown): Response | Promise<Response> =>
-    honoApp.fetch(request, { server }),
+    hasMalformedHost(request)
+      ? malformedHostResponse()
+      : honoApp.fetch(withBindAddressUrl(request, boundAddress(server, { hostname, port })), {
+          server,
+        }),
   websocket,
 })
 

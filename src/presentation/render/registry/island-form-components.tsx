@@ -213,11 +213,6 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       // rendered `role="tablist"` carries an accessible name (e.g. the admin
       // dashboard's per-domain "Onglets du domaine" tab bar).
       ariaLabel: elementProps['aria-label'] as string | undefined,
-      // Carried explicitly rather than through `baseProps` so it costs nothing
-      // on the ~30 other islands: after mount `Tabs.Root` REPLACES the SSR
-      // wrapper below, so without it the `[data-component-type="tabs"]` handle
-      // that exists server-side would disappear the moment the island took over.
-      componentType: elementProps['data-component-type'] as string | undefined,
       ...baseProps(elementProps, designStyles),
     }
     return (
@@ -240,8 +235,12 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       // absence is the whole of why a page dressing every OTHER reachable link
       // still left the grid at its natural height. `flow` — the default —
       // resolves to the empty string and the host keeps no `className` at all.
+      // The host names the component: it is the one element that
+      // outlives the mount — `Tabs.Root` replaces the wrapper inside it — so the
+      // name sits here, once, before and after hydration.
       <div
         data-island="tabs"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(islandProps)}
         // Opt in to the pre-mount `ssrHtml` capture in `island-client.tsx`. The
         // addressed panel's markup is no longer serialised into the props, so
@@ -254,7 +253,6 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         className={fillShell || undefined}
       >
         <div
-          data-component-type={elementProps['data-component-type'] as string | undefined}
           // Same `resolveClasses(defaults, author className)` as the island's
           // root, for the same reason: an author cap or a re-proportioned grid
           // track that applied only after hydration is a layout jump they never

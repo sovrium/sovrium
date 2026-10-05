@@ -19,6 +19,7 @@
  */
 
 import { Effect } from 'effect'
+import { relayFrom, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import { defaultActionHandlers } from '../action-handlers'
 import { cryptoRandomId } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
@@ -64,6 +65,7 @@ export interface FailureDispatchRunners {
     readonly triggerData: TriggerData
     readonly handlers: typeof defaultActionHandlers
     readonly userId: string | undefined
+    readonly relay?: RunRelay
   }) => Effect.Effect<unknown, never, RunRequirements>
 }
 
@@ -137,6 +139,9 @@ export const dispatchFailureHandlers = (
             triggerData: failureTriggerData,
             handlers: defaultActionHandlers,
             userId: undefined,
+            // The handler records which run fed it: what it was handed (the
+            // error above all) is judged by everything the failed run had read.
+            relay: relayFrom(input.runId, input.steps.length),
           })
         }),
       { concurrency: 1 }

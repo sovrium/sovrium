@@ -63,34 +63,4 @@ export const kpiFields = {
 // Re-export all sub-schemas
 // ---------------------------------------------------------------------------
 
-export {
-  KPIAggregateFunctionSchema,
-  KPIAggregateSchema,
-  type KPIAggregateFunction,
-  type KPIAggregate,
-} from './aggregate'
-
-export {
-  KPIComparisonPeriodSchema,
-  KPITrendDirectionSchema,
-  KPITrendColorSchema,
-  KPITrendSchema,
-  type KPIComparisonPeriod,
-  type KPITrendDirection,
-  type KPITrendColor,
-  type KPITrend,
-} from './trend'
-
-export {
-  KpiDbDataSourceSchema,
-  KpiSystemSourceSchema,
-  KpiDataSourceSchema,
-  type KpiSystemSource,
-} from './data-source'
-
-export {
-  SparklineDateIntervalSchema,
-  KPISparklineSchema,
-  type SparklineDateInterval,
-  type KPISparkline,
-} from './sparkline'
+export type { KpiSystemSource } from './data-source'

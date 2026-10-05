@@ -6,9 +6,15 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
+import {
+  computeInitialOpen,
+  useDismissalGuard,
+  useExternalOpenTrigger,
+  useHostControls,
+} from './dialog-open-state'
 import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeAlertDialogPopupClasses,
@@ -18,119 +24,13 @@ import {
   computeDialogTitleClasses,
   computeOverlayBackdropClasses,
 } from './overlay-default-classes'
-import type { ReactElement } from 'react'
-
-/** Base UI dismissal reasons blocked for alert-dialogs (confirmation must be explicit). */
-const ALERT_DIALOG_BLOCKED_REASONS = new Set([
-  'escape-key',
-  'close-watcher',
-  'outside-press',
-  'focus-out',
-])
-
-/**
- * Wires the `data-click-modal="<id>"` attribute emitted by the interaction
- * props builder to re-open this dialog after dismissal. The legacy openModal
- * handler in `PageBodyScripts` only toggles `display` on the placeholder div,
- * which has no effect on a hydrated Base UI portal — so the island owns the
- * external-trigger contract for itself.
- */
-/**
- * Whether the page declares an external trigger (`data-click-modal="<id>"`,
- * emitted by `interactions.click.modal`) pointing at this dialog. A
- * trigger-controlled dialog mounts CLOSED (GAP-2); a standalone dialog with no
- * trigger keeps the open-by-default behaviour. Runs client-side only (mount).
- */
-function hasExternalTrigger(id: string | undefined): boolean {
-  if (!id || typeof document === 'undefined') return false
-  return document.querySelector(`[data-click-modal="${id}"]`) !== null
-}
-
-/**
- * Initial open state (GAP-2): a TRIGGER-controlled dialog mounts CLOSED so its
- * backdrop never intercepts clicks on (and its focus-trap never hides from the
- * accessibility tree) sibling elements on load; its `data-click-modal` trigger
- * (`useExternalOpenTrigger`) opens it on activation. This applies to plain
- * dialogs AND alert-dialogs alike: a confirmation alert-dialog wired to an
- * external trigger (e.g. a "Destroy" button) must mount closed, otherwise it
- * pops open on load and traps focus, hiding the sibling action buttons from the
- * accessibility tree. A STANDALONE dialog/alert-dialog — no trigger element
- * points at its id — keeps the open-by-default behaviour relied on by the
- * standalone-hydration and dialog-theming specs.
- */
-function computeInitialOpen(_isAlertDialog: boolean, id: string | undefined): boolean {
-  return !hasExternalTrigger(id)
-}
-
-/**
- * Consume the one-shot handoff flag the inline `clickScript` sets in
- * `window.__sovriumOpenModals` on a pre-hydration trigger click (see
- * PageBodyScripts). Returns true (and clears the flag) when a click for `id`
- * landed before this lazy island hydrated, so the closed-on-mount dialog still
- * opens. `Reflect.deleteProperty` mutates this transient client-side window
- * registry (not domain state) exactly once.
- */
-function consumePendingOpen(id: string): boolean {
-  const pending = (window as unknown as { __sovriumOpenModals?: Record<string, boolean> })
-    .__sovriumOpenModals
-  if (!pending?.[id]) return false
-  Reflect.deleteProperty(pending, id)
-  return true
-}
-
-function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
-  useEffect(() => {
-    if (!id) return
-    // Replay a trigger click that landed BEFORE this (lazy) island hydrated.
-    if (consumePendingOpen(id)) setOpen(true)
-    // Re-check on the next frame to close the narrow race where the click (and
-    // its flag write) lands between this effect's read and listener attach.
-    const raf = requestAnimationFrame(() => {
-      if (consumePendingOpen(id)) setOpen(true)
-    })
-    const handler = (event: Event): void => {
-      const target = event.target as HTMLElement | null
-      const trigger = target?.closest(`[data-click-modal="${id}"]`)
-      if (trigger) setOpen(true)
-    }
-    // Capture phase: fire before the bubble-phase clickScript and any
-    // stopPropagation, so a trigger click reliably opens a hydrated dialog.
-    document.addEventListener('click', handler, true)
-    return () => {
-      cancelAnimationFrame(raf)
-      document.removeEventListener('click', handler, true)
-    }
-  }, [id, setOpen])
-}
-
-/**
- * Build the `onOpenChange` handler for the dialog. For alert dialogs, Escape /
- * outside-press / focus-out dismissals are BLOCKED — confirmation must be
- * explicit (Cancel / Confirm button). Regular dialogs dismiss freely. Extracted
- * to a hook so the island component stays under its line cap.
- */
-function useDismissalGuard(
-  isAlertDialog: boolean,
-  setOpen: (open: boolean) => void
-): (nextOpen: boolean, eventDetails: { reason?: string } | undefined) => void {
-  return useCallback(
-    (nextOpen: boolean, eventDetails: { reason?: string } | undefined): void => {
-      if (
-        isAlertDialog &&
-        eventDetails?.reason &&
-        ALERT_DIALOG_BLOCKED_REASONS.has(eventDetails.reason)
-      ) {
-        return
-      }
-      setOpen(nextOpen)
-    },
-    [isAlertDialog, setOpen]
-  )
-}
+import type { MouseEvent, ReactElement } from 'react'
 
 interface DialogIslandProps {
   readonly title?: string
   readonly description?: string
+  /** The header close button's name, in the page language (`dialog.close`). */
+  readonly closeLabel?: string
   readonly cancelLabel?: string
   readonly confirmLabel?: string
   readonly variant?: 'default' | 'destructive'
@@ -146,16 +46,24 @@ interface DialogIslandProps {
    * actually fires. Absent ⇒ confirm only closes.
    */
   readonly action?: DialogConfirmAction
+  /**
+   * True when a trigger in the page config opens this dialog — decided on the
+   * server, so a trigger not drawn yet (an unopened tab panel) still keeps the
+   * dialog closed until it is pressed.
+   */
+  readonly hasOpener?: boolean
 }
 
 function DialogActions({
   isAlertDialog,
+  closeLabel,
   cancelLabel,
   confirmLabel,
   variant,
   onConfirm,
 }: {
   readonly isAlertDialog: boolean
+  readonly closeLabel: string
   readonly cancelLabel: string
   readonly confirmLabel?: string
   readonly variant: 'default' | 'destructive'
@@ -170,27 +78,29 @@ function DialogActions({
   return (
     <div className={computeDialogActionsClasses()}>
       {isAlertDialog && (
-        <Dialog.Close className="border-border bg-background text-foreground hover:bg-background-subtle text-md rounded-md border px-4 py-2 font-medium transition-colors">
+        <Dialog.Close
+          data-component-type="button"
+          className="border-border bg-background text-foreground hover:bg-background-subtle text-md rounded-md border px-4 py-2 font-medium transition-colors"
+        >
           {cancelLabel}
         </Dialog.Close>
       )}
 
       {confirmLabel ? (
         <Dialog.Close
+          data-component-type="button"
           onClick={onConfirm}
           className={`text-md rounded-md px-4 py-2 font-medium transition-colors ${confirmColorClass}`}
         >
           {confirmLabel}
         </Dialog.Close>
       ) : (
-        <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
-          <span
-            className="sr-only"
-            aria-hidden="true"
-          >
-            Close
-          </span>
-          ✕
+        <Dialog.Close
+          data-component-type="button"
+          aria-label={closeLabel}
+          className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors"
+        >
+          <span aria-hidden="true">✕</span>
         </Dialog.Close>
       )}
     </div>
@@ -212,15 +122,19 @@ function DialogActions({
 function DialogChildren({
   html,
   className,
+  onCancel,
 }: {
   readonly html: string
   readonly className?: string
+  /** Closes the dialog: a hosted form's Cancel (`data-dialog-cancel`) was pressed. */
+  readonly onCancel: (event: MouseEvent<HTMLDivElement>) => void
 }): ReactElement {
   const ref = useLiveInjectedMarkup(html)
   return (
     <div
       ref={ref}
       className={className}
+      onClick={onCancel}
     />
   )
 }
@@ -229,6 +143,7 @@ interface DialogPopupBodyProps {
   readonly isAlertDialog: boolean
   readonly title?: string
   readonly description?: string
+  readonly closeLabel: string
   readonly cancelLabel: string
   readonly confirmLabel?: string
   readonly variant: 'default' | 'destructive'
@@ -237,12 +152,14 @@ interface DialogPopupBodyProps {
   readonly testId?: string
   readonly childrenHtml?: string
   readonly onConfirm?: () => void
+  readonly onCancel: (event: MouseEvent<HTMLDivElement>) => void
 }
 
 function DialogPopupBody({
   isAlertDialog,
   title,
   description,
+  closeLabel,
   cancelLabel,
   confirmLabel,
   variant,
@@ -251,6 +168,7 @@ function DialogPopupBody({
   testId,
   childrenHtml,
   onConfirm,
+  onCancel,
 }: DialogPopupBodyProps): ReactElement {
   return (
     <Dialog.Popup
@@ -272,10 +190,12 @@ function DialogPopupBody({
         <DialogChildren
           html={childrenHtml}
           className="mb-4"
+          onCancel={onCancel}
         />
       )}
       <DialogActions
         isAlertDialog={isAlertDialog}
+        closeLabel={closeLabel}
         cancelLabel={cancelLabel}
         confirmLabel={confirmLabel}
         variant={variant}
@@ -294,6 +214,7 @@ function DialogPopupBody({
 export default function DialogIsland({
   title,
   description,
+  closeLabel = 'Close',
   cancelLabel = 'Cancel',
   confirmLabel,
   variant = 'default',
@@ -301,10 +222,11 @@ export default function DialogIsland({
   id,
   childrenHtml,
   action,
+  hasOpener,
   'data-testid': testId,
 }: DialogIslandProps): ReactElement {
   const isAlertDialog = variant === 'destructive' || confirmLabel !== undefined
-  const [open, setOpen] = useState(() => computeInitialOpen(isAlertDialog, id))
+  const [open, setOpen] = useState(() => computeInitialOpen(hasOpener, id))
 
   useExternalOpenTrigger(id, setOpen)
 
@@ -312,6 +234,11 @@ export default function DialogIsland({
   // the Base UI `Dialog.Close` collapses the dialog. No action ⇒ confirm closes.
   const handleConfirm = useCallback((): void => dispatchConfirmAction(action), [action])
   const handleOpenChange = useDismissalGuard(isAlertDialog, setOpen)
+  const handleCancel = useCallback((event: MouseEvent<HTMLDivElement>): void => {
+    if ((event.target as Element).closest('[data-dialog-cancel]') !== null) setOpen(false)
+  }, [])
+  // The host names the dialog; while open it points at the portaled panel.
+  const { id: panelId, anchor } = useHostControls(open, id)
 
   return (
     <Dialog.Root
@@ -319,6 +246,7 @@ export default function DialogIsland({
       open={open}
       onOpenChange={handleOpenChange}
     >
+      {anchor}
       <Dialog.Portal>
         <Dialog.Backdrop
           data-overlay
@@ -328,14 +256,16 @@ export default function DialogIsland({
           isAlertDialog={isAlertDialog}
           title={title}
           description={description}
+          closeLabel={closeLabel}
           cancelLabel={cancelLabel}
           confirmLabel={confirmLabel}
           variant={variant}
           className={className}
-          id={id}
+          id={panelId}
           testId={testId}
           childrenHtml={childrenHtml}
           onConfirm={handleConfirm}
+          onCancel={handleCancel}
         />
       </Dialog.Portal>
     </Dialog.Root>

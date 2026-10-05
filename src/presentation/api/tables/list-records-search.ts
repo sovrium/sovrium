@@ -8,6 +8,7 @@
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import type { FilterStructure } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
+import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import type { Context } from 'hono'
 
 /**
@@ -47,7 +48,7 @@ const SEARCHABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * The searchable columns this role is allowed to read.
+ * The searchable columns this caller is allowed to read, groups included.
  *
  * Readability is decided by the same function that shapes the response, applied
  * to a probe record, so search can never match on a value the caller would not
@@ -57,7 +58,7 @@ const SEARCHABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
 const resolveSearchableColumns = (
   app: App,
   tableName: string,
-  userRole: string,
+  caller: PermissionCaller,
   table: Table | undefined
 ): readonly string[] => {
   const searchable = (table?.fields ?? [])
@@ -66,7 +67,7 @@ const resolveSearchableColumns = (
   if (searchable.length === 0) return []
 
   const probe = Object.fromEntries(searchable.map((name) => [name, '']))
-  const readable = filterReadableFields({ app, tableName, userRole, record: probe })
+  const readable = filterReadableFields({ app, tableName, caller, record: probe })
   return searchable.filter((name) => name in readable)
 }
 
@@ -75,6 +76,8 @@ export interface SearchFilterInput {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** The caller's groups: a field read grant may name a group. */
+  readonly userGroups: readonly string[]
   readonly table: Table | undefined
 }
 
@@ -111,7 +114,8 @@ export const buildSearchFilter = (input: SearchFilterInput): FilterStructure => 
   const term = readSearchTerm(c)
   if (!term) return undefined
 
-  const columns = resolveSearchableColumns(app, tableName, userRole, table)
+  const caller = { role: userRole, groups: input.userGroups }
+  const columns = resolveSearchableColumns(app, tableName, caller, table)
   return {
     and: [{ or: columns.map((field) => ({ field, operator: 'contains', value: term })) }],
   }

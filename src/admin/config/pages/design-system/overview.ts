@@ -458,7 +458,7 @@ const coverageLedger = (): PageComponent =>
                     type: 'text',
                     element: 'span',
                     props: { className: 'text-foreground-subtle text-sm' },
-                    visibility: { record: { field: 'summary', neq: '' } },
+                    visibility: { record: { field: 'summary', isNotEmpty: true } },
                     content: '$record.summary',
                   },
                 ],

@@ -1,0 +1,73 @@
+# Every Monday at 09:00, one email to the team with what goes out in the
+# coming seven days, day by day. Cron expressions are five numeric fields
+# (there is no @weekly alias); the time zone keeps 09:00 at 09:00 in Paris
+# through both clock changes. Set `SOVRIUM_DIGEST_TO` to your team's address.
+name: monday-digest
+label: Cron — the week's scheduled pieces
+description: Every Monday morning, email the team the pieces scheduled for the next seven days.
+enabled: true
+trigger:
+  type: cron
+  expression: '0 9 * * 1'
+  timezone: Europe/Paris
+actions:
+  - name: thisWeek
+    type: record
+    operator: list
+    props:
+      table: content
+      filter:
+        logic: and
+        conditions:
+          - { field: status, operator: equals, value: Scheduled }
+          - field: publish_at
+            operator: greaterThanOrEqual
+            value: '{{formatDate (today) "yyyy-MM-dd"}}'
+          - field: publish_at
+            operator: lessThan
+            value: '{{formatDate (addDays (today) 7) "yyyy-MM-dd"}}'
+      sort:
+        - { field: publish_at, direction: asc }
+      fields: [title, publish_at, time_label, channels]
+      limit: 100
+  # One line per piece, "Fri 25 Sep · 10:00 — Install in four minutes
+  # (YouTube, Website)", or a single line when nothing is scheduled.
+  - name: lines
+    type: code
+    operator: runTypescript
+    props:
+      inputData:
+        pieces: '{{json thisWeek.records}}'
+      code: |
+        async function execute(context) {
+          const escape = (text) =>
+            String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          const list = (value) => (typeof value === 'string' ? JSON.parse(value || '[]') : value ?? [])
+          const pieces = list(context.inputData.pieces)
+          const day = (value) =>
+            new Date(String(value)).toLocaleDateString('en-GB', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              timeZone: 'UTC',
+            })
+          const rows = pieces.map((piece) => {
+            const time = piece.time_label ? ` · ${piece.time_label}` : ''
+            const channels = list(piece.channels)
+            const where = channels.length > 0 ? ` (${channels.join(', ')})` : ''
+            return `<li>${day(piece.publish_at)}${time} — ${escape(piece.title)}${escape(where)}</li>`
+          })
+          return {
+            html: rows.length > 0 ? `<ul>${rows.join('')}</ul>` : '<p>Nothing is scheduled this week yet.</p>',
+          }
+        }
+  - name: emailTeam
+    type: email
+    operator: send
+    props:
+      to: $env.SOVRIUM_DIGEST_TO
+      subject: 'Going out this week'
+      body: |
+        <p>What goes out in the next seven days:</p>
+        {{lines.result.html}}
+        <p><a href="$env.BASE_URL/">Open the calendar</a> to move a date or send a piece for review.</p>

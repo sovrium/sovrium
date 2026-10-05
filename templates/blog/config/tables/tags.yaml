@@ -1,16 +1,12 @@
+# What an essay is about. Tags are read by everyone and changed by the editor.
+# A tag is never given a colour: the only colour on a post is its state.
 id: 2
 name: tags
-# Public taxonomy. Editors and admins can curate the tag set.
 permissions:
   read: all
-  create:
-    - admin
-    - editor
-  update:
-    - admin
-    - editor
-  delete:
-    - admin
+  create: [admin]
+  update: [admin]
+  delete: [admin]
 fields:
   - id: 1
     name: name

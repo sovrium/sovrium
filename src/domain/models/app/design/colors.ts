@@ -41,7 +41,7 @@ import { guardedKeyRecord } from './token-value-schemas'
  *
  * Effect v4's `Schema.Record` silently DROPS an entry whose KEY fails its key
  * schema — no error, no diagnostic, the value simply is not there. Measured on
- * `4.0.0-rc.108`, `{ Primary: '#3b5bdb' }` decoded to `{}`. So the key schema is
+ * `4.0.0`, `{ Primary: '#3b5bdb' }` decoded to `{}`. So the key schema is
  * a plain `Schema.String`, which can never fail, and the key SHAPE is asserted
  * at the record level where a malformed key survives to be named. See
  * `guardedKeyRecord`.

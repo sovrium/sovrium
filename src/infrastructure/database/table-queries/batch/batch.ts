@@ -6,7 +6,6 @@
  */
 
 // Re-export all batch operations from modular files
-export { BatchValidationError } from './batch-helpers'
 export { batchCreateRecords } from './batch-create'
 export { upsertRecords } from './batch-upsert'
 export { batchRestoreRecords } from './batch-restore'

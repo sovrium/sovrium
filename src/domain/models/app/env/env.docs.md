@@ -24,6 +24,10 @@ env:
 ## Referencing a value
 
 ```yaml
+env:
+  - { key: OPENAI_API_KEY, description: OpenAI API key }
+  - { key: SLACK_WEBHOOK_URL, description: Slack incoming webhook URL, required: false }
+
 connections:
   - name: openai-key
     type: bearer
@@ -40,6 +44,20 @@ automations:
           url: $env.SLACK_WEBHOOK_URL
           body: { text: 'New order {{trigger.data.id}}' }
 ```
+
+Every `$env.NAME` must be declared in `app.env` — as the `env` block above declares `OPENAI_API_KEY` and `SLACK_WEBHOOK_URL` — or the app does not boot, and `sovrium validate` names the variable to declare. A `default` is used as written: a `$env.NAME` inside it is not resolved, so one variable cannot default to another.
+
+## Only what you wrote is resolved
+
+`$env.NAME` is a reference in the configuration you author, never in data. It is resolved in the text you wrote, before any `{{...}}` template is filled in, so a value a template brings in from outside stays exactly as it arrived: a webhook body, a form submission, a record field or a step's output that contains `$env.STRIPE_SECRET` is stored, sent or echoed as those characters, never as the secret, and text naming a variable nobody declared is kept as written. Mixing both in one value works as you would expect: `$env.BASE_URL/rate?ticket={{trigger.data.record.id}}` resolves the base URL and fills in the id.
+
+Code that needs a variable at runtime reads it from `context.env` in a `code` action rather than building a `$env.` string from data.
+
+Every action resolves the `$env.NAME` references written in its properties, including the actions that read their own properties — `data`, `filter`, `flow`, `digest`, `state` `filterNew`, the file actions, `record` batch writes and `ai` transcription. The one exception is `sovrium` `validateConfig`, which checks its `config` exactly as written. There is no escape: a property that must carry the literal text `$env.NAME` takes it from data, such as a trigger field or a step's output, which is never scanned.
+
+An env value is used as it is stored. A token or a password that contains `{{` or `}}` reaches the action unchanged: it is never read as a template.
+
+Inside a `{{…}}` expression, `$env.NAME` is read as a value, quoted or not: `{{uppercase $env.REGION}}` passes the value to the helper as a string, `{{lookup trigger.data $env.FIELD}}` reads the trigger field the value names, and `{{$env.NAME}}` alone renders it. The value never becomes part of the expression, so an expression kept as written (an unknown helper, a syntax error, or a `regex` whose pattern is not a quoted string) shows `$env.NAME`, never the value. A reference cannot be spliced into a path: `{{trigger.data.$env.FIELD}}` reads a key named `$env`, not the field; use `lookup`.
 
 ## Secrets never reach a log
 

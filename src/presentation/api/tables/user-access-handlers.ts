@@ -11,12 +11,14 @@ import {
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { validateUserAccessInput } from '@/domain/models/app/tables/user-access-validation'
 import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { closeUserConnections } from '@/infrastructure/realtime/connection-counter'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -87,7 +89,10 @@ interface ContextLike {
  * relation.
  */
 const respondNotFound = (c: ContextLike) =>
-  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  c.json(
+    { success: false, error: 'Not Found', message: 'Resource not found', code: 'NOT_FOUND' },
+    404
+  )
 
 /**
  * Authorize an ADMIN caller for the grant junction.
@@ -111,10 +116,12 @@ const respondNotFound = (c: ContextLike) =>
  */
 const authorizeUserAccessAdmin = async (
   c: Context,
+  app: App,
   userId: string
 ): Promise<Response | undefined> => {
   const callerRole = await runDomainPromise(c, getUserRole(userId))
-  if (!isAdminRole(callerRole)) return respondNotFound(c)
+  // Admin-equivalent: the built-in `admin` and the app's top role.
+  if (!isAdminEquivalent(callerRole, app)) return respondNotFound(c)
   return undefined
 }
 
@@ -129,16 +136,14 @@ const respondValidationError = (c: ContextLike, message: string, field?: string)
     400
   )
 
-const respondServerError = (c: ContextLike, error: unknown) => {
+/**
+ * A repository failure, answered through `sanitizeError` (rule E5): the full
+ * cause is logged server-side, and the client receives the sanitized envelope —
+ * never the driver's message, which carries the SQL text and its bound values.
+ */
+const respondServerError = (c: Context, error: unknown) => {
   logError('[tables] user-access handler failed', error)
-  return c.json(
-    {
-      success: false,
-      message: error instanceof Error ? error.message : 'Internal server error',
-      code: 'INTERNAL_ERROR',
-    },
-    500
-  )
+  return toErrorResponse(c, error)
 }
 
 interface ValidatedRow {
@@ -192,7 +197,7 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
 
   // Minting a grant is privilege assignment — admins only. Checked BEFORE the
   // body is parsed so a non-admin learns nothing from validation feedback.
-  const denied = await authorizeUserAccessAdmin(c, session.userId)
+  const denied = await authorizeUserAccessAdmin(c, app, session.userId)
   if (denied) return denied
 
   const parsed = await parseJsonBody(c)
@@ -229,6 +234,10 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
   if (result._tag === 'Failure') {
     return respondServerError(c, result.failure.cause)
   }
+  // A new grant changes what the account may read: its live subscriptions are
+  // closed and judged again at the handshake, with the grant included.
+  // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect
+  closeUserConnections(validated.user_id)
   return c.json(toFieldsResponse(result.success), 201)
 }
 
@@ -251,7 +260,7 @@ export async function handleListUserAccessRecords(c: Context, app: App): Promise
   // Reading the junction enumerates the whole tenancy map — admins only. The
   // `?user_id=` filter is not a substitute: it is caller-supplied, so a
   // non-admin could simply point it at somebody else.
-  const denied = await authorizeUserAccessAdmin(c, session.userId)
+  const denied = await authorizeUserAccessAdmin(c, app, session.userId)
   if (denied) return denied
 
   const userIdFilter = c.req.query('user_id')

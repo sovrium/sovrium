@@ -1,26 +1,37 @@
-# blog
+# field-notes
 
-A self-hostable blog CMS — a WordPress / Webflow alternative. Public reading experience plus an authenticated admin space to create, edit, and publish articles. Uses Sovrium's default theming (no custom palette). The first account registered at /admin/register becomes the admin; later sign-ups are editors.
+Field Notes — a fictional publication a small studio owns: an index of essays with their
+covers, one page per essay with its byline, its body and the comments the editor approved,
+an RSS feed, and a desk behind `/admin` where the editor schedules posts, approves comments
+and asks an assistant for drafts. Readers never sign in; nobody can open an account.
 
 ## This app at a glance
 
-- **Tables** (3): authors, tags, posts
-- **Pages** (10): index, post-detail, admin-login, admin-register, admin-dashboard, admin-post-new, admin-post-edit, admin-tags, admin-authors, admin-ai-editor
-- **AI agents** (1): blog-editor
-- **Singletons**: auth
-- **Static assets**: `public/` (served at the site root)
+- **Tables** (4): authors, tags, posts (Draft → Scheduled → Published), comments (Held until
+  approved; a row-level rule shows readers the Approved ones only)
+- **Pages** (10): essays (`/`), essay (`/blog/:slug`, one page per published post, feed at
+  `/feed.xml`), not-found (`/404`), and the desk — posts, post edit, comments, tags, authors,
+  assistant, sign-in
+- **Forms** (2): comment (public, honeypot; arrives Held), new-post (the desk's dialog)
+- **Automations** (3): schedule-on-date (a draft given a date is Scheduled),
+  publish-scheduled (every hour, a scheduled post whose date has come is Published),
+  stamp-new-comment (a new comment is dated when it arrives)
+- **AI agents** (1): blog-editor (every write waits for the editor's approval)
+- **Singletons**: design (roomy public pages, cozy desk), auth (sign-up closed)
+- **Seed**: `seed/` — seven posts with covers from `seed/assets/`, three authors, six tags,
+  two comments, and the editor's account
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. Only a
+Published post is ever on the public pages: keep the `status` filter on the index and on the
+essay page whenever you add a page that lists posts. The design system is in
+`config/design.yaml`: one accent, and a colour on a post means its state — read its comments
+before changing a colour. Covers and portraits are files in the public `images`
+bucket; a file stored anywhere else needs a session to be read.
 
 ---
 

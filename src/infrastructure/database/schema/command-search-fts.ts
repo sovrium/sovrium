@@ -45,6 +45,7 @@ import {
   tableHasIdColumn,
 } from '@/domain/models/app/tables/searchable-text-columns'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
@@ -53,9 +54,10 @@ import {
   pgFtsIndexName,
   pgFtsIndexPrefixFor,
   pgFtsIndexStatement,
-  sqliteFtsBackfillStatement,
+  sqliteFtsBackfillStatements,
   sqliteFtsDropStatements,
   sqliteFtsStatements,
+  sqliteFtsTriggerIsKeyed,
   sqliteFtsTableName,
   PG_FTS_INDEX_PREFIX_LIKE,
   SQLITE_FTS_PREFIX_LIKE,
@@ -193,20 +195,49 @@ const sqliteFtsColumns = async (tx: TransactionLike, ftsTable: string): Promise<
 }
 
 /**
+ * Whether `physicalTable`'s `id` is SQLite's rowid — its sole `INTEGER PRIMARY
+ * KEY` — so a mirror entry can be written under the record's own id.
+ */
+const sqliteIdIsRowid = async (tx: TransactionLike, physicalTable: string): Promise<boolean> => {
+  const rows = (await tx.unsafe(`PRAGMA table_info("${physicalTable}")`)) as readonly {
+    readonly name?: unknown
+    readonly type?: unknown
+    readonly pk?: unknown
+  }[]
+  const keyColumns = rows.filter((row) => Number(row.pk) > 0)
+  return (
+    keyColumns.length === 1 &&
+    keyColumns[0]?.name === 'id' &&
+    String(keyColumns[0]?.type).toUpperCase() === 'INTEGER'
+  )
+}
+
+/** The SQL of one of an existing mirror's triggers, or `''` when it has none. */
+const sqliteTriggerSql = async (tx: TransactionLike, trigger: string): Promise<string> => {
+  const rows = (await tx.unsafe(
+    `SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '${escapeSqlString(trigger)}'`
+  )) as readonly { readonly sql?: unknown }[]
+  return rows.length > 0 ? String(rows[0]?.sql ?? '') : ''
+}
+
+/**
  * Create or repair one table's FTS5 mirror.
  *
  * Returns without touching anything when the mirror already carries exactly the
- * expected columns — the common case on every boot after the first, and the
- * reason this is not an unconditional drop-and-rebuild of every index at start.
+ * expected columns and its triggers already address entries by key — the common
+ * case on every boot after the first, and the reason this is not an
+ * unconditional drop-and-rebuild of every index at start. A mirror an earlier
+ * binary built, whose triggers searched the whole index on every write, is
+ * rebuilt once.
  */
 const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Promise<void> => {
   const ftsTable = sqliteFtsTableName(target.queriedRelation)
   const expected = [SQLITE_FTS_RECORD_ID_COLUMN, ...target.columns]
   const existing = await sqliteFtsColumns(tx, ftsTable)
 
-  const upToDate =
+  const sameColumns =
     existing.length === expected.length && expected.every((column, i) => existing[i] === column)
-  if (upToDate) return
+  if (sameColumns && sqliteFtsTriggerIsKeyed(await sqliteTriggerSql(tx, `${ftsTable}_ad`))) return
 
   // A shape change means the mirror indexes the wrong columns; there is no
   // ALTER for an FTS5 table, so it is rebuilt. `existing.length > 0` keeps the
@@ -218,13 +249,13 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
     }
   }
 
-  // eslint-disable-next-line functional/no-loop-statements -- DDL order is load-bearing: the table must exist before its triggers
-  for (const statement of sqliteFtsStatements(target)) {
-    await exec(tx, statement)
-  }
+  const input = { ...target, idIsRowid: await sqliteIdIsRowid(tx, target.physicalTable) }
   // Rows written before the triggers existed are invisible to them, so the
   // mirror is seeded from the table itself.
-  await exec(tx, sqliteFtsBackfillStatement(target))
+  // eslint-disable-next-line functional/no-loop-statements -- DDL order is load-bearing: the tables must exist before their triggers, and the seed after both
+  for (const statement of [...sqliteFtsStatements(input), ...sqliteFtsBackfillStatements(input)]) {
+    await exec(tx, statement)
+  }
 }
 
 // ─── PostgreSQL ──────────────────────────────────────────────────────────────
@@ -376,7 +407,7 @@ export const reconcileCommandSearchIndexes = (
           }
           return
         }
-        const client = new SQL({ url: dialectConfig.databaseUrl, max: 1 })
+        const client = new SQL(postgresClientOptions(dialectConfig.databaseUrl, { max: 1 }))
         try {
           await client.begin(async (tx) => {
             await reconcileAll(tx as TransactionLike, targets, 'postgres')

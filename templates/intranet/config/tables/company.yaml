@@ -1,0 +1,32 @@
+# The company as one row. Every colleague belongs to it and every announcement
+# is addressed to it, which is how an announcement knows how many people it
+# asks to acknowledge — "31 of 46" — without anyone typing the 46.
+id: 6
+name: company
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: members
+    type: relationship
+    relatedTable: members
+    relationType: one-to-many
+  # How many people work here, counted from the directory: add a colleague and
+  # every announcement's figure moves with it.
+  - id: 3
+    name: headcount
+    type: rollup
+    relationshipField: members
+    relatedField: name
+    aggregation: COUNT
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

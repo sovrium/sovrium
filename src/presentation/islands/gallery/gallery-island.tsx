@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { computeGalleryPagerClasses } from '@/presentation/design/gallery-default-classes'
 import { isRefusedRead } from '../hooks/use-records-query'
 import { LoadMoreButton } from '../parts/load-more-button'
+import { withWeekdayDates, type WeekdayFields } from '../parts/weekday-dates'
 import { hasDataBinding, resolveIslandRecords } from '../runtime/data-binding'
 import { GalleryCarousel } from './gallery-carousel'
 import { GalleryGrid } from './gallery-grid'
@@ -88,6 +89,8 @@ interface GalleryIslandProps {
   readonly galleryCard?: GalleryCard
   readonly emptyMessage?: string
   readonly layout?: 'grid' | 'masonry' | 'carousel'
+  /** The date fields that print their weekday, so a card reads them as the grid does. */
+  readonly weekdays?: WeekdayFields
 }
 
 interface PaginationView {
@@ -173,19 +176,19 @@ function buildLoadMoreHandler(setPage: (updater: (prev: number) => number) => vo
  */
 function GalleryContent({
   records,
-  pageSize,
-  paginationStyle,
+  dataSource,
   galleryCard,
   gridColumns,
   layout,
 }: {
   readonly records: readonly TableRecord[]
-  readonly pageSize: number | undefined
-  readonly paginationStyle: PaginationConfig['style'] | undefined
+  /** Its paging, and the bound table a card's `openDrawer` hands the drawer. */
+  readonly dataSource: GalleryIslandProps['dataSource']
   readonly galleryCard: GalleryCard | undefined
   readonly gridColumns: GalleryGridColumns | undefined
   readonly layout: 'grid' | 'masonry' | 'carousel' | undefined
 }): ReactElement {
+  const pagination = dataSource?.pagination
   // One 1-based cursor serves both controls: `loadMore` reads it as "how many
   // pages have been revealed", the numbered pager as "which page is drawn". The
   // setter goes to the pager as-is — it is referentially stable, which a fresh
@@ -194,8 +197,8 @@ function GalleryContent({
   const { visibleRecords, showLoadMore, showPager, pageCount, currentPage } = computePaginationView(
     records,
     page,
-    pageSize,
-    paginationStyle
+    pagination?.pageSize,
+    pagination?.style
   )
   const onLoadMore = buildLoadMoreHandler(setPage)
 
@@ -209,11 +212,13 @@ function GalleryContent({
         <GalleryCarousel
           records={visibleRecords}
           card={galleryCard}
+          table={dataSource?.table}
         />
       ) : (
         <GalleryGrid
           records={visibleRecords}
           card={galleryCard}
+          table={dataSource?.table}
           gridColumns={gridColumns}
           layout={layout}
         />
@@ -256,6 +261,7 @@ export default function GalleryIsland({
   galleryCard,
   emptyMessage,
   layout,
+  weekdays,
 }: GalleryIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useGalleryRecords(dataSource)
 
@@ -272,15 +278,13 @@ export default function GalleryIsland({
     )
   }
 
-  const records = resolveIslandRecords(embeddedRecords, data?.records)
+  const records = withWeekdayDates(resolveIslandRecords(embeddedRecords, data?.records), weekdays)
   if (records.length === 0) return <GalleryEmpty message={emptyMessage} />
-  const pagination = dataSource?.pagination
 
   return (
     <GalleryContent
       records={records}
-      pageSize={pagination?.pageSize}
-      paginationStyle={pagination?.style}
+      dataSource={dataSource}
       galleryCard={galleryCard}
       gridColumns={gridColumns}
       layout={layout}

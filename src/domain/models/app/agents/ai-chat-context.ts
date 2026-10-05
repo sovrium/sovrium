@@ -40,6 +40,7 @@ import {
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 
 /** Minimal field shape the context builder reads. */
 export interface ContextField {
@@ -92,6 +93,11 @@ export interface AiChatContextInput {
   readonly tables?: ReadonlyArray<ContextTable>
   readonly automations?: ReadonlyArray<ContextAutomation>
   readonly pageContext?: ContextPageScope
+  /**
+   * The app's role ladder, so the app's top role outranks a table grant exactly
+   * as the built-in `admin` does (both are admin-equivalent).
+   */
+  readonly auth?: AdminRoleResolvable['auth']
 }
 
 /**
@@ -150,9 +156,10 @@ const renderTable = (table: ContextTable, userRole: string): string => {
 const isTableVisible = (
   table: ContextTable,
   userRole: string,
-  pageContext: ContextPageScope | undefined
+  pageContext: ContextPageScope | undefined,
+  auth: AdminRoleResolvable['auth']
 ): boolean => {
-  if (!hasReadPermission(table as { name: string }, userRole)) return false
+  if (!hasReadPermission(table as { name: string }, userRole, { auth })) return false
   const allowed = pageContext?.allowedTables
   if (allowed !== undefined && !allowed.includes(table.name)) return false
   return true
@@ -182,7 +189,7 @@ const renderAutomation = (automation: ContextAutomation): string => {
  * so [internal ref] hold by construction.
  */
 export const buildAiChatContext = (input: AiChatContextInput): string => {
-  const { appName, userRole, tables, automations, pageContext } = input
+  const { appName, userRole, tables, automations, pageContext, auth } = input
 
   const header: ReadonlyArray<string> = [
     `You are an AI assistant for the "${appName}" application.`,
@@ -195,7 +202,7 @@ export const buildAiChatContext = (input: AiChatContextInput): string => {
       : []
 
   const visibleTables = (tables ?? []).filter((table) =>
-    isTableVisible(table, userRole, pageContext)
+    isTableVisible(table, userRole, pageContext, auth)
   )
   const tablesSection: ReadonlyArray<string> =
     visibleTables.length > 0

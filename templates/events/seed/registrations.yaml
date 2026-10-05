@@ -1,115 +1,2099 @@
-# Sample attendee list.
+# Everyone registered for Fieldday's events: 208 confirmed across the four open
+# events, three people waiting for the full Design Review Jam, and the
+# attendees of the two events that already happened. Registrations came in
+# over three weeks.
 #
-# Registrations cluster unevenly on purpose. Two events carry a waitlist because
-# they are Sold out, one carries a cancellation, and the Draft and Cancelled
-# events carry none at all — which is what makes the registrations grid worth
-# looking at: filtering by event or by status actually changes what you see.
+# The door at today's Open Office Hours is under way: 23 of its 38 are checked
+# in. Priya Raman has arrived; Sven Halvorsen has not yet.
 #
-# `@events.<key>` resolves to the event's database id at write time. Emails use
-# `.example`, a reserved TLD that can never receive mail, so a demo re-seed can
-# never send a stranger a confirmation.
+# Every date is relative to the day the seed runs; `--today <YYYY-MM-DD>`
+# pins them to one day. Seeding runs no automation, so nobody is emailed.
 records:
-  - key: reg-winter-nadia
+  - key: clinic-1
     fields:
-      event: '@events.winter-summit'
-      name: Nadia Bouchard
-      email: nadia.bouchard@northwind.example
+      event: '@events.clinic'
+      name: 'Ade Rossi'
+      email: ade.rossi@northwind.example
       status: Confirmed
-
-  - key: reg-winter-tomas
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-34d}}'
+  - key: clinic-2
     fields:
-      event: '@events.winter-summit'
-      name: Tomás Ferreira
-      email: t.ferreira@lumen-analytics.example
+      event: '@events.clinic'
+      name: 'Amara Mensah'
+      email: amara.mensah@quarry-data.example
       status: Confirmed
-
-  - key: reg-winter-anke
+      checked_in: true
+      registered_at: '{{today-33d}}'
+  - key: clinic-3
     fields:
-      event: '@events.winter-summit'
-      name: Anke Visser
-      email: anke.visser@helios-health.example
-      status: Waitlist
-
-  - key: reg-clinic-marc
-    fields:
-      event: '@events.onboarding-clinic-jan'
-      name: Marc Delaunay
-      email: marc.delaunay@cardinal-freight.example
+      event: '@events.clinic'
+      name: 'Chloé Ferreira'
+      email: chloe.ferreira@pinewood.example
       status: Confirmed
-
-  - key: reg-clinic-priya
+      checked_in: true
+      registered_at: '{{today-33d}}'
+  - key: clinic-4
     fields:
-      event: '@events.onboarding-clinic-jan'
-      name: Priya Raman
+      event: '@events.clinic'
+      name: 'Julia Halvorsen'
+      email: julia.halvorsen@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-32d}}'
+  - key: clinic-5
+    fields:
+      event: '@events.clinic'
+      name: 'Quentin Garnier'
+      email: quentin.garnier@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-32d}}'
+  - key: clinic-6
+    fields:
+      event: '@events.clinic'
+      name: 'Yasmin Benali'
+      email: yasmin.benali@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-31d}}'
+  - key: clinic-7
+    fields:
+      event: '@events.clinic'
+      name: 'Felix Vidal'
+      email: felix.vidal@meridian-care.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-31d}}'
+  - key: clinic-8
+    fields:
+      event: '@events.clinic'
+      name: 'Maya Belkacem'
+      email: maya.belkacem@lumen-analytics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-30d}}'
+  - key: clinic-9
+    fields:
+      event: '@events.clinic'
+      name: 'Lena Haddad'
+      email: lena.haddad@harbor-logistics.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      checked_in: true
+      registered_at: '{{today-29d}}'
+  - key: clinic-10
+    fields:
+      event: '@events.clinic'
+      name: 'Léa Petit'
+      email: lea.petit@helios-health.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-29d}}'
+  - key: clinic-11
+    fields:
+      event: '@events.clinic'
+      name: 'Sofia Sørensen'
+      email: sofia.sorensen@brightline.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-28d}}'
+  - key: clinic-12
+    fields:
+      event: '@events.clinic'
+      name: 'Fatou Novak'
+      email: fatou.novak@atlas-integrations.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-28d}}'
+  - key: clinic-13
+    fields:
+      event: '@events.clinic'
+      name: 'Marco Ndiaye'
+      email: marco.ndiaye@northwind.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-27d}}'
+  - key: clinic-14
+    fields:
+      event: '@events.clinic'
+      name: 'Thea Dupont'
+      email: thea.dupont@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-27d}}'
+  - key: clinic-15
+    fields:
+      event: '@events.clinic'
+      name: 'Bianca Byrne'
+      email: bianca.byrne@pinewood.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-26d}}'
+  - key: clinic-16
+    fields:
+      event: '@events.clinic'
+      name: 'Inès Silva'
+      email: ines.silva@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-25d}}'
+  - key: clinic-17
+    fields:
+      event: '@events.clinic'
+      name: 'Pierre Keller'
+      email: pierre.keller@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-25d}}'
+  - key: clinic-18
+    fields:
+      event: '@events.clinic'
+      name: 'Mei Weber'
+      email: mei.weber@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-24d}}'
+  - key: clinic-19
+    fields:
+      event: '@events.clinic'
+      name: 'Jonas Raman'
+      email: jonas.raman@meridian-care.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-24d}}'
+  - key: clinic-20
+    fields:
+      event: '@events.clinic'
+      name: 'Bastien Leroy'
+      email: bastien.leroy@lumen-analytics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-23d}}'
+  - key: clinic-21
+    fields:
+      event: '@events.clinic'
+      name: 'Idris Nowak'
+      email: idris.nowak@harbor-logistics.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      checked_in: true
+      registered_at: '{{today-23d}}'
+  - key: clinic-22
+    fields:
+      event: '@events.clinic'
+      name: 'Paula Barreto'
+      email: paula.barreto@helios-health.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-22d}}'
+  - key: clinic-23
+    fields:
+      event: '@events.clinic'
+      name: 'Wim Lindqvist'
+      email: wim.lindqvist@brightline.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-21d}}'
+  - key: clinic-24
+    fields:
+      event: '@events.clinic'
+      name: 'Eva Laurent'
+      email: eva.laurent@atlas-integrations.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-21d}}'
+  - key: clinic-25
+    fields:
+      event: '@events.clinic'
+      name: 'Louis Jensen'
+      email: louis.jensen@northwind.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-20d}}'
+  - key: clinic-26
+    fields:
+      event: '@events.clinic'
+      name: 'Hugo Watanabe'
+      email: hugo.watanabe@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-20d}}'
+  - key: clinic-27
+    fields:
+      event: '@events.clinic'
+      name: 'Priya Costa'
+      email: priya.costa@pinewood.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-19d}}'
+  - key: clinic-28
+    fields:
+      event: '@events.clinic'
+      name: 'Mateo Marchand'
+      email: mateo.marchand@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-19d}}'
+  - key: clinic-29
+    fields:
+      event: '@events.clinic'
+      name: 'Emeka Aubert'
+      email: emeka.aubert@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-18d}}'
+  - key: clinic-30
+    fields:
+      event: '@events.clinic'
+      name: 'Lucie Moreau'
+      email: lucie.moreau@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: clinic-31
+    fields:
+      event: '@events.clinic'
+      name: 'Samir Fischer'
+      email: samir.fischer@meridian-care.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: clinic-32
+    fields:
+      event: '@events.clinic'
+      name: 'Anton Bauer'
+      email: anton.bauer@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-16d}}'
+  - key: clinic-33
+    fields:
+      event: '@events.clinic'
+      name: 'Hamza Kowalski'
+      email: hamza.kowalski@harbor-logistics.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-16d}}'
+  - key: clinic-34
+    fields:
+      event: '@events.clinic'
+      name: 'Olga Diallo'
+      email: olga.diallo@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-15d}}'
+  - key: clinic-35
+    fields:
+      event: '@events.clinic'
+      name: 'Orla Schmidt'
+      email: orla.schmidt@brightline.example
+      status: Confirmed
+      registered_at: '{{today-15d}}'
+  - key: clinic-36
+    fields:
+      event: '@events.clinic'
+      name: 'Nora Martin'
+      email: nora.martin@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-14d}}'
+  - key: breakfast-1
+    fields:
+      event: '@events.breakfast'
+      name: 'Aisha Okonkwo'
+      email: aisha.okonkwo@northwind.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-27d}}'
+  - key: breakfast-2
+    fields:
+      event: '@events.breakfast'
+      name: 'Hanna Tanaka'
+      email: hanna.tanaka@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-26d}}'
+  - key: breakfast-3
+    fields:
+      event: '@events.breakfast'
+      name: 'Oskar Russo'
+      email: oskar.russo@pinewood.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-25d}}'
+  - key: breakfast-4
+    fields:
+      event: '@events.breakfast'
+      name: 'Vera Durand'
+      email: vera.durand@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-24d}}'
+  - key: breakfast-5
+    fields:
+      event: '@events.breakfast'
+      name: 'Dara Rossi'
+      email: dara.rossi@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-23d}}'
+  - key: breakfast-6
+    fields:
+      event: '@events.breakfast'
+      name: 'Kaia Mensah'
+      email: kaia.mensah@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-22d}}'
+  - key: breakfast-7
+    fields:
+      event: '@events.breakfast'
+      name: 'Ingrid Ferreira'
+      email: ingrid.ferreira@meridian-care.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-21d}}'
+  - key: breakfast-8
+    fields:
+      event: '@events.breakfast'
+      name: 'Farid Halvorsen'
+      email: farid.halvorsen@lumen-analytics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-20d}}'
+  - key: breakfast-9
+    fields:
+      event: '@events.breakfast'
+      name: 'Élodie Garnier'
+      email: elodie.garnier@harbor-logistics.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      checked_in: true
+      registered_at: '{{today-19d}}'
+  - key: breakfast-10
+    fields:
+      event: '@events.breakfast'
+      name: 'Daniel Benali'
+      email: daniel.benali@helios-health.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-18d}}'
+  - key: breakfast-11
+    fields:
+      event: '@events.breakfast'
+      name: 'Karim Vidal'
+      email: karim.vidal@brightline.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: breakfast-12
+    fields:
+      event: '@events.breakfast'
+      name: 'Rosa Belkacem'
+      email: rosa.belkacem@atlas-integrations.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: breakfast-13
+    fields:
+      event: '@events.breakfast'
+      name: 'Zoé Haddad'
+      email: zoe.haddad@northwind.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-16d}}'
+  - key: breakfast-14
+    fields:
+      event: '@events.breakfast'
+      name: 'Greta Petit'
+      email: greta.petit@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-15d}}'
+  - key: breakfast-15
+    fields:
+      event: '@events.breakfast'
+      name: 'Nils Sørensen'
+      email: nils.sorensen@pinewood.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-14d}}'
+  - key: breakfast-16
+    fields:
+      event: '@events.breakfast'
+      name: 'Sven Novak'
+      email: sven.novak@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-13d}}'
+  - key: breakfast-17
+    fields:
+      event: '@events.breakfast'
+      name: 'Tomás Ndiaye'
+      email: tomas.ndiaye@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-12d}}'
+  - key: breakfast-18
+    fields:
+      event: '@events.breakfast'
+      name: 'Kenji Dupont'
+      email: kenji.dupont@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-11d}}'
+  - key: breakfast-19
+    fields:
+      event: '@events.breakfast'
+      name: 'Gabriel Byrne'
+      email: gabriel.byrne@meridian-care.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-10d}}'
+  - key: breakfast-20
+    fields:
+      event: '@events.breakfast'
+      name: 'Nadia Silva'
+      email: nadia.silva@lumen-analytics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-9d}}'
+  - key: breakfast-21
+    fields:
+      event: '@events.breakfast'
+      name: 'Ugo Keller'
+      email: ugo.keller@harbor-logistics.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-8d}}'
+  - key: breakfast-22
+    fields:
+      event: '@events.breakfast'
+      name: 'Clément Weber'
+      email: clement.weber@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: office-hours-1
+    fields:
+      event: '@events.office-hours'
+      name: 'Priya Raman'
       email: priya.raman@northwind.example
       status: Confirmed
-
-  - key: reg-breakfast-yusuf
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-3d}}'
+  - key: office-hours-2
     fields:
-      event: '@events.partner-breakfast'
-      name: Yusuf Demir
-      email: yusuf@atlas-integrations.example
+      event: '@events.office-hours'
+      name: 'Sven Halvorsen'
+      email: sven.halvorsen@lumen-analytics.example
       status: Confirmed
-
-  - key: reg-breakfast-claire
+      registered_at: '{{today-2d}}'
+  - key: office-hours-3
     fields:
-      event: '@events.partner-breakfast'
-      name: Claire Nkemelu
-      email: claire.n@pinewood.example
-      status: Cancelled
-
-  - key: reg-office-hours-sven
-    fields:
-      event: '@events.office-hours-today'
-      name: Sven Halvorsen
-      email: sven.h@lumen-analytics.example
-      status: Confirmed
-
-  - key: reg-migration-ingrid
-    fields:
-      event: '@events.migration-workshop'
-      name: Ingrid Sørensen
-      email: ingrid@cardinal-freight.example
-      status: Confirmed
-
-  - key: reg-migration-hugo
-    fields:
-      event: '@events.migration-workshop'
-      name: Hugo Barreto
-      email: hugo.barreto@helios-health.example
-      status: Confirmed
-
-  - key: reg-migration-lena
-    fields:
-      event: '@events.migration-workshop'
-      name: Lena Kowalski
-      email: l.kowalski@pinewood.example
-      status: Confirmed
-
-  - key: reg-design-jam-ade
-    fields:
-      event: '@events.design-review-jam'
-      name: Ade Okonkwo
+      event: '@events.office-hours'
+      name: 'Ade Okonkwo'
       email: ade.okonkwo@atlas-integrations.example
       status: Confirmed
-
-  - key: reg-design-jam-mei
+      registered_at: '{{today-4d}}'
+  - key: office-hours-4
     fields:
-      event: '@events.design-review-jam'
-      name: Mei Watanabe
-      email: mei.watanabe@northwind.example
-      status: Waitlist
-
-  - key: reg-meetup-farid
-    fields:
-      event: '@events.community-meetup-spring'
-      name: Farid Belkacem
-      email: farid.b@lumen-analytics.example
+      event: '@events.office-hours'
+      name: 'Farid Belkacem'
+      email: farid.belkacem@lumen-analytics.example
       status: Confirmed
-
-  - key: reg-meetup-orla
+      checked_in: true
+      registered_at: '{{today-5d}}'
+  - key: office-hours-5
     fields:
-      event: '@events.community-meetup-spring'
-      name: Orla Byrne
+      event: '@events.office-hours'
+      name: 'Jan Raman'
+      email: jan.raman@brightline.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-19d}}'
+  - key: office-hours-6
+    fields:
+      event: '@events.office-hours'
+      name: 'Camille Fischer'
+      email: camille.fischer@atlas-integrations.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-18d}}'
+  - key: office-hours-7
+    fields:
+      event: '@events.office-hours'
+      name: 'Ade Bauer'
+      email: ade.bauer@northwind.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-18d}}'
+  - key: office-hours-8
+    fields:
+      event: '@events.office-hours'
+      name: 'Amara Kowalski'
+      email: amara.kowalski@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: office-hours-9
+    fields:
+      event: '@events.office-hours'
+      name: 'Chloé Diallo'
+      email: chloe.diallo@pinewood.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      checked_in: true
+      registered_at: '{{today-17d}}'
+  - key: office-hours-10
+    fields:
+      event: '@events.office-hours'
+      name: 'Julia Schmidt'
+      email: julia.schmidt@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-16d}}'
+  - key: office-hours-11
+    fields:
+      event: '@events.office-hours'
+      name: 'Quentin Martin'
+      email: quentin.martin@cardinal-freight.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-16d}}'
+  - key: office-hours-12
+    fields:
+      event: '@events.office-hours'
+      name: 'Yasmin Okonkwo'
+      email: yasmin.okonkwo@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-15d}}'
+  - key: office-hours-13
+    fields:
+      event: '@events.office-hours'
+      name: 'Felix Tanaka'
+      email: felix.tanaka@meridian-care.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-15d}}'
+  - key: office-hours-14
+    fields:
+      event: '@events.office-hours'
+      name: 'Maya Russo'
+      email: maya.russo@lumen-analytics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-14d}}'
+  - key: office-hours-15
+    fields:
+      event: '@events.office-hours'
+      name: 'Lena Durand'
+      email: lena.durand@harbor-logistics.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-13d}}'
+  - key: office-hours-16
+    fields:
+      event: '@events.office-hours'
+      name: 'Léa Rossi'
+      email: lea.rossi@helios-health.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-13d}}'
+  - key: office-hours-17
+    fields:
+      event: '@events.office-hours'
+      name: 'Sofia Mensah'
+      email: sofia.mensah@brightline.example
+      status: Confirmed
+      answer: A process we still run by hand
+      checked_in: true
+      registered_at: '{{today-12d}}'
+  - key: office-hours-18
+    fields:
+      event: '@events.office-hours'
+      name: 'Fatou Ferreira'
+      email: fatou.ferreira@atlas-integrations.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-12d}}'
+  - key: office-hours-19
+    fields:
+      event: '@events.office-hours'
+      name: 'Marco Halvorsen'
+      email: marco.halvorsen@northwind.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-11d}}'
+  - key: office-hours-20
+    fields:
+      event: '@events.office-hours'
+      name: 'Thea Garnier'
+      email: thea.garnier@quarry-data.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-11d}}'
+  - key: office-hours-21
+    fields:
+      event: '@events.office-hours'
+      name: 'Bianca Benali'
+      email: bianca.benali@pinewood.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      checked_in: true
+      registered_at: '{{today-10d}}'
+  - key: office-hours-22
+    fields:
+      event: '@events.office-hours'
+      name: 'Inès Vidal'
+      email: ines.vidal@kestrel-studio.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-10d}}'
+  - key: office-hours-23
+    fields:
+      event: '@events.office-hours'
+      name: 'Pierre Belkacem'
+      email: pierre.belkacem@cardinal-freight.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-9d}}'
+  - key: office-hours-24
+    fields:
+      event: '@events.office-hours'
+      name: 'Mei Haddad'
+      email: mei.haddad@orchard-labs.example
+      status: Confirmed
+      checked_in: true
+      registered_at: '{{today-9d}}'
+  - key: office-hours-25
+    fields:
+      event: '@events.office-hours'
+      name: 'Jonas Petit'
+      email: jonas.petit@meridian-care.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      checked_in: true
+      registered_at: '{{today-8d}}'
+  - key: office-hours-26
+    fields:
+      event: '@events.office-hours'
+      name: 'Bastien Sørensen'
+      email: bastien.sorensen@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: office-hours-27
+    fields:
+      event: '@events.office-hours'
+      name: 'Idris Novak'
+      email: idris.novak@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: office-hours-28
+    fields:
+      event: '@events.office-hours'
+      name: 'Paula Ndiaye'
+      email: paula.ndiaye@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-6d}}'
+  - key: office-hours-29
+    fields:
+      event: '@events.office-hours'
+      name: 'Wim Dupont'
+      email: wim.dupont@brightline.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-6d}}'
+  - key: office-hours-30
+    fields:
+      event: '@events.office-hours'
+      name: 'Eva Byrne'
+      email: eva.byrne@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-5d}}'
+  - key: office-hours-31
+    fields:
+      event: '@events.office-hours'
+      name: 'Louis Silva'
+      email: louis.silva@northwind.example
+      status: Confirmed
+      registered_at: '{{today-5d}}'
+  - key: office-hours-32
+    fields:
+      event: '@events.office-hours'
+      name: 'Hugo Keller'
+      email: hugo.keller@quarry-data.example
+      status: Confirmed
+      registered_at: '{{today-4d}}'
+  - key: office-hours-33
+    fields:
+      event: '@events.office-hours'
+      name: 'Priya Weber'
+      email: priya.weber@pinewood.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-4d}}'
+  - key: office-hours-34
+    fields:
+      event: '@events.office-hours'
+      name: 'Mateo Raman'
+      email: mateo.raman@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-3d}}'
+  - key: office-hours-35
+    fields:
+      event: '@events.office-hours'
+      name: 'Emeka Leroy'
+      email: emeka.leroy@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-3d}}'
+  - key: office-hours-36
+    fields:
+      event: '@events.office-hours'
+      name: 'Lucie Nowak'
+      email: lucie.nowak@orchard-labs.example
+      status: Confirmed
+      registered_at: '{{today-2d}}'
+  - key: office-hours-37
+    fields:
+      event: '@events.office-hours'
+      name: 'Samir Barreto'
+      email: samir.barreto@meridian-care.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-2d}}'
+  - key: office-hours-38
+    fields:
+      event: '@events.office-hours'
+      name: 'Anton Lindqvist'
+      email: anton.lindqvist@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-1d}}'
+  - key: workshop-1
+    fields:
+      event: '@events.workshop'
+      name: 'Camille Durand'
+      email: camille.durand@atlas-integrations.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today}}'
+  - key: workshop-2
+    fields:
+      event: '@events.workshop'
+      name: 'Ingrid Sørensen'
+      email: ingrid.sorensen@cardinal-freight.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-1d}}'
+  - key: workshop-3
+    fields:
+      event: '@events.workshop'
+      name: 'Hugo Barreto'
+      email: hugo.barreto@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-2d}}'
+  - key: workshop-4
+    fields:
+      event: '@events.workshop'
+      name: 'Lena Kowalski'
+      email: lena.kowalski@pinewood.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-5d}}'
+  - key: workshop-5
+    fields:
+      event: '@events.workshop'
+      name: 'Hamza Laurent'
+      email: hamza.laurent@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-20d}}'
+  - key: workshop-6
+    fields:
+      event: '@events.workshop'
+      name: 'Olga Jensen'
+      email: olga.jensen@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-20d}}'
+  - key: workshop-7
+    fields:
+      event: '@events.workshop'
+      name: 'Orla Watanabe'
+      email: orla.watanabe@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-19d}}'
+  - key: workshop-8
+    fields:
+      event: '@events.workshop'
+      name: 'Nora Costa'
+      email: nora.costa@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-19d}}'
+  - key: workshop-9
+    fields:
+      event: '@events.workshop'
+      name: 'Aisha Marchand'
+      email: aisha.marchand@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-19d}}'
+  - key: workshop-10
+    fields:
+      event: '@events.workshop'
+      name: 'Hanna Aubert'
+      email: hanna.aubert@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-19d}}'
+  - key: workshop-11
+    fields:
+      event: '@events.workshop'
+      name: 'Oskar Moreau'
+      email: oskar.moreau@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-18d}}'
+  - key: workshop-12
+    fields:
+      event: '@events.workshop'
+      name: 'Vera Fischer'
+      email: vera.fischer@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-18d}}'
+  - key: workshop-13
+    fields:
+      event: '@events.workshop'
+      name: 'Dara Bauer'
+      email: dara.bauer@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-18d}}'
+  - key: workshop-14
+    fields:
+      event: '@events.workshop'
+      name: 'Kaia Kowalski'
+      email: kaia.kowalski@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-18d}}'
+  - key: workshop-15
+    fields:
+      event: '@events.workshop'
+      name: 'Ingrid Diallo'
+      email: ingrid.diallo@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-17d}}'
+  - key: workshop-16
+    fields:
+      event: '@events.workshop'
+      name: 'Farid Schmidt'
+      email: farid.schmidt@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-17d}}'
+  - key: workshop-17
+    fields:
+      event: '@events.workshop'
+      name: 'Élodie Martin'
+      email: elodie.martin@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-17d}}'
+  - key: workshop-18
+    fields:
+      event: '@events.workshop'
+      name: 'Daniel Okonkwo'
+      email: daniel.okonkwo@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-17d}}'
+  - key: workshop-19
+    fields:
+      event: '@events.workshop'
+      name: 'Karim Tanaka'
+      email: karim.tanaka@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-16d}}'
+  - key: workshop-20
+    fields:
+      event: '@events.workshop'
+      name: 'Rosa Russo'
+      email: rosa.russo@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-16d}}'
+  - key: workshop-21
+    fields:
+      event: '@events.workshop'
+      name: 'Zoé Durand'
+      email: zoe.durand@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-16d}}'
+  - key: workshop-22
+    fields:
+      event: '@events.workshop'
+      name: 'Greta Rossi'
+      email: greta.rossi@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-16d}}'
+  - key: workshop-23
+    fields:
+      event: '@events.workshop'
+      name: 'Nils Mensah'
+      email: nils.mensah@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-15d}}'
+  - key: workshop-24
+    fields:
+      event: '@events.workshop'
+      name: 'Sven Ferreira'
+      email: sven.ferreira@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-15d}}'
+  - key: workshop-25
+    fields:
+      event: '@events.workshop'
+      name: 'Tomás Halvorsen'
+      email: tomas.halvorsen@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-15d}}'
+  - key: workshop-26
+    fields:
+      event: '@events.workshop'
+      name: 'Kenji Garnier'
+      email: kenji.garnier@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-15d}}'
+  - key: workshop-27
+    fields:
+      event: '@events.workshop'
+      name: 'Gabriel Benali'
+      email: gabriel.benali@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-14d}}'
+  - key: workshop-28
+    fields:
+      event: '@events.workshop'
+      name: 'Nadia Vidal'
+      email: nadia.vidal@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-14d}}'
+  - key: workshop-29
+    fields:
+      event: '@events.workshop'
+      name: 'Ugo Belkacem'
+      email: ugo.belkacem@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-14d}}'
+  - key: workshop-30
+    fields:
+      event: '@events.workshop'
+      name: 'Clément Haddad'
+      email: clement.haddad@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-14d}}'
+  - key: workshop-31
+    fields:
+      event: '@events.workshop'
+      name: 'Jan Petit'
+      email: jan.petit@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-13d}}'
+  - key: workshop-32
+    fields:
+      event: '@events.workshop'
+      name: 'Camille Barreto'
+      email: camille.barreto@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-13d}}'
+  - key: workshop-33
+    fields:
+      event: '@events.workshop'
+      name: 'Ade Lindqvist'
+      email: ade.lindqvist@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-13d}}'
+  - key: workshop-34
+    fields:
+      event: '@events.workshop'
+      name: 'Amara Laurent'
+      email: amara.laurent@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-13d}}'
+  - key: workshop-35
+    fields:
+      event: '@events.workshop'
+      name: 'Chloé Jensen'
+      email: chloe.jensen@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-12d}}'
+  - key: workshop-36
+    fields:
+      event: '@events.workshop'
+      name: 'Julia Watanabe'
+      email: julia.watanabe@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-12d}}'
+  - key: workshop-37
+    fields:
+      event: '@events.workshop'
+      name: 'Quentin Costa'
+      email: quentin.costa@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-12d}}'
+  - key: workshop-38
+    fields:
+      event: '@events.workshop'
+      name: 'Yasmin Marchand'
+      email: yasmin.marchand@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-12d}}'
+  - key: workshop-39
+    fields:
+      event: '@events.workshop'
+      name: 'Felix Aubert'
+      email: felix.aubert@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-11d}}'
+  - key: workshop-40
+    fields:
+      event: '@events.workshop'
+      name: 'Maya Moreau'
+      email: maya.moreau@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-11d}}'
+  - key: workshop-41
+    fields:
+      event: '@events.workshop'
+      name: 'Lena Fischer'
+      email: lena.fischer@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-11d}}'
+  - key: workshop-42
+    fields:
+      event: '@events.workshop'
+      name: 'Léa Bauer'
+      email: lea.bauer@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-10d}}'
+  - key: workshop-43
+    fields:
+      event: '@events.workshop'
+      name: 'Sofia Kowalski'
+      email: sofia.kowalski@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-10d}}'
+  - key: workshop-44
+    fields:
+      event: '@events.workshop'
+      name: 'Fatou Diallo'
+      email: fatou.diallo@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-10d}}'
+  - key: workshop-45
+    fields:
+      event: '@events.workshop'
+      name: 'Marco Schmidt'
+      email: marco.schmidt@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-10d}}'
+  - key: workshop-46
+    fields:
+      event: '@events.workshop'
+      name: 'Thea Martin'
+      email: thea.martin@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-9d}}'
+  - key: workshop-47
+    fields:
+      event: '@events.workshop'
+      name: 'Bianca Okonkwo'
+      email: bianca.okonkwo@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-9d}}'
+  - key: workshop-48
+    fields:
+      event: '@events.workshop'
+      name: 'Inès Tanaka'
+      email: ines.tanaka@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-9d}}'
+  - key: workshop-49
+    fields:
+      event: '@events.workshop'
+      name: 'Pierre Russo'
+      email: pierre.russo@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-9d}}'
+  - key: workshop-50
+    fields:
+      event: '@events.workshop'
+      name: 'Mei Durand'
+      email: mei.durand@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-8d}}'
+  - key: workshop-51
+    fields:
+      event: '@events.workshop'
+      name: 'Jonas Rossi'
+      email: jonas.rossi@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-8d}}'
+  - key: workshop-52
+    fields:
+      event: '@events.workshop'
+      name: 'Bastien Mensah'
+      email: bastien.mensah@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-8d}}'
+  - key: workshop-53
+    fields:
+      event: '@events.workshop'
+      name: 'Idris Ferreira'
+      email: idris.ferreira@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-8d}}'
+  - key: workshop-54
+    fields:
+      event: '@events.workshop'
+      name: 'Paula Halvorsen'
+      email: paula.halvorsen@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-7d}}'
+  - key: workshop-55
+    fields:
+      event: '@events.workshop'
+      name: 'Wim Garnier'
+      email: wim.garnier@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-7d}}'
+  - key: workshop-56
+    fields:
+      event: '@events.workshop'
+      name: 'Eva Benali'
+      email: eva.benali@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-7d}}'
+  - key: workshop-57
+    fields:
+      event: '@events.workshop'
+      name: 'Louis Vidal'
+      email: louis.vidal@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-7d}}'
+  - key: workshop-58
+    fields:
+      event: '@events.workshop'
+      name: 'Hugo Belkacem'
+      email: hugo.belkacem@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-6d}}'
+  - key: workshop-59
+    fields:
+      event: '@events.workshop'
+      name: 'Priya Haddad'
+      email: priya.haddad@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-6d}}'
+  - key: workshop-60
+    fields:
+      event: '@events.workshop'
+      name: 'Mateo Petit'
+      email: mateo.petit@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-6d}}'
+  - key: workshop-61
+    fields:
+      event: '@events.workshop'
+      name: 'Emeka Sørensen'
+      email: emeka.sorensen@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-6d}}'
+  - key: workshop-62
+    fields:
+      event: '@events.workshop'
+      name: 'Lucie Novak'
+      email: lucie.novak@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-5d}}'
+  - key: workshop-63
+    fields:
+      event: '@events.workshop'
+      name: 'Samir Ndiaye'
+      email: samir.ndiaye@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-5d}}'
+  - key: workshop-64
+    fields:
+      event: '@events.workshop'
+      name: 'Anton Dupont'
+      email: anton.dupont@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-5d}}'
+  - key: workshop-65
+    fields:
+      event: '@events.workshop'
+      name: 'Hamza Byrne'
+      email: hamza.byrne@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-5d}}'
+  - key: workshop-66
+    fields:
+      event: '@events.workshop'
+      name: 'Olga Silva'
+      email: olga.silva@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-4d}}'
+  - key: workshop-67
+    fields:
+      event: '@events.workshop'
+      name: 'Orla Keller'
+      email: orla.keller@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-4d}}'
+  - key: workshop-68
+    fields:
+      event: '@events.workshop'
+      name: 'Nora Weber'
+      email: nora.weber@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-4d}}'
+  - key: workshop-69
+    fields:
+      event: '@events.workshop'
+      name: 'Aisha Raman'
+      email: aisha.raman@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-4d}}'
+  - key: workshop-70
+    fields:
+      event: '@events.workshop'
+      name: 'Hanna Leroy'
+      email: hanna.leroy@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-3d}}'
+  - key: workshop-71
+    fields:
+      event: '@events.workshop'
+      name: 'Oskar Nowak'
+      email: oskar.nowak@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-3d}}'
+  - key: workshop-72
+    fields:
+      event: '@events.workshop'
+      name: 'Vera Barreto'
+      email: vera.barreto@kestrel-studio.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-3d}}'
+  - key: workshop-73
+    fields:
+      event: '@events.workshop'
+      name: 'Dara Lindqvist'
+      email: dara.lindqvist@cardinal-freight.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-3d}}'
+  - key: workshop-74
+    fields:
+      event: '@events.workshop'
+      name: 'Kaia Laurent'
+      email: kaia.laurent@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-2d}}'
+  - key: workshop-75
+    fields:
+      event: '@events.workshop'
+      name: 'Ingrid Jensen'
+      email: ingrid.jensen@meridian-care.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-2d}}'
+  - key: workshop-76
+    fields:
+      event: '@events.workshop'
+      name: 'Farid Watanabe'
+      email: farid.watanabe@lumen-analytics.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-2d}}'
+  - key: workshop-77
+    fields:
+      event: '@events.workshop'
+      name: 'Élodie Costa'
+      email: elodie.costa@harbor-logistics.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-2d}}'
+  - key: workshop-78
+    fields:
+      event: '@events.workshop'
+      name: 'Daniel Marchand'
+      email: daniel.marchand@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-1d}}'
+  - key: workshop-79
+    fields:
+      event: '@events.workshop'
+      name: 'Karim Aubert'
+      email: karim.aubert@brightline.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-1d}}'
+  - key: workshop-80
+    fields:
+      event: '@events.workshop'
+      name: 'Rosa Moreau'
+      email: rosa.moreau@atlas-integrations.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-1d}}'
+  - key: workshop-81
+    fields:
+      event: '@events.workshop'
+      name: 'Zoé Fischer'
+      email: zoe.fischer@northwind.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-1d}}'
+  - key: workshop-82
+    fields:
+      event: '@events.workshop'
+      name: 'Greta Bauer'
+      email: greta.bauer@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today}}'
+  - key: workshop-83
+    fields:
+      event: '@events.workshop'
+      name: 'Nils Kowalski'
+      email: nils.kowalski@pinewood.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today}}'
+  - key: jam-1
+    fields:
+      event: '@events.jam'
+      name: 'Orla Byrne'
       email: orla.byrne@pinewood.example
       status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-9d}}'
+  - key: jam-2
+    fields:
+      event: '@events.jam'
+      name: 'Sven Diallo'
+      email: sven.diallo@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-21d}}'
+  - key: jam-3
+    fields:
+      event: '@events.jam'
+      name: 'Tomás Schmidt'
+      email: tomas.schmidt@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-20d}}'
+  - key: jam-4
+    fields:
+      event: '@events.jam'
+      name: 'Kenji Martin'
+      email: kenji.martin@orchard-labs.example
+      status: Confirmed
+      registered_at: '{{today-20d}}'
+  - key: jam-5
+    fields:
+      event: '@events.jam'
+      name: 'Gabriel Okonkwo'
+      email: gabriel.okonkwo@meridian-care.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-19d}}'
+  - key: jam-6
+    fields:
+      event: '@events.jam'
+      name: 'Nadia Tanaka'
+      email: nadia.tanaka@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-19d}}'
+  - key: jam-7
+    fields:
+      event: '@events.jam'
+      name: 'Ugo Russo'
+      email: ugo.russo@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-18d}}'
+  - key: jam-8
+    fields:
+      event: '@events.jam'
+      name: 'Clément Durand'
+      email: clement.durand@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-18d}}'
+  - key: jam-9
+    fields:
+      event: '@events.jam'
+      name: 'Jan Rossi'
+      email: jan.rossi@brightline.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-17d}}'
+  - key: jam-10
+    fields:
+      event: '@events.jam'
+      name: 'Camille Ndiaye'
+      email: camille.ndiaye@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-17d}}'
+  - key: jam-11
+    fields:
+      event: '@events.jam'
+      name: 'Ade Dupont'
+      email: ade.dupont@northwind.example
+      status: Confirmed
+      registered_at: '{{today-16d}}'
+  - key: jam-12
+    fields:
+      event: '@events.jam'
+      name: 'Amara Byrne'
+      email: amara.byrne@quarry-data.example
+      status: Confirmed
+      registered_at: '{{today-16d}}'
+  - key: jam-13
+    fields:
+      event: '@events.jam'
+      name: 'Chloé Silva'
+      email: chloe.silva@pinewood.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-15d}}'
+  - key: jam-14
+    fields:
+      event: '@events.jam'
+      name: 'Julia Keller'
+      email: julia.keller@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-15d}}'
+  - key: jam-15
+    fields:
+      event: '@events.jam'
+      name: 'Quentin Weber'
+      email: quentin.weber@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-14d}}'
+  - key: jam-16
+    fields:
+      event: '@events.jam'
+      name: 'Yasmin Raman'
+      email: yasmin.raman@orchard-labs.example
+      status: Confirmed
+      registered_at: '{{today-14d}}'
+  - key: jam-17
+    fields:
+      event: '@events.jam'
+      name: 'Felix Leroy'
+      email: felix.leroy@meridian-care.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-13d}}'
+  - key: jam-18
+    fields:
+      event: '@events.jam'
+      name: 'Maya Nowak'
+      email: maya.nowak@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-13d}}'
+  - key: jam-19
+    fields:
+      event: '@events.jam'
+      name: 'Lena Barreto'
+      email: lena.barreto@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-12d}}'
+  - key: jam-20
+    fields:
+      event: '@events.jam'
+      name: 'Léa Lindqvist'
+      email: lea.lindqvist@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-12d}}'
+  - key: jam-21
+    fields:
+      event: '@events.jam'
+      name: 'Sofia Laurent'
+      email: sofia.laurent@brightline.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-11d}}'
+  - key: jam-22
+    fields:
+      event: '@events.jam'
+      name: 'Fatou Jensen'
+      email: fatou.jensen@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-11d}}'
+  - key: jam-23
+    fields:
+      event: '@events.jam'
+      name: 'Marco Watanabe'
+      email: marco.watanabe@northwind.example
+      status: Confirmed
+      registered_at: '{{today-10d}}'
+  - key: jam-24
+    fields:
+      event: '@events.jam'
+      name: 'Thea Costa'
+      email: thea.costa@quarry-data.example
+      status: Confirmed
+      registered_at: '{{today-10d}}'
+  - key: jam-25
+    fields:
+      event: '@events.jam'
+      name: 'Bianca Marchand'
+      email: bianca.marchand@pinewood.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-10d}}'
+  - key: jam-26
+    fields:
+      event: '@events.jam'
+      name: 'Inès Aubert'
+      email: ines.aubert@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-9d}}'
+  - key: jam-27
+    fields:
+      event: '@events.jam'
+      name: 'Pierre Moreau'
+      email: pierre.moreau@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-9d}}'
+  - key: jam-28
+    fields:
+      event: '@events.jam'
+      name: 'Mei Fischer'
+      email: mei.fischer@orchard-labs.example
+      status: Confirmed
+      registered_at: '{{today-8d}}'
+  - key: jam-29
+    fields:
+      event: '@events.jam'
+      name: 'Jonas Bauer'
+      email: jonas.bauer@meridian-care.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-8d}}'
+  - key: jam-30
+    fields:
+      event: '@events.jam'
+      name: 'Bastien Kowalski'
+      email: bastien.kowalski@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: jam-31
+    fields:
+      event: '@events.jam'
+      name: 'Idris Diallo'
+      email: idris.diallo@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: jam-32
+    fields:
+      event: '@events.jam'
+      name: 'Paula Schmidt'
+      email: paula.schmidt@helios-health.example
+      status: Confirmed
+      registered_at: '{{today-6d}}'
+  - key: jam-33
+    fields:
+      event: '@events.jam'
+      name: 'Wim Martin'
+      email: wim.martin@brightline.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-6d}}'
+  - key: jam-34
+    fields:
+      event: '@events.jam'
+      name: 'Eva Okonkwo'
+      email: eva.okonkwo@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-5d}}'
+  - key: jam-35
+    fields:
+      event: '@events.jam'
+      name: 'Louis Tanaka'
+      email: louis.tanaka@northwind.example
+      status: Confirmed
+      registered_at: '{{today-5d}}'
+  - key: jam-36
+    fields:
+      event: '@events.jam'
+      name: 'Hugo Russo'
+      email: hugo.russo@quarry-data.example
+      status: Confirmed
+      registered_at: '{{today-4d}}'
+  - key: jam-37
+    fields:
+      event: '@events.jam'
+      name: 'Priya Durand'
+      email: priya.durand@pinewood.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-4d}}'
+  - key: jam-38
+    fields:
+      event: '@events.jam'
+      name: 'Mateo Rossi'
+      email: mateo.rossi@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-3d}}'
+  - key: jam-39
+    fields:
+      event: '@events.jam'
+      name: 'Emeka Mensah'
+      email: emeka.mensah@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-3d}}'
+  - key: jam-40
+    fields:
+      event: '@events.jam'
+      name: 'Lucie Ferreira'
+      email: lucie.ferreira@orchard-labs.example
+      status: Confirmed
+      registered_at: '{{today-2d}}'
+  - key: jam-41
+    fields:
+      event: '@events.jam'
+      name: 'Samir Halvorsen'
+      email: samir.halvorsen@meridian-care.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-2d}}'
+  - key: jam-42
+    fields:
+      event: '@events.jam'
+      name: 'Anton Garnier'
+      email: anton.garnier@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-1d}}'
+  - key: jam-43
+    fields:
+      event: '@events.jam'
+      name: 'Hamza Benali'
+      email: hamza.benali@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-1d}}'
+  - key: jam-44
+    fields:
+      event: '@events.jam'
+      name: 'Olga Vidal'
+      email: olga.vidal@helios-health.example
+      status: Confirmed
+      registered_at: '{{today}}'
+  - key: jam-45
+    fields:
+      event: '@events.jam'
+      name: 'Orla Belkacem'
+      email: orla.belkacem@brightline.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today}}'
+  - key: jam-wait-1
+    fields:
+      event: '@events.jam'
+      name: 'Mei Watanabe'
+      email: mei.watanabe@northwind.example
+      status: Waitlist
+      registered_at: '{{today-4d}}'
+  - key: jam-wait-2
+    fields:
+      event: '@events.jam'
+      name: 'Nora Haddad'
+      email: nora.haddad@atlas-integrations.example
+      status: Waitlist
+      registered_at: '{{today-3d}}'
+  - key: jam-wait-3
+    fields:
+      event: '@events.jam'
+      name: 'Aisha Petit'
+      email: aisha.petit@northwind.example
+      status: Waitlist
+      registered_at: '{{today-2d}}'
+  - key: meetup-1
+    fields:
+      event: '@events.meetup'
+      name: 'Hanna Sørensen'
+      email: hanna.sorensen@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-21d}}'
+  - key: meetup-2
+    fields:
+      event: '@events.meetup'
+      name: 'Oskar Novak'
+      email: oskar.novak@pinewood.example
+      status: Confirmed
+      registered_at: '{{today-20d}}'
+  - key: meetup-3
+    fields:
+      event: '@events.meetup'
+      name: 'Vera Ndiaye'
+      email: vera.ndiaye@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-20d}}'
+  - key: meetup-4
+    fields:
+      event: '@events.meetup'
+      name: 'Dara Dupont'
+      email: dara.dupont@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-19d}}'
+  - key: meetup-5
+    fields:
+      event: '@events.meetup'
+      name: 'Kaia Byrne'
+      email: kaia.byrne@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-19d}}'
+  - key: meetup-6
+    fields:
+      event: '@events.meetup'
+      name: 'Ingrid Silva'
+      email: ingrid.silva@meridian-care.example
+      status: Confirmed
+      registered_at: '{{today-18d}}'
+  - key: meetup-7
+    fields:
+      event: '@events.meetup'
+      name: 'Farid Keller'
+      email: farid.keller@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-18d}}'
+  - key: meetup-8
+    fields:
+      event: '@events.meetup'
+      name: 'Élodie Weber'
+      email: elodie.weber@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-17d}}'
+  - key: meetup-9
+    fields:
+      event: '@events.meetup'
+      name: 'Daniel Raman'
+      email: daniel.raman@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-17d}}'
+  - key: meetup-10
+    fields:
+      event: '@events.meetup'
+      name: 'Karim Leroy'
+      email: karim.leroy@brightline.example
+      status: Confirmed
+      registered_at: '{{today-16d}}'
+  - key: meetup-11
+    fields:
+      event: '@events.meetup'
+      name: 'Rosa Nowak'
+      email: rosa.nowak@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-16d}}'
+  - key: meetup-12
+    fields:
+      event: '@events.meetup'
+      name: 'Zoé Barreto'
+      email: zoe.barreto@northwind.example
+      status: Confirmed
+      registered_at: '{{today-15d}}'
+  - key: meetup-13
+    fields:
+      event: '@events.meetup'
+      name: 'Greta Lindqvist'
+      email: greta.lindqvist@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-15d}}'
+  - key: meetup-14
+    fields:
+      event: '@events.meetup'
+      name: 'Nils Laurent'
+      email: nils.laurent@pinewood.example
+      status: Confirmed
+      registered_at: '{{today-14d}}'
+  - key: meetup-15
+    fields:
+      event: '@events.meetup'
+      name: 'Sven Jensen'
+      email: sven.jensen@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-14d}}'
+  - key: meetup-16
+    fields:
+      event: '@events.meetup'
+      name: 'Tomás Watanabe'
+      email: tomas.watanabe@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-13d}}'
+  - key: meetup-17
+    fields:
+      event: '@events.meetup'
+      name: 'Kenji Costa'
+      email: kenji.costa@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-13d}}'
+  - key: meetup-18
+    fields:
+      event: '@events.meetup'
+      name: 'Gabriel Marchand'
+      email: gabriel.marchand@meridian-care.example
+      status: Confirmed
+      registered_at: '{{today-12d}}'
+  - key: meetup-19
+    fields:
+      event: '@events.meetup'
+      name: 'Nadia Aubert'
+      email: nadia.aubert@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-12d}}'
+  - key: meetup-20
+    fields:
+      event: '@events.meetup'
+      name: 'Ugo Moreau'
+      email: ugo.moreau@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-11d}}'
+  - key: meetup-21
+    fields:
+      event: '@events.meetup'
+      name: 'Clément Fischer'
+      email: clement.fischer@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-11d}}'
+  - key: meetup-22
+    fields:
+      event: '@events.meetup'
+      name: 'Jan Bauer'
+      email: jan.bauer@brightline.example
+      status: Confirmed
+      registered_at: '{{today-10d}}'
+  - key: meetup-23
+    fields:
+      event: '@events.meetup'
+      name: 'Camille Halvorsen'
+      email: camille.halvorsen@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-10d}}'
+  - key: meetup-24
+    fields:
+      event: '@events.meetup'
+      name: 'Ade Garnier'
+      email: ade.garnier@northwind.example
+      status: Confirmed
+      registered_at: '{{today-9d}}'
+  - key: meetup-25
+    fields:
+      event: '@events.meetup'
+      name: 'Amara Benali'
+      email: amara.benali@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-9d}}'
+  - key: meetup-26
+    fields:
+      event: '@events.meetup'
+      name: 'Chloé Vidal'
+      email: chloe.vidal@pinewood.example
+      status: Confirmed
+      registered_at: '{{today-8d}}'
+  - key: meetup-27
+    fields:
+      event: '@events.meetup'
+      name: 'Julia Belkacem'
+      email: julia.belkacem@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-8d}}'
+  - key: meetup-28
+    fields:
+      event: '@events.meetup'
+      name: 'Quentin Haddad'
+      email: quentin.haddad@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-7d}}'
+  - key: meetup-29
+    fields:
+      event: '@events.meetup'
+      name: 'Yasmin Petit'
+      email: yasmin.petit@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-7d}}'
+  - key: meetup-30
+    fields:
+      event: '@events.meetup'
+      name: 'Felix Sørensen'
+      email: felix.sorensen@meridian-care.example
+      status: Confirmed
+      registered_at: '{{today-6d}}'
+  - key: meetup-31
+    fields:
+      event: '@events.meetup'
+      name: 'Maya Novak'
+      email: maya.novak@lumen-analytics.example
+      status: Confirmed
+      registered_at: '{{today-6d}}'
+  - key: meetup-32
+    fields:
+      event: '@events.meetup'
+      name: 'Lena Ndiaye'
+      email: lena.ndiaye@harbor-logistics.example
+      status: Confirmed
+      registered_at: '{{today-5d}}'
+  - key: meetup-33
+    fields:
+      event: '@events.meetup'
+      name: 'Léa Dupont'
+      email: lea.dupont@helios-health.example
+      status: Confirmed
+      answer: Nothing yet, just curious
+      registered_at: '{{today-5d}}'
+  - key: meetup-34
+    fields:
+      event: '@events.meetup'
+      name: 'Sofia Byrne'
+      email: sofia.byrne@brightline.example
+      status: Confirmed
+      registered_at: '{{today-4d}}'
+  - key: meetup-35
+    fields:
+      event: '@events.meetup'
+      name: 'Fatou Silva'
+      email: fatou.silva@atlas-integrations.example
+      status: Confirmed
+      registered_at: '{{today-4d}}'
+  - key: meetup-36
+    fields:
+      event: '@events.meetup'
+      name: 'Marco Keller'
+      email: marco.keller@northwind.example
+      status: Confirmed
+      registered_at: '{{today-3d}}'
+  - key: meetup-37
+    fields:
+      event: '@events.meetup'
+      name: 'Thea Weber'
+      email: thea.weber@quarry-data.example
+      status: Confirmed
+      answer: A spreadsheet we use every week
+      registered_at: '{{today-3d}}'
+  - key: meetup-38
+    fields:
+      event: '@events.meetup'
+      name: 'Bianca Raman'
+      email: bianca.raman@pinewood.example
+      status: Confirmed
+      registered_at: '{{today-2d}}'
+  - key: meetup-39
+    fields:
+      event: '@events.meetup'
+      name: 'Inès Leroy'
+      email: ines.leroy@kestrel-studio.example
+      status: Confirmed
+      registered_at: '{{today-2d}}'
+  - key: meetup-40
+    fields:
+      event: '@events.meetup'
+      name: 'Pierre Nowak'
+      email: pierre.nowak@cardinal-freight.example
+      status: Confirmed
+      registered_at: '{{today-1d}}'
+  - key: meetup-41
+    fields:
+      event: '@events.meetup'
+      name: 'Mei Barreto'
+      email: mei.barreto@orchard-labs.example
+      status: Confirmed
+      answer: A process we still run by hand
+      registered_at: '{{today-1d}}'
+  - key: meetup-42
+    fields:
+      event: '@events.meetup'
+      name: 'Jonas Lindqvist'
+      email: jonas.lindqvist@meridian-care.example
+      status: Confirmed
+      registered_at: '{{today}}'

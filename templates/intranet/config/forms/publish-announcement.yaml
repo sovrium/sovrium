@@ -1,0 +1,39 @@
+# The Publish page's form (config/pages/publish.yaml). Only managers and IT
+# can open it; everyone else is sent to sign in and never sees it.
+#
+# A date under "Acknowledge by" turns the announcement into a must-read: it
+# goes on top of everyone's Home with that date and the count of people who
+# have acknowledged it. Left empty, it is ordinary news. It is signed with
+# the publisher's name and dated today by
+# config/automations/sign-new-announcement.yaml.
+id: 1
+name: publish-announcement
+title: Publish an announcement
+description: It reaches everyone's Home as soon as you publish.
+access:
+  require: [admin, managers]
+submitTo:
+  table: posts
+display:
+  submitLabel: Publish
+onSuccess:
+  type: redirect
+  url: /portal
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: title
+    required: true
+    label: Title
+  - kind: table-field
+    column: body
+    required: true
+    label: Announcement
+  - kind: table-field
+    column: topic
+    label: Topic
+    helpText: Left empty, it is filed under Company.
+  - kind: table-field
+    column: must_read_by
+    label: Acknowledge by
+    helpText: Set a date to turn it into a must-read.
