@@ -50,9 +50,10 @@ components:
               # figures step down a size so a full amount still fits.
               - type: grid
                 props:
-                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
                 children:
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Open pipeline
                     dataSource:
                       table: deals
@@ -61,6 +62,7 @@ components:
                     kpiAggregate: { function: sum, field: value }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Active projects
                     dataSource:
                       table: projects
@@ -69,6 +71,7 @@ components:
                     kpiAggregate: { function: count }
                     kpiFormat: { type: number }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Open tickets
                     dataSource:
                       table: tickets
@@ -77,6 +80,7 @@ components:
                     kpiAggregate: { function: count }
                     kpiFormat: { type: number }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Waiting on a decision
                     dataSource:
                       table: time_off_requests
@@ -140,8 +144,7 @@ components:
                       # unlabelled so four names never overlap on a small slice.
                       - type: chart
                         chartType: donut
-                        props:
-                          className: '[&_svg_text]:hidden'
+                        dataLabels: false
                         dataSource:
                           table: deals
                           filter:
@@ -172,8 +175,6 @@ components:
                           className: -mt-1.5 text-xs text-foreground-muted
                         content: Across the four modules, most urgent first
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: tickets
                           filter:
@@ -181,6 +182,7 @@ components:
                             - { field: status, operator: in, value: [New, Open] }
                           limit: 5
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No urgent ticket is open.
                           itemTemplate:
                             title: $record.subject
@@ -188,9 +190,10 @@ components:
                             metadata:
                               - { field: company_name, format: text }
                               - { field: assignee, format: text }
+                        classes:
+                          parts:
+                            item: gap-y-1
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: project_tasks
                           filter:
@@ -199,6 +202,7 @@ components:
                             - { field: due_date, direction: asc }
                           limit: 5
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No task is late.
                           itemTemplate:
                             title: $record.title
@@ -206,24 +210,27 @@ components:
                             metadata:
                               - { field: project_name, format: text }
                               - { field: due_date, format: short-date }
+                        classes:
+                          parts:
+                            item: gap-y-1
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: deals
                           filter:
                             - { field: health, operator: eq, value: Close date passed }
                           limit: 5
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No open deal is past its close date.
                           itemTemplate:
                             title: $record.name
                             badge: Close date passed
                             metadata:
                               - { field: company_name, format: text }
+                        classes:
+                          parts:
+                            item: gap-y-1
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: time_off_requests
                           filter:
@@ -232,6 +239,7 @@ components:
                             - { field: start_date, direction: asc }
                           limit: 5
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No time off waits on a decision.
                           itemTemplate:
                             title: $record.employee_name
@@ -239,3 +247,7 @@ components:
                             metadata:
                               - { field: type, format: text }
                               - { field: start_date, format: short-date }
+
+                        classes:
+                          parts:
+                            item: gap-y-1

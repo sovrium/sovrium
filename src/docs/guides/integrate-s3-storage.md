@@ -20,6 +20,14 @@ sovrium start app.yaml
 
 The storage backend is operator-controlled and deliberately kept out of the app schema — the same config runs against local disk in development and S3 in production.
 
+## Keep the bucket private
+
+Sovrium's bucket permissions only govern requests that go through Sovrium. Anyone who can reach the S3 bucket directly bypasses them, so:
+
+- **Keep the S3 bucket private** — no public-read policy and no public ACLs. Sovrium serves files itself, or through short-lived signed links, so nothing needs public access to the bucket.
+- **Give the access key only what Sovrium uses** — read, write, delete and list objects (`s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`) on that one bucket, and nothing on any other.
+- **Keep the secret key in the environment**, never in the config file.
+
 ## Verify
 
 Upload a file through any bucket-backed attachment field or form upload; the object lands in your S3 bucket.

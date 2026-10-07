@@ -19,7 +19,7 @@
  *
  * ─── AUTHORISATION ──────────────────────────────────────────────────────────
  *
- * [internal ref] amendment **A6** (ratified 2026-09-16), surface 8. A6 extends A1's
+ * [internal ref] amendment **A6**, surface 8. A6 extends A1's
  * invariant — reading the running configuration is observability, mutating it
  * is authoring — with the one A1 could not state, because A1 had no ledger to
  * reason about:
@@ -183,7 +183,7 @@ export const engineMigrationEntrySchema = Schema.Struct({
   description: 'One drizzle migration folder applied since the previous ledger row',
 })
 
-/** @public Awaiting the route in `presentation/api/admin/releases-routes.ts`. */
+/** @public The wire type of a releases read served by `application/use-cases/admin/release-read-operations.ts`. */
 export type AdminReleaseEngineMigration = typeof engineMigrationEntrySchema.Type
 
 /**
@@ -215,7 +215,7 @@ export const schemaChangeEntrySchema = Schema.Struct({
   description: 'One app-table DDL statement the engine derived from the config diff at boot',
 })
 
-/** @public Awaiting the route in `presentation/api/admin/releases-routes.ts`. */
+/** @public The wire type of a releases read served by `application/use-cases/admin/release-read-operations.ts`. */
 export type AdminReleaseSchemaChange = typeof schemaChangeEntrySchema.Type
 
 /**
@@ -236,7 +236,7 @@ export const releaseSummarySchema = Schema.Struct({
   description: 'One boot-ledger row as the timeline renders it',
 })
 
-/** @public Awaiting the route in `presentation/api/admin/releases-routes.ts`. */
+/** @public The wire type of a releases read served by `application/use-cases/admin/release-read-operations.ts`. */
 export type AdminReleaseSummary = typeof releaseSummarySchema.Type
 
 /**
@@ -281,7 +281,7 @@ export const releasesListResponseSchema = Schema.Struct({
     'The boot ledger newest-first, with flat totals beside it for direct $record. binding',
 })
 
-/** @public Awaiting the route in `presentation/api/admin/releases-routes.ts`. */
+/** @public The wire type of a releases read served by `application/use-cases/admin/release-read-operations.ts`. */
 export type AdminReleasesListResponse = typeof releasesListResponseSchema.Type
 
 /**
@@ -329,5 +329,5 @@ export const releaseDetailResponseSchema = Schema.Struct({
     'One boot, its derived DDL and engine migrations, and its row-to-row diff against the boot before it',
 })
 
-/** @public Awaiting the route in `presentation/api/admin/releases-routes.ts`. */
+/** @public The wire type of a releases read served by `application/use-cases/admin/release-read-operations.ts`. */
 export type AdminReleaseDetailResponse = typeof releaseDetailResponseSchema.Type

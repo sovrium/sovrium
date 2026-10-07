@@ -6,13 +6,14 @@
  */
 
 import { resolveTriggerInString } from '@/application/use-cases/automations/resolve-trigger-data'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { App } from '@/domain/models/app'
 
 /**
  * Webhook per-trigger deduplication (in-memory, TTL-bounded). Mirrors the
  * pattern used by `webhook-rate-limit.ts` — a process-local Map keyed by
- * `automationName:dedupKey`. [internal ref].
+ * `automationName:dedupKey`.
  *
  * The dedup key is computed from the request body via the trigger's
  * `deduplicationKey` template (e.g. `'{{body.orderId}}'`); the same key
@@ -48,8 +49,9 @@ export const checkAndRecordDedup = (input: {
   readonly automationName: string
   readonly trigger: WebhookTrigger
   readonly triggerData: TriggerData
+  readonly templates: TemplateRenderer
 }): { readonly isDuplicate: boolean } => {
-  const { automationName, trigger, triggerData } = input
+  const { automationName, trigger, triggerData, templates } = input
   const keyTemplate = trigger.deduplicationKey
   if (keyTemplate === undefined || keyTemplate === '') return { isDuplicate: false }
 
@@ -58,7 +60,7 @@ export const checkAndRecordDedup = (input: {
   // automation context so authors can also use `{{trigger.data.body.X}}`
   // if they prefer the longer form.
   const ctx = { body: triggerData.body ?? {}, trigger: { data: triggerData } }
-  const resolved = resolveTriggerInString(keyTemplate, ctx)
+  const resolved = resolveTriggerInString(keyTemplate, ctx, templates)
   if (resolved === '' || resolved === 'undefined' || resolved === 'null') {
     return { isDuplicate: false }
   }
@@ -71,7 +73,6 @@ export const checkAndRecordDedup = (input: {
   if (existing !== undefined && now - existing.seenAtMs < windowMs) {
     return { isDuplicate: true }
   }
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable state, mirrored from webhook-rate-limit
   dedupState.set(cacheKey, { seenAtMs: now })
   return { isDuplicate: false }
 }

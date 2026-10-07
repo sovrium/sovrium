@@ -11,6 +11,10 @@ cards, Locations the places they sit.
 
 - **Tables** (4): locations, assets, check_outs, asset_events
 - **Pages** (5): register (`/`), lifecycle, gallery, locations, sign-in
+- **Automations** (2): register-export (the register to a dated CSV in storage on the first
+  of each month, with `file.generateCsv`), and record-to-teams-channel — a library recipe
+  (`library/recipe/`, with its `library/connection/microsoft-365.yaml`) posting each asset
+  event to a Teams channel once the Microsoft keys are set
 - **Singletons**: auth, design
 - **Seed data**: `seed/` — five sign-in accounts, five locations, fourteen assets, their
   check-outs and their history, dated relative to the day you seed

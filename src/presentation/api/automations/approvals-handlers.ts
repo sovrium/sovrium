@@ -57,7 +57,6 @@ export const resolveApprovalCaller = async (
   return { ok: true, caller: loaded.success }
 }
 
-/* eslint-disable unicorn/no-null -- the wire row declares these timestamps nullable */
 const toWireApproval = (row: ListedApproval) => ({
   approvalId: row.id,
   runId: row.runId,
@@ -69,7 +68,6 @@ const toWireApproval = (row: ListedApproval) => ({
   expiresAt: row.expiresAt === null ? null : row.expiresAt.toISOString(),
   resolvedAt: row.respondedAt === null ? null : row.respondedAt.toISOString(),
 })
-/* eslint-enable unicorn/no-null */
 
 /**
  * Handle GET /api/automations/approvals?status=pending|approved|rejected

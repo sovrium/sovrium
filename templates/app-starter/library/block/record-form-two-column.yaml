@@ -1,0 +1,15 @@
+# sovrium-library: block/record-form-two-column@0.30.0
+name: record-form-two-column
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: card
+    props:
+      className: max-w-3xl px-6 py-5
+    children:
+      - type: form
+        formRef: record-form-two-column
+        props:
+          headingLevel: h3

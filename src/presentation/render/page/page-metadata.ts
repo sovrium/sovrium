@@ -199,11 +199,11 @@ function determineKeywords(
 /**
  * Extracts and computes metadata from page configuration.
  *
- * The active `lang` is supplied by the caller rather than re-derived here. This
- * file used to carry its OWN copy of the locale precedence chain, independent of
- * `resolvePageLanguage` — so a fix to one left the other stale and shipped a
- * French page with an English `<title>`. There is now a
- * single source of truth: `resolvePageLanguage`.
+ * The active `lang` is supplied by the caller rather than re-derived here. A
+ * private copy of the locale precedence chain, independent of
+ * `resolvePageLanguage`, lets a fix to one leave the other stale — shipping a
+ * French page with an English `<title>`. There is one source of truth:
+ * `resolvePageLanguage`.
  *
  * @param page - Page configuration
  * @param design - Optional design configuration

@@ -6,13 +6,17 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { createRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient, createViewRecordsClient } from '@/presentation/api/client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useLiveRefresh, type LiveRefreshSource } from '../hooks/use-realtime-subscription'
 import type { SharedFilterBindingConfig } from '../hooks/use-shared-filter'
 import type { TableRecord } from '../runtime/types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
 const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')
+const viewsClient = createViewRecordsClient(
+  typeof window !== 'undefined' ? window.location.origin : ''
+)
 
 const DOMAIN_TO_API_OPERATOR: Record<string, string> = {
   eq: 'equals',
@@ -24,7 +28,7 @@ const DOMAIN_TO_API_OPERATOR: Record<string, string> = {
   contains: 'contains',
 }
 
-function buildFilterParam(filters: readonly DataFilter[] | undefined): string | undefined {
+export function buildFilterParam(filters: readonly DataFilter[] | undefined): string | undefined {
   if (!filters || filters.length === 0) return undefined
   const conditions = filters.map((f) => ({
     field: f.field,
@@ -39,7 +43,20 @@ function buildSortParam(sort: readonly DataSort[] | undefined): string | undefin
   return sort.map((s) => `${s.field}:${s.direction}`).join(',')
 }
 
-export interface ChartRecordsDataSource extends SharedFilterBindingConfig {
+/** One page of records — through the bound view's route when there is one, so the view's filter applies. */
+const requestRecords = (
+  table: string,
+  view: string | undefined,
+  query: Readonly<Record<string, string>>
+) =>
+  view === undefined
+    ? apiClient.api.tables[':tableId'].records.$get({ param: { tableId: table }, query })
+    : viewsClient.api.tables[':tableId'].views[':viewId'].records.$get({
+        param: { tableId: table, viewId: view },
+        query,
+      })
+
+export interface ChartRecordsDataSource extends SharedFilterBindingConfig, LiveRefreshSource {
   readonly table: string
   readonly view?: string
   readonly filter?: readonly DataFilter[]
@@ -65,9 +82,16 @@ export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) 
   const { filterParam, extraParams } = shared
   const sortParam = buildSortParam(dataSource?.sort)
 
-  const queryKey = ['chart-records', dataSource?.table, filterParam, sortParam, extraParams]
+  const queryKey = [
+    'chart-records',
+    dataSource?.table,
+    dataSource?.view,
+    filterParam,
+    sortParam,
+    extraParams,
+  ]
 
-  return useQuery({
+  const read = useQuery({
     queryKey,
     enabled: Boolean(dataSource?.table) && shared.ready,
     queryFn: async (): Promise<ChartFetchResult> => {
@@ -81,14 +105,10 @@ export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) 
         ...(filterParam && { filter: filterParam }),
       }
 
-      const res = await apiClient.api.tables[':tableId'].records.$get({
-        param: { tableId: dataSource.table },
-        query,
-      })
+      const res = await requestRecords(dataSource.table, dataSource.view, query)
 
       if (!res.ok) {
         const body = await res.text()
-        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)
       }
 
@@ -105,4 +125,7 @@ export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) 
       return { records: flatRecords }
     },
   })
+  // A `dataSource.refreshMode` reads the page of records again (a view-bound chart stays static).
+  useLiveRefresh(dataSource, read.refetch)
+  return read
 }

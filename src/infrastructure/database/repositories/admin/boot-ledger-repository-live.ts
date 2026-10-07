@@ -134,7 +134,6 @@ const decodeRowWithSnapshot = (
 const newestWhere = (
   // drizzle's `SQL` is a class carrying its own methods; `Readonly<SQL>` drops them and
   // the query builder then refuses the value outright.
-  // eslint-disable-next-line functional/prefer-immutable-types -- third-party mutable type
   condition: ReturnType<typeof and>
 ): Effect.Effect<BootLedgerEntryWithSnapshot | undefined, BootLedgerDatabaseError> =>
   wrap(() =>
@@ -212,7 +211,6 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
 
   insert: (entry) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(bootLedger).values({
         appName: entry.appName,
         ...(entry.appVersion === undefined ? {} : { appVersion: entry.appVersion }),
@@ -241,7 +239,6 @@ export const BootLedgerRepositoryLive = Layer.succeed(BootLedgerRepository, {
         .orderBy(desc(bootLedger.bootedAt))
       const doomed = rows.slice(keep).map((row) => String(row.id))
       if (doomed.length === 0) return
-      // eslint-disable-next-line functional/no-expression-statements
       await db.delete(bootLedger).where(inArray(bootLedger.id, doomed))
     }),
 })

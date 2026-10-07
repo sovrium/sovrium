@@ -116,7 +116,6 @@ export function useSidebarDisclosure(props: SidebarDisclosureIslandProps): Discl
 
   useEffect(() => {
     if (sectionCurrent && !wasCurrent.current) setExpanded(true)
-    // eslint-disable-next-line functional/immutable-data -- the previous-value ref IS the edge detector this effect exists to hold
     wasCurrent.current = sectionCurrent
   }, [sectionCurrent])
 
@@ -131,7 +130,6 @@ export function useSidebarDisclosure(props: SidebarDisclosureIslandProps): Discl
 
   useEffect(() => {
     if (!expanded || source === undefined || requested.current) return
-    // eslint-disable-next-line functional/immutable-data -- the request-once guard IS the state this ref exists to hold
     requested.current = true
     setStatus('loading')
     // Deliberately no cleanup cancelling this: re-opening a disclosure must

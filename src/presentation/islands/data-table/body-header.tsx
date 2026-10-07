@@ -191,8 +191,8 @@ function SortGlyph({ sorted }: { readonly sorted: SortState }): ReactElement {
  * header cell. It exposes `data-resize-handle` AND the `resize-handle` class so
  * spec locators (`locator('.resize-handle, [data-resize-handle]')`) resolve.
  * `onMouseDown` is wired to TanStack Table's `header.getResizeHandler()` —
- * pointer dragging then drives the controlled `columnSizing` state which the
- * orchestrator persists to user preferences. Returns `undefined` when the
+ * pointer dragging then drives the controlled `columnSizing` state, which lasts
+ * for the reader's visit. Returns `undefined` when the
  * column is not resizable.
  */
 function ResizeHandle({ header }: { readonly header: DataTableHeader }): ReactElement | undefined {

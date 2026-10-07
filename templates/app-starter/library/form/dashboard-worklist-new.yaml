@@ -1,0 +1,20 @@
+# sovrium-library: block/dashboard-worklist@0.30.0
+id: 1
+name: dashboard-worklist-new
+title: 'New project'
+submitTo:
+  table: projects
+fields:
+  - kind: table-field
+    column: title
+    label: 'Project'
+  - kind: table-field
+    column: due_date
+    label: 'Due'
+  - kind: table-field
+    column: budget
+    label: 'Budget'
+onSuccess:
+  type: toast
+  message: 'Project added.'
+  variant: success

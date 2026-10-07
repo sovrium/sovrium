@@ -98,7 +98,7 @@ const matchContentDirArticle = (app: App, path: string): ContentDirArticleMatch 
       return { page, contentDir: page.contentDir, slug }
     }
   }
-  // [internal ref]: the collection BASE PATH serves the `contentDir.index` article, so
+  // The collection BASE PATH serves the `contentDir.index` article, so
   // its `<basePath>.md` / `Accept: text/markdown` twins serve the index body.
   const indexMatch = matchContentDirIndexBasePath(pages, path)
   if (indexMatch?.page.contentDir !== undefined) {

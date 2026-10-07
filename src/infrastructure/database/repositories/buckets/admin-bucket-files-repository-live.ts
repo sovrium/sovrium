@@ -37,7 +37,6 @@ const wrap = makeDbWrap((cause) => new AdminBucketFilesDatabaseError({ cause }))
  * data and would cross the engine's placeholder cap (SQLite 32,766, PostgreSQL
  * 65,535), failing the whole listing. See {@link isInValueSet}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- drizzle's `SQL` is an upstream, structurally mutable type; this builder returns it untouched
 const scopeCondition = (scope: AdminBucketFilesScope): SQL => {
   const files = fileStorageMetadataTable()
   const own = eq(files.bucket, scope.bucket)
@@ -124,10 +123,10 @@ const buildSearchConditions = (filters: AdminBucketFilesListFilters): ReadonlyAr
  * row orders oddly, nothing is lost or hidden — and no key Sovrium generates can
  * reach it, since those prefixes are real UUIDs.
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL / Column are upstream drizzle-orm types (structurally mutable); these builders return them untouched and never mutate one */
 const displayFilename = (): SQL => {
   const files = fileStorageMetadataTable()
   const shape = `${'_'.repeat(8)}-${'_'.repeat(4)}-${'_'.repeat(4)}-${'_'.repeat(4)}-${'_'.repeat(12)}-%`
+  // sql-literal: number -- derived from a module constant
   const tail = sql.raw(String(STORAGE_KEY_UUID_PREFIX_LENGTH + 1))
   return sql`CASE WHEN ${files.filename} LIKE ${shape} THEN substr(${files.filename}, ${tail}) ELSE ${files.filename} END`
 }
@@ -136,9 +135,9 @@ const displayFilename = (): SQL => {
  * The ordering expression for one sort key — the SINGLE place a key becomes a
  * column, read by BOTH the `ORDER BY` and the cursor seek.
  *
- * There used to be two such places and they were kept in agreement by hand, plus
- * a third in the use case that encodes the cursor VALUE. That third one is the
- * dangerous one: a seek disagreeing with an ordering still answers 200 and still
+ * One place, rather than two kept in agreement by hand. A third place remains,
+ * in the use case that encodes the cursor VALUE, and it is the dangerous one: a
+ * seek disagreeing with an ordering still answers 200 and still
  * looks perfectly sorted on any single page, and only reveals itself as skipped
  * or repeated rows once someone walks the pages. Adding a sort key means adding
  * it here, to `bucketFilesSortSchema`, and to `cursorValueForItem` — the three
@@ -161,7 +160,6 @@ const displayFilename = (): SQL => {
  * `(<sortKey>, id)` tuple stays strictly monotonic and the cursor never revisits
  * a row.
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL / Column are upstream drizzle-orm types (structurally mutable); these builders return them untouched and never mutate one */
 const sortColumnExpression = (sort: AdminBucketFilesListFilters['sort']): SQL | Column => {
   const files = fileStorageMetadataTable()
   if (sort === 'size') return files.size
@@ -182,7 +180,6 @@ const sortColumnExpression = (sort: AdminBucketFilesListFilters['sort']): SQL | 
  * Unicode range while SQLite's `lower()` is ASCII-only, and mixing the two would
  * make the seek disagree with the ordering exactly where a non-ASCII name sits.
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL / Column are upstream drizzle-orm types (structurally mutable); these builders return them untouched and never mutate one */
 const cursorBoundValue = (
   sort: AdminBucketFilesListFilters['sort'],
   value: string
@@ -204,7 +201,6 @@ const cursorBoundValue = (
  * the COLUMN's driver mapper, which is how a `Date` reaches SQLite as epoch-ms
  * instead of as an object the driver rejects.
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL / Column are upstream drizzle-orm types (structurally mutable); these builders return them untouched and never mutate one */
 const comparable = (expression: SQL | Column): SQL => expression as SQL
 
 /**

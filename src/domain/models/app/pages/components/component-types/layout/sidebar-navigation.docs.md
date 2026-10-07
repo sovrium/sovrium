@@ -37,6 +37,24 @@ An entry can say how it recognises itself as the page you are on. The match runs
 
 Use `prefix` on a section entry so it stays marked while a visitor is inside it — `/tables` keeps its mark at `/tables/customers`. Do **not** use it on a root entry: `href: /` under prefix matching marks every page in the app.
 
+An `href` written as a translation key (`href: $t:href.portal.invoices`) is matched against the address it resolves to in the reader's language, so one entry links to `/chaloupe/factures` in French and `/en/chaloupe/factures` in English and carries the mark on both.
+
+### Styling the entries
+
+A sidebar's inner elements take classes by part, through `classes` on the sidebar or `design.components.sidebar` for every sidebar in the app: `nav` (the list of entries), `link` (each entry), `groupLabel` (a group's heading) and `badge` (an entry's count). The current entry takes `states.current`:
+
+```yaml
+design:
+  components:
+    sidebar:
+      parts:
+        link: h-8 gap-2.5 rounded-md px-2.5 text-foreground-muted
+        groupLabel: px-2.5 pb-1.5 pt-3.5 font-mono text-xs uppercase tracking-wider text-foreground-subtle
+        badge: bg-transparent px-0 font-mono text-xs
+      states:
+        current: { link: bg-primary-subtle font-medium text-primary-subtle-foreground }
+```
+
 ### Badging an entry
 
 `badge` takes either a literal string — a status word your config can state truthfully, like `Beta` — or `{ endpoint, valuePath }` for a count it cannot. `valuePath` is a dot path into the response, defaulting to `total`. An entry badge, written or fetched, is marked `data-component-type="badge"`, like a `badge` component anywhere else on the page.

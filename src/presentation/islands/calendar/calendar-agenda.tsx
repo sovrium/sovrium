@@ -51,8 +51,8 @@ function agendaDays(
       .map((event) => ({
         event,
         style: {
-          ...(event.backgroundColor ? { backgroundColor: event.backgroundColor } : {}),
-          ...(event.textColor ? { color: event.textColor } : {}),
+          ...(event.color ? { backgroundColor: event.color } : {}),
+          ...(event.contrastColor ? { color: event.contrastColor } : {}),
         },
       })),
   }))
@@ -97,7 +97,6 @@ export function CalendarAgenda({
                   className={ITEM_CLASS}
                   style={style}
                   disabled={onPick === undefined}
-                  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one handler per event, closing over it; a phone agenda of one month
                   onClick={() => onPick?.(event)}
                 >
                   {event.title}

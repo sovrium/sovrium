@@ -99,7 +99,6 @@ export function useSortRefusal(
 
   const onSortingChange = useCallback<OnChangeFn<SortingState>>(
     (updater) => {
-      // eslint-disable-next-line functional/immutable-data -- ref slot recording the sort a refusal must restore
       previousSorting.current = sorting
       setReadError(undefined)
       setSorting(updater)

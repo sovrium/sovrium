@@ -275,7 +275,7 @@ export const computeGalleryImageClasses = ({
  * outcome worse than ignoring the config.
  *
  * `data-aspect-ratio` keeps carrying the RAW author value regardless of whether
- * it parsed. `[internal ref]` asserts the attribute, and an author who
+ * it parsed. A pages gallery spec asserts the attribute, and an author who
  * typed something unparseable should still be able to see what they typed in
  * the DOM.
  */
@@ -351,7 +351,7 @@ const GALLERY_PAGER_FOOTER = 'flex w-full items-center justify-center gap-1.5 p-
 
 const GALLERY_PAGER_PAGE_BASE = [
   // `h-7 w-7` rather than `size-7`: both spell 28px, but only the pair is in
-  // the committed candidate corpus today (measured 2026-09-09), and the
+  // the committed candidate corpus today, and the
   // compiler is scan-free. Same reasoning as the kanban column dot.
   'inline-flex h-7 w-7 items-center justify-center text-sm',
   `rounded-[${v('radius-base', T.radiusBase)}]`,

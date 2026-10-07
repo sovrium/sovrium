@@ -1,0 +1,61 @@
+# When a piece that promotes a page moves to Scheduled, a tracked short link to
+# that page is made for it — so the team shares one address per piece and sees
+# on the admin console's Links page how many clicks each piece brought.
+#
+# 1. The trigger fires when a piece arrives in Scheduled with a `destination`.
+#    It reads the row before the change too, so editing a piece that is
+#    already scheduled does not mint a second link.
+# 2. A link step mints `/l/piece-<id>`, tagged with the piece's channel and
+#    campaign, so the clicks are counted by both.
+# 3. The short link is written on the piece, in `tracked_link`.
+#
+# A slug already taken is refused rather than overwritten: a piece sent back to
+# Draft and scheduled again keeps the link it already has, and the run says so.
+# Set `BASE_URL` (see `.env.example`) so the link carries your own address.
+name: mint-tracked-link
+label: Scheduled — make a tracked link to the page it promotes
+description: When a piece with a destination is scheduled, mint a tracked short link to it and write it on the piece.
+enabled: true
+trigger:
+  type: record
+  table: content
+  events:
+    - update
+  watchFields:
+    - status
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: Scheduled
+      - field: '{{trigger.data.previousRecord.status}}'
+        operator: notEquals
+        value: Scheduled
+      - field: '{{trigger.data.record.destination}}'
+        operator: isNotEmpty
+actions:
+  - name: mint
+    type: link
+    operator: create
+    props:
+      slug: 'piece-{{trigger.data.record.id}}'
+      destination: '{{trigger.data.record.destination}}'
+      title: '{{trigger.data.record.title}}'
+      tags:
+        - content-calendar
+      utm:
+        source: '{{lowercase trigger.data.record.channel}}'
+        medium: social
+        campaign: '{{trigger.data.record.campaign_name}}'
+  - name: keepLink
+    type: record
+    operator: update
+    props:
+      table: content
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        tracked_link: '{{mint.shortUrl}}'

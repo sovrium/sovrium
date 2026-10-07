@@ -76,9 +76,7 @@ const bundleTsConfig = async (absolutePath: string): Promise<BundledTsConfig> =>
       {
         name: 'sovrium-config-graph',
         setup(build) {
-          // eslint-disable-next-line functional/no-expression-statements -- plugin hook registration
           build.onLoad({ filter: /.*/ }, (args) => {
-            // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- the recorder IS the plugin's purpose
             loaded.add(args.path)
             // Returning nothing hands the file to Bun's default loader.
             return undefined
@@ -90,13 +88,11 @@ const bundleTsConfig = async (absolutePath: string): Promise<BundledTsConfig> =>
 
   if (!result.success) {
     const messages = result.logs.map((log) => log.message).join('\n')
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Failed to load TypeScript config ${absolutePath}:\n${messages}`)
   }
 
   const output = result.outputs[0]
   if (!output) {
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Failed to load TypeScript config ${absolutePath}: the bundle is empty`)
   }
 
@@ -114,7 +110,6 @@ const bundleTsConfig = async (absolutePath: string): Promise<BundledTsConfig> =>
 export const requireDefaultExportObject = (module: { readonly default?: unknown }): AppEncoded => {
   const config = module.default
   if (!config || typeof config !== 'object') {
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(
       `TypeScript config file must have a default export.\n` +
         `Expected: export default { name: "my-app", ... }\n` +

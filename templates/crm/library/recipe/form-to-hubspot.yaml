@@ -1,0 +1,18 @@
+# sovrium-library: recipe/form-to-hubspot@0.30.0
+name: form-to-hubspot
+trigger:
+  type: form
+  form: add-contact
+actions:
+  - name: createContact
+    type: connection
+    operator: call
+    props:
+      connection: hubspot
+      operation: post-v3-objects-contacts
+      params:
+        properties:
+          email: '{{trigger.data.email}}'
+          firstname: '{{trigger.data.name}}'
+          lastname: '{{trigger.data.last_name}}'
+        associations: []

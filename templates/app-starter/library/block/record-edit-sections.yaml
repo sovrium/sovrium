@@ -1,0 +1,45 @@
+# sovrium-library: block/record-edit-sections@0.30.0
+name: record-edit-sections
+type: container
+element: section
+props:
+  className: mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: text
+    element: h1
+    props:
+      className: text-2xl font-semibold tracking-tight text-foreground
+    content: Edit $record.title
+  - type: form
+    dataSource:
+      table: projects
+      mode: single
+      param: id
+    labelPlacement: side
+    stickyActions: true
+    action:
+      type: crud
+      operation: update
+      table: projects
+      submitLabel: Save
+      onSuccess:
+        toast:
+          message: Changes saved.
+          variant: success
+    sections:
+      - title: Basics
+        description: 'What the project is called and where it stands.'
+        fields:
+          - title
+          - status
+          - category
+      - title: Client and budget
+        description: Who it is for and what it may cost.
+        fields:
+          - client
+          - budget
+          - due_date
+      - title: Description
+        description: Anything the team should know.
+        fields:
+          - description

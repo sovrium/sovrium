@@ -74,11 +74,13 @@ Aggregated analytics are exposed through admin-gated read endpoints. Raw events 
 | `GET /api/analytics/targets`   | How one short link's clicks split across the targets it resolved to. |
 | `GET /api/analytics/events`    | **Admin-only** raw event inspection (paginated, filterable).         |
 
+**The collect endpoint takes anonymous traffic, so its fields are capped.** A page path or referrer longer than 2048 characters, a title longer than 512, or a UTM value longer than 256 refuses the whole page view with `400`, and nothing is stored. Values at those limits are recorded whole; nothing is ever truncated.
+
 Every aggregated endpoint above accepts an optional `event_type` and `event_name`, defaulting to `event_type=page_view`. Passing `?event_type=link_click&event_name=spring-promo` reports one short link through the very same time series, referrer, device and campaign breakdowns that serve page views. That is one set of reports over one store, rather than a parallel set that could disagree with it.
 
 ### Inspecting raw events
 
-`GET /api/analytics/events` gives row-level visibility into the unified stream, complementing the aggregated endpoints. It answers admin-equivalent roles only — the built-in `admin` and the app's highest role — like the other read endpoints, and filters by `event_type`, `event_name` and date range.
+`GET /api/analytics/events` gives row-level visibility into the unified stream, complementing the aggregated endpoints. It answers admin-equivalent roles only — the built-in `admin` and the app's highest role — like the other read endpoints: a request with no session gets `401`, and a signed-in caller of any other role gets `404`, as if the endpoint did not exist. It filters by `event_type`, `event_name` and date range.
 
 ```text
 GET /api/analytics/events?event_type=track&limit=50&offset=0&from=2026-01-01&to=2026-04-15

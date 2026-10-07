@@ -6,7 +6,7 @@
  */
 
 import { SearchReadablePages } from '@/application/use-cases/page-search-corpus'
-import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { resolvePageReader, type PageReaderResolver } from '@/presentation/api/search/page-reader'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -45,7 +45,10 @@ const buildPageSearchHandler =
       return c.json([], 200, CACHE_HEADERS)
     }
     const reader = await resolvePageReader(c, app, getSession)
-    const hits = await runRequestEffect(c, SearchReadablePages(app, query, reader))
+    const hits = await runRequestEffect(
+      c,
+      provideDomain(c, SearchReadablePages(app, query, reader))
+    )
     return c.json(hits, 200, CACHE_HEADERS)
   }
 

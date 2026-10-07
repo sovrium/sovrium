@@ -26,8 +26,8 @@
  *
  * So this function is not `createServer` with a flag. A flag would have had to
  * turn off the one step `createServer` exists to perform, and would have left
- * the listener describable in the config type. [internal ref] and
- * [internal ref] count the sockets a start and a build open; both
+ * the listener describable in the config type. A CLI log output spec and
+ * a CLI build generation spec count the sockets a start and a build open; both
  * expect zero, and zero is only reachable by there being no bind to skip.
  *
  * ## What IS here, and why each one earns its place on a render
@@ -59,7 +59,7 @@
  * (`startServer` before `prepareSearchArtifacts`, `build` before its own pass).
  * That ordering is a PRECONDITION rather than an optimisation: these renders
  * used to be what created the tables they render against, so a page bound to a
- * `dataSource` needs its table to already exist — [internal ref] is
+ * `dataSource` needs its table to already exist — a CLI build generation spec is
  * the criterion that says so.
  */
 
@@ -78,8 +78,8 @@ import type { TransformPresetError } from '@/infrastructure/errors/transform-pre
  *
  * `dispose` is the shared `disposeDomainRuntime` and nothing else — there is no
  * socket to drain ahead of it and no process-wide telemetry teardown to perform
- * on behalf of a listener that has not bound yet, which is exactly the carve-out
- * `createStopEffect` used to need a flag for. It logs and absorbs its own
+ * on behalf of a listener that has not bound yet, which is why `createStopEffect`
+ * needs no flag for that case. It logs and absorbs its own
  * failure for the same reason the stop sequence does; the reason is written
  * down beside the release rather than here.
  *

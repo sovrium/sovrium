@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React form event-handler pattern. */
-
 import { useId, useState, type ReactElement } from 'react'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {

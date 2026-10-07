@@ -39,7 +39,7 @@ const COLORS_NEEDING_FOREGROUND = [
  * Mapping from `app.design.colors` author key → canonical `--sv-*` role token
  * the prestyled-by-default islands consume.
  *
- * Phase 5 follow-up ([internal ref], ROLE_TOKEN_BRIDGE wiring): the islands emit
+ * Phase 5 follow-up (the prestyled-islands rule, ROLE_TOKEN_BRIDGE wiring): the islands emit
  * `bg-[var(--sv-X, oklch(...))]` arbitrary-value classes that resolve the
  * `--sv-*` channel first and fall through to the inline OKLCH literal only
  * if unset. The prior architecture bridged `--sv-*` from the canonical
@@ -109,7 +109,7 @@ export function generateThemeColors(colors?: DesignColors): string {
 
 /**
  * Generate a `:root` block of `--sv-X: value` declarations for each authored
- * color that maps to a v1 role token ([internal ref] / Phase 5 follow-up).
+ * color that maps to a v1 role token (the prestyled-islands rule / Phase 5 follow-up).
  *
  * Emitted in a separate `:root` block (NOT inside `@theme static`) because the
  * `--sv-*` tokens are not Tailwind theme tokens — they're the canonical role
@@ -332,17 +332,17 @@ function generateVarBlock(
 /**
  * Generate Tailwind `@theme` spacing tokens from `design.spacing`.
  *
- * ## Why there is no value filter any more
+ * ## Why there is no value filter
  *
- * This used to drop any value failing `/^[0-9.]+(?:rem|px|em|%)$/`, because the
- * old `theme.spacing` was an open string record: an author could write a
- * Tailwind class name where a length belonged, and emitting it would have
- * produced a broken custom property.
+ * A filter dropping any value failing `/^[0-9.]+(?:rem|px|em|%)$/` only makes
+ * sense for an open string record, where an author could write a Tailwind
+ * class name where a length belonged and emitting it would produce a broken
+ * custom property.
  *
  * `design.spacing` is a ladder of `DimensionValueSchema`, so the decoder has
  * already refused anything that is not a number followed by `px` or `rem` —
- * every value reaching here is a valid length by construction, and the filter
- * became a second, weaker copy of a check the schema now owns.
+ * every value reaching here is a valid length by construction, and a filter
+ * would be a second, weaker copy of a check the schema owns.
  *
  * Weaker in the one direction that matters: `DIMENSION_PATTERN` admits a
  * leading `-`, and the filter's `^[0-9.]` does not. So the only values the
@@ -411,7 +411,7 @@ export function generateThemeBreakpoints(breakpoints?: DesignBreakpoints): strin
  *    class name in the app's own `className` props. An app that declares a step
  *    and never writes `text-h1` anywhere gets the variables and no rule — which
  *    is correct (an unused utility is dead CSS) but is NOT the same sentence as
- * "the utility always exists". `[internal ref]` pins the end-to-end path an
+ *    "the utility always exists". A design spec pins the end-to-end path an
  *    author takes: declare the step, use the class, get the styles.
  *
  * ─── WHAT EACH LINE ACTUALLY BUYS, MEASURED ─────────────────────────────────
@@ -446,7 +446,7 @@ export function generateThemeTypeScale(steps?: TypeScaleSteps): string {
   // WHAT THAT DOES AND DOES NOT BUY, measured rather than assumed: the CSS
   // pipeline REORDERS `--text-*` declarations downstream of this function, so
   // this order does not survive into the served stylesheet. A vacuity probe on
-  // `[internal ref]` established it — an E2E assertion on stylesheet order
+  // A design spec established it — an E2E assertion on stylesheet order
   // passed with this loop deliberately rewired to authoring order, which is
   // why that spec now asserts the EXPORT instead.
   //
@@ -484,7 +484,7 @@ export function generateThemeTypeScale(steps?: TypeScaleSteps): string {
  * (`theme-token-resolver.ts`), which substitutes a name inside a composed
  * animation shorthand. Nothing emitted them as custom properties, so a
  * declared curve was unreachable from a `className` and invisible to a
- * client-hydrated island. `[internal ref]` pins the fix.
+ * client-hydrated island. A design foundations spec pins the fix.
  *
  * ## Namespaces
  *
@@ -542,7 +542,7 @@ const densityDeclarations = (step: DensityStep): string =>
  * `steps.compact` lands at `:root`. That is a deliberate choice and not the
  * only defensible one — `cozy` is the "ordinary application surface" step by
  * the schema's own description — but the platform default IS compact (the four
- * literals the recipes used to hard-code), so anchoring `:root` anywhere else
+ * values a zero-config app renders with), so anchoring `:root` anywhere else
  * would make declaring a density ladder silently loosen every existing table
  * even when the author copied the shipped numbers verbatim. `cozy` and `roomy`
  * stay reachable through `[data-density]`.

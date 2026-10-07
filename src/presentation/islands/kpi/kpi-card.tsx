@@ -45,6 +45,12 @@ interface KpiCardProps {
   readonly thresholdColor?: string
   /** Sparkline series — when present, a mini line chart is rendered. */
   readonly sparklineSeries?: readonly number[]
+  /** The value's classes (recipe, size, author part), resolved server-side. */
+  readonly valueClassName?: string
+  /** The `tone`'s ink; a matching threshold's ink replaces it. */
+  readonly toneClassName?: string
+  /** A line under the value — a ratio's two counts, as `3 / 8`. */
+  readonly caption?: string
 }
 
 /**
@@ -71,6 +77,12 @@ const THRESHOLD_COLOR_CLASS: Record<string, string> = {
   blue: 'text-primary',
   gray: 'text-foreground-muted',
 }
+
+/** The value's ink: a matching threshold's, else the tone's, else the foreground. */
+const valueInk = (thresholdColor: string | undefined, toneClassName: string | undefined): string =>
+  thresholdColor === undefined
+    ? (toneClassName ?? 'text-foreground')
+    : (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-foreground')
 
 const TREND_COLOR_CLASS: Record<NonNullable<KpiTrendConfig['color']>, string> = {
   green: 'text-success-fg',
@@ -109,6 +121,18 @@ function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
   )
 }
 
+/** The line under the value — a ratio's two counts, as `3 / 8`. */
+function KpiCaption({ text }: { readonly text: string }): ReactElement {
+  return (
+    <div
+      data-role="kpi-caption"
+      className="text-foreground-muted text-xs tabular-nums"
+    >
+      {text}
+    </div>
+  )
+}
+
 /**
  * KPI card — renders the computed metric as a card with an optional label,
  * Lucide icon, and trend indicator.
@@ -129,11 +153,10 @@ export function KpiCard({
   trend,
   thresholdColor,
   sparklineSeries,
+  valueClassName,
+  toneClassName,
+  caption,
 }: KpiCardProps): ReactElement {
-  const valueColorClass = thresholdColor
-    ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-foreground')
-    : 'text-foreground'
-
   return (
     <div
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'ready' })}
@@ -166,10 +189,11 @@ export function KpiCard({
       <div
         data-role="kpi-value"
         {...(thresholdColor ? { 'data-threshold': thresholdColor } : {})}
-        className={`${computeKpiValueClasses()} ${valueColorClass}`}
+        className={`${valueClassName ?? computeKpiValueClasses()} ${valueInk(thresholdColor, toneClassName)}`}
       >
         {value}
       </div>
+      {caption !== undefined && <KpiCaption text={caption} />}
       {trend && <KpiTrend trend={trend} />}
       {sparklineSeries && sparklineSeries.length > 0 && <KpiSparkline series={sparklineSeries} />}
     </div>

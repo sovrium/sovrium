@@ -206,7 +206,6 @@ const createMigrateTables = (
       lookupViewModule,
       hasAuthConfig,
     } = config
-    /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables) {
       const physicalTableName = lookupViewModule.getPhysicalTableName(table)
       const exists = yield* tableExists(tx, physicalTableName)
@@ -222,7 +221,6 @@ const createMigrateTables = (
         hasAuthConfig,
       })
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /** Add foreign key constraints for tables with circular dependencies */
@@ -235,7 +233,6 @@ const addCircularFKConstraints = (
   Effect.gen(function* () {
     if (circularTables.size === 0) return
     logDebug('[schema] adding FK constraints for circular dependencies')
-    /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
       yield* syncForeignKeyConstraints(
         tx,
@@ -244,7 +241,6 @@ const addCircularFKConstraints = (
         lookupViewGenerators.getPhysicalTableName(table)
       )
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /** A link table to ensure: its DDL, then (PostgreSQL) the keys a rebuild may have dropped. */
@@ -336,7 +332,7 @@ const createAllViews = (
  *  - `user_access` when `auth.scopeTables` is declared (Z-1/Z-2).
  *  - `_webhook_deliveries` when any table declares outgoing webhooks.
  *  - `comment_read_state` when any table opts into `comments.readTracking`
- * ([internal ref] per-user comment read/unread state).
+ *    (the per-user comment read-state design per-user comment read/unread state).
  *
  * The MCP audit log (`system.ai_tool_calls`) is created via Drizzle migration
  * 0001 instead, so it is not included here.
@@ -508,9 +504,6 @@ export type SchemaError =
  * for simpler composition in application layer.
  *
  * @see [internal ref] — the decision.
- *      (A `runtime-sql-migrations/04-migration-executor.md` deep dive was cited
- *      here until 2026-09-03; it was deleted for describing services this file
- *      does not contain.)
  */
 /**
  * Drop obsolete views when migration is skipped (checksum fast-path).

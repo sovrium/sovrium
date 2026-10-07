@@ -1,0 +1,19 @@
+# sovrium-library: recipe/form-to-brevo@0.30.0
+# Each newsletter sign-up is sent to Brevo as a contact, so Brevo does the
+# sending while the list stays in your own `subscribers` table too. Set
+# BREVO_API_KEY (see `.env.example`) to turn it on.
+name: form-to-brevo
+trigger:
+  type: form
+  form: newsletter
+actions:
+  - name: addContact
+    type: http
+    operator: post
+    props:
+      url: https://api.brevo.com/v3/contacts
+      connection: brevo
+      contentType: json
+      body:
+        email: '{{trigger.data.email}}'
+        updateEnabled: true

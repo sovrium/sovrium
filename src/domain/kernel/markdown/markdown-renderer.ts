@@ -304,7 +304,7 @@ export const escapeHtml = (value: string): string =>
 /**
  * Filter headings to those at or above the given max depth.
  *
- * The user story [internal ref] specifies that `toc.maxDepth`
+ * The pages markdown spec specifies that `toc.maxDepth`
  * controls the deepest heading level included. Defaults are configured by
  * the caller (the page-mode renderer).
  */

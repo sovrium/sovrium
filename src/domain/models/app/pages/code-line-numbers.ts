@@ -29,7 +29,7 @@
  *
  * So each number is a real element carrying `data-line-number`, addressable the
  * way a bar is by `data-bar-key` and the way the block's own command and output
- * are by `data-code-command` / `data-code-output`. [internal ref] pins
+ * are by `data-code-command` / `data-code-output`. A pages content spec pins
  * it.
  *
  * ─── THE TRAILING NEWLINE IS NOT A LINE ────────────────────────────────────

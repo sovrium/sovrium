@@ -131,7 +131,7 @@ export const getUpdateBaseFields = (table: Table): readonly string[] => {
 
 /**
  * The `VALUES` expression list for the INSTEAD OF INSERT trigger, aligned
- * positionally with {@link getBaseFields}. [internal ref]: a base column that carries a
+ * positionally with {@link getBaseFields}. The view-backed-table write rule: a base column that carries a
  * DEFAULT is emitted as `COALESCE(NEW.col, <default>)` so an omitted column
  * (arriving as `NEW.col = NULL` through the view) still takes its base default
  * instead of failing a `NOT NULL` constraint; columns without a default pass

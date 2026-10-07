@@ -1,0 +1,57 @@
+# sovrium-library: block/stats-from-table@0.30.0
+name: stats-from-table
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-10
+        children:
+          - type: flex
+            props:
+              className: flex flex-col max-w-2xl gap-4
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+                content: '[What these numbers prove]'
+          - type: grid
+            props:
+              className: grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6
+            children:
+              - type: kpi
+                label: Records
+                dataSource:
+                  table: orders
+                  view: figures
+                kpiAggregate:
+                  function: count
+                kpiFormat:
+                  type: number
+              - type: kpi
+                label: Total
+                dataSource:
+                  table: orders
+                  view: figures
+                kpiAggregate:
+                  function: sum
+                  field: amount
+                kpiFormat:
+                  type: number
+              - type: kpi
+                label: Average
+                dataSource:
+                  table: orders
+                  view: figures
+                kpiAggregate:
+                  function: avg
+                  field: amount
+                kpiFormat:
+                  type: number

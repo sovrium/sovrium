@@ -14,8 +14,7 @@ import {
 } from '@/application/ports/repositories/ai/ai-memory-repository'
 
 /**
- * Application use-cases for durable AI chat memory
- *.
+ * Application use-cases for durable AI chat memory.
  *
  * Each function is an `Effect.gen` program orchestrating the
  * `AiMemoryRepository` port — the presentation layer consumes them via
@@ -57,7 +56,7 @@ export const loadChatHistory = (input: {
 
 /**
  * List the conversation threads owned by a user, most-recently-updated
- * first.
+ * first (an AI memory spec).
  */
 export const listUserConversations = (input: {
   readonly userId: string
@@ -73,7 +72,7 @@ export const listUserConversations = (input: {
 
 /**
  * Delete a conversation thread and (by ON DELETE CASCADE) all its messages
- *. Answers whether a thread was removed — `false` when
+ * Answers whether a thread was removed — `false` when
  * the caller owns no thread by that id, which the route answers as a 404.
  */
 export const deleteUserConversation = (input: {

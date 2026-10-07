@@ -2,7 +2,7 @@
 
 > The `gallery` component — a responsive card grid over records, in a uniform grid, a masonry wall or a carousel.
 
-A gallery draws one card per record. It binds through the shared `dataSource` module and has no `pagination` key of its own: filtering, sorting and paging all belong to the binding.
+A gallery draws one card per record. It binds through the shared `dataSource` module and has no `pagination` key of its own: filtering, sorting and paging all belong to the binding. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. The card's title and image fields stay on the gallery either way. `dataSource.limit` bounds it: `limit: 3` draws three cards, the first three in the binding's sort order, however many records the table holds — a front page showing the newest essays and no more.
 
 <!-- sovrium:options type:gallery depth=3 -->
 
@@ -36,3 +36,11 @@ pages:
 A card holds record components bound to its record: a `text` for the title, a `badge` for a status, an `avatar` drawn from a name (`label: $record.holder`), an `image` (`src: $record.photo`, an `https://` address or a path), a `qr-code` encoding a value of the record (`value: $record.asset_tag`; `size`, `ecc` and `props.className` mean what they mean on a page `qr-code`). `$record.<field>` resolves inside all of them. A data component — a list, a table, a chart — cannot sit in a card: `sovrium validate` and boot refuse it, naming `galleryCard.children`.
 
 A card child whose `$record.*` names a field its reader may not read is left out of her cards — the whole child, not just its value — and the page does not name the field.
+
+## A featured first card
+
+`featured: first` leads a grid with one larger card — the latest essay on a blog's index, a shop's flagship product. From the `md` breakpoint up the first card spans two columns and sets its cover beside its text rather than above it — the cover taking the larger share, about 1.25 to 1, and the text centred on its height; below `md` it is an ordinary card. It applies to `layout: grid` only, since a masonry or carousel track has no column span to give. The featured card carries `data-featured`, so a class on a card's own children can follow it: `md:group-data-featured:text-2xl` on a title, with `group` on the `card` part.
+
+## Styling a gallery by part
+
+A gallery's own elements take classes by part through `classes`: `grid` (the grid holding the cards), `card` (each card), `cover` (the frame around a card's cover image) and `body` (the block holding the card's children). The children of `galleryCard` are your own components, so a title, an excerpt or a chip is styled on its own `props.className` rather than by part.

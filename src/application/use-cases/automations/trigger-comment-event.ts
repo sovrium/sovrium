@@ -116,7 +116,7 @@ const matchesCommentTrigger = (input: {
  * Read the first non-empty owner user id from `record`, searching the table's
  * declared `created-by` field name(s) FIRST ([internal ref]: the owner column may be
  * custom-named, e.g. `author`), then the literal `created_by` / `createdBy`
- * fallthrough (back-compat — keeps [internal ref] green
+ * fallthrough (back-compat — keeps an automation trigger comment spec green
  * for tables whose created-by field IS literally named `created_by`).
  */
 const readOwnerId = (
@@ -203,7 +203,7 @@ const resolveThreadParticipants = (params: {
  *
  * The EMAIL ADDRESSES of the users named in `mentions`, in mention order,
  * usable directly as an `email.send` `to`. This is the exact twin of [internal ref]:
- * `mentions` is — and stays — `UUID` ([internal ref]
+ * `mentions` is — and stays — `UUID[]` (an automation trigger comment spec
  * pins that, and it is the documented payload contract), so
  * `to: '{{trigger.mentions}}'` renders a comma-joined list of ids and the
  * action fails with "email.send requires a `to` address". Rather than change
@@ -281,7 +281,7 @@ const buildCommentTriggerData = (
     mentionedEmails,
     event,
   }
-  return envelope as unknown as TriggerData
+  return envelope as TriggerData
 }
 
 /**
@@ -303,7 +303,7 @@ const buildCommentTriggerData = (
  * evaluated against a predicate they are exempt from everywhere else, so a
  * comment they posted on a record they can genuinely read unrestricted
  * silently suppressed the automation. `isAdminEquivalent` also admits the
- * literal `admin` whatever custom hierarchy an app declares ([internal ref] point 75),
+ * literal `admin` whatever custom hierarchy an app declares (the hidden-field leak fixes in saved views and table definitions point 75),
  * so the built-in admin never loses the bypass. Mid-level custom roles return
  * false and stay gated.
  */

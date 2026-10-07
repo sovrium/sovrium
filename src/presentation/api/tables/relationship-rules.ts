@@ -35,7 +35,6 @@ import type { Context } from 'hono'
  *
  * Every offender is reported, in table field-declaration order, matching the
  * accumulation the `multi-select` rules already perform.
- *
  */
 export function validateRelationshipLinkLimits(
   fields: Record<string, unknown>

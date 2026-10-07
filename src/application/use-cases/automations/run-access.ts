@@ -15,8 +15,9 @@
  *   - an approver a request on that run names (`isPersistedApprover`, the rule
  *     the approval endpoints apply), who must read what they are asked to approve.
  *
- * Anyone else is answered as if the run did not exist. Replay and cancel apply
- * the same rule: acting on a run is never wider than reading it.
+ * Anyone else is answered as if the run did not exist. Acting on a run (replay,
+ * cancel) is NARROWER than reading it: an admin, or the hand-starter who still
+ * holds the trigger's role.
  */
 
 import { Effect } from 'effect'

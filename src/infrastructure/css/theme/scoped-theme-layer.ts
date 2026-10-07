@@ -11,11 +11,10 @@
  * resolve a DIFFERENT design system from the document around it.
  *
  * Its only consumer today is the design-system console, which draws the
- * operator's system flat inside Sovrium's own chrome ([internal ref] A2). Before
- * 2026-09-02 that isolation was an `<iframe>`: two documents, two `:root`s, no
- * cascade to reason about. The founder removed the frames wholesale, so the
- * boundary has to be expressed inside one document — which is what this module
- * is.
+ * operator's system flat inside Sovrium's own chrome ([internal ref] A2). There is no
+ * `<iframe>` (which would give two documents, two `:root`s and no cascade to
+ * reason about), so the boundary has to be expressed inside one document —
+ * which is what this module is.
  *
  * ─── WHY RE-DECLARING `--sv-*` IS NOT ENOUGH (MEASURED, TWICE) ──────────────
  *
@@ -57,7 +56,7 @@
  * (That is a different question from the one `V1_ROOT_DARK`'s `html` prefix
  * answers — there, two selectors both match `<html>` and specificity decides.)
  *
- * ─── ONE SCHEME AXIS, AND WHY THERE USED TO BE TWO ─────────────────────────
+ * ─── ONE SCHEME AXIS, AND WHY NOT TWO ──────────────────────────────────────
  *
  * The scope's dark arm is keyed off `.dark` on an ANCESTOR — the document's own
  * scheme class, the one the shared no-FOUC script and the `theme-toggle`
@@ -65,15 +64,14 @@
  * input, and the section can never be half dark. The selector sits at
  * specificity (0,2,0) so it beats the scope's own light block (0,1,0).
  *
- * It was keyed off a class ON the scope until 2026-09-03, so that the console's
- * scheme and the specimen's could differ ("a light app documented inside a dark
- * console", `[internal ref]` as first written). That was right while
- * the specimen was a bordered panel inside a console page and wrong the moment
- * the v2 pages made the cards the whole body: with a stored dark theme the
- * chrome went dark from `html.dark`, the scope stayed light from `?scheme=`, and
- * an operator met eighty-five near-white cards on a near-black shell. The two
- * axes were two INPUTS nobody had asked to agree, and every spec was green
- * because Playwright carries no stored theme. Founder ruling: one axis.
+ * Keying it off a class ON the scope would let the console's scheme and the
+ * specimen's differ ("a light app documented inside a dark console"). That
+ * suits a bordered panel inside a console page and fails when the cards are
+ * the whole body: with a stored dark theme the chrome goes dark from
+ * `html.dark`, the scope stays light from `?scheme=`, and an operator meets
+ * eighty-five near-white cards on a near-black shell. Two axes are two INPUTS
+ * nobody asked to agree, and specs stay green regardless because Playwright
+ * carries no stored theme. Hence one axis.
  */
 
 import {

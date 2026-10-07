@@ -25,12 +25,23 @@ export interface DerivedCrumbOptions {
    * keeps its label but carries no `href` — a prefix that answers no page.
    */
   readonly unlinked?: readonly string[]
+  /**
+   * The label of the LAST crumb, in place of its URL segment — a record page's
+   * own name (`ORD-0412`) instead of its id. Ignored when empty.
+   */
+  readonly currentLabel?: string
 }
 
 /** One crumb of a derived trail. The last one carries no `href`. */
 export interface DerivedCrumb {
   readonly label: string
   readonly href?: string
+}
+
+/** A label with something in it, trimmed, or `undefined`. */
+const nonEmpty = (label: string | undefined): string | undefined => {
+  const trimmed = label?.trim()
+  return trimmed === undefined || trimmed === '' ? undefined : trimmed
 }
 
 /**
@@ -77,9 +88,10 @@ export function buildDerivedCrumbs(
   const unlinked = new Set(options?.unlinked ?? [])
   const segments = (path.split('?')[0] ?? '').split('/').filter((segment) => segment.length > 0)
 
+  const current = nonEmpty(options?.currentLabel)
   const derived = segments.map((segment, index) => {
-    const label = labels?.[segment] ?? segment
     const isLast = index === segments.length - 1
+    const label = (isLast ? current : undefined) ?? labels?.[segment] ?? segment
     // The prefix is rebuilt from the ORIGINAL segments, not the labelled ones —
     // a relabelled crumb must still link to the path it came from.
     // An unlinked segment is matched on the URL segment too, so the name in

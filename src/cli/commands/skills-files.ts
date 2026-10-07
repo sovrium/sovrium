@@ -251,7 +251,6 @@ const parseManifest = (
   const record = typeof parsed === 'object' && parsed !== null ? parsed : {}
   const files = 'files' in record && Array.isArray(record.files) ? record.files : undefined
   if (!('format' in record) || record.format !== 'sovrium-skills' || files === undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- an unreadable ownership record must stop the run, not be guessed at
     throw new Error(`${join(dir, MANIFEST_FILENAME)} is not a Sovrium skills manifest.`)
   }
   const entries = (files as readonly unknown[]).flatMap((entry): readonly [string, string][] => {
@@ -396,29 +395,23 @@ export const findingRow = (plan: TargetPlan, finding: Finding): string =>
 const removeRetired = async (dir: string, path: string): Promise<void> => {
   await rm(join(dir, path), { force: true })
   const parents = [dirname(path), dirname(dirname(path))].filter((parent) => parent !== '.')
-  // eslint-disable-next-line functional/no-loop-statements -- deepest first; each rmdir must see the previous one's result
   for (const parent of parents) {
-    // eslint-disable-next-line functional/no-expression-statements -- an rmdir that fails leaves a non-empty directory, which is the point
     await rmdir(join(dir, parent)).catch(() => undefined)
   }
 }
 
 export const applyPlan = async (plan: TargetPlan): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements
   await Promise.all(
     plan.writes.map(async (file) => {
       const destination = join(plan.dir, file.path)
-      // eslint-disable-next-line functional/no-expression-statements
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, file.content, 'utf-8')
     })
   )
-  // eslint-disable-next-line functional/no-loop-statements -- sequential: two retired files can share the directories removeRetired prunes
   for (const path of plan.removals) {
     await removeRetired(plan.dir, path)
   }
   if (!plan.manifestCurrent) {
-    // eslint-disable-next-line functional/no-expression-statements
     await mkdir(plan.dir, { recursive: true })
     await writeFile(join(plan.dir, MANIFEST_FILENAME), plan.manifestText, 'utf-8')
   }
@@ -458,7 +451,6 @@ export const writeSkillsForScaffold = async (projectDir: string): Promise<readon
   const kinds = await Promise.all(
     catalogue.skills.map(async ({ name }) => ({ name, kind: await entryKind(join(dir, name)) }))
   )
-  // eslint-disable-next-line functional/no-loop-statements -- one notice per linked skill, in catalogue order
   for (const { name } of kinds.filter(({ kind }) => kind === 'link')) {
     printStderr(
       `Skipped agent skill ${name}: ${label}/${name} is a symlink, and Sovrium never writes through one.`

@@ -321,10 +321,8 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
       >
         {items}
       </ul>
-      <script
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
-        dangerouslySetInnerHTML={{ __html: REORDERABLE_LIST_RUNTIME }}
-      />
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
+      <script dangerouslySetInnerHTML={{ __html: REORDERABLE_LIST_RUNTIME }} />
     </>
   )
 }

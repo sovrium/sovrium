@@ -34,9 +34,9 @@ import { printDocument, printFailure, printStderr } from '@/infrastructure/loggi
  * The agent skills are not part of any template: they come from the binary
  * (`writeSkillsForScaffold`), added beside the tree without overwriting.
  *
- * Template names are their directory names, one-to-one. The former `crud-app` /
- * `member-portal` templates were renamed to `crm` / `intranet` (business-job
- * names) with no aliases — the templates are pre-1.0 content, not API.
+ * Template names are their directory names, one-to-one, named after business
+ * jobs (`crm`, `intranet`) with no aliases for older names — the templates are
+ * pre-1.0 content, not API.
  */
 const TEMPLATE_MAP: Readonly<Record<string, string>> = {
   'hello-world': 'hello-world',
@@ -58,35 +58,22 @@ const TEMPLATE_MAP: Readonly<Record<string, string>> = {
   'company-os': 'company-os',
   'automation-recipes': 'automation-recipes',
   'knowledge-base': 'knowledge-base',
+  'app-starter': 'app-starter',
+  'marketing-site': 'marketing-site',
 }
 
 /**
  * Templates that ship with a user-facing front-end and benefit from a
- * pre-scaffolded `public/` directory next to `app.yaml`. `api-only` and
- * `mcp-server` are excluded — both are headless and a blank public/ would
- * just be noise. The default no-template `init` (no positional template
+ * pre-scaffolded `public/` directory next to `app.yaml`: every template except
+ * the headless `api-only` and `mcp-server`, where a blank public/ would just be
+ * noise. The default no-template `init` (no positional template
  * arg) also scaffolds `public/` so the convention is discoverable from
  * the very first run.
  */
-const WEB_FACING_TEMPLATE_NAMES: ReadonlySet<string> = new Set([
-  'hello-world',
-  'landing-page',
-  'crm',
-  'intranet',
-  'blog',
-  'docs-site',
-  'projects',
-  'helpdesk',
-  'content-calendar',
-  'people',
-  'events',
-  'assets',
-  'inventory',
-  'expenses',
-  'company-os',
-  'automation-recipes',
-  'knowledge-base',
-])
+const HEADLESS_TEMPLATE_NAMES: ReadonlySet<string> = new Set(['api-only', 'mcp-server'])
+const WEB_FACING_TEMPLATE_NAMES: ReadonlySet<string> = new Set(
+  Object.values(TEMPLATE_MAP).filter((template) => !HEADLESS_TEMPLATE_NAMES.has(template))
+)
 
 /**
  * Sanitize a directory name into a valid npm package name for use in app.yaml.
@@ -116,8 +103,7 @@ const generateDefaultAppYaml = (appName: string): string =>
  * `defineConfig()` value import. The binary leaves bare-package specifiers
  * unresolved, so a value import would type-check and then fail at boot, whereas
  * `import type` is erased at transpile time and never resolved at all. That is
- * why the emitted declaration exports no runtime value either
- *.
+ * why the emitted declaration exports no runtime value either.
  *
  * `satisfies` over an `AppConfig` annotation: it validates the literal against
  * the type WITHOUT widening it, so the export keeps its precise shape and a
@@ -180,7 +166,6 @@ const writeGitignoreIfMissing = async (targetDir: string): Promise<boolean> => {
  */
 const writePublicDirIfMissing = async (targetDir: string): Promise<readonly string[]> => {
   const publicDir = join(targetDir, 'public')
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(publicDir, { recursive: true })
 
   // Resolve each file's existence + plant, then compose the report list
@@ -262,14 +247,12 @@ const resolveTemplate = (templateName: string): string => {
       `Error: Unknown template "${templateName}" — does not exist\n\nAvailable templates: ` +
         Object.keys(TEMPLATE_MAP).join(', ')
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
   const tree = embeddedTemplateDir(entry)
   if (Object.keys(tree).length === 0) {
     printStderr(`Error: Template directory has no embedded files: ${entry}`)
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -298,9 +281,7 @@ const writeOneTreeFile = async (
   clobber: boolean
 ): Promise<boolean> => {
   if (!clobber && (await Bun.file(destAbsPath).exists())) return false
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(dirname(destAbsPath), { recursive: true })
-  // eslint-disable-next-line functional/no-expression-statements
   await Bun.write(destAbsPath, Bun.file(srcEmbeddedPath))
   return true
 }
@@ -415,7 +396,6 @@ const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise
   const exists = await Bun.file(targetPath).exists()
   if (!exists) return
   printStderr(`Error: ${targetPath} already exists (use --force to overwrite)`)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -507,7 +487,6 @@ const assertFromUrlAlone = (
     ],
     guidance: `Pick one: fork the published config with --from-url, or scaffold with ${conflicting}.`,
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -524,7 +503,6 @@ const assertFlagsCompatible = (templateName: string | undefined, typescript: boo
       `  sovrium init --template ${templateName}\n` +
       '  sovrium types',
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -568,7 +546,6 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
       ? await fetchForkedConfig(options.fromUrl, forkTarget.filename)
       : undefined
 
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(targetDir, { recursive: true })
 
   const scaffolded = await scaffoldTree({

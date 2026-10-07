@@ -6,6 +6,7 @@
  */
 
 import { authoredReferenceRoots } from '../authored-references'
+import { hydratedFieldIdOf } from '../hydrated-field-reference'
 import {
   buildAutomationContext,
   isTemplateHelperName,
@@ -13,6 +14,7 @@ import {
   resolveTriggerInString,
 } from '../resolve-trigger-data'
 import type { ActionRunContext } from './shared'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 
 /**
  * Raw-props resolution shared by handlers that must template-resolve their
@@ -46,32 +48,38 @@ const SIMPLE_PATH = /^\{\{\s*([\w.]+)\s*\}\}$/
 
 /**
  * Resolve a prop value against the run context, recursively:
- *  - whole-string `{{path}}` → raw value at that path (arrays/objects survive)
+ *  - whole-string `{{path}}` → raw value at that path (arrays/objects survive),
+ *    except a hydrated relationship or user field, which is its id
  *  - interpolated string (`"order-{{trigger.data.id}}"`) → string substitution
  *  - array / object → recurse into each element / value
  *  - scalar non-string (numbers like `count: 2`) → returned verbatim
  */
 export const resolveRunContextValue = (
   value: unknown,
-  context: Readonly<Record<string, unknown>>
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): unknown => {
   if (typeof value === 'string') {
     const whole = SIMPLE_PATH.exec(value.trim())
-    if (whole === null) return resolveTriggerInString(value, context)
+    if (whole === null) return resolveTriggerInString(value, context, templates)
     const name = whole[1] as string
     const found = lookupPath(context, name)
+    // A trigger's relationship or user field, referenced whole, is its id, as
+    // it is at the top level of a run (see `../hydrated-field-reference`).
+    const hydratedId = hydratedFieldIdOf(found)
+    if (hydratedId !== undefined) return hydratedId
     // A helper (`{{now}}`) is rendered, as it is at the top level of a run. Only
     // a helper: an unknown path stays `undefined` rather than rendering to ''.
-    return found === undefined && isTemplateHelperName(name)
-      ? resolveTriggerInString(value, context)
+    return found === undefined && isTemplateHelperName(name, templates)
+      ? resolveTriggerInString(value, context, templates)
       : found
   }
-  if (Array.isArray(value)) return value.map((v) => resolveRunContextValue(v, context))
+  if (Array.isArray(value)) return value.map((v) => resolveRunContextValue(v, context, templates))
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([k, v]) => [
         k,
-        resolveRunContextValue(v, context),
+        resolveRunContextValue(v, context, templates),
       ])
     )
   }
@@ -96,7 +104,7 @@ export const authoredActionProps = (
 export const resolveOwnProp = (runContext: ActionRunContext, value: unknown): unknown =>
   runContext.propsFinal === true
     ? value
-    : resolveRunContextValue(value, buildRunContextView(runContext))
+    : resolveRunContextValue(value, buildRunContextView(runContext), runContext.templates)
 
 /** {@link resolveOwnProp} over the whole of the action's own props. */
 export const resolveOwnProps = (runContext: ActionRunContext): Readonly<Record<string, unknown>> =>

@@ -11,7 +11,7 @@
    (not `undefined`) to clear the column. */
 
 /**
- * Shared deterministic AI-compute **baseline** logic (Phase 2, [internal ref]).
+ * Shared deterministic AI-compute **baseline** logic (Phase 2, the real-AI-provider rule for AI-compute fields).
  *
  * An AI-compute field is two-phase: a synchronous deterministic baseline
  * (this module) plus an async best-effort refinement (Stage B). The baseline

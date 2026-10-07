@@ -78,7 +78,7 @@ function resolveSlotTokens(
     if (!source.includes('$record.')) return
     pristine.set(text, source)
     const next = substituteRecordVars(source, record)
-    // eslint-disable-next-line functional/immutable-data, no-param-reassign -- writing the resolved text into the DOM is the contract here, exactly as in `distributeRecord`
+    // eslint-disable-next-line no-param-reassign -- writing the resolved text into the DOM is the contract here, exactly as in `distributeRecord`
     if (next !== text.nodeValue) text.nodeValue = next
   })
 }
@@ -95,7 +95,7 @@ function resolveSlotTokens(
  * render loop.
  */
 function injectSlotMarkup(root: HTMLElement, html: string): void {
-  // eslint-disable-next-line functional/immutable-data, no-param-reassign -- placing the host-rendered markup IS this function; see above for why React may not own it
+  // eslint-disable-next-line no-param-reassign -- placing the host-rendered markup IS this function; see above for why React may not own it
   root.innerHTML = html
 }
 
@@ -126,7 +126,6 @@ export function RecordDrawerChildren({
   // Read through a ref so the injection below stays keyed to the MARKUP: it must
   // not re-run — and re-mount everything under it — every time the record moves.
   const resolveRef = useRef(resolve)
-  // eslint-disable-next-line functional/immutable-data -- a ref's `.current` is React's own mutable cell, which is what it is for
   resolveRef.current = resolve
 
   useEffect(() => {

@@ -17,9 +17,9 @@
  * - `ECO_AI_PROVIDER_PRECEDENCE` parses one directory over, in
  *   `env/ai/ai-eco-routing.ts` — it is an AI-routing concern that happens to
  *   be eco-controlled.
- * - `ECO_FORM_ANALYTICS` had no parser at all until
- *   `./eco-form-analytics.ts` was extracted for this panel; it was read inline
- *   in `infrastructure/process/env.ts`, a layer this module cannot even import.
+ * - `ECO_FORM_ANALYTICS` is parsed by `./eco-form-analytics.ts`, written for
+ *   this panel so it need not be read inline in `infrastructure/process/env.ts`,
+ *   a layer this module cannot even import.
  *
  * Building this list by enumerating the directory therefore yields SIX rows
  * that all look entirely correct — plausible names, plausible values,

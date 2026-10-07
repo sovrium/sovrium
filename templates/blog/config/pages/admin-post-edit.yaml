@@ -34,14 +34,12 @@ components:
             props:
               className: flex min-w-0 flex-col gap-3 px-5 pb-5 pt-4
             children:
-              # The words on the left, the publishing on the right: the form's
-              # fields are laid on two columns, the status, the date, the byline
-              # and Schedule in the narrow one. One column on a phone.
+              # The words on the left, the publishing on the right: the status,
+              # the date, the byline, the tags and Schedule sit in the narrow
+              # aside column. One column on a phone.
               - type: form
-                props:
-                  className: >-
-                    lg:[&_form]:grid lg:[&_form]:grid-flow-dense lg:[&_form]:grid-cols-[minmax(0,1fr)_340px] lg:[&_form]:items-start lg:[&_form]:gap-x-[22px]
-                    lg:[&_form>*]:col-start-1 lg:[&_form>div:nth-child(n+6)]:col-start-2 lg:[&_form>button]:col-start-2
+                layout: main-aside
+                asideWidth: 340px
                 dataSource:
                   table: posts
                   mode: single
@@ -56,12 +54,14 @@ components:
                   - { field: cover, label: Cover image }
                   - field: status
                     label: Status
+                    region: aside
                     description: Draft stays on the desk; Published is on the site now.
                   - field: publish_at
                     label: Publish at
+                    region: aside
                     description: Set a date on a draft and press Schedule — the post goes live at that hour.
-                  - { field: author, label: Author }
-                  - { field: tags, label: Tags }
+                  - { field: author, label: Author, region: aside }
+                  - { field: tags, label: Tags, region: aside }
                 action:
                   type: crud
                   operation: update

@@ -75,7 +75,6 @@ function ensureToasterContainer(): Element {
   container.setAttribute('data-sonner-toaster', '')
   container.setAttribute('role', 'status')
   container.setAttribute('aria-live', 'polite')
-  /* eslint-disable functional/immutable-data -- DOM style mutation required for runtime toast injection */
   const el = container as HTMLElement
   el.style.position = 'fixed'
   el.style.bottom = '16px'
@@ -84,7 +83,6 @@ function ensureToasterContainer(): Element {
   el.style.display = 'flex'
   el.style.flexDirection = 'column'
   el.style.gap = '8px'
-  /* eslint-enable functional/immutable-data */
   document.body.appendChild(container)
   return container
 }

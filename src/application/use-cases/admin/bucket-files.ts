@@ -45,8 +45,6 @@ import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { isSystemBucketName } from '@/domain/models/app/buckets/bucket-identity'
 import type { App } from '@/domain/models/app'
 
-/* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` across all cursor-paginated admin endpoints (matches the shared cursor-pagination response contract) */
-
 // ─── Pure file-item helper ──────────────────────────────────────────────────
 
 /** Coerce a dialect-native `createdAt` to an ISO 8601 string. */
@@ -232,7 +230,7 @@ export interface BucketFilesInput {
 /**
  * Outcome of the file-list build. `Ok` carries the response-schema-validated
  * body; `ValidationFailed` signals the assembled body failed the response gate
- * (the route maps this to a 500 + logs the Zod error).
+ * (the route maps this to a 500 + logs the schema decode error).
  */
 export type BucketFilesBuildOutcome =
   | {
@@ -318,8 +316,6 @@ export const BuildBucketFiles = (
       },
     } as const
   }).pipe(Effect.withSpan('admin.build-bucket-files'))
-
-/* eslint-enable unicorn/no-null */
 
 /**
  * Object count and byte total for each bucket, keyed by bucket name — the

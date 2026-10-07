@@ -25,7 +25,7 @@
  * that count unique visitors over page-view data are unaffected because
  * they filter on `event_type = 'page_view'`.
  *
- * Wave: [internal ref].
+ * Wave: the automations actions analytics requirement.
  */
 
 import { Effect } from 'effect'

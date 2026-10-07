@@ -16,7 +16,12 @@
       "required": false
     },
     "BASE_URL": {
-      "description": "Public URL of this app (e.g. https://my-mcp-server.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
+      "description": "Public https address of this app (e.g. https://my-mcp-server.osc-fr1.scalingo.io). Used for auth callbacks and absolute links. Never a localhost address: Sovrium would treat the app as local and turn off its cross-site request check and its Secure cookie flag.",
+      "required": true
+    },
+    "TRUSTED_PROXY_HOPS": {
+      "description": "How many proxies stand in front of the app. 1 trusts Scalingo's router to report each visitor's address, so sign-in and API rate limits count per visitor instead of putting every request on the router's address. Raise it only if you add your own CDN in front of Scalingo.",
+      "value": "1",
       "required": true
     },
     "AUTH_ADMIN_EMAIL": {

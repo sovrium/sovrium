@@ -22,6 +22,7 @@
  */
 
 import type { LibraryFragmentByKey } from './define'
+import type { PricingTier } from './pricing-tiers'
 
 /** One component node inside a block fragment. */
 export type BlockNode = Readonly<Record<string, unknown>>
@@ -33,7 +34,7 @@ export type BlockNode = Readonly<Record<string, unknown>>
  * the Library Entry Validity gate decodes every block inside an app instead.
  */
 export const asComponent = (name: string, root: BlockNode): LibraryFragmentByKey['components'] =>
-  ({ name, ...root }) as unknown as LibraryFragmentByKey['components']
+  ({ name, ...root }) as LibraryFragmentByKey['components']
 
 /** Read a string parameter, falling back to its declared default upstream. */
 export const str = (params: Readonly<Record<string, unknown>>, key: string): string =>
@@ -147,7 +148,12 @@ const BUTTON_TONE = {
   ghost: 'border-transparent text-foreground hover:bg-background-subtle hover:text-foreground',
 } as const
 
-const BUTTON_SIZE = { md: 'h-10 px-4 text-md', lg: 'h-12 px-5 text-md' } as const
+/** `sm` is the application button's height, for a link beside the app's own buttons and menus. */
+const BUTTON_SIZE = {
+  sm: 'h-8 px-3 text-base',
+  md: 'h-10 px-4 text-md',
+  lg: 'h-12 px-5 text-md',
+} as const
 
 export type ButtonTone = keyof typeof BUTTON_TONE
 
@@ -360,36 +366,7 @@ export const figure = (value: string, extra = ''): BlockNode => ({
   content: value,
 })
 
-/** A string parameter with its default — the shape every block's `params` repeats. */
-export const stringParam = (
-  name: string,
-  description: string,
-  defaultValue: string
-): {
-  readonly name: string
-  readonly description: string
-  readonly type: 'string'
-  readonly default: string
-} => ({
-  name,
-  description,
-  type: 'string',
-  default: defaultValue,
-})
-
-/** The note every block carries on how to place it. */
-export const PLACE_NOTE =
-  'The block is a reusable component. Place it on a page with `component: <name>` under the page `components` list.'
-
-/** The note every block carries on colour. */
-export const THEME_NOTE =
-  'Colours come from the theme tokens, so the block follows your `theme` without edits.'
-
 // ─── Data-bound parts (appended with the data-bound blocks) ───────────────
-
-/** The note every data-bound block carries on the table it reads. */
-export const DATA_NOTE =
-  'The block reads a table you already have: `library add` refuses until your config declares it, and lists the table and fields it expects. Point it at your own names with `--set` on the table and field parameters.'
 
 /** The heading group above an application panel: a title and an optional line. */
 export const panelHead = (title: string, description = ''): BlockNode =>
@@ -416,34 +393,8 @@ export const panel = (children: readonly BlockNode[], extra = ''): BlockNode => 
 
 // ─── Pricing (shared by the two pricing-card blocks) ──────────────────────
 
-/** Placeholder plans: replace every bracket before publishing. */
-export interface PricingTier {
-  readonly name: string
-  readonly audience: string
-  readonly items: readonly string[]
-  readonly highlighted: boolean
-}
-
-export const PRICING_TIERS: readonly PricingTier[] = [
-  {
-    name: '[Plan A]',
-    audience: 'For [who] starting out.',
-    items: ['[Included item]', '[Included item]', '[Limit]'],
-    highlighted: false,
-  },
-  {
-    name: '[Plan B]',
-    audience: 'For [who] who [need].',
-    items: ['Everything in [Plan A]', '[Included item]', '[Included item]', '[Limit]'],
-    highlighted: true,
-  },
-  {
-    name: '[Plan C]',
-    audience: 'For [who] at scale.',
-    items: ['Everything in [Plan B]', '[Included item]', '[Named contact]'],
-    highlighted: false,
-  },
-]
+export { PRICING_TIERS } from './pricing-tiers'
+export { DATA_NOTE, PLACE_NOTE, stringParam, THEME_NOTE } from './block-notes'
 
 /** One pricing card. Shared by the three-tier and the period-switching blocks. */
 export const pricingCard = ({
@@ -499,9 +450,10 @@ export interface EndpointField {
 /**
  * The form recipe draws its submit button shorter than its text fields. Beside
  * a field — the inline newsletter row — the mismatch reads as a mistake, so the
- * block forms lift the button to the field's height.
+ * block forms lift the button to the field's height through the form's
+ * `submit` part.
  */
-const SUBMIT_MATCHES_FIELD = '[&_button[type=submit]]:h-10 [&_button[type=submit]]:px-4'
+const SUBMIT_MATCHES_FIELD = 'h-10 px-4'
 
 export const endpointForm = (options: {
   readonly url: string
@@ -512,7 +464,8 @@ export const endpointForm = (options: {
   readonly className?: string
 }): BlockNode => ({
   type: 'form',
-  props: { className: `${SUBMIT_MATCHES_FIELD} ${options.className ?? ''}`.trim() },
+  ...(options.className === undefined ? {} : { props: { className: options.className } }),
+  classes: { parts: { submit: SUBMIT_MATCHES_FIELD } },
   endpoint: {
     url: options.url,
     method: 'POST',

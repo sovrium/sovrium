@@ -12,6 +12,8 @@ import {
 } from '@/application/ports/services/content-dir-reader'
 import {
   computeContentDirCorpusChecksum,
+  enumerateContentDir,
+  readContentDirBodies,
   readContentDirBodyForSlug,
 } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
@@ -39,6 +41,16 @@ export const ContentDirReaderLive = Layer.succeed(ContentDirReader, {
   corpusChecksum: (contentDir: Readonly<ContentDir>) =>
     Effect.tryPromise({
       try: () => computeContentDirCorpusChecksum(contentDir.directory),
+      catch: (cause) => new ContentDirReadError({ cause }),
+    }),
+  readBodies: (contentDir: Readonly<ContentDir>, pagePath: string) =>
+    Effect.tryPromise({
+      try: () => readContentDirBodies(contentDir, pagePath),
+      catch: (cause) => new ContentDirReadError({ cause }),
+    }),
+  enumerate: (contentDir: Readonly<ContentDir>, pagePath: string) =>
+    Effect.tryPromise({
+      try: () => enumerateContentDir(contentDir, pagePath),
       catch: (cause) => new ContentDirReadError({ cause }),
     }),
 })

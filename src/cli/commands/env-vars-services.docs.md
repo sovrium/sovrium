@@ -58,27 +58,32 @@ A separate endpoint from the language model, never derived from `AI_BASE_URL`. U
 
 ## Email
 
-With no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing — a magic link, email codes, required verification, an `email` automation action, or an agent granted `email.send` — so a bare email-and-password app boots quietly.
+Email leaves over SMTP by default; `EMAIL_PROVIDER` moves it to the HTTP API of Brevo, Resend or Amazon SES instead. With the default transport and no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing — a magic link, email codes, required verification, an `email` automation action, or an agent granted `email.send` — so a bare email-and-password app boots quietly.
 
-| Variable         | Default               | Description                                  |
-| ---------------- | --------------------- | -------------------------------------------- |
-| `SMTP_HOST`      | unset (disabled)      | SMTP server hostname                         |
-| `SMTP_PORT`      | `587`                 | SMTP server port                             |
-| `SMTP_SECURE`    | `false`               | Implicit TLS; port 465 enables it regardless |
-| `SMTP_USER`      | —                     | Authentication username                      |
-| `SMTP_PASS`      | —                     | Authentication password                      |
-| `SMTP_FROM`      | `noreply@sovrium.com` | Sender address                               |
-| `SMTP_FROM_NAME` | the app's `name`      | Sender display name                          |
+| Variable                      | Default                    | Description                                                                                |
+| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
+| `SMTP_HOST`                   | unset (disabled)           | SMTP server hostname                                                                       |
+| `SMTP_PORT`                   | `587`                      | SMTP server port                                                                           |
+| `SMTP_SECURE`                 | `false`                    | Implicit TLS; port 465 enables it regardless                                               |
+| `SMTP_USER`                   | —                          | Authentication username                                                                    |
+| `SMTP_PASS`                   | —                          | Authentication password                                                                    |
+| `SMTP_FROM`                   | `noreply@sovrium.com`      | Sender address                                                                             |
+| `SMTP_FROM_NAME`              | the app's `name`           | Sender display name                                                                        |
+| `EMAIL_PROVIDER`              | `smtp`                     | `smtp`, `brevo`, `resend` or `ses`; any other value refuses to start                       |
+| `BREVO_API_KEY`               | —                          | Brevo API key; required for `brevo`                                                        |
+| `RESEND_API_KEY`              | —                          | Resend API key; required for `resend`                                                      |
+| `EMAIL_SES_REGION`            | —                          | AWS region of the SES account; required for `ses`                                          |
+| `EMAIL_SES_ACCESS_KEY_ID`     | —                          | Access key id that signs SES requests; required for `ses`                                  |
+| `EMAIL_SES_SECRET_ACCESS_KEY` | —                          | Secret access key that signs SES requests; required for `ses`                              |
+| `EMAIL_API_URL`               | the provider's own address | Base address of the HTTP transport, for a regional endpoint or a relay; ignored for `smtp` |
 
-Every email the instance sends is headed with the app's `name` and carries no vendor branding or copyright line. The sender's display name follows the same rule: `SMTP_FROM_NAME` when it is set, otherwise the app's `name`, and `Sovrium` only when neither is available. Set `SMTP_FROM_NAME` only when the sender should read differently from the app — a team name, say.
+`SMTP_FROM` and `SMTP_FROM_NAME` name the sender on every transport. A provider key alone never switches the transport: only `EMAIL_PROVIDER` does, and a selected transport whose credentials are missing refuses to start, naming the variable. When the provider refuses a message, the email step fails with the provider's name and the HTTP status it answered.
 
-The same settings carry the operator emails — the automation-failure alert. Who receives them, and the two variables that shape that audience (`SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS`), are described under **Operator emails** in the application and server reference.
+Every email the instance sends is headed with the app's `name` and carries no vendor branding or copyright line. The sender's display name follows the same rule: `SMTP_FROM_NAME` when it is set, otherwise the app's `name`, and `Sovrium` only when neither is available. Set `SMTP_FROM_NAME` only when the sender should read differently from the app — a team name, say. The same settings carry the operator emails — the automation-failure alert. Who receives them, and the two variables that shape that audience (`SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS`), are described under **Operator emails** in the application and server reference.
 
 ## MCP server
 
-Off by default. The operator mounts the route; the config decides what the tools may touch. There is no credential variable — the endpoint authenticates on the header a request carries, so enabling it requires an auth block and refuses the boot without one. The retired strategy and static-token variables also refuse the boot.
-
-The first eight reach the HTTP route only. `sovrium mcp`, the local stdio path, serves a client on your own machine with no route and no credential, and reads exactly one variable of its own — the last row.
+Off by default. The operator mounts the route; the config decides what the tools may touch. There is no credential variable — the endpoint authenticates on the header a request carries, so enabling it requires an auth block and refuses the boot without one. The retired strategy and static-token variables also refuse the boot. The first eight reach the HTTP route only. `sovrium mcp`, the local stdio path, serves a client on your own machine with no route and no credential, and reads exactly one variable of its own — the last row.
 
 | Variable                    | Default           | Description                                                                                                                          |
 | --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -155,7 +160,6 @@ Read when generating a static site.
 | `SOVRIUM_DEFAULT_LANGUAGE`    | —        | Default language code                                          |
 | `SOVRIUM_GENERATE_SITEMAP`    | `false`  | Generate a sitemap, and write the page of each record it lists |
 | `SOVRIUM_GENERATE_ROBOTS`     | `false`  | Generate a robots file                                         |
-| `SOVRIUM_HYDRATION`           | `false`  | Enable client-side hydration                                   |
 | `SOVRIUM_BUNDLE_OPTIMIZATION` | —        | `split` or `none`                                              |
 | `SOVRIUM_PUBLIC_DIR`          | —        | Static-asset directory to copy; `none` disables static serving |
 
@@ -172,6 +176,17 @@ Renders a banner marking an instance as a throwaway demo. Off unless explicitly 
 | `SOVRIUM_DEMO_PASSWORD` | Display-only sign-in password, never sourced from the admin seed                  |
 
 Those last two are display-only on purpose: a demo banner that read the real seeded credentials would publish them the moment someone enabled the banner on a real instance.
+
+## Map tiles
+
+Read by every `map` component. With nothing set, a map draws a neutral grid under its pins and makes no request to any tile server: which provider sees your readers' map views is your decision, never a default.
+
+| Variable                | Description                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `MAP_TILES_URL`         | Tile address template over `https://`, containing `{z}`, `{x}` and `{y}`          |
+| `MAP_TILES_ATTRIBUTION` | Attribution line drawn in the corner of every map, as the provider's licence asks |
+
+A `MAP_TILES_URL` that is not an `https://` address, or that lacks any of the three placeholders, refuses `sovrium start` and `sovrium build` before anything is served, naming the variable. An empty value is the same as unset.
 
 ## Seeding
 

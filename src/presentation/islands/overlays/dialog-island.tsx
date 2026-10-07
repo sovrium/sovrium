@@ -6,19 +6,14 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { DialogActions } from './dialog-actions'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
-import {
-  computeInitialOpen,
-  useDismissalGuard,
-  useExternalOpenTrigger,
-  useHostControls,
-} from './dialog-open-state'
+import { useDialogOpenState, useDismissalGuard, useHostControls } from './dialog-open-state'
 import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeAlertDialogPopupClasses,
-  computeDialogActionsClasses,
   computeDialogDescriptionClasses,
   computeDialogPopupClasses,
   computeDialogTitleClasses,
@@ -33,6 +28,8 @@ interface DialogIslandProps {
   readonly closeLabel?: string
   readonly cancelLabel?: string
   readonly confirmLabel?: string
+  /** Text to type before confirm enables (`alert-dialog.confirmText`), resolved on the server. */
+  readonly confirmText?: string
   readonly variant?: 'default' | 'destructive'
   readonly className?: string
   readonly id?: string
@@ -52,59 +49,6 @@ interface DialogIslandProps {
    * dialog closed until it is pressed.
    */
   readonly hasOpener?: boolean
-}
-
-function DialogActions({
-  isAlertDialog,
-  closeLabel,
-  cancelLabel,
-  confirmLabel,
-  variant,
-  onConfirm,
-}: {
-  readonly isAlertDialog: boolean
-  readonly closeLabel: string
-  readonly cancelLabel: string
-  readonly confirmLabel?: string
-  readonly variant: 'default' | 'destructive'
-  /** Fired when the confirm button is pressed, BEFORE the dialog closes. */
-  readonly onConfirm?: () => void
-}): ReactElement {
-  const confirmColorClass =
-    variant === 'destructive'
-      ? 'bg-error-solid text-error-solid-fg hover:opacity-90'
-      : 'bg-primary text-primary-fg hover:bg-primary-hover'
-
-  return (
-    <div className={computeDialogActionsClasses()}>
-      {isAlertDialog && (
-        <Dialog.Close
-          data-component-type="button"
-          className="border-border bg-background text-foreground hover:bg-background-subtle text-md rounded-md border px-4 py-2 font-medium transition-colors"
-        >
-          {cancelLabel}
-        </Dialog.Close>
-      )}
-
-      {confirmLabel ? (
-        <Dialog.Close
-          data-component-type="button"
-          onClick={onConfirm}
-          className={`text-md rounded-md px-4 py-2 font-medium transition-colors ${confirmColorClass}`}
-        >
-          {confirmLabel}
-        </Dialog.Close>
-      ) : (
-        <Dialog.Close
-          data-component-type="button"
-          aria-label={closeLabel}
-          className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors"
-        >
-          <span aria-hidden="true">✕</span>
-        </Dialog.Close>
-      )}
-    </div>
-  )
 }
 
 /**
@@ -146,6 +90,7 @@ interface DialogPopupBodyProps {
   readonly closeLabel: string
   readonly cancelLabel: string
   readonly confirmLabel?: string
+  readonly confirmText?: string
   readonly variant: 'default' | 'destructive'
   readonly className?: string
   readonly id?: string
@@ -162,6 +107,7 @@ function DialogPopupBody({
   closeLabel,
   cancelLabel,
   confirmLabel,
+  confirmText,
   variant,
   className,
   id,
@@ -198,6 +144,7 @@ function DialogPopupBody({
         closeLabel={closeLabel}
         cancelLabel={cancelLabel}
         confirmLabel={confirmLabel}
+        confirmText={confirmText}
         variant={variant}
         onConfirm={onConfirm}
       />
@@ -217,6 +164,7 @@ export default function DialogIsland({
   closeLabel = 'Close',
   cancelLabel = 'Cancel',
   confirmLabel,
+  confirmText,
   variant = 'default',
   className,
   id,
@@ -226,17 +174,12 @@ export default function DialogIsland({
   'data-testid': testId,
 }: DialogIslandProps): ReactElement {
   const isAlertDialog = variant === 'destructive' || confirmLabel !== undefined
-  const [open, setOpen] = useState(() => computeInitialOpen(hasOpener, id))
-
-  useExternalOpenTrigger(id, setOpen)
+  const { open, setOpen, onOpenChangeComplete, onCancel } = useDialogOpenState(hasOpener, id)
 
   // Dispatch the confirm button's configured automation action before
   // the Base UI `Dialog.Close` collapses the dialog. No action ⇒ confirm closes.
   const handleConfirm = useCallback((): void => dispatchConfirmAction(action), [action])
   const handleOpenChange = useDismissalGuard(isAlertDialog, setOpen)
-  const handleCancel = useCallback((event: MouseEvent<HTMLDivElement>): void => {
-    if ((event.target as Element).closest('[data-dialog-cancel]') !== null) setOpen(false)
-  }, [])
   // The host names the dialog; while open it points at the portaled panel.
   const { id: panelId, anchor } = useHostControls(open, id)
 
@@ -245,6 +188,7 @@ export default function DialogIsland({
       modal
       open={open}
       onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       {anchor}
       <Dialog.Portal>
@@ -259,13 +203,14 @@ export default function DialogIsland({
           closeLabel={closeLabel}
           cancelLabel={cancelLabel}
           confirmLabel={confirmLabel}
+          confirmText={confirmText}
           variant={variant}
           className={className}
           id={panelId}
           testId={testId}
           childrenHtml={childrenHtml}
           onConfirm={handleConfirm}
-          onCancel={handleCancel}
+          onCancel={onCancel}
         />
       </Dialog.Portal>
     </Dialog.Root>

@@ -72,8 +72,7 @@ export function toWireFields(
       .map(([name, value]) => [
         name,
         isMarkedCleared(values, name)
-          ? // eslint-disable-next-line unicorn/no-null -- `null` is the records API's "store this field empty"
-            null
+          ? null
           : toWireValue(
               fields.find((f) => f.name === name),
               value
@@ -83,22 +82,32 @@ export function toWireFields(
 }
 
 /**
- * Put each record picker's KEY into a natively posted form's data.
- *
- * A picker's visible control is its search box, and the browser posts that box
- * under the field's name — the linked record's DISPLAY value, which the server
- * cannot resolve to a row. The key the form holds replaces it; an empty picker
- * posts nothing, so an untouched link is left as it is.
+ * The widgets whose visible controls do not post the value the form holds:
+ * a picker posts its search box (the linked record's or account's DISPLAY
+ * text), a rating its radio inputs, a multi-select one checkbox entry per
+ * ticked option — which a form-encoded body reads back as a single string.
  */
-export function postPickerKeys(
+const POSTS_HELD_VALUE: ReadonlySet<string> = new Set([
+  'record-picker',
+  'user-picker',
+  'rating',
+  'multi-select',
+])
+
+/**
+ * Put the value the form HOLDS for each such field into a natively posted
+ * form's data, in place of what its controls posted: a picker's key, a rating's
+ * rank, a multi-select's options as the JSON list it holds. An empty field
+ * posts nothing, so an untouched value is left as it is.
+ */
+export function postHeldValues(
   formData: FormData,
   fields: readonly FieldDef[],
   values: Readonly<Record<string, string>>
 ): void {
   fields
-    .filter((field) => fieldWidgetOf(field.type) === 'record-picker')
+    .filter((field) => POSTS_HELD_VALUE.has(fieldWidgetOf(field.type)))
     .forEach((field) => {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where -- FormData.delete removes one form entry; this is not a Drizzle query
       formData.delete(field.name)
       const held = (values[field.name] ?? '').trim()
       if (held !== '') formData.set(field.name, held)

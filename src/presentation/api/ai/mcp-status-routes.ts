@@ -105,7 +105,7 @@ const isTruthyEnvFlag = (value: string | undefined): boolean =>
 const isMcpServerEnabled = (env: NodeJS.ProcessEnv): boolean =>
   isTruthyEnvFlag(env.MCP_SERVER_ENABLED) || isTruthyEnvFlag(env.MCP_ENABLED)
 
-const handleServerStatus = (c: Readonly<Context>): Response => {
+const handleServerStatus = (c: Context): Response => {
   const { env } = process
   if (!isMcpServerEnabled(env)) {
     return c.json(
@@ -124,7 +124,7 @@ const handleServerStatus = (c: Readonly<Context>): Response => {
   return c.json(body, 200)
 }
 
-const handleClientStatus = (c: Readonly<Context>): Response => {
+const handleClientStatus = (c: Context): Response => {
   const servers = parseMcpClientServers(process.env)
   if (servers.length === 0) {
     return c.json(
@@ -142,7 +142,7 @@ const handleClientStatus = (c: Readonly<Context>): Response => {
   return c.json(body, 200)
 }
 
-const handleClientTools = (c: Readonly<Context>): Response => {
+const handleClientTools = (c: Context): Response => {
   const servers = parseMcpClientServers(process.env)
   if (servers.length === 0) {
     return c.json(
@@ -281,7 +281,7 @@ interface ChatRequestPayload {
   readonly sessionId?: string
 }
 
-const parseChatBody = async (c: Readonly<Context>): Promise<ChatRequestPayload> => {
+const parseChatBody = async (c: Context): Promise<ChatRequestPayload> => {
   const body = (await c.req
     .json()
     .catch(() => ({}) as AgentChatRequestBody)) as AgentChatRequestBody
@@ -323,8 +323,7 @@ const FALLBACK_REPLY =
  * server unavailability surfaces that way, and the caller owes the operator a
  * graceful note rather than an error. A provider that
  * is unreachable, times out, or answers non-2xx is a FAILURE and is reported as
- * one; the diagnostic is logged, never handed to the caller
- *.
+ * one; the diagnostic is logged, never handed to the caller.
  */
 const generateAgentReply = async (
   env: NodeJS.ProcessEnv,
@@ -365,10 +364,7 @@ type ChatPreflight =
   | { readonly ok: true; readonly agent: Agent; readonly aiEnv: AiEnv }
   | { readonly ok: false; readonly response: Response }
 
-const resolveChatPreflight = async (
-  c: Readonly<Context>,
-  app: App | undefined
-): Promise<ChatPreflight> => {
+const resolveChatPreflight = async (c: Context, app: App | undefined): Promise<ChatPreflight> => {
   const agentName = c.req.param('name')
   if (typeof agentName !== 'string' || agentName.length === 0) {
     return {
@@ -383,13 +379,13 @@ const resolveChatPreflight = async (
   if (!agent) {
     return { ok: false, response: agentNotFound(c) }
   }
-  // [internal ref]: a chat turn is an agent invocation, so it carries
+  // A chat turn is an agent invocation, so it carries
   // the same `permissions.trigger` gate `/execute` does. Ahead of the 503
   // below, which would otherwise answer differently for a declared agent than
   // for an undeclared one and reopen the enumeration oracle the 404 closes.
   const triggerRefusal = await checkTriggerPermission(c, agent, app)
   if (triggerRefusal) return { ok: false, response: triggerRefusal }
-  // [internal ref]: with no AI provider configured at all, the declared agent is
+  // With no AI provider configured at all, the declared agent is
   // INERT — discoverable but not runnable. Degrade gracefully with 503 rather
   // than letting `readAiEnv` default to a local Ollama and either hang on an
   // unreachable daemon or return a 200 fallback reply. The loud-fail path for
@@ -411,7 +407,7 @@ const resolveChatPreflight = async (
   return { ok: true, agent, aiEnv }
 }
 
-const providerUnavailable = (c: Readonly<Context>): Response =>
+const providerUnavailable = (c: Context): Response =>
   c.json(
     errorBody({
       error: 'AI provider not configured — the assistant is currently unavailable.',
@@ -430,13 +426,13 @@ const providerUnavailable = (c: Readonly<Context>): Response =>
  * agent gives (the agent exists but cannot run), and otherwise runs the same
  * dispatch `POST /api/ai/chat` with `agent: 'system'` runs.
  */
-const systemAgentRefusal = (c: Readonly<Context>, app: App): Response | undefined => {
-  const session = getSessionContext(c as unknown as Context)
+const systemAgentRefusal = (c: Context, app: App): Response | undefined => {
+  const session = getSessionContext(c)
   if (app.auth !== undefined && session === undefined) return agentNotFound(c)
   return isAiProviderConfigured(process.env) ? undefined : providerUnavailable(c)
 }
 
-const handleSystemAgentChat = async (c: Readonly<Context>, app: App): Promise<Response> => {
+const handleSystemAgentChat = async (c: Context, app: App): Promise<Response> => {
   const refusal = systemAgentRefusal(c, app)
   if (refusal !== undefined) return refusal
   const { message, sessionId } = await parseChatBody(c)
@@ -458,7 +454,7 @@ const handleSystemAgentChat = async (c: Readonly<Context>, app: App): Promise<Re
 
 const handleAgentChat =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const preflight = await resolveChatPreflight(c, app)
     if (!preflight.ok) return preflight.response
     const { agent, aiEnv } = preflight
@@ -493,9 +489,9 @@ const handleAgentChat =
     // conversation with the agent name so agent-bound threads are
     // distinguished from generic chat turns. Best-effort:
     // a persistence failure never breaks the chat turn.
-    const session = getSessionContext(c as unknown as Context)
+    const session = getSessionContext(c)
     const userId = session?.userId ?? 'anonymous'
-    await persistChatTurnDurably(requireDomainContext(c as unknown as Context), {
+    await persistChatTurnDurably(requireDomainContext(c), {
       userId,
       sessionId: sessionId ?? 'default',
       userMessage: message,
@@ -524,12 +520,12 @@ const handleAgentChat =
  */
 export function chainAiMcpStatusRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
-    .get('/api/ai/mcp/server/status', (c) => handleServerStatus(c as unknown as Readonly<Context>))
-    .get('/api/ai/mcp/client/status', (c) => handleClientStatus(c as unknown as Readonly<Context>))
-    .get('/api/ai/mcp/client/tools', (c) => handleClientTools(c as unknown as Readonly<Context>))
+    .get('/api/ai/mcp/server/status', (c) => handleServerStatus(c))
+    .get('/api/ai/mcp/client/status', (c) => handleClientStatus(c))
+    .get('/api/ai/mcp/client/tools', (c) => handleClientTools(c))
     .post('/api/agents/:name/chat', (c) =>
       app !== undefined && isSystemAgentName(c.req.param('name'))
-        ? handleSystemAgentChat(c as unknown as Readonly<Context>, app)
-        : handleAgentChat(app)(c as unknown as Readonly<Context>)
+        ? handleSystemAgentChat(c, app)
+        : handleAgentChat(app)(c)
     ) as T
 }

@@ -6,7 +6,7 @@
  */
 
 /**
- * MCP `tools/call` audit logger.
+ * MCP `tools/call` audit logger (the AI MCP server audit requirement, M-13).
  *
  * Wraps every successful or failed `tools/call` dispatch in `mcp-routes.ts`
  * and persists a row to `system.ai_tool_calls` capturing the caller role,
@@ -41,10 +41,24 @@
  */
 
 import { Effect } from 'effect'
-import { McpAuditRepository } from '@/application/ports/repositories/mcp/mcp-audit-repository'
+import {
+  McpAuditRepository,
+  TOOL_CALL_LEDGER_COLUMNS,
+} from '@/application/ports/repositories/mcp/mcp-audit-repository'
+import { McpInternalsRepository } from '@/application/ports/repositories/mcp/mcp-internals-repository'
+import {
+  InternalTableRegistry,
+  type InternalTableEntry,
+} from '@/domain/models/app/tables/internal-tables'
 import { logError } from '@/infrastructure/logging/logger'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
+import {
+  isRefusedValue,
+  parseInternalListArguments,
+  WHERE_VALUE_REFUSAL,
+} from './internal-list-arguments'
+import { withheldLedgerEntry } from './ledger-withholding'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller, McpCallerRole } from '@/presentation/api/mcp/auth'
@@ -161,6 +175,11 @@ export interface AuditDispatchInput {
   readonly caller: McpCaller
   readonly toolName: string
   readonly args: Record<string, unknown>
+  /**
+   * True for the admin read and internal tools: their answers and argument
+   * values are personal data the ledger must not copy (see {@link withheldLedgerEntry}).
+   */
+  readonly withholdAnswer?: boolean
   readonly dispatch: () => Promise<McpToolResult>
 }
 
@@ -187,6 +206,10 @@ export const auditedToolsCallDispatch = async (
   const settled = await runDispatchToOutcome(input.dispatch)
   const latencyMs = Date.now() - start
   const identity = deriveCallerIdentity(input.caller)
+  const recorded =
+    input.withholdAnswer === true
+      ? withheldLedgerEntry(input.args, settled.outcome)
+      : { inputArgs: input.args, outcome: settled.outcome }
 
   // The `await` here is intentional: it ensures the audit row is committed
   // before the response leaves the handler so a subsequent `executeQuery`
@@ -198,13 +221,12 @@ export const auditedToolsCallDispatch = async (
     callerId: identity.callerId,
     callerType: identity.callerType,
     toolName: input.toolName,
-    inputArgs: input.args,
-    outcome: settled.outcome,
+    inputArgs: recorded.inputArgs,
+    outcome: recorded.outcome,
     latencyMs,
   })
 
   if (settled.thrown !== undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- re-raise the protocol error after the audit row lands
     throw settled.thrown
   }
   return settled.result as McpToolResult
@@ -220,8 +242,8 @@ interface SettledDispatch {
  * Run the dispatch and normalize both outcomes into an auditable shape.
  *
  * A thrown `ProtocolError` carries `code` / `message`, which map onto the
- * `error_code` / `error_message` audit columns exactly as the hand-built
- * JSON-RPC error envelope used to.
+ * `error_code` / `error_message` audit columns exactly as a hand-built
+ * JSON-RPC error envelope would.
  */
 const runDispatchToOutcome = async (
   dispatch: () => Promise<McpToolResult>
@@ -259,13 +281,12 @@ const runDispatchToOutcome = async (
 // dispatcher claims it — because that dispatcher answers `SELECT *`, and
 // `ai_tool_calls` declares `denylistFields: []`, so it would put `session_id`
 // and `request_id` on the wire. The 12-column projection below is the whole
-// point of the ordering, and `[internal ref]` pins it.
+// point of the ordering, and an AI MCP audit spec pins it.
 //
-// Until 2026-08-27 this comment called that an anti-recursion gate — the claim
-// that an audit-read would otherwise log a row for itself. It would not: the
-// generic dispatcher is invoked outside `auditedToolsCallDispatch` too, so
-// neither path writes an audit row. The constraint is real, but it
-// is about data exposure, not bookkeeping.
+// It is NOT an anti-recursion gate: the constraint is about data exposure, not
+// bookkeeping. The generic internals dispatcher IS wrapped in
+// `auditedToolsCallDispatch`; this tool alone is not, so reading the trail does
+// not grow it.
 
 /**
  * True when the given tool name is the internal audit-list tool for `appName`.
@@ -273,46 +294,84 @@ const runDispatchToOutcome = async (
  * before it reaches the M-14 generic internals dispatcher, which would
  * otherwise also claim this tool name and answer it with `SELECT *` —
  * exposing `session_id` and `request_id`, since `ai_tool_calls` declares
- * `denylistFields: []`. It does NOT add an audit row (the wording here until
- * 2026-08-27): that path writes none either..
+ * `denylistFields: []`. Unlike every other tool, a call to it writes no ledger
+ * row, so reading the trail does not grow it.
  */
 export const isInternalAuditListTool = (toolName: string, appName: string): boolean =>
   toolName === `${appName}_system_ai_tool_calls_list`
 
+/** The ledger's registry entry: the catalogue read that types its `where` names it. */
+const LEDGER_ENTRY = InternalTableRegistry.find(
+  (entry) => entry.schema === 'system' && entry.name === 'ai_tool_calls'
+) as InternalTableEntry
+
 /**
- * Handle the internal audit-list tools/call. Admin-only — gate enforced
- * upstream by `tools/list` filtering AND by an explicit role check here so
- * a viewer who hand-crafts the tool name gets a -32603 instead of a 200.
+ * Run one ledger read. A value the database refused as data is the caller's
+ * mistake (invalid params); any other failure answers one fixed message, never
+ * the driver's text, which can name columns, constraints and connection
+ * details — the cause is logged here instead.
+ */
+const readLedger = async <A>(
+  domainContext: DomainContext,
+  read: Effect.Effect<A, unknown, McpAuditRepository | McpInternalsRepository>
+): Promise<A> => {
+  try {
+    return await runOnDomain(domainContext, read)
+  } catch (error) {
+    if (isRefusedValue(error)) return toolFailure(-32_602, WHERE_VALUE_REFUSAL)
+    logError('[mcp-audit] audit-list query failed', error)
+    return toolFailure(-32_603, 'Audit-list query failed')
+  }
+}
+
+/**
+ * Handle the internal audit-list tools/call. It is one of the internal tools,
+ * so it answers only an admin-tier caller and only while
+ * `MCP_EXPOSE_INTERNALS` is on — both checked HERE, at call time, with one
+ * -32603 for either refusal: a tool hidden from `tools/list` is still callable
+ * by a name anyone can derive.
+ *
+ * It takes the raw-list arguments — `limit`, `since`, `where`, `after` — under
+ * the same rules as every other internal list. The projection is the `where`
+ * allow-list: the catalogue's columns are narrowed to
+ * {@link TOOL_CALL_LEDGER_COLUMNS} before validation, so `session_id` and
+ * `request_id` are refused with the very unknown-column message, whatever the
+ * value — an equality on a withheld column would be an oracle for it.
  */
 export const handleAuditListCall = async (input: {
   readonly caller: McpCaller
   readonly args: Record<string, unknown>
+  /** `MCP_EXPOSE_INTERNALS` — off refuses this tool, admins included. */
+  readonly exposeInternals: boolean
   readonly domainContext: DomainContext
 }): Promise<McpToolResult> => {
-  if (!isAdminTierCaller(input.caller)) {
+  if (!input.exposeInternals || !isAdminTierCaller(input.caller)) {
     return toolFailure(-32_603, 'Internal tool system.ai_tool_calls is admin-only')
   }
 
-  const limitArg = input.args['limit']
-  const limit = typeof limitArg === 'number' && limitArg > 0 ? Math.min(limitArg, 1000) : 50
+  const projected = new Set<string>(TOOL_CALL_LEDGER_COLUMNS)
+  const catalogue = await readLedger(
+    input.domainContext,
+    Effect.gen(function* () {
+      const repository = yield* McpInternalsRepository
+      return yield* repository.listColumns(LEDGER_ENTRY)
+    })
+  )
+  // `toolFailure` throws the JSON-RPC error, so the refusal is raised OUTSIDE
+  // `readLedger`, whose catch would otherwise turn it into -32603.
+  const parsed = parseInternalListArguments(
+    input.args,
+    catalogue.filter((column) => projected.has(column.name)),
+    []
+  )
+  if (parsed._tag === 'Invalid') return toolFailure(-32_602, parsed.message)
 
-  try {
-    // The clamp and the 12-column projection are the two things that keep this
-    // tier-1 handler distinct from the M-14 generic internals dispatcher; the
-    // projection now lives in `McpAuditRepository` (which documents why it must
-    // stay explicit), and the clamp stays HERE because it is argument
-    // validation for this tool.
-    const rows = await runOnDomain(
-      input.domainContext,
-      Effect.gen(function* () {
-        const repository = yield* McpAuditRepository
-        return yield* repository.listToolCalls(limit)
-      })
-    )
-
-    return toolSuccess(rows)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return toolFailure(-32_603, `Audit-list query failed: ${message}`)
-  }
+  const rows = await readLedger(
+    input.domainContext,
+    Effect.gen(function* () {
+      const repository = yield* McpAuditRepository
+      return yield* repository.listToolCalls(parsed.query)
+    })
+  )
+  return toolSuccess(rows)
 }

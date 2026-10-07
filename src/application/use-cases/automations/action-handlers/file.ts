@@ -40,6 +40,16 @@ const props = (action: Readonly<Record<string, unknown>>): Readonly<Record<strin
 const optionalString = (p: Readonly<Record<string, unknown>>, key: string): string | undefined =>
   p[key] !== undefined ? stringProp(p, key) : undefined
 
+/** A string-valued props record (`headers`), its non-string entries dropped. */
+const stringRecord = (value: unknown): Readonly<Record<string, string>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string'
+        )
+      )
+    : {}
+
 const errorOutcome = (message: string): ActionOutcome => ({
   status: 'success',
   output: { error: message },
@@ -62,7 +72,7 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     // Surface it as an explicit `error` outcome (mirroring the `http.ts` /
     // `webhook.ts` `invalid_outbound_url_${reason}` shape) and DO NOT proceed
     // to store — the bytes were never fetched.
-    const resolved = yield* Effect.result(resolveSource(source))
+    const resolved = yield* Effect.result(resolveSource(source, stringRecord(p['headers'])))
     if (resolved._tag === 'Failure') {
       return errorOutcome(`invalid_outbound_url_${resolved.failure.reason}`)
     }

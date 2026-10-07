@@ -15,7 +15,7 @@ import {
   TimelineMissingTable,
 } from './timeline-states'
 import { TimelineView } from './timeline-view'
-import { useTimelineRecords } from './use-timeline-records'
+import { TimelineResizeContext, useTimelineData } from './use-timeline-resize'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
@@ -62,6 +62,12 @@ interface TimelineIslandProps {
   /** Field holding the predecessor ids. Without it there is nothing to connect. */
   readonly dependencyField?: string
   readonly emptyMessage?: string
+  /**
+   * The date fields this reader may move by dragging a bar's ends, named by the
+   * server from the table's update grant and each field's write rule. Absent
+   * or empty draws no handle; a system-source timeline is never given any.
+   */
+  readonly resizeFields?: readonly string[]
 }
 
 /**
@@ -94,15 +100,19 @@ export default function TimelineIsland({
   showDependencies,
   dependencyField,
   emptyMessage,
+  resizeFields,
 }: TimelineIslandProps): ReactElement {
-  const { data, isLoading, isError, error } = useTimelineRecords(dataSource)
+  const { records, resize, isLoading, isError, error } = useTimelineData(dataSource, {
+    startField,
+    endField,
+    resizeFields,
+  })
 
   if (!hasDataBinding(dataSource)) return <TimelineMissingTable />
   if (!startField) return <TimelineMissingStartField />
   if (isLoading) return <TimelineLoading />
   if (isError) return <TimelineError error={error} />
 
-  const records = data?.records ?? []
   if (records.length === 0) return <TimelineEmpty message={emptyMessage} />
 
   const config: TimelineConfig = {
@@ -118,13 +128,15 @@ export default function TimelineIsland({
   if (items.length === 0) return <TimelineEmpty message={emptyMessage} />
 
   return (
-    <TimelineView
-      items={items}
-      groupBy={groupBy}
-      colorFieldColors={colorFieldColors}
-      zoom={defaultZoom}
-      showToday={showToday !== false}
-      showDependencies={showDependencies === true && dependencyField !== undefined}
-    />
+    <TimelineResizeContext.Provider value={resize}>
+      <TimelineView
+        items={items}
+        groupBy={groupBy}
+        colorFieldColors={colorFieldColors}
+        zoom={defaultZoom}
+        showToday={showToday !== false}
+        showDependencies={showDependencies === true && dependencyField !== undefined}
+      />
+    </TimelineResizeContext.Provider>
   )
 }

@@ -6,7 +6,7 @@
  */
 
 /**
- * In-process AI-compute baseline merge for the SQLite write path ([internal ref]
+ * In-process AI-compute baseline merge for the SQLite write path (the real-AI-provider rule for AI-compute fields
  * Phase 2, design §6).
  *
  * Postgres computes the deterministic baseline synchronously in a BEFORE

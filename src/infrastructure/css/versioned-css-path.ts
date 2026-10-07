@@ -86,10 +86,8 @@ const digest = (key: string): string =>
  * shares ONE stylesheet identity, and the route resolves that single hash to
  * the embedded console config.
  *
- * The synthesis used to be `buildDashboardSurfaceApp`, which built a surface for
- * EVERY console path; it is gone, and the paths needing a fresh app are now the
- * narrow set that use-case names. The collapse is still required, because that
- * set is non-empty.
+ * The paths needing a fresh app are the narrow set that use-case names. The
+ * collapse is required because that set is non-empty.
  *
  * The console's own chrome is drawn from classes the build-time
  * `BUILTIN_CSS_CANDIDATES` scan already covers, so collapsing the family onto
@@ -110,9 +108,9 @@ const OPERATOR_CONSOLE_CSS_KEY = 'sovrium:operator-console'
  * The stylesheet hash a console surface links, given the design system it
  * scopes.
  *
- * It was a bare `digest(OPERATOR_CONSOLE_CSS_KEY)` constant until 2026-09-02,
- * when the design-system section began drawing the operator's system FLAT in
- * the console document. The console's CSS now carries a scoped copy of the
+ * It cannot be a bare `digest(OPERATOR_CONSOLE_CSS_KEY)` constant: the
+ * design-system section draws the operator's system FLAT in the console
+ * document, so the console's CSS carries a scoped copy of the
  * operator's token layer, so a fixed hash would serve one operator's palette
  * from another operator's `immutable` cache entry.
  *
@@ -130,7 +128,7 @@ const OPERATOR_CONSOLE_CSS_KEY = 'sovrium:operator-console'
  * where the variation is not.
  *
  * A THIRD input joined them when the operator's own `design` began cascading
- * onto the console chrome ([internal ref] A4's runtime; `[internal ref]`). The console's
+ * onto the console chrome ([internal ref] A4's runtime; the console design-cascade rule). The console's
  * compiled bytes now move with the operator's declared colours, type ladder,
  * density and component classes, so those have to move the URL too — otherwise
  * one operator's `immutable`-cached console stylesheet is served for another's
@@ -166,7 +164,6 @@ export const getVersionedCssHash = (app: App): string => {
   const hash = isOperatorConsoleApp(app)
     ? consoleCssHash(app)
     : digest(getCSSCacheKey(app.design, resolveNativeFreeCandidates(app)))
-  // eslint-disable-next-line functional/no-expression-statements -- memoization of a pure derivation over an immutable input
   hashByApp.set(app, hash)
   return hash
 }

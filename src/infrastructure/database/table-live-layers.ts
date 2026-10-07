@@ -7,6 +7,7 @@
 
 import { Layer } from 'effect'
 import { RecordChangeFeedLive } from '@/infrastructure/realtime/record-change-feed-live'
+import { AiComputeStatusRepositoryLive } from './repositories/ai/ai-compute-status-repository-live'
 import { ActivityRepositoryLive } from './repositories/analytics/activity-repository-live'
 import { AuthRepositoryLive } from './repositories/auth/auth-repository-live'
 import { UserDirectoryRepositoryLive } from './repositories/auth/user-directory-repository-live'
@@ -39,5 +40,8 @@ export const TableLive = Layer.mergeAll(
   DataSourceRepositoryLive,
   AuthRepositoryLive,
   UserDirectoryRepositoryLive,
-  RecordChangeFeedLive
+  RecordChangeFeedLive,
+  // The AI-compute status store: the `_aiCompute` read projection on record
+  // reads, and the write-phase signal every record write sends.
+  AiComputeStatusRepositoryLive
 )

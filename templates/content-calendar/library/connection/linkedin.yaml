@@ -1,0 +1,53 @@
+# sovrium-library: connection/linkedin@0.30.0
+name: linkedin
+type: oauth2
+label: LinkedIn
+description: 'LinkedIn API, connected with OAuth'
+props:
+  provider: linkedin
+  clientId: $env.LINKEDIN_CLIENT_ID
+  clientSecret: $env.LINKEDIN_CLIENT_SECRET
+  scopes:
+    - openid
+    - profile
+    - email
+    - w_member_social
+baseUrl: https://api.linkedin.com
+operations:
+  - name: get-userinfo
+    method: GET
+    path: /v2/userinfo
+    summary: 'Read the connected member, whose sub is the id of their person URN'
+  - name: create-post
+    method: POST
+    path: /v2/ugcPosts
+    summary: Publish a post on behalf of the connected member
+    params:
+      X-Restli-Protocol-Version:
+        in: header
+        type: string
+        required: true
+        enum:
+          - 2.0.0
+        description: 'Pass 2.0.0, which LinkedIn requires on this call'
+      author:
+        in: body
+        type: string
+        required: true
+        description: urn:li:person:<sub from get-userinfo>
+      lifecycleState:
+        in: body
+        type: string
+        required: true
+        enum:
+          - PUBLISHED
+      specificContent:
+        in: body
+        type: object
+        required: true
+        description: '{ "com.linkedin.ugc.ShareContent": { shareCommentary, shareMediaCategory } }'
+      visibility:
+        in: body
+        type: object
+        required: true
+        description: '{ "com.linkedin.ugc.MemberNetworkVisibility": PUBLIC or CONNECTIONS }'

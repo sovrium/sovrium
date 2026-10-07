@@ -16,8 +16,11 @@ import { Schema } from 'effect'
  * combination.
  *
  * Cross-validation: at least one of `table`, `automation`, or
- * `storeSubmission: true` (the default) must be specified — otherwise the
- * submission would be discarded silently.
+ * `storeSubmission` not `false` must hold — otherwise the submission would be
+ * discarded silently. (Through a `formRef` embed an omitted `storeSubmission`
+ * does not store; such a form still needs `table` or `automation` to keep
+ * anything from an embedded submission, which `submitTo.table` gives every
+ * in-app create form.)
  *
  * `submitTo.table` and `submitTo.automation` references are validated against
  * the app's `tables[]` and `automations[]` arrays respectively in
@@ -33,7 +36,7 @@ import { Schema } from 'effect'
  * ```yaml
  * submitTo:
  *   automation: notify-sales
- *   storeSubmission: true   # default
+ *   storeSubmission: true   # also store submissions made through a formRef embed
  * ```
  *
  * @example
@@ -78,13 +81,27 @@ export const SubmitToSchema = Schema.Struct({
   ),
 
   /**
-   * Store the submission in the built-in `form_submissions` ledger for the
-   * Forms Responses admin view. Default `true` — opt out with `false`.
+   * Store the submission in the built-in `form_submissions` ledger read by the
+   * console's Submissions inbox.
+   *
+   * ONE KEY, READ BY SURFACE. Omitted, it means "store" for a submission made
+   * on the form's own route and "do not store" for one made through a
+   * `formRef` embed on an app page — an in-app "new task" form is an ordinary
+   * edit, not an intake to triage. `true` stores on both surfaces; `false`
+   * stores on neither. A second key was rejected: one key read by surface is
+   * one fewer thing to learn, at the cost of "omitted" having two meanings,
+   * which the description states once.
+   *
+   * THE CAP EXCEPTION. A form declaring `availability.maxSubmissions` writes
+   * its row on every surface whatever this key says, because the cap is
+   * counted by reserving that row.
    */
   storeSubmission: Schema.optional(
     Schema.Boolean.annotate({
-      defaultNote: 'true',
-      description: 'Persist submission in the built-in form_submissions ledger. Default true.',
+      defaultNote:
+        'true on the form’s own route; false for a submission made through a `formRef` embed on an app page',
+      description:
+        'Write the submission to the built-in submission ledger (the console’s Submissions inbox). Omitted, the form’s own route stores it and a `formRef` embed on an app page does not; `true` stores on both, `false` on neither. A form with `availability.maxSubmissions` stores on every surface, because the cap is counted in the ledger.',
     })
   ),
 })

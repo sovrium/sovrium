@@ -36,7 +36,17 @@ children:
     props:
       # Row metrics tuned to a short navigation: 32px rows, 13.5px
       # labels, and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-foreground-subtle [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1
+    # Each key names a part the sidebar draws (its rows, group heading and
+    # count), so the look survives a change to the engine's markup.
+    classes:
+      parts:
+        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-foreground-muted
+        groupLabel: px-2.5 pt-0 pb-1.5 font-mono text-[10.5px] leading-[14px] uppercase tracking-wider text-foreground-subtle
+        badge: bg-transparent px-0 font-mono text-[11.5px]
+      states:
+        current:
+          link: bg-primary-subtle font-medium text-primary-subtle-foreground
     groups:
       # A count beside an entry is fetched from the same read endpoint the page
       # lists, so it can never disagree with the page it points to.

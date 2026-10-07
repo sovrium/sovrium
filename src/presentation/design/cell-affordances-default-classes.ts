@@ -8,7 +8,7 @@
 /**
  * Prestyled-by-default class computers for read-only data-table **cell
  * affordances** — the per-field-type chrome that paints around a value when
- * it shows up inside a `<td>` ([internal ref], Phase 4 slice 3).
+ * it shows up inside a `<td>` (the prestyled-islands rule, Phase 4 slice 3).
  *
  * Phase 4 slice 1 prestyled the form-control affordances (rating star row,
  * currency input chip, color swatch, attachment tile, …) that live inside the
@@ -158,22 +158,18 @@ export const computeLinkedRecordWrapClasses = (): string =>
  * Compute the default className for a status pill — the QUIET chrome a
  * `status` / `single-select` chip wears when its option declares no colour.
  *
- * There is deliberately no tone axis. This recipe used to take one of five
- * semantic tones (`neutral`, `info`, `success`, `warning`, `error`) and paint
- * the pill from a matching bg/fg/border triple. [internal ref] A7 retired that
- * vocabulary: an option's colour is now the author's DECLARED hex, and the
- * foreground and border are DERIVED from it (`resolveChipPaint`) rather than
- * guessed from what the option is called. The four semantic arms outlived the
- * guessing by one refactor — every production caller passed `'neutral'`, and
- * only the unit test ever reached the rest.
+ * There is deliberately no tone axis (`neutral`, `info`, `success`, `warning`,
+ * `error`). Under [internal ref] A7 an option's colour is the author's DECLARED hex,
+ * and the foreground and border are DERIVED from it (`resolveChipPaint`) rather
+ * than guessed from what the option is called.
  *
- * Keeping them would have been worse than dead weight: an unused-but-callable
- * `tone: 'success'` is a working entrance for exactly the ramp A7 removed, and
- * Knip cannot flag it because the arms are object properties rather than
- * exports. Restoring tone-guessing should have to be a deliberate change, not a
- * one-word argument that already type-checks.
+ * Unused-but-callable tone arms would be worse than dead weight: a
+ * `tone: 'success'` would be a working entrance for exactly the ramp A7
+ * excludes, and Knip cannot flag it because such arms are object properties
+ * rather than exports. Tone-guessing should have to be a deliberate change, not
+ * a one-word argument that already type-checks.
  *
- * ## The shape is the shared badge now, and the fill is still the author's
+ * ## The shape is the shared badge, and the fill is the author's
  * A chip is a chip: this is {@link computeBadgeClasses} at `outline`, which is
  * the drawings' `.b-out` exactly — 11px on a 1.3 leading, `radius-sm`, a strong
  * border, no fill. What it stops being is a `rounded-full` PILL, which reads as
@@ -334,8 +330,7 @@ export const computeArrayChipClasses = (): string =>
  * form; this is the scannable cell readout).
  *
  * Bare mono, for the reason the JSON preview gives next door: the face carries
- * the whole claim, and the fill it used to wear collided with the grid's own
- * selection well.
+ * the whole claim, and a fill would collide with the grid's own selection well.
  */
 export const computeCodeInlineClasses = (): string =>
   [

@@ -6,8 +6,7 @@
  */
 
 /**
- * Pure synthesis of JSON-LD structured data for content-directory pages
- * ([internal ref]..015).
+ * Pure synthesis of JSON-LD structured data for content-directory pages.
  *
  * A `contentDir` page generates one route per markdown file, so it has no
  * statically-authored `page.meta.schema`. When the author opts in via

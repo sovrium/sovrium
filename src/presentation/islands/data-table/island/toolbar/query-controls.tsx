@@ -7,7 +7,6 @@
 
 import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
 import { useGridString } from '../grid-strings'
-import { GroupMenu } from '../group-menu'
 
 interface BadgeButtonProps {
   /** Doubles as the button's visible text and its accessible name. */
@@ -68,15 +67,6 @@ export interface QueryControlsProps {
   readonly sortEnabled: boolean
   readonly onOpenSortOverlay: () => void
   readonly activeSortCount: number
-  readonly groupByEnabled: boolean
-  /** Groupable field names surfaced in the runtime group-by menu. */
-  readonly groupableFields: ReadonlyArray<string>
-  /**
-   * Active runtime grouping field, or null when none is set — in which case the
-   * schema's static `groupBy` applies.
-   */
-  readonly runtimeGroupBy: string | null
-  readonly onSelectRuntimeGroupBy: (field: string | null) => void
 }
 
 /**
@@ -116,13 +106,6 @@ export function QueryControls(props: QueryControlsProps) {
           badgeTestId="sort-badge"
           count={props.activeSortCount}
           onClick={props.onOpenSortOverlay}
-        />
-      )}
-      {props.groupByEnabled && (
-        <GroupMenu
-          fields={props.groupableFields}
-          current={props.runtimeGroupBy}
-          onSelect={props.onSelectRuntimeGroupBy}
         />
       )}
     </>

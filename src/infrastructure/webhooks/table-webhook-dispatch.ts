@@ -52,7 +52,7 @@ type WebhookEvent = 'create' | 'update' | 'delete'
  * it always carries `record`, and may additionally carry `previousValues` and
  * `changedFields` on update events when `includePreviousValues` is enabled.
  */
-export interface TableWebhookPayload {
+export type TableWebhookPayload = {
   readonly event: string
   readonly table: string
   readonly timestamp: string
@@ -125,7 +125,6 @@ interface LogDeliveryInput {
  * template — `undefined` does not bind as a parameter value — so each
  * optional field is coalesced to `null` here (`unicorn/no-null` disabled).
  */
-/* eslint-disable unicorn/no-null */
 const toNullableParams = (input: LogDeliveryInput) => ({
   httpStatus: input.httpStatus ?? null,
   error: input.error ?? null,
@@ -134,7 +133,6 @@ const toNullableParams = (input: LogDeliveryInput) => ({
   attemptCount: Math.max(1, input.attemptCount ?? 1),
   isTest: input.isTest ?? false,
 })
-/* eslint-enable unicorn/no-null */
 
 const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined> => {
   const { webhookName, tableName, event, url, payload, requestHeaders } = input
@@ -269,12 +267,10 @@ const attemptDelivery = async (
   // `deliverWebhook` echoes the actual set back; we fall back to this if it
   // does not (e.g. transport failure before headers are assembled).
   const expectedHeaders = { ...BASE_HEADERS, 'X-Webhook-Event': payload.event, ...authHeaders }
-  const result = await deliverWebhook(
-    webhook.url,
-    payload.event,
-    payload as unknown as Record<string, unknown>,
-    { extraHeaders: authHeaders, timeoutMs: DELIVERY_TIMEOUT_MS }
-  ).catch((err: unknown) => ({
+  const result = await deliverWebhook(webhook.url, payload.event, payload, {
+    extraHeaders: authHeaders,
+    timeoutMs: DELIVERY_TIMEOUT_MS,
+  }).catch((err: unknown) => ({
     success: false,
     error: describeTransportError(err),
   }))
@@ -284,7 +280,6 @@ const attemptDelivery = async (
 /** Sleep for `ms` milliseconds. Used to space out webhook retry attempts. */
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
-    // eslint-disable-next-line functional/no-expression-statements -- schedule the timer that resolves the sleep
     setTimeout(resolve, ms)
   })
 
@@ -344,20 +339,15 @@ const deliverWithRetryAndLog = async (input: {
 
   // Initial delivery (attempt 1), then up to `maxAttempts` retries. A 2xx
   // stops the loop; the loop also stops once retries are exhausted.
-  // eslint-disable-next-line functional/no-let -- accumulator for the retry loop
   let outcome = await attemptDelivery(webhook, payload, envLookup)
-  // eslint-disable-next-line functional/no-let -- attempt counter for the retry loop
   let attempts = 1
 
-  /* eslint-disable functional/no-loop-statements, functional/no-expression-statements -- sequential retry loop with backoff and accumulators */
   while (outcome.status === 'failed' && attempts <= policy.maxAttempts) {
     await sleep(computeRetryDelay(policy, attempts))
     outcome = await attemptDelivery(webhook, payload, envLookup)
     attempts = attempts + 1
   }
-  /* eslint-enable functional/no-loop-statements, functional/no-expression-statements */
 
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect: persist the final delivery row
   await logDelivery({
     webhookName: webhook.name,
     tableName,
@@ -419,7 +409,6 @@ export const deliverTestWebhook = async (input: {
   }
   const requestedAt = new Date().toISOString()
   const outcome = await attemptDelivery(webhook, payload, envLookupFor(input.appEnv))
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect: persist the test delivery row
   await logDelivery({
     webhookName: webhook.name,
     tableName,
@@ -503,7 +492,6 @@ export const triggerTableWebhooks = async (input: {
   const envLookup = envLookupFor(input.appEnv)
 
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget delivery dispatch
     await Promise.all(
       matching.map((webhook) =>
         dispatchOne({ webhook, tableName: table.name, event, record, previousRecord, envLookup })

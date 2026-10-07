@@ -7,6 +7,7 @@
 
 import { executeFetchAction } from '../../runtime/action-executor'
 import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
+import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
 import { renderToast } from './toast'
 import type { RowActionHandler } from '../formatting'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
@@ -144,7 +145,7 @@ export function createRowActionHandler({
     // Config `type: 'fetch'` operate action (Consoles-as-Config CAP-3).
     if (action.action.type === 'fetch') {
       await runFetchRowAction(
-        action.action as unknown as FetchAction,
+        action.action as FetchAction,
         record as Record<string, unknown>,
         queryClient,
         queryKey
@@ -152,10 +153,22 @@ export function createRowActionHandler({
       return
     }
 
+    // An item-level account method (`auth` with a `target`): one request to the
+    // engine's own endpoint, then the grid re-reads what the server now holds.
+    if (action.action.type === 'auth') {
+      const done = await runAccountRowAction(
+        action.action as AccountRowAction,
+        record as Record<string, unknown>,
+        renderToast
+      )
+      if (done) await queryClient.invalidateQueries({ queryKey })
+      return
+    }
+
     // Only the `crud` variant is otherwise honored by row-actions.
     if (action.action.type !== 'crud') return
     await runCrudRowAction(
-      action.action as unknown as CrudAction,
+      action.action as CrudAction,
       record as Record<string, unknown>,
       queryClient,
       queryKey

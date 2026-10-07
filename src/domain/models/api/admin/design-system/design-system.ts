@@ -21,7 +21,7 @@
  * lands. Same invariant as A1: reading is observability, mutating is
  * authoring. There is no request schema in this module because there is
  * nothing to write to, and A2 forbids an export-then-reimport round trip
- * outright —, which asserts the ABSENCE of a
+ * outright — see an API admin design system spec, which asserts the ABSENCE of a
  * write route rather than trusting the absence of a schema.
  *
  * ─── THE CONFIDENTIALITY BOUND ──────────────────────────────────────────────
@@ -66,7 +66,7 @@
  *    `{value: 4, unit: 'rem'}`. `spacing: 'clamp(1rem, 2vw, 3rem)'` has no
  *    DTCG dimension form at all, so it is NOT emitted as a dimension — it goes
  *    to `$extensions` with its raw text intact.
- * - **The inert font fields**. See `inertDeclarationSchema`.
+ *  - **The inert font fields**. See `inertDeclarationSchema`.
  *
  * @see https://www.designtokens.org/tr/drafts/format/
  * @see [internal ref] (A2, draft)
@@ -155,16 +155,13 @@ export const dtcgDurationTokenSchema = Schema.Struct({
 /**
  * A DTCG `cubicBezier` value — the four control-point ratios, in order.
  *
- * ─── EASING HAS A DTCG FORM, AND THIS CODEBASE USED TO SAY IT DID NOT ──────
+ * ─── EASING HAS A DTCG FORM ────────────────────────────────────────────────
  *
- * `inherited-tokens.ts` states that "an easing has no DTCG form at all" and
- * that publishing one "would invent a type DTCG does not have". That is wrong,
- * and it contradicts its own sibling: `design-system.ts` already names the
- * destination — *"promoting it to a first-class `cubicBezier` group is a
- * separate decision"* — and `design-system-foundation-motion.ts` already PARSES
+ * It is tempting to say "an easing has no DTCG form at all". It does:
+ * `design-system-foundation-motion.ts` already PARSES
  * `cubic-bezier(x1, y1, x2, y2)` into exactly these four numbers in order to
- * draw the curve. The type exists, the parser exists, and all four inherited
- * curves are `cubic-bezier(...)`.
+ * draw the curve. The type exists, the parser exists, and the inherited curves
+ * are `cubic-bezier(...)`.
  *
  * DTCG fixes the length at four and the order at `[P1x, P1y, P2x, P2y]`. The x
  * ordinates are bounded to `0..1` because a control point outside that range is
@@ -411,7 +408,7 @@ export const inertDeclarationSchema = Schema.Struct({
  * Foundations draws `{ ...INHERITED, ...declared }` — the ramp the app actually
  * moves and elevates on, not the subset its config names. The export must agree
  * with the surface or it documents a different system than the console does,
- * and `[internal ref]` already argues that failure for breakpoints:
+ * and an admin design system spec already argues that failure for breakpoints:
  * *"an app reports the breakpoints it DECLARED rather than the ones it SHIPS…
  * Inheritance is precisely what an author cannot learn by reading their own
  * config, which is what this console is for."*
@@ -472,7 +469,7 @@ export const sovriumDesignExtensionSchema = Schema.Struct({
    * spread}`, and parsing arbitrary `box-shadow` back into it fails exactly
    * where it matters — multiple layers, `inset`, colour functions. Three of
    * the five inherited steps are two-layer. So the document still emits NO
-   * `shadow` group, `[internal ref]` still holds, and the raw string
+   * `shadow` group, an admin design system spec still holds, and the raw string
    * still appears under `unmappable` for anything declared.
    *
    * This is ADDITIVE to that, not a replacement for it: a consumer that wants
@@ -654,3 +651,24 @@ export const specimenRowsQuerySchema = Schema.Struct({
 
 /** @public */
 export type SpecimenRowsQuery = typeof specimenRowsQuerySchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/design-system.json`.
+ *
+ * `flat` is opt-in BY NAME and by PRESENCE: any value, empty included, switches
+ * the body to the `{ items, total }` row projection (`flatTokensResponseSchema`);
+ * absent, the body is the DTCG document, byte-identical to what it has always
+ * been. A plain optional string because the handler tests presence, not value.
+ */
+export const designSystemJsonQuerySchema = Schema.Struct({
+  flat: optionalField(
+    Schema.String.annotate({
+      description:
+        'Present (any value, `1` by convention) to receive the tokens as flat rows instead of the DTCG document.',
+      examples: ['1'],
+    })
+  ),
+}).annotate({ identifier: 'DesignSystemJsonQuery' })
+
+/** @public */
+export type DesignSystemJsonQuery = typeof designSystemJsonQuerySchema.Type

@@ -45,8 +45,8 @@ export const resolveAutomationIdSilent = (
     const createResult = yield* Effect.result(
       repo.create({
         name,
-        trigger: automation.trigger as unknown as Record<string, unknown>,
-        actions: automation.actions as unknown as readonly Record<string, unknown>[],
+        trigger: automation.trigger,
+        actions: automation.actions,
         enabled: automation.enabled ?? true,
       })
     )
@@ -83,6 +83,12 @@ export const dispatchAutomationOnce = (input: {
   readonly userId: string | undefined
   /** See `ExecuteAutomationRunInput.recordEventDepth`; omitted means 0. */
   readonly recordEventDepth?: number
+  /**
+   * A person started this run by hand (a page press by a signed-in caller):
+   * the run records `userId` as its starter and its record actions write as
+   * them. Omitted means an event dispatch, which records no starter.
+   */
+  readonly startedByHand?: boolean
 }): Effect.Effect<RunAutomationResult | undefined, never, ExecuteAutomationRunRequirements> =>
   Effect.gen(function* () {
     const { automation, app, processEnv, triggerData, userId } = input
@@ -99,5 +105,6 @@ export const dispatchAutomationOnce = (input: {
       handlers: defaultActionHandlers,
       userId,
       ...(input.recordEventDepth === undefined ? {} : { recordEventDepth: input.recordEventDepth }),
+      ...(input.startedByHand === true ? { startedByHand: true } : {}),
     })
   }).pipe(Effect.withSpan('automations.dispatch-automation-once'))

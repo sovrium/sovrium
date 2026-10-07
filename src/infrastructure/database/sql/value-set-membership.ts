@@ -36,7 +36,6 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
  *
  * An empty set yields an empty relation, so the predicate is simply false.
  */
-/* eslint-disable-next-line functional/prefer-immutable-types -- SQL / Column / Name are upstream drizzle-orm types (structurally mutable); this builder returns them untouched */
 export const isInValueSet = (column: SQL | Column | Name, values: readonly string[]): SQL => {
   const encoded = JSON.stringify(values)
   if (parseDatabaseDialectConfig().dialect === 'sqlite') {

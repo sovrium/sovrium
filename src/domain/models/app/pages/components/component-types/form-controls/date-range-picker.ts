@@ -41,7 +41,7 @@
  * against the request's own clock when the panel opens.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 006, plus this type's own REGRESSION rollup
+ * Specs: the design system component date range picker specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

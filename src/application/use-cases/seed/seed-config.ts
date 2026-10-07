@@ -53,7 +53,7 @@ export interface SeedTableConfig {
  * field union (optional ones as `undefined`), so the projection is total.
  */
 export const seedTablesOf = (app: Readonly<App>): readonly SeedTableConfig[] =>
-  (app.tables ?? []) as unknown as readonly SeedTableConfig[]
+  (app.tables ?? []) as readonly SeedTableConfig[]
 
 /** The config for one table, or `undefined` when the app declares no such table. */
 export const findSeedTable = (

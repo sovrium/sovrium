@@ -61,7 +61,7 @@ export const HttpGetActionSchema = Schema.Struct({
       )
     ),
     // GET requests should never carry a body (HTTP semantics + spec
-    // [internal ref]). `Schema.Never` makes any
+    // An automation action HTTP get spec). `Schema.Never` makes any
     // non-undefined `body` value fail decode, so the YAML decoder
     // rejects the misuse at startup rather than silently dropping it.
     body: Schema.optionalKey(

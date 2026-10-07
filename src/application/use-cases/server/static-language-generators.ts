@@ -72,8 +72,7 @@ export const generateMultiLanguageFiles = (
 
           // An app to render THIS language through, and no listener. The pass
           // drives `toSSG` over `app.fetch`, so a socket would be bound,
-          // never connected to, and closed again ([internal ref],
-          // [internal ref]).
+          // never connected to, and closed again (a CLI log output spec,
           const renderApp = yield* serverFactory.buildRenderApp({
             app: validatedLangApp,
             renderPage: pageRenderer.renderPage,
@@ -84,7 +83,7 @@ export const generateMultiLanguageFiles = (
           // Generate static files in language subdirectory
           const langOutputDir = `${outputDir}/${lang.code}`
           // Filter to publicly-emittable pages — see getPublicPagePaths and
-          // [internal ref] for the access-leak regression.
+          // The pages public search requirement for the access-leak regression.
           const pagePaths = [...getPublicPagePaths(validatedLangApp.pages), ...recordPagePaths]
           // Disposed AFTER the HTML exists, and on every exit path. The old
           // order was the reverse — the server was stopped BEFORE its `app`
@@ -184,7 +183,7 @@ export const generateSingleLanguageFiles = (
     })
 
     // Filter to publicly-emittable pages — see getPublicPagePaths and
-    // [internal ref] for the access-leak regression.
+    // The pages public search requirement for the access-leak regression.
     // The declared pages, plus one address per record the sitemap lists — the
     // record pages are written so a static host answers every listed address.
     const pagePaths = [...getPublicPagePaths(validatedApp.pages), ...recordPagePaths]

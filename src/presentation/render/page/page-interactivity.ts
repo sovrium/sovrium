@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isFillAction } from '@/presentation/render/elements/button-action-builders'
 import { extractComponentMetaFromSections } from '@/presentation/render/page/extract-component-meta'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
@@ -16,14 +17,15 @@ import type { Page } from '@/domain/models/app/pages'
 /**
  * Component types whose mere presence makes a page need `/assets/client.js`.
  *
- * Two entries were removed here and neither is a rename waiting to happen.
+ * Two plausible entries are deliberately absent, and neither is a rename
+ * waiting to happen.
  *
- * `modal` was dead twice over. The type is retired (`retired-types.ts`), so a
- * config naming it is refused at decode; and its runtime half was dead too —
- * nothing emits `data-modal-trigger`, and the zero-JS dialog runs off the
- * inline `clickScript` in `page-body-scripts.tsx` keyed on `[data-click-modal]`.
+ * `modal` is not a type (`retired-types.ts`), so a config naming it is refused
+ * at decode; and nothing emits `data-modal-trigger` — the zero-JS dialog runs
+ * off the inline `clickScript` in `page-body-scripts.tsx` keyed on
+ * `[data-click-modal]`.
  *
- * `dropdown` named no component type at all. The real type is `dropdown-menu`,
+ * `dropdown` names no component type at all. The real type is `dropdown-menu`,
  * and writing THAT here would be a regression rather than a repair:
  * `dropdown-menu` is already in `ISLAND_COMPONENT_TYPES`, so it gets the
  * runtime it needs from the island gate. The two gates emit DIFFERENT scripts,
@@ -31,7 +33,7 @@ import type { Page } from '@/domain/models/app/pages'
  * fetch-button dispatch, native-select publishers and session text — nothing a
  * menu uses. Adding it would ship a second bundle to every page holding a
  * dropdown for zero behaviour, against the ecoconception default.
- * `[internal ref]` fails the moment it is written back in.
+ * A pages dropdown menu spec fails the moment it is written back in.
  */
 const INTERACTIVE_COMPONENT_TYPES = new Set(['form', 'table'])
 
@@ -49,13 +51,28 @@ function componentIsSessionBound(record: Record<string, unknown>): boolean {
 
 /**
  * True for a `select.native` that also PUBLISHES on a shared-filter channel
- *. The platform control mounts no island, so its `change` → dispatch
+ * The platform control mounts no island, so its `change` → dispatch
  * is bound by the global vanilla runtime — and without this the declaration
  * would be inert on any page whose only other components are static, which is
  * precisely a filter bar over a read endpoint.
  */
 function componentIsNativeSelectPublisher(record: Record<string, unknown>): boolean {
   return record['type'] === 'select' && record['native'] === true && Boolean(record['publishes'])
+}
+
+/**
+ * True for an island that hands a `fill` to the vanilla runtime — a list item
+ * click (`onRowClick`) or a board drop hook (`drag.onDrop[].action`). The
+ * island resolves the value and dispatches `sovrium:fill`; without the runtime
+ * on the page nothing listens, and the target may be a bare `textarea`.
+ */
+function componentDispatchesFill(record: Record<string, unknown>): boolean {
+  if (isFillAction(record['onRowClick'])) return true
+  const onDrop = (record['drag'] as Record<string, unknown> | undefined)?.['onDrop']
+  return (
+    Array.isArray(onDrop) &&
+    onDrop.some((hook) => isFillAction((hook as { action?: unknown })?.action))
+  )
 }
 
 /** True if THIS component (ignoring children) is interactive. */
@@ -65,6 +82,7 @@ function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
   if (record['action']) return true
   if (componentIsSessionBound(record)) return true
   if (componentIsNativeSelectPublisher(record)) return true
+  if (componentDispatchesFill(record)) return true
   const props = record['props'] as Record<string, unknown> | undefined
   return Boolean(props?.['action'] || props?.['interactions'])
 }
@@ -88,6 +106,12 @@ function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
 export function hasInteractiveFeatures(page: Page, components?: Components): boolean {
   return someComponentInTree(page.components, components, componentSelfIsInteractive)
 }
+
+/**
+ * The client runtime features an interactive page loads. Only `core` exists
+ * today; the loader (`islands/client.ts`) imports one chunk per feature.
+ */
+export const CORE_RUNTIME_FEATURES: readonly string[] = ['core']
 
 /**
  * Merges component metadata with page metadata

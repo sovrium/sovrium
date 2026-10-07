@@ -116,7 +116,7 @@ export const updateAndAnnounce = (input: {
       app,
       linkReader,
     })
-    // [internal ref]: an automation's update starts the update automations of its table.
+    // An automation's update starts the update automations of its table.
     yield* announceRecordWrite(runContext, {
       tableName,
       event: 'update',
@@ -136,7 +136,7 @@ export const deleteAndAnnounce = (input: {
     const { session, tableName, recordId, runContext } = input
     const previous = yield* readBeforeWrite({ ...input, event: 'delete' })
     const deleted = yield* deleteRecordProgram(session, tableName, recordId)
-    // [internal ref]: a delete trigger reads the record as it stood before — and fires
+    // A delete trigger reads the record as it stood before — and fires
     // only when a row was actually removed, as the records API's does.
     if (previous !== undefined && deleted.success && !deleted.restrictViolation) {
       yield* announceRecordWrite(runContext, { tableName, event: 'delete', record: previous })

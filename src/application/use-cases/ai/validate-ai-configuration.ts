@@ -29,7 +29,7 @@ import type { App } from '@/domain/models/app'
  * is set to an unrecognised value. Returns `undefined` when the provider config
  * is internally consistent (including the unset case).
  *
- * NOTE ([internal ref] Phase 2): AI-computed table fields do NOT require a provider.
+ * NOTE: AI-computed table fields do NOT require a provider.
  * Under the two-phase baseline-then-refined contract the deterministic
  * baseline is the guaranteed floor — an AI-compute field is always type-valid
  * and present even with AI disabled (refinement is simply off). So a table

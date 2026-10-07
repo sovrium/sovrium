@@ -7,7 +7,7 @@
 
 /**
  * Shared embedding-pipeline primitives for the RAG sync runners
- *.
+ * (the AI RAG table knowledge requirement / DOCUMENT-KNOWLEDGE).
  *
  * Both `knowledge-sync.ts` (table knowledge) and `document-sync.ts` (document
  * knowledge) flatten their source into a list of text chunks, embed each chunk

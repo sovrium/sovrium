@@ -13,7 +13,7 @@ import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
 import type { EffectiveQuery } from './use-effective-query'
 import type { SystemQueryParams } from './use-system-query-params'
-import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 import type { PaginationState } from '@tanstack/react-table'
 
 export type RecordsQuery = ReturnType<typeof useRecordsQuery>
@@ -51,11 +51,6 @@ function resolveLoadMoreFeed(
     tableState.globalFilter,
     tableState.pagination.pageSize,
     system.sharedFilterParams,
-    // A grouped read orders rows by group first, so a change of grouping is a
-    // different sequence — appending its pages under the old ones would repeat
-    // and skip rows. The toolbar's choice is the only grouping that can change
-    // at runtime; the declared one is fixed for the life of the grid.
-    ctx.ui.runtimeGroupBy,
   ]
   return { identity, runtimeFilter }
 }
@@ -104,11 +99,9 @@ export function useRecordsQuery(
   const { dataSource, summaryConfig, groupByConfig } = ctx.params
   const { tableState } = layout
 
-  // Runtime selection from the toolbar's Group menu overrides the schema's
-  // static `groupBy` block; clearing the runtime selection (set to `null`)
-  // restores the schema default.
-  const effectiveGroupByConfig: DataTableGroupBy | undefined =
-    ctx.ui.runtimeGroupBy !== null ? { field: ctx.ui.runtimeGroupBy } : groupByConfig
+  // The bound view's grouping, fixed for the life of the grid: no reader
+  // control changes it.
+  const effectiveGroupByConfig: ViewGroupBy | undefined = groupByConfig
 
   const loadMoreFeed = resolveLoadMoreFeed(ctx, layout, effective, system)
 
@@ -163,7 +156,7 @@ export function useRecordsQuery(
  */
 function requestParams(
   ctx: SetupContext,
-  groupBy: DataTableGroupBy | undefined,
+  groupBy: ViewGroupBy | undefined,
   loadMoreFeed: ReturnType<typeof resolveLoadMoreFeed>
 ) {
   const { dataSource, summaryConfig, columnConfig } = ctx.params

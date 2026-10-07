@@ -16,7 +16,7 @@
  *
  * ─── AUTHORISATION ──────────────────────────────────────────────────────────
  *
- * Authorised by [internal ref] **amendment A1** (2026-08-14), which reverses the
+ * Authorised by [internal ref] **amendment A1**, which reverses the
  * ADR's original rejection of read-only config viewing. A1's invariant:
  *
  *   > Reading the running configuration is observability; mutating it is

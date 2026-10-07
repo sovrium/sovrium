@@ -1,0 +1,42 @@
+# sovrium-library: recipe/record-to-mistral-summary@0.30.0
+# A lead that arrives with a message gets a two-sentence summary of it,
+# written by a Mistral model into the lead's `summary`. The trigger condition
+# is the one change from the library recipe: a lead with no message has
+# nothing to summarise, so it costs no call. Set MISTRAL_API_KEY (see
+# `.env.example`) to turn it on.
+name: record-to-mistral-summary
+trigger:
+  type: record
+  table: leads
+  events:
+    - create
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.message}}'
+        operator: isNotEmpty
+actions:
+  - name: summarize
+    type: connection
+    operator: call
+    props:
+      connection: mistral
+      operation: chat-completion
+      params:
+        model: mistral-small-latest
+        messages:
+          - role: system
+            content: 'Summarise the text you are given in at most two sentences, in the language it is written in.'
+          - role: user
+            content: '{{trigger.data.record.message}}'
+  - name: saveSummary
+    type: record
+    operator: update
+    props:
+      table: leads
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        summary: '{{steps.summarize.data.choices.0.message.content}}'

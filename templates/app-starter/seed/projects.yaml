@@ -1,0 +1,63 @@
+# Six projects spread over the last three months, so every period of the
+# dashboard has something to show.
+records:
+  - key: rebrand
+    fields:
+      {
+        title: Spring rebrand,
+        status: Active,
+        client: Maison Lefort,
+        budget: 12400,
+        due_date: '{{today-3d}}',
+        category: Design,
+      }
+  - key: portal
+    fields:
+      {
+        title: Client portal,
+        status: Active,
+        client: Halden & Co,
+        budget: 28000,
+        due_date: '{{today-12d}}',
+        category: Build,
+      }
+  - key: audit
+    fields:
+      {
+        title: Accessibility audit,
+        status: On hold,
+        client: Corvel,
+        budget: 4800,
+        due_date: '{{today-25d}}',
+        category: Support,
+      }
+  - key: catalogue
+    fields:
+      {
+        title: Autumn catalogue,
+        status: Active,
+        client: Maison Lefort,
+        budget: 9600,
+        due_date: '{{today-40d}}',
+        category: Design,
+      }
+  - key: migration
+    fields:
+      {
+        title: Data migration,
+        status: Closed,
+        client: Orrin,
+        budget: 15200,
+        due_date: '{{today-62d}}',
+        category: Build,
+      }
+  - key: support
+    fields:
+      {
+        title: Support retainer,
+        status: Active,
+        client: Halden & Co,
+        budget: 3600,
+        due_date: '{{today-85d}}',
+        category: Support,
+      }

@@ -14,20 +14,47 @@ import { withDefault } from '../combinators/schema-defaults'
 // ============================================================================
 
 /**
+ * Longest page path or referrer URL the collector stores, in characters.
+ *
+ * The collect endpoint takes anonymous traffic, so every byte it accepts is a
+ * byte anyone can write into `analytics_events`. 2048 matches the URL length
+ * browsers and proxies reliably carry; a longer value is refused with 400,
+ * never truncated, so what is stored is always what the browser sent.
+ */
+const ANALYTICS_URL_MAX_LENGTH = 2048
+
+/** Longest page title the collector stores, in characters. */
+const ANALYTICS_TITLE_MAX_LENGTH = 512
+
+/** Longest UTM parameter value the collector stores, in characters. */
+const ANALYTICS_UTM_MAX_LENGTH = 256
+
+/**
+ * Longest destination hostname an outbound-click beacon carries, in characters.
+ * 253 is the longest name DNS can resolve, so a longer value names no host.
+ */
+const ANALYTICS_HOSTNAME_MAX_LENGTH = 253
+
+/** An optional string field capped at `max` characters (annotation before the check). */
+const cappedOptionalString = (description: string, max: number) =>
+  optionalField(Schema.String.annotate({ description }).pipe(Schema.check(Schema.isMaxLength(max))))
+
+/**
  * Analytics collection payload schema
  *
  * Minimal payload sent by the tracking script.
- * Single-letter keys to minimize bandwidth usage.
+ * Single-letter keys to minimize bandwidth usage. Every string field is
+ * length-capped: an over-long value refuses the whole page view.
  */
 export const analyticsCollectSchema = Schema.Struct({
   /** Page path (required) */
   p: Schema.String.annotate({ description: 'Page path being viewed' }).pipe(
-    Schema.check(Schema.isMinLength(1))
+    Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_URL_MAX_LENGTH))
   ),
   /** Page title (optional) */
-  t: optionalField(Schema.String.annotate({ description: 'Page title' })),
+  t: cappedOptionalString('Page title', ANALYTICS_TITLE_MAX_LENGTH),
   /** Referrer URL (optional) */
-  r: optionalField(Schema.String.annotate({ description: 'Full referrer URL' })),
+  r: cappedOptionalString('Full referrer URL', ANALYTICS_URL_MAX_LENGTH),
   /** Screen width (optional) */
   sw: optionalField(
     Schema.Int.annotate({ description: 'Screen width in pixels' }).pipe(
@@ -41,15 +68,15 @@ export const analyticsCollectSchema = Schema.Struct({
     )
   ),
   /** UTM source (optional) */
-  us: optionalField(Schema.String.annotate({ description: 'UTM source parameter' })),
+  us: cappedOptionalString('UTM source parameter', ANALYTICS_UTM_MAX_LENGTH),
   /** UTM medium (optional) */
-  um: optionalField(Schema.String.annotate({ description: 'UTM medium parameter' })),
+  um: cappedOptionalString('UTM medium parameter', ANALYTICS_UTM_MAX_LENGTH),
   /** UTM campaign (optional) */
-  uc: optionalField(Schema.String.annotate({ description: 'UTM campaign parameter' })),
+  uc: cappedOptionalString('UTM campaign parameter', ANALYTICS_UTM_MAX_LENGTH),
   /** UTM content (optional) */
-  ux: optionalField(Schema.String.annotate({ description: 'UTM content parameter' })),
+  ux: cappedOptionalString('UTM content parameter', ANALYTICS_UTM_MAX_LENGTH),
   /** UTM term (optional) */
-  ut: optionalField(Schema.String.annotate({ description: 'UTM term parameter' })),
+  ut: cappedOptionalString('UTM term parameter', ANALYTICS_UTM_MAX_LENGTH),
 })
 
 export type AnalyticsCollectPayload = typeof analyticsCollectSchema.Type
@@ -72,20 +99,23 @@ export type AnalyticsCollectPayload = typeof analyticsCollectSchema.Type
  * `pagePath` is the page the click HAPPENED on, not the destination: an operator
  * excluding a page means "do not measure activity here", and a click is activity
  * here.
+ *
+ * Every field is length-capped like the page-view body: the beacon is anonymous,
+ * so an over-long value is refused with 400 and nothing is stored.
  */
 export const analyticsClickSchema = Schema.Struct({
   /** Absolute destination URL of the clicked anchor */
   href: Schema.String.annotate({
-    description: 'Absolute destination URL of the clicked anchor',
-  }).pipe(Schema.check(Schema.isMinLength(1))),
+    description: `Absolute destination URL of the clicked anchor, at most ${ANALYTICS_URL_MAX_LENGTH} characters`,
+  }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_URL_MAX_LENGTH))),
   /** Destination hostname — recorded as the event name so grouping needs no extraction */
   hostname: Schema.String.annotate({
-    description: 'Destination hostname — recorded as the event name',
-  }).pipe(Schema.check(Schema.isMinLength(1))),
+    description: `Destination hostname — recorded as the event name, at most ${ANALYTICS_HOSTNAME_MAX_LENGTH} characters`,
+  }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_HOSTNAME_MAX_LENGTH))),
   /** Path of the page the click happened on */
-  pagePath: Schema.String.annotate({ description: 'Path of the page the click happened on' }).pipe(
-    Schema.check(Schema.isMinLength(1))
-  ),
+  pagePath: Schema.String.annotate({
+    description: `Path of the page the click happened on, at most ${ANALYTICS_URL_MAX_LENGTH} characters`,
+  }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(ANALYTICS_URL_MAX_LENGTH))),
 })
 
 export type AnalyticsClickPayload = typeof analyticsClickSchema.Type

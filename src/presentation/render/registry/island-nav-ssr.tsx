@@ -49,7 +49,7 @@ export function renderSsrNavItem(
   // hydrated `<a>` branch. Both carry the identical trigger chrome — including any
   // authored `triggerClassName` override — so the SSR placeholder and hydrated
   // island emit a byte-identical class list and the header does not reflow
-  //; the recipe's `group` marker drives the chevron rotation.
+  // The recipe's `group` marker drives the chevron rotation.
   return item.children && item.children.length > 0 ? (
     <button
       key={index}

@@ -40,7 +40,7 @@ const isDefined = (v: unknown): boolean => v !== undefined && v !== null
 
 /**
  * The presence rule behind `isEmpty` / `isNotEmpty` — the one rule every
- * surface shares: missing, `null`, `''`, `` and `{}` are empty,
+ * surface shares: missing, `null`, `''`, `[]` and `{}` are empty,
  * nothing else is. An object with a key is a value even when its key holds
  * nothing, so a step's whole output `{ record, records }` is always a value:
  * test `{{<step>.records}}` to ask whether a `record/list` found anything.

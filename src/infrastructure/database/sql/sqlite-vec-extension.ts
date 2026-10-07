@@ -6,7 +6,7 @@
  */
 
 /**
- * sqlite-vec native-extension loader (Phase 2 RAG acceleration, [internal ref]).
+ * sqlite-vec native-extension loader (Phase 2 RAG acceleration, the SQLite RAG design).
  *
  * Loads the `sqlite-vec` extension into a dedicated `bun:sqlite` connection so
  * RAG search can use a `vec0` ANN index (and FTS5 BM25 lexical candidates)
@@ -68,11 +68,9 @@ import { applySqlitePragmas } from './sqlite-pragmas'
  * The sqlite-vec accelerated connection, or `undefined` when acceleration is
  * off / unavailable. Populated once by `primeSqliteVec()`.
  */
-// eslint-disable-next-line functional/no-let -- module-level one-shot accelerated-connection memo
 let accelerationClient: BunSqlite | undefined
 
 /** Whether a prime attempt has already run (so it is exactly-once per process). */
-// eslint-disable-next-line functional/no-let -- module-level one-shot resolution flag
 let resolved = false
 
 /**
@@ -120,7 +118,6 @@ const loadWithCustomSqlite = (dbPath: string, extensionPath: string): BunSqlite 
   const candidate = CUSTOM_SQLITE_CANDIDATES.find((c) => existsSync(c))
   if (candidate === undefined) return undefined
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- process-global one-shot custom-SQLite selection
     BunSqlite.setCustomSQLite(candidate)
   } catch {
     return undefined
@@ -196,7 +193,6 @@ const resolveAvailableExtensionPath = (dbPath: string): string | undefined => {
  */
 export const primeSqliteVec = (dbPath: string): void => {
   if (resolved) return
-  // eslint-disable-next-line functional/no-expression-statements -- one-shot resolution flag
   resolved = true
 
   const extensionPath = resolveAvailableExtensionPath(dbPath)
@@ -211,7 +207,6 @@ export const primeSqliteVec = (dbPath: string): void => {
     return
   }
 
-  // eslint-disable-next-line functional/no-expression-statements -- record the accelerated connection for the search path
   accelerationClient = client
   logInfo('RAG_SQLITE_VEC=on — sqlite-vec acceleration enabled (ANN index over RAG embeddings).')
 }
@@ -238,8 +233,6 @@ export const resetSqliteVecCache = (): void => {
       // ignore close failures during test teardown
     }
   }
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo reset
   resolved = false
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo reset
   accelerationClient = undefined
 }

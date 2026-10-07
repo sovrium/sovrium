@@ -70,7 +70,6 @@ const LEGACY_MTIME_SAMPLE = 256
  */
 export function isProcessAlive(pid: number): boolean {
   try {
-    // eslint-disable-next-line functional/no-expression-statements
     process.kill(pid, 0)
     return true
   } catch (error) {

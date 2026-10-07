@@ -8,7 +8,7 @@
 /**
  * RAG HTTP routes — `/api/ai/rag/*` and `/api/ai/agents/:name/config`.
  *
- * Backs [internal ref] /
+ * Backs the AI RAG embedding requirement / TABLE-KNOWLEDGE / DOCUMENT-KNOWLEDGE /
  * PER-AGENT-KNOWLEDGE:
  *  - `GET  /api/ai/rag/config`            — resolved RAG configuration.
  *  - `GET  /api/ai/rag/status`            — discovered knowledge documents.
@@ -20,7 +20,7 @@
  * Auth: `api-routes.ts` applies `authMiddleware` to `/api/ai/rag/REBUILD` and to
  * `/api/ai/agents/*` — NOT to `/api/ai/rag/*`. An older version of this comment
  * claimed the whole prefix was covered; it never was. `rebuild` carries its own
- * gate (`authorizeRebuild`: a session AND the admin role, [internal ref],
+ * gate (`authorizeRebuild`: a session AND the admin role, an AI RAG agent spec,
  * so the 404 is distinguishable from a 401 "not signed in"), and `search` now
  * carries the two in-file gates described below.
  *
@@ -30,13 +30,11 @@
  *     (`requireSearchSession`, 401) and a result must come from a table the
  *     caller may READ, narrowed to the rows the records API would show them
  *     (`filterResultsByReadAccess`). Both only engage when
- *     the app configures `auth`. This was previously open: a hit's `content` is
- *     the concatenated field values of a source ROW and its `sourceRef`
- *     (`table:<name>:<recordId>:<chunk>`) names the row, so any anonymous caller
- *     read across every ingested table, `read: ['admin']` ones included. The
- *     anonymous contract used to be PINNED by ~30 sibling specs asserting
- * 200/400; those were re-authored first and the
- *     `src/` change follows them.
+ *     the app configures `auth`. Without it, the endpoint is a read primitive: a
+ *     hit's `content` is the concatenated field values of a source ROW and its
+ *     `sourceRef` (`table:<name>:<recordId>:<chunk>`) names the row, so any
+ *     anonymous caller could read across every ingested table,
+ *     `read: ['admin']` ones included.
  *
  *   Tier 2 — fields. `content` is computed at INGEST and cannot be masked
  *     here, so ingest partitions it instead: a record's knowledge fields are
@@ -46,8 +44,10 @@
  *     under the running config; a chunk naming none (written before chunks
  *     recorded them) or naming a field no longer declared is never served.
  *
- * `config`, `status` and `agents/:name/config` remain reachable with no caller
- * identity. They are pure config readback and carry no record data.
+ * `config` and `status` require a session (`requireAuth`, 401) when the app
+ * configures auth: they name the knowledge directory's files and the model. The agent
+ * readback `agents/:name/config` takes the agent's trigger gate, as
+ * `GET /api/agents/:name` does, refused exactly as an unknown name is.
  */
 
 import { Effect } from 'effect'
@@ -71,6 +71,7 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { mayTriggerAgent } from '@/presentation/api/agents/agent-trigger-guard'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { resolveUserPrincipal } from './chat-read-scope'
@@ -93,29 +94,6 @@ const toSyncInput = (agents: ReadonlyArray<RagAgent>) =>
     }))
     .filter((agent) => agent.tables.length > 0)
 
-/** `GET /api/ai/rag/config` — resolved RAG configuration. */
-const handleConfig = async (c: Readonly<Context>): Promise<Response> => {
-  const program = Effect.gen(function* () {
-    const ai = yield* AiService
-    return resolveRagConfig(process.env, ai.embeddingModel())
-  }).pipe(Effect.provide(AiLive))
-  const config = await runRequestEffect(c, program)
-  return c.json(config)
-}
-
-/**
- * `GET /api/ai/rag/status` — discovered knowledge documents.
- *
- * Lists every supported document file found in `AI_KNOWLEDGE_DIR`
- *. Unsupported extensions are excluded by
- * `discoverDocuments`. A missing directory yields an empty list.
- */
-const handleStatus = async (c: Readonly<Context>): Promise<Response> => {
-  const dir = resolveKnowledgeDir(process.env)
-  const documents = await discoverDocuments(dir).catch((): ReadonlyArray<{ path: string }> => [])
-  return c.json({ documents: documents.map((d) => ({ path: d.path })) })
-}
-
 /**
  * Refuse a search from a caller with no session, when the app configures auth.
  *
@@ -128,9 +106,9 @@ const handleStatus = async (c: Readonly<Context>): Promise<Response> => {
  * apply. Same status the sibling `authorizeRebuild` already answers, rather
  * than inventing a second convention in one file.
  */
-const requireSearchSession = (c: Readonly<Context>, app: App | undefined): Response | undefined => {
+const requireSearchSession = (c: Context, app: App | undefined): Response | undefined => {
   if (app?.auth === undefined) return undefined
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   if (session?.userId === undefined) {
     return c.json(
       errorBody({ error: 'Authentication required', code: ApiErrorCode.UNAUTHORIZED }),
@@ -138,6 +116,29 @@ const requireSearchSession = (c: Readonly<Context>, app: App | undefined): Respo
     )
   }
   return undefined
+}
+
+/** `GET /api/ai/rag/config` — resolved RAG configuration. */
+const handleConfig = async (c: Context): Promise<Response> => {
+  const program = Effect.gen(function* () {
+    const ai = yield* AiService
+    return resolveRagConfig(process.env, ai.embeddingModel())
+  }).pipe(Effect.provide(AiLive))
+  const config = await runRequestEffect(c, program)
+  return c.json(config)
+}
+
+/**
+ * `GET /api/ai/rag/status` — discovered knowledge documents.
+ *
+ * Lists every supported document file found in `AI_KNOWLEDGE_DIR`
+ * Unsupported extensions are excluded by
+ * `discoverDocuments`. A missing directory yields an empty list.
+ */
+const handleStatus = async (c: Context): Promise<Response> => {
+  const dir = resolveKnowledgeDir(process.env)
+  const documents = await discoverDocuments(dir).catch((): ReadonlyArray<{ path: string }> => [])
+  return c.json({ documents: documents.map((d) => ({ path: d.path })) })
 }
 
 /**
@@ -159,12 +160,12 @@ const filterResultsByReadAccess = async <
     readonly fields?: ReadonlyArray<string> | undefined
   },
 >(
-  c: Readonly<Context>,
+  c: Context,
   app: App | undefined,
   results: readonly T[]
 ): Promise<readonly T[]> => {
   if (app?.auth === undefined) return filterServableHits(app, results)
-  if (getSessionContext(c as unknown as Context)?.userId === undefined) return []
+  if (getSessionContext(c)?.userId === undefined) return []
   const { reader } = await resolveUserPrincipal(c)
   return filterHitsThroughReadGate({ services: requireDomainContext(c), app, reader, results })
 }
@@ -181,7 +182,7 @@ const filterResultsByReadAccess = async <
 const PROVIDER_NOT_CONFIGURED_MESSAGE =
   'AI provider not configured. Set AI_PROVIDER (and AI_BASE_URL / AI_API_KEY) to enable RAG search.'
 
-const providerNotConfigured = (c: Readonly<Context>): Response =>
+const providerNotConfigured = (c: Context): Response =>
   c.json(
     {
       success: false,
@@ -193,7 +194,7 @@ const providerNotConfigured = (c: Readonly<Context>): Response =>
   )
 
 /** `POST /api/ai/rag/search` — pgvector cosine similarity search. */
-const handleSearch = async (c: Readonly<Context>, app: App | undefined): Promise<Response> => {
+const handleSearch = async (c: Context, app: App | undefined): Promise<Response> => {
   // Tier 1, first half: authenticate BEFORE anything else runs. A hit's
   // `content` is the concatenated field values of a source ROW and its
   // `sourceRef` names that row, so an anonymous caller previously read across
@@ -256,11 +257,11 @@ const handleSearch = async (c: Readonly<Context>, app: App | undefined): Promise
  * when the request may proceed.
  */
 const authorizeRebuild = async (
-  c: Readonly<Context>,
+  c: Context,
   app: App | undefined
 ): Promise<Response | undefined> => {
   if (app?.auth === undefined) return undefined
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   if (session?.userId === undefined) {
     return c.json(
       errorBody({ error: 'Authentication required', code: ApiErrorCode.UNAUTHORIZED }),
@@ -285,7 +286,7 @@ const authorizeRebuild = async (
  * `agent` body field scopes the table-knowledge rebuild to one agent;
  * document knowledge is global and always re-embedded.
  */
-const handleRebuild = async (c: Readonly<Context>, app?: App): Promise<Response> => {
+const handleRebuild = async (c: Context, app?: App): Promise<Response> => {
   const body = (await c.req.json().catch(() => ({}))) as { agent?: unknown }
   const agentFilter = typeof body.agent === 'string' ? body.agent : undefined
 
@@ -324,10 +325,11 @@ const handleRebuild = async (c: Readonly<Context>, app?: App): Promise<Response>
 }
 
 /** `GET /api/ai/agents/:name/config` — agent knowledge configuration. */
-const handleAgentConfig = async (c: Readonly<Context>, app?: App): Promise<Response> => {
+const handleAgentConfig = async (c: Context, app?: App): Promise<Response> => {
   const name = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === name)
-  if (agent === undefined) {
+  // A caller who may not reach the agent is answered exactly as for an unknown name.
+  if (agent === undefined || !(await mayTriggerAgent(c, agent, app))) {
     return notFound(c, 'Agent not found')
   }
   return c.json({
@@ -351,15 +353,13 @@ const handleAgentConfig = async (c: Readonly<Context>, app?: App): Promise<Respo
  * was built on — no route gates on the database engine any more. The
  * `AI_PROVIDER` gate in `handleSearch`
  * is dialect-independent and still fires (`503`) when no provider is configured.
- * `config` / `status` / `agents/:name/config` are pure config readback.
+ * `config` / `status` require a session; `agents/:name/config` the trigger gate.
  */
-export function chainRagRoutes<T extends Hono>(honoApp: T, app?: App): T {
+export function chainRagRoutes(honoApp: Hono, app?: App): Hono {
   return honoApp
-    .get('/api/ai/rag/config', (c) => handleConfig(c as unknown as Readonly<Context>))
-    .get('/api/ai/rag/status', (c) => handleStatus(c as unknown as Readonly<Context>))
-    .post('/api/ai/rag/search', (c) => handleSearch(c as unknown as Readonly<Context>, app))
-    .post('/api/ai/rag/rebuild', (c) => handleRebuild(c as unknown as Readonly<Context>, app))
-    .get('/api/ai/agents/:name/config', (c) =>
-      handleAgentConfig(c as unknown as Readonly<Context>, app)
-    ) as unknown as T
+    .get('/api/ai/rag/config', (c) => handleConfig(c))
+    .get('/api/ai/rag/status', (c) => handleStatus(c))
+    .post('/api/ai/rag/search', (c) => handleSearch(c, app))
+    .post('/api/ai/rag/rebuild', (c) => handleRebuild(c, app))
+    .get('/api/ai/agents/:name/config', (c) => handleAgentConfig(c, app))
 }

@@ -30,13 +30,13 @@
  * already failed, and a broken pause path must not turn that into an error.
  */
 
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
 import {
   AutomationPauseRepository,
   type AutomationPauseDatabaseError,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
-import { emitAuditEvent, listAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
+import { EmitAuditEvent, ListAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   AUTO_PAUSE_REASON,
@@ -45,23 +45,16 @@ import {
 import { parseSovriumAutomationAutopause } from '@/domain/models/process-env/notifications'
 import { logError } from '@/infrastructure/logging/logger'
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
+import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
-
-/** The audit log could not be read or written. */
-class AutoPauseAuditError extends Data.TaggedError('AutoPauseAuditError')<{
-  readonly cause: unknown
-}> {}
 
 /** When `automationName` was last resumed, from the audit log; `undefined` if never. */
 const lastResumedAt = (
   automationName: string
-): Effect.Effect<Date | undefined, AutoPauseAuditError> =>
-  Effect.tryPromise({
-    try: () =>
-      listAuditEvents({ action: AUDIT_ACTIONS.AUTOMATION_RESUMED, resourceId: automationName }),
-    catch: (cause) => new AutoPauseAuditError({ cause }),
-  }).pipe(
+): Effect.Effect<Date | undefined, never, AuditLogRepository> =>
+  ListAuditEvents({ action: AUDIT_ACTIONS.AUTOMATION_RESUMED, resourceId: automationName }).pipe(
     Effect.map((entries) => {
       const newest = entries[0]
       return newest === undefined ? undefined : new Date(newest.timestamp)
@@ -72,19 +65,14 @@ const lastResumedAt = (
 const auditAutoPause = (
   automationName: string,
   threshold: number
-): Effect.Effect<void, AutoPauseAuditError> =>
-  Effect.tryPromise({
-    try: () =>
-      emitAuditEvent({
-        action: AUDIT_ACTIONS.AUTOMATION_AUTO_PAUSED,
-        // eslint-disable-next-line unicorn/no-null -- the actor contract is `null` for system actors
-        actor: { id: null, type: 'system', role: 'system' },
-        resourceId: automationName,
-        severity: 'warning',
-        result: 'success',
-        metadata: { reason: AUTO_PAUSE_REASON, threshold },
-      }),
-    catch: (cause) => new AutoPauseAuditError({ cause }),
+): Effect.Effect<void, never, AuditLogRepository> =>
+  EmitAuditEvent({
+    action: AUDIT_ACTIONS.AUTOMATION_AUTO_PAUSED,
+    actor: { id: null, type: 'system', role: 'system' },
+    resourceId: automationName,
+    severity: 'warning',
+    result: 'success',
+    metadata: { reason: AUTO_PAUSE_REASON, threshold },
   })
 
 /** What the pause notice says. */
@@ -105,8 +93,8 @@ const pauseAndAnnounce = (
   threshold: number
 ): Effect.Effect<
   void,
-  AutoPauseAuditError | AutomationPauseDatabaseError,
-  AutomationPauseRepository | AuthRepository
+  AutomationPauseDatabaseError,
+  AutomationPauseRepository | AuthRepository | AuditLogRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const pauses = yield* AutomationPauseRepository
@@ -128,7 +116,11 @@ export const autoPauseOnFailures = (input: {
 }): Effect.Effect<
   void,
   never,
-  AutomationRunOutcomeRepository | AutomationPauseRepository | AuthRepository
+  | AutomationRunOutcomeRepository
+  | AutomationPauseRepository
+  | AuthRepository
+  | AuditLogRepository
+  | EmailSender
 > =>
   Effect.gen(function* () {
     const threshold = parseSovriumAutomationAutopause(input.env ?? process.env)

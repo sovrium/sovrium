@@ -6,6 +6,7 @@
  */
 
 import { stringify } from 'csv-stringify/sync'
+import { neutraliseCsvFormula } from '@/domain/kernel/format/csv-format'
 
 export interface CsvExportOptions {
   readonly columns: readonly string[]
@@ -16,13 +17,21 @@ export interface CsvExportOptions {
 
 /**
  * Export data as CSV using csv-stringify.
+ *
+ * Every cell first goes through the kernel's formula neutraliser: a string a
+ * spreadsheet would run as a formula (a leading `=`, `+`, `-`, `@`, tab or
+ * carriage return) gains a leading `'`, and csv-stringify's RFC 4180 quoting
+ * then wraps it when needed. A number cell is written as-is.
  */
 export const exportToCsv = (options: CsvExportOptions): string =>
-  stringify(options.rows as unknown[][], {
-    columns: options.columns as string[],
-    header: options.header ?? true,
-    delimiter: options.delimiter ?? ',',
-  })
+  stringify(
+    options.rows.map((row) => row.map(neutraliseCsvFormula)),
+    {
+      columns: options.columns as string[],
+      header: options.header ?? true,
+      delimiter: options.delimiter ?? ',',
+    }
+  )
 
 /**
  * Export records (array of objects) as CSV.

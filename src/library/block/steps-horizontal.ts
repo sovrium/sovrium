@@ -9,8 +9,30 @@ import { appRegion } from '@/library/manifest/app-block-kit'
 import { asComponent, PLACE_NOTE, THEME_NOTE } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
-const STEP_RAIL =
-  'max-w-3xl [&_ol]:m-0 [&_ol]:flex [&_ol]:w-full [&_ol]:list-none [&_ol]:gap-2 [&_ol]:p-0 [&_li]:flex-1 [&_li]:border-t-2 [&_li]:border-border [&_li]:pt-3 [&_li]:text-sm [&_li]:text-foreground-subtle [&_li:has(~li[aria-current])]:border-foreground [&_li:has(~li[aria-current])]:text-foreground-muted [&_li[aria-current]]:border-foreground [&_li[aria-current]]:font-medium [&_li[aria-current]]:text-foreground'
+const STEPS = ['Client', 'Items', 'Review', 'Send'] as const
+
+/** The 1-based step the reader is on. */
+const CURRENT = 3
+
+/** One step of the rail: a rule above its name, solid up to and including the current one. */
+const step = (label: string, index: number): Readonly<Record<string, unknown>> => {
+  const position = index + 1
+  const tone =
+    position === CURRENT
+      ? 'border-foreground font-medium text-foreground'
+      : position < CURRENT
+        ? 'border-foreground text-foreground-muted'
+        : 'border-border text-foreground-subtle'
+  return {
+    type: 'container',
+    props: {
+      role: 'listitem',
+      ...(position === CURRENT ? { 'aria-current': 'step' } : {}),
+      className: `flex-1 border-t-2 pt-3 text-sm ${tone}`,
+    },
+    children: [{ type: 'text', element: 'span', content: label }],
+  }
+}
 
 /** How far a known task has run, and what is left, as named steps. */
 export const entry = defineLibraryEntry({
@@ -24,7 +46,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    '`progressValue` is the 1-based current step: `3` of four marks the third. Edit `steps` to name your own.',
+    'The third of four steps is marked current. Rename the steps in your copy, and move `aria-current` and the solid rule to the step the reader is on.',
   ],
   params: [],
   env: [],
@@ -34,18 +56,16 @@ export const entry = defineLibraryEntry({
       name,
       appRegion([
         {
-          // The step rail ships unstyled outside a multi-step form, so the
-          // rail is drawn here from its own markup: one rule per step, solid
-          // up to and including the current one.
+          // A list of named positions, the current one marked, drawn from plain
+          // containers so every rule is the block's own class.
           type: 'container',
-          props: { className: STEP_RAIL },
+          element: 'nav',
+          props: { 'aria-label': 'Invoice progress', className: 'max-w-3xl' },
           children: [
             {
-              type: 'progress',
-              progressVariant: 'steps',
-              steps: ['Client', 'Items', 'Review', 'Send'],
-              progressValue: 3,
-              props: { label: 'Invoice progress' },
+              type: 'flex',
+              props: { role: 'list', className: 'flex w-full gap-2' },
+              children: STEPS.map(step),
             },
           ],
         },

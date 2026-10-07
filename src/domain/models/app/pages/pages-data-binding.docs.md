@@ -68,9 +68,7 @@ A component bound to a **cursor-paginated** platform endpoint pages differently:
 
 ## Binding to the route
 
-A page's `path` can carry a `:segment`, and two bindings read the value the request matched — so ONE page definition serves a different collection, or a differently scoped set of records, per URL.
-
-**`param` on a system source** substitutes the matched segment into the endpoint's own placeholder:
+A page's `path` can carry a `:segment`, and two bindings read the value the request matched — so ONE page definition serves a different collection, or a differently scoped set of records, per URL. **`param` on a system source** substitutes the matched segment into the endpoint's own placeholder:
 
 ```yaml
 name: my-app
@@ -90,9 +88,7 @@ pages:
 
 **`$param.<name>` in a filter** substitutes it into a condition on a table binding instead. It sits in the same position as a `$currentUser` reference and resolves the same way — server-side, per request. The difference is where the value comes from: the session, or the URL.
 
-A `$currentUser` reference in a `dataSource.filter` is resolved on the server for every data component — table, kanban, calendar, gallery, chart, kpi, timeline and list — wherever it sits on the page, including inside containers. A visitor who is not signed in gets the same 401 whether the filter sits at the top of the page or three containers down.
-
-Both names must be declared by the page's own `path`. A name with no matching `:segment` is refused at startup, naming both the reference and the path — because at runtime it would silently request a URL containing a literal placeholder, or compare a field against nothing at all.
+A `$currentUser` reference in a `dataSource.filter` is resolved on the server for every data component — table, kanban, calendar, gallery, chart, kpi, timeline and list — wherever it sits on the page, including inside containers. A visitor who is not signed in gets the same 401 whether the filter sits at the top of the page or three containers down. Both names must be declared by the page's own `path`. A name with no matching `:segment` is refused at startup, naming both the reference and the path — because at runtime it would silently request a URL containing a literal placeholder, or compare a field against nothing at all.
 
 ### Wherever a string is
 
@@ -131,13 +127,15 @@ pages:
 
 `columnsFrom: table` derives one column per declared field, in declaration order, **honouring field-level read permissions**: a field the caller may not read yields no column, and its name never reaches the page. It is mutually exclusive with `columns` and requires a `dataSource.table`; both are refused at startup.
 
-**A segment naming no declared table answers 404, not an empty grid.** "This table does not exist" and "this table is empty" must not look the same to somebody staring at a grid with no rows. The 404 also tells the caller nothing about which table names exist.
-
-Binding the table this way — rather than pointing the grid at a records endpoint as a system source — is what keeps the record features: inline editing, the typed create dialog, saved views and density are all unavailable over a system source, which has no records table to write to.
+**A segment naming no declared table answers 404, not an empty grid.** "This table does not exist" and "this table is empty" must not look the same to somebody staring at a grid with no rows. The 404 also tells the caller nothing about which table names exist. Binding the table this way — rather than pointing the grid at a records endpoint as a system source — is what keeps the record features: inline editing and the typed create dialog are unavailable over a system source, which has no records table to write to.
 
 ## Reading through a view
 
-`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in. A `summary` row totals the rows the view returns — its filters included — rather than the whole table. Export stays off: the export reads the table, not the view, so it would hand a reader the fields and rows the view exists to withhold; bind the grid to the table with a filter where an export is needed.
+Every data component that reads a table — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's views or directly to the table. A way of looking at the records that should last — a filter, a sort, a grouping, a set of visible fields — is a view declared on the table, never something a component carries or a reader saves. A board, a calendar and a grid of the same records are three components, each with its own binding.
+
+`dataSource.view` names one of the bound table's views by id or name. The component reads through that view on the server: its filters, sorts, grouping and `fields` apply, and the component may not repeat them — a `filter`, `sort` or `fields` written beside `view` is refused when the config loads, naming the view. What the component keeps is how it draws the records: a grid's `columns`, a board's `kanbanGroupBy`, a calendar's `dateField`, a chart's axes. Bound directly to the table, a component may narrow it with its own `filter` and `sort`. A filter bar subscribed through `bindTo` and `sharedFilter` still narrows a view-bound component, as a reader's toolbar filters do.
+
+Bound to a public view, a page with no access rule shows the records to visitors who are not signed in — whichever component reads the view: a grid, a board, a calendar, a gallery, a list, a chart and a KPI all serve the visitor the view's rows and fields, and nothing past them, even when the table itself is closed to her. A board, calendar, gallery, chart or KPI on a view that does not admit its reader leaves the page. A view-bound grid lets a reader the table lets write create and edit records, on the fields the view shows; a reader without write access, and a visitor on a public view, get it read-only. It opens no live refresh. A `summary` row totals the rows the view returns — its filters included — rather than the whole table. Export stays off: the export reads the table, not the view, so it would hand a reader the fields and rows the view exists to withhold; bind the grid to the table with a filter where an export is needed.
 
 ```yaml
 name: campaign-portal
@@ -168,7 +166,7 @@ pages:
           - { field: deadline, label: Deadline }
 ```
 
-Only the `table` component reads through a view: `view` on any other component, beside a `system` source, or naming a view the table does not declare stops the config from loading. The page is told only the view's columns, less any its reader may not read, so a column the view leaves out — or masks from that reader — never reaches the browser. A view that is not public still needs a signed-in reader its own grant admits; anyone else sees the grid's error state.
+`view` on a component that does not read records (a form), beside a `system` source, or naming a view the table does not declare stops the config from loading. The page is told only the view's columns, less any its reader may not read, so a column the view leaves out — or masks from that reader — never reaches the browser. A view that is not public still needs a signed-in reader its own grant admits; anyone else sees the grid's error state.
 
 ## Filter operators
 
@@ -182,7 +180,7 @@ Only the `table` component reads through a view: `view` on any other component, 
 | `isEmpty`    | No value — NULL, empty text, an empty list or an empty object. No `value`. |
 | `isNotEmpty` | The field holds a value. No `value`.                                       |
 
-Conditions combine with AND. There is no OR at this level; express alternatives as a saved view or a separate component.
+Conditions combine with AND. There is no OR at this level; express alternatives as a view on the table or a separate component.
 
 ### Relative dates
 
@@ -211,11 +209,9 @@ Months and years are anchors, never offsets: they have no fixed length. A value 
 
 ## Single and search modes
 
-`mode: single` resolves exactly one record, read from the route parameter named by `param` — the pattern behind record detail routes in **Routing & Paths**.
+`mode: single` resolves exactly one record, read from the route parameter named by `param` — the pattern behind record detail routes in **Routing & Paths**. On a page bound this way, `$record.createdAt` and `$record.updatedAt` print when the record was created and last changed, as the records API gives them (an ISO 8601 instant).
 
-A page bound to one record with `mode: single` shares that record with the forms nested on it. A `form` anywhere on the page whose `dataSource` names the page's table and declares no `mode` of its own opens with the record's values, and saving it updates that record. A form bound to another table, or one whose `crud` action is `create` or names another table, is unaffected and opens empty. The record follows the visitor's own read permissions wherever it lands: a form bound with its own `mode: single`, a form that inherits the page's record, and the page's own `$record.*` text all carry only the fields that visitor may read, and a form carries only the fields it lists. A field the visitor may not read is never filled in and never printed, and saving the form leaves it as it was. A page bound to a record the visitor may not read — because the table's `read` refuses them or its row-level rule hides that row — answers 404, as for a record that does not exist.
-
-`mode: search` filters across `searchFields` as the visitor types, throttled by `debounceMs` and capped by `limit`:
+A page bound to one record with `mode: single` shares that record with the forms nested on it. A `form` anywhere on the page whose `dataSource` names the page's table and declares no `mode` of its own opens with the record's values, and saving it updates that record. A form bound to another table, or one whose `crud` action is `create` or names another table, is unaffected and opens empty. The record follows the visitor's own read permissions wherever it lands: a form bound with its own `mode: single`, a form that inherits the page's record, and the page's own `$record.*` text all carry only the fields that visitor may read, and a form carries only the fields it lists. A field the visitor may not read is never filled in and never printed, and saving the form leaves it as it was. A page bound to a record the visitor may not read — because the table's `read` refuses them or its row-level rule hides that row — answers 404, as for a record that does not exist. `mode: search` filters across `searchFields` as the visitor types, throttled by `debounceMs` and capped by `limit`. A search list draws its own search box and its rows wherever it is placed — at the top of a page, or inside a `container`, a `flex` or any other layout component — and combines with a `filter`, a `sort` and a `listDisplay.itemTemplate` the same way in every position. This one searches two fields:
 
 ```yaml
 name: my-app
@@ -240,7 +236,7 @@ pages:
 
 Rows a page reads on the server follow the visitor's read permissions exactly as the records API lists them for that visitor: a list, a container's per-row `children`, and every row a search hands to the browser carry only the rows the table's row-level read rule shows them, and no field they may not read — a part of the row template naming such a field is left out, however deep in the template it sits. A pager counts those rows alone.
 
-A record in the trash is drawn on no page, as the records API answers it as one that does not exist: a list, a search and a pager leave it out, a component bound to it with `mode: single` draws nothing of it, and a page bound to it by its own `dataSource` answers 404. A `mode: single` binding with no `param`, on a path with no matching segment, shows the first record the visitor may read: a record the row-level rule hides from her, or one in the trash, is passed over rather than answering the page 404.
+A record in the trash is drawn on no page, as the records API answers it as one that does not exist: a list, a search and a pager leave it out, a component bound to it with `mode: single` draws nothing of it, and a page bound to it by its own `dataSource` answers 404. A `mode: single` binding with no `param`, on a path with no matching segment, shows the first record the visitor may read, whether it is a component's binding or the page's own `dataSource`: a record the row-level rule hides from her, or one in the trash, is passed over rather than answering the page 404. A page bound this way answers 404 only when the visitor may read no record of the table.
 
 In an app with `auth`, a visitor who is not signed in may read a table on a page only when its resolved `permissions.read` is `all`, the rule the records API applies to her: a table with no `permissions` block shows her none of its rows. A component bound to a table the visitor may not read carries nothing of that table into the page — no row, no field name, no option of a field. A grid renders empty, without its columns; a `kanban`, `calendar`, `gallery`, `chart`, `timeline` or record `drawer` is left out of the page entirely; a `kpi` keeps its card and its `label`, which are the author's words, with a neutral value in place of the figure.
 
@@ -252,11 +248,11 @@ On a table the visitor may read, every list of fields a component draws names on
 
 `pagination` takes a `pageSize`, which is required whenever the block is present, and an optional `style` defaulting to `numbered`. `numbered` draws numbered page navigation; `loadMore` draws a button appending the next page. `infinite` is accepted but is not implemented: scroll-triggered paging needs a sentinel row, an intersection observer and a re-entrancy guard, and none of that ships until something specifies how it behaves at the end of the set. A component declaring it pages exactly as `numbered` does, so the gap costs you the scrolling interaction and never a record. There is deliberately no "draw no control" style: `pageSize` already narrows what a component draws, so a style that rendered nothing would leave the rest of the set unreachable. To put every record on one page, omit `pagination` rather than reaching for a style.
 
-A container bound to a table with per-row `children` — a feed of event cards — draws one copy of its children per row, on the server, wherever it sits on the page: at the top level or nested inside another container. `dataSource.limit` caps how many rows it draws, so `limit: 3` shows the first three; with a `pagination.pageSize` as well, a page draws the smaller of the two and the pager counts no more than `limit` rows. Such a section is drawn once per request and does not follow a filter bar; a list that must follow one takes a `listDisplay.itemTemplate`, and cards that must follow one are a `gallery`.
+A container bound to a table with per-row `children` — a feed of event cards — draws one copy of its children per row, on the server, wherever it sits on the page: at the top level or nested inside another container. The rows are plain layout blocks with no list marker before them, so a one-row stats card reads as a card rather than as a bulleted item. `dataSource.limit` caps how many rows it draws, so `limit: 3` shows the first three; with a `pagination.pageSize` as well, a page draws the smaller of the two and the pager counts no more than `limit` rows. Such a section is drawn once per request and does not follow a filter bar; a list that must follow one takes a `listDisplay.itemTemplate`, and cards that must follow one are a `gallery`.
 
 ## Related reading
 
-- **Page References** — `$record`, `$vars`, `$currentUser`, `$session`, and the page inputs `query` and `window`.
+- **Page References** — `$record`, `$vars`, `$currentUser`, `$session`, `$invitation`, and the page inputs `query` and `window`.
 - **Data Components** — the components that consume a source.
 - **System Sources** — binding to platform endpoints by name.
 - **Table Views** — saved filters and sorts.

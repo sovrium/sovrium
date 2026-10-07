@@ -34,7 +34,6 @@ const INVALID_PARAMS = -32_602
 
 const loadSkills = async () => import('@/infrastructure/assets/embedded-skills')
 
-// eslint-disable-next-line functional/prefer-immutable-types -- `Server` is the SDK's own class; we neither own nor can annotate it
 export const registerSkillPrompts = (server: Server): void => {
   server.setRequestHandler('prompts/list', async () => {
     const skills = await loadSkills()
@@ -44,7 +43,7 @@ export const registerSkillPrompts = (server: Server): void => {
         description: (await skills.readEmbeddedSkillFrontmatter(name)).description,
       }))
     )
-    return { prompts } as unknown as never
+    return { prompts } as never
   })
 
   server.setRequestHandler('prompts/get', async (request) => {
@@ -53,7 +52,6 @@ export const registerSkillPrompts = (server: Server): void => {
     const skills = await loadSkills()
     const known = skills.embeddedSkillNames()
     if (!known.includes(name)) {
-      // eslint-disable-next-line functional/no-throw-statements -- the SDK surfaces a JSON-RPC error member only via a thrown ProtocolError
       throw new ProtocolError(
         INVALID_PARAMS,
         `Unknown prompt: ${name || '(none)'}. Known prompts: ${known.join(', ')}.`
@@ -63,6 +61,6 @@ export const registerSkillPrompts = (server: Server): void => {
     return {
       description,
       messages: [{ role: 'user', content: { type: 'text', text: body } }],
-    } as unknown as never
+    } as never
   })
 }

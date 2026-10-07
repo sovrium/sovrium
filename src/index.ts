@@ -58,12 +58,15 @@ import type {
   InvalidEmailError,
   WeakPasswordError,
 } from '@/application/use-cases/auth/bootstrap-admin'
-import type { DecodeAppConfigResult } from '@/application/use-cases/config/decode-app-config'
+import type {
+  DecodeAppConfigOptions,
+  DecodeAppConfigResult,
+} from '@/application/use-cases/config/decode-app-config'
 import type {
   GenerateStaticOptions,
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
-import type { StartOptions } from '@/application/use-cases/server/start-server'
+import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { App, AppEncoded } from '@/domain/models/app'
 import type { ActionTemplate as ActionTemplateModel } from '@/domain/models/app/actions'
 import type { Agent } from '@/domain/models/app/agents'
@@ -133,11 +136,15 @@ const toSimpleServer = (server: Readonly<ServerInstance>, config: App): SimpleSe
  * The refusal is thrown as {@link ConfigRejectedError} rather than a plain
  * `Error` so the CLI prints the report instead of a stack — see that type.
  */
-const decodeOrThrow = (app: AppConfig): Extract<DecodeAppConfigResult, { valid: true }> => {
-  const decoded = decodeAppConfigObject(app)
+const decodeOrThrow = (
+  app: AppConfig,
+  attribution: DecodeAppConfigOptions = {}
+): Extract<DecodeAppConfigResult, { valid: true }> => {
+  const decoded = decodeAppConfigObject(app, attribution)
   if (!decoded.valid) {
-    // eslint-disable-next-line functional/no-throw-statements -- surfaced by the caller's catch
-    throw new ConfigRejectedError(decoded.errors.join('\n'))
+    // The REPORT, not the flat list: the same count, grouping and ceiling
+    // `sovrium validate` prints, so the three commands print one report.
+    throw new ConfigRejectedError(decoded.report.join('\n'))
   }
   return decoded
 }
@@ -145,9 +152,13 @@ const decodeOrThrow = (app: AppConfig): Extract<DecodeAppConfigResult, { valid: 
 /**
  * Start a Sovrium server. Used internally by the CLI start command.
  */
-export const start = async (app: AppConfig, options: StartOptions = {}): Promise<SimpleServer> => {
+export const start = async (
+  app: AppConfig,
+  options: StartOptions = {},
+  attribution: DecodeAppConfigOptions = {}
+): Promise<SimpleServer> => {
   try {
-    const { raw: rawApp, app: validatedApp } = decodeOrThrow(app)
+    const { raw: rawApp, app: validatedApp } = decodeOrThrow(app, attribution)
 
     // Resolve the root secret before anything derives from it. Every later
     // consumer (the auth signing secret, token encryption, signed storage URLs)
@@ -155,16 +166,15 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
     // the banner line reporting it — consistent for the whole boot. It is also
     // the only place a failure to WRITE the key can be reported as a refusal to
     // start rather than as a mid-boot surprise.
-    // eslint-disable-next-line functional/no-expression-statements -- boot-time provisioning; the resolved value is read from the memo by every later consumer
     provisionRootSecret()
 
     const program = Effect.gen(function* () {
       const server = yield* startServer(rawApp, options)
-      // Registered on THIS fiber, deliberately. The handler used to be forked
-      // into a child that parked on `Effect.never`; Effect 4 interrupts a child
-      // when its parent completes, so `process.on(...)` never ran and the
-      // server ignored SIGTERM outright. `installShutdownHandlers` registers
-      // and returns — there is no fiber left to interrupt.
+      // Registered on THIS fiber, deliberately. A handler forked into a child
+      // that parks on `Effect.never` would be interrupted when its parent
+      // completes (Effect 4), so `process.on(...)` would never run and the
+      // server would ignore SIGTERM outright. `installShutdownHandlers`
+      // registers and returns — there is no fiber left to interrupt.
       yield* installShutdownHandlers(server)
       return server
     }).pipe(Effect.provide(createAppLayer(validatedApp.auth)))
@@ -181,11 +191,9 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
     const exit = await Effect.runPromiseExit(program)
     if (Exit.isFailure(exit)) {
       const causeRefusal = findCodeActionRefusalInCause(exit.cause)
-      // eslint-disable-next-line functional/no-throw-statements -- re-throw as a config refusal
       if (causeRefusal !== undefined) throw new ConfigRejectedError(causeRefusal)
       // Everything else keeps the exact value the old `runPromise` rejected
       // with, so the catch block below is unchanged in what it receives.
-      // eslint-disable-next-line functional/no-throw-statements -- re-raise the squashed failure verbatim
       throw Cause.squash(exit.cause)
     }
     return toSimpleServer(exit.value, validatedApp)
@@ -193,20 +201,17 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
     // A refused config is already an author-readable report. Enriching it with
     // a stack and an issue link would tell the author to file a bug about their
     // own typo, so it passes through untouched — see `ConfigRejectedError`.
-    // eslint-disable-next-line functional/no-throw-statements -- re-throw the refusal verbatim
     if (isConfigRejectedError(error)) throw error
     // A code action that does not type-check is the same kind of thing: an
     // author's mistake in their own config, not an engine fault. It arrives
     // here as a `TSValidationError` inside Effect's `FiberFailure` rather than
     // as a `ConfigRejectedError` — a tagged error cannot extend that class too —
-    // so it used to fall through to the "please open an issue" wrapper below and
-    // send the author to file a bug about their own typo. Re-raise it as the
-    // refusal it is.
+    // so without this it would fall through to the "please open an issue"
+    // wrapper below and send the author to file a bug about their own typo.
+    // Re-raise it as the refusal it is.
     const codeActionRefusal = extractCodeActionRefusal(error)
-    // eslint-disable-next-line functional/no-throw-statements -- re-throw as a config refusal
     if (codeActionRefusal !== undefined) throw new ConfigRejectedError(codeActionRefusal)
     const message = formatRuntimeError(error)
-    // eslint-disable-next-line functional/no-throw-statements -- re-throw with enriched message
     throw new Error(
       `Sovrium failed to start: ${message}\n\n` +
         `If this looks like a bug, please open an issue:\n` +
@@ -220,19 +225,15 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
  * Run the process-wide startup chains a build needs, exactly once, before its
  * render pass.
  *
- * `build` used to run no migrations of its own: the database reached the chain
- * ONLY through the throwaway servers the render pass booted, so a build
- * migrated once per supported language plus once for the root index — two runs
- * for the single-language case, and it scaled with the language count
- *. The render pass creates no server at all
- * now — `buildRenderApp` binds nothing and runs neither chain — so this call is
- * the only place either one happens, and it has to come first: the tables a
- * `dataSource`-bound page renders against must exist before anything renders
- *.
+ * The render pass creates no server at all — `buildRenderApp` binds nothing and
+ * runs neither chain — so this call is the only place either one happens, once
+ * per build rather than once per supported language, and it has to come first:
+ * the tables a `dataSource`-bound page renders against must exist before
+ * anything renders.
  *
  * `ephemeral: true` on the receipt-producing call, because a build starts
- * nothing — it emits a site and exits — so it records no boot-ledger row, which
- * is also what it did before this hoist. The receipt itself is discarded: a
+ * nothing — it emits a site and exits — so it records no boot-ledger row. The
+ * receipt itself is discarded: a
  * build prints no startup banner, so there are no rows to carry.
  */
 const runBuildStartupOnce = (validatedApp: App, authoredTableIds: AuthoredTableIds) =>
@@ -247,12 +248,13 @@ const runBuildStartupOnce = (validatedApp: App, authoredTableIds: AuthoredTableI
  */
 export const build = async (
   app: AppConfig,
-  options: GenerateStaticOptions = {}
+  options: GenerateStaticOptions = {},
+  attribution: DecodeAppConfigOptions = {}
 ): Promise<GenerateStaticResult> => {
   try {
     // `generateStatic` re-decodes the config it is handed, so it must receive
     // the same object `decodeOrThrow` validated — not a separately-parsed one.
-    const { raw: rawApp, app: validatedApp, authoredTableIds } = decodeOrThrow(app)
+    const { raw: rawApp, app: validatedApp, authoredTableIds } = decodeOrThrow(app, attribution)
 
     // A static build never executes an automation, so refusing a code action
     // that does not type-check buys this command nothing on its own. It is here
@@ -262,7 +264,6 @@ export const build = async (
     // disagrees is the next one to be found disagreeing by a user.
     const codeActionErrors = await validateCodeActionBodies(validatedApp)
     if (codeActionErrors.length > 0) {
-      // eslint-disable-next-line functional/no-throw-statements -- surfaced by the caller's catch
       throw new ConfigRejectedError(codeActionErrors.join('\n'))
     }
 
@@ -280,7 +281,7 @@ export const build = async (
       if (hasPageSearchComponent(validatedApp)) {
         // Single source of truth: same filter the static-language-generators
         // apply (underscore-prefix + non-public access excluded — see
-        // [internal ref]). Drift here would re-introduce the
+        // The pages public search requirement). Drift here would re-introduce the
         // access-leak regression.
         const publicPagePaths = getPublicPagePaths(validatedApp.pages)
 
@@ -303,10 +304,9 @@ export const build = async (
   } catch (error) {
     // Same reasoning as `start`: a refusal is the author's to read, not a bug
     // report about Sovrium.
-    // eslint-disable-next-line functional/no-throw-statements -- re-throw the refusal verbatim
     if (isConfigRejectedError(error)) throw error
     const message = formatRuntimeError(error)
-    // eslint-disable-next-line functional/no-throw-statements, preserve-caught-error -- re-throw with enriched message; the message already embeds the inner error, and a cause would make logError render the inner chain (and any query parameters it carries) on every failed build
+    // eslint-disable-next-line preserve-caught-error -- re-throw with enriched message; the message already embeds the inner error, and a cause would make logError render the inner chain (and any query parameters it carries) on every failed build
     throw new Error(
       `Sovrium failed to build: ${message}\n\n` +
         `If this looks like a bug, please open an issue:\n` +
@@ -557,20 +557,19 @@ export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
  *
  * WHY DERIVED, AND WHY CLOSED
  * ---------------------------
- * `actions` used to be an open index signature:
+ * `actions` is not an open index signature such as:
  *
  *   { ref: … } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>
  *
- * Two things were wrong with it, and the second is the one that made the first
- * unavoidable. `sovrium types` emits a `tsconfig.json` setting
- * `noUncheckedIndexedAccess: true`, and under that flag every index-signature
- * access gains `| undefined` — so the call the docs give,
- * `context.actions.http.request({…})`, produced TS18048 + TS2722 against the very
- * tsconfig the same command wrote. And an open signature accepts
+ * Two things would be wrong with it. `sovrium types` emits a `tsconfig.json`
+ * setting `noUncheckedIndexedAccess: true`, and under that flag every
+ * index-signature access gains `| undefined` — so the call the docs give,
+ * `context.actions.http.request({…})`, would produce TS18048 + TS2722 against
+ * the very tsconfig the same command wrote. And an open signature accepts
  * `context.actions.record.lst({})` — a typo for `list` — which then fails at
  * runtime with nothing having warned.
  *
- * Closing it fixes both at once, and deriving it means the closed surface cannot
+ * A closed surface fixes both at once, and deriving it means the closed surface cannot
  * fall behind the schema the way a hand-written list would.
  *
  * `ref` is deliberately NOT part of this map: it is a reserved method on
@@ -708,7 +707,7 @@ export interface CodeContext {
    * a template named `ref` is rejected at schema validation.
    */
   readonly actions: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, functional/prefer-immutable-types -- dynamic return shape (templates return arbitrary handler output). No Readonly<> here: this interface is a hand-maintained MIRROR of the CodeContext text emitted by scripts/build/build-types.ts (and of CODE_CONTEXT_PRELUDE in src/infrastructure/automations/typescript-validator/layer.ts).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic return shape (templates return arbitrary handler output). No Readonly<> here: this interface is a hand-maintained MIRROR of the CodeContext text emitted by scripts/build/build-types.ts (and of CODE_CONTEXT_PRELUDE in src/infrastructure/automations/typescript-validator/layer.ts).
     readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>
   } & CodeContextActions
   /** Environment variables (values redacted in logs when length >= 8) */

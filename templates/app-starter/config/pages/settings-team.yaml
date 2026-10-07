@@ -1,0 +1,21 @@
+name: settings-team
+path: /settings/team
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Team · App starter
+  description: Members and invitations.
+# Marks this page's link in the settings sections.
+query:
+  section:
+    default: team
+    enum: [team]
+components:
+  - $ref: ./_nav.yaml
+  - type: flex
+    props:
+      className: mx-auto flex w-full max-w-360 flex-col md:flex-row md:gap-4
+    children:
+      - $ref: ./_settings-nav.yaml
+      - component: settings-team

@@ -1,0 +1,55 @@
+# The handbook's reading frame, shared by `kb.yaml` and `kb-managers.yaml`.
+#
+# `frame` measures the docs layout: the sidebar and outline widths, and the
+# height of the sticky header both rails stick below. `classes` styles the parts
+# the layout draws by name, so the body reads a step larger than the chrome,
+# links and the current page carry the accent, and a callout sits on the
+# theme's own grounds in light and dark.
+layout: docs
+toc:
+  # The outline starts at the sections: the page title is already above it.
+  minDepth: 2
+  maxDepth: 2
+  position: sidebar
+frame:
+  sidebarWidth: 248px
+  tocWidth: 220px
+  # The article column, its title and its closing lines alike, reads at one
+  # measure.
+  contentMaxWidth: 560px
+  stickyOffset: 3.5rem
+  # On a phone the sections button sits in the handbook's bar.
+  menuButton: header
+classes:
+  parts:
+    # The row holding the sidebar, the article and the outline: edge to edge
+    # from a laptop up, flush under the bar on a phone.
+    frame: max-lg:pt-0 lg:max-w-none lg:gap-0 lg:px-0
+    navGroup: mb-3 border-t-0 pt-0
+    # The sections button is an icon in the bar's left gutter, not a labelled
+    # pill.
+    menuButton: absolute top-2 left-2 z-40 h-9 border-0 bg-transparent px-2 text-[0px]
+    # The copy action stays; the view-as-markdown links go, and on a phone the
+    # actions go altogether.
+    articleActions: max-lg:hidden
+    articleLinks: hidden
+    sidebar: lg:px-3.5 lg:py-5
+    navGroupLabel: px-2.5 font-mono text-[11px] leading-[var(--text-sm--line-height)] font-medium
+    navLink: border-l-0 px-2.5 text-[13.5px] leading-[var(--text-md--line-height)]
+    article: max-lg:px-0 max-lg:pt-0 lg:px-12 lg:pt-8
+    articleHeader: max-lg:mb-3.5
+    toc: lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-stretch lg:border-l lg:border-border lg:px-4 lg:py-8
+    heading1: '!mb-3 !text-[30px] tracking-tight'
+    heading2: '!mt-7 !mb-3 !text-xl'
+    paragraph: '!my-3 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+    list: '!my-3'
+    listItem: '!my-1 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+    link: '!text-primary-subtle-foreground underline underline-offset-2'
+    callout: >-
+      mt-0 mb-6 rounded-r-lg border border-l-[3px] border-[#e5ded5]
+      border-l-[var(--color-warmth-border,var(--color-border-strong))] px-4 py-[0.85rem]
+      !bg-background-subtle !text-foreground dark:border-[#262626] *:!my-0
+    calloutNote: '!border-l-primary !bg-primary-subtle'
+  states:
+    current:
+      navLink: '!bg-primary-subtle !text-primary-subtle-foreground'

@@ -11,10 +11,15 @@ import { CreateUpdateForm } from './create-update-form'
 import { useCrudFormState } from './state'
 import { submitCrudForm } from './submit-pipeline'
 import { type CrudFormIslandProps } from './types'
-import { WizardCreateForm } from './wizard-form'
+
+/** How many fields hold a value other than the one the form was filled with. */
+const countChanges = (filled: Record<string, string>, values: Record<string, string>): number =>
+  Object.keys({ ...filled, ...values }).filter(
+    (name) => (filled[name] ?? '') !== (values[name] ?? '')
+  ).length
 
 export default function CrudFormIsland(props: CrudFormIslandProps) {
-  const { values, state, ctx, handleFieldChange } = useCrudFormState(props)
+  const { values, filled, state, ctx, handleFieldChange, discardChanges } = useCrudFormState(props)
 
   const onDelete = useCallback(() => {
     void submitCrudForm(ctx)
@@ -38,18 +43,6 @@ export default function CrudFormIsland(props: CrudFormIslandProps) {
     )
   }
 
-  if (props.wizard) {
-    return (
-      <WizardCreateForm
-        island={props}
-        values={values}
-        state={state}
-        ctx={ctx}
-        onFieldChange={handleFieldChange}
-      />
-    )
-  }
-
   return (
     <CreateUpdateForm
       island={props}
@@ -57,6 +50,8 @@ export default function CrudFormIsland(props: CrudFormIslandProps) {
       state={state}
       ctx={ctx}
       onFieldChange={handleFieldChange}
+      changes={props.stickyActions === true ? countChanges(filled, values) : undefined}
+      onDiscard={discardChanges}
     />
   )
 }

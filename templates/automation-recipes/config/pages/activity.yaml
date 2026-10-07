@@ -37,6 +37,20 @@ components:
               - type: container
                 props:
                   className: grow
+              # Runs recipe 5 (config/automations/review-recent-leads.yaml):
+              # one line per lead lands in the list below.
+              - type: button
+                content: Review latest leads
+                variant: outline
+                props:
+                  className: h-7 px-3 text-[13px]
+                action:
+                  type: automation
+                  name: review-recent-leads
+                  onSuccess:
+                    toast:
+                      message: The latest leads were reviewed. Each has its line in the log.
+                      variant: success
               # The platform keeps every run in full — each step, its input and
               # output — in the admin console. Admins only.
               - type: link

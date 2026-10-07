@@ -65,7 +65,7 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  *                        so the day it has a member is the day the catalogue
  *                        needs a word for one. Removing it would leave that
  *                        type classifiable as nothing at all.
- * `[internal ref]` is the guarantee that such a
+ *                        An admin design system spec is the guarantee that such a
  *                        type is caught by the catalogue rather than drawn as a
  *                        bare div: it sweeps every published category for a
  *                        specimen that neither draws nor reports.
@@ -85,7 +85,7 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * leave a drawn type with no value to stamp at all.
  *
  * `refusalReason` is the same fact as a SENTENCE, and it is the one field on
- * this contract that [internal ref] would refuse if it were being added today: a
+ * this contract that the facts-not-strings rule would refuse if it were being added today: a
  * sentence crossing the wire can never be translated. It is grandfathered
  * because the catalogue owns the prose and no config page could compose it —
  * but a page choosing between the two should reach for this one, and print its
@@ -124,7 +124,7 @@ export const componentTypeSummarySchema = Schema.Struct({
   // refuses a missing line, a line under 24 characters and two types sharing
   // one, so an absent value cannot reach the wire in the first place.
   //
-  // It is PROSE crossing the wire, which [internal ref] would refuse for a field a
+  // It is PROSE crossing the wire, which the facts-not-strings rule would refuse for a field a
   // config page composes itself — and it is here for the same reason
   // `refusalReason` beside it is: the catalogue owns the words, and no page
   // built from config could write eighty of them. A page choosing between the

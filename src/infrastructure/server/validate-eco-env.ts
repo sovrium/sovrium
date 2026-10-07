@@ -51,11 +51,10 @@ export class EcoEnvError extends Data.TaggedError('EcoEnvError')<{
  * reject.
  *
  * `ECO_AI_MAX_CARBON_CLASS`, `ECO_RETENTION_PURGE_DAYS` and `ECO_IMAGE_FORMAT`
- * were removed from this list because the variables themselves were removed:
- * the first two had no enforcement point anywhere in the binary, and the third
- * was replaced by a hardcoded AVIF default. `ECO_FORM_ANALYTICS` joins the list
- * for the opposite reason — it was always enforced but had no parser module, so
- * it was invisible to exactly this kind of enumeration.
+ * are not in this list because those variables do not exist: nothing in the
+ * binary would enforce them. `ECO_FORM_ANALYTICS` IS listed: it is enforced, and
+ * a variable with no parser module here is invisible to exactly this kind of
+ * enumeration.
  */
 const ECO_ENV_PARSERS: readonly ((env: Readonly<Record<string, string | undefined>>) => unknown)[] =
   [
@@ -83,7 +82,7 @@ const ECO_ENV_PARSERS: readonly ((env: Readonly<Record<string, string | undefine
  * Calling every parser once at startup collapses that into a single, immediate
  * refusal naming the offending variable. It mirrors
  * `validateStoragePublicAccessEnv` in both shape and intent, and mirrors — in
- * the environment — the contract [internal ref] established for the app config:
+ * the environment — the contract the refuse-undeclared-properties boot rule established for the app config:
  *
  * > The app config refuses an unknown KEY. The environment refuses an unknown
  * > VALUE.

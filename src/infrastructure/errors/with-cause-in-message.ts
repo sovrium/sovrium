@@ -86,7 +86,6 @@ export const withCauseInMessage = (error: unknown): unknown => {
   const seen = new Set<unknown>([error])
   const collect = (node: unknown, messages: readonly string[]): readonly string[] => {
     if (!(node instanceof Error) || seen.has(node)) return messages
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- cycle guard; the Set is the walk's own local state, created and discarded inside this call
     seen.add(node)
     const alreadyPresent =
       node.message.length === 0 ||
@@ -98,7 +97,6 @@ export const withCauseInMessage = (error: unknown): unknown => {
   const causes = collect(error.cause, [])
 
   if (causes.length > 0) {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- augment the thrown error in place: replacing it would drop `.cause`, the stack, and the driver's `errno`/SQLSTATE that callers downstream read
     error.message = [error.message, ...causes].join('\n')
   }
   return error

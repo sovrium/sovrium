@@ -5,14 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements, functional/no-let --
- * A scheduler IS mutable state over time: a pending timer handle, an
- * in-flight flag, and the one change that arrived while a run was busy.
- * Expressing those three as anything but closure variables (a Ref, a queue
- * actor) would hide the one property this module exists to guarantee —
- * that at most one `run` is ever executing.
- */
-
 /**
  * Coalescing scheduler for `--watch` reloads.
  *

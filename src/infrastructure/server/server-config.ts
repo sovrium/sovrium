@@ -65,14 +65,14 @@ export interface ServerConfig {
       readonly cookies?: Readonly<Record<string, string>>
       readonly previewMode?: boolean
       readonly requestQuery?: Readonly<Record<string, string>>
-      /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+      /** The `/:lang/` URL-prefix locale, when present. */
       readonly urlLanguage?: string
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   /**
-   * RSS feed renderer ([internal ref] — [internal ref]).
+   * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
    * Optional so SSG and legacy callers that don't yet pass through the
    * RSS pipeline keep working — the route handler 404s when undefined.

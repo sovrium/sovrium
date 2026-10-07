@@ -25,7 +25,6 @@ import {
   announceRecordWrite,
   deleteAndAnnounce,
   flattenWrittenRecord,
-  recordEventLoopRefusal,
   updateAndAnnounce,
 } from './record-events'
 import {
@@ -46,8 +45,10 @@ import {
   readableRows,
   scopedListFilter,
 } from './record-read-scope'
+import { recordUpdatePrecheck } from './record-update-precheck'
 import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
+import type { StepRequirements } from '../run/types'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
@@ -57,7 +58,7 @@ import type { App } from '@/domain/models/app'
 /**
  * Resolve the actor id a record write should be attributed to.
  *
- * A run someone started by hand is always attributed to them ([internal ref], which
+ * A run someone started by hand is always attributed to them (the rule that a manual run writes as the person who started it, which
  * subsumes `runAs` there). Otherwise, when the action opts into
  * `runAs: 'triggering-user'` AND the automation carries a triggering user
  * (form submitter, record-event actor, authenticated webhook caller), the
@@ -124,7 +125,7 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
       const message = err instanceof Error ? err.message : String(err)
       return { status: 'failure', error: message } as const
     }
-    // [internal ref]: the new record starts the record automations of its table, and
+    // The new record starts the record automations of its table, and
     // a later step reads its id as `{{<step>.result.id}}`.
     const record = flattenWrittenRecord(result.success)
     yield* announceRecordWrite(runContext, { tableName, event: 'create', record })
@@ -134,56 +135,43 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
   )
 
 /**
- * `record/update` handler — apply a filter, then update each matched row
- * via the existing `updateRecordProgram` (which goes through the table
- * repository's permission + audit pipeline).
- *
- * Wave-3 behaviour was limited to `{ field: 'id', operator: 'equals' }` —
- * the canary case used by record-event triggers ("update the record that
- * just changed"). Wave-4 widens it to any ConditionGroup the records-API
- * accepts (`name equals`, `status not_equals`, etc.) so customer YAML can
- * express the natural "update by business key" pattern. The fast-path for
- * `id equals` is preserved so single-record updates skip the list query.
+ * `record/update` handler — resolve the rows to change, then update each one
+ * via `updateRecordProgram` (the table repository's permission + audit
+ * pipeline). The rows are named by `props.id` (a code call's shorthand; the
+ * declarative schema requires a `filter`) or by any ConditionGroup the
+ * records-API accepts, an `id equals` filter taking the fast path that skips
+ * the list query. The output is `{ updated, ids }`, the same `updated` key
+ * `record/batchUpdate` reports; a filter matching nothing is `{ updated: 0,
+ * ids: [] }`, consistent with SQL UPDATE. A call naming no row at all — only a
+ * code call can — fails rather than reporting a success that changed nothing.
  */
 export const handleRecordUpdate: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
     const data = recordProp(props, 'data') ?? recordProp(props, 'fields') ?? {}
+    const id = stringProp(props, 'id')
 
     if (!tableName) {
       return { status: 'failure', error: 'record.update requires a table name' } as const
     }
+    const precheck = recordUpdatePrecheck({ app, props, id, tableName, data, runContext })
+    if (precheck !== undefined) return precheck
 
-    // Multi-select membership + cardinality — see `handleRecordCreate`. Runs
-    // BEFORE the target lookup so a bad payload is rejected without spending a
-    // query, and so the answer does not depend on whether the filter matched.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
-    if (multiSelectError) {
-      return { status: 'failure', error: multiSelectError } as const
-    }
-    const loop = recordEventLoopRefusal(runContext, tableName, 'update', Object.keys(data))
-    if (loop !== undefined) return loop
-
-    // Lenient lookup — a failed query reads as "matched nothing" and the update
-    // then no-ops successfully. Pre-existing behaviour, preserved explicitly;
-    // see `resolveIdsByFilterLenient` for why it was not tightened here. A
-    // filter naming a column that does not exist is NOT degraded that way.
+    // Lenient lookup — a failed query reads as "matched nothing" (see
+    // `resolveIdsByFilterLenient`); a filter naming a missing column is refused.
     const targets = yield* resolveActionTargetIds({
       operator: 'record.update',
       tableName,
       filter: props['filter'],
       declaredFields: declaredFieldNames(app, tableName),
+      idFastPath: id,
     })
     if (!targets.resolved) return targets.outcome
     const idsToUpdate: readonly string[] = targets.ids
 
     if (idsToUpdate.length === 0) {
-      // No matches — succeed silently. A follow-up spec may surface this as
-      // a failure (or as `output: { matchedCount: 0 }`) but today the
-      // contract is "no-op when nothing matches", consistent with SQL UPDATE
-      // semantics.
-      return { status: 'success' } as const
+      return { status: 'success', output: { updated: 0, ids: [] } } as const
     }
     const refused = yield* callerRefusal(app, automation, updatesOf(tableName, idsToUpdate, data))
     if (refused !== undefined) return refused
@@ -203,11 +191,7 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation, runCo
 
 /**
  * Write branch of `record/update` — stamp authorship, then update each matched
- * row.
- *
- * Extracted for the same reason `upsertCreate`/`upsertUpdate` were: it keeps the
- * handler within its `max-statements` budget, and it names the step that carries
- * the actor authority.
+ * row (extracted to keep the handler within its `max-statements` budget).
  *
  * Actor authority: stamp `updated-by`-typed columns (literal + custom) with the
  * durable actor so the update records WHO changed the row instead of silently
@@ -249,7 +233,10 @@ const applyRecordUpdates = (config: {
     )
     return updates._tag === 'Failure'
       ? failureFromError(updates.failure)
-      : ({ status: 'success' } as const)
+      : ({
+          status: 'success',
+          output: { updated: idsToUpdate.length, ids: idsToUpdate.map(String) },
+        } as const)
   })
 
 /**
@@ -343,9 +330,6 @@ export const handleRecordDelete: ActionHandler = (action, app, automation, runCo
     Effect.withSpan('automations.handle-record-delete', { attributes: actionAttributes(action) })
   )
 
-/** What a read step needs: the table, the starter's role and the related rows' rules. */
-type ReadRequirements = TableRepository | AuthRepository | DataSourceRepository
-
 /**
  * `record/read`'s only path: straight to `getRecord` (single SELECT by id).
  * Returns the canonical `{ record, records }` envelope so downstream
@@ -355,7 +339,7 @@ const readByPrimaryKey = (
   target: { readonly app: App; readonly tableName: string; readonly recordId: string },
   access: RunReadAccess,
   automation: AutomationContext
-): Effect.Effect<ActionOutcome, never, ReadRequirements> =>
+): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
     const { app, tableName, recordId } = target
     if (access.kind === 'refused') return READ_REFUSAL
@@ -513,7 +497,7 @@ const listRefusal = (config: {
 /**
  * `record/read` handler — fetch a single record by primary key.
  *
- * Since [internal ref] this is the ONLY thing `read` does: `props.id` is required
+ * Since the `record.read` split this is the ONLY thing `read` does: `props.id` is required
  * by the schema and `props.filter` is refused at decode. The missing-id
  * guard below is therefore unreachable from a decoded config; it exists for
  * a code-action invoking `record.read` natively (skipping schema
@@ -562,7 +546,7 @@ const runListQuery = (config: {
   readonly sortKeys: readonly SortKey[]
   readonly fields: readonly string[] | undefined
   readonly automation: AutomationContext
-}): Effect.Effect<ActionOutcome, never, ReadRequirements> =>
+}): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
     const { app, tableName, props, access, queryFilter, sortKeys, fields } = config
     const limit = optionalIntProp(props, 'limit')
@@ -587,7 +571,7 @@ const runListQuery = (config: {
 /**
  * `record/list` handler — the set-shaped read.
  *
- * Owns all four dimensions [internal ref] split out of `record/read`: which rows
+ * Owns all four dimensions the `record.read` split split out of `record/read`: which rows
  * (`filter`), in what order (`sort`), how many and from where (`limit` /
  * `offset`), carrying which columns (`fields`). Ordering and paging are pushed
  * into SQL; only the payload trim is applied in memory.

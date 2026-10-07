@@ -9,7 +9,7 @@
  * AI chat error-handling helpers — `POST /api/ai/chat`.
  *
  * Drives `[internal ref]`
- * ([internal ref] — AI Provider Failure Recovery).
+ * (the AI chat error handling requirement — AI Provider Failure Recovery).
  *
  * Responsibilities:
  *  - Map the `AiService` tagged-error union (plus a synthetic timeout marker)
@@ -75,9 +75,9 @@ export const chatErrorMessage = (status: 502 | 503 | 504): string => {
 /**
  * The canonical error code for the resolved HTTP status.
  *
- * All three used to render as SERVICE_UNAVAILABLE, because the union had no
- * bad-gateway or gateway-timeout member. That flattening told a caller "the
- * service is down, wait and retry" for two conditions where it is not: a 502
+ * The three are not all SERVICE_UNAVAILABLE. That flattening would tell a
+ * caller "the service is down, wait and retry" for two conditions where it is
+ * not: a 502
  * is an upstream that answered badly, and a 504 is one that answered too
  * slowly. Only the 503 genuinely means "unavailable, come back later", and it
  * is the one that keeps the code.

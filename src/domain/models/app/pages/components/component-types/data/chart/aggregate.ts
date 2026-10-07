@@ -70,10 +70,47 @@ export const ChartAggregateSchema = Schema.Struct({
   groupBy: Schema.String.annotate({
     description: 'Field to group records by on the X-axis',
   }),
+  /**
+   * How many categories are drawn before the rest are folded into one. A
+   * donut of fourteen slivers or a bar chart of forty rows says less than its
+   * five largest parts and "Other": the `limit` largest categories keep their
+   * place, and the rest are summed (or counted) into a single category drawn
+   * last and named by `otherLabel`. Omitted, every category is drawn.
+   */
+  limit: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'Draw at most this many categories, folding the rest into one category named by otherLabel. Omitted, every category is drawn.',
+        examples: [5, 8],
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
+  ),
+  otherLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Name of the category the folded remainder is drawn under (default: "Other"). Inert without limit. Supports $t: references.',
+      examples: ['Other', 'Autres'],
+    })
+  ),
   /** Date grouping interval (when groupBy is a date field) */
   interval: Schema.optional(ChartDateIntervalSchema),
   /** Category order (defaults by grouping field type) */
   order: Schema.optional(ChartAggregateOrderSchema),
+  /**
+   * The colour of the aggregated series. An aggregate chart declares no
+   * `series[]`, so this is where its one series takes the colour a
+   * `series[].color` would carry: a theme colour role (`primary`, `success`)
+   * or a hex value. Omitted, the chart uses the first colour of its palette.
+   */
+  color: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Colour of the aggregated series — a theme colour role (e.g. primary) or a hex value. Defaults to the first palette colour.',
+      examples: ['primary', '#3b82f6'],
+    })
+  ),
 }).annotate({
   title: 'Chart Aggregate',
   description: 'Aggregate function and grouping configuration for summarized chart data',

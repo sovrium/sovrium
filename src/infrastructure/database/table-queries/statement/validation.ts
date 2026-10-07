@@ -25,7 +25,6 @@ export const validateTableName = (tableName: string): void => {
   // Max 63 characters (PostgreSQL limit)
   const validIdentifier = /^[a-z_][a-z0-9_]*$/i
   if (!validIdentifier.test(tableName) || tableName.length > 63) {
-    // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for invalid input
     throw new Error(`Invalid table name: ${tableName}`)
   }
 }
@@ -81,7 +80,6 @@ export const isValidColumnName = (columnName: string): boolean =>
  */
 export const validateColumnName = (columnName: string): void => {
   if (!isValidColumnName(columnName)) {
-    // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for invalid input
     throw new Error(`Invalid column name: ${columnName}`)
   }
 }

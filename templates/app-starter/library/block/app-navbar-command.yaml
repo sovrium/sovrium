@@ -1,0 +1,39 @@
+# sovrium-library: block/app-navbar-command@0.30.0
+name: app-navbar-command
+type: container
+element: header
+props:
+  className: border-b border-border bg-background px-4 sm:px-6
+children:
+  - type: flex
+    props:
+      className: flex h-14 items-center justify-between gap-4
+    children:
+      - type: breadcrumb
+        separator: ›
+        breadcrumbItems:
+          - label: Workspace
+            href: /
+          - label: Invoices
+      - type: flex
+        props:
+          className: flex items-center gap-4
+        children:
+          - type: flex
+            props:
+              className: flex hidden items-center gap-2 md:flex
+            children:
+              - type: text
+                element: span
+                props:
+                  className: text-sm text-foreground-subtle
+                content: Search
+              - type: kbd
+                keys:
+                  - ⌘
+                  - K
+          - type: link
+            props:
+              href: /new
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+            content: New

@@ -1,0 +1,19 @@
+# Who the projects are for: the facts a client card and a client form show.
+id: 4
+name: clients
+fields:
+  - { id: 1, name: legal_name, type: single-line-text }
+  - { id: 2, name: contact_email, type: email }
+  - { id: 3, name: billing_address, type: long-text }
+  - { id: 4, name: payment_terms, type: single-line-text }
+  - { id: 5, name: vat_number, type: single-line-text }
+  - { id: 6, name: name, type: single-line-text }
+  - { id: 7, name: email, type: email }
+  - { id: 8, name: phone, type: phone-number }
+  - { id: 9, name: website, type: url }
+  - { id: 10, name: notes, type: long-text }
+permissions:
+  read: authenticated
+  create: authenticated
+  update: authenticated
+  comment: authenticated

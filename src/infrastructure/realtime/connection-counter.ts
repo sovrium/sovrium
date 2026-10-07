@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/prefer-immutable-types -- in-process registry intentionally mutates Maps, Sets and its entries in place */
-
 /**
  * The registry of live realtime-transport connections, keyed by user and by
  * the session each connection opened with.
@@ -113,10 +111,8 @@ const userConnections = new Map<string, Set<ConnectionEntry>>()
 const sessionConnections = new Map<string, Set<ConnectionEntry>>()
 
 /** The re-check ticker — running only while some connection can be re-checked. */
-// eslint-disable-next-line functional/no-let -- the single process-wide ticker handle
 let recheckTimer: ReturnType<typeof setInterval> | undefined = undefined
 
-// eslint-disable-next-line functional/no-let -- a sweep still running when the next tick fires is not overlapped
 let sweepInFlight = false
 
 /**
@@ -172,9 +168,7 @@ const removeFrom = (
 ): void => {
   const entries = index.get(key)
   if (entries === undefined) return
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Set#delete, not a query
   entries.delete(entry)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Map#delete, not a query
   if (entries.size === 0) index.delete(key)
 }
 

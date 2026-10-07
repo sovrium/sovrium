@@ -5,7 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, count, desc, eq, gt, gte, inArray, isNull, lt, max, type SQL } from 'drizzle-orm'
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  max,
+  ne,
+  or,
+  type SQL,
+} from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminFormsDatabaseError,
@@ -23,6 +37,19 @@ import {
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
 
+/**
+ * The rows of one form that were SENT: a `draft` (`saveAndResume`) is a
+ * half-typed answer waiting behind its resume link, so the console's inbox,
+ * counts, detail and exports never see it. `status` is matched null-safely.
+ */
+const sentOf = (formName: string): SQL => {
+  const submissions = formSubmissionsTable()
+  return and(
+    eq(submissions.formName, formName),
+    or(isNull(submissions.status), ne(submissions.status, 'draft'))
+  ) as SQL
+}
+
 /** Wrap a DB promise, adapting failures to AdminFormsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminFormsDatabaseError({ cause }))
 
@@ -38,7 +65,7 @@ const wrap = makeDbWrap((cause) => new AdminFormsDatabaseError({ cause }))
  */
 const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArray<SQL> => {
   const submissions = formSubmissionsTable()
-  const formFilter: ReadonlyArray<SQL> = [eq(submissions.formName, filters.formName)]
+  const formFilter: ReadonlyArray<SQL> = [sentOf(filters.formName)]
   const deletedFilter: ReadonlyArray<SQL> = filters.includeDeleted
     ? []
     : [isNull(submissions.deletedAt)]
@@ -154,9 +181,8 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         })
         .from(submissions)
         .where(
-          and(eq(submissions.formName, formName), isNull(submissions.deletedAt))
+          and(sentOf(formName), isNull(submissions.deletedAt))
         )) as ReadonlyArray<AdminFormAggregateRow>
-      // eslint-disable-next-line unicorn/no-null -- port type is `Date | string | null`; null is the canonical "no submissions yet" aggregate value
       return rows[0] ?? { submissionCount: 0, lastSubmissionAt: null }
     }),
 
@@ -175,7 +201,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
           data: submissions.data,
         })
         .from(submissions)
-        .where(and(eq(submissions.id, submissionId), eq(submissions.formName, formName)))
+        .where(and(eq(submissions.id, submissionId), sentOf(formName)))
         .limit(1)) as ReadonlyArray<AdminFormSubmissionDetailRow>
       return rows[0]
     }),
@@ -195,11 +221,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         })
         .from(submissions)
         .where(
-          and(
-            inArray(submissions.id, [...ids]),
-            eq(submissions.formName, formName),
-            isNull(submissions.deletedAt)
-          )
+          and(inArray(submissions.id, [...ids]), sentOf(formName), isNull(submissions.deletedAt))
         )) as ReadonlyArray<AdminFormSubmissionRow>
     }),
 
@@ -216,7 +238,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
           data: submissions.data,
         })
         .from(submissions)
-        .where(and(eq(submissions.formName, formName), isNull(submissions.deletedAt)))
+        .where(and(sentOf(formName), isNull(submissions.deletedAt)))
         .orderBy(desc(submissions.submittedAt))
         .limit(limit)) as ReadonlyArray<AdminFormSubmissionDetailRow>
     }),
@@ -234,11 +256,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         })
         .from(submissions)
         .where(
-          and(
-            eq(submissions.formName, formName),
-            isNull(submissions.deletedAt),
-            gte(submissions.submittedAt, since)
-          )
+          and(sentOf(formName), isNull(submissions.deletedAt), gte(submissions.submittedAt, since))
         )) as ReadonlyArray<AdminFormSubmissionRow>
     }),
 })

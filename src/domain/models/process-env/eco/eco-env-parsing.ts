@@ -6,20 +6,18 @@
  */
 
 /**
- * Shared fail-fast parsing for the `ECO_*` operator environment variables
- *.
+ * Shared fail-fast parsing for the `ECO_*` operator environment variables.
  *
- * Every `ECO_*` parser used to resolve an unrecognised value to its default.
- * That made a typo indistinguishable from an unset variable — and the two mean
- * opposite things. `ECO_MODE=strcit` looked exactly like "operator never
- * configured eco posture", so the platform ran `balanced` while the operator
- * believed it was running `strict`. `ECO_AI_MAX_CARBON_CLASS=X` fell back to
- * `G`, the MOST permissive cap, so a typo in a tightening control silently
- * loosened it. Worst of all, `ECO_RETENTION_PURGE_DAYS=3O` (letter O) parsed as
- * `3` and enabled a three-day purge of soft-deleted rows.
+ * Resolving an unrecognised value to its default would make a typo
+ * indistinguishable from an unset variable — and the two mean opposite things.
+ * `ECO_MODE=strcit` would look exactly like "operator never configured eco
+ * posture", so the platform would run `balanced` while the operator believed
+ * it was running `strict`. `ECO_AI_MAX_CARBON_CLASS=X` would fall back to `G`,
+ * the MOST permissive cap, so a typo in a tightening control would silently
+ * loosen it. And a prefix-reading integer parse turns `3O` (letter O) into `3`.
  *
  * The contract these helpers enforce, stated as the mirror of the app-config
- * contract from [internal ref]:
+ * contract from the refuse-undeclared-properties boot rule:
  *
  * > The app config refuses an unknown KEY. The environment must refuse an
  * > unknown VALUE.

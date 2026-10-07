@@ -55,6 +55,8 @@ Each entry names the record `id` — string or number, both accepted — plus th
 }
 ```
 
+A batch update is written as one set-based statement, so its cost does not grow with the batch: a hundred records take the same database work as ten, and only a handful of statements more than one. An `id` that matches no record is skipped. Naming the same `id` twice writes it once, with both entries' fields and the later one winning where they overlap. The ceiling stays at 100 records per request; split a larger change into several requests.
+
 ## Delete
 
 ```json

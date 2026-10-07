@@ -48,25 +48,7 @@ components:
               id: request-time-off-dialog
               title: Request time off
               description: An admin decides, and the request shows on the calendar in amber until then. Days are counted in calendar days.
-            children:
-              - type: form
-                dataSource:
-                  table: time_off_requests
-                fields:
-                  - { field: type, label: Type }
-                  - { field: start_date, label: From }
-                  - { field: end_date, label: To }
-                  - { field: note, label: Note for the approver }
-                action:
-                  type: crud
-                  operation: create
-                  table: time_off_requests
-                  submitLabel: Send request
-                  onSuccess:
-                    navigate: /time-off
-                    toast:
-                      message: Request sent — an admin decides
-                      variant: success
+            formRef: request-time-off
           - type: container
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4
@@ -74,9 +56,10 @@ components:
               # Four figures, each counted from the requests on every visit.
               - type: grid
                 props:
-                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
                 children:
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Waiting on a decision
                     dataSource:
                       table: time_off_requests
@@ -85,6 +68,7 @@ components:
                     kpiAggregate: { function: count }
                     kpiFormat: { type: number }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Approved
                     dataSource:
                       table: time_off_requests
@@ -93,6 +77,7 @@ components:
                     kpiAggregate: { function: count }
                     kpiFormat: { type: number }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Calendar days approved
                     dataSource:
                       table: time_off_requests
@@ -101,6 +86,7 @@ components:
                     kpiAggregate: { function: sum, field: days }
                     kpiFormat: { type: number }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Rejected
                     dataSource:
                       table: time_off_requests
@@ -147,8 +133,6 @@ components:
                           className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                         content: Waiting on a decision
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: time_off_requests
                           filter:
@@ -156,6 +140,7 @@ components:
                           sort:
                             - { field: start_date, direction: asc }
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No request waits on a decision. New ones appear here until an admin decides.
                           itemTemplate:
                             title: $record.employee_name
@@ -164,6 +149,9 @@ components:
                               - { field: type, format: text }
                               - { field: start_date, format: short-date }
                               - { field: end_date, format: short-date }
+                        classes:
+                          parts:
+                            item: gap-y-1
           # One request, opened from the calendar or from `/time-off?record=<id>`:
           # whose it is, the dates, and where the decision stands.
           - type: drawer

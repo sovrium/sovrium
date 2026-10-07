@@ -11,6 +11,7 @@ import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
+import { StaleWriteError } from '@/domain/errors'
 import { findConstraintFieldName } from '@/domain/errors/driver-failure'
 import {
   db,
@@ -21,10 +22,7 @@ import {
 } from '@/infrastructure/database'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
-import {
-  injectCreateAuthorship,
-  injectUpdateAuthorship,
-} from '../mutation-helpers/authorship-helpers'
+import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import {
   buildInsertClauses,
@@ -40,12 +38,16 @@ import {
   executeHardDelete,
   checkDeletedAtColumn,
 } from '../mutation-helpers/delete-helpers'
+import {
+  writeManyToManyLinksInTransaction,
+  type ManyToManyLink,
+} from '../mutation-helpers/many-to-many-helpers'
 import { fetchRecordById } from '../mutation-helpers/record-fetch-helpers'
 import {
-  validateFieldsNotEmpty,
-  buildUpdateSetClauseCRUD,
-  executeRecordUpdateCRUD,
-} from '../mutation-helpers/update-helpers'
+  runUpdateRecordTransaction,
+  updateActivityChanges,
+  type UpdateRecordInput,
+} from '../mutation-helpers/update-transaction'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
@@ -74,10 +76,32 @@ async function executeCreateRecordTx(
   const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship, arrayColumnTypes)
   // Execute the INSERT directly: this helper is already inside a promise the
   // caller's `Effect.tryPromise` owns, so there is no Effect to run here.
-  // `RETURNING *` is supported by both PostgreSQL and SQLite (≥ 3.35). [internal ref](b):
+  // `RETURNING *` is supported by both PostgreSQL and SQLite (≥ 3.35). The view-backed-table write rule(b):
   // view-backed tables return a NULL id from the view — `insertAndResolveRow`
   // resolves the real base id and re-reads the row so create is uniform.
   return await insertAndResolveRow(tx, tableName, columnsClause, valuesClause)
+}
+
+/**
+ * The create transaction: the row, then the many-to-many links it names, on the
+ * same `tx`. A refused link throws out of the body, so the driver rolls back the
+ * row with it — a create answered with an error keeps nothing.
+ */
+async function executeCreateRecordWithLinksTx(
+  tx: Readonly<DrizzleTransaction>,
+  input: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly fields: Readonly<Record<string, unknown>>
+    readonly links: readonly ManyToManyLink[]
+  }
+): Promise<Readonly<Record<string, unknown>>> {
+  const { session, tableName, fields, links } = input
+  const row = await executeCreateRecordTx(tx, session, tableName, fields)
+  const sourceId = row['id'] as string | number
+  return writeManyToManyLinksInTransaction(tx, { sourceTable: tableName, sourceId, links }).then(
+    () => row
+  )
 }
 
 /**
@@ -101,13 +125,12 @@ async function executeCreateRecordTx(
  * unique. PostgreSQL attaches a `constraint` name to FK violations too, so the
  * looser uniqueness test would otherwise claim them.
  *
- * [internal ref]; [internal ref].
+ * [internal ref] / a forms spec.
  */
 function wrapCreateRecordFailure(
   error: unknown,
   tableName: string,
   submittedFields: readonly string[]
-  // eslint-disable-next-line functional/prefer-immutable-types -- returns Error class instances, whose shape is fixed by the platform; same exemption the sibling handler factories in shared/error-handling.ts carry
 ): DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError {
   if (error instanceof DatabaseError) return error
   if (error instanceof UniqueConstraintViolationError) return error
@@ -137,12 +160,14 @@ function wrapCreateRecordFailure(
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param fields - Record fields
+ * @param links - many-to-many links to store with the record, in the same transaction
  * @returns Effect resolving to created record
  */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
-  fields: Readonly<Record<string, unknown>>
+  fields: Readonly<Record<string, unknown>>,
+  links: readonly ManyToManyLink[] = []
 ): Effect.Effect<
   Record<string, unknown>,
   DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
@@ -152,7 +177,10 @@ export function createRecord(
       'insert',
       tableName,
       Effect.tryPromise({
-        try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
+        try: () =>
+          db.transaction((tx) =>
+            executeCreateRecordWithLinksTx(tx, { session, tableName, fields, links })
+          ),
         // The caller's own keys, taken BEFORE authorship injection: only a
         // column they submitted may be named back to them (S4).
         catch: (error) => wrapCreateRecordFailure(error, tableName, Object.keys(fields)),
@@ -182,10 +210,7 @@ function logRecordUpdateActivity(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly recordId: string
-  readonly changes: {
-    readonly before: Record<string, unknown> | undefined
-    readonly after: Record<string, unknown>
-  }
+  readonly changes: Record<string, unknown>
   readonly app?: App
 }): Effect.Effect<void, never> {
   const { session, tableName, recordId, changes, app } = config
@@ -200,64 +225,43 @@ function logRecordUpdateActivity(config: {
 }
 
 /**
- * Update a record
+ * Update a record and its many-to-many links, all in one transaction.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordId - Record ID
- * @param params - Update parameters
- * @returns Effect resolving to updated record
+ * @param params - the columns to write, the links to add and remove, and the
+ *   optimistic-lock token; with no columns only the links change
+ * @returns Effect resolving to the updated record (`{}` for a links-only update
+ *   of a record that does not exist)
  */
 export function updateRecord(
   session: Readonly<Session>,
   tableName: string,
   recordId: string,
-  params: {
-    readonly fields: Readonly<Record<string, unknown>>
-    readonly app?: App
-  }
-): Effect.Effect<Record<string, unknown>, DatabaseError> {
-  const { fields, app } = params
+  params: Readonly<UpdateRecordInput>
+): Effect.Effect<Record<string, unknown>, DatabaseError | StaleWriteError> {
+  const wrap = wrapDatabaseError(`Failed to update record in ${tableName}`)
   return Effect.gen(function* () {
-    const { recordBefore, updatedRecord } = yield* traceDbQuery(
+    const { recordBefore, updatedRecord, rowWritten } = yield* traceDbQuery(
       'update',
       tableName,
       Effect.tryPromise({
         try: () =>
-          db.transaction(async (tx) => {
-            // Inject updated_by from session
-            const fieldsWithUpdatedBy = await injectUpdateAuthorship(
-              fields,
-              session.userId,
-              tx,
-              tableName
-            )
-
-            const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
-            const before = await fetchRecordById(tx, tableName, recordId)
-            // Same resolution the CREATE path above performs, and for the same
-            // reason: a `text[]` column needs a native array literal, a `jsonb`
-            // one needs JSON, and PostgreSQL rejects the wrong choice outright.
-            const setClause = buildUpdateSetClauseCRUD(
-              entries,
-              await resolveArrayColumnTypes(tx, tableName, [fieldsWithUpdatedBy])
-            )
-            const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
-            return { recordBefore: before, updatedRecord: updated }
-          }),
-        catch: wrapDatabaseError(`Failed to update record in ${tableName}`),
+          db.transaction((tx) =>
+            runUpdateRecordTransaction(tx, { session, tableName, recordId }, params)
+          ),
+        catch: (error) => (error instanceof StaleWriteError ? error : wrap(error)),
       })
     )
+    if (!rowWritten) return updatedRecord
 
     yield* logRecordUpdateActivity({
       session,
       tableName,
       recordId,
-      changes: {
-        before: recordBefore,
-        after: updatedRecord,
-      },
-      app,
+      changes: updateActivityChanges(params, recordBefore, updatedRecord),
+      app: params.app,
     })
     if (updatedRecord['id'] !== undefined) {
       yield* reportCommittedRows([
@@ -524,7 +528,6 @@ export function restoreRecord(
             )
 
             if (checkResult.length === 0) {
-              // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
               return null // Record not found
             }
 

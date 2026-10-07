@@ -7,7 +7,7 @@
 
 /**
  * Use case for the Native Admin Dashboard GLOBAL INDEXED SEARCH
- * (`GET /api/admin/search?q=`, [internal ref]) — the admin-only, fully-indexed
+ * (`GET /api/admin/search?q=`) — the admin-only, fully-indexed
  * search that spans EVERY admin entity kind in one full-text query and returns
  * the matches GROUPED BY TYPE.
  *
@@ -31,7 +31,7 @@
  * admin list derives its secret-free shape.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminSearchRepository,
   type AdminSearchDatabaseError,
@@ -54,16 +54,15 @@ import {
   CATALOG_COMPONENT_CATEGORIES,
   catalogedTypesOf,
 } from '@/domain/models/app/pages/components/component-types/catalog'
-import { AdminSearchRepositoryLive } from '@/infrastructure/database/repositories/admin-search-repository-live'
 import type { App } from '@/domain/models/app'
 
 /**
- * Deep-readonly mirrors of the Zod-inferred response shapes
+ * Deep-readonly mirrors of the schema-inferred response shapes
  * ({@link AdminSearchResult} / {@link AdminSearchGroup} / {@link AdminSearchResponse}).
  * The use case is written against these (so `functional/prefer-immutable-types`
  * holds end to end); the route re-validates the assembled object against the
  * `.strict()` Zod schema (`adminSearchResponseSchema`) before serializing, where
- * the readonly pipeline and the Zod-inferred mutable shape converge. Defining
+ * the readonly pipeline and the schema-inferred mutable shape converge. Defining
  * them as `Readonly<…>` of the canonical types keeps the two in lock-step — a
  * schema field change propagates here at compile time.
  */
@@ -126,7 +125,7 @@ const connectionRows = (app: App): readonly AdminSearchUpsertRow[] =>
  * order of magnitude more types than the console has destinations, and both
  * exceed the row budget on their own — so with ONE kind the types would crowd
  * every destination out of view. With two, each has its own budget and
- * `[internal ref]` can prove it.
+ * an admin dashboard global search design spec can prove it.
  *
  * No count is written here on purpose. Both populations are derived
  * (`DESIGN_SYSTEM_NAV_CHILDREN`, `CATALOG_COMPONENT_CATEGORIES`), so a literal
@@ -166,11 +165,10 @@ const designConsoleRows = (): readonly AdminSearchUpsertRow[] =>
  * ─── THE SEGMENT IS THE TYPE LITERAL, AND SLUGIFYING IT IS THE TRAP ────────
  *
  * The href comes from `componentTypePath` — the one place the console's
- * per-type address is composed — rather than from a string formed here. The
- * catalogue used to hold camelCase types (`commentCount`, `pageSearch`,
- * `searchInput`), so a kebab-casing guess shipped plausible-looking rows that
- * 404 when followed. All three were retired by the catalogue merges; sharing
- * the builder is what keeps the rule true for the next one, and what makes the
+ * per-type address is composed — rather than from a string formed here. A
+ * camelCase type literal would make a kebab-casing guess ship plausible-looking
+ * rows that 404 when followed; sharing the builder is what keeps the rule true
+ * for any such type, and what makes the
  * palette follow the route if the route ever moves instead of drifting from it.
  *
  * `title` is the type literal alone. It is unique across the whole catalogue —
@@ -293,8 +291,3 @@ export const SearchAdminGlobal = (
     const hits = yield* repo.search(query)
     return { query, groups: groupHits(hits) }
   }).pipe(Effect.withSpan('admin.search-admin-global'))
-
-/**
- * Application layer for the admin global-search use case.
- */
-export const AdminSearchLayer = Layer.mergeAll(AdminSearchRepositoryLive)

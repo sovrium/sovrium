@@ -90,13 +90,10 @@ export const applySqlitePragmas = (client: BunSqlite, options: SqlitePragmaOptio
   // FIRST, and deliberately so: the WAL switch below takes a lock of its own,
   // and without a timeout already in force it fails instantly rather than
   // waiting (measured: 0 ms vs 493 ms).
-  // eslint-disable-next-line functional/no-expression-statements -- driver-level connection setup; bun:sqlite exec returns void
   client.exec(`PRAGMA busy_timeout = ${options.busyTimeoutMs ?? SQLITE_BUSY_TIMEOUT_MS}`)
   if (options.readOnly === true) return
 
-  // eslint-disable-next-line functional/no-expression-statements -- driver-level connection setup; FK enforcement must be on before any FK-bearing DDL or DML
   client.exec('PRAGMA foreign_keys = ON')
-  // eslint-disable-next-line functional/no-expression-statements -- WAL journaling so a reader is not blocked by the writer; persistent in the file, so idempotent per connection
   client.exec('PRAGMA journal_mode = WAL')
 }
 

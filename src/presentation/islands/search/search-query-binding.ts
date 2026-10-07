@@ -102,7 +102,6 @@ function useDebouncedDispatch(): DebouncedDispatch {
 
   const cancel = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
-    // eslint-disable-next-line functional/immutable-data -- ref holds the debounce timer
     timerRef.current = undefined
   }, [])
 
@@ -113,7 +112,6 @@ function useDebouncedDispatch(): DebouncedDispatch {
         run()
         return
       }
-      // eslint-disable-next-line functional/immutable-data -- ref holds the debounce timer
       timerRef.current = setTimeout(run, delayMs)
     },
     [cancel]

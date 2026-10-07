@@ -38,7 +38,7 @@ export interface ConfigGraphWatcher {
  * atomic save enabled — and every AI coding tool — replaces a file by writing a
  * sibling temp file and renaming it over the target, so after one such save the
  * handle is bound to an inode nothing will ever write to again. What that costs
- * is platform-split, measured 2026-09-18 against Bun 1.4.1:
+ * is platform-split, measured against Bun 1.4.1:
  *
  * | platform           | atomic save #1                | atomic save #2 | later in-place write |
  * | ------------------ | ----------------------------- | -------------- | -------------------- |
@@ -80,7 +80,6 @@ const closeWatcher = (registry: WatcherRegistry, key: string): void => {
   const watcher = registry.get(key)
   if (!watcher) return
   watcher.close()
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- watcher registry is the mutable seam of this module; `Map.delete`, not a SQL delete
   registry.delete(key)
 }
 
@@ -119,7 +118,6 @@ export const createConfigGraphWatcher = (
   const watchers = new Map<string, FSWatcher>()
   const dirWatchers = new Map<string, FSWatcher>()
   /** Per directory, the basenames of the files of the graph that live in it. */
-  // eslint-disable-next-line functional/no-let -- replaced wholesale on every sync; a mutable Map would need clear()+set() instead
   let watchedNames: ReadonlyMap<string, ReadonlySet<string>> = new Map()
 
   /**
@@ -141,7 +139,6 @@ export const createConfigGraphWatcher = (
         if (eventType === 'rename') reestablish(path)
         report(path)
       })
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- watcher registry is the mutable seam of this module
       watchers.set(path, watcher)
     } catch {
       // A file that vanished between the load and this call cannot be watched.
@@ -169,7 +166,6 @@ export const createConfigGraphWatcher = (
   const watchDir = (dir: string): void => {
     try {
       const watcher = watch(dir, (_eventType, filename) => handleDirEvent(dir, filename))
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- watcher registry is the mutable seam of this module
       dirWatchers.set(dir, watcher)
     } catch {
       // An unreadable config directory leaves the per-file handles as the only
@@ -180,7 +176,6 @@ export const createConfigGraphWatcher = (
   const sync = (files: ReadonlyArray<string>): void => {
     syncRegistry(watchers, files, watchFile)
     const wanted = indexByDirectory(files)
-    // eslint-disable-next-line functional/no-expression-statements -- the name index is replaced wholesale, never mutated in place
     watchedNames = wanted
     syncRegistry(dirWatchers, [...wanted.keys()], watchDir)
   }

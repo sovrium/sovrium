@@ -18,14 +18,20 @@
 
 /**
  * Automation action the alert-dialog's confirm button dispatches. Mirrors the
- * page-button `AutomationAction` shape; only `automation` actions are wired (a
- * confirm gating a destructive automation). Other action `type`s are ignored —
- * the confirm just closes the dialog.
+ * page-button `AutomationAction` shape. Two kinds are wired: an `automation`
+ * (a confirm gating a destructive automation) and a `crud` delete of the record
+ * the page is bound to. Other actions are ignored — the confirm just closes the
+ * dialog.
  */
 export interface DialogConfirmAction {
   readonly type?: string
   readonly name?: string
   readonly inputData?: Record<string, unknown>
+  /** `crud` actions: the operation; only `delete` is dispatched from a dialog. */
+  readonly operation?: string
+  readonly table?: string
+  /** `crud` delete: the bound record's id, stamped on the server from the page record. */
+  readonly recordId?: string
 }
 
 /**
@@ -35,6 +41,15 @@ export interface DialogConfirmAction {
  * closes.
  */
 export function dispatchConfirmAction(action: DialogConfirmAction | undefined): void {
+  if (action?.type === 'crud' && action.operation === 'delete' && action.table && action.recordId) {
+    // The records API applies the table's own delete permission; a refusal
+    // answers 404 and the record simply stays.
+    void fetch(
+      `/api/tables/${encodeURIComponent(action.table)}/records/${encodeURIComponent(action.recordId)}`,
+      { method: 'DELETE', credentials: 'same-origin' }
+    ).catch(() => undefined)
+    return
+  }
   if (action?.type !== 'automation' || !action.name) return
   const inputData = action.inputData ?? {}
   void fetch(`/api/automations/${encodeURIComponent(action.name)}/form-action`, {

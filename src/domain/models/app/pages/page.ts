@@ -14,6 +14,7 @@ import { ContentDirSchema } from './content-dir'
 import { deriveContentDirIndexBasePath } from './content-dir-index-base-path'
 import { DataSourceSchema } from './data-source'
 import { PageIdSchema } from './id'
+import { PageInvitationSchema } from './invitation'
 import { PageLayoutSchema } from './layout'
 import { MarkdownSchema } from './markdown'
 import { MetaSchema } from './meta'
@@ -682,21 +683,16 @@ export const PageSchema = Schema.Struct({
    *
    * The preset list is closed for the same reason `query.enum` is: it bounds
    * the reachable renderings, which is what keeps the page cacheable. An
-   * unrecognised value falls back to `default` and the page answers 200.
-   *
-   * @example
-   * ```yaml
-   * path: /analytics
-   * window:
-   *   param: period
-   *   default: 7d
-   *   presets:
-   *     - { id: 24h, granularity: hour, label: last 24 hours }
-   *     - { id: 7d }
-   *     - { id: 30d }
-   * ```
+   * unrecognised value falls back to `default` and the page answers 200. The
+   * worked example is in the pages manual.
    */
   window: Schema.optional(PageWindowSchema),
+
+  /**
+   * Look up the invitation whose token is in this page's address and expose it
+   * as `$invitation.*` (reference set in `invitation.ts`).
+   */
+  invitation: Schema.optional(PageInvitationSchema),
 
   /**
    * Capabilities the HOST app must declare for this page to exist.
@@ -783,7 +779,7 @@ export const PagesSchema = Schema.Array(PageSchema).pipe(
       'Marketing and content pages with server-side rendering support. Pages use a component-based layout system with reusable component templates for building landing pages, about pages, pricing pages, and other public-facing content. Supports comprehensive metadata, theming, and structured data for SEO optimization.',
   }),
   // contentDir.index cross-page conflict validation
-  //: a page whose `contentDir.index` is
+  // A page whose `contentDir.index` is
   // set serves the index article at the collection BASE PATH (page path minus
   // its trailing dynamic segment) — no OTHER page may claim exactly that path,
   // otherwise the two routes would silently shadow each other.

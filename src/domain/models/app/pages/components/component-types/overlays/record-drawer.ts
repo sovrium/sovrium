@@ -9,28 +9,26 @@
  * The record-binding shapes a `drawer` uses, and the `table` row-expand
  * that reuses them.
  *
- * ─── WHY THIS FILE OUTLIVED ITS COMPONENT TYPE ─────────────────────────────
+ * ─── WHY THIS FILE EXISTS WITHOUT A `record-drawer` TYPE ───────────────────
  *
- * `record-drawer` was retired into `drawer` with a `dataSource`: it was a
- * drawer bound to one record, and every key it added is now a key on `drawer`.
- * The TYPE went; these SHAPES did not, because they were never only its own —
- * `table`'s `row-expand` renders the same field list through the same
- * schema, and `resolve-record-drawer-fields.ts` derives it for both.
+ * A drawer bound to one record is a `drawer` with a `dataSource`, not a type of
+ * its own. These SHAPES are shared — `table`'s `row-expand` renders the same
+ * field list through the same schema, and `resolve-record-drawer-fields.ts`
+ * derives it for both.
  *
- * The names keep the `RecordDrawer` prefix on purpose. Renaming them would
- * touch every one of their importers to say the same thing, and "the fields a
- * record drawer shows" is still exactly what they describe — the drawer is now
- * spelled `drawer` with a binding rather than as its own type.
+ * The names keep the `RecordDrawer` prefix on purpose: "the fields a record
+ * drawer shows" is exactly what they describe — the drawer is spelled `drawer`
+ * with a binding.
  */
 
 import { Schema } from 'effect'
-import { ActionSchema, NavigateActionSchema, OpenDrawerActionSchema } from '../../action'
+import { actionWithoutFill, NavigateActionSchema, OpenDrawerActionSchema } from '../../action'
 import { ConfirmGateSchema } from '../../confirm-gate'
 import { DataSortSchema } from '../../data-source'
 import { ButtonVariantSchema } from '../../shared-schemas'
 
 /**
- * Per-field structured-display selector ([internal ref] CAP-3).
+ * Per-field structured-display selector.
  *
  * Controls how a `recordFields` entry RENDERS its (possibly nested) value in the
  * drawer's read-only display. The flat default coerces every value through
@@ -130,14 +128,13 @@ export const RecordDrawerFieldSchema = Schema.Struct({
 )
 
 /**
- * A footer action button the drawer renders below the record body
- * ([internal ref] CAP-1).
+ * A footer action button the drawer renders below the record body.
  *
  * Each entry is a button-shaped action that fires against the drawer's LOADED
  * record. It REUSES the standalone-button capability rather than reinventing
  * dispatch:
  *
- *  - `action` accepts the full component `ActionSchema` union, so a footer
+ *  - `action` accepts the component action union minus `fill`, so a footer
  *    button can `fetch` (the operate gesture), `navigate`, run an `automation`,
  *    etc. — with all the action's own options (e.g. a `type: 'fetch'` action's
  *    `method` / `body` / `confirm` / `mode`).
@@ -183,12 +180,17 @@ export const RecordDrawerActionSchema = Schema.Struct({
     description: "Footer action button text (and the confirm dialog's confirm-button label).",
   }),
   /**
-   * The action dispatched when the footer button fires. The full component
-   * `ActionSchema` union — typically a `type: 'fetch'` operate action whose
+   * The action dispatched when the footer button fires. The component action
+   * union minus `fill` — typically a `type: 'fetch'` operate action whose
    * `url` interpolates `$record.<field>` resolved against the drawer's loaded
    * record at click time.
    */
-  action: ActionSchema,
+  action: actionWithoutFill(
+    'A drawer footer action (actions[].action)',
+    'RecordDrawerFooterAction',
+    'Record Drawer Footer Action',
+    'The action a drawer footer button runs against the record the drawer loaded. Every action type except `fill`, which runs only from a button on the page, a list item click or a board drop hook.'
+  ),
   /** Optional button variant (visual style) — same set as the `button` component. */
   variant: Schema.optional(ButtonVariantSchema),
   /**
@@ -210,7 +212,7 @@ export const RecordDrawerActionSchema = Schema.Struct({
 )
 
 /**
- * Accessible role of the record-drawer surface ([internal ref] CAP-2).
+ * Accessible role of the record-drawer surface.
  *
  *  - `dialog` (default): the slide-in panel announces as a `dialog` — the
  *    historical, UNCHANGED behavior.
@@ -230,7 +232,7 @@ export const RecordDrawerRoleSchema = Schema.Literals(['dialog', 'region']).anno
 })
 
 /**
- * One column of a related section ([internal ref] CAP-8): a field of the
+ * One column of a related section: a field of the
  * related table, and the header it is shown under.
  */
 export const RecordDrawerRelatedColumnSchema = Schema.Struct({
@@ -270,7 +272,7 @@ export const RecordDrawerRelatedRowClickSchema = Schema.Union([
 })
 
 /**
- * One related section of a record-bound drawer ([internal ref] CAP-8):
+ * One related section of a record-bound drawer:
  * the rows of another table whose relationship column points at the record the
  * drawer opened, read when the drawer opens.
  *

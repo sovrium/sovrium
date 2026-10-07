@@ -5,11 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
   normalizeSidebarPath,
   sidebarEntryMatches,
   sidebarRequestAddress,
 } from '@/domain/models/app/pages/sidebar-active-match'
+import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -29,6 +32,44 @@ export const CURRENT_ENTRY_KEY = '_isCurrentEntry'
  * reader turns it into a disclosure that is already open on arrival.
  */
 export const CURRENT_SECTION_KEY = '_isCurrentSection'
+
+/** What the request says beside its path: the query, and the reader's language. */
+export interface SidebarRequestContext {
+  readonly requestQuery?: Readonly<Record<string, string>> | undefined
+  readonly languages?: Languages | undefined
+  readonly detectedLanguage?: string | undefined
+  readonly urlLanguage?: string | undefined
+}
+
+/**
+ * How one entry's href is compared: a `$t:` href is resolved in the reader's
+ * language first, and an address may be the request with its `/{lang}` prefix.
+ *
+ * The prefix is the one piece of the reader's address the route strips before
+ * the page is matched — `/en/invoices` renders the page declared at
+ * `/invoices` — while a translated href names the address as the reader sees
+ * it. Without both forms, `$t:href.invoices` resolving to `/en/invoices` could
+ * never equal the stripped request path, and the entry was marked in no language.
+ */
+interface EntryMatcher {
+  readonly addresses: readonly string[]
+  readonly resolveHref: (href: string) => string
+}
+
+function entryMatcher(page: Page, fullPath: string, request: SidebarRequestContext): EntryMatcher {
+  const { languages, detectedLanguage, urlLanguage } = request
+  const { lang } = resolvePageLanguage(page, languages, detectedLanguage, urlLanguage)
+  const prefixed = urlLanguage === undefined ? undefined : `/${urlLanguage}${fullPath}`
+  return {
+    addresses: prefixed === undefined || fullPath === '/' ? [fullPath] : [fullPath, prefixed],
+    resolveHref: (href) => resolveTranslationPattern(href, lang, languages),
+  }
+}
+
+function entryMatches(href: string, activeMatch: unknown, matcher: EntryMatcher): boolean {
+  const resolved = matcher.resolveHref(href)
+  return matcher.addresses.some((address) => sidebarEntryMatches(resolved, activeMatch, address))
+}
 
 /**
  * Mark the sidebar entry that matches the REQUEST path.
@@ -50,7 +91,7 @@ export function resolveSidebarCurrentEntries(
   page: Page,
   requestPath: string,
   basePath?: string,
-  requestQuery?: Readonly<Record<string, string>>
+  request: SidebarRequestContext = {}
 ): Page {
   if (!hasSidebarGroups(page.components) && !hasSidebarGroups(page.layout)) return page
   // Item hrefs were rewritten onto the mount at boot, while the path this
@@ -63,15 +104,16 @@ export function resolveSidebarCurrentEntries(
   // before the component dispatcher — which never sees either.
   const fullPath = sidebarRequestAddress(
     normalizeSidebarPath(`${basePath ?? ''}${requestPath}`),
-    requestQuery
+    request.requestQuery
   )
+  const matcher = entryMatcher(page, fullPath, request)
   return {
     ...page,
     ...(page.components !== undefined
-      ? { components: transform(page.components, fullPath) as Page['components'] }
+      ? { components: transform(page.components, matcher) as Page['components'] }
       : {}),
     ...(page.layout !== undefined
-      ? { layout: transform(page.layout, fullPath) as Page['layout'] }
+      ? { layout: transform(page.layout, matcher) as Page['layout'] }
       : {}),
   }
 }
@@ -84,22 +126,22 @@ function hasSidebarGroups(value: unknown): boolean {
   return Object.values(value).some(hasSidebarGroups)
 }
 
-function transform(value: unknown, fullPath: string): unknown {
-  if (Array.isArray(value)) return value.map((entry) => transform(entry, fullPath))
+function transform(value: unknown, matcher: EntryMatcher): unknown {
+  if (Array.isArray(value)) return value.map((entry) => transform(entry, matcher))
   if (!isRecord(value)) return value
 
   const mapped = Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, transform(child, fullPath)])
+    Object.entries(value).map(([key, child]) => [key, transform(child, matcher)])
   )
   if (value['type'] !== 'sidebar' || !Array.isArray(value['groups'])) return mapped
 
-  return { ...mapped, groups: markGroups(value['groups'], fullPath) }
+  return { ...mapped, groups: markGroups(value['groups'], matcher) }
 }
 
-function markGroups(groups: readonly unknown[], fullPath: string): readonly unknown[] {
+function markGroups(groups: readonly unknown[], matcher: EntryMatcher): readonly unknown[] {
   return groups.map((group) => {
     if (!isRecord(group) || !Array.isArray(group['items'])) return group
-    return { ...group, items: markItems(group['items'], fullPath) }
+    return { ...group, items: markItems(group['items'], matcher) }
   })
 }
 
@@ -130,14 +172,13 @@ function markGroups(groups: readonly unknown[], fullPath: string): readonly unkn
  * on arrival. The walk therefore runs for every entry and only the entry's OWN
  * match is gated.
  */
-function markItems(items: readonly unknown[], fullPath: string): readonly unknown[] {
+function markItems(items: readonly unknown[], matcher: EntryMatcher): readonly unknown[] {
   return items.map((item) => {
     if (!isRecord(item)) return item
     const isCurrent =
-      typeof item['href'] === 'string' &&
-      sidebarEntryMatches(item['href'], item['activeMatch'], fullPath)
+      typeof item['href'] === 'string' && entryMatches(item['href'], item['activeMatch'], matcher)
     const children = Array.isArray(item['children'])
-      ? markChildren(item['children'], fullPath)
+      ? markChildren(item['children'], matcher)
       : undefined
     const childCurrent = children?.some(marksCurrent) ?? false
     return {
@@ -164,16 +205,16 @@ function markItems(items: readonly unknown[], fullPath: string): readonly unknow
  * `unknown` and a guard that depends on a shape it does not check is a guard
  * waiting to be wrong.
  */
-function markChildren(children: readonly unknown[], fullPath: string): readonly unknown[] {
+function markChildren(children: readonly unknown[], matcher: EntryMatcher): readonly unknown[] {
   return children.map((child) => {
     if (!isRecord(child) || typeof child['href'] !== 'string') return child
     const nested = Array.isArray(child['children'])
-      ? markChildren(child['children'], fullPath)
+      ? markChildren(child['children'], matcher)
       : undefined
     return {
       ...child,
       ...(nested === undefined ? {} : { children: nested }),
-      ...(sidebarEntryMatches(child['href'], child['activeMatch'], fullPath)
+      ...(entryMatches(child['href'], child['activeMatch'], matcher)
         ? { [CURRENT_ENTRY_KEY]: true }
         : {}),
     }

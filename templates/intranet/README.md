@@ -33,6 +33,10 @@ sovrium init my-intranet --template intranet
 - **Resources** — guides, policies and tools, grouped, each with its address.
 - **Publish** (managers only) — write an announcement; give it an "acknowledge by" date to
   make it a must-read. It is signed with your name and lands on everyone's Home.
+- Optional: each new announcement is also posted in your Microsoft Teams channel. It is the
+  `record-to-teams-channel` recipe from the Sovrium library (`sovrium library add
+recipe/record-to-teams-channel`); set the Microsoft variables in `.env.example` to turn it
+  on — without them the app runs exactly the same.
 
 Sign-up is closed: IT adds each colleague. Everything is declared in
 [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
@@ -81,6 +85,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

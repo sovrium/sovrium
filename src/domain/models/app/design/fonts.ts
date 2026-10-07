@@ -148,11 +148,21 @@ export const FontConfigItemSchema = Schema.Struct({
  * Font configuration (map of semantic font categories to font configurations)
  *
  */
-export const FontsConfigSchema = Schema.Record(FontCategoryKeySchema, FontConfigItemSchema).pipe(
+export const FontsConfigSchema = Schema.Record(Schema.String, FontConfigItemSchema).pipe(
   Schema.annotate({
     title: 'Font Configuration',
     description: 'Typography design tokens for font families and styles',
-  })
+  }),
+  // Keys: any string in the key position, and the pattern enforced by
+  // `isPropertyNames`, so a mistyped key is refused by name at its own path
+  // with the pattern it must match. A pattern on the key schema itself makes
+  // Effect 4 skip the entry, and the config report then named it an unknown
+  // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+  Schema.check(
+    Schema.isPropertyNames(FontCategoryKeySchema, {
+      toJsonSchema: () => ({ propertyNames: { type: 'string', pattern: '^[a-zA-Z]+$' } }),
+    })
+  )
 )
 
 // Type exports

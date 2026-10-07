@@ -10,6 +10,9 @@
  *
  *   - GET    /api/admin/links               — the catalog (config ∪ db)
  *   - GET    /api/admin/links/:slug         — one link's full definition
+ *     (both READS are admin read-registry entries — `links-connections-read-
+ *     operations.ts` — mounted here through `chainAdminReadRoutes`, so the
+ *     route, its OpenAPI operation and its MCP tool are one entry)
  *   - POST   /api/admin/links               — mint a runtime link
  *   - PATCH  /api/admin/links/:slug         — sparse edit (no rename)
  *   - DELETE /api/admin/links/:slug         — soft delete
@@ -36,66 +39,57 @@
  * Create, update and delete naming a config-declared slug answer **409
  * `LINK_IS_CONFIG_DECLARED`** — never 404, never a silent write. A DB row able
  * to shadow a config link would be config mutation through a data-shaped side
- * door ([internal ref] D2). The caller is an authenticated admin who can SEE the row,
+ * door. The caller is an authenticated admin who can SEE the row,
  * so 404 would be a lie and would send them hunting for a link that is right
  * there in the file they need to edit.
  *
  * ─── WHAT IS ABSENT ─────────────────────────────────────────────────────────
  *
- * No `password`, and no hash of one ([internal ref] D5) — the port's `LinkRecord` does
+ * No `password`, and no hash of one — the port's `LinkRecord` does
  * not carry it, so nothing on this path could leak it if it tried. No click
  * metrics either: those are read from the analytics endpoints with
  * `?event_type=link_click[&event_name={slug}]`, so there is exactly one
- * aggregation path over the click store ([internal ref] D6).
+ * aggregation path over the click store.
  *
  * Auth gating is wired upstream by `requireAdminTier()`, which answers 404 —
  * never 401/403 — to an anonymous or non-admin caller (standing rule S1). No
  * handler here adds an authorisation path of its own.
  */
 
-/* eslint-disable unicorn/no-null -- the API contracts are `.nullable()` throughout: `null` is the wire value the console renders against, and `undefined` would drop the key from the JSON entirely. */
-
 import { Effect } from 'effect'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { LINKS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import {
   configLinkRefusesOverlay,
   configSlugs,
   createLink,
   deleteLink,
-  listLinkCatalog,
-  primaryDestination,
   readLinkEntry,
   setLinkOverlay,
-  toIsoOrNull,
+  toAdminLinkDetail,
   updateLink,
   utmPatchFromFlat,
   utmRecordFromFlat,
-  type CatalogEntry,
   type CatalogState,
-  type LinkCatalogQuery,
   type LinkMutationConflictCode,
 } from '@/application/use-cases/links'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   adminLinkDetailResponseSchema,
-  adminLinksListQuerySchema,
-  adminLinksListResponseSchema,
   createLinkRequestSchema,
   linkMutationConflictSchema,
   linkStateChangeResponseSchema,
   updateLinkRequestSchema,
-  type AdminLink,
 } from '@/domain/models/api/admin/links'
 import { decodeOrThrow, decodeSafe } from '@/domain/models/api/combinators/decode'
-import { linkTargets } from '@/domain/models/app/links'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { badRequest, internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
-import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
@@ -103,18 +97,13 @@ import type { Severity } from '@/domain/models/api/admin/envelope/severity'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
-/** The fixed, non-configurable base path a link is served at. */
-const LINK_PREFIX = '/l/'
-
 /**
  * Run a links program to a `Result`, never throwing into the Hono handler.
  *
  * The services come from the set the server resolved at boot, read off this
- * request. This folder used to build its own layer — `LinkRepositoryLive` over
- * `DatabaseLive`, plus `AnalyticsRepositoryLive` — on EVERY call, because
- * `LinkRepository` was the one port `createAppLayer` did not carry. It carries
- * it now (beside the other `Database`-reading repositories), so there is
- * nothing left here to construct.
+ * request. `createAppLayer` carries `LinkRepository` (beside the other
+ * `Database`-reading repositories) and `AnalyticsRepository`, so nothing is
+ * constructed here per call.
  */
 const runLinks = <A, E>(
   c: Context,
@@ -153,117 +142,6 @@ const conflict = (c: Context, code: ConflictCode, slug: string) => {
     message: CONFLICT_MESSAGES[code](slug),
   })
   return c.json(body, 409)
-}
-
-// ---------------------------------------------------------------------------
-// Contract projections
-// ---------------------------------------------------------------------------
-
-/**
- * Project a catalog entry onto the list-row contract.
- *
- * `lastModifiedBy` is always null: `system.links` records who CREATED a row
- * (`created_by`) but not who last edited it, and inventing an actor from the
- * creator would answer the operator's "who last touched this?" with a
- * confidently wrong name.
- */
-const toAdminLink = (entry: Readonly<CatalogEntry>, state: CatalogState): AdminLink => ({
-  slug: entry.slug,
-  shortUrl: `${LINK_PREFIX}${entry.slug}`,
-  destination: primaryDestination(entry),
-  title: entry.title,
-  tags: [...entry.tags],
-  source: entry.source,
-  state,
-  validFrom: toIsoOrNull(entry.link.lifecycle?.validFrom),
-  validUntil: toIsoOrNull(entry.link.lifecycle?.validUntil),
-  maxClicks: entry.link.lifecycle?.maxClicks ?? null,
-  _admin: { lastModifiedBy: null, deletedAt: entry.deletedAt },
-})
-
-/** Project an entry onto the detail contract. */
-const toAdminLinkDetail = (entry: Readonly<CatalogEntry>, state: CatalogState) => ({
-  ...toAdminLink(entry, state),
-  targets: linkTargets(entry.link).map((target, index) => ({
-    index,
-    to: target.to,
-    // An absent weight is 1, not 0: treating it as 0 would drop a declared
-    // destination out of the rotation while it still reads as participating.
-    weight: Math.max(1, Math.trunc(target.weight ?? 1)),
-  })),
-  utm: entry.utm,
-  notes: entry.notes,
-  expiredTo: entry.link.lifecycle?.expiredTo ?? null,
-  qrUrl: `${LINK_PREFIX}${entry.slug}.svg`,
-})
-
-// ---------------------------------------------------------------------------
-// Query parsing
-// ---------------------------------------------------------------------------
-
-/**
- * Parse the list query.
- *
- * `include_archived` is read from the RAW string rather than from the schema's
- * coercion, which is `Boolean("false") === true` — the coercion would turn an
- * explicit opt-OUT into an opt-in and quietly surface deleted links. The
- * contract's stated intent ("Default false") is what is implemented.
- */
-const parseListQuery = (c: Context): LinkCatalogQuery | undefined => {
-  const parsed = decodeSafe(adminLinksListQuerySchema)(c.req.query())
-  if (!parsed.success) return undefined
-  const raw = c.req.query('include_archived')
-  return {
-    cursor: parsed.data.cursor,
-    limit: parsed.data.limit,
-    q: parsed.data.q === undefined || parsed.data.q === '' ? undefined : parsed.data.q,
-    tag: parsed.data.tag,
-    source: parsed.data.source,
-    state: parsed.data.state,
-    includeArchived: raw === 'true' || raw === '1',
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
-
-/** GET /api/admin/links — the merged catalog. */
-async function handleListLinks(c: Context, app: App): Promise<Response> {
-  const query = parseListQuery(c)
-  if (query === undefined) return badRequest(c, 'Invalid query parameters')
-
-  const result = await runLinks(c, listLinkCatalog({ app, query, now: new Date() }))
-  if (result._tag === 'Failure') return internalError(c, 'Failed to read the links catalog')
-
-  const page = result.success
-  const body = decodeSafe(adminLinksListResponseSchema)({
-    items: page.items.map((row) => toAdminLink(row.entry, row.state)),
-    nextCursor: page.nextCursor,
-    total: page.total,
-    appliedQuery: query.q ?? null,
-  })
-  if (!body.success) return internalError(c, 'Failed to build the links catalog')
-
-  // Cache headers come from `conditionalRead()` on the route.
-  return c.json(body.data, 200)
-}
-
-/** GET /api/admin/links/:slug — one link's full definition. */
-async function handleLinkDetail(c: Context, app: App): Promise<Response> {
-  const slug = c.req.param('slug') ?? ''
-  const result = await runLinks(c, readLinkEntry({ app, slug, now: new Date() }))
-
-  if (result._tag === 'Failure') return internalError(c, 'Failed to read the link')
-  if (result.success === undefined) return notFound(c, 'Not found')
-
-  const body = decodeSafe(adminLinkDetailResponseSchema)({
-    link: toAdminLinkDetail(result.success.entry, result.success.state),
-  })
-  if (!body.success) return internalError(c, 'Failed to build the link detail')
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(body.data, 200)
 }
 
 /** Build the detail body for a row that was just written. */
@@ -359,7 +237,7 @@ async function handleCreateLink(c: Context, app: App): Promise<Response> {
   if (!parsed.success) return badRequest(c, 'Invalid link payload')
 
   const { slug } = parsed.data
-  const body = parsed.data as unknown as Record<string, unknown>
+  const body = parsed.data as Record<string, unknown>
 
   // Both reservation guards, and the slug-taken conflict, are the use-case's:
   // the automation `link` action refuses exactly what this endpoint refuses.
@@ -533,17 +411,16 @@ async function handleSetLinkDisabled(c: Context, app: App, disabled: boolean): P
  * deploy's `app.links[]` would report the wrong `source` for every entry, and
  * `source` is what the console gates its Edit and Delete affordances on.
  */
-/* eslint-disable drizzle/enforce-delete-with-where -- the .delete() below is a Hono route definition, not a Drizzle delete */
 export function chainAdminLinksRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp
-    .post('/api/admin/links/:slug/disable', (c) => handleSetLinkDisabled(c, resolveApp(), true))
-    .post('/api/admin/links/:slug/enable', (c) => handleSetLinkDisabled(c, resolveApp(), false))
-    .get('/api/admin/links', conditionalRead(), (c) => handleListLinks(c, resolveApp()))
-    .post('/api/admin/links', (c) => handleCreateLink(c, resolveApp()))
-    .get('/api/admin/links/:slug', (c) => handleLinkDetail(c, resolveApp()))
+  const withReads = chainAdminReadRoutes(
+    honoApp
+      .post('/api/admin/links/:slug/disable', (c) => handleSetLinkDisabled(c, resolveApp(), true))
+      .post('/api/admin/links/:slug/enable', (c) => handleSetLinkDisabled(c, resolveApp(), false))
+      .post('/api/admin/links', (c) => handleCreateLink(c, resolveApp())),
+    resolveApp,
+    LINKS_READ_OPERATIONS
+  )
+  return withReads
     .patch('/api/admin/links/:slug', (c) => handleUpdateLink(c, resolveApp()))
     .delete('/api/admin/links/:slug', (c) => handleDeleteLink(c, resolveApp())) as T
 }
-/* eslint-enable drizzle/enforce-delete-with-where */
-
-/* eslint-enable unicorn/no-null */

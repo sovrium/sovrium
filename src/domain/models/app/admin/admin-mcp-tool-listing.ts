@@ -7,7 +7,7 @@
 
 /**
  * Pure, display-only MCP tool listing for the admin dashboard's **MCP** docs
- * page ([internal ref] / system docs).
+ * page (the admin dashboard MCP connect requirement / system docs).
  *
  * The MCP server (`/mcp`) exposes a config-derived tool catalog: one tool per
  * `(table, operation)` pair, per action template, and per manual-trigger

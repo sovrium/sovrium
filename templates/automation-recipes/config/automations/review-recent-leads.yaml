@@ -1,0 +1,57 @@
+# Recipe 5 — a manual review of the latest leads, composed from parts.
+#
+# Run it from the "Review latest leads" button on Activity, or from the
+# admin console. It reads the ten latest leads, then:
+#
+# 1. A branch with a stop step: with no lead to review, the run ends at once —
+#    as a success, since an empty inbox is not a failure.
+# 2. A call step asks recipe 6 (score-leads) to review the ten latest and
+#    waits for its answer, how many it reviewed. The tier rule and the logging live there, in one place, for any
+#    automation that needs them.
+name: review-recent-leads
+label: Manual → sub-automation
+description: Ask score-leads to tier and log the ten latest leads, unless there is none.
+enabled: true
+trigger:
+  type: manual
+  label: Review latest leads
+  requiredRole: member
+actions:
+  - name: latest
+    type: record
+    operator: list
+    props:
+      table: leads
+      sort:
+        - { field: captured_at, direction: desc }
+      limit: 10
+  - name: nothingToReview
+    type: path
+    operator: branch
+    props:
+      paths:
+        - name: empty
+          condition:
+            conditions:
+              - field: '{{latest.records}}'
+                operator: isEmpty
+          actions:
+            - name: stopHere
+              type: flow
+              operator: stop
+              props:
+                status: success
+                message: No lead to review
+        - name: some
+          actions:
+            - name: howMany
+              type: data
+              operator: set
+              props:
+                value: '{{count latest.records}} leads to review'
+  - name: score
+    type: automation
+    operator: call
+    props:
+      name: score-leads
+      mode: sync

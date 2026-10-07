@@ -21,7 +21,7 @@ import { FontsConfigSchema, FontWeightSchema } from './fonts'
  * h2, and what leading does it take?" — is not expressible there at all.
  *
  * Worse, the three face fields that LOOK like they answer it are inert
- *, and `steps` is their replacement:
+ * and `steps` is their replacement:
  *
  * - **a face's `size`** becomes no CSS variable.
  * - **a face's `lineHeight`** reaches nothing whatsoever.
@@ -279,15 +279,15 @@ export const TypeScaleStepsSchema = Schema.Struct(TYPE_SCALE_STEP_FIELDS).pipe(
 /**
  * The TYPE foundation: the faces the app is set in, and the ladder of steps.
  *
- * ## Why the key grew two members
+ * ## Why the key has two members
  *
- * Typography used to be declared in three places: one key held the FACES,
- * another held the STEPS, and a third held four loose ladders — `fontSizes`,
- * `fontWeights`, `lineHeights`, `letterSpacings` — of the same four quantities
- * a step already binds together. Choosing an h2 meant touching two keys and
- * hoping a third did not disagree.
+ * Typography declared in three places — one key for the FACES, another for the
+ * STEPS, and a third for loose ladders (`fontSizes`, `fontWeights`,
+ * `lineHeights`, `letterSpacings`) of the same quantities a step already binds
+ * together — would make choosing an h2 mean touching two keys and hoping a
+ * third did not disagree.
  *
- * `typeScale` is now the one key for type: `families` names the faces,
+ * `typeScale` is the one key for type: `families` names the faces,
  * `steps` binds size, leading, weight, tracking and face into each rung. A
  * charter's type section is exactly those two things and nothing else.
  *
@@ -301,7 +301,7 @@ export const TypeScaleStepsSchema = Schema.Struct(TYPE_SCALE_STEP_FIELDS).pipe(
  *
  * ## Why `families` re-mounts the faces record unchanged
  *
- * It inherits `size`, `lineHeight` and `weights` on each FACE, which [internal ref]
+ * It inherits `size`, `lineHeight` and `weights` on each FACE, which the charter-surface design
  * records as superseded: none of them reaches the CSS variable layer, and the
  * step is where those three quantities take effect. They are kept on the face
  * because a face legitimately carries its own metrics for a renderer that has

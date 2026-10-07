@@ -9,11 +9,11 @@ import { SELECTABLE_SYSTEM_FIELDS } from './list-helpers'
 import type { App } from '@/domain/models/app'
 
 /**
- * [internal ref]: turn a `?fields=` selection into the column list a `SELECT` may name.
+ * Turn a `?fields=` selection into the column list a `SELECT` may name.
  *
- * Field selection used to be a purely in-memory trim applied after `SELECT *`,
- * so nothing had to decide whether a requested name was addressable — the whole
- * row arrived either way. A projected select list has no such slack: naming a
+ * Field selection is a projected select list, not an in-memory trim applied
+ * after `SELECT *` (where the whole row arrives either way, so nothing has to
+ * decide whether a requested name is addressable). A projected list has no such slack: naming a
  * column that does not exist on the read relation is a hard database error, and
  * omitting one the response pipeline needs is a silent wrong answer. Both
  * decisions live here.
@@ -90,9 +90,8 @@ const isProjectableField = (field: SchemaField): boolean => {
  * the whole row is the only safe reading: `export-handlers` and the MCP tool
  * call both list with no `fields` and expect every column.
  *
- * `groupBy` levels are force-included because `computeGroupPartitions` reads
- * the RAW row. A grouped column that was not projected produces `undefined`
- * group headers with no error at all.
+ * `groupBy` levels are force-included so a page row always carries the value
+ * its group header names, even when `fields` leaves the grouped column out.
  *
  * The optional system columns are appended as CANDIDATES; the infrastructure
  * layer intersects the whole list with the live catalog before it reaches a

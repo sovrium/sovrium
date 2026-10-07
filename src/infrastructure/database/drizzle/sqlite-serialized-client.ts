@@ -107,21 +107,18 @@ const settle = <A>(run: () => A): Promise<A> => new Promise<A>((resolve) => reso
  * first waiting transaction takes the gate and stops the drain.
  */
 export const makeSqliteConnectionGate = (): SqliteConnectionGate => {
-  // eslint-disable-next-line functional/no-let -- the gate's state, replaced (never mutated) on every transition
   let state: { readonly held: boolean; readonly waiters: readonly (() => void)[] } = {
     held: false,
     waiters: [],
   }
 
   const enqueue = (waiter: () => void): void => {
-    // eslint-disable-next-line functional/no-expression-statements -- state transition: one more waiter, in arrival order
     state = { ...state, waiters: [...state.waiters, waiter] }
   }
 
   const drain = (): void => {
     const [next, ...rest] = state.waiters
     if (state.held || next === undefined) return
-    // eslint-disable-next-line functional/no-expression-statements -- state transition: the head leaves the queue before it runs
     state = { ...state, waiters: rest }
 
     next()
@@ -130,7 +127,6 @@ export const makeSqliteConnectionGate = (): SqliteConnectionGate => {
   }
 
   const take = (): void => {
-    // eslint-disable-next-line functional/no-expression-statements -- state transition: a transaction holds the connection
     state = { ...state, held: true }
   }
 
@@ -154,7 +150,6 @@ export const makeSqliteConnectionGate = (): SqliteConnectionGate => {
   }
 
   const release = (): void => {
-    // eslint-disable-next-line functional/no-expression-statements -- state transition: the connection is free again
     state = { ...state, held: false }
     drain()
   }
@@ -178,7 +173,6 @@ const direct: Admit = settle
 type PreparedConfig = SQLiteAsyncPreparedQueryConfig & { readonly type: 'async' }
 
 /** bun:sqlite's binders take a mutable rest list; drizzle hands one over. */
-// eslint-disable-next-line functional/prefer-immutable-types -- the binder's own parameter type is a mutable array
 const bind = (params: readonly unknown[]): never[] => params as never[]
 
 /** What a {@link GatedSqliteSession} runs on. */
@@ -244,25 +238,20 @@ class GatedSqliteSession extends SQLiteAsyncSession<'async', Changes> {
   ): Promise<T> {
     const { gate, client, dialect, logger } = this.options
     if (gate === undefined) {
-      // eslint-disable-next-line functional/no-throw-statements -- the inner session belongs to an open transaction; nesting goes through tx.transaction (a savepoint)
       throw new Error('A transaction cannot be opened on the session of an open transaction')
     }
     return gate.exclusive(async () => {
       const inner = new GatedSqliteSession({ client, dialect, logger, admit: direct })
       const tx = new GatedSqliteTransaction(dialect, inner, 0)
-      // eslint-disable-next-line functional/no-expression-statements -- transaction boundary; IMMEDIATE takes the write lock now rather than on the first write
       client.run(`BEGIN ${(config.behavior ?? 'immediate').toUpperCase()}`)
       try {
         const result = await transaction(tx)
-        // eslint-disable-next-line functional/no-expression-statements -- commit on success
         client.run('COMMIT')
         return result
       } catch (error) {
         // SQLite rolls some failures back on its own (and a failed COMMIT may
         // have ended the transaction), so only roll back what is still open.
-        // eslint-disable-next-line functional/no-expression-statements -- undo every statement of the body
         if (client.inTransaction) client.run('ROLLBACK')
-        // eslint-disable-next-line functional/no-throw-statements -- re-raise so the caller sees the body's own failure
         throw error
       }
     })
@@ -288,17 +277,16 @@ class GatedSqliteTransaction extends SQLiteAsyncTransaction<'async', Changes> {
       this.innerSession,
       this.nestedIndex + 1
     )
-    // eslint-disable-next-line functional/no-expression-statements -- savepoint boundary
+    // sql-literal: identifier -- the savepoint name is built from an integer nesting counter
     await this.innerSession.run(sql.raw(`savepoint ${savepoint}`))
     try {
       const result = await transaction(tx)
-      // eslint-disable-next-line functional/no-expression-statements -- savepoint boundary
+      // sql-literal: identifier -- the savepoint name is built from an integer nesting counter
       await this.innerSession.run(sql.raw(`release savepoint ${savepoint}`))
       return result
     } catch (error) {
-      // eslint-disable-next-line functional/no-expression-statements -- undo the nested work only
+      // sql-literal: identifier -- the savepoint name is built from an integer nesting counter
       await this.innerSession.run(sql.raw(`rollback to savepoint ${savepoint}`))
-      // eslint-disable-next-line functional/no-throw-statements -- re-raise to the enclosing body
       throw error
     }
   }
@@ -319,7 +307,6 @@ export type SerializedSqliteClient = SQLiteAsyncDatabase<'async', Changes> & {
 export const makeSerializedSqliteClient = (
   client: BunSqlite,
   logger: Logger
-  // eslint-disable-next-line functional/prefer-immutable-types -- returns drizzle's upstream-mutable client shape
 ): SerializedSqliteClient => {
   const dialect = new SQLiteDialect()
   const gate = makeSqliteConnectionGate()

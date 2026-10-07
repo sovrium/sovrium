@@ -13,7 +13,7 @@
  *
  * `sovrium seed` owned this privately first, and `sovrium migrate` needs the
  * byte-identical sequence. Two copies would drift, and only one of them would
- * receive the next fix — the cause-restoration work [internal ref] calls for lands in
+ * receive the next fix — the cause-restoration work the two-machine `sovrium migrate` design calls for lands in
  * exactly these functions.
  *
  * ## The one property that must not regress
@@ -24,7 +24,7 @@
  * that reaches `src/infrastructure/layers/app-layer.ts` from here would
  * reintroduce the v0.23.0 deadlock: the process would die constructing the auth
  * instance, on precisely the databases these commands exist to repair.
- * `[internal ref]` pins that as a behaviour by running with `DATABASE_URL` and
+ * A CLI migrate spec pins that as a behaviour by running with `DATABASE_URL` and
  * nothing else.
  */
 
@@ -47,7 +47,6 @@ export const DEFAULT_CONFIG_FILE = './app.yaml'
 /** Print to stderr and exit 1. There is no partial-success exit code. */
 export const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -155,8 +154,8 @@ export const applyDatabaseMigrations = async (
  * ## A planner that could not RUN answers UNKNOWN, not "nothing in the way"
  *
  * An unreachable or unreadable database has not refused a change; it has failed
- * to answer. Those two are different verdicts and they used to be the same
- * value — this resolved `[]` on any error, which a caller cannot tell from
+ * to answer. Those two are different verdicts and must not be the same value —
+ * resolving `[]` on any error is something a caller cannot tell from
  * "nothing knowable stands in the way".
  *
  * MEASURED, and the cost was a total outage. The `--watch` pre-flight read the

@@ -691,6 +691,7 @@ const sharePanel = (): PageComponent =>
           {
             type: 'button',
             variant: 'secondary',
+            visibility: { capability: 'edit-operations' },
             props: {
               type: 'button',
               'data-testid': 'design-system-share-mint',
@@ -716,13 +717,11 @@ const sharePanel = (): PageComponent =>
                 'voice and its tone, your colour roles and your component guidance all become ' +
                 'readable by anyone with the link, with no account. It is unlisted and ' +
                 'revocable, not private.',
-              // The affirm label avoids every verb the console's read-only
-              // sweep forbids — `save`, `set`, `apply`, `edit`, `update`,
-              // `reset`, `publish`. "Publish and create the link" tripped it,
-              // and the sweep was right to: a console that offers a button
-              // named for a write is a console that looks like it edits. The
-              // message says what publishing means; the button says what the
-              // click does.
+              // The affirm label avoids every verb the console's read-only sweep
+              // forbids — `save`, `set`, `apply`, `edit`, `update`, `reset`,
+              // `publish`. "Publish and create the link" tripped it, rightly: a
+              // button named for a write looks like an editor. The message says
+              // what publishing means; the button says what the click does.
               confirmLabel: 'Create the link',
               cancelLabel: 'Keep it private',
             },
@@ -858,6 +857,7 @@ const sharePanel = (): PageComponent =>
                   {
                     type: 'button',
                     variant: 'secondary',
+                    visibility: { capability: 'edit-operations' },
                     props: { type: 'button', 'data-testid': 'design-system-share-revoke' },
                     action: {
                       type: 'fetch',

@@ -5,23 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  type useCreateRecord,
-  type useUpdateRecord,
-  type useDeleteRecord,
-} from '../hooks/use-table-mutations'
+import { type useUpdateRecord, type useDeleteRecord } from '../hooks/use-table-mutations'
 import { type FieldDef } from '../parts/crud-form/fields'
-import { type FieldGroup, type FormBodyState } from '../parts/crud-form/layout'
+import { type FormBodyState } from '../parts/crud-form/layout'
 import { type SuccessToast } from '../parts/crud-form/toast'
 import type { FormStrings } from './form-strings'
+import type { FormAsideLayout } from '../parts/crud-form/main-aside-regions'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
+import type { FormSectionLayout } from '@/domain/models/app/pages/components/component-types/data/form/sections-service'
 
-export type CrudOperation = 'create' | 'update' | 'delete' | 'automation'
-
-export interface WizardStep {
-  readonly label: string
-  readonly fields: readonly string[]
-}
+export type CrudOperation = 'update' | 'delete' | 'automation'
 
 /**
  * A success-page action button. `reset` returns the form to its empty state;
@@ -35,7 +28,7 @@ export interface SuccessPageActionConfig {
 
 /**
  * `onSuccess.type: 'successPage'` configuration. When present, the form is
- * replaced by a success page after a successful create/update submission.
+ * replaced by a success page after a successful submission.
  */
 export interface SuccessPageConfig {
   readonly title?: string
@@ -76,8 +69,14 @@ export interface CrudFormIslandProps {
   readonly 'data-testid'?: string
   readonly initialValues?: Record<string, string>
   readonly layout?: string
-  readonly fieldGroups?: readonly FieldGroup[]
-  readonly wizard?: readonly WizardStep[]
+  /** `layout: main-aside` — the aside's width and the fields placed in it. */
+  readonly aside?: FormAsideLayout
+  /** Titled groups of fields (page form `sections`), titles already in the page language. */
+  readonly sections?: readonly FormSectionLayout[]
+  /** `side` puts each label left of its control on a wide screen (`form.labelPlacement`). */
+  readonly labelPlacement?: 'top' | 'side'
+  /** Pin a save bar counting unsaved changes to the bottom of the view (`form.stickyActions`). */
+  readonly stickyActions?: boolean
   readonly automationName?: string
   readonly inputData?: Record<string, unknown>
   /**
@@ -89,8 +88,7 @@ export interface CrudFormIslandProps {
   /**
    * Optional auto-save configuration. When `saveMode` is `auto` or `onBlur`,
    * field edits are persisted automatically (debounced or on blur) without an
-   * explicit submit. Auto-save applies only to `update` (edit) mode — `create`
-   * forms always require an explicit submit.
+   * explicit submit. Auto-save applies only to `update` (edit) mode.
    */
   readonly autoSave?: AutoSaveConfig
 }
@@ -137,12 +135,6 @@ export interface SubmitContext {
   readonly setState: (s: FormState) => void
   /** Resets the form field values, retaining `preserveFields`. */
   readonly resetValues: () => void
-  /**
-   * Optional callback invoked after a `resetOnSuccess` reset completes.
-   * Used by the wizard form to return to step 1.
-   */
-  readonly afterReset?: () => void
-  readonly createRecord: ReturnType<typeof useCreateRecord>
   readonly updateRecord: ReturnType<typeof useUpdateRecord>
   readonly deleteRecord: ReturnType<typeof useDeleteRecord>
   readonly automationName?: string

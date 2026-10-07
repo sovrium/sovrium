@@ -84,7 +84,6 @@ export default function SidebarBadgeIsland({
 
   useEffect(() => {
     if (endpoint === undefined) return
-    // eslint-disable-next-line functional/no-let -- unmount guard for the async setState
     let live = true
     void fetchCount(endpoint, valuePath).then((value) => {
       if (live) setCount(value)

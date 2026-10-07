@@ -22,9 +22,9 @@
  *
  *  - `html: false`     → author raw HTML is dropped at parse time. Combined
  *    with the canonical `sanitizeRichTextHTML` upstream this preserves the
- * [internal ref] XSS guarantee under the new engine.
+ *    the pages layout markdown pages requirement XSS guarantee under the new engine.
  *  - `linkify: true`   → bare URLs in body text autolink to `<a href=...>`
- * (GFM-style autolinks — [internal ref]), schemaless domains
+ *    (GFM-style autolinks — a pages markdown spec), schemaless domains
  *    (`example.com`, `www.example.com`) and credentialed URLs included.
  *    `pinLinkifyBehaviour` keeps the markdown-it 14 reading, which
  *    markdown-it 15's linkify-it 6 changed.
@@ -219,7 +219,6 @@ const createRenderer = () => {
   // link with `href="#"` so authors see the broken link instead of silently
   // losing the anchor text. Override `validateLink` to be permissive (the
   // anchor always renders) and rewrite the href in `link_open` below.
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it exposes `validateLink` as a mutable hook on the instance; per-renderer config, not shared state
   md.validateLink = () => true
 
   const ALLOWED_LINK_SCHEMES: ReadonlySet<string> = new Set(['http', 'https', 'mailto', 'tel'])
@@ -227,7 +226,7 @@ const createRenderer = () => {
   // markdown-it's renderer.rules signature is fixed at (tokens, idx, options,
   // env, self) => string — 5 params imposed by the library, exceeds the
   // project's max-params: 4 lint cap.
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, max-params -- renderer.rules IS markdown-it's plugin contract; signature is library-imposed
+  // eslint-disable-next-line max-params -- renderer.rules IS markdown-it's plugin contract; signature is library-imposed
   md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
     const token = tokens[idx]
     if (!token) return ''
@@ -242,7 +241,6 @@ const createRenderer = () => {
         schemeMatch !== null && !ALLOWED_LINK_SCHEMES.has((schemeMatch[1] ?? '').toLowerCase())
           ? '#'
           : trimmed
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- per-render token mutation, never escapes
       if (attr) attr[1] = safeHref
     }
     return self.renderToken(tokens, idx, options)
@@ -251,7 +249,6 @@ const createRenderer = () => {
   // Register the catch-all `directive` container plugin. The `validate` hook
   // accepts any kebab-case identifier; the `render` hook emits a placeholder
   // div the canonical sanitiser preserves (see `directiveRender`).
-  // eslint-disable-next-line functional/no-expression-statements -- md.use() is markdown-it's standard plugin registration; mutation is internal to the shared renderer build, not exposed
   md.use(container, 'directive', {
     validate: validateDirective,
     render: directiveRender,
@@ -268,7 +265,6 @@ const createRenderer = () => {
   // than `array.push()` because the FP ESLint rule bans `.push()` — index
   // assignment is the project-blessed pattern for in-place buffer accumulation
   // (see other renderer/streaming sites in src/).
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it's `renderer.rules` IS its plugin contract; per-renderer mutation, not shared state
   md.renderer.rules.fence = (tokens, idx, _options, renderEnv) => {
     // markdown-it types `env` as an open bag; every render call passes a `RenderEnv`
     const env = renderEnv as RenderEnv
@@ -288,7 +284,6 @@ const createRenderer = () => {
     // ends on its last real line. Interior blank lines are preserved.
     const code = token.content.replace(/\n$/, '')
     const index = env.codeBlocks.length
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- per-render buffer, never escapes the call
     env.codeBlocks[index] = { lang, code, ...(title === undefined ? {} : { title }) }
     const langAttr = lang.length > 0 ? ` class="language-${escapeHtml(lang)}"` : ''
     return `<pre><code${langAttr} data-md-code="${index}">${escapeHtml(code)}</code></pre>\n`
@@ -308,7 +303,6 @@ const SHARED_RENDERER = createRenderer()
 // the comment tells future contributors WHY they should not mutate; the
 // freeze prevents accidental mutation if they ignore the comment. The cost is
 // negligible (one Object.freeze at module load).
-// eslint-disable-next-line functional/no-expression-statements -- one-time freeze at module load is the intended runtime guard
 Object.freeze(SHARED_RENDERER.renderer.rules)
 
 /** Schemes an inline link keeps; anything else, and a protocol-relative `//host`, becomes `#`. */
@@ -342,9 +336,8 @@ const safeInlineHref = (rawHref: string): string => {
  */
 const createInlineRenderer = () => {
   const md = new MarkdownIt({ html: false, linkify: false, breaks: true }).disable(['image'])
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it exposes `validateLink` as a mutable hook on the instance; the anchor always renders and `link_open` below decides its href
   md.validateLink = () => true
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, max-params -- renderer.rules IS markdown-it's plugin contract; signature is library-imposed
+  // eslint-disable-next-line max-params -- renderer.rules IS markdown-it's plugin contract; signature is library-imposed
   md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
     const token = tokens[idx]
     if (!token) return ''
@@ -361,7 +354,6 @@ const createInlineRenderer = () => {
 
 const INLINE_RENDERER = createInlineRenderer()
 
-// eslint-disable-next-line functional/no-expression-statements -- one-time freeze at module load, as for the shared renderer above
 Object.freeze(INLINE_RENDERER.renderer.rules)
 
 /**
@@ -406,7 +398,7 @@ export const renderMarkdownToHtml = (source: string): RenderedMarkdown => {
   const headings = extractHeadings(tokens)
   annotateHeadingIds(tokens, headings)
   const html = SHARED_RENDERER.renderer.render(
-    tokens as unknown as Parameters<MarkdownItInstance['renderer']['render']>[0],
+    tokens as Parameters<MarkdownItInstance['renderer']['render']>[0],
     SHARED_RENDERER.options,
     env
   )

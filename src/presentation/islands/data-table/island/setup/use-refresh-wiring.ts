@@ -41,6 +41,7 @@ export function useRefreshWiring(
   useGridRefreshChannels({
     table: ctx.params.dataSource.table,
     sourceId: ctx.params.searchSourceId,
+    endpoint: ctx.params.dataSource.system?.endpoint,
     onRefresh: handleRefresh,
   })
 

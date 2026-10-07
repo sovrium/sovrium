@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor: mounted per open cell, torn down on commit or cancel, and
-   its handlers close over the draft selection. Memoizing them removes no
-   re-render work, because toggling an option IS the state change. */
-
 import { useState } from 'react'
 import { optionColor, optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import { computeTableEditorPopoverClasses } from '@/presentation/design/table-default-classes'

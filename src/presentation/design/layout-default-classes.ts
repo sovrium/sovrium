@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computer for the layout-cluster components
- *: `card` (the canonical surface chip) and `divider` (in both bare
+ * `card` (the canonical surface chip) and `divider` (in both bare
  * and labeled-separator modes). Schema authors who write the bare
  * `{ type: 'card' }` or `{ type: 'divider', label: 'Section' }` get a
  * complete, opinionated surface — bg + border + shadow + radius + padding

@@ -1,0 +1,37 @@
+# sovrium-library: block/section-heading-tabs@0.30.0
+name: section-heading-tabs
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex items-center justify-between gap-4
+    children:
+      - type: text
+        element: h2
+        props:
+          className: text-xl font-semibold text-foreground
+        content: Activity
+      - type: button
+        variant: outline
+        label: Add note
+        size: sm
+  - type: tabs
+    layout: flow
+    defaultTab: all
+    props:
+      className: mt-4
+    panels:
+      - id: all
+        label: All
+        body: '[Everything that happened, newest first.]'
+      - id: payments
+        label: Payments
+        body: '[Payments only.]'
+      - id: emails
+        label: Emails
+        body: '[Emails only.]'
+      - id: notes
+        label: Notes
+        body: '[Notes only.]'

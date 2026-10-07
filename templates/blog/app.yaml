@@ -22,6 +22,14 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# Optional: a Brevo API key turns on sending each newsletter address to Brevo
+# as a contact (library/recipe/form-to-brevo.yaml). Without it the addresses
+# stay in your own database and that one automation cannot reach Brevo.
+env:
+  - key: BREVO_API_KEY
+    description: API key of your Brevo account, for the newsletter contacts.
+    required: false
+
 # The editorial assistant. It proposes drafts and edits, and every write it
 # asks for waits for the editor's approval. It needs an AI provider at run
 # time (see `.env.example`); without one the rest of the app works and the
@@ -40,17 +48,22 @@ tables:
   - $ref: ./config/tables/tags.yaml
   - $ref: ./config/tables/posts.yaml
   - $ref: ./config/tables/comments.yaml
+  - $ref: ./config/tables/subscribers.yaml
 
-# The comment box under an essay, and the New post dialog of the desk.
+# The comment box under an essay, the New post dialog of the desk, and the
+# newsletter sign-up under the essays.
 forms:
   - $ref: ./config/forms/comment.yaml
   - $ref: ./config/forms/new-post.yaml
+  - $ref: ./config/forms/newsletter.yaml
 
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/schedule-on-date.yaml
   - $ref: ./config/automations/publish-scheduled.yaml
   - $ref: ./config/automations/stamp-new-comment.yaml
+  - $ref: ./config/automations/triage-comment.yaml
+  - $ref: ./library/recipe/form-to-brevo.yaml
 
 # The public pages first, then the desk in the order of its navigation.
 pages:
@@ -68,3 +81,13 @@ pages:
 # The public footer carries its own "Built with Sovrium" line on the same row
 # as the publication's name, so the engine's badge is switched off.
 badge: false
+
+# The Brevo API the newsletter contacts go to, installed from the Sovrium
+# library. Its key comes from BREVO_API_KEY, never this file.
+connections:
+  - $ref: ./library/connection/brevo.yaml
+
+# Reusable page pieces, placed with `component: <name>`. The newsletter
+# sign-up on the index comes from the Sovrium library.
+components:
+  - $ref: ./library/block/newsletter-inline.yaml

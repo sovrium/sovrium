@@ -20,6 +20,7 @@ import fieldTypesOverviewBody from '@/domain/models/app/tables/fields/field-type
 import {
   BarcodeFieldSchema,
   MultipleAttachmentsFieldSchema,
+  SignatureFieldSchema,
   SingleAttachmentFieldSchema,
 } from '@/domain/models/app/tables/fields/field-types/media'
 import attachmentFieldsBody from '@/domain/models/app/tables/fields/field-types/media/media.docs.md' with { type: 'file' }
@@ -340,7 +341,12 @@ export const section = defineSection({
       order: 2270,
       sidebarLabel: 'Attachment Fields',
       body: attachmentFieldsBody,
-      documents: [SingleAttachmentFieldSchema, MultipleAttachmentsFieldSchema, BarcodeFieldSchema],
+      documents: [
+        SingleAttachmentFieldSchema,
+        MultipleAttachmentsFieldSchema,
+        BarcodeFieldSchema,
+        SignatureFieldSchema,
+      ],
       stories: [
         'US-DESIGN-SYSTEM-FIELD-TYPES-MEDIA',
         'US-TABLES-FIELD-TYPES-ATTACHMENT-ATTACHMENT-UPLOAD-INTEGRATION',

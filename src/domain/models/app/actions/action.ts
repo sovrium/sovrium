@@ -42,7 +42,7 @@ const withPlaceholderName = (value: unknown): unknown => {
  */
 const stripPlaceholderName = (action: { readonly name?: unknown }): unknown => {
   if (action.name !== TEMPLATE_ACTION_PLACEHOLDER_NAME) return action
-  const { name: _name, ...rest } = action as unknown as Record<string, unknown>
+  const { name: _name, ...rest } = action as Record<string, unknown>
   return rest
 }
 

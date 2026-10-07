@@ -56,9 +56,10 @@ components:
               # Four figures, each summed from your own claims on every visit.
               - type: grid
                 props:
-                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
                 children:
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Waiting on a decision
                     dataSource:
                       table: expenses
@@ -68,6 +69,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Approved, to be repaid
                     dataSource:
                       table: expenses
@@ -77,6 +79,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Repaid this quarter
                     dataSource:
                       table: expenses
@@ -86,6 +89,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Rejected
                     dataSource:
                       table: expenses
@@ -130,25 +134,28 @@ components:
               # Bound to the `my_claims` view, newest first, and read-only: a
               # claim is changed by finance, not by editing a cell.
               - type: table
+                readOnly: true
                 props:
                   id: my-claims
-                  # A stored receipt name carries a unique prefix; the
-                  # cell shows its start and the link opens the file. The
-                  # category (third column) is a neutral outlined word: its
-                  # option colours are kept for the spend chart on Review.
-                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle [&_td:nth-child(3)_span]:!bg-transparent [&_td:nth-child(3)_span]:!text-foreground-muted [&_td:nth-child(3)_span]:!border-border'
                 dataSource:
                   table: expenses
-                  view: my_claims
                   bindTo: my-claims-filter
                   sharedFilter: {}
+                  # A person's own claims, newest first. Bound to the table: the
+                  # filter names the signed-in person, which a view cannot.
                   filter:
                     - { field: filer, operator: eq, value: $currentUser.id }
+                  sort:
+                    - { field: expense_date, direction: desc }
                 columns:
                   - { field: expense_date, label: Date, format: short-date }
                   - { field: description, label: Description }
-                  - { field: category, label: Category }
-                  - { field: receipt, label: Receipt }
+                  # A neutral outlined word: the option colours are kept for the
+                  # spend chart on Review.
+                  - { field: category, label: Category, badgeForm: outline }
+                  # A stored receipt name carries a unique prefix: the cell
+                  # shows its start on one line and the link opens the file.
+                  - { field: receipt, label: Receipt, truncate: true }
                   - { field: status, label: Status }
                   - { field: decision_reason, label: Why }
                   - { field: amount, label: Amount, format: currency }

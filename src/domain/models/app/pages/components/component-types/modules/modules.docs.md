@@ -36,6 +36,24 @@ An open bag. A key may hold a string, a number, a boolean, an object or an array
 
 `className` is the one key every type reads the same way — Tailwind classes appended after the component's own prestyle, so they win the cascade.
 
+## `classes`
+
+Classes for the component's named **parts**, not just its root — the links of a `sidebar`, the title of each `list` row, the chips of a `table` column. It takes the same shape as an entry of `design.components`: `parts`, `variants`, `states` and `replace`, keyed by the same part names. Where `design.components.<type>` styles every instance of a type, `classes` styles this one, and it wins over it; `props.className` still wins over both on the root, and the accessibility floor is applied last either way.
+
+```yaml
+- type: sidebar
+  classes:
+    parts:
+      link: h-8 rounded-md px-2.5 text-foreground-muted
+      groupLabel: font-mono text-xs uppercase text-foreground-subtle
+    states:
+      current: { link: bg-primary-subtle font-medium text-primary-subtle-foreground }
+```
+
+Naming the part is what replaces a descendant selector such as `[&_a[aria-current=page]]:bg-primary-subtle`: the part survives a change to the markup Sovrium draws, and the selector does not.
+
+**Space a prose part with `mt-*` and `mb-*`, never `my-*`.** The prose parts — `heading1`, `paragraph`, `list`, `quote` and the rest a markdown text, a markdown page or a rich-text field draws — sit inside typography rules that set their own vertical margins. Those rules win over the `my-*` shorthand, so `paragraph: my-6` paints nothing, while `paragraph: mt-6 mb-6` takes effect. `sovrium validate` prints a notice for a `my-*` token on a prose part, naming the token, the part and the `mt-*` / `mb-*` spelling; the config stays valid. A step off the spacing scale paints nothing either, whichever spelling it uses.
+
 ## `content`
 
 Inline text, or a structured object for the types that take one. A string is the common case; an object is how a type carries several named slots (`{ button: { text, animation } }`). Values resolve the reference families below.

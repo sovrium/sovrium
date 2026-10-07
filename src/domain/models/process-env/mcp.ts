@@ -118,7 +118,7 @@ export const McpEnvSchema = Schema.Struct({
     BooleanFromString.pipe(
       Schema.annotate({
         description:
-          'Expose auth + system pgSchema tables read-only to admin role (MCP_EXPOSE_INTERNALS). Default: true. Toggle to false to remove all internal tools from tools/list, including for admins.',
+          'Expose auth + system pgSchema tables read-only to admin role, and the admin read tools that answer what the admin API answers (MCP_EXPOSE_INTERNALS). Default: true. Toggle to false to remove both families from tools/list and refuse them by name, including for admins.',
       })
     )
   ),
@@ -224,7 +224,7 @@ export const MCP_CONFIG_WRITE_IGNORED_NOTICE =
 // Validation — startup checks beyond decode (cross-field rules)
 // ---------------------------------------------------------------------------
 
-/** Env vars retired by [internal ref], and the names an operator will recognise. */
+/** Env vars retired by the retirement of the MCP static tokens, and the names an operator will recognise. */
 const RETIRED_TOKEN_VARS = ['MCP_TOKEN_ADMIN', 'MCP_TOKEN_MEMBER', 'MCP_TOKEN_VIEWER'] as const
 
 /**
@@ -259,7 +259,7 @@ const RETIRED_TOKEN_VARS = ['MCP_TOKEN_ADMIN', 'MCP_TOKEN_MEMBER', 'MCP_TOKEN_VI
  *     anyone to authenticate to `/mcp`; leaving the route open on such an
  *     instance is strictly worse than the tokens it replaces. The message keeps
  *     naming `app.auth` — this rule subsumes the former
- * `oauth2 && !authConfigured` branch that [internal ref] pins.
+ *     `oauth2 && !authConfigured` branch that an AI MCP auth OAuth spec pins.
  */
 export const validateMcpEnv = (
   config: ResolvedMcpEnvConfig,

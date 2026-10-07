@@ -76,10 +76,9 @@ export class FieldFormatError {
  * This is NOT a verdict about the caller's payload, which is why it carries no
  * accumulated `errors` list and renders as 503 rather than 400/422: the server
  * never managed to look, so it has nothing to say about the value. Fail closed
- * — the alternative every one of these sites used to take was to substitute a
- * fabricated value for the one it could not obtain (a zero-byte download, an
- * ignored upload) and answer 201, which reports an outage as a successful
- * write and persists the fabrication.
+ * — the alternative, substituting a fabricated value for the one it could not
+ * obtain (a zero-byte download, an ignored upload) and answering 201, reports
+ * an outage as a successful write and persists the fabrication.
  *
  * `cause` is the originating `StorageError` and stays SERVER-SIDE: the envelope
  * emits only `message` + `code`, because a lost object, rotated credentials, a
@@ -112,6 +111,8 @@ export class ValidationContext extends Context.Service<
      * of its own roles `guest`.
      */
     readonly signedOut: boolean
+    /** The signed-in writer's user id — the uploader of any file the write stores. */
+    readonly writerId?: string
   }
 >()('ValidationContext') {}
 
@@ -140,6 +141,7 @@ export function createValidationLayer(
     readonly role: string
     readonly groups: readonly string[]
     readonly signedOut: boolean
+    readonly id?: string
   }
 ) {
   return Layer.succeed(ValidationContext, {
@@ -148,6 +150,7 @@ export function createValidationLayer(
     userRole: writer.role,
     userGroups: writer.groups,
     signedOut: writer.signedOut,
+    ...(writer.id === undefined || writer.signedOut ? {} : { writerId: writer.id }),
   })
 }
 
@@ -184,7 +187,7 @@ type ValidationErrorEnvelope = {
  * refuses a single field gets the equivalent one-entry list derived here, so
  * the wire shape is uniform across the whole seam rather than varying by which
  * rule happened to fail. The key is omitted only when there is no field to name
- * at all ([internal ref]..028).
+ * at all.
  */
 const fieldScopedEnvelope = (
   error: ValidationErrorShape,
@@ -219,8 +222,7 @@ const VALIDATION_ERROR_ENVELOPES = {
    * declared format — a `url` field's URL syntax, a slug's character set.
    *
    * 422 is this codebase's established status for that class, not a preference:
-   * it is spec-pinned for both producers ([internal ref],
-   * [internal ref]) and is what the sibling semantic rejections use
+   * it is spec-pinned for both producers and is what the sibling semantic rejections use
    * (forms.ts, comment-create-handler.ts, organization-team-routes.ts). The
    * error-response contract's "constraint violation → 400" row is scoped to
    * DATABASE failures, a different seam from API-layer format pre-validation.

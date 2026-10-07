@@ -18,10 +18,13 @@
 
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
+import {
+  ContentDirReader,
+  type ContentDirReadError,
+} from '@/application/ports/services/content-dir-reader'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { logDebug } from '@/infrastructure/logging'
-import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { FileSystemLike } from './generate-static-helpers'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -36,19 +39,22 @@ interface MarkdownTwin {
  * The twins of one content-directory page. An entry whose path still carries a
  * route parameter (a `:lang` template) has no single address and is skipped.
  */
-const collectPageTwins = async (page: Page): Promise<readonly MarkdownTwin[]> => {
-  if (page.contentDir === undefined || !isPublicPage(page)) return []
-  const bodies = await readContentDirBodies(page.contentDir, page.path)
-  return (
-    bodies
-      // A twin is public: an article gated by its own front matter has none.
-      .filter(({ entry }) => !entry.path.includes(':') && isPublicArticle(entry.access))
-      .map(({ entry, body }) => ({
-        relativePath: `${entry.path.replace(/^\/+/, '').replace(/\/+$/, '')}.md`,
-        body,
-      }))
-  )
-}
+const collectPageTwins = (
+  page: Page
+): Effect.Effect<readonly MarkdownTwin[], ContentDirReadError, ContentDirReader> =>
+  Effect.gen(function* () {
+    if (page.contentDir === undefined || !isPublicPage(page)) return []
+    const bodies = yield* (yield* ContentDirReader).readBodies(page.contentDir, page.path)
+    return (
+      bodies
+        // A twin is public: an article gated by its own front matter has none.
+        .filter(({ entry }) => !entry.path.includes(':') && isPublicArticle(entry.access))
+        .map(({ entry, body }) => ({
+          relativePath: `${entry.path.replace(/^\/+/, '').replace(/\/+$/, '')}.md`,
+          body,
+        }))
+    )
+  })
 
 /** Write one twin, creating its directory first. */
 const writeTwin = (twin: MarkdownTwin, outputDir: string, fs: FileSystemLike) =>
@@ -71,11 +77,15 @@ const writeAllTwins = (pages: readonly Page[], outputDir: string, fs: FileSystem
     const perPage = yield* Effect.forEach(
       pages,
       (page) =>
-        Effect.tryPromise({
-          try: () => collectPageTwins(page),
-          catch: (error) =>
-            new StaticGenerationError({ message: `Failed to read ${page.path}`, cause: error }),
-        }),
+        collectPageTwins(page).pipe(
+          Effect.mapError(
+            (error) =>
+              new StaticGenerationError({
+                message: `Failed to read ${page.path}`,
+                cause: error.cause,
+              })
+          )
+        ),
       { concurrency: 1 }
     )
     return yield* Effect.forEach(perPage.flat(), (twin) => writeTwin(twin, outputDir, fs))

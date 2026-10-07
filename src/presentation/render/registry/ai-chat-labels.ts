@@ -26,13 +26,15 @@ export interface AiChatLabels {
 const EN: AiChatLabels = {
   failure: 'The assistant is unavailable.',
   retry: 'Retry',
-  notConfigured: 'AI chat is not configured and is currently unavailable.',
+  notConfigured:
+    'AI chat is not configured here. Set AI_PROVIDER, and AI_API_KEY for a hosted provider, to turn it on.',
 }
 
 const FR: AiChatLabels = {
   failure: 'L’assistant est indisponible.',
   retry: 'Réessayer',
-  notConfigured: 'Le chat IA n’est pas configuré et est actuellement indisponible.',
+  notConfigured:
+    'Le chat IA n’est pas configuré ici. Définissez AI_PROVIDER, et AI_API_KEY pour un fournisseur hébergé, pour l’activer.',
 }
 
 /**

@@ -14,7 +14,7 @@
  * per-request cost is `O(tables)` and NEVER `O(tables × buckets)`.
  *
  * That bound is not a micro-optimization; it is the fix for a production 504
- * incident (2026-07-25). The previous shape issued
+ * incident. The previous shape issued
  * `4·tables + buckets·tables` queries — on a 10-table deployment that
  * was 108 at `?period=7d`, 278 at `24h`, and 338 at `30d`. `buckets` is a display
  * choice made per request from a query-string preset, so a wider chart silently
@@ -72,15 +72,28 @@ import { tableIdentifier } from '@/infrastructure/database/table-queries/stateme
  * `infrastructure/database/views/view-generators.ts`. Two concurrent statements
  * leave eight of the ten default pool slots for the rest of the process, which
  * is what keeps a single overview request from starving the admin auth
- * middleware's session lookup — the 2026-07-25 incident above.
+ * middleware's session lookup — the pool-exhaustion failure described above.
  */
 const TABLE_FANOUT_CONCURRENCY = 2
 
-/** One bucket of the now-relative series grid, half-open as `[start, end)`. */
+/**
+ * One bucket of the now-relative series grid, half-open as `[start, end)`; an
+ * `undefined` end is open-ended — the current bucket.
+ */
 interface BucketWindow {
   readonly start: Readonly<Date>
-  readonly end: Readonly<Date>
+  readonly end: Readonly<Date> | undefined
 }
+
+/**
+ * `updated_at` within `[start, end)`, or at/after `start` when `end` is
+ * `undefined`. The one predicate every window count uses, so the period total
+ * and the sum of its buckets stay equal. Both bounds are bound values (S3).
+ */
+const writtenIn = (start: Readonly<Date>, end: Readonly<Date> | undefined) =>
+  end === undefined
+    ? sql`updated_at >= ${start.toISOString()}`
+    : sql`updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
 
 /** Row shape returned by the collapsed per-table aggregate query. */
 interface AggregateQueryRow {
@@ -94,7 +107,6 @@ const zeroedAggregate = (tableName: string): TableAggregateRow => ({
   tableName,
   rowCount: 0,
   softDeletedCount: 0,
-  // eslint-disable-next-line unicorn/no-null -- response contract requires `null`, not `undefined`
   lastWriteAt: null,
 })
 
@@ -121,7 +133,6 @@ function normalizeIsoTimestamp(value: string): string {
  */
 function normalizeLastWrite(raw: Readonly<Date> | string | null | undefined): string | null {
   if (raw === undefined || raw === null) {
-    // eslint-disable-next-line unicorn/no-null -- response contract requires `null`, not `undefined`
     return null
   }
   return raw instanceof Date ? raw.toISOString() : normalizeIsoTimestamp(String(raw))
@@ -187,7 +198,8 @@ const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOvervi
   })
 
 /**
- * Count rows of one table whose `updated_at` falls within `[start, end)`.
+ * Count rows of one table whose `updated_at` falls within `[start, end)` (or at
+ * or after `start` when `end` is `undefined`).
  *
  * Returns 0 for missing tables / dialect errors so a single misconfigured
  * table never fails the whole overview. Uses `sql.identifier()` for the
@@ -196,12 +208,12 @@ const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOvervi
 async function countWritesInWindow(
   tableName: string,
   start: Readonly<Date>,
-  end: Readonly<Date>
+  end: Readonly<Date> | undefined
 ): Promise<number> {
   try {
     const result = await executeRawTyped<{ readonly count: number | string }>(
       db,
-      sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
+      sql`SELECT COUNT(*) AS count FROM ${tableIdentifier(tableName)} WHERE ${writtenIn(start, end)}`
     )
     return toFiniteCount(result[0]?.count)
   } catch {
@@ -217,9 +229,9 @@ const bucketAlias = (index: number): string => `bucket_${index}`
  *
  * The projection carries one `SUM(CASE WHEN updated_at >= ? AND updated_at < ?
  * THEN 1 ELSE 0 END)` per bucket, so a 30-point grid costs the same one
- * statement as a 7-point grid. The half-open `[start, end)` predicate is
- * character-for-character the one `countWritesInWindow` uses, which is what
- * keeps `totals.writes_in_period === sum(series.points[].writes)` exact.
+ * statement as a 7-point grid. The predicate is `writtenIn`, the very one
+ * `countWritesInWindow` uses, which is what keeps
+ * `totals.writes_in_period === sum(series.points[].writes)` exact.
  *
  * The outer `WHERE` narrows the scan to the union of the bucket windows. It is
  * derived from the buckets themselves (min start / max end) rather than assumed
@@ -237,18 +249,23 @@ async function countWritesPerBucketOneTable(
   try {
     const bucketColumns = buckets.map(
       (bucket, index) =>
-        sql`SUM(CASE WHEN updated_at >= ${bucket.start.toISOString()} AND updated_at < ${bucket.end.toISOString()} THEN 1 ELSE 0 END) AS ${sql.identifier(bucketAlias(index))}`
+        sql`SUM(CASE WHEN ${writtenIn(bucket.start, bucket.end)} THEN 1 ELSE 0 END) AS ${sql.identifier(bucketAlias(index))}`
     )
     const windowStart = new Date(
       buckets.reduce((min, b) => Math.min(min, b.start.getTime()), Number.POSITIVE_INFINITY)
     )
-    const windowEnd = new Date(
-      buckets.reduce((max, b) => Math.max(max, b.end.getTime()), Number.NEGATIVE_INFINITY)
-    )
+    const windowEnd = buckets.some((b) => b.end === undefined)
+      ? undefined
+      : new Date(
+          buckets.reduce(
+            (max, b) => Math.max(max, b.end?.getTime() ?? Number.NEGATIVE_INFINITY),
+            Number.NEGATIVE_INFINITY
+          )
+        )
 
     const rows = await executeRawTyped(
       db,
-      sql`SELECT ${sql.join(bucketColumns, sql.raw(', '))} FROM ${tableIdentifier(tableName)} WHERE updated_at >= ${windowStart.toISOString()} AND updated_at < ${windowEnd.toISOString()}`
+      sql`SELECT ${sql.join(bucketColumns, sql.raw(', '))} FROM ${tableIdentifier(tableName)} WHERE ${writtenIn(windowStart, windowEnd)}`
     )
     const row = rows[0]
     return buckets.map((_bucket, index) => toFiniteCount(row?.[bucketAlias(index)]))

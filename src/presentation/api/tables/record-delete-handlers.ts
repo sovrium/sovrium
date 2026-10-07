@@ -6,32 +6,22 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import {
-  restoreRecordProgram,
-  deleteRecordProgram,
-  permanentlyDeleteRecordProgram,
-} from '@/application/use-cases/tables/record-lifecycle-programs'
+  deleteRecordWithSideEffects,
+  type DeleteMode,
+  type DeleteResult,
+} from '@/application/use-cases/tables/record-delete-orchestration'
+import { restoreRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
-import {
-  provideTableWithAutomationsLive,
-  runTableProgram,
-} from '@/infrastructure/layers/table-layer'
-import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
+import { deleteWebhooksFor } from '@/infrastructure/webhooks/table-write-webhooks'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { handleRestoreRecordError, handleRouteError } from './error-handlers'
-import {
-  collectAttachmentKeys,
-  deleteStorageFiles,
-  type AttachmentRef,
-} from './record-attachment-cleanup'
 import { checkDeleteGate } from './record-delete-gate'
 import {
   enforceFormMutationGate,
@@ -48,12 +38,12 @@ type SessionContext = ReturnType<typeof getTableContext>['session']
 /**
  * Response for a failed delete program.
  *
- * Every delete path used to collapse `result._tag === 'Left'` — i.e. EVERY
- * failure, a dropped table and a lost connection included — to an
- * unconditional 404, so an infrastructure fault was reported to the caller as
- * "Resource not found" and never alerted the operator.
+ * Collapsing `result._tag === 'Left'` — i.e. EVERY failure, a dropped table
+ * and a lost connection included — to an unconditional 404 would report an
+ * infrastructure fault to the caller as "Resource not found" and never alert
+ * the operator.
  *
- * A driver-raised failure is now sanitized into its real status; everything
+ * So a driver-raised failure is sanitized into its real status; everything
  * else keeps the S1 404 so an authorization denial stays indistinguishable
  * from a genuinely absent record.
  *
@@ -78,130 +68,30 @@ function deleteFailureResponse(c: Context, error: unknown): Response {
 }
 
 /**
- * Fire table webhooks for a successful delete (fire-and-forget). Shared by the
- * permanent-delete and soft-delete pipelines so both dispatch `event: 'delete'`
- * consistently. `skip` (e.g. row absent, restrict-violation) short-circuits to
- * a no-op so no delivery row is logged.
- *
- * The realtime `delete` change event is not published here: the delete program
- * announces every row it removed — cascaded children included — once the
- * delete commits (`record-change-announcement.ts`).
+ * Run one delete — the write and every side effect it carries, in the order
+ * `record-delete-orchestration.ts` pins — on the request's services.
  */
-function fireDeleteWebhooks(
-  app: App,
-  tableName: string,
-  record: Record<string, unknown> | null,
-  skip: boolean
-): Effect.Effect<void> {
-  if (skip || !record) return Effect.void
-  // effect-promise: total -- `triggerTableWebhooks` wraps its whole dispatch in a try/catch; a webhook endpoint that is down, slow or missing must never fail the record write that fired it.
-  return Effect.promise(() =>
-    triggerTableWebhooks({
-      table: app.tables?.find((t) => t.name === tableName),
-      appEnv: app.env,
-      event: 'delete',
-      record,
-    })
-  )
-}
-
-/**
- * Execute permanent delete and return response. Pre-fetches the record so a
- * successful permanent-delete fires matching record-triggered automations
- * (`event: 'delete'`); pipeline runs inside the composite layer used by
- * create/update. Trigger errors are absorbed inside the trigger use case.
- */
-async function executePermanentDelete({
-  session,
-  tableName,
-  recordId,
-  c,
-  app,
-  userId,
-}: {
-  readonly session: SessionContext
-  readonly tableName: string
-  readonly recordId: string
-  readonly c: Context
-  readonly app: App
-  readonly userId?: string
-}) {
-  const program = Effect.gen(function* () {
-    // `app` so this pre-fetch refuses a table with no single-value record
-    // address, rather than being the statement that names its missing `id`.
-    const previous = yield* rawGetRecordProgram(session, tableName, recordId, app)
-    const success = yield* permanentlyDeleteRecordProgram(session, tableName, recordId, app)
-    return { previous, success }
-  }).pipe(
-    Effect.tap(({ previous, success }) => {
-      // Skip when row didn't exist or wasn't deleted — dispatching against
-      // an empty record would surface as `undefined` for every field in
-      // {{trigger.data.record.X}}.
-      if (!success || !previous) return Effect.void
-      return triggerRecordEventAutomations({
-        app,
-        tableName,
-        event: 'delete',
-        record: previous,
-        processEnv: process.env,
-        userId,
-      })
-    }),
-    Effect.tap(({ previous, success }) => fireDeleteWebhooks(app, tableName, previous, !success))
-  )
-  const result = await runRequestEffect(c, Effect.result(provideTableWithAutomationsLive(program)))
-  if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
-  if (!result.success.success) return notFound(c)
-  return c.json({ success: true }, 200)
-}
-
-type SoftDeletePipelineInput = {
-  readonly session: SessionContext
-  readonly tableName: string
-  readonly recordId: string
-  readonly app: App
-  readonly userId?: string
-}
-
-/**
- * Build the soft-delete Effect program: pre-fetch row, soft-delete, tap
- * matching record-triggered automations. Shared by `executeSoftDelete`
- * and `handleFormDeleteRecord` so both paths fire delete-event triggers
- * consistently. Trigger errors are absorbed inside the trigger use case.
- */
-function buildSoftDeleteProgram(input: SoftDeletePipelineInput) {
-  const { session, tableName, recordId, app, userId } = input
-  return Effect.gen(function* () {
-    // `app` so this pre-fetch refuses a table with no single-value record
-    // address, rather than being the statement that names its missing `id`.
-    const previous = yield* rawGetRecordProgram(session, tableName, recordId, app)
-    const result = yield* deleteRecordProgram(session, tableName, recordId, app)
-    return { previous, result }
-  }).pipe(
-    Effect.tap(({ previous, result }) => {
-      // Skip the trigger on restrict-violation (no actual delete happened)
-      // or when the row didn't exist / wasn't deleted.
-      if (result.restrictViolation || !result.success || !previous) return Effect.void
-      return triggerRecordEventAutomations({
-        app,
-        tableName,
-        event: 'delete',
-        record: previous,
-        processEnv: process.env,
-        userId,
-      })
-    }),
-    Effect.tap(({ previous, result }) =>
-      fireDeleteWebhooks(app, tableName, previous, result.restrictViolation || !result.success)
-    )
-  )
+function runDelete(
+  c: Context,
+  input: {
+    readonly session: SessionContext
+    readonly app: App
+    readonly tableName: string
+    readonly recordId: string
+    readonly mode: DeleteMode
+  }
+) {
+  const program = deleteRecordWithSideEffects({
+    ...input,
+    processEnv: process.env,
+    dispatchWebhooks: deleteWebhooksFor(input.app, input.tableName),
+    forgetDerivedVariants: evictTransformCacheForKey,
+  })
+  return runRequestEffect(c, Effect.result(provideDomain(c, program)))
 }
 
 /** Map a soft-delete result to a JSON HTTP response. */
-function softDeleteResultToResponse(
-  c: Context,
-  result: { restrictViolation: boolean; success: boolean; setNullPerformed: boolean }
-): Response {
+function softDeleteResultToResponse(c: Context, result: DeleteResult): Response {
   if (result.restrictViolation) {
     return c.json(
       {
@@ -214,134 +104,7 @@ function softDeleteResultToResponse(
   }
   if (!result.success) return notFound(c)
   if (result.setNullPerformed) return c.json({ success: true }, 200)
-  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
   return c.body(null, 204)
-}
-
-/** Execute soft delete and return response (see `buildSoftDeleteProgram`). */
-async function executeSoftDelete(input: SoftDeletePipelineInput & { readonly c: Context }) {
-  const { c } = input
-  const outcome = await runRequestEffect(
-    c,
-    Effect.result(provideTableWithAutomationsLive(buildSoftDeleteProgram(input)))
-  )
-  if (outcome._tag === 'Failure') return deleteFailureResponse(c, outcome.failure)
-  return softDeleteResultToResponse(c, outcome.success.result)
-}
-
-/**
- * Check whether a file key is still referenced by any record OTHER than
- * the one being purged. Includes soft-deleted records so a key shared
- * between a live record and a deleted record is preserved.
- *
- * ONE query, whatever the table's width. This previously fanned out one
- * unbounded, unprojected `listRecords` PER attachment field, so a purge cost
- * |keys| x |fields| reads against a ten-connection pool — 419 queries for a
- * 14-field record, the shape behind the 2026-07-25 production 504. The fields
- * are now folded into a single `or` filter.
- *
- * `limit: 2` and not `limit: 1`: the purged record is itself a match, so one
- * row cannot distinguish "only this record references the key" from "another
- * record does too". Two rows can — at most one of them is the excluded id, so
- * a second row is by definition a different record. `columns: ['id']` because
- * the id is the whole question; the rest of the row was never read.
- */
-async function isFileKeyReferencedElsewhere(opts: {
-  readonly session: SessionContext
-  readonly tableName: string
-  readonly excludeRecordId: string
-  readonly fileKey: string
-  readonly attachmentFieldNames: readonly string[]
-}): Promise<boolean> {
-  if (opts.attachmentFieldNames.length === 0) return false
-
-  const result = await runTableProgram(
-    Effect.gen(function* () {
-      const repo = yield* TableRepository
-      return yield* repo.listRecords({
-        session: opts.session,
-        tableName: opts.tableName,
-        // `QueryFilter` exposes only a top-level `and`, whose entries may
-        // themselves be `or` groups — so "this key in ANY attachment field" is
-        // an `and` wrapping one `or`, not a bare `or`.
-        filter: {
-          and: [
-            {
-              or: opts.attachmentFieldNames.map((fieldName) => ({
-                field: fieldName,
-                operator: 'eq',
-                value: opts.fileKey,
-              })),
-            },
-          ],
-        },
-        includeDeleted: true,
-        columns: ['id'],
-        limit: 2,
-      })
-    })
-  )
-
-  return (
-    result._tag === 'Success' &&
-    result.success.some((r) => String(r['id']) !== String(opts.excludeRecordId))
-  )
-}
-
-/**
- * Purge a record: delete attached files from storage, then permanently
- * remove the DB row. Requires admin role (enforced by caller).
- */
-async function executePurge({
-  session,
-  tableName,
-  recordId,
-  app,
-  c,
-  userId,
-}: {
-  readonly session: SessionContext
-  readonly tableName: string
-  readonly recordId: string
-  readonly app: App
-  readonly c: Context
-  readonly userId?: string
-}) {
-  const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (rawResult._tag === 'Success' && rawResult.success) {
-    const keys = collectAttachmentKeys(rawResult.success, app, tableName)
-    const table = app.tables?.find((t) => t.name === tableName)
-    const attachmentFieldNames =
-      table?.fields?.filter((f) => f.type === 'single-attachment').map((f) => f.name) ?? []
-    // Bounded, not `Promise.all`: one reference check is one pooled query, and
-    // a record carries as many as the table has attachment fields. Firing them
-    // all at once takes the whole ten-connection pool and starves every
-    // co-firing request —.
-    const keysToDelete = (
-      await Effect.runPromise(
-        Effect.forEach(
-          keys,
-          (ref) =>
-            // effect-promise: total -- `isFileKeyReferencedElsewhere` runs its query through `runTableProgram`, which resolves an `Effect.result`; a failed lookup returns `false` as a value rather than rejecting.
-            Effect.promise(async () => {
-              const referenced = await isFileKeyReferencedElsewhere({
-                session,
-                tableName,
-                excludeRecordId: recordId,
-                fileKey: ref.key,
-                attachmentFieldNames,
-              })
-              return referenced ? undefined : ref
-            }),
-          { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
-        )
-      )
-    ).filter((ref): ref is AttachmentRef => ref !== undefined)
-    return deleteStorageFiles(keysToDelete).then(() =>
-      executePermanentDelete({ session, tableName, recordId, c, app, userId })
-    )
-  }
-  return executePermanentDelete({ session, tableName, recordId, c, app, userId })
 }
 
 export async function handleDeleteRecord(c: Context, app: App) {
@@ -349,7 +112,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   const gateError = await checkDeleteGate({
     c,
@@ -364,33 +127,28 @@ export async function handleDeleteRecord(c: Context, app: App) {
   })
   if (gateError) return gateError
 
-  const permanent = c.req.query('permanent') === 'true'
-  const purge = c.req.query('purge') === 'true'
-
   // Both irreversible deletes — a permanent delete and a purge — are reserved
   // to an admin-equivalent role, whatever the caller's `delete` grant.
   // S1 anti-enumeration: anyone else gets the 404 of a missing record, so
   // the boundary is not discoverable, and nothing is deleted.
-  if ((permanent || purge) && !isAdminEquivalent(userRole, app)) return notFound(c)
+  const mode = requestedDeleteMode(c)
+  if (mode !== 'soft' && !isAdminEquivalent(userRole, app)) return notFound(c)
 
-  if (permanent) {
-    return executePermanentDelete({
-      session,
-      tableName,
-      recordId,
-      c,
-      app,
-      userId: session.userId,
-    })
-  }
+  const outcome = await runDelete(c, { session, app, tableName, recordId, mode })
+  if (outcome._tag === 'Failure') return deleteFailureResponse(c, outcome.failure)
+  if (mode === 'soft') return softDeleteResultToResponse(c, outcome.success)
+  return outcome.success.success ? c.json({ success: true }, 200) : notFound(c)
+}
 
-  // Purge: remove attached storage files then permanently delete the DB row.
-  if (purge) {
-    return executePurge({ session, tableName, recordId, app, c, userId: session.userId })
-  }
-
-  // Regular soft delete
-  return executeSoftDelete({ session, tableName, recordId, app, c, userId: session.userId })
+/**
+ * The delete a request asks for: `?permanent=true` deletes for good,
+ * `?purge=true` deletes for good together with the record's unshared stored
+ * files, and neither moves the record to the trash. `permanent` wins over
+ * `purge` when both are sent.
+ */
+function requestedDeleteMode(c: Context): DeleteMode {
+  if (c.req.query('permanent') === 'true') return 'permanent'
+  return c.req.query('purge') === 'true' ? 'purge' : 'soft'
 }
 
 /**
@@ -404,7 +162,7 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   // Z-3: row-level scoping. Falls back to canonical role-only check when
   // the table doesn't declare rowLevelPermissions (preserves existing
@@ -437,19 +195,11 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
   const body = await c.req.parseBody()
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
-  // Reuse `buildSoftDeleteProgram` so form-delete fires record-triggered
-  // automations consistently with the JSON-API soft-delete path.
-  const program = buildSoftDeleteProgram({
-    session,
-    tableName,
-    recordId,
-    app,
-    userId: session.userId,
-  })
-  const result = await runRequestEffect(c, Effect.result(provideTableWithAutomationsLive(program)))
+  // The same delete the JSON verb runs, so its automations and webhooks fire alike.
+  const result = await runDelete(c, { session, app, tableName, recordId, mode: 'soft' })
 
   if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
-  if (!result.success.result.success) {
+  if (!result.success.success) {
     return notFound(c)
   }
 
@@ -459,7 +209,6 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     return c.redirect(redirectPath, 302)
   }
 
-  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
   return c.body(null, 204)
 }
 
@@ -468,7 +217,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   // Z-3: row-level scoping. Restore reuses the delete role gate AND the
   // read and delete rules, judged on the trashed row itself.
@@ -495,7 +244,8 @@ export async function handleRestoreRecord(c: Context, app: App) {
     )
   }
 
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     restoreRecordProgram(session, tableName, recordId, { app, userRole, userGroups })
   )
 

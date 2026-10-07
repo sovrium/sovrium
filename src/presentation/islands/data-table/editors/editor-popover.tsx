@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One frame is mounted per open cell and torn down on commit or cancel; its key
-   handler closes over that cell's cancel/tab callbacks. */
-
 import { useEffect, useRef } from 'react'
 import type { FieldWriteValue } from '../../hooks/use-inline-editing'
 import type { TabDirection } from '../island/tab-target'

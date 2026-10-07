@@ -142,8 +142,7 @@ export interface ChatInput {
    * Function/tool definitions advertised to the AI provider. When set, they
    * are forwarded verbatim as the OpenAI-compatible request body `tools`
    * field so the model may request a tool call. Unset → no tools advertised.
-   * Used by the chat route to enable function/tool calling
-   *.
+   * Used by the chat route to enable function/tool calling.
    */
   readonly tools?: ReadonlyArray<ChatToolDefinition>
 }
@@ -221,7 +220,7 @@ export class AiService extends Context.Service<
      * Generate a vector embedding for a piece of text. Routed through the
      * same eco-precedence provider resolution as `chat`
      * (env-controlled, local-first — never a hard-coded cloud provider).
-     * Backs the RAG pipeline ([internal ref]-*).
+     * Backs the RAG pipeline (the AI RAG requirement-*).
      */
     readonly embed: (input: EmbedInput) => Effect.Effect<EmbedReply, AiError>
     /**

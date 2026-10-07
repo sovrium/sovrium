@@ -65,23 +65,21 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
   const lockData = await readLockFile()
   if (!lockData) {
     printStderr('Error: No server is running (lock file not found)')
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
   if (!isProcessRunning(lockData.pid)) {
     printStderr('Error: Server is not running')
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
   // Read and validate the config file before sending the reload signal.
   //
-  // THE SAME PIPELINE `validate`, `start` AND `build` RUN. This gate used to
-  // call `Schema.decodeUnknownSync(AppSchema)` directly, which made it a fourth
-  // contract disagreeing with the other three: it decoded with Effect's default
-  // excess-property behaviour, so it accepted — silently stripped — a property
-  // AppSchema does not declare and that `start` now refuses outright. An
+  // THE SAME PIPELINE `validate`, `start` AND `build` RUN. Calling
+  // `Schema.decodeUnknownSync(AppSchema)` directly would make this gate a
+  // fourth contract disagreeing with the other three: it decodes with Effect's
+  // default excess-property behaviour, so it accepts — silently strips — a
+  // property AppSchema does not declare and that `start` refuses outright. An
   // operator reads this gate as "is my config good?", so it has to give the
   // answer the rest of the CLI gives.
   if (lockData.configPath) {
@@ -97,7 +95,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
         guidance:
           'Run `sovrium validate <config>` to check it without touching the running server.',
       })
-      // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
 
@@ -111,7 +108,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
         guidance:
           'Run `sovrium validate <config>` to check it without touching the running server.',
       })
-      // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
 
@@ -141,11 +137,9 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
 
   // Send SIGUSR1 to trigger config reload in running server
   try {
-    // eslint-disable-next-line functional/no-expression-statements
     process.kill(lockData.pid, 'SIGUSR1')
   } catch {
     printStderr('Error: Failed to send reload signal')
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 

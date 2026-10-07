@@ -29,7 +29,7 @@ const lookupTriggerType = (app: App, name: string): string =>
 /**
  * Compute the attempt count for a run from its step rows. When a step has
  * an `attempts: [...]` array on its `output` (populated by
- * `dispatchWithRetry` — [internal ref]), the run's attempt count
+ * `dispatchWithRetry` — an automation retry spec), the run's attempt count
  * is the length of the largest such array across all steps. Falls back to
  * 1 when no step carried attempt history (the common no-retry path).
  */
@@ -50,8 +50,7 @@ const computeAttemptCount = (steps: ReadonlyArray<{ readonly output?: unknown }>
  *
  * `attempt` defaults to 1 when no per-step attempt history is supplied.
  * Callers with access to the step rows (the list handler) pass them via
- * the `steps` parameter to surface the real retry count
- *.
+ * the `steps` parameter to surface the real retry count.
  */
 const persistedRunToApi = (app: App, run: PersistedRun, steps?: ReadonlyArray<PersistedStep>) => ({
   id: run.id,

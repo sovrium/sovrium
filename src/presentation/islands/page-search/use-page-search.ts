@@ -42,31 +42,25 @@ const loadIndex = (): Promise<SearchIndex | undefined> => {
   })
     .then(async (r) => {
       if (!r.ok) {
-        // eslint-disable-next-line functional/no-throw-statements
         throw new Error(`Failed to load search index: ${r.status}`)
       }
       return (await r.json()) as SearchIndex
     })
     .then((data) => {
-      // eslint-disable-next-line functional/immutable-data
       indexCache.cached = data
-      // eslint-disable-next-line functional/immutable-data
       indexCache.pending = undefined
       return data
     })
     .catch((err: unknown) => {
-      // eslint-disable-next-line functional/immutable-data
       indexCache.pending = undefined
       console.warn('[page-search] index load failed:', err)
       return undefined
     })
-  // eslint-disable-next-line functional/immutable-data
   indexCache.pending = promise
   return promise
 }
 
 export const navigateTo = (url: string): void => {
-  // eslint-disable-next-line functional/immutable-data
   window.location.href = url
 }
 
@@ -98,7 +92,6 @@ function useDebounce(): DebounceController {
   const schedule = useCallback(
     (run: () => void) => {
       cancel()
-      // eslint-disable-next-line functional/immutable-data -- ref holds the debounce timer
       timerRef.current = setTimeout(run, DEBOUNCE_MS)
     },
     [cancel]
@@ -144,7 +137,6 @@ function useRunSearch(
   return useCallback(
     async (q: string): Promise<void> => {
       const trimmed = q.trim()
-      // eslint-disable-next-line functional/immutable-data -- ref tracks the latest query
       latest.current = trimmed
       if (trimmed.length < MIN_QUERY_LENGTH) {
         setResults([])

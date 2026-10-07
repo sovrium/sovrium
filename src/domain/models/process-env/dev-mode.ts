@@ -12,8 +12,8 @@
  * same semantic without re-implementing the unset-vs-empty-vs-set distinction.
  *
  * `infrastructure/process/env.ts`'s `isLiveReloadEligible` is its one
- * live-reload reader. The page renderer used to carry a second, inline copy
- * to print the reload tag; the tag is now added by the dev-reload mount itself
+ * live-reload reader. The page renderer carries no second, inline copy to
+ * print the reload tag; the tag is added by the dev-reload mount itself
  * (`presentation/api/server/dev-reload-routes.ts`), so a surface that does not
  * mount the routes — a static build — cannot name the script either.
  */

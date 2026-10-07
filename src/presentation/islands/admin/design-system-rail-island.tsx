@@ -102,6 +102,5 @@ export default function DesignSystemRailIsland(): null {
     }
   }, [])
 
-  // eslint-disable-next-line unicorn/no-null -- React renders nothing for null, not for undefined
   return null
 }

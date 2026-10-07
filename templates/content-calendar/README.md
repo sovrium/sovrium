@@ -33,6 +33,14 @@ sovrium init my-content-calendar --template content-calendar
   piece grouped under its campaign's name, with a count per campaign.
 - **Monday digest** — every Monday at 09:00, one email with what goes out in the next seven
   days, day by day.
+- **Tracked links** — give a piece the page it promotes, and when it is moved to Scheduled a
+  short link to that page is made and written on the piece (`/l/piece-<id>`, tagged with
+  its channel and campaign). Share that one: the admin console's Links page counts every
+  click on it.
+- Optional: a LinkedIn piece is posted to LinkedIn — its title and its tracked link — the
+  moment it is marked Published. It is the `record-to-linkedin-post` recipe from the Sovrium
+  library (`sovrium library add recipe/record-to-linkedin-post`); set the LinkedIn variables
+  in `.env.example` to turn it on — without them the app runs exactly the same.
 
 Sign-up is closed: an admin adds each teammate. Everything is declared in
 [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
@@ -80,6 +88,12 @@ uploads are stored in Postgres too). Secrets are generated automatically; you on
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)). Set
 `SOVRIUM_DIGEST_TO` to the address the Monday digest goes to.
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

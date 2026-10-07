@@ -1,0 +1,30 @@
+# sovrium-library: block/calendar-week@0.30.0
+name: calendar-week
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[This week]'
+      - type: calendar
+        dataSource:
+          table: bookings
+        dateField: starts_at
+        endDateField: ends_at
+        labelField: title
+        defaultView: week
+        calendarInteraction:
+          timeSlotInterval: 30
+          showCurrentTimeIndicator: true

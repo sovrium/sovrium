@@ -119,7 +119,7 @@ const POSTGRES_SQLSTATE_CONSTRAINTS = {
 /**
  * SQLite extended result code → constraint class.
  *
- * Measured against `bun:sqlite` (2026-07-26): every constraint failure carries
+ * Measured against `bun:sqlite`: every constraint failure carries
  * a `SQLITE_CONSTRAINT_*` string on `code` and an `errno`, and carries NO
  * `constraint` field. Its wire text is upper-case (`UNIQUE constraint failed:
  * t.c`), which is why the previous case-SENSITIVE `message.includes('unique
@@ -141,8 +141,8 @@ const SQLSTATE_PATTERN = /^[\dA-Z]{5}$/
  * Read the PostgreSQL SQLSTATE off a driver error, whichever property the
  * driver in use puts it on.
  *
- * MEASURED against `bun:sql` (2026-07-26), because this is the detail the
- * previous heuristic got wrong and nothing caught it:
+ * MEASURED against `bun:sql`, because this is the detail a message-matching
+ * heuristic gets wrong and nothing catches:
  *
  * ```
  * PostgresError { code: 'ERR_POSTGRES_SERVER_ERROR', errno: '23505', constraint: 'idx_tasks_code' }
@@ -187,7 +187,7 @@ const POSTGRES_DATA_EXCEPTION_CLASS = '22'
 /**
  * SQLite result codes that mean "the CALLER sent this".
  *
- * DELIBERATE DIALECT ASYMMETRY, measured 2026-07-26: SQLite reports BOTH
+ * DELIBERATE DIALECT ASYMMETRY, measured: SQLite reports BOTH
  * `no such table: x` and `no such column: x` as `SQLiteError` with `errno: 1`
  * and NO `code` at all — they are indistinguishable by result code. So SQLite's
  * undefined-column stays on the `operator` default rather than being separated
@@ -465,9 +465,9 @@ export function isDriverOriginatedFailure(error: unknown): boolean {
  * as opposed to reached and then refusing the statement.
  *
  * Code-based, never message-based, for the same reason as everything else in
- * this module — and here the message route was measurably broken in BOTH
- * directions. `src/cli/admin.ts` used to decide this by lower-cased message
- * fragments, and (measured against `bun:sql`, 2026-08-28):
+ * this module — and here the message route is measurably broken in BOTH
+ * directions. Matching lower-cased message fragments fails like this
+ * (measured against `bun:sql`):
  *
  *  - a refused connection AND an unresolvable host both surface as
  *    `PostgresError { code: 'ERR_POSTGRES_CONNECTION_REFUSED' }` whose whole

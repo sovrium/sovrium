@@ -41,6 +41,7 @@ components:
                 columns:
                   - { field: author_name, label: Name }
                   - { field: body, label: Comment }
+                  - { field: kind, label: Kind }
                   - { field: post, label: Essay }
                   - { field: status, label: Status }
                   - { field: posted_at, label: Written, format: short-date }

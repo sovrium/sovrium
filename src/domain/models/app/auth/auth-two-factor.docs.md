@@ -64,3 +64,5 @@ The codes substitute into **`$codes`**, plural. Any other spelling is left in th
 3. They scan it into an authenticator app, which starts generating a code every `period` seconds.
 4. On later sign-ins, the code follows the password step.
 5. Where they are enabled, a backup code provides the recovery path when the device is unavailable.
+
+The code field of a `verifyTwoFactor` form with `factor: totp` is marked `autocomplete="one-time-code"` with a numeric keyboard, so a phone offers the code it just received; a `backupCode` form is not autofilled. Two such forms can sit on one page — the code, and the recovery code folded under a link — and each keeps its own error message.

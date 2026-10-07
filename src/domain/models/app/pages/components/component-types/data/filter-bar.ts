@@ -46,8 +46,8 @@
  *
  * ## Which subscribers exist TODAY, measured rather than assumed
  *
- * The subscriber half is `use-shared-filter.ts`, and on 2026-09-09 exactly ONE
- * island consumed it: the data-table, through
+ * The subscriber half is `use-shared-filter.ts`, and exactly ONE island
+ * consumes it: the data-table, through
  * `data-table/island/setup/use-system-query-params.ts`. `kpi`, `chart`, `list`,
  * `gallery` and `kanban` declare `bindTo` + `sharedFilter` in their schema and
  * ignore it at runtime.
@@ -75,7 +75,7 @@
  * than offered.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 008, plus this type's own REGRESSION rollup
+ * Specs: the design system component filter bar specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

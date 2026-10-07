@@ -6,7 +6,7 @@
  */
 
 /**
- * Origin-marked AI-compute refinement write-back ([internal ref] Phase 2, design §5).
+ * Origin-marked AI-compute refinement write-back.
  *
  * The refinement worker writes the refined value back to the dynamic table via
  * this INTERNAL repository UPDATE. By construction it:

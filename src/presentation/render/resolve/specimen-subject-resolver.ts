@@ -23,7 +23,7 @@
  * The resolved subject is written into the `component` field, and from that
  * point on a named subject and a written-out one are the SAME declaration. That
  * is not an implementation convenience, it is the criterion
- * `[internal ref]` asserts: the drawn thing has to go through
+ * a pages design primitives spec asserts: the drawn thing has to go through
  * the option-source pass, the data-source pass, the design cascade and the
  * snippet projection exactly as a literal does, or the two forms would draw
  * different elements and the provenance badges beside them would describe
@@ -96,8 +96,8 @@ export type SpecimenSubjectMode = 'route' | 'vouched' | 'row'
  * FIRST DECLARATION WINS, which matters only under the admin mount. There the
  * rendering app's `components` is the console's own followed by the operator's
  * — spread in that order by `routeBoundOperatorComponents` in
- * `application/use-cases/mount/embedded-app-mount.ts`, which is where the
- * ordering moved when the console builders were deleted — precisely so an
+ * `application/use-cases/mount/embedded-app-mount.ts`, which owns that
+ * ordering — precisely so an
  * operator cannot shadow a piece of Sovrium's chrome by naming a template after
  * it. Building the map
  * front-to-back with a no-overwrite insert preserves that order; `new Map(...)`
@@ -604,7 +604,7 @@ const resolveList = (
   if (!Array.isArray(list)) return undefined
   const resolved = list.map((entry) =>
     typeof entry === 'string'
-      ? (entry as unknown as Component)
+      ? (entry as Component)
       : resolveNode(entry, routeParams, mode, templates)
   )
   return resolved.some((entry) => entry === 'not-found')

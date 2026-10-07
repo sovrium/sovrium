@@ -14,14 +14,14 @@ import { systemSchema } from './migration-audit'
  *
  * DEFINITIONS ONLY. There is no `click_count`, no `scan_count` and no
  * `last_clicked_at`, and their absence is a decision rather than an omission
- * ([internal ref] D6): a counter and a `COUNT(*)` over `system.analytics_events`
+ * a counter and a `COUNT(*)` over `system.analytics_events`
  * inevitably diverge — Do Not Track suppresses recording, an operator may have
  * analytics off entirely, and retention purges old events — and shipping two
  * figures for one quantity is how an operator stops trusting both.
  *
  * The accepted cost is that `maxClicks` is bounded by the analytics retention
  * window and enforced best-effort under burst. Adding a counter later is a
- * deliberate decision recorded in [internal ref], not an optimisation to be made
+ * deliberate decision recorded in the links-are-records design, not an optimisation to be made
  * locally; whoever proposes it should say which divergence source they intend to
  * live with.
  *
@@ -74,7 +74,7 @@ export const links = systemSchema.table(
     /**
      * The operational overlay — set when an operator disables the link from the
      * console. Works on config-declared links too, and may only ever be MORE
-     * restrictive than the file ([internal ref] D3).
+     * restrictive than the file.
      */
     disabledAt: timestamp('disabled_at', { withTimezone: true }),
 

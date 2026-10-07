@@ -20,8 +20,6 @@
  * the no-results status naming the searched term.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React event-handler pattern (per-row onClick); presentational result rows, not a hot path. */
-
 import { type ReactElement } from 'react'
 import {
   groupLabel,

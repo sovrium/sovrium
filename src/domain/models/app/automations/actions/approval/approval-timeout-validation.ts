@@ -16,7 +16,7 @@
  *   - `onTimeout: escalate`, whose notification is not designed yet;
  *   - a `timeout` with no `onTimeout`, which names no outcome at all.
  *
- * Both used to boot and leave the request open for ever, so both are refused
+ * Either would boot and leave the request open for ever, so both are refused
  * before the app starts, naming the automation and the step and saying what
  * to write instead. The schema still ACCEPTS `escalate` so this message, and
  * not a bare literal mismatch, is what the author reads; and the timeout sweep

@@ -137,6 +137,7 @@ export const automationTriggers = defineSection({
         'US-AUTOMATIONS-TRIGGERS-AUTOMATION-CALL',
         'US-AUTOMATIONS-TRIGGERS-AUTOMATION-FAILURE',
         'US-AUTOMATIONS-TRIGGERS-MANUAL',
+        'US-SECURITY-AUTOMATION-ENTRY-POINT-GATES',
       ],
     }),
   ],

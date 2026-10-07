@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 import { generateClickDelegateScript } from '@/presentation/render/scripts/click-delegate-script'
 
 /**
@@ -27,7 +28,7 @@ export function buildAnalyticsBeaconScript(
 ): string {
   return `(function(){
 "use strict";
-var E="/api/analytics/collect",A="${appName}",D=true,sessionTimeout=${sessionTimeoutMinutes ?? 30};
+var E="/api/analytics/collect",A=${serializeJsonForScript(appName)},D=true,sessionTimeout=${sessionTimeoutMinutes ?? 30};
 if(D&&navigator.doNotTrack==="1")return;
 var u=function(){
 try{var s=new URLSearchParams(location.search);

@@ -43,8 +43,6 @@ import {
 } from '@/domain/models/api/admin/agents/conversations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 
-/* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` and for nullable transcript fields (model/tokenCount/toolCalls/title/sessionId), matching the Zod response contract */
-
 // ─── Pure coercion helpers ───────────────────────────────────────────────────
 
 /** Coerce a dialect-native timestamp to an ISO 8601 string. */
@@ -176,7 +174,7 @@ function buildListFilters(
 /**
  * Outcome of the conversation-list build. `Ok` carries the response-schema-
  * validated body; `ValidationFailed` signals the assembled body failed the
- * response gate (the route maps this to a 500 + logs the Zod error).
+ * response gate (the route maps this to a 500 + logs the schema decode error).
  */
 export type AgentConversationsListOutcome =
   | {
@@ -296,5 +294,3 @@ export const BuildAgentConversationDetail = (
       body: { conversation: parsed.data.conversation, messages: parsed.data.messages },
     } as const
   }).pipe(Effect.withSpan('admin.build-agent-conversation-detail'))
-
-/* eslint-enable unicorn/no-null */

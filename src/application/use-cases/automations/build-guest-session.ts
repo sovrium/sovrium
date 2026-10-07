@@ -27,14 +27,11 @@ export const buildSyntheticSession = (userId: string): UserSession => ({
   expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   createdAt: new Date(),
   updatedAt: new Date(),
-  // eslint-disable-next-line unicorn/no-null -- UserSession.ipAddress is `string | null`
   ipAddress: null,
-  // eslint-disable-next-line unicorn/no-null -- UserSession.userAgent is `string | null`
   userAgent: null,
-  // eslint-disable-next-line unicorn/no-null -- UserSession.impersonatedBy is `string | null`
   impersonatedBy: null,
-  // eslint-disable-next-line unicorn/no-null -- UserSession.activeOrganizationId is `string | null`
   activeOrganizationId: null,
+  signInMethod: null,
 })
 
 /**

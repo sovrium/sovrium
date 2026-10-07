@@ -116,7 +116,6 @@ const validateFieldRenameAmbiguity = (
   const ambiguous = detectAmbiguousFieldRenames(table.name, table.fields, previousSchema)
   if (ambiguous.length > 0) {
     const fields = [...ambiguous].toSorted().join(', ')
-    /* eslint-disable-next-line functional/no-throw-statements */
     throw new Error(
       `Ambiguous field rename detected in table '${table.name}': fields [${fields}] exchange ` +
         `names in a single config change, so Sovrium cannot tell which column each name should ` +
@@ -130,7 +129,6 @@ const validateFieldRenameAmbiguity = (
 const validateDestructiveOps = (table: Table, columnsToDrop: readonly string[]): void => {
   if (columnsToDrop.length > 0 && !table.allowDestructive) {
     const droppedColumns = columnsToDrop.join(', ')
-    /* eslint-disable-next-line functional/no-throw-statements */
     throw new Error(
       `Destructive operation detected: Dropping column(s) [${droppedColumns}] from table '${table.name}' requires confirmation. Set allowDestructive: true to proceed with data loss, or keep the field(s) in the schema to preserve data.`
     )
@@ -160,7 +158,7 @@ const computeIdProtection = (
  * This is the explicit "incompatible change → recreate" signal the migrate path
  * threads to its call site, so a structurally-UNCHANGED table — which also
  * yields no ALTER statements — is NOT mistaken for one needing a recreate.
- * Before [internal ref] both cases collapsed to an empty `generateAlterTableStatements`
+ * Before the idempotent schema re-initialisation rule both cases collapsed to an empty `generateAlterTableStatements`
  * result, so every unchanged table was needlessly dropped-and-recreated on each
  * version upgrade — fatally on Postgres, where the temp table re-created a
  * pre-existing named UNIQUE constraint.
@@ -315,7 +313,7 @@ export const findPreviousTableDefinition = (
  *
  * When true, the table needs no reconciliation at all: incremental ALTERs are
  * empty AND no constraint/config differs from the last run, so the migrate path
- * can skip it entirely ([internal ref] fix #1) instead of needlessly recreating it.
+ * can skip it entirely (the idempotent schema re-initialisation rule fix #1) instead of needlessly recreating it.
  * When the definition DID change but produced no column-level ALTERs (e.g. a
  * CHECK or UNIQUE constraint was added/removed), this returns false so the
  * caller still reconciles the table (via an idempotent recreate).
@@ -418,11 +416,11 @@ export const needsDefinitionReconciliation = (options: {
  * SET/DROP DEFAULT).
  *
  * PostgreSQL-only — and this is the ONE place the reason is written down, because
- * the obvious reason is no longer true.
+ * the obvious reason does not hold.
  *
- * WHAT CHANGED. This used to read "SQLite has no `ALTER COLUMN` clause at all".
- * That is now version-dependent, so the engine cannot rely on it. Measured
- * 2026-09-20:
+ * NOT "SQLITE HAS NO `ALTER COLUMN`". Whether SQLite accepts an `ALTER COLUMN`
+ * clause is version-dependent, so the engine cannot rely on either answer.
+ * Measured:
  *
  *   - SQLite 3.51.0 — rejects every form with `near "ALTER": syntax error`.
  *     This is what a macOS host sees, because `bun:sqlite` links the SYSTEM
@@ -434,7 +432,7 @@ export const needsDefinitionReconciliation = (options: {
  * So the same statement succeeds or fails depending on the host the operator
  * deployed to, and it covers only nullability even where it works.
  *
- * WHY THE BEHAVIOUR IS UNCHANGED ANYWAY. Emitting `ALTER COLUMN` on SQLite would
+ * WHY SQLITE ALWAYS RECREATES. Emitting `ALTER COLUMN` on SQLite would
  * buy a partial fast path for one of the three reshapes, on some hosts, while
  * recreate-and-copy still has to exist for the other two and for the hosts that
  * reject it. A reshape path that works on the maintainer's laptop and not on a

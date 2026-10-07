@@ -37,6 +37,10 @@ client the same way, because there is only one list of clients:
   a decision, and the team. A new request asks the admins to approve it.
 - **Assistant** — one AI assistant that reads every module, so "what is open with Northwind,
   and who holds its tickets?" is one question.
+- Optional: each morning, the invoices you issued in Pennylane filed into an admin-only
+  `customer_invoices` table. It is the `pennylane-invoices-to-table` recipe from the Sovrium
+  library (`sovrium library add recipe/pennylane-invoices-to-table`); set
+  `PENNYLANE_API_TOKEN` to turn it on — without it the app runs exactly the same.
 
 Sign-up is closed: an admin adds each account. Everything is declared in
 [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
@@ -84,6 +88,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

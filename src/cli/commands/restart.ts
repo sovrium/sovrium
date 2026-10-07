@@ -24,7 +24,6 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
   // If server is running, stop it first
   if (lockData && isProcessRunning(lockData.pid)) {
     try {
-      // eslint-disable-next-line functional/no-expression-statements
       process.kill(lockData.pid, 'SIGTERM')
     } catch {
       // Process may already be dead
@@ -39,7 +38,6 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
         headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM. Nothing was restarted.`,
         guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium start <config>'.`,
       })
-      // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
     await removeLockFile()
@@ -50,7 +48,6 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
 
   if (!effectiveConfigFile) {
     printStderr('Error: No config file specified and none found in lock file')
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -63,11 +60,8 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
   child.unref()
 
   // Wait for the new server to create its lock file
-  // eslint-disable-next-line functional/no-let
   let attempts = 0
-  // eslint-disable-next-line functional/no-loop-statements
   while (attempts < 50) {
-    // eslint-disable-next-line functional/no-expression-statements
     await new Promise((r) => setTimeout(r, 200))
     const newLock = await readLockFile()
     if (newLock && newLock.pid !== lockData?.pid) {
@@ -76,7 +70,6 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
       Effect.runSync(Console.log(`Server restarted on http://localhost:${newLock.port}.`))
       return
     }
-    // eslint-disable-next-line functional/no-expression-statements
     attempts++
   }
 
@@ -87,6 +80,5 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
     headline: 'The new server did not start within 10s. The old one was already stopped.',
     guidance: "Run 'sovrium start <config>' in the foreground to see why it failed.",
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }

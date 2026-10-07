@@ -27,6 +27,16 @@ env:
     required: false
     default: http://localhost:3000
     secret: false
+  # Optional: a Linear API key and team turn on the escalation of bug reports
+  # to engineering (library/recipe/record-to-linear-issue.yaml). Without them
+  # the app runs as before and that one automation cannot reach Linear.
+  - key: LINEAR_API_KEY
+    description: Personal API key of the Linear account that files escalated bug reports.
+    required: false
+  - key: LINEAR_TEAM_ID
+    description: Id of the Linear team that receives escalated bug reports.
+    required: false
+    secret: false
 
 tables:
   - $ref: ./config/tables/tickets.yaml
@@ -42,11 +52,15 @@ forms:
 automations:
   - $ref: ./config/automations/when-a-ticket-arrives.yaml
   - $ref: ./config/automations/when-resolved.yaml
+  - $ref: ./config/automations/collect-ticket-notes.yaml
+  - $ref: ./config/automations/morning-notes-digest.yaml
+  - $ref: ./library/recipe/record-to-linear-issue.yaml
 
 # Listed in the order of the sidebar, then the public pages.
 pages:
   - $ref: ./config/pages/triage.yaml
   - $ref: ./config/pages/tickets.yaml
+  - $ref: ./config/pages/ticket.yaml
   - $ref: ./config/pages/reports.yaml
   - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/thanks.yaml
@@ -57,3 +71,13 @@ pages:
 # floating pill, so it never sits over the last card of the board.
 badge:
   placement: footer
+
+# The Linear API the bug-report escalation calls, installed from the Sovrium
+# library. Its key comes from LINEAR_API_KEY; nothing is stored in this file.
+connections:
+  - $ref: ./library/connection/linear.yaml
+
+# Reusable page pieces, placed with `component: <name>`. The notes thread on a
+# ticket's page comes from the Sovrium library.
+components:
+  - $ref: ./library/block/record-comments.yaml

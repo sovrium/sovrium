@@ -28,9 +28,9 @@ import type { Component } from '@/domain/models/app/pages/components'
  *   - When `htmlSrc` is set on a `customHTML` component, read the file and
  *     write its contents into `content`.
  *   - When BOTH `htmlSrc` and `content` are set, `htmlSrc` takes precedence
- * (AC `[internal ref]`).
+ *     (AC a pages custom HTML spec).
  *   - On read failure (missing file, permission denied, etc.) the page must
- * not crash (AC `[internal ref]`); we substitute a small
+ *     not crash (AC a pages custom HTML spec); we substitute a small
  *     error placeholder so the wrapper element still renders visibly.
  *   - `htmlSrc` is removed from the top level after resolution so it does
  *     not leak through the prop-builder pipeline as an HTML attribute

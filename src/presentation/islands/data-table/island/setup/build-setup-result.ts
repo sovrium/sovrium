@@ -6,7 +6,6 @@
  */
 
 import { ROW_HEIGHT_CLASSES } from '../../../hooks/use-data-table-state'
-import { heightToDensity } from '../../../hooks/use-table-preferences'
 import { resolveSearchConfig, shouldShowSearch } from '../island-setup-helpers'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
@@ -16,7 +15,6 @@ import type { GridInstance, GridRecords } from './use-grid-table'
 import type { InlineSaveWiring } from './use-inline-save-wiring'
 import type { RecordsQuery } from './use-records-query'
 import type { RefreshWiring } from './use-refresh-wiring'
-import type { ViewsSurface } from './use-views-surface'
 import type { useInlineEditing } from '../../../hooks/use-inline-editing'
 import type { DataTableColumnDef } from '../table-features'
 
@@ -32,7 +30,6 @@ export interface SetupResultInput {
   readonly actions: GridActions
   readonly inlineEditing: ReturnType<typeof useInlineEditing>
   readonly inlineSave: InlineSaveWiring
-  readonly views: ViewsSurface
 }
 
 /**
@@ -43,7 +40,7 @@ export interface SetupResultInput {
  * its own return value.
  */
 export function buildIslandSetupResult(input: SetupResultInput) {
-  const { ctx, layout, records, refresh, gridRecords, grid, views } = input
+  const { ctx, layout, records, refresh, gridRecords, grid } = input
   const { query } = records
   const { tableState } = layout
 
@@ -95,17 +92,6 @@ export function buildIslandSetupResult(input: SetupResultInput) {
     setGlobalFilter: tableState.setGlobalFilter,
     rowSelection: tableState.rowSelection,
     currentRowHeight: tableState.currentRowHeight,
-    currentDensity: heightToDensity(tableState.currentRowHeight),
-    toggleDensity: tableState.toggleDensity,
-    onSelectDensity: input.actions.onSelectDensity,
-    onResetPreferences: layout.prefs.resetPreferences,
-    // Active-view label shown beside the toolbar. Prefer the runtime
-    // (orchestrator-tracked) view name when the user has loaded a view via the
-    // Views menu; fall back to the persisted-defaults view (from prefs) so the
-    // existing "default view auto-load" behaviour still renders a name.
-    activeViewName:
-      views.orchestration.viewEntries.find((e) => e.id === ctx.ui.activeViewId)?.name ??
-      input.effective.activeView?.name,
     cellClass: ROW_HEIGHT_CLASSES[tableState.currentRowHeight],
     borderClass: ctx.params.bordered ? 'border border-border' : '',
     showSearch: shouldShowSearch(ctx.params.searchConfig, ctx.params.toolbarConfig),
@@ -116,31 +102,7 @@ export function buildIslandSetupResult(input: SetupResultInput) {
      * so the toolbar flag alone painted nothing.
      */
     resolvedSearchConfig: resolveSearchConfig(ctx.params.searchConfig, ctx.params.toolbarConfig),
-    // True until the first prefs+views fetch resolves; the orchestrator
-    // suppresses the data rendering during this window so the very first
-    // paint of a freshly-reloaded page already reflects persisted density
-    // and the default-view filter.
-    isPrefsLoading: layout.prefs.isLoading || layout.savedViews.isLoading,
-    /**
-     * Effective grouping config — runtime selection from the toolbar's Group
-     * menu overrides the schema's static `groupBy` block; clearing the runtime
-     * selection restores the schema default.
-     */
+    /** The bound view's grouping, the only one a grid draws. */
     effectiveGroupByConfig: records.effectiveGroupByConfig,
-    ...buildViewsSection(views),
-  }
-}
-
-/** The saved-views half of the result, sourced from `useSavedViewsOrchestration`. */
-function buildViewsSection(views: ViewsSurface) {
-  return {
-    viewsEnabled: views.enabled,
-    viewEntries: views.orchestration.viewEntries,
-    canSaveCurrentView: views.orchestration.canSaveCurrentView,
-    isViewModified: views.orchestration.isViewModified,
-    onSelectView: views.orchestration.onSelectView,
-    onSaveNewView: views.orchestration.onSaveNewView,
-    onSaveModifiedView: views.orchestration.onSaveModifiedView,
-    onConfirmDeleteView: views.orchestration.onConfirmDeleteView,
   }
 }

@@ -1,0 +1,20 @@
+# What the live figures on the home page add up. Replace it with the table your
+# own proof comes from — signups, projects shipped, invoices paid.
+id: 2
+name: orders
+fields:
+  - { id: 1, name: reference, type: single-line-text }
+  - { id: 2, name: amount, type: decimal }
+permissions:
+  read: all
+  create: [admin]
+# The home page's live figures read the orders through this view. A visitor
+# has no account, and a public view is what a visitor may read: the figures
+# work for everyone while the table itself stays behind the owner's sign-in
+# for anything but a plain list.
+views:
+  - id: figures
+    name: Figures
+    fields: [amount]
+    permissions:
+      public: true

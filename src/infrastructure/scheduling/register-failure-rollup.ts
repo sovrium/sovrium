@@ -30,6 +30,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /** Hourly — top of every hour. */
@@ -43,10 +44,12 @@ export const registerFailureRollupScheduler = (
 ): Effect.Effect<
   string | undefined,
   never,
-  CronScheduler | AutomationRunOutcomeRepository | AuthRepository
+  CronScheduler | AutomationRunOutcomeRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
-    const services = yield* Effect.context<AutomationRunOutcomeRepository | AuthRepository>()
+    const services = yield* Effect.context<
+      AutomationRunOutcomeRepository | AuthRepository | EmailSender
+    >()
     const scheduler = yield* CronScheduler
     return yield* scheduler
       .schedule(

@@ -10,9 +10,9 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
+import { AccountProvisioner } from '@/application/ports/services/account-provisioner'
 import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
 import { getStrategy } from '@/domain/models/app/auth'
-import { Auth } from '@/infrastructure/auth/better-auth/auth-service'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
@@ -110,7 +110,7 @@ const isValidPassword = (password: string): boolean => {
  * @returns Effect that yields { alreadyExists: boolean, userId?: string }
  */
 const createAdminUser = (
-  auth: Context.Service.Shape<typeof Auth>,
+  accounts: Context.Service.Shape<typeof AccountProvisioner>,
   config: Readonly<AdminBootstrapConfig>,
   requireEmailVerification: boolean
 ): Effect.Effect<
@@ -120,39 +120,30 @@ const createAdminUser = (
 > =>
   Effect.gen(function* () {
     // Attempt to create user
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        const userResult = await auth.api.createUser({
-          body: {
-            email: config.email,
-            password: config.password,
-            name: config.name,
-            // Better Auth types `role` as the built-in `'user' | 'admin'` union,
-            // but Sovrium's admin plugin accepts arbitrary app-defined roles
-            // (e.g. cloud `operator`, partner `engineer`). Cast through the
-            // built-in union so a custom AUTH_ADMIN_ROLE seeds the app's own role.
-            role: (config.role ?? 'admin') as 'admin',
-          },
-        })
-
-        return userResult
-      },
-      catch: (error) => new BootstrapDatabaseError({ cause: error }),
-    }).pipe(
-      Effect.catch((dbError) => {
-        // If user already exists, return success (idempotent behavior)
-        // Check the original error cause
-        const originalError = dbError.cause
-        const errorMessage =
-          originalError instanceof Error ? originalError.message : String(originalError)
-        if (errorMessage.toLowerCase().includes('already exists')) {
-          return Effect.succeed({ alreadyExists: true })
-        }
-
-        // For other errors, re-fail with the same BootstrapDatabaseError
-        return Effect.fail(dbError)
+    const result = yield* accounts
+      .createUser({
+        email: config.email,
+        password: config.password,
+        name: config.name,
+        // A custom AUTH_ADMIN_ROLE seeds the app's own role.
+        role: config.role ?? 'admin',
       })
-    )
+      .pipe(
+        Effect.mapError((error) => new BootstrapDatabaseError({ cause: error.cause })),
+        Effect.catch((dbError) => {
+          // If user already exists, return success (idempotent behavior)
+          // Check the original error cause
+          const originalError = dbError.cause
+          const errorMessage =
+            originalError instanceof Error ? originalError.message : String(originalError)
+          if (errorMessage.toLowerCase().includes('already exists')) {
+            return Effect.succeed({ alreadyExists: true })
+          }
+
+          // For other errors, re-fail with the same BootstrapDatabaseError
+          return Effect.fail(dbError)
+        })
+      )
 
     // Check if we got the "already exists" marker
     if ('alreadyExists' in result && result.alreadyExists) {
@@ -160,7 +151,7 @@ const createAdminUser = (
     }
 
     // Extract user ID from the response
-    const userId = 'user' in result && result.user ? result.user.id : undefined
+    const userId = 'userId' in result ? result.userId : undefined
 
     // Honour the requireEmailVerification flag: when verification IS required
     // we leave emailVerified=false so the verification email flow gates access;
@@ -253,14 +244,14 @@ export const createAdminAccount = (
 ): Effect.Effect<
   { readonly alreadyExists: boolean; readonly userId?: string },
   InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
-  Auth | AuthRepository | Logger
+  AccountProvisioner | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
     yield* validateBootstrapConfig(config)
-    const auth = yield* Auth
+    const accounts = yield* AccountProvisioner
     const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
     const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
-    return yield* createAdminUser(auth, config, requireEmailVerification)
+    return yield* createAdminUser(accounts, config, requireEmailVerification)
   }).pipe(Effect.withSpan('auth.create-admin-account'))
 
 /**
@@ -291,7 +282,7 @@ export const bootstrapAdmin = (
 ): Effect.Effect<
   void,
   InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
-  Auth | AuthRepository | Logger
+  AccountProvisioner | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()
@@ -299,7 +290,7 @@ export const bootstrapAdmin = (
 
     if (!config) return
 
-    // [internal ref]: when AUTH_ADMIN_EMAIL is set but a HUMAN user
+    // When AUTH_ADMIN_EMAIL is set but a HUMAN user
     // already exists, the env-var path no-ops entirely — no recreate, no
     // env-admin user, and (because this skip happens BEFORE token-generation
     // also short-circuits on human-user-count > 0 inside
@@ -326,12 +317,16 @@ export const bootstrapAdmin = (
 
     yield* validateBootstrapConfig(config)
 
-    const auth = yield* Auth
+    const accounts = yield* AccountProvisioner
 
     const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
     const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
 
-    const { alreadyExists, userId } = yield* createAdminUser(auth, config, requireEmailVerification)
+    const { alreadyExists, userId } = yield* createAdminUser(
+      accounts,
+      config,
+      requireEmailVerification
+    )
 
     if (alreadyExists) {
       yield* logger.debug('[bootstrap-admin] skipped — admin user already exists', {

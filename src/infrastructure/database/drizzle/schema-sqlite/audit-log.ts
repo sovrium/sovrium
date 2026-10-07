@@ -73,7 +73,6 @@ export const auditLog = sqliteTable(
     // Transport ("canal") — sqlite-core mirror of the pg-core column. Closed
     // enum config-file | env | api | mcp | restore, defaulting to `api` so any
     // row that omits it (raw SQL / pre-taxonomy) carries a valid canal value
-    //.
     transport: text('transport').notNull().default('api'),
 
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),

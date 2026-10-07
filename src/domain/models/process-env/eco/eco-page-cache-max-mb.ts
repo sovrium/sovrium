@@ -29,12 +29,12 @@ export const DEFAULT_ECO_PAGE_CACHE_MAX_MB = 64
  *
  * - unset / empty       → {@link DEFAULT_ECO_PAGE_CACHE_MAX_MB}
  * - positive integer    → the integer as-is
- * - anything else → throws
+ * - anything else       → throws
  *
- * A malformed budget used to fall back to the 64 MB default. That kept the
- * cache bounded — the original concern — but at the cost of running a budget
- * the operator never chose: `ECO_PAGE_CACHE_MAX_MB=512MB` silently ran 64,
- * one eighth of the intent, on a host provisioned for the larger number.
+ * A malformed budget does not fall back to the 64 MB default. That would keep
+ * the cache bounded, but at the cost of running a budget the operator never
+ * chose: `ECO_PAGE_CACHE_MAX_MB=512MB` would silently run 64, one eighth of
+ * the intent, on a host provisioned for the larger number.
  * Refusing is the only reading that cannot be quietly wrong, and boot-time
  * validation means the refusal lands before any page is served.
  *

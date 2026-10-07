@@ -30,7 +30,7 @@ const HONEYPOT_FIELD = '_hp'
 
 /**
  * Honeypot anti-spam gate. When `antiSpam.honeypot` is enabled (or defaulted
- * to true via [internal ref]) and the hidden `_hp` field was filled, record a
+ * to true via a forms spec) and the hidden `_hp` field was filled, record a
  * `spam` ledger row (so the response view shows it, but the cap counter
  * ignores it) then fail with {@link FormHoneypotTrippedError}. A no-op when
  * honeypot is explicitly disabled (`antiSpam.honeypot: false`) or the field
@@ -39,7 +39,7 @@ const HONEYPOT_FIELD = '_hp'
  * Runs against the RAW submitter body (before the visibility/declared-field
  * filters strip the `_hp` field, which the form never declares).
  *
- * [internal ref] + S5: the ledger row stores the SHA-256(salt + ip) hash in
+ * a forms spec + S5: the ledger row stores the SHA-256(salt + ip) hash in
  * `submitter_ip_hash` — the raw IP never lands in `ip_address` on the
  * top-level forms path.
  */
@@ -51,7 +51,7 @@ export const checkHoneypot = (input: {
 }) =>
   Effect.gen(function* () {
     const { form, body, submitterIpHash, userAgent } = input
-    // [internal ref]: defaults are `honeypot: true` when antiSpam is absent.
+    // Defaults are `honeypot: true` when antiSpam is absent.
     if (effectiveAntiSpam(form).honeypot !== true) return
     const trap = body[HONEYPOT_FIELD]
     if (trap === undefined || trap === null || trap === '') return

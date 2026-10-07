@@ -46,7 +46,7 @@ Most business applications share the same building blocks: data tables, user aut
 - **No vendor lock-in.** Self-hosted on your infrastructure. Your data stays yours.
 - **Configuration over code.** Declare what you need instead of writing boilerplate. Dozens of field types, dozens of component types, built-in auth.
 - **Progressive complexity.** Start with just a name. Add tables, design, pages, auth, and analytics as your needs grow.
-- **Source-available.** Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2030.
+- **Source-available.** Business Source License 1.1: free for internal and non-commercial use; it prevents offering Sovrium as a competing hosted service. The licence terms are in `LICENSE.md`.
 
 ## How it works
 

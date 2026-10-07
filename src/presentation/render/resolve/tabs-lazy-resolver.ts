@@ -11,7 +11,7 @@
  *
  * ## The cost that was refused, and why this shape does not pay it
  *
- * `[internal ref]` left the second half of its contract deferred and
+ * a pages tabs spec left the second half of its contract deferred and
  * costed: a panel nobody addressed is carried once rather than not at all, and
  * getting to "not at all" was priced at three permanent costs — a RESERVED
  * query parameter on every page URL, a page-cache rule for that undeclared

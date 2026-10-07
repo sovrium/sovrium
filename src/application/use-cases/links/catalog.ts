@@ -24,11 +24,9 @@
  * has no requirements of its own; the programs that read the rows and resolve
  * lifecycle state live in `read-link-catalog.ts` and `link-state.ts`.
  *
- * No `password` and no hash of one ([internal ref] D5): the port's `LinkRecord` does
+ * No `password` and no hash of one: the port's `LinkRecord` does
  * not carry one, so nothing here could leak it if it tried.
  */
-
-/* eslint-disable unicorn/no-null -- the admin links contracts are nullable throughout: `null` is the wire value the console renders against, and `undefined` would drop the key from the JSON entirely. */
 
 import { linkTargets } from '@/domain/models/app/links'
 import type {
@@ -197,5 +195,3 @@ export const buildCatalog = (input: {
 /** The destination a grid renders — the first of the link's candidates. */
 export const primaryDestination = (entry: Readonly<CatalogEntry>): string =>
   linkTargets(entry.link)[0]?.to ?? ''
-
-/* eslint-enable unicorn/no-null */

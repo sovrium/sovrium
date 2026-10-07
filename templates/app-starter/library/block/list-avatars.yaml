@@ -1,0 +1,39 @@
+# sovrium-library: block/list-avatars@0.30.0
+name: list-avatars
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Team]'
+      - type: flex
+        props:
+          className: flex max-w-3xl flex-col
+        children:
+          - type: list
+            dataSource:
+              table: people
+              sort:
+                - field: name
+                  direction: asc
+              limit: 20
+            listDisplay:
+              itemTemplate:
+                title: $record.name
+                subtitle: $record.role
+                image: $record.photo
+                badge: $record.status
+              emptyMessage: No one here yet. Add a record to see it listed.
+              loadMore: button

@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". A blank typed into a numeric column means the former. */
-
 /**
  * ONE rule for turning what a reader typed into what a column can hold.
  *

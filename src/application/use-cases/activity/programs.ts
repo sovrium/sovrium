@@ -7,10 +7,10 @@
 
 import { Effect } from 'effect'
 import {
-  getActivityById,
+  ActivityRepository,
   type ActivityDatabaseError,
   type ActivityNotFoundError,
-} from '@/infrastructure/database/table-queries/activity-queries'
+} from '@/application/ports/repositories/analytics/activity-repository'
 
 /**
  * Invalid activity ID error
@@ -38,7 +38,7 @@ export const GetActivityById = (activityId: string) =>
       return yield* Effect.fail(new InvalidActivityIdError(activityId))
     }
 
-    const activity = yield* getActivityById(activityId)
+    const activity = yield* (yield* ActivityRepository).getActivityById(activityId)
 
     return activity
   }).pipe(Effect.withSpan('activity.get-activity-by-id', { attributes: { activityId } }))

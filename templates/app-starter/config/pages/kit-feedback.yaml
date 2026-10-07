@@ -1,0 +1,35 @@
+name: kit-feedback
+path: /kit/feedback
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Feedback blocks · App starter'
+  description: 'Alerts, empty states, progress, confirmations and paging.'
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: mx-auto flex w-full max-w-360 flex-col gap-1 px-4 pt-6 sm:px-8 sm:pt-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: 'Feedback blocks'
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: 'Alerts, empty states, progress, confirmations and paging, each one block of the library.'
+  - component: alert-inline
+  - component: alert-validation-summary
+  - component: empty-basic
+  - component: empty-with-starters
+  - component: progress-bar
+  - component: steps-horizontal
+  - component: toast-confirm
+  - component: modal-confirm-destructive
+  - component: pagination-numbered
+  - component: pagination-simple

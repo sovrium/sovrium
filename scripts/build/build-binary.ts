@@ -93,8 +93,8 @@ const CSS_ASSETS_TIMEOUT_MS = 120_000
 
 /**
  * `build-runtime-assets.ts` runs `Bun.build` over the client/island entry
- * points (client-bundle, island-entry, island-chunks) — a real bundler pass,
- * not a copy.
+ * points (the client loader + client-chunks, island-entry + island-chunks, the
+ * page search runtime) — real bundler passes, not a copy.
  */
 const RUNTIME_ASSETS_TIMEOUT_MS = 120_000
 

@@ -95,7 +95,7 @@ export function markRelatedGuestCaller(
 ): readonly Component[] {
   if (!guest) return components
   const mark = (component: Component): Component => {
-    const record = component as unknown as Readonly<Record<string, unknown>>
+    const record = component as Readonly<Record<string, unknown>>
     const { children } = record
     const withChildren = Array.isArray(children)
       ? {
@@ -106,13 +106,13 @@ export function markRelatedGuestCaller(
         }
       : record
     if (record['type'] !== 'drawer' || !Array.isArray(record['related'])) {
-      return withChildren as unknown as Component
+      return withChildren as Component
     }
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
     return {
       ...withChildren,
       props: { ...props, [RELATED_GUEST_CALLER_KEY]: true },
-    } as unknown as Component
+    } as Component
   }
   return components.map(mark)
 }

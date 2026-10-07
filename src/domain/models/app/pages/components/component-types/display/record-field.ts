@@ -14,7 +14,7 @@ import { visibilityFields } from '../modules/visibility'
 
 /**
  * `record-field` — a read-only display of a single bound record field
- *.
+ * (the pages data components record detail view requirement, [internal ref]).
  *
  * Placed inside a `dataSource: { mode: 'single' }` (or `collection`) container,
  * it resolves the bound record's value for `props.field` and renders it by the

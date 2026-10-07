@@ -6,6 +6,7 @@
  */
 
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   buildFilterParam,
   useRecordsQuery,
@@ -19,10 +20,12 @@ import {
  * records query requests a large single page rather than paginating client-side.
  * With a `dataSource.system` binding the rows come from a named read endpoint
  * instead of the DB-table records API. The board's row→card grouping stays in
- * the kanban components — this hook only owns the fetch.
+ * the kanban components — this hook only owns the fetch. A
+ * `dataSource.refreshMode` reads the board again on its interval or on a change
+ * to the table (`useLiveRefresh`).
  */
 export function useKanbanRecords(dataSource: RecordsDataSource | undefined) {
-  return useRecordsQuery(
+  const query = useRecordsQuery(
     'kanban',
     dataSource,
     useLazySharedFilter(
@@ -30,4 +33,6 @@ export function useKanbanRecords(dataSource: RecordsDataSource | undefined) {
       buildFilterParam(dataSource?.filter)
     )
   )
+  useLiveRefresh(dataSource, query.refetch)
+  return query
 }

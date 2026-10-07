@@ -201,7 +201,7 @@ const buildSandboxContext = (input: {
   /**
    * 1-indexed retry attempt number threaded through by `dispatchWithRetry`.
    * Surfaced as `context.run.attempt` so authors can short-circuit on retry
-   *. Defaults to 1 when the action is invoked
+   * Defaults to 1 when the action is invoked
    * outside the retry loop.
    */
   readonly attempt: number
@@ -324,7 +324,7 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
   // eslint-disable-next-line functional/prefer-immutable-types -- intentional mutable holder; see closure rationale above
   const timerBox: { current?: TimerBox } = {}
   const timeout = new Promise<never>((_resolve, reject) => {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- single-shot assignment to capture timer for cleanup
+    // eslint-disable-next-line functional/no-expression-statements -- single-shot assignment to capture timer for cleanup
     timerBox.current = {
       handle: setTimeout(() => {
         reject(new Error(`code action exceeded timeout of ${String(timeoutMs)}ms`))
@@ -493,7 +493,7 @@ const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutc
   const resolvedInputData =
     input.runContext.propsFinal === true
       ? input.rawInputData
-      : resolveCodeInputData(input.rawInputData, resolutionContext)
+      : resolveCodeInputData(input.rawInputData, resolutionContext, input.runContext.templates)
 
   // The user-facing context: `inputData`, `actions`, `env`, `log`, `run`.
   // Every value the user code reaches flows through `inputData` (resolved
@@ -506,7 +506,7 @@ const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutc
     log: collector.log,
     // Threaded through by `dispatchWithRetry` (run-automation.ts); defaults
     // to 1 when invoked outside the retry loop. Surfaced as
-    // `context.run.attempt` — [internal ref].
+    // `context.run.attempt`.
     attempt: input.runContext.attempt ?? 1,
   })
 

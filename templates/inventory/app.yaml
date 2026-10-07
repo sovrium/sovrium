@@ -9,6 +9,21 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a Google OAuth client and a Docs template turn on the order
+# confirmation document for each new customer order
+# (library/recipe/record-to-google-doc.yaml). Without them the app runs as
+# before and that one automation cannot reach Google.
+env:
+  - key: GOOGLE_CLIENT_ID
+    description: OAuth client id of your Google Cloud project, for the order confirmation documents.
+    required: false
+  - key: GOOGLE_CLIENT_SECRET
+    description: OAuth client secret of the same Google Cloud project.
+    required: false
+  - key: GOOGLE_ORDER_TEMPLATE_ID
+    description: Id of the Google Docs document copied for each new order.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -25,6 +40,18 @@ tables:
 agents:
   - $ref: ./config/agents/catalog-assistant.yaml
 
+# A weekday-morning email to purchasing (what to reorder, the most urgent
+# first), and the library recipe that writes each new order's confirmation.
+automations:
+  - $ref: ./config/automations/low-stock-digest.yaml
+  - $ref: ./library/recipe/record-to-google-doc.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/add-order.yaml
+  - $ref: ./config/forms/add-product.yaml
+  - $ref: ./config/forms/record-movement.yaml
+
 # Listed in the order of the sidebar: Products is the home page.
 pages:
   - $ref: ./config/pages/products.yaml
@@ -38,3 +65,6 @@ pages:
 # floating pill, so it never sits over the last row of a grid.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/google.yaml

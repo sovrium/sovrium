@@ -78,8 +78,12 @@ function parseIncomingRegion(html: string, regionId: string): HTMLElement | unde
   // SECURITY: the partial is server-rendered through the same trusted page
   // pipeline as the full document — not user input. A `<template>` parses it
   // inert: nothing in it runs or loads until it is placed in the document.
-  // eslint-disable-next-line functional/immutable-data -- parsing into an inert template IS the mutation
   template.innerHTML = html
+  // A `<template>` parses with scripting OFF, so a `<noscript>` in it comes out
+  // as live markup — its fallback `<style>` would then apply in a browser that
+  // runs scripts (it unfolds a sidebar drawer). A reader who reached a swap
+  // runs JavaScript, so the fallback has no reader: drop it.
+  template.content.querySelectorAll('noscript').forEach((fallback) => fallback.remove())
   const incoming = template.content.getElementById(regionId)
   return incoming instanceof HTMLElement ? incoming : undefined
 }
@@ -114,7 +118,7 @@ async function replaceRegion(
   if (incoming === undefined) {
     // SECURITY: the partial is server-rendered through the same trusted page
     // pipeline as the full document — not user input.
-    // eslint-disable-next-line functional/immutable-data, no-param-reassign -- the SPA swap IS a DOM mutation
+    // eslint-disable-next-line no-param-reassign -- the SPA swap IS a DOM mutation
     region.innerHTML = html
   } else {
     region.replaceWith(incoming)
@@ -190,7 +194,6 @@ export async function performSpaSwap(
   // address and mark the row the reader just left. The caller announces.
   current.setAttribute('tabindex', '-1')
   current.focus({ preventScroll: true })
-  // eslint-disable-next-line functional/immutable-data -- reset scroll on surface change
   current.scrollTop = 0
   return { swapped: true, url: answer.url }
 }

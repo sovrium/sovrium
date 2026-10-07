@@ -82,7 +82,7 @@ export function setupLinkRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hon
     const { link, overlayDisabled } = resolved
 
     // The console's overlay may only ever be MORE restrictive than the file
-    // ([internal ref] D3), so it is applied as a floor over whatever the definition
+    // So it is applied as a floor over whatever the definition
     // says rather than merged into it — an operator killing a link during an
     // incident must not be able to bring back one the config has switched off.
     if (overlayDisabled) return isSvg ? respondWithQr(c, GONE, token) : respondGone(c, GONE)

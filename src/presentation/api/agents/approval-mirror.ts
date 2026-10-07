@@ -8,7 +8,7 @@
 /**
  * The best-effort run policy for the AI agent-approval DB mirror.
  *
- * It owns the policy that used to live in `approval-db.ts`:
+ * It owns that policy:
  *
  *   - `runApprovalMirror` runs a mirror effect on the caller's services and
  *     DISCARDS any failure, so a DB write error never breaks the agent runtime
@@ -20,14 +20,12 @@
  */
 
 /**
- * NO LONGER A COMPOSITION ROOT — and that is why it is no longer called
- * `effect-runner.ts`.
+ * NOT A COMPOSITION ROOT — which is why it is not called `effect-runner.ts`.
  *
- * Both entry points used to `Effect.provide(ApprovalLayer)` for themselves,
- * because one of them is reached from `agent-schedule-runner.ts`, which the
- * cron scheduler drives on a timer with no Hono context in sight. That layer is
- * now part of the set the server resolves at boot, and BOTH callers hand the
- * resolved services in: a route reads them off its request, and the scheduler
+ * Neither entry point provides a layer for itself, even though one of them is
+ * reached from `agent-schedule-runner.ts`, which the cron scheduler drives on a
+ * timer with no Hono context in sight. The approval layer is part of the set
+ * the server resolves at boot, and BOTH callers hand the resolved services in: a route reads them off its request, and the scheduler
  * captures them once at registration and closes over them.
  *
  * What survives here is the best-effort RUN POLICY, which is a real decision
@@ -78,7 +76,6 @@ export const runApprovalMirror = async (
   services: ApprovalServices,
   program: Effect.Effect<void, unknown, ApprovalRepository>
 ): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort DB mirror; the Result is intentionally discarded
   await Effect.runPromise(Effect.provide(program.pipe(Effect.result), services))
 }
 

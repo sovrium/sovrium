@@ -1,0 +1,8 @@
+# The one row of workspace settings.
+records:
+  - key: main
+    fields:
+      legal_name: Starter Workspace
+      billing_email: billing@starter.example
+      reminders_enabled: true
+      reminder_days: 7

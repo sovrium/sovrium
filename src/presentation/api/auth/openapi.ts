@@ -6,6 +6,10 @@
  */
 
 import {
+  accountDeclineInvitationRequestSchema,
+  accountDeclineInvitationResponseSchema,
+} from '@/domain/models/api/account/account'
+import {
   adminAcceptInvitationResponseSchema,
   adminBanUserResponseSchema,
   adminDeleteUserResponseSchema,
@@ -31,7 +35,7 @@ import {
   errorResponseSchema,
   validationErrorResponseSchema,
 } from '@/domain/models/api/combinators/error'
-import { effectJsonResponse } from '@/presentation/api/openapi/route-fragments'
+import { effectJsonBody, effectJsonResponse } from '@/presentation/api/openapi/route-fragments'
 import { type StaticGroupSpec } from '../openapi/route-spec'
 
 /**
@@ -324,6 +328,22 @@ export const authGroup: StaticGroupSpec = {
         200: effectJsonResponse(adminAcceptInvitationResponseSchema, 'Invitation accepted'),
         400: validationError('Invalid input, or an unknown / already-consumed token'),
         410: errorResponse('Invitation token expired'),
+      },
+    },
+    {
+      method: 'post',
+      pathTemplate: '/api/auth/decline-invitation',
+      summary: 'Decline an invitation',
+      description:
+        'PUBLIC — the invitee answers from the emailed link with no session; the token ' +
+        'is the credential. Withdraws the outstanding invitation the token names, so ' +
+        'its link stops working. An unknown, used or withdrawn token answers 404.',
+      operationIdBase: 'postAuthDeclineInvitation',
+      request: { body: effectJsonBody(accountDeclineInvitationRequestSchema) },
+      responses: {
+        200: effectJsonResponse(accountDeclineInvitationResponseSchema, 'Invitation declined'),
+        400: validationError('The token is missing or empty'),
+        404: errorResponse('No outstanding invitation for this token'),
       },
     },
   ],

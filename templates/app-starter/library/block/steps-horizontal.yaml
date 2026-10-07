@@ -1,0 +1,50 @@
+# sovrium-library: block/steps-horizontal@0.30.0
+name: steps-horizontal
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: container
+    element: nav
+    props:
+      aria-label: Invoice progress
+      className: max-w-3xl
+    children:
+      - type: flex
+        props:
+          role: list
+          className: flex w-full gap-2
+        children:
+          - type: container
+            props:
+              role: listitem
+              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Client
+          - type: container
+            props:
+              role: listitem
+              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Items
+          - type: container
+            props:
+              role: listitem
+              aria-current: step
+              className: flex-1 border-t-2 pt-3 text-sm border-foreground font-medium text-foreground
+            children:
+              - type: text
+                element: span
+                content: Review
+          - type: container
+            props:
+              role: listitem
+              className: flex-1 border-t-2 pt-3 text-sm border-border text-foreground-subtle
+            children:
+              - type: text
+                element: span
+                content: Send

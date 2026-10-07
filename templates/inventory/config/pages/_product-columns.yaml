@@ -7,12 +7,9 @@
 - field: stock_state
   label: Status
   cellStyle:
-    - { when: { eq: Reorder }, className: 'font-medium text-warning [&_*]:text-warning' }
-    - { when: { eq: Out of stock }, className: 'font-medium text-error [&_*]:text-error' }
-    - {
-        when: { in: [Draft, Discontinued] },
-        className: 'text-foreground-muted [&_*]:text-foreground-muted',
-      }
+    - { when: { eq: Reorder }, className: font-medium, tone: warning }
+    - { when: { eq: Out of stock }, className: font-medium, tone: error }
+    - { when: { in: [Draft, Discontinued] }, tone: muted }
 - { field: stock_on_hand, label: On hand, align: right, sortable: true }
 - { field: reorder_at, label: Reorder at, align: right }
 - { field: value_at_cost, label: Value at cost, format: currency, align: right, sortable: true }

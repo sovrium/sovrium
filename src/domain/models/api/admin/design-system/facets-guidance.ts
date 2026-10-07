@@ -85,7 +85,7 @@ export const guidanceKindSchema = Schema.Literals([
  *
  * The invariant the console's whole claim rests on — *these are the operator's
  * own words* — is that `instruction` and `reason` rejoin to the declaration
- * exactly, with one space between them. `[internal ref]` asserts it
+ * exactly, with one space between them. An admin design system spec asserts it
  * against the page, and it holds here by construction: the splitter cuts at one
  * index and trims the whitespace that spanned the cut.
  *
@@ -160,7 +160,7 @@ export const guidanceQuerySchema = Schema.Struct({
   ),
   // ─── NARROWING TO ONE SUBJECT, AND WHY THAT IS A FILTER AND NOT A FIELD ──
   //
-  // `[internal ref]` draws one card per declared reusable component,
+  // An admin design system spec draws one card per declared reusable component,
   // each carrying its OWN `components[].guidance` beside its specimen. The card
   // is a row of the usage facet, and a row template binds one rows source — so
   // the guidance has to arrive either as more fields on `usageRowSchema` or as
@@ -173,13 +173,13 @@ export const guidanceQuerySchema = Schema.Struct({
   // `dont` onto a usage row would publish one operator sentence in a SECOND,
   // unsplit shape from a second endpoint — a card printing the whole line where
   // every other guidance surface prints the two registers, and a second
-  // unchecked path around the rejoin invariant `[internal ref]`
+  // unchecked path around the rejoin invariant an admin design system spec
   // asserts. One fact, one shape: the same rule the module header states for
   // `?flat=1` against the console's own token read.
   //
   // A card reaches it through a nested `{ system }` binding whose `query`
   // carries `$record.name` — the bounded depth-2 expansion
-  // `[internal ref]` landed, and the reference position it
+  // A pages system rows template spec landed, and the reference position it
   // permits. The cost is stated plainly: one request per card rather than one
   // per page, bounded by the number of templates an operator hand-writes in
   // `components[]` (four across the two shipped apps).

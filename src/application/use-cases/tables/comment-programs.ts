@@ -105,7 +105,7 @@ export interface CreatedComment {
    * thread.
    *
    * `guestEmail` is deliberately NOT on this shape: it is reader-private
-   *. Only the create response echoes the
+   * Only the create response echoes the
    * guest's OWN email back to them (005) via {@link CreatedCommentWithGuestEmail}.
    */
   readonly guestName: string | null
@@ -155,12 +155,10 @@ function formatCommentResponse(comment: {
       recordId: comment.recordId,
       userId: comment.userId,
       content: comment.content,
-      // eslint-disable-next-line unicorn/no-null -- null for top-level comments (see CreatedComment.parentCommentId)
       parentCommentId: comment.parentId ?? null,
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt?.toISOString() ?? comment.createdAt.toISOString(),
       user: toCommentDisplayUser(comment.user),
-      // eslint-disable-next-line unicorn/no-null -- public wire contract: null when not a guest comment
       guestName: comment.guestName ?? null,
       // The stored moderation status — every read path projects the column,
       // so the label is the truth, never a default.
@@ -404,7 +402,7 @@ interface ListCommentsConfig {
   readonly viewerIsAdmin?: boolean
   /**
    * Raw `:tableId` URL param. Scopes BOTH the comment read itself and the
-   * [internal ref] unread-count watermark to the same `(table, record)` identity
+   * the per-user comment read-state design unread-count watermark to the same `(table, record)` identity
    * comments are stored under. Not optional: record ids are per-table
    * sequences, so a record-only read returns every same-numbered record's
    * comments across the app.
@@ -423,7 +421,7 @@ interface ListCommentsConfig {
  *
  * Reuses {@link formatCommentResponse} so list/get/create all project the same
  * reader-safe {@link CreatedComment} shape from one place — `guestEmail` is
- * dropped (reader-private, [internal ref]) and `guestName` is
+ * dropped (reader-private, a pages public comments spec) and `guestName` is
  * surfaced (006).
  */
 function formatCommentsList(
@@ -681,7 +679,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
           })
         : undefined
 
-    // [internal ref]: project the per-user unread count only when the table opts into
+    // Project the per-user unread count only when the table opts into
     // read tracking. The viewer's own comments never count as unread; the
     // read-state is per-user and isolated (enforced in the query).
     const unreadCount =

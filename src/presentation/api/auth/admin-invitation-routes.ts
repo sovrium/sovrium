@@ -19,19 +19,19 @@ import { chainAdminInvitationLifecycleRoutes } from '@/presentation/api/auth/adm
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
+import type { InvitationLifecycleRouteDeps } from '@/presentation/api/auth/admin-invitation-lifecycle-routes'
 import type { Context, Hono } from 'hono'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
-type EmailHandlers = Readonly<ReturnType<typeof createEmailHandlers>>
+type InvitationRouteServices = Pick<InvitationLifecycleRouteDeps, 'emailHandlers' | 'invitations'>
+type Invitations = InvitationRouteServices['invitations']
 
 /**
  * Map a non-success invite-user result onto an HTTP response.
  *
  * Pre-condition: caller has confirmed `result.status !== 'invited'`. The
  * status discriminator drives the HTTP code: `invalid-input` → 400,
- * `already-onboarded` → 422 (email already maps to a fully-onboarded user),
- * everything else → 500.
+ * `already-onboarded` → 422 (a fully-onboarded user), everything else → 500.
  */
 const respondToInviteFailure = (
   c: Context,
@@ -71,15 +71,14 @@ const respondToInviteFailure = (
  * callers are already 401ed by the upstream auth middleware, and an unparseable
  * body yields `{}`, whose absent role denies every non-admin-equivalent caller.
  *
- * NOT a Better Auth plugin endpoint — implemented in the Sovrium engine.
- * `allowSignUp:false` does NOT block this endpoint (admin-driven invitation
- * remains the only onboarding path when self-signup is disabled).
+ * NOT a Better Auth plugin endpoint. `allowSignUp:false` does NOT block it:
+ * admin-driven invitation stays the onboarding path when self-signup is off.
  */
 const createInviteUserHandler =
   (
     authInstance: AuthInstance,
     authConfig: Auth | undefined,
-    emailHandlers: EmailHandlers,
+    { emailHandlers, invitations }: InvitationRouteServices,
     app: Readonly<App> | undefined
   ) =>
   async (c: Context) => {
@@ -93,7 +92,7 @@ const createInviteUserHandler =
       const inviterName = authorized.session.user.name ?? 'An administrator'
 
       const result = await inviteUserUseCase({
-        authInstance,
+        services: invitations,
         authConfig,
         emailHandlers,
         baseURL: resolveBaseURL(c),
@@ -233,10 +232,11 @@ const buildPostAcceptResponse = async (
  * - 200 with the customer's user record on success (cookie set on response)
  */
 const createAcceptInvitationHandler =
-  (authInstance: AuthInstance, authConfig: Auth | undefined) => async (c: Context) => {
+  (authInstance: AuthInstance, authConfig: Auth | undefined, invitations: Invitations) =>
+  async (c: Context) => {
     try {
       const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
-      const result = await acceptInvitationUseCase({ authInstance, authConfig, body })
+      const result = await acceptInvitationUseCase({ services: invitations, authConfig, body })
 
       if (result.status !== 'accepted') {
         return respondToAcceptFailure(c, result)
@@ -378,8 +378,8 @@ const renderInvitationUnavailablePage = (): string => `<!DOCTYPE html>
  *
  * The acceptance is sent as JSON by that script, never by the form itself, so
  * the form is drawn `method="post"` with its button disabled until the script
- * enables it. A press before the script ran used to fall back to a GET that put
- * the invitation token and the chosen password in the address.
+ * enables it. Otherwise a press before the script ran would fall back to a GET
+ * that puts the invitation token and the chosen password in the address.
  */
 const renderAcceptInvitationPage = (token: string, minPasswordLength: number): string => {
   const escapedToken = escapeHtmlAttribute(token)
@@ -480,20 +480,20 @@ const createAcceptInvitationPageHandler = (authConfig: Auth | undefined) => asyn
 export const chainAdminInvitationRoutes = (
   honoApp: Readonly<Hono>,
   authInstance: AuthInstance,
-  emailHandlers: EmailHandlers,
+  deps: InvitationRouteServices,
   app?: Readonly<App>
 ): Readonly<Hono> => {
   // `app.auth` is the single source of the invitation flow's auth config; the
   // factories below take it directly, so derive it once instead of threading a
   // redundant `authConfig` parameter alongside `app`.
   const authConfig = app?.auth
-  const inviteHandler = createInviteUserHandler(authInstance, authConfig, emailHandlers, app)
-  const acceptApiHandler = createAcceptInvitationHandler(authInstance, authConfig)
+  const inviteHandler = createInviteUserHandler(authInstance, authConfig, deps, app)
+  const acceptHandler = createAcceptInvitationHandler(authInstance, authConfig, deps.invitations)
   const appWithApiRoutes = chainAdminInvitationLifecycleRoutes(
     honoApp
       .post('/api/auth/admin/invite-user', inviteHandler)
-      .post('/api/auth/admin/accept-invitation', acceptApiHandler),
-    { authInstance, emailHandlers, resolveBaseURL, app }
+      .post('/api/auth/admin/accept-invitation', acceptHandler),
+    { authInstance, ...deps, resolveBaseURL, app }
   )
 
   // Skip the built-in HTML page when the app supplies a custom page at the

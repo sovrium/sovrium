@@ -13,7 +13,7 @@
  * lets the API layer surface a per-field error envelope without re-deriving
  * the column from the SQL error string.
  *
- * [internal ref] (sovrium-partner repro / [internal ref]).
+ * [internal ref] (sovrium-partner repro / a forms spec).
  */
 export class ForeignKeyViolationError extends Error {
   readonly _tag = 'ForeignKeyViolationError'

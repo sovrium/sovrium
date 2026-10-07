@@ -63,12 +63,9 @@ components:
               - type: table
                 dataSource:
                   table: stock_movements
+                  view: ledger_by_warehouse
                   bindTo: ledger-filter
                   sharedFilter: {}
-                  filter:
-                    - { field: type, operator: neq, value: Opening balance }
-                  sort:
-                    - { field: moved_at, direction: desc }
                 rowHeight: short
                 columns:
                   - { field: reference, label: Reference }
@@ -82,15 +79,7 @@ components:
                     label: Qty
                     align: right
                     cellStyle:
-                      - {
-                          when: { lt: 0 },
-                          className: 'text-foreground-muted [&_*]:text-foreground-muted',
-                        }
-                # Paris first, then Lyon, then Lille: descending by name happens
-                # to be the order of their size.
-                groupBy:
-                  field: warehouse
-                  direction: desc
+                      - { when: { lt: 0 }, tone: muted }
                 summary:
                   - { field: reference, function: count, label: Movements }
                   - { field: quantity, function: sum, label: Net }

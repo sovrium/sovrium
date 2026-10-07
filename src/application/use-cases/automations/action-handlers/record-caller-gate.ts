@@ -32,6 +32,7 @@ import {
 } from '@/application/use-cases/tables/permissions/caller-write-authority'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from '../build-guest-session'
 import { recordEventLoopRefusal } from './record-events'
@@ -48,7 +49,7 @@ type GateRequirements = AuthRepository | DataSourceRepository | TableRepository
 
 /**
  * The account a record write is attributed to by default: the caller of a run
- * started by hand (their `created_by` / `updated_by` / `deleted_by`, [internal ref]),
+ * started by hand (their `created_by` / `updated_by` / `deleted_by`, the rule that a manual run writes as the person who started it),
  * the durable system actor for any other run. A hand-started run that lost its
  * caller never reaches a write — {@link callerMayWrite} refuses it first.
  */
@@ -217,8 +218,8 @@ export const runLinkReader = (
     const { userId } = automation
     if (automation.startedByHand !== true || userId === undefined) return undefined
     const auth = yield* AuthRepository
-    // effect-swallow: an unknown role reads as the default member role, the narrowest a signed-in caller holds.
+    // effect-swallow: an unreadable role reads as no role at all, which grants nothing — it can only NARROW what the run reads.
     const role = yield* auth.getUserRole(userId).pipe(Effect.orElseSucceed(() => undefined))
     const groups = yield* getUserGroups(userId)
-    return { session: buildSyntheticSession(userId), role: role ?? 'member', groups }
+    return { session: buildSyntheticSession(userId), role: toGrantingRole(role), groups }
   }).pipe(Effect.withSpan('automations.run-link-reader'))

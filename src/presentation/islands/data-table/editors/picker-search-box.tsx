@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor input: mounted per open cell, and its onChange closes over
-   the parent's term setter. */
-
 import { computeTableAddRowInputClasses } from '@/presentation/design/table-default-classes'
 import type { ReactElement } from 'react'
 

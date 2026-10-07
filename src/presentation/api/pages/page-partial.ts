@@ -11,8 +11,8 @@
  * page's `<main id="main-content">`.
  *
  * The partial is cut out of the FULL document the page pipeline already
- * rendered, after every gate that document passed (session, shared-view
- * anti-enumeration, 401 / 302 / 404, the page cache). It is never a second
+ * rendered, after every gate that document passed (session, 401 / 302 / 404,
+ * the page cache). It is never a second
  * render path and never a way around those gates: a request that would not get
  * the document gets no partial either.
  */

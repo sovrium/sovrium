@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
@@ -21,6 +22,7 @@ import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/m
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runWebhookAuth } from './webhook-auth'
 import { checkAndRecordDedup } from './webhook-dedup'
+import { allowedMethodsFor, isMethod, type Method, type Trigger } from './webhook-methods'
 import { isRateLimited, normalizeRateLimit } from './webhook-rate-limit'
 import {
   webhookInvalidRequest,
@@ -40,7 +42,7 @@ import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /**
- * Webhook trigger handler (T-1 / [internal ref]).
+ * Webhook trigger handler.
  *
  * Single Hono dispatcher mounted for every supported HTTP method. The
  * handler:
@@ -62,19 +64,7 @@ import type { Context } from 'hono'
  * here; execution concerns stay in `application/use-cases/automations/*`.
  */
 
-type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-
-const METHODS: ReadonlyArray<Method> = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
-
-const isMethod = (m: string): m is Method => (METHODS as ReadonlyArray<string>).includes(m)
-
-const allowedMethodsFor = (trigger: Trigger): ReadonlyArray<Method> => {
-  if (trigger.type !== 'webhook') return []
-  const m = trigger.method
-  return Array.isArray(m) ? (m as ReadonlyArray<Method>) : [m as Method]
-}
 
 /**
  * Resolve the webhook automation behind `:name`, or `undefined` for anything
@@ -87,7 +77,7 @@ const allowedMethodsFor = (trigger: Trigger): ReadonlyArray<Method> => {
  * `enabled`, a PAUSED automation would fall through to auth and answer `401`
  * to a bad secret, while a CONFIG-DISABLED one answers `404` without auth ever
  * being attempted — an oracle telling an attacker the automation exists and is
- * merely paused (S1; [internal ref] pins both to 404).
+ * merely paused (S1; an automation pause spec pins both to 404).
  */
 const findWebhookAutomation = (app: App, name: string, pausedNames: ReadonlySet<string>) => {
   const automation = app.automations?.find((a) => a.name === name)
@@ -98,7 +88,7 @@ const findWebhookAutomation = (app: App, name: string, pausedNames: ReadonlySet<
 }
 
 const headersToRecord = (req: Context['req']): Readonly<Record<string, string>> =>
-  Object.fromEntries(req.raw.headers as unknown as Iterable<readonly [string, string]>)
+  Object.fromEntries(req.raw.headers as Iterable<readonly [string, string]>)
 
 const queryToRecord = (c: Context): Readonly<Record<string, string>> => {
   const queries = c.req.queries()
@@ -201,6 +191,10 @@ const lookupAndMethodGate = (
   return { status: 'pass', name, trigger, method }
 }
 
+/** The template engine this request's server holds (the `TemplateEngine` port). */
+const readTemplateEngine = (c: Context): Promise<TemplateRenderer> =>
+  runDomainPromise(c, TemplateEngine.use(Effect.succeed))
+
 const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   // The operational-pause read has to happen HERE, before the lookup gate, so
   // the paused and config-disabled off-states are decided at the same point in
@@ -220,7 +214,7 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   const queryRecord = queryToRecord(c)
   const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
   if (validationError !== undefined) return { status: 'reject', response: validationError }
-  // Deduplication gate. [internal ref]: when the trigger declares
+  // Deduplication gate. An automation retry spec: when the trigger declares
   // `deduplicationKey`, a second request that resolves to a key seen within
   // `deduplicationWindow` seconds is dropped silently (200 OK, no run row,
   // no side effects). Order matters — auth + rate-limit + schema validation
@@ -238,6 +232,7 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
       automationName: name,
       trigger,
       triggerData: triggerDataForDedup,
+      templates: await readTemplateEngine(c),
     })
     if (dedup.isDuplicate) {
       return {
@@ -264,6 +259,7 @@ interface BuildResponseInput {
   readonly trigger: WebhookTrigger
   readonly result: RunAutomationResult
   readonly triggerData: TriggerData
+  readonly templates: TemplateRenderer
 }
 
 /**
@@ -317,7 +313,7 @@ const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) =
 }
 
 const buildSyncResponse = (input: BuildResponseInput) => {
-  const { trigger, result, triggerData } = input
+  const { trigger, result, triggerData, templates } = input
   // A `webhook/response` action — when present — takes precedence over both
   // the trigger-level `response` config and the default sync body. The
   // handler has already substituted templates in its props (the run loop
@@ -331,10 +327,12 @@ const buildSyncResponse = (input: BuildResponseInput) => {
   // explicitly shaped the response (its templates see `run.id` and
   // `trigger.data` only, never a step's output).
   const body =
-    cfg?.body !== undefined ? resolveTriggerInValue(cfg.body, context) : defaultSyncBody(result)
+    cfg?.body !== undefined
+      ? resolveTriggerInValue(cfg.body, context, templates)
+      : defaultSyncBody(result)
   const headers =
     cfg?.headers !== undefined
-      ? (resolveTriggerInValue(cfg.headers, context) as Record<string, string>)
+      ? (resolveTriggerInValue(cfg.headers, context, templates) as Record<string, string>)
       : {}
   return { status, body, headers }
 }
@@ -353,13 +351,11 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
   // exposes the resulting DB-generated UUID via the `onPersisted` callback.
   // We park here on a Promise that resolves the moment that callback fires
   // so the 202 response carries the SAME id the cancel endpoint can find
-  //. Fallback to a synthetic id if the engine
+  // Fallback to a synthetic id if the engine
   // never invokes the callback (e.g. an unexpected rejection before
   // persistQueuedRun runs).
-  // eslint-disable-next-line functional/no-let -- captured-by-closure pattern for resolver
   let resolveRunId: ((id: string) => void) | undefined
   const runIdPromise = new Promise<string>((resolve) => {
-    // eslint-disable-next-line functional/no-expression-statements
     resolveRunId = resolve
   })
 
@@ -372,7 +368,6 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
     onPersisted: (id) => {
       if (resolveRunId !== undefined) {
         resolveRunId(id)
-        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     },
@@ -389,7 +384,6 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
       // the 202 still returns.
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
-        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     },
@@ -397,14 +391,13 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
       logError('[automation] async webhook run rejected', err)
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
-        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     }
   )
   const runId = await runIdPromise
   // Surface as BOTH `id` (matching the sync response shape used by
-  // [internal ref]) AND `runId` (matching [internal ref]).
+  // An API automation runs spec) AND `runId` (matching an API automation runs spec).
   return c.json({ id: runId, runId }, 202)
 }
 
@@ -440,6 +433,7 @@ const dispatchSync = async (
     trigger: input.trigger,
     result: result.success,
     triggerData: input.triggerData,
+    templates: await readTemplateEngine(c),
   })
   // When the run failed and the operator did not configure a custom
   // `trigger.response.status`, escalate the HTTP status to 500. A failing

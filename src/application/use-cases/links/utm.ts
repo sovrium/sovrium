@@ -16,11 +16,6 @@
  * implementation.
  */
 
-/* eslint-disable unicorn/no-null -- `null` and `undefined` are DIFFERENT instructions here and both are
-   load-bearing: `undefined` means "leave the column alone", `null` means "there is no campaign block" /
-   "remove this parameter". The stored shape is `LinkUtmRecord | null` on the port, so collapsing the two
-   would make a campaign parameter impossible to clear once set. */
-
 import type { LinkUtmRecord } from '@/application/ports/repositories/links/link-repository'
 
 /** Flat request field <-> stored utm key. */

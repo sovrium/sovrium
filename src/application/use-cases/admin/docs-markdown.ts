@@ -54,7 +54,7 @@ export type DirectiveRegistry = Readonly<Record<string, SchemaNode>>
 
 /** One acceptance criterion of one story, as the Behaviour block prints it. */
 export interface BehaviourStory {
-  /** `[internal ref]` — kept for the JSON format, never printed. */
+  /** Kept for the JSON format, never printed. */
   readonly id: string
   /** The story's own heading, which becomes the H3. */
   readonly title: string

@@ -37,22 +37,35 @@ export const CustomElementTypeSchema = Schema.Literals([
  *
  * Allows adding arbitrary HTML elements to the page <head> section.
  */
+const AttributeNameSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9-]*$/, {
+      message:
+        'Attribute name must start with a letter and contain only letters, numbers, and hyphens (kebab-case)',
+    })
+  )
+)
+
 export const CustomElementSchema = Schema.Struct({
   type: CustomElementTypeSchema,
   attrs: Schema.optional(
-    Schema.Record(
-      Schema.String.pipe(
-        Schema.check(
-          Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9-]*$/, {
-            message:
-              'Attribute name must start with a letter and contain only letters, numbers, and hyphens (kebab-case)',
-          })
-        )
-      ),
-      Schema.String
-    ).annotate({
-      description: 'Element attributes',
-    })
+    Schema.Record(Schema.String, Schema.String).pipe(
+      Schema.annotate({
+        description: 'Element attributes',
+      }),
+      // Keys: any string in the key position, and the pattern enforced by
+      // `isPropertyNames`, so a mistyped key is refused by name at its own path
+      // with the pattern it must match. A pattern on the key schema itself makes
+      // Effect 4 skip the entry, and the config report then named it an unknown
+      // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+      Schema.check(
+        Schema.isPropertyNames(AttributeNameSchema, {
+          toJsonSchema: () => ({
+            propertyNames: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9-]*$' },
+          }),
+        })
+      )
+    )
   ),
   content: Schema.optional(
     Schema.String.annotate({

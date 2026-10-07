@@ -1,0 +1,54 @@
+# sovrium-library: connection/discord@0.30.0
+name: discord
+type: apiKey
+label: Discord
+description: 'Discord API, authenticated as a bot'
+props:
+  key: Bot $env.DISCORD_BOT_TOKEN
+  header: Authorization
+baseUrl: https://discord.com/api/v10
+operations:
+  - name: create-message
+    method: POST
+    path: '/channels/{channel_id}/messages'
+    summary: Post a message in a channel
+    params:
+      channel_id:
+        in: path
+        type: string
+        required: true
+      content:
+        in: body
+        type: string
+        description: 'Up to 2,000 characters'
+      embeds:
+        in: body
+        type: array
+      allowed_mentions:
+        in: body
+        type: object
+  - name: list-guild-channels
+    method: GET
+    path: '/guilds/{guild_id}/channels'
+    summary: List the channels of a server
+    params:
+      guild_id:
+        in: path
+        type: string
+        required: true
+  - name: list-channel-messages
+    method: GET
+    path: '/channels/{channel_id}/messages'
+    summary: Read the latest messages of a channel
+    params:
+      channel_id:
+        in: path
+        type: string
+        required: true
+      limit:
+        in: query
+        type: integer
+        description: 1 to 100
+      before:
+        in: query
+        type: string

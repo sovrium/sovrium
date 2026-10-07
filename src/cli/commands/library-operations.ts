@@ -38,7 +38,6 @@ const ALL_CONFIRMATION_THRESHOLD = 50
 /** Stop with a refusal on stderr and exit 1. */
 const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -227,8 +226,7 @@ export const showOperation = async (id: string, format: 'md' | 'json'): Promise<
   const set = await setOrRefuse(operations, parsed.provider)
   const operation = operationOrRefuse(set, parsed.name)
   return format === 'json'
-    ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-      `${JSON.stringify({ id, provider: set.provider, docsUrl: set.docsUrl, ...operation }, null, 2)}\n`
+    ? `${JSON.stringify({ id, provider: set.provider, docsUrl: set.docsUrl, ...operation }, null, 2)}\n`
     : renderOperation(set, operation)
 }
 

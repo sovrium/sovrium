@@ -39,6 +39,8 @@ An oversized upload answers `413`; one that would push the total past the quota 
 
 **Uploads are buffered, not streamed.** The request body is read into memory before the size check runs, so a 100 MB cap means a 100 MB allocation on an accepted request. Set the per-file cap to the smallest number your app can actually live with, and treat it as a **memory budget** rather than a policy preference.
 
+**The same caps bound every request body.** The server refuses any request whose body is larger than the largest upload the deployment allows — the highest bucket `maxFileSize`, or `STORAGE_MAX_FILE_SIZE`, whichever is larger — plus 1 MB for the multipart envelope, and never less than the JSON API limit `API_BODY_LIMIT_BYTES` (25 MB by default). With the defaults that is 101 MB. A larger body answers `413` before any route reads it, so a sign-in form or a public endpoint cannot be made to buffer more than an upload could.
+
 ## Reading current usage
 
 ```bash

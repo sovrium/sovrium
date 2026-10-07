@@ -54,7 +54,6 @@ export interface ChangelogCommandOptions {
 /** Stop with a refusal on stderr and exit 1. */
 const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 

@@ -64,12 +64,13 @@ import {
   buildComponentFrameApp,
   componentFramePath,
 } from '@/application/use-cases/admin/design-system-component-frame'
-import { isAdminEquivalent, isAdminTier } from '@/domain/models/app'
 import { COMPONENT_FRAME_BASE, toMountPath } from '@/domain/models/app/admin/mount-hrefs'
+import { consoleAdmits } from '@/domain/models/app/auth/passkeys-service'
 import {
   LANGUAGE_PREFERENCE_COOKIE,
   resolvePreferredLanguage,
 } from '@/domain/models/app/languages/language-detection'
+import { grantedCallerCapabilities } from '@/domain/models/app/pages/component-session-visibility-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import {
@@ -120,19 +121,15 @@ const isPublicMountPath = (mount: EmbeddedAppMount, path: string): boolean => {
 }
 
 /**
- * The two independent postures a console caller carries.
- *
- * `hasAccess` is REACHABILITY (`isAdminTier`) — may this caller open the
- * console at all. `canAdministerAccounts` is CAPABILITY (`isAdminEquivalent`) —
- * will the admin plane actually honour the account writes the console can
- * paint. They are orthogonal by design: a read-only operational data console
- * admits roles that hold no write power, and the whole point of
- * carrying the second flag is that a surface must not render an affordance the
- * first flag alone would have justified.
+ * A console caller's posture. `hasAccess` is REACHABILITY (`isAdminTier`, plus
+ * a passkey under `requireForAdmin`) — may this caller open the console at all.
+ * What the caller may WRITE is not a flag here: it is the capability set
+ * {@link grantedCapabilitiesOf} derives from the session, because a read-only
+ * operational data console admits roles that hold no write power, and
+ * a surface must not render an affordance reachability alone would justify.
  */
 interface CallerPosture {
   readonly hasAccess: boolean
-  readonly canAdministerAccounts: boolean
   /**
    * The resolved session itself, carried forward for ONE purpose: projecting the
    * operator table a mounted Records page binds down to the fields this caller
@@ -157,24 +154,14 @@ const resolveCallerPosture = async (
   c: Context
 ): Promise<CallerPosture> => {
   const session = config.getSession ? await config.getSession(c.req.raw.headers) : undefined
-  if (!session) return { hasAccess: false, canAdministerAccounts: false }
-  return {
-    session,
-    hasAccess: isAdminTier(session.role, config.app),
-    // The ACCOUNT-administration posture, resolved from the same predicate the
-    // admin plane's own guards apply (`isAdminEquivalent`). It is deliberately
-    // NOT `isAdminTier`: an `admin-viewer` reaches the console (read) and is
-    // 404ed by `applyAdminRoleCheckMiddleware` on every `/api/auth/admin/*`
-    // write, so painting them "Change role" / "Ban" renders a control their own
-    // backend refuses. Consulted by the Users surface to omit those actions.
-    canAdministerAccounts: isAdminEquivalent(session.role, config.app),
-  }
+  if (!session) return { hasAccess: false }
+  // `consoleAdmits` requires a passkey too, under `requireForAdmin`.
+  return { session, hasAccess: consoleAdmits(session, config.app) }
 }
 
 /** The granted posture a rendered surface is built with. */
 interface GrantedAccess {
   readonly canEdit: boolean
-  readonly canAdministerAccounts: boolean
   /** The caller's session — see {@link CallerPosture.session}. */
   readonly session?: SessionInfo
 }
@@ -192,7 +179,7 @@ const resolveAccess = async (
 
   c: Context
 ): Promise<Response | GrantedAccess> => {
-  const { hasAccess, canAdministerAccounts, session } = await resolveCallerPosture(config, c)
+  const { hasAccess, session } = await resolveCallerPosture(config, c)
   const { path } = c.req
   if (hasAccess && mount.signedInRedirectPaths.has(path)) {
     return c.redirect(mount.basePath, 302)
@@ -217,11 +204,10 @@ const resolveAccess = async (
   // with write access. Those two sets and the mount's public set must stay free
   // of any shared key.
   //
-  // `canAdministerAccounts`, unlike `canEdit`, is a REAL per-caller value and is
-  // false for that anonymous carve-out caller — so if a public path ever did
-  // resolve to a live surface, it would at least not be painted account-write
-  // controls.
-  return { canEdit: true, canAdministerAccounts, ...(session ? { session } : {}) }
+  // The capability set, unlike `canEdit`, is a REAL per-caller value and is
+  // empty for that anonymous carve-out caller — so if a public path ever did
+  // resolve to a live surface, it would at least not be painted write controls.
+  return { canEdit: true, ...(session ? { session } : {}) }
 }
 
 /**
@@ -266,27 +252,20 @@ interface MountedRenderInput {
  * The caller's powers, as the closed {@link CallerCapability} vocabulary spells
  * them — the ONE thing a mounted page's capability gates need and cannot derive.
  *
- * `resolveCallerPosture` has already computed both, because it needs them to
- * decide whether to serve the request at all; this is the same two booleans in
- * the shape `visibility.capability` and an action column's `capability` read.
+ * Derived by the domain's own `grantedCallerCapabilities` — the predicates the
+ * admin-route guards apply (`isAdminTier`, `isAdminEquivalent`,
+ * `canEditOperations`) — in the shape `visibility.capability` and an action
+ * column's `capability` read, so a drawn control and an admitted write agree.
  *
  * A mounted page renders session-less (see `holdsCapability`,
  * `presentation/rendering/visibility-filter.ts`), so passing the POWERS is
  * deliberately narrower than passing the session: a capability set cannot be
  * read as a role, cannot resolve `$user.*`, and cannot reach a row filter.
  *
- * `hasAccess` is not carried on `GrantedAccess`, and does not need to be: this
- * function is only ever reached past the `!hasAccess` deny in `resolveAccess`,
- * so a caller who is here holds `admin-console` by construction — EXCEPT on the
- * anonymous public carve-out, which holds neither and is given neither
- * (`canAdministerAccounts` is a real per-caller value and is false there).
+ * The anonymous public carve-out holds no session and is given nothing.
  */
-const grantedCapabilitiesOf = (posture: GrantedAccess): readonly CallerCapability[] =>
-  posture.session === undefined
-    ? []
-    : posture.canAdministerAccounts
-      ? ['admin-console', 'administer-accounts']
-      : ['admin-console']
+const grantedCapabilitiesOf = (posture: GrantedAccess, app: App): readonly CallerCapability[] =>
+  grantedCallerCapabilities(posture.session, app)
 
 /** Render the console surface for an authorized request into a mount. */
 const renderMountedSurface = async (input: MountedRenderInput): Promise<Response> => {
@@ -301,12 +280,11 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
   })
   // ─── NO `?scheme` / `?viewport` / `?expand` / `?category` CHANNEL ─────────
   //
-  // Four URL parameters used to be lifted out of the request here and threaded
-  // into a builder, because a synthesised surface had no other way to see them.
-  // Every console destination is an authored page now and declares its own
-  // `page.query`, so each of the four arrives through the ordinary interpreter
-  // path — clamped to a declared `enum` on the way in, which the side channel
-  // never was. A second route for the same parameter is a way for the two to
+  // These four URL parameters are not lifted out of the request here. Every
+  // console destination is an authored page and declares its own `page.query`,
+  // so each of the four arrives through the ordinary interpreter path —
+  // clamped to a declared `enum` on the way in, which a side channel would not
+  // be. A second route for the same parameter is a way for the two to
   // disagree about what the URL said.
   // `none` means the path has no synthesized surface (a static preset page such
   // as the sign-in card) — render the mount's own config as authored.
@@ -338,7 +316,6 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     // entering BELOW that pin would be inert on the one surface it was added
     // for — inert, and silently. `undefined` leaves the pin deciding, which is
     // the right answer for an operator who has chosen nothing
-    //.
     ...(preferredLanguage ? { urlLanguage: preferredLanguage } : {}),
     // G1: a mounted console prints the OPERATOR's name and version, never the
     // preset's own — which is the fact its config cannot reach.
@@ -356,7 +333,7 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     // operator page funnel builds this. Both funnels now call the ONE
     // constructor rather than each carrying the borrowed-identity header list.
     fetchSystemRows: systemRowsFetcher(c),
-    // [internal ref]: the SINGLE-RECORD sibling. A page bound to a `{ system }`
+    // The SINGLE-RECORD sibling. A page bound to a `{ system }`
     // detail endpoint is NAMED by its record, so it must be read before the
     // document ships — as the caller, and 404ing when there is none.
     fetchSystemRecord: systemRecordFetcher(c),
@@ -364,7 +341,7 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     // capability gates are inert on every mounted page, and inert in the
     // direction that withholds an affordance from the administrator it was
     // authored for. See `grantedCapabilitiesOf`.
-    callerCapabilities: grantedCapabilitiesOf(posture),
+    callerCapabilities: grantedCapabilitiesOf(posture, config.app),
   })
   if (typeof result === 'string') {
     return respondWithSurface(c, result)

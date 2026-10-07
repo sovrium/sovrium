@@ -1,0 +1,9 @@
+name: guide
+path: /guide
+meta:
+  title: 'Guide · [Product]'
+  description: '[A long read with its outline.]'
+components:
+  - component: navbar-simple
+  - component: content-with-toc
+  - component: footer-simple

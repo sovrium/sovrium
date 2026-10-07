@@ -307,26 +307,12 @@ const filesGrid = (variant: FilesGridVariant): PageComponent =>
     // — the usage tile, the upload control and the section heading — keep
     // their natural height and the grid takes what is left.
     layout: 'fill',
-    // ─── NO VIEW SWITCHER, AND IT WAS TRIED BEFORE IT WAS REFUSED ──────────
+    // ─── NO TILE VIEW ──────────────────────────────────────────────────────
     //
-    // `FilesBucketGrid` is the one board in the whole console canvas that draws
-    // an alternate view of the same rows — this bucket's files as tiles rather
-    // than as a list — and a file is exactly the console row an operator knows
-    // by shape. `views: ['grid', 'gallery']` + `toolbar.viewSwitcher` is the
-    // authorable spelling, it decodes, and the switcher renders.
-    //
-    // It was shipped, measured against four real uploaded files, and reverted.
-    // The gallery drew a one-column stack of `f2d69c57-a951-485f-aea4-…-note-d
-    // .txt` — the raw STORAGE KEY, which is this source's `idKey` — with no
-    // filename, no type, no size, no date and none of the row actions. Strictly
-    // worse than the list it replaced, on every axis.
-    //
-    // It is not fixable from config: `AlternateView`
-    // (`presentation/islands/data-table/island/alternate-view.tsx:119`) hands
-    // the gallery `records` and `emptyMessage` and nothing else — no columns,
-    // no title field, no media field — so there is no key that would name
-    // `filename` as the caption. Routed as a platform gap rather than shipped
-    // as a control that degrades the surface it decorates.
+    // The canvas draws this bucket's files as tiles too. A tile view of the
+    // same rows is a separate `gallery` component bound to the same source; it
+    // is not drawn here because a gallery over this endpoint has no caption to
+    // show but the raw storage key (`idKey`) — strictly worse than this list.
     toolbar: { search: true, filters: true, sort: true },
     emptyMessage: variant.emptyMessage,
     noMatchMessage: 'No file matches “{query}”',

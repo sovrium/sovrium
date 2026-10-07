@@ -40,12 +40,10 @@ import {
 } from '../middleware/validation'
 import type { FieldErrorDetail } from '../middleware/validation'
 import type { StorageService } from '@/application/ports/services/storage-service'
-import type { AttachmentScope } from '@/application/use-cases/attachments/attachment-fields'
 import type {
   AttachmentRuleViolation,
   AttachmentStorageUnavailable,
 } from '@/application/use-cases/attachments/errors'
-import type { App } from '@/domain/models/app'
 import type { FormatConstrainedFieldType } from '@/domain/models/app/tables/column-formats-validation'
 
 /**
@@ -87,7 +85,6 @@ export function validateReadonlyComputedFields(
 
     // EVERY computed column the request tried to write, in table
     // field-declaration order — not just the first one found
-    //.
     const attempted = readonlyComputedFields
       .filter((f) => f.name in fields)
       .map((f) => ({ field: f.name, message: `Cannot write to readonly field '${f.name}'` }))
@@ -159,8 +156,7 @@ export function validateRequiredFields(
 
     // The complete list was always computed here; only the envelope discarded
     // it. The top-level `message` stays the generic 'Missing required fields'
-    // ([internal ref] pins it), while `errors` names each one
-    //.
+    // (an API tables records create spec pins it), while `errors` names each one
     const firstMissing = missingRequiredFields[0]
     if (firstMissing) {
       return yield* Effect.fail(
@@ -230,7 +226,7 @@ export function filterAllowedFields(
 
 /**
  * Developer-facing copy for each format violation, keyed by column type. The
- * `url` wording is spec-pinned byte-for-byte by [internal ref] /
+ * `url` wording is spec-pinned byte-for-byte by an API tables records create spec /
  * -024 / -025; `email` mirrors its shape. Copy lives HERE rather than in the
  * shared domain rule because the public-form path phrases the same violation for
  * a stranger filling in a contact form, not for an API client.
@@ -252,7 +248,7 @@ const FORMAT_MESSAGES: Readonly<Record<FormatConstrainedFieldType, (field: strin
  * downstream refused it.
  *
  * Every offender is reported, in table field-declaration order:
- * [internal ref] pins the absence of the row, not merely the
+ * An API tables records create spec pins the absence of the row, not merely the
  * presence of an error, and CREATE-024 pins that all offenders are named.
  */
 export function validateFieldFormats(
@@ -301,12 +297,6 @@ const toFieldError = (
 const toFieldStorageError = (error: AttachmentStorageUnavailable): FieldStorageError =>
   new FieldStorageError(error.message, error.field, error.cause)
 
-/** The scope the attachment programs validate against, read off the request. */
-const scopeOf = (ctx: { readonly app: App; readonly tableName: string }): AttachmentScope => ({
-  app: ctx.app,
-  tableName: ctx.tableName,
-})
-
 /**
  * Validate attachment field type constraints (`allowedFileTypes`, `maxFiles`,
  * `maxFileSize`).
@@ -324,9 +314,7 @@ export function validateAttachmentConstraints(
 > {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
-    yield* checkAttachmentConstraints({ scope: scopeOf(ctx), fields }).pipe(
-      Effect.mapError(toFieldError)
-    )
+    yield* checkAttachmentConstraints({ scope: ctx, fields }).pipe(Effect.mapError(toFieldError))
   })
 }
 
@@ -352,7 +340,7 @@ export function validateAttachmentReferences(
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
     yield* checkAttachmentReferences({
-      scope: scopeOf(ctx),
+      scope: ctx,
       fields,
       writer: ctx.signedOut
         ? { authenticated: false }
@@ -378,7 +366,7 @@ export function uploadInlineAttachmentContent(
 ): Effect.Effect<Record<string, unknown>, FieldStorageError, ValidationContext | StorageService> {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
-    return yield* persistInlineAttachments({ scope: scopeOf(ctx), fields }).pipe(
+    return yield* persistInlineAttachments({ scope: ctx, fields }).pipe(
       Effect.mapError(toFieldStorageError)
     )
   })
@@ -395,7 +383,7 @@ export function enrichAttachmentMetadata(
 ): Effect.Effect<Record<string, unknown>, FieldStorageError, ValidationContext | StorageService> {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
-    return yield* writeAttachmentMetadata({ scope: scopeOf(ctx), fields }).pipe(
+    return yield* writeAttachmentMetadata({ scope: ctx, fields }).pipe(
       Effect.mapError(toFieldStorageError)
     )
   })

@@ -8,8 +8,10 @@
 /**
  * Vanilla-JS runtime entrypoint for the static-site `runtime.js` script.
  *
- * Bundled by `generateSearchIndex` via `Bun.build({ format: 'iife' })` into a
- * single script written to `<outputDir>/sovrium-search/runtime.js`. Exposes
+ * Bundled with `Bun.build({ format: 'iife' })` into a single script that
+ * `generateSearchIndex` writes to `<outputDir>/sovrium-search/runtime.js` —
+ * prebuilt and embedded in the compiled binary, compiled on the fly in a source
+ * checkout (`src/infrastructure/assets/page-search-runtime.ts`). Exposes
  * `window.SovriumSearch = { init, search }` so non-React pages can query the
  * build-time index without loading the React island bundle.
  *
@@ -47,25 +49,19 @@ const init = (): Promise<SearchIndex> => {
   const p = fetch('/sovrium-search/index.json', { credentials: 'same-origin' })
     .then((r) => {
       if (!r.ok) {
-        // eslint-disable-next-line functional/no-throw-statements
         throw new Error(`Failed to load search index: ${r.status}`)
       }
       return r.json() as Promise<SearchIndex>
     })
     .then((data) => {
-      // eslint-disable-next-line functional/immutable-data
       state.cached = data
-      // eslint-disable-next-line functional/immutable-data
       state.pending = undefined
       return data
     })
     .catch((err) => {
-      // eslint-disable-next-line functional/immutable-data
       state.pending = undefined
-      // eslint-disable-next-line functional/no-throw-statements
       throw err
     })
-  // eslint-disable-next-line functional/immutable-data
   state.pending = p
   return p
 }
@@ -77,6 +73,5 @@ const search = (
   init().then((index) => searchIndex(index, query, options?.maxResults ?? 10))
 
 if (typeof window !== 'undefined') {
-  // eslint-disable-next-line functional/immutable-data
   ;(window as { SovriumSearch?: unknown }).SovriumSearch = { init, search }
 }

@@ -55,6 +55,12 @@ export const KEEP_SCRIPTS = [
   'build:binary',
   'build:css-assets',
   'build:types',
+  // desktop-build.yml (mirrored) runs it in every lane; its chain — `desktop/`'s
+  // own `check`/`build`, scripts/build/stage-desktop-sidecar.ts, `cargo check` —
+  // is all mirrored. Dropping it broke all four lanes on GitHub with
+  // `Script not found "desktop:check"`; mirror-workflow-scripts.ts now holds the
+  // mirrored workflows to this list.
+  'desktop:check',
   'start',
   'typecheck',
 ] as const

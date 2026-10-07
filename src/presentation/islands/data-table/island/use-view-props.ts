@@ -7,15 +7,12 @@
 
 import { useState } from 'react'
 import { resolveToolbarFlags } from './toolbar/toolbar-flags'
-import { isAlternateView } from './use-ui-state'
-import type { AlternateViewProps } from './alternate-view'
 import type { TableContentProps } from './table-content'
 import type { DisplayControlsProps } from './toolbar/display-controls'
 import type { LeadingControlsProps } from './toolbar/leading-controls'
 import type { QueryControlsProps } from './toolbar/query-controls'
 import type { DataTableToolbarBarProps } from './toolbar/toolbar-bar'
 import type { ToolbarFlags } from './toolbar/toolbar-flags'
-import type { ViewsControlsProps } from './toolbar/views-controls'
 import type {
   DataTableViewProps,
   GridBodyProps,
@@ -34,7 +31,6 @@ import type { SaveStatus } from '../../hooks/use-inline-editing'
  * props, so the defaults are applied here instead.
  */
 interface ViewDerived {
-  readonly showGrid: boolean
   readonly indicatorStatus: SaveStatus
   readonly inlineSaveStatus: SaveStatus | undefined
   readonly toolbarSaveStatus: SaveStatus | undefined
@@ -58,9 +54,6 @@ function deriveViewState(
   const indicatorStatus: SaveStatus = props.saveStatus ?? 'idle'
 
   return {
-    // The grid and the alternate views are mutually exclusive: a switch
-    // REPLACES the table rather than rendering a second surface beside it.
-    showGrid: !isAlternateView(props.ui.activeView),
     indicatorStatus,
     inlineSaveStatus: position === 'inline' ? indicatorStatus : undefined,
     toolbarSaveStatus: position === 'toolbar' ? indicatorStatus : undefined,
@@ -85,12 +78,6 @@ function buildLeadingProps(props: DataTableViewProps, derived: ViewDerived): Lea
     globalFilter: props.globalFilter,
     setGlobalFilter: props.setGlobalFilter,
     onSearchPendingChange: derived.onSearchPendingChange,
-    activeViewName: props.activeViewName,
-    viewSwitcherEnabled: derived.flags.viewSwitcher,
-    activeView: props.ui.activeView,
-    views: props.views,
-    viewLabels: props.viewLabels,
-    onSelectViewType: props.ui.onSelectViewType,
     saveStatus: derived.toolbarSaveStatus,
   }
 }
@@ -107,24 +94,6 @@ function buildQueryProps(props: DataTableViewProps, derived: ViewDerived): Query
     sortEnabled: derived.flags.sort,
     onOpenSortOverlay: props.ui.onOpenSortOverlay,
     activeSortCount: props.ui.activeSorts.length,
-    groupByEnabled: derived.flags.groupBy,
-    groupableFields: derived.tableFields,
-    runtimeGroupBy: props.ui.runtimeGroupBy,
-    onSelectRuntimeGroupBy: props.ui.setRuntimeGroupBy,
-  }
-}
-
-function buildViewsProps(props: DataTableViewProps): ViewsControlsProps {
-  return {
-    enabled: props.viewsEnabled,
-    viewEntries: props.viewEntries,
-    canSaveCurrentView: props.canSaveCurrentView,
-    isViewModified: props.isViewModified,
-    activeViewSource: props.ui.activeViewSource,
-    onOpenSaveViewDialog: props.ui.onOpenSaveViewDialog,
-    onSelectView: props.onSelectView,
-    onDeleteView: (entry) => props.ui.onOpenDeleteViewDialog({ id: entry.id, name: entry.name }),
-    onSaveModifiedView: props.onSaveModifiedView,
   }
 }
 
@@ -132,9 +101,6 @@ function buildDisplayProps(props: DataTableViewProps, derived: ViewDerived): Dis
   return {
     table: props.table,
     tableName: props.tableName,
-    columnToggleEnabled: derived.flags.columnToggle,
-    columnsMenuOpen: props.ui.columnsMenuOpen,
-    onToggleColumnsMenu: props.ui.onToggleColumnsMenu,
     canExportSelection: props.selectionConfig?.mode === 'multiple',
     selectedCount: props.selectedCount,
     exportEnabled: derived.flags.export,
@@ -146,10 +112,6 @@ function buildDisplayProps(props: DataTableViewProps, derived: ViewDerived): Dis
     onCloseExportMenu: props.ui.onCloseExportMenu,
     refreshEnabled: derived.flags.refresh,
     onRefresh: props.onRefresh,
-    densityEnabled: derived.flags.density,
-    currentDensity: props.currentDensity,
-    onSelectDensity: props.onSelectDensity,
-    onResetPreferences: props.onResetPreferences,
   }
 }
 
@@ -161,7 +123,6 @@ function buildToolbarProps(
     importDialogOpen: props.ui.importDialogOpen,
     leading: buildLeadingProps(props, derived),
     query: buildQueryProps(props, derived),
-    views: buildViewsProps(props),
     display: buildDisplayProps(props, derived),
   }
 }
@@ -191,8 +152,6 @@ function buildDialogsProps(props: DataTableViewProps, derived: ViewDerived): Vie
     onSubmitCreate: props.onSubmitCreate,
     tableName: props.tableName,
     ui: props.ui,
-    onSaveNewView: props.onSaveNewView,
-    onConfirmDeleteView: props.onConfirmDeleteView,
   }
 }
 
@@ -239,34 +198,10 @@ function buildGridProps(props: DataTableViewProps, derived: ViewDerived): TableC
   }
 }
 
-/**
- * The alternate-view bag, or undefined while the grid is showing.
- *
- * The narrowing is the reason this is a type guard rather than `!showGrid`:
- * only the guard narrows `activeView` to the non-grid literals `AlternateView`
- * accepts.
- */
-function buildAlternateProps(props: DataTableViewProps): AlternateViewProps | undefined {
-  const { activeView } = props.ui
-  if (!isAlternateView(activeView)) return undefined
-
-  return {
-    activeView,
-    // The grid's OWN post-filter rows — the client-side search / filter
-    // narrowing carries across the switch instead of the view re-querying the
-    // whole table.
-    records: props.table.getFilteredRowModel().rows.map((row) => row.original),
-    kanbanGroupBy: props.kanbanGroupBy,
-    dateField: props.dateField,
-    emptyMessage: props.emptyMessage,
-  }
-}
-
 function buildBodyProps(props: DataTableViewProps, derived: ViewDerived): GridBodyProps {
   return {
-    showGrid: derived.showGrid,
-    alternate: buildAlternateProps(props),
     grid: buildGridProps(props, derived),
+    phoneLayout: props.phoneLayout,
     table: props.table,
     totalRecords: props.totalRecords,
     paginationConfig: props.paginationConfig,

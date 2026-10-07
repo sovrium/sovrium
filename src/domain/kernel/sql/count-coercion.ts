@@ -14,8 +14,7 @@
  *
  * Why this exists
  * ---------------
- * Every aggregate read in the codebase used to end in `Number(row.count ?? 0)`.
- * That idiom looks defensive but is NOT: `??` only rescues `null`/`undefined`,
+ * The idiom `Number(row.count ?? 0)` looks defensive but is NOT: `??` only rescues `null`/`undefined`,
  * and the value reaching it is frequently ALREADY a number. Drizzle's `count()`
  * is `sql\`count(*)\`.mapWith(Number)`, so the driver applies `Number()`
  * upstream — a count that fails to arrive lands as **`NaN`**, and `NaN ?? 0` is
@@ -23,8 +22,8 @@
  *
  * A single `NaN` then travels as a *successful* value, so neither
  * `Effect.catchAll` nor a latency guard can intercept it (the error channel
- * never sees it). It surfaces much later at the response boundary: the
- * 2026-07-25 production incident ended with
+ * never sees it). It surfaces much later at the response boundary: a
+ * production incident ended with
  * `ZodError {"expected":"number","received":"NaN","path":["submissions","total"]}`
  * — an admin-wide HTTP 500 caused by one unusable aggregate.
  *

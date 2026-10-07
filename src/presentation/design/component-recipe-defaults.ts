@@ -90,11 +90,10 @@ export const BUTTON_ROOT_RECIPE_HEAD =
  * module note states, satisfied from the other direction. So there is nothing
  * to drift from: the quoted recipe and the applied one are one string.
  *
- * `swatch` had no recipe at all, and its root rendered a bare `<div class="">`
- * with three INLINE children inside it. Measured live on the console
- * 2026-09-16: the chip's right edge and the label's left edge both at x 561 —
- * the name glued to the colour, `gap: normal` computed, because nothing had
- * asked for a flex box in the first place.
+ * Without a recipe, a `swatch` root renders a bare `<div class="">` with three
+ * INLINE children inside it. Measured live on the console: the chip's right
+ * edge and the label's left edge both at x 561 — the name glued to the colour,
+ * `gap: normal` computed, because nothing asked for a flex box.
  *
  * `flex-wrap` because the notations (`showHex` / `showOklch`) and the contrast
  * verdict are optional extras on that same row, and a swatch in a narrow column

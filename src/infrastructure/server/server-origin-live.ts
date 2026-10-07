@@ -49,7 +49,6 @@ import { ServerOrigin } from '@/application/ports/services/server-origin'
 /** Strip any trailing slashes so callers can concatenate a path directly. */
 const normalise = (origin: string): string => origin.replace(/\/+$/, '')
 
-// eslint-disable-next-line functional/no-let -- the bound origin is not knowable until `Bun.serve` returns, so it is published once at bind and re-published by each boot the E2E harness performs inside one process
 let boundOrigin: string | undefined
 
 /**
@@ -64,7 +63,6 @@ let boundOrigin: string | undefined
  * boot would send a later spec's link to a port nothing is listening on.
  */
 export const publishBoundOrigin = (origin: string): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- publishing the bound origin is the point
   boundOrigin = normalise(origin)
 }
 

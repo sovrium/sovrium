@@ -18,9 +18,9 @@ import {
   updateCommentStatusProgram,
 } from '@/application/use-cases/tables/comment-programs'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import {
   notFoundResponse,
   resolveGatedComment,
@@ -29,7 +29,9 @@ import {
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
 import { checkRecordReadGate } from './record-read-gate'
+import type { UpdateCommentRequest } from '@/domain/models/api/tables/comments'
 import type { App } from '@/domain/models/app'
+import type { ValidatedContext } from '@/presentation/api/runtime/effect-validator'
 import type { Context } from 'hono'
 
 // Re-export the create-comment handler so the route table keeps importing
@@ -73,14 +75,13 @@ export async function handleDeleteComment(c: Context, app: App) {
     address: target.address,
   })
 
-  const result = await runTableProgram(program)
+  const result = await runOnRequest(c, program)
 
   if (result._tag === 'Failure') {
     return handleDeleteCommentError(c, result.failure)
   }
 
   // Return 204 No Content on success
-  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
   return c.body(null, 204)
 }
 
@@ -95,7 +96,8 @@ export async function handleGetComment(c: Context, app: App) {
 
   // The comment carries the people its markup names, resolved among the
   // record's readers exactly as the thread resolves them.
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     getCommentProgram({
       session,
       commentId: target.commentId,
@@ -119,19 +121,12 @@ export async function handleGetComment(c: Context, app: App) {
 }
 
 /**
- * Validated update-comment body. Either `content` (author edit) or
- * `status` (admin moderation action) — exactly one is required.
+ * The update a PATCH resolves to: a `content` edit by the author, or a
+ * `status` change by a moderator.
  */
 type ValidatedUpdateBody =
   | { readonly kind: 'content'; readonly content: string }
   | { readonly kind: 'status'; readonly status: 'approved' | 'rejected' | 'pending' }
-
-/**
- * `true` when `status` is one of the three published moderation states.
- */
-function isModerationStatus(status: string): status is 'approved' | 'rejected' | 'pending' {
-  return status === 'approved' || status === 'rejected' || status === 'pending'
-}
 
 /**
  * `true` when `content` is a non-empty string within the 10,000-char bound.
@@ -141,23 +136,17 @@ function isValidEditContent(content: unknown): content is string {
 }
 
 /**
- * Validate update comment request body. Supports both content edits
- * (author-only) and status updates (PG-02 moderation, admin-only).
+ * Resolve which update the decoded body asks for.
+ *
+ * `updateCommentRequestSchema` has already guaranteed that `status`, when
+ * present, is one of the three moderation states, and that a body without one
+ * carries a non-empty `content`. A status wins when both are sent. The
+ * 10,000-character cap on an edited body is the one rule the schema does not
+ * carry, so it is checked here.
  */
-function validateUpdateCommentBody(body: unknown): ValidatedUpdateBody | undefined {
-  if (typeof body !== 'object' || body === null || body === undefined) {
-    return undefined
-  }
-
-  const { content, status } = body as Record<string, unknown>
-
-  // Status-only update (PG-02 moderation queue): admin flips moderation state.
-  if (typeof status === 'string') {
-    return isModerationStatus(status) ? { kind: 'status', status } : undefined
-  }
-
-  // Content-only update (author edit).
-  return isValidEditContent(content) ? { kind: 'content', content } : undefined
+function validateUpdateCommentBody(body: UpdateCommentRequest): ValidatedUpdateBody | undefined {
+  if (body.status !== undefined) return { kind: 'status', status: body.status }
+  return isValidEditContent(body.content) ? { kind: 'content', content: body.content } : undefined
 }
 
 /**
@@ -204,7 +193,8 @@ async function handleModerationStatusUpdate(input: {
     return notFound(c)
   }
 
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     updateCommentStatusProgram({
       session: input.session,
       commentId,
@@ -227,15 +217,16 @@ async function handleModerationStatusUpdate(input: {
 /**
  * Handle update comment
  */
-export async function handleUpdateComment(c: Context, app: App) {
+export async function handleUpdateComment(
+  c: ValidatedContext<'json', UpdateCommentRequest>,
+  app: App
+) {
   const { session, userRole } = getTableContext(c)
   const target = await resolveGatedComment(c, app)
   if (target instanceof Response) return target
   const { table, commentId, address } = target
 
-  // Parse and validate request body
-  const body = await c.req.json().catch(() => undefined)
-  const validated = validateUpdateCommentBody(body)
+  const validated = validateUpdateCommentBody(c.req.valid('json'))
 
   if (!validated) {
     return c.json(
@@ -259,7 +250,8 @@ export async function handleUpdateComment(c: Context, app: App) {
 
   // Content edit (author-only). The edited comment answers with the people its
   // new body names, resolved as the created one's are.
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     updateCommentProgram({
       session,
       commentId,
@@ -324,7 +316,7 @@ export async function handleListComments(c: Context, app: App) {
   // (including an unknown/empty role) resolves to approved-only.
   const viewerIsAdmin = isAdminEquivalent(userRole, app)
 
-  // [internal ref]: project a per-user `unreadCount` only when the table opts into
+  // Project a per-user `unreadCount` only when the table opts into
   // `comments.readTracking`. Thread the raw `:tableId` so the read-state
   // watermark is scoped to the same (user, table, record) identity comments
   // are stored under.
@@ -333,7 +325,8 @@ export async function handleListComments(c: Context, app: App) {
   // Each comment carries the people its `@[<user id>]` markup names, resolved
   // to their current names among the record's readers — the thread renders
   // every other token as a neutral placeholder, never the markup.
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     listCommentsProgram({
       session,
       recordId,

@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computer for the navigation-cluster components
- *: `breadcrumb`, `pagination`, and `toc`. The `sidebar` half of this
+ * `breadcrumb`, `pagination`, and `toc`. The `sidebar` half of this
  * family moved to `@/presentation/utils/recipes/sidebar-default-classes` in
  * wave R-F, because three islands redraw it and may not import from here. Schema authors who write
  * the bare `{ type: 'breadcrumb', breadcrumbItems: [...] }`,

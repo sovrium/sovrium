@@ -42,6 +42,7 @@ import {
   type DigestWindow,
   type TableFigures,
 } from '@/application/use-cases/admin/weekly-digest-blocks'
+import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { BootLedgerRepository } from '@/application/ports/repositories/admin/boot-ledger-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { AdminBucketFilesRepository } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
@@ -62,6 +63,7 @@ export type WeeklyDigestServices =
   | StorageService
   | StorageFootprintRepository
   | BootLedgerRepository
+  | AuditLogRepository
 
 /**
  * Per-block latency budget. The summary is a background job with no HTTP
@@ -109,7 +111,6 @@ export interface DigestFigures {
 
 /** A change against the previous figure, or null on a baseline week. */
 const change = (current: number, previous: number | undefined): number | null =>
-  // eslint-disable-next-line unicorn/no-null -- the wire contract spells "nothing to compare" as null
   previous === undefined ? null : current - previous
 
 /**
@@ -126,7 +127,6 @@ export const assembleWeeklyDigest = (
   const previousRows = new Map((before?.data.tables ?? []).map((table) => [table.name, table.rows]))
   return {
     v: 1,
-    // eslint-disable-next-line unicorn/no-null -- an undeclared version is null on the wire
     app: { name: app.name, version: app.version ?? null, engineVersion: input.engineVersion },
     period: {
       start: input.from.toISOString(),
@@ -159,8 +159,7 @@ export const assembleWeeklyDigest = (
     attention: figures.attention,
     previous:
       before === undefined || input.previous === undefined
-        ? // eslint-disable-next-line unicorn/no-null -- a baseline week has no previous summary on the wire
-          null
+        ? null
         : { periodEnd: input.previous.periodEnd.toISOString() },
   }
 }

@@ -1,0 +1,63 @@
+# sovrium-library: block/newsletter-inline@0.30.0
+# Placed inside the index's own column, so it drops the library block's page
+# padding and width cap and lines up with the essays above it.
+name: newsletter-inline
+type: container
+element: section
+props:
+  className: pt-6
+children:
+  - type: container
+    props:
+      className: w-full
+    children:
+      - type: card
+        props:
+          className: flex flex-col gap-8 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between
+        children:
+          - type: flex
+            props:
+              className: flex flex-col max-w-md gap-2
+            children:
+              - type: text
+                element: h3
+                props:
+                  className: text-xl font-semibold text-foreground
+                content: Field Notes by email
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: One email when an essay is published, about twice a month.
+          - type: flex
+            props:
+              className: flex flex-col w-full max-w-md gap-2
+            children:
+              - type: form
+                props:
+                  className: '!border-0 !bg-transparent !p-0 sm:flex-row sm:items-end *:first:flex-1'
+                classes:
+                  parts:
+                    submit: h-10 px-4
+                endpoint:
+                  url: /api/forms/newsletter/submissions
+                  method: POST
+                  submitLabel: Subscribe
+                  onSuccess:
+                    type: toast
+                    variant: success
+                    message: You are subscribed. The next essay arrives by email.
+                  onError:
+                    type: toast
+                    variant: destructive
+                    message: The address could not be saved. Try again.
+                fields:
+                  - field: email
+                    control: email
+                    label: Email
+                    placeholder: you@example.com
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: Your address is kept by Field Notes and used for this newsletter only.

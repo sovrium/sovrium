@@ -62,14 +62,18 @@
  * the AST, so a trigger, a table field or any future discriminated union in
  * `AppSchema` reports in the same shape for free.
  *
- * ONE PROPERTY PER RUN
- * --------------------
- * Effect decodes with `errors: 'first'`, so a config with three typos yields one
- * issue, not three, and this module can only report what the decoder found. An
- * author with several mistakes fixes them one run at a time. That is a real
- * limitation, not a design choice — reporting all of them would mean decoding
- * with `errors: 'all'`, which changes the traversal for every other failure mode
- * too and is a separate decision.
+ * EVERY MISTAKE IN ONE RUN
+ * ------------------------
+ * The pipeline decodes with `errors: 'all'`, so a config with three independent
+ * mistakes hands this module three failures, not one. Most of the issue tree is
+ * then RESIDUE: every union member the decoder tried and abandoned reports its
+ * own complaints (`Unexpected key` for each property of every component branch,
+ * "Type must be an unknown field type" from the catch-all field branch). The
+ * branch choice below is what keeps that residue out of the report: at every
+ * union, only the member the author most plausibly meant is walked into the
+ * report, so one mistake yields one problem however many members were tried.
+ * `collectDecodeProblems` is the all-errors entry point; `collectDecodeFindings`
+ * keeps its narrower, explained-only contract for the callers that use it.
  *
  * IT READS `reportInput`, BUT THAT IS NOT CURRENTLY LOAD-BEARING
  * -------------------------------------------------------------
@@ -89,11 +93,22 @@
  * wrong diagnosis in a user's terminal.
  */
 
-import { SchemaAST } from 'effect'
+import { SchemaAST, SchemaIssue } from 'effect'
 import { migrationHintForRemovedKey } from '@/domain/models/app/design/removed-keys'
+import { migrationHintForRemovedFormKey } from '@/domain/models/app/pages/components/component-types/data/form/removed-keys'
+import { migrationHintForRemovedTableKey } from '@/domain/models/app/pages/components/component-types/data/table/removed-keys'
 import { migrationHintForRetiredComponentType } from '@/domain/models/app/pages/components/component-types/retired-types'
 import { suggestKey } from '../../kernel/config-parsing/key-suggestion'
-import type { SchemaIssue } from 'effect'
+import {
+  comparePositions,
+  documentPosition,
+  refusedKeyMessage,
+} from './app-decode-document-service'
+import {
+  decoderAtNotation,
+  decoderPathToFindingPath,
+  isPropertyNamesCheck,
+} from './app-decoder-notation-service'
 
 // =============================================================================
 // Types
@@ -223,12 +238,31 @@ export interface CheckFailureFinding {
   readonly message: string
 }
 
+/**
+ * A failure inside the chosen union member that this module has nothing to add
+ * to — a missing key, a value of the wrong type, a rule failed outside any
+ * contested union — rendered EXACTLY as the decoder's own formatter renders it.
+ *
+ * Exact on purpose: the decoder's wording is what docs and log scrapers know.
+ * What this module decides is WHICH of these lines are printed — the ones in the
+ * member the author meant, not the residue of every member the decoder tried.
+ * @public
+ */
+export interface DecoderMessageFinding {
+  readonly kind: 'decoder-message'
+  /** Dotted/indexed path from the config root. */
+  readonly path: string
+  /** The decoder's lines: the message, then its `  at [...]` line when located. */
+  readonly lines: readonly string[]
+}
+
 /** Anything this module can say about a decode failure. @public */
 export type DecodeFinding =
   | (ExcessPropertyFinding & { readonly kind: 'excess-property' })
   | UnionMismatchFinding
   | UnknownDiscriminantFinding
   | CheckFailureFinding
+  | DecoderMessageFinding
 
 interface RawExcessFinding {
   readonly kind: 'excess-property'
@@ -258,15 +292,35 @@ interface RawCheckFinding {
   readonly kind: 'check-failure'
   readonly segments: readonly (string | number)[]
   readonly message: string
+  /** The failed check itself, so an unconfirmed rule can be rendered as the decoder would. */
+  readonly issue: SchemaIssue.Issue
   /**
    * `undefined` until a contested union rules on it; then `true` only while
    * EVERY contested union above it chose decisively. One tie anywhere on the
    * way up pins it to `false` for good.
    */
   readonly confirmed: boolean | undefined
+  /** Set when the rule refused a record KEY (a `Schema.isPropertyNames` check), not a value. */
+  readonly propertyKey?: true
 }
 
-type RawFinding = RawExcessFinding | RawMismatchFinding | RawDiscriminantFinding | RawCheckFinding
+/** A leaf (or message-less check) the decoder reported inside the chosen member. */
+interface RawLeafFinding {
+  readonly kind: 'decoder-leaf'
+  readonly segments: readonly (string | number)[]
+  readonly issue: SchemaIssue.Issue
+  /** Set when the rule refused a record KEY (a `Schema.isPropertyNames` check), not a value. */
+  readonly propertyKey?: true
+}
+
+type RawFinding =
+  RawExcessFinding | RawMismatchFinding | RawDiscriminantFinding | RawCheckFinding | RawLeafFinding
+
+/** A leaf as a candidate: reported, but earning no score. Pure. */
+const leafCandidate = (
+  issue: SchemaIssue.Issue,
+  segments: readonly (string | number)[]
+): Candidate => ({ findings: [{ kind: 'decoder-leaf', segments, issue }], score: 0 })
 
 /**
  * A branch of the issue tree, scored by how much of what the author wrote it
@@ -282,6 +336,9 @@ interface Candidate {
 // =============================================================================
 
 const EMPTY_CANDIDATE: Candidate = { findings: [], score: 0 }
+
+/** The decoder's own formatter — the one `SchemaError.message` renders with. */
+const DECODER_FORMATTER = SchemaIssue.makeFormatterDefault()
 
 /**
  * Weight of a matching discriminant literal when choosing a union branch.
@@ -318,7 +375,7 @@ const DISCRIMINANT_WEIGHT = 1000
  * one. So this is what makes the choice DELIBERATE rather than an artefact of
  * declaration order: `{ type: 'badcomp', vars: {...} }` flips to the false
  * `Unknown property 'type'` the moment the weight is removed, and
- * [internal ref] pins exactly that config for exactly that reason.
+ * a CLI validate spec pins exactly that config for exactly that reason.
  *
  * Writing `type` at all is strong evidence the author reached for the family
  * that HAS a `type`. So it outranks any achievable key overlap, and sits an
@@ -650,17 +707,18 @@ const walkIssue = (issue: SchemaIssue.Issue, segments: readonly (string | number
     case 'AnyOf':
       return walkAnyOf(issue, segments)
 
-    // Leaves. `UnexpectedKey` is consumed by its parent struct (the only place
-    // the accepted-key list lives); the rest are failures this module has nothing
-    // to add to, so it stays silent and the caller falls back to the decoder's
-    // own formatter.
+    // Leaves. `UnexpectedKey` is normally consumed by its parent struct (the
+    // only place the accepted-key list lives); the rest are failures this module
+    // has nothing to add to. Each is carried as a decoder leaf, rendered in the
+    // decoder's own words — and only if the member it lives in is the one the
+    // branch choice keeps, which is what drops the residue.
     case 'InvalidType':
     case 'InvalidValue':
     case 'MissingKey':
     case 'UnexpectedKey':
     case 'Forbidden':
     case 'OneOf':
-      return EMPTY_CANDIDATE
+      return leafCandidate(issue, segments)
   }
 }
 
@@ -678,13 +736,29 @@ const walkFilter = (
   segments: readonly (string | number)[]
 ): Candidate => {
   const inner = issue.issue
+  if (isPropertyNamesCheck(issue.filter.annotations))
+    return markPropertyKeys(walkIssue(inner, segments))
   const message = inner._tag === 'InvalidValue' ? inner.annotations?.message : undefined
-  if (typeof message !== 'string' || message.length === 0) return walkIssue(inner, segments)
-  return {
-    findings: [{ kind: 'check-failure', segments, message, confirmed: undefined }],
-    score: 0,
+  if (typeof message === 'string' && message.length > 0) {
+    return {
+      findings: [{ kind: 'check-failure', segments, message, issue, confirmed: undefined }],
+      score: 0,
+    }
   }
+  // A message-less rule is rendered by the decoder from the CHECK (its
+  // `expected` annotation), not from the inner leaf, so the check is the leaf.
+  return inner._tag === 'InvalidValue' ? leafCandidate(issue, segments) : walkIssue(inner, segments)
 }
+
+/** Every rule failure below a property-names check marked as a refused KEY, quoted by the report. */
+const markPropertyKeys = (candidate: Candidate): Candidate => ({
+  ...candidate,
+  findings: candidate.findings.map((finding) =>
+    finding.kind === 'check-failure' || finding.kind === 'decoder-leaf'
+      ? { ...finding, propertyKey: true as const }
+      : finding
+  ),
+})
 
 /**
  * The same candidate with its rule failures confirmed or withdrawn by one union.
@@ -755,8 +829,9 @@ const walkAnyOf = (
   }
 
   // Untitled but discriminated: name the legal VALUES instead of the shapes.
+  // Neither: the union itself is the leaf (`Expected "h1" | "h2" ..., got ...`).
   const discriminant = unionDiscriminantValues(issue.ast)
-  if (discriminant === undefined) return best
+  if (discriminant === undefined) return leafCandidate(issue, segments)
 
   // Credit only for what the author demonstrably wrote. A value that carries no
   // `type` at all is not evidence they meant this family, so it earns nothing
@@ -821,8 +896,18 @@ const findingIdentity = (finding: RawFinding): string => {
       return `discriminant::${formatPath(finding.segments)}::${finding.discriminant}`
     case 'check-failure':
       return `check::${formatPath(finding.segments)}::${finding.message}`
+    case 'decoder-leaf':
+      return `leaf::${decoderLines(finding).join('\n')}`
   }
 }
+
+/** The decoder's own rendering of one issue at its path, as lines. Pure. */
+const decoderLines = (finding: RawLeafFinding | RawCheckFinding): readonly string[] =>
+  DECODER_FORMATTER(
+    finding.segments.length === 0
+      ? finding.issue
+      : new SchemaIssue.Pointer(finding.segments, finding.issue)
+  ).split('\n')
 
 /** The illegal discriminant value the author wrote, when it was reported. Pure. */
 const writtenDiscriminant = (input: unknown, name: string): string | undefined => {
@@ -831,7 +916,7 @@ const writtenDiscriminant = (input: unknown, name: string): string | undefined =
   return typeof value === 'string' ? value : undefined
 }
 
-const toDecodeFinding = (finding: RawFinding): DecodeFinding => {
+const toDecodeFinding = (finding: Exclude<RawFinding, RawLeafFinding>): DecodeFinding => {
   if (finding.kind === 'check-failure') {
     return { kind: 'check-failure', path: formatPath(finding.segments), message: finding.message }
   }
@@ -869,7 +954,10 @@ const toDecodeFinding = (finding: RawFinding): DecodeFinding => {
         : undefined,
     accepted: finding.accepted,
     suggestion: suggestKey(finding.key, finding.accepted),
-    migration: migrationHintForRemovedKey(path, finding.key),
+    migration:
+      migrationHintForRemovedKey(path, finding.key) ??
+      migrationHintForRemovedTableKey(path, finding.discriminant, finding.key) ??
+      migrationHintForRemovedFormKey(path, finding.discriminant, finding.key),
   }
 }
 
@@ -881,13 +969,85 @@ const toDecodeFinding = (finding: RawFinding): DecodeFinding => {
  * decoder's own formatter so no failure is ever swallowed. Pure.
  */
 export const collectDecodeFindings = (issue: SchemaIssue.Issue): readonly DecodeFinding[] =>
-  walkIssue(issue, [])
-    .findings.filter((finding) => finding.kind !== 'check-failure' || finding.confirmed === true)
+  dedupeFindings(walkIssue(issue, []).findings)
     .filter(
-      (finding, index, all) =>
-        all.findIndex((other) => findingIdentity(other) === findingIdentity(finding)) === index
+      (finding): finding is Exclude<RawFinding, RawLeafFinding> =>
+        finding.kind !== 'decoder-leaf' &&
+        (finding.kind !== 'check-failure' || finding.confirmed === true)
     )
     .map(toDecodeFinding)
+
+/** One entry per (path, complaint). Pure. */
+const dedupeFindings = (findings: readonly RawFinding[]): readonly RawFinding[] =>
+  findings.filter(
+    (finding, index, all) =>
+      all.findIndex((other) => findingIdentity(other) === findingIdentity(finding)) === index
+  )
+
+/**
+ * EVERY problem in a decode failure, one per mistake, in document order. Pure.
+ *
+ * The all-errors counterpart of `collectDecodeFindings`: what that function
+ * explains is explained the same way, and what it would have left to the
+ * decoder — a missing key, a wrong type, a rule outside any contested union —
+ * is kept too, in the decoder's own words, as a `decoder-message`. Only failures
+ * inside the union members the branch choice keeps are reported, so a mistake
+ * the decoder saw through five members is still ONE problem.
+ *
+ * `document` is the config as parsed. When given, problems are ordered by where
+ * their keys appear in it rather than by the schema's declaration order, which
+ * is the order an author reads their file in.
+ */
+export const collectDecodeProblems = (
+  issue: SchemaIssue.Issue,
+  document?: unknown
+): readonly DecodeFinding[] => {
+  const problems = dedupeFindings(walkIssue(issue, []).findings).map(
+    (
+      finding
+    ): { readonly finding: DecodeFinding; readonly segments: readonly (string | number)[] } => ({
+      segments: finding.segments,
+      finding: isRefusedKey(finding)
+        ? refusedKeyFinding(finding, document)
+        : finding.kind === 'decoder-leaf' ||
+            (finding.kind === 'check-failure' && finding.confirmed !== true)
+          ? {
+              kind: 'decoder-message',
+              path: formatPath(finding.segments),
+              lines: decoderLines(finding),
+            }
+          : toDecodeFinding(finding),
+    })
+  )
+  if (document === undefined) return problems.map(({ finding }) => finding)
+  return problems
+    .map((problem) => ({ ...problem, position: documentPosition(document, problem.segments) }))
+    .toSorted((left, right) => comparePositions(left.position, right.position))
+    .map(({ finding }) => finding)
+}
+
+/** A rule failure that refused a record key rather than a value. */
+type RawRefusedKeyFinding = (RawCheckFinding | RawLeafFinding) & { readonly propertyKey: true }
+
+const isRefusedKey = (finding: RawFinding): finding is RawRefusedKeyFinding =>
+  (finding.kind === 'check-failure' || finding.kind === 'decoder-leaf') &&
+  finding.propertyKey === true
+
+/** A refused record key, reported by name (see `refusedKeyMessage`). Pure. */
+const refusedKeyFinding = (
+  finding: RawRefusedKeyFinding,
+  document: unknown
+): CheckFailureFinding => ({
+  kind: 'check-failure',
+  path: formatPath(finding.segments),
+  message: refusedKeyMessage(
+    finding.segments,
+    finding.kind === 'check-failure'
+      ? finding.message
+      : (DECODER_FORMATTER(finding.issue).split('\n')[0] ?? ''),
+    document
+  ),
+})
 
 /**
  * Every unrecognised property the decoder rejected, located and explained.
@@ -913,12 +1073,22 @@ export const collectExcessPropertyFindings = (
 export const attributeSourceFile = (
   path: string,
   refSources: ReadonlyMap<string, string>
+): string | undefined => attributeSourcePath(path, refSources)?.split('/').at(-1)
+
+/**
+ * The same attribution, as the partial's FULL path as recorded in the source
+ * map — the key a report groups by. Two partials in two folders may share a
+ * file name; they never share a path. Pure.
+ */
+export const attributeSourcePath = (
+  path: string,
+  refSources: ReadonlyMap<string, string>
 ): string | undefined =>
   [...refSources.entries()]
     .filter(([key]) => path === key || path.startsWith(`${key}.`) || path.startsWith(`${key}[`))
     .toSorted(([a], [b]) => b.length - a.length)
-    .map(([, file]) => file.split('/').at(-1))
-    .find((name): name is string => name !== undefined)
+    .map(([, file]) => file)
+    .find((file) => file.length > 0)
 
 /**
  * Render findings as the indented lines that sit under `Validation failed:`.
@@ -1042,7 +1212,7 @@ export interface ConfigFinding {
 // Over-stripping is the cheaper mistake to make and costs a real thing: the
 // browser error overlay is built around painting the rejected component type,
 // and a reader told only "unknown component type" has to reopen the file to find
-// out which one. [internal ref] is the control that keeps the line where it is.
+// out which one. A CLI validate spec is the control that keeps the line where it is.
 //
 // RESIDUAL RISK, ACCEPTED. A credential pasted over a component `type` is still
 // echoed. It is bounded to one string at a position expecting one of about
@@ -1057,7 +1227,9 @@ export interface ConfigFinding {
  * wording of a headline is decided and the two channels cannot come to disagree
  * about anything but the value.
  */
-const withoutEchoedValue = (finding: DecodeFinding): DecodeFinding =>
+const withoutEchoedValue = (
+  finding: Exclude<DecodeFinding, DecoderMessageFinding>
+): Exclude<DecodeFinding, DecoderMessageFinding> =>
   finding.kind === 'union-mismatch' ? { ...finding, got: undefined } : finding
 
 /**
@@ -1119,7 +1291,7 @@ const withoutReportedInput = (message: string): string =>
     .join('\n')
 
 /** The headline of a finding, reusing the exact wording its report line uses. */
-const findingMessage = (finding: DecodeFinding): string => {
+const findingMessage = (finding: Exclude<DecodeFinding, DecoderMessageFinding>): string => {
   if (finding.kind === 'check-failure') return withoutReportedInput(finding.message)
   if (finding.kind === 'unknown-discriminant') return discriminantLines(finding)[0].trim()
   if (finding.kind === 'union-mismatch') return mismatchLines(finding)[0].trim()
@@ -1127,7 +1299,9 @@ const findingMessage = (finding: DecodeFinding): string => {
 }
 
 /** What may be written at this node — the values, the keys, or the variants. */
-const findingAccepted = (finding: DecodeFinding): readonly string[] | undefined => {
+const findingAccepted = (
+  finding: Exclude<DecodeFinding, DecoderMessageFinding>
+): readonly string[] | undefined => {
   if (finding.kind === 'check-failure') return undefined
   return finding.kind === 'union-mismatch' ? finding.variants : finding.accepted
 }
@@ -1144,16 +1318,26 @@ export const toConfigFindings = (
   findings: readonly DecodeFinding[],
   refSources: ReadonlyMap<string, string>
 ): readonly ConfigFinding[] =>
-  findings.map((finding) => {
+  findings.flatMap((finding): readonly ConfigFinding[] => {
     const sourceFile = attributeSourceFile(finding.path, refSources)
-    const accepted = findingAccepted(finding)
-    return {
-      path: finding.path,
-      message: findingMessage(withoutEchoedValue(finding)),
-      ...(accepted !== undefined && { accepted }),
-      ...(sourceFile !== undefined && { sourceFile }),
-      severity: 'error' as const,
+    // Structured exactly as the decoder-message fallback always structured
+    // these lines, so a program sees the same finding it saw before.
+    if (finding.kind === 'decoder-message') {
+      return messageLinesAsConfigFindings(finding.lines).map((config) => ({
+        ...config,
+        ...(sourceFile !== undefined && { sourceFile }),
+      }))
     }
+    const accepted = findingAccepted(finding)
+    return [
+      {
+        path: finding.path,
+        message: findingMessage(withoutEchoedValue(finding)),
+        ...(accepted !== undefined && { accepted }),
+        ...(sourceFile !== undefined && { sourceFile }),
+        severity: 'error' as const,
+      },
+    ]
   })
 
 /**
@@ -1174,24 +1358,6 @@ export const messageAsConfigFinding = (message: string): ConfigFinding => ({
   message: withoutReportedInput(message),
   severity: 'error',
 })
-
-/** One segment of the decoder's `["key"][0]` path notation. */
-const DECODER_PATH_SEGMENT = /\["((?:[^"\\]|\\.)*)"\]|\[(\d+)\]/g
-
-/**
- * Convert the decoder's `["pages"][0]["meta"]["title"]` notation into the
- * dotted form `ConfigFinding.path` uses — `pages[0].meta.title`. Pure.
- */
-export const decoderPathToFindingPath = (notation: string): string =>
-  [...notation.matchAll(DECODER_PATH_SEGMENT)].reduce((path, match) => {
-    if (match[2] !== undefined) return `${path}[${match[2]}]`
-    const key = match[1] ?? ''
-    return path === '' ? key : `${path}.${key}`
-  }, '')
-
-/** The `at [...]` line under a decoder message, or `undefined` for any other line. */
-const decoderAtNotation = (line: string): string | undefined =>
-  /^\s+at (\[.*\])\s*$/.exec(line)?.[1]
 
 /**
  * Structure the decoder's own message lines — the fallback for a refusal the
@@ -1224,45 +1390,37 @@ export const formatDecodeReport = (
   findings: readonly DecodeFinding[],
   refSources: ReadonlyMap<string, string>
 ): readonly string[] =>
-  findings.flatMap((finding) => {
-    const sourceFile = attributeSourceFile(finding.path, refSources)
-    const at = `    at ${finding.path}${sourceFile ? `  (${sourceFile})` : ''}`
-    // A finding at the config ROOT has no path, and `at ` with nothing after it
-    // reads as a truncated line rather than as "the top level".
-    const atLine = finding.path === '' && sourceFile === undefined ? [] : [at]
+  findings.flatMap((finding) =>
+    // The decoder's own lines, verbatim, under the report's indentation.
+    finding.kind === 'decoder-message'
+      ? finding.lines.map((line) => `  ${line}`)
+      : formatExplainedFinding(finding, refSources)
+  )
 
-    if (finding.kind === 'union-mismatch') {
-      const [headline, trailer] = mismatchLines(finding)
-      return [headline, ...atLine, trailer]
-    }
+/** The report lines of one finding this module explains. Pure. */
+const formatExplainedFinding = (
+  finding: Exclude<DecodeFinding, DecoderMessageFinding>,
+  refSources: ReadonlyMap<string, string>
+): readonly string[] => {
+  const sourceFile = attributeSourceFile(finding.path, refSources)
+  const at = `    at ${finding.path}${sourceFile ? `  (${sourceFile})` : ''}`
+  // A finding at the config ROOT has no path, and `at ` with nothing after it
+  // reads as a truncated line rather than as "the top level".
+  const atLine = finding.path === '' && sourceFile === undefined ? [] : [at]
 
-    if (finding.kind === 'check-failure') return [`  ${finding.message}`, ...atLine]
+  if (finding.kind === 'union-mismatch') {
+    const [headline, trailer] = mismatchLines(finding)
+    return [headline, ...atLine, trailer]
+  }
 
-    if (finding.kind === 'unknown-discriminant') {
-      const [headline, trailer] = discriminantLines(finding)
-      // A RETIRED type gets its destination and nothing else, for the reason
-      // spelled out on the removed-key branch below: the author did not
-      // mistype, so a near-miss suggestion is noise and the accepted-values
-      // list is ninety names that do not answer the question they are holding.
-      if (finding.migration !== undefined) {
-        return [
-          headline,
-          ...atLine,
-          ...finding.migration.split('\n').map((line) => (line === '' ? '' : `    ${line}`)),
-        ]
-      }
-      return [headline, ...atLine, ...suggestionLine(finding.suggestion), trailer]
-    }
+  if (finding.kind === 'check-failure') return [`  ${finding.message}`, ...atLine]
 
-    const headline = `  Unknown property '${finding.key}'${
-      finding.nodeLabel ? ` on ${finding.nodeLabel}` : ''
-    }`
-
-    // A REMOVED key gets its destination and nothing else. The near-miss
-    // suggestion and the accepted-key list are the right help for a typo and
-    // actively unhelpful here: the author did not mistype, and reading a list of
-    // twenty accepted keys to work out that `borderRadius` is now `radius` is
-    // the work the migration line exists to do for them.
+  if (finding.kind === 'unknown-discriminant') {
+    const [headline, trailer] = discriminantLines(finding)
+    // A RETIRED type gets its destination and nothing else, for the reason
+    // spelled out on the removed-key branch below: the author did not
+    // mistype, so a near-miss suggestion is noise and the accepted-values
+    // list is ninety names that do not answer the question they are holding.
     if (finding.migration !== undefined) {
       return [
         headline,
@@ -1270,14 +1428,33 @@ export const formatDecodeReport = (
         ...finding.migration.split('\n').map((line) => (line === '' ? '' : `    ${line}`)),
       ]
     }
+    return [headline, ...atLine, ...suggestionLine(finding.suggestion), trailer]
+  }
 
+  const headline = `  Unknown property '${finding.key}'${
+    finding.nodeLabel ? ` on ${finding.nodeLabel}` : ''
+  }`
+
+  // A REMOVED key gets its destination and nothing else. The near-miss
+  // suggestion and the accepted-key list are the right help for a typo and
+  // actively unhelpful here: the author did not mistype, and reading a list of
+  // twenty accepted keys to work out that `borderRadius` is now `radius` is
+  // the work the migration line exists to do for them.
+  if (finding.migration !== undefined) {
     return [
       headline,
       ...atLine,
-      ...suggestionLine(finding.suggestion),
-      `    Accepted here: ${finding.accepted.join(', ')}`,
+      ...finding.migration.split('\n').map((line) => (line === '' ? '' : `    ${line}`)),
     ]
-  })
+  }
+
+  return [
+    headline,
+    ...atLine,
+    ...suggestionLine(finding.suggestion),
+    `    Accepted here: ${finding.accepted.join(', ')}`,
+  ]
+}
 
 /**
  * The whole pipeline: issue tree in, report lines out, empty when this module

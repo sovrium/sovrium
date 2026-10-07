@@ -36,6 +36,20 @@ pages:
 
 A form that declares its own `fields` keeps them.
 
+Once the link is sent the form shows a confirmation banner — your `onSuccess.toast.message`, or a built-in sentence. Declare `onSuccess: { type: successPage, title, message }` instead and the form gives way to that page: the title as a heading and the message under it, with no field left to fill again. `$form.<field>` in either prints what the reader typed into that field, as plain text, and a field the form does not have prints nothing. A password-reset request form (`method: resetPassword`) takes the same success page.
+
+```yaml
+- type: form
+  action:
+    type: auth
+    method: login
+    strategy: magicLink
+    onSuccess:
+      type: successPage
+      title: Check your inbox
+      message: We sent a sign-in link to $form.email.
+```
+
 ## Email one-time codes
 
 A numeric code instead of a link — better on a device where following a link would break the flow, and easier to read aloud over a phone.

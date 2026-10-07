@@ -114,7 +114,6 @@ export async function handleTargets(c: Context, config: TargetsHandlerConfig): P
 
   const targets = result.success.map((row) => ({
     ...row,
-    // eslint-disable-next-line unicorn/no-null -- JSON wire contract: the spec asserts `destination === null` for an orphaned index, and `undefined` would drop the key entirely
     destination: declared?.destinations[Number(row.name)] ?? null,
   }))
 

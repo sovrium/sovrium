@@ -65,7 +65,7 @@ export interface BootstrapTokenBanner {
  * server reports `0.0.0`, the instance facts keep `null` because a config gate
  * reads the absence itself, and the published JSON Schema declares no default
  * at all. Moving the substitution onto `VersionSchema` would silently change
- * all four. in `[internal ref]`.
+ * all four. See the app-first startup banner in `[internal ref]`.
  */
 const BANNER_DEFAULT_APP_VERSION = '1.0.0'
 
@@ -155,7 +155,7 @@ export interface StartupSummary {
  * one-time bootstrap token when a fresh one was minted. They are one block
  * because they are one subject — where this server is — and a locator that
  * drifted above the timing rows would stop reading as another door into the
- * same process ([internal ref] asserts the adjacency, not merely the
+ * same process (a CLI log output spec asserts the adjacency, not merely the
  * presence).
  *
  * When the summary carries a {@link BootstrapTokenBanner}, the renderer appends

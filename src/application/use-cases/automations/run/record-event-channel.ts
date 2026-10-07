@@ -30,8 +30,8 @@
  * Built by the orchestrator (`run-automation.ts`) and handed to every step.
  */
 
+import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields/field'
-import { trackBackgroundRun } from '@/infrastructure/automations/background-runs'
 import { logError } from '@/infrastructure/logging/logger'
 import { triggerRecordEventAutomations } from '../trigger-record-event'
 import type { StepContext } from './types'
@@ -127,7 +127,7 @@ export const buildRecordEventChannel = (ctx: ChannelContext): RecordEventChannel
       depth: ctx.recordEventDepth + 1,
     })
     // eslint-disable-next-line functional/no-expression-statements -- background dispatch; see the module doc for why the step does not wait
-    ctx.runProgram(trackBackgroundRun(program)).then(
+    ctx.runProgram(AutomationFiberBridge.use((bridge) => bridge.trackBackground(program))).then(
       () => undefined,
       (error: unknown) => {
         logError('[automation:record-event] background dispatch from a step rejected', error)

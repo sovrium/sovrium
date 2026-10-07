@@ -37,11 +37,11 @@
  *     `<dd data-summary-for="...">` slot from the live input values.
  *
  * Auto-advance for radio fields fires ~250ms after the user clicks an
- * option (spec [internal ref]). The delay is intentional: users want to
+ * option. The delay is intentional: users want to
  * see their selection highlight before being whisked to the next field.
  *
  * Up/Down arrow keys move a "highlight" cursor inside a radiogroup
- *. This is a Sovrium-owned highlight, not the native
+ * This is a Sovrium-owned highlight, not the native
  * browser auto-check-on-arrow behaviour — the spec advances only after
  * Enter on the highlighted option. The native behaviour would check the
  * radio AND change the visible focus on each ArrowDown, which would
@@ -53,7 +53,7 @@
  * belong in TypeScript comments like this one, which the build strips.
  * The mapping lives here: the synchronous submit on the summary step
  * exists for [internal ref], and the
- * question navigation plus summary foundation for [internal ref]..051.
+ * question navigation plus summary foundation for the forms specs.
  */
 export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
   // ---- One-question-at-a-time navigation ------------------------------------

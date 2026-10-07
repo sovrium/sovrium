@@ -1,0 +1,100 @@
+# sovrium-library: block/settings-api-keys@0.30.0
+name: settings-api-keys
+type: container
+element: section
+props:
+  className: flex w-full max-w-220 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-1
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: API keys
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: Keys let a script or another tool act as you through the API.
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Your keys
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Revoke a key the moment you stop using it.
+          - type: button
+            props:
+              label: Create key
+              interactions:
+                click:
+                  modal: settings-api-keys-create
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: container
+            props:
+              className: min-w-0 p-2
+            children:
+              - type: table
+                props:
+                  aria-label: API keys
+                dataSource:
+                  auth: apiKeys
+                columns:
+                  - field: name
+                    label: Name
+                  - field: prefix
+                    label: Key
+                  - field: lastUsedAt
+                    label: Last used
+                    format: relative-date
+                  - field: expiresAt
+                    label: Expires
+                    format: short-date
+                  - type: actions
+                    actions:
+                      - label: Revoke
+                        variant: ghost
+                        action:
+                          type: auth
+                          method: revokeApiKey
+                          target: $record.id
+                        confirm:
+                          title: Revoke this key?
+                          message: Anything using this key stops working at once.
+                          confirmLabel: Revoke key
+                emptyMessage: No key yet. Create one to call the API from a script.
+    visibility:
+      declares: auth.apiKeys
+  - type: dialog
+    props:
+      id: settings-api-keys-create
+      title: Create an API key
+      description: 'Name it after what will use it, so you know which one to revoke.'
+    children:
+      - type: form
+        action:
+          type: auth
+          method: createApiKey
+          submitLabel: Create key

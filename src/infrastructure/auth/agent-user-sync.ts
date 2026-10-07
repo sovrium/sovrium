@@ -14,11 +14,11 @@
  * table/field permissions of their assigned role exactly like a human user.
  *
  * Spec coverage:
- * - [internal ref]: agent created in `auth.user` with `type='agent'`.
- * - [internal ref]: synthetic email `{name}@agents.sovrium.local`.
- * - [internal ref]: a role change in config updates the `auth.user`
+ *  - agent created in `auth.user` with `type='agent'`.
+ *  - synthetic email `{name}@agents.sovrium.local`.
+ *  - a role change in config updates the `auth.user`
  *    record on the next startup.
- * - [internal ref]: removing an agent from config soft-deletes (sets
+ *  - removing an agent from config soft-deletes (sets
  *    `deleted_at`) the `auth.user` record — the row is never physically
  *    removed so historical activity attribution is preserved.
  *
@@ -27,7 +27,7 @@
  * `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` DDL on startup (the same lazy-DDL
  * discipline as `agent-activity-log.ts`). Agent rows carry NO `auth.account`
  * credential row, so they can never authenticate via a login endpoint
- * ([internal ref] — the rejection is a natural consequence of having
+ * (an AI agent perms spec — the rejection is a natural consequence of having
  * no password account, not a special-case code path).
  *
  * Every statement is best-effort (`.catch(() => undefined)`): a sync failure
@@ -59,11 +59,9 @@ export const agentEmail = (name: string): string => `${name}@${AGENT_EMAIL_DOMAI
  * the DDL is safe to run against a table already populated with human users.
  */
 const ensureAgentColumns = async (): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort lazy DDL; failure is swallowed
   await db
     .execute(sql`ALTER TABLE auth."user" ADD COLUMN IF NOT EXISTS "type" TEXT`)
     .catch(() => undefined)
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort lazy DDL; failure is swallowed
   await db
     .execute(sql`ALTER TABLE auth."user" ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMPTZ`)
     .catch(() => undefined)
@@ -79,7 +77,6 @@ const ensureAgentColumns = async (): Promise<void> => {
  */
 const upsertAgentUser = async (agent: AgentForSync): Promise<void> => {
   const email = agentEmail(agent.name)
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort agent-user upsert; failure is swallowed
   await db
     .execute(
       sql`
@@ -112,7 +109,6 @@ const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<v
           keepEmails.map((email) => sql`${email}`),
           sql`, `
         )
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort soft-delete; failure is swallowed
   await db
     .execute(
       sql`
@@ -139,7 +135,6 @@ export const syncAgentUsers = async (
   await ensureAgentColumns()
 
   const list = agents ?? []
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort agent-user upserts
   await Promise.all(list.map((agent) => upsertAgentUser(agent)))
   await softDeleteRemovedAgents(list.map((agent) => agentEmail(agent.name)))
 }
@@ -150,7 +145,7 @@ export const syncAgentUsers = async (
  * Runs the full sync whenever the app has auth configured — even with an
  * empty / absent `agents` list. The empty-list run is NOT a no-op: it
  * soft-deletes any agent users left over from a previous configuration
- * ([internal ref] — an agent removed from config across a restart).
+ * (an AI agent perms spec — an agent removed from config across a restart).
  * Skipped entirely when auth is absent (agent users only exist alongside an
  * `auth.user` table). Failures are swallowed + logged so a sync error never
  * blocks server startup.

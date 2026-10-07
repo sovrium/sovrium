@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { collectDataTableComponents } from './view-types'
+import { collectDataTableComponents } from './table-components-service'
 
 /**
  * The field shapes this rule reads off `app.tables[]` — raw config, so every

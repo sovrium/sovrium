@@ -6,8 +6,7 @@
  */
 
 /**
- * `split-pane` layout component-type
- *.
+ * `split-pane` layout component-type.
  *
  * A resizable two-pane layout primitive: two child panes separated by a
  * draggable divider, with `orientation` (side-by-side vs stacked), a

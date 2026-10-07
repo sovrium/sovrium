@@ -6,8 +6,7 @@
  */
 
 /**
- * Telemetry (observability-export) environment configuration
- * ([internal ref]-*).
+ * Telemetry (observability-export) environment configuration.
  *
  * Resolves four independent, env-gated, default-OFF signals from `process.env`:
  *
@@ -359,7 +358,7 @@ const effectiveSampleRatio = (sampler: TraceSampler, arg: number): number => {
 /**
  * Resolve the traces POST endpoint. `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is
  * treated as a BASE — `/v1/traces` is appended (matching the metrics/logs base
- * handling and the [internal ref] `<endpoint>/v1/traces` contract) — UNLESS the
+ * handling and the obs trace spec `<endpoint>/v1/traces` contract) — UNLESS the
  * operator already supplied the full `/v1/traces` path, in which case it is used
  * verbatim (so a fully-qualified endpoint never doubles up).
  */

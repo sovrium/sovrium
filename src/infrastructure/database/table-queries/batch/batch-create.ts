@@ -163,19 +163,18 @@ export function batchCreateRecords(
             catch: onFailure,
           })
 
-          return yield* Effect.reduce(
-            recordsWithAuthorship.map((fields, index) => ({ fields, index })),
-            () => [] as readonly Record<string, unknown>[],
-            (acc, { fields, index }) =>
-              createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
-                Effect.tap((record) =>
-                  record === undefined
-                    ? Effect.void
-                    : linkCreatedRecord(tx, tableName, record, links?.[index] ?? [])
-                ),
-                Effect.map((record) => (record ? [...acc, record] : acc))
+          // Sequential (Effect.forEach's default): one record at a time inside
+          // the transaction, collected in order.
+          const created = yield* Effect.forEach(recordsWithAuthorship, (fields, index) =>
+            createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
+              Effect.tap((record) =>
+                record === undefined
+                  ? Effect.void
+                  : linkCreatedRecord(tx, tableName, record, links?.[index] ?? [])
               )
+            )
           )
+          return created.filter((record) => record !== undefined)
         }),
       onFailure
     )

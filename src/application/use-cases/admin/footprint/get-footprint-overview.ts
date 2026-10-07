@@ -17,7 +17,7 @@
  * cross-checked by the spec via a network-spy assertion on the request
  * surface.
  *
- * @see plan §10 (locked 2026-05-09) — overview shape contract
+ * @see plan §10 — overview shape contract
  * @see src/domain/models/api/admin/audit-log/action-catalog.ts — if an
  *      audit-emitting handler is ever wired in here, it must FIRST register its
  *      action in that catalog (no `footprint.*` action exists today, so an emit
@@ -130,7 +130,6 @@ const buildEcoIndexPanel = (
   enabled: boolean
 ): FootprintOverviewResponse['ecoIndexHeader'] => ({
   enabled,
-  // eslint-disable-next-line unicorn/no-null -- `null` is the contract's "nothing graded" sentinel
   currentGrade: enabled ? tracker.currentGrade : null,
   graded: tracker.graded,
   since: tracker.since,
@@ -145,7 +144,7 @@ const buildEcoIndexPanel = (
  * panel-level invariants and returns the canonical response shape; the
  * caller validates against `footprintOverviewResponseSchema` and emits the JSON.
  *
- * Returns the response cast as `FootprintOverviewResponse` (Zod-inferred,
+ * Returns the response cast as `FootprintOverviewResponse` (schema-inferred,
  * structurally compatible with the readonly literal we construct). The
  * `Readonly` wrapper would mask the inferred shape — Zod schemas accept
  * mutable arrays at the boundary, and the caller only ever validates and

@@ -119,8 +119,8 @@ components:
                     content: Your runbooks and decisions, readable by the assistant you already use. It reads what the key's owner may read; it writes only if their role allows it.
 
               # 1 · Turn it on. The operator's switch, not the config's: the
-              # code blocks keep one dark theme in both schemes, and the wrapper
-              # paints their file bar in the same ground.
+              # code blocks keep one dark theme in both schemes, and each block's
+              # caption part paints its file bar in the same ground.
               - type: container
                 props:
                   className: flex flex-col gap-2
@@ -131,12 +131,15 @@ components:
                       className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
                     content: 1 · Turn it on
                   - type: container
-                    props:
-                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
                     children:
                       - type: code
                         props:
                           language: bash
+                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                        classes:
+                          parts:
+                            frame: border-[#30363d]
+                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
                         filename: terminal
                         content: |-
                           MCP_ENABLED=true MCP_TRANSPORT=streamable-http \
@@ -157,7 +160,14 @@ components:
                     element: p
                     props:
                       format: markdown
-                      className: text-[13px] text-foreground-muted [&_p]:text-[13px] [&_a]:text-primary-subtle-foreground [&_a:hover]:underline
+                      className: text-[13px] text-foreground-muted
+                    classes:
+                      parts:
+                        paragraph: text-[13px]
+                        link: text-primary-subtle-foreground
+                      states:
+                        hover:
+                          link: underline
                     content: Sign in as the person whose role the assistant should have, then [create a key in the admin](/_admin/api-keys). A viewer's key reads; an editor's key can also add documents.
 
               # 3 · Connect your client. The configuration most MCP clients
@@ -173,12 +183,15 @@ components:
                       className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
                     content: 3 · Connect your client
                   - type: container
-                    props:
-                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
                     children:
                       - type: code
                         props:
                           language: json
+                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                        classes:
+                          parts:
+                            frame: border-[#30363d]
+                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
                         filename: client configuration
                         content: |-
                           { "mcpServers": { "team-kb": { "type": "http",
@@ -246,7 +259,10 @@ components:
                             element: span
                             props:
                               format: markdown
-                              className: '[&_p]:text-[14px] [&_p]:leading-[1.55] [&_code]:font-mono [&_code]:text-[1em]'
+                            classes:
+                              parts:
+                                paragraph: text-[14px] leading-[1.55]
+                                inlineCode: font-mono text-[1em]
                             content: Issue the new credential first and keep the old one valid, update `DATABASE_URL` and restart, confirm the app serves on the new one, then revoke the old. From the runbook "Rotate the database credentials".
 
           # The rail: the tools the server lists for an editor, how a client
@@ -352,7 +368,11 @@ components:
                     element: p
                     props:
                       format: markdown
-                      className: text-[12px] text-foreground-muted [&_p]:text-[12px] [&_code]:font-mono [&_code]:text-[1em]
+                      className: text-[12px] text-foreground-muted
+                    classes:
+                      parts:
+                        paragraph: text-[12px]
+                        inlineCode: font-mono text-[1em]
                     content: Each name carries the app's prefix, `mcp-server-example_`. A viewer's key lists four, and the create tool refuses it.
               - type: container
                 props:
@@ -375,7 +395,10 @@ components:
                         element: span
                         props:
                           format: markdown
-                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        classes:
+                          parts:
+                            paragraph: text-[13px]
+                            inlineCode: font-mono text-[1em]
                         content: API key on `x-api-key`
                   - type: container
                     props:
@@ -390,7 +413,10 @@ components:
                         element: span
                         props:
                           format: markdown
-                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        classes:
+                          parts:
+                            paragraph: text-[13px]
+                            inlineCode: font-mono text-[1em]
                         content: or an OAuth token on `Authorization`
               - type: container
                 props:

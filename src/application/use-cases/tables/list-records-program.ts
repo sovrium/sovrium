@@ -12,12 +12,13 @@
  * That is the seam. Every other program here addresses one record by id; this
  * one is a query, and the whole of its difficulty is that four things must
  * agree about which rows they are describing — the page, the total, the
- * aggregations and the groups. Three of the helpers below exist only to keep
- * them agreeing:
+ * aggregations and the groups. The helpers below exist to keep them agreeing,
+ * each in its own statement over the same filter and none reading a row it
+ * does not return:
  *
- *   - {@link readListRows} chooses between SQL pushdown and a whole-set read,
- *     and reports which it used as `preSliced` so nothing downstream slices a
- *     window twice.
+ *   - {@link readListRows} pushes the page window into SQL, and reports it as
+ *     `preSliced` so nothing downstream slices a window twice.
+ *   - {@link listGroups} answers `groups` with one `GROUP BY` per level.
  *   - {@link countMatchingRecords} takes the total from the SAME filter the
  *     page used, rather than from `records.length`, which stops answering the
  *     moment the engine returns one window.
@@ -25,21 +26,17 @@
  *     works, and does it after pagination so each enricher covers one page.
  *
  * The many-to-many and related-label enrichers it calls live in
- * `record-link-enrichment.ts`, shared with the single-record read and the two
- * write programs.
+ * `record-link-enrichment.ts`, shared with the single read and both writes.
  */
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import { asMinMaxAnswer, minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import {
   answerOrderedAggregations,
-  computeGroupPartitions,
   reshapeShortcutAggregations,
   type AggregateConfig,
-  type OrderedAnswer,
 } from './aggregation-helpers'
 import { enrichRecordsWithAttachmentUrls } from './attachment-url-enricher'
 import { buildProjectionColumns } from './field-projection'
@@ -50,13 +47,15 @@ import {
 } from './hidden-lookup-omission'
 import { processRecords, buildPaginationMeta, DEFAULT_PAGE_SIZE } from './list-helpers'
 import { lookupReadMasks } from './lookup-read-masks'
+import { orderedAnswerFor, readRecordGroups } from './record-groups'
 import {
   enrichRecordsWithManyToMany,
   enrichRecordsWithRelatedLabels,
 } from './record-link-enrichment'
-import { serializeDriverRow, type TransformedRecord } from './record-transformer'
+import { type TransformedRecord } from './record-transformer'
 import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
@@ -124,20 +123,19 @@ function parseGroupByLevels(groupBy: string | undefined): readonly string[] {
     .filter((field) => field.length > 0)
 }
 
-function computeListRecordsAggregationBlock(params: {
+/** The whole-view figures of `?aggregate=`, over the same filter the page and the total use. */
+function computeListRecordsAggregations(params: {
   readonly repo: TableRepository['Service']
   readonly session: Readonly<UserSession>
   readonly tableName: string
-  readonly records: readonly Readonly<Record<string, unknown>>[]
   readonly filter?: ListRecordsConfig['filter']
   readonly includeDeleted?: boolean
   readonly aggregate: AggregateConfig
-  readonly groupBy?: string
   readonly lookupMasks: readonly LookupReadMask[]
   readonly app: ListRecordsConfig['app']
 }) {
   return Effect.gen(function* () {
-    const { repo, session, tableName, records, filter, includeDeleted, aggregate, groupBy } = params
+    const { repo, session, tableName, filter, includeDeleted, aggregate } = params
     const computed = yield* repo.computeAggregations({
       session,
       tableName,
@@ -146,25 +144,40 @@ function computeListRecordsAggregationBlock(params: {
       aggregate,
       lookupMasks: params.lookupMasks,
     })
-    // A `min`/`max` over a date answers as the records API reads the date.
-    const answer: OrderedAnswer = (field, value) =>
-      asMinMaxAnswer(minMaxKindOf(params.app, tableName, field), value)
-    const raw = answerOrderedAggregations(computed, answer)
-    const aggregations = aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw
-    // Grouping and aggregating are two questions about the same view, not two
-    // modes: a grid that both groups its rows AND summarises a column asks both
-    // in one request (five shipped templates do). Answering only the grouped one
-    // would have blanked those summary footers the moment the grid started
-    // sending `?groupBy=`, so both blocks are returned.
-    const levels = parseGroupByLevels(groupBy)
-    if (levels.length > 0) {
-      // A group is named by the value as the records API reads it: a date as
-      // its day, a timestamp as its ISO instant — never a driver `Date`'s text.
-      const readable = records.map((row) => serializeDriverRow(row, { app: params.app, tableName }))
-      return { groups: computeGroupPartitions(readable, levels, aggregate, answer), aggregations }
-    }
-    return { aggregations }
+    const raw = answerOrderedAggregations(computed, orderedAnswerFor(params.app, tableName))
+    return aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw
   })
+}
+
+/**
+ * The `groups` of a grouped listing, computed by the database: one `GROUP BY`
+ * per level, each group counted (and totalled, with `?aggregate=`) over every
+ * row the filter matches, in the order the list's sort first meets it. The
+ * page itself is still one `LIMIT`/`OFFSET` window — grouping and aggregating
+ * are two questions about the same view, not two modes, and neither reads the
+ * rows it does not return.
+ */
+const listGroups = (
+  config: ListRecordsConfig,
+  levels: readonly string[],
+  lookupMasks: readonly LookupReadMask[]
+) => {
+  const primaryKey = config.app.tables?.find((t) => t.name === config.tableName)?.primaryKey
+  return readRecordGroups({
+    app: config.app,
+    tableName: config.tableName,
+    filter: config.filter,
+    includeDeleted: config.includeDeleted,
+    lookupMasks,
+    levels: levels.map((field) => ({ field })),
+    ...(config.aggregate === undefined ? {} : { aggregate: config.aggregate }),
+    order: {
+      kind: 'first-seen',
+      sort: config.sort,
+      ...(config.sortByOptionOrder === true && { app: config.app }),
+      ...(primaryKey ? { primaryKey } : {}),
+    },
+  }).pipe(Effect.map(({ groups }) => groups))
 }
 
 /** The many-to-many read of a page: the fields asked for, narrowed to what this reader may read. */
@@ -249,15 +262,15 @@ const buildRecordPage = (
       withM2m,
       labelAudience(config)
     )
-    // [internal ref] Phase 2: the same gated `_aiCompute` block the single-record read
-    // carries. Enriched AFTER pagination, so the status read covers ONE page of
-    // ids rather than the whole result set — and gated on the table declaring an
-    // AI-compute field at all, so a table with none never touches the status
-    // table and pays nothing for this.
+    // The same gated `_aiCompute` block the single-record read carries, narrowed
+    // to the fields this reader may read. Enriched AFTER pagination, so the
+    // status read covers ONE page of ids — and gated on the table declaring an
+    // AI-compute field at all, so a table with none pays nothing for this.
     const aiComputeByRecord = yield* buildAiComputeProjections(
       config.app,
       config.tableName,
-      withLabels.map((record) => record.id)
+      withLabels.map((record) => record.id),
+      { role: config.userRole, groups: config.userGroups ?? [] }
     )
     if (aiComputeByRecord.size === 0) return { records: withLabels, pagination }
     const withAiCompute = withLabels.map((record) => {
@@ -299,17 +312,13 @@ const countMatchingRecords = (
   })
 
 /**
- * Read the rows a list request needs, and say how many matched overall.
+ * Read the page a list request needs, and say how many matched overall.
  *
- * Two routes, chosen by whether the request GROUPS:
- *
- *   - `groupBy` absent → `LIMIT`/`OFFSET` are pushed into SQL and `total` comes
- *     from a separate `COUNT(*)` over the same filter. `preSliced` is then true
- *     and nothing downstream may slice again.
- *   - `groupBy` present → the whole result set is fetched, because
- *     `computeGroupPartitions` partitions the raw array in memory. Paging in SQL
- *     would silently group ONE page: three status groups summing to 24 would come
- *     back as whatever happened to land in the first five rows, with no error.
+ * `LIMIT`/`OFFSET` are pushed into SQL and `total` comes from a separate
+ * `COUNT(*)` over the same filter, whether or not the request groups: the
+ * groups are their own `GROUP BY` statements ({@link listGroups}), so a grouped
+ * listing never needs the whole result set in memory. `preSliced` is therefore
+ * always true and nothing downstream may slice again.
  *
  * Pushing `limit ?? DEFAULT_PAGE_SIZE` rather than a bare `limit` is
  * load-bearing on both counts — an absent limit would otherwise fetch the whole
@@ -333,7 +342,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       }
     )
     const primaryKey = config.app.tables?.find((t) => t.name === tableName)?.primaryKey
-    const preSliced = groupBy === undefined
+    const preSliced = true
     const records = yield* repo.listRecords({
       session,
       tableName,
@@ -342,7 +351,8 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       lookupMasks,
       sort: config.sort,
       ...(config.sortByOptionOrder === true && { app: config.app }),
-      ...(preSliced ? { limit: config.limit ?? DEFAULT_PAGE_SIZE, offset: config.offset } : {}),
+      limit: config.limit ?? DEFAULT_PAGE_SIZE,
+      offset: config.offset,
       columns: buildProjectionColumns({
         app: config.app,
         tableName,
@@ -355,13 +365,11 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       // repository cannot assume one — see the port's doc on this field.
       ...(primaryKey ? { primaryKey } : {}),
     })
-    const total = preSliced
-      ? yield* countMatchingRecords(
-          repo,
-          { session, tableName, filter, includeDeleted, lookupMasks },
-          records.length
-        )
-      : records.length
+    const total = yield* countMatchingRecords(
+      repo,
+      { session, tableName, filter, includeDeleted, lookupMasks },
+      records.length
+    )
     return { records, total, preSliced, lookupMasks }
   })
 
@@ -370,7 +378,7 @@ export function createListRecordsProgram(
 ): Effect.Effect<
   ListRecordsResponse,
   DatabaseError,
-  TableRepository | AuthRepository | DataSourceRepository
+  TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
@@ -386,40 +394,29 @@ export function createListRecordsProgram(
       preSliced,
     })
 
-    // `records` is ONE PAGE whenever `preSliced` is true — safe to hand on here
-    // only because both consumers below are gated on `groupBy`, which is exactly
-    // the condition that turns the pushdown off.
-    const aggBlock = aggregate
-      ? yield* computeListRecordsAggregationBlock({
-          repo,
-          session,
-          tableName,
-          records,
-          filter,
-          includeDeleted,
-          aggregate,
-          groupBy,
-          lookupMasks,
-          app: config.app,
-        })
+    const aggregationsBlock = aggregate
+      ? {
+          aggregations: yield* computeListRecordsAggregations({
+            repo,
+            session,
+            tableName,
+            filter,
+            includeDeleted,
+            aggregate,
+            lookupMasks,
+            app: config.app,
+          }),
+        }
       : {}
-
-    // When groupBy is specified without aggregate, compute name/count groups only
-    const simpleGroupsBlock =
-      groupBy && !aggregate
-        ? {
-            groups: computeGroupPartitions(
-              records.map((row) => serializeDriverRow(row, { app: config.app, tableName })),
-              parseGroupByLevels(groupBy)
-            ),
-          }
-        : {}
+    const levels = parseGroupByLevels(groupBy)
+    const groupsBlock =
+      levels.length > 0 ? { groups: yield* listGroups(config, levels, lookupMasks) } : {}
 
     return {
       records: [...pageRecords] as TransformedRecord[],
       pagination,
-      ...aggBlock,
-      ...simpleGroupsBlock,
-    } as unknown as ListRecordsResponse
+      ...aggregationsBlock,
+      ...groupsBlock,
+    } as ListRecordsResponse
   }).pipe(Effect.withSpan('tables.create-list-records-program'))
 }

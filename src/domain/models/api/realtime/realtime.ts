@@ -341,26 +341,20 @@ export const subscriptionHandshakeSchema = Schema.Struct({
  * - `maxReconnectDelayMs`: cap applied once the backoff sequence is
  *   exhausted (30s).
  * - `heartbeatIntervalMs`: server heartbeat cadence.
- * - `maxConnectionsPerUser`: concurrent transport connection cap
- *.
+ * - `maxConnectionsPerUser`: concurrent transport connection cap.
  * - `idleConnectionTimeoutMs`: idle (zero-subscription) connection reap
- * window.
- * - `presenceStaleTimeoutMs`: presence entry reap window without heartbeat
- *.
- * - `maxPresenceEntriesPerPage`: presence entry cap per page path
- *.
+ *   window.
+ * - `presenceStaleTimeoutMs`: presence entry reap window without heartbeat.
+ * - `maxPresenceEntriesPerPage`: presence entry cap per page path.
  * - `maxChangeEventsPerWrite`: rows one write may announce one by one; past
- * it the write is announced as a single `resync`.
+ *   it the write is announced as a single `resync`.
  * - `grantRecheckIntervalMs`: how often an open connection's grant is judged
- *   again, so a change made outside the engine's own doors is picked up
- *.
+ *   again, so a change made outside the engine's own doors is picked up.
  * - `grantChangedCloseCode`: the WebSocket close code sent when a
- *   subscriber's grant changed; the client reconnects and is judged again
- *.
+ *   subscriber's grant changed; the client reconnects and is judged again.
  * - `sessionEndedCloseCode`: the WebSocket close code sent when the session a
  *   connection opened with has ended — signed out, revoked or expired; a
- *   reconnect would be refused, so the client signs in again instead
- *.
+ *   reconnect would be refused, so the client signs in again instead.
  */
 export const webSocketTransportConfigSchema = Schema.Struct({
   reconnectBackoffMs: Schema.Array(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))).annotate(

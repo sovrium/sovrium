@@ -18,7 +18,7 @@ It cannot be created by another admin, because there is none, and it must not co
 
 ```bash
 AUTH_ADMIN_EMAIL=admin@example.com
-AUTH_ADMIN_PASSWORD=SecureP@ssw0rd!
+AUTH_ADMIN_PASSWORD=<choose a long password>
 AUTH_ADMIN_NAME=System Administrator
 ```
 
@@ -35,7 +35,7 @@ Booting with no admin email set **and** no users in the database generates a 256
 ```bash
 curl -X POST http://localhost:3000/api/admin/bootstrap/claim \
   -H 'Content-Type: application/json' \
-  -d '{ "token": "<64-hex-token>", "email": "admin@example.com", "password": "SecureP@ssw0rd!", "name": "Admin" }'
+  -d '{ "token": "<64-hex-token>", "email": "admin@example.com", "password": "<choose a long password>", "name": "Admin" }'
 ```
 
 Three properties make the window safe to leave open:

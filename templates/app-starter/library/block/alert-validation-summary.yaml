@@ -1,0 +1,34 @@
+# sovrium-library: block/alert-validation-summary@0.30.0
+name: alert-validation-summary
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: alert
+    alertVariant: destructive
+    props:
+      className: w-full max-w-3xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-2
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-md font-semibold
+            content: 3 fields need attention
+          - type: container
+            element: nav
+            props:
+              aria-label: Fields to fix
+            children:
+              - type: text
+                props:
+                  format: markdown
+                  className: text-sm
+                classes:
+                  parts:
+                    link: underline underline-offset-4
+                    list: list-disc pl-5
+                content: "- [Legal name is required](#legal-name)\n- [VAT number must start with a country code](#vat-number)\n- [Payment terms must be between 0 and 90 days](#payment-terms)"

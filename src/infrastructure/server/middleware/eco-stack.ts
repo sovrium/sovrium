@@ -18,10 +18,7 @@ import { lowDataModeMiddleware } from '@/infrastructure/server/middleware/low-da
 import { chainLowDataOptOutRoute } from '@/infrastructure/server/middleware/low-data-opt-out'
 import type { Hono } from 'hono'
 
-export const applyEcoStack = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
-  honoApp: Hono
-) => {
+export const applyEcoStack = (honoApp: Hono) => {
   // Eco middleware stack — registered in the order their POST-next code
   // should LAST run. Hono middleware runs LIFO on the response path:
   //   handler → low-data POST (rewrites HTML body) → eco-index POST (grades

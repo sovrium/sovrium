@@ -31,18 +31,13 @@ import {
   buildAcceptInvitationUrl,
   resolveInvitationExpiryMs,
 } from '@/application/use-cases/auth/admin-invitation'
-import {
-  deleteInvitationToken,
-  findInvitationById,
-  listPendingInvitations,
-  refreshInvitationExpiry,
-} from '@/infrastructure/auth/better-auth/invitation-queries'
 import { logError } from '@/infrastructure/logging/logger'
+import type {
+  InvitationMailer,
+  InvitationStore,
+  PendingInvitationRow,
+} from '@/application/ports/contracts/invitation-services'
 import type { Auth } from '@/domain/models/app/auth'
-import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
-import type { PendingInvitationRow } from '@/infrastructure/auth/better-auth/invitation-queries'
-
-type EmailHandlers = Readonly<ReturnType<typeof createEmailHandlers>>
 
 /**
  * Lifecycle state of one invitation, derived from `expiresAt` rather than
@@ -86,7 +81,6 @@ const projectInvitation = (
   id: row.id,
   email: row.email,
   role: row.role !== null && row.role.length > 0 ? row.role : DEFAULT_INVITATION_ROLE,
-  // eslint-disable-next-line unicorn/no-null -- the API contract distinguishes an explicit `null` ("inviter not recorded") from a real address; `undefined` would drop the key and make "no inviter" indistinguishable from "this build does not send inviters"
   invitedBy: row.invitedBy ?? null,
   status: row.expiresAt.getTime() <= now.getTime() ? 'expired' : 'pending',
   createdAt: row.createdAt.toISOString(),
@@ -100,11 +94,17 @@ const projectInvitation = (
  * out a 72-hour TTL.
  */
 export const listInvitations = async (
+  store: InvitationStore,
   now: Date = new Date()
-): Promise<readonly InvitationListItem[]> => {
-  const rows = await listPendingInvitations()
-  return rows.map((row) => projectInvitation(row, now))
-}
+): Promise<readonly InvitationListItem[]> =>
+  projectInvitations(await store.listPendingInvitations(), now)
+
+/** Project pending rows onto operator-facing items — pure, shared with the attention strip. */
+export const projectInvitations = (
+  rows: readonly Readonly<PendingInvitationRow>[],
+  // eslint-disable-next-line functional/prefer-immutable-types -- Date is structurally mutable; read-only here
+  now: Date
+): readonly InvitationListItem[] => rows.map((row) => projectInvitation(row, now))
 
 /**
  * Outcome of a resend or revoke attempt, keyed by the invitation row id.
@@ -133,18 +133,19 @@ export type InvitationActionResult<T> =
  * kept the old deadline would deliver a link that dies moments later.
  */
 export const resendInvitation = async (params: {
+  readonly store: InvitationStore
   readonly authConfig: Auth | undefined
-  readonly emailHandlers: EmailHandlers
+  readonly emailHandlers: InvitationMailer
   readonly baseURL: string
   readonly inviterName: string
   readonly id: string
 }): Promise<InvitationActionResult<InvitationListItem>> => {
-  const invitation = await findInvitationById(params.id)
+  const invitation = await params.store.findInvitationById(params.id)
   if (!invitation) {
     return { status: 'not-found', message: 'Not Found' }
   }
 
-  const rows = await listPendingInvitations()
+  const rows = await params.store.listPendingInvitations()
   const listed = rows.find((row) => row.id === invitation.id)
   if (!listed) {
     // The row exists but its invitee account does not — nobody to resend to.
@@ -152,7 +153,7 @@ export const resendInvitation = async (params: {
   }
 
   const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))
-  const refreshed = await refreshInvitationExpiry(invitation.id, expiresAt).then(
+  const refreshed = await params.store.refreshInvitationExpiry(invitation.id, expiresAt).then(
     () => true,
     (error: unknown) => {
       logError('[admin-invitation] Failed to refresh invitation expiry', error)
@@ -189,13 +190,16 @@ export const resendInvitation = async (params: {
  * link fails closed. A revoke that only cleared an operator list would leave a
  * standing grant the operator believes they cancelled.
  */
-export const revokeInvitation = async (id: string): Promise<InvitationActionResult<string>> => {
-  const invitation = await findInvitationById(id)
+export const revokeInvitation = async (
+  store: InvitationStore,
+  id: string
+): Promise<InvitationActionResult<string>> => {
+  const invitation = await store.findInvitationById(id)
   if (!invitation) {
     return { status: 'not-found', message: 'Not Found' }
   }
 
-  const deleted = await deleteInvitationToken(invitation.id).then(
+  const deleted = await store.deleteInvitationToken(invitation.id).then(
     () => true,
     (error: unknown) => {
       logError('[admin-invitation] Failed to revoke invitation', error)
@@ -205,4 +209,23 @@ export const revokeInvitation = async (id: string): Promise<InvitationActionResu
   return deleted
     ? { status: 'ok', value: invitation.id }
     : { status: 'internal-error', message: 'Failed to revoke invitation' }
+}
+
+/**
+ * Decline an invitation from its link — the invitee's answer, by TOKEN.
+ *
+ * The same deletion a revoke performs, reached from the other side: the token
+ * IS the invitee's credential, so holding it is what lets her refuse. A token
+ * that names no outstanding invitation is answered as not found, exactly like
+ * one that never existed, so a probe learns nothing.
+ */
+export const declineInvitation = async (
+  store: InvitationStore,
+  token: string
+): Promise<InvitationActionResult<string>> => {
+  const invitation = token === '' ? undefined : await store.findInvitationToken(token)
+  if (!invitation) {
+    return { status: 'not-found', message: 'Not Found' }
+  }
+  return revokeInvitation(store, invitation.id)
 }

@@ -13,8 +13,7 @@ import {
 } from '@/application/ports/repositories/ai/ai-facts-repository'
 
 /**
- * Application use-cases for persistent learned-facts memory
- *.
+ * Application use-cases for persistent learned-facts memory.
  *
  * Each function is an `Effect.gen` program orchestrating the
  * `AiFactsRepository` port — the presentation layer consumes them via

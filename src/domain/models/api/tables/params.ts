@@ -81,7 +81,8 @@ export const viewOnlyParamSchema = Schema.Struct({
 // ============================================================================
 
 /** Optional query string with a description. Annotate BEFORE any check. */
-const queryString = (description: string) => optionalField(Schema.String.annotate({ description }))
+export const queryString = (description: string) =>
+  optionalField(Schema.String.annotate({ description }))
 
 /**
  * List records query parameters

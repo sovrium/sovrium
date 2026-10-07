@@ -161,10 +161,8 @@ const nextDocument = (patch: ServerStatusPatch): ServerStatusDocument => {
       lastReload: patch.lastReload ?? previous.lastReload,
     }),
   }
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- retain the published document for the next partial write
   retained.set('status', merged)
   const seq = (sequence.get('seq') ?? 0) + 1
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- advance the monotonic counter a poller reads
   sequence.set('seq', seq)
   return { seq, ...merged, updatedAt: new Date().toISOString() }
 }
@@ -185,7 +183,6 @@ export const publishServerStatus = async (patch: ServerStatusPatch): Promise<voi
   // each other's file.
   const temporary = `${path}.${String(process.pid)}.tmp`
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- filesystem provisioning; mirrors writeLockFile's mkdir-then-write precedent
     await mkdir(dirname(path), { recursive: true })
     await writeFile(temporary, JSON.stringify(document), 'utf-8')
     await rename(temporary, path)

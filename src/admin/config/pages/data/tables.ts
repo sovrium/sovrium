@@ -37,8 +37,8 @@
 // ─── WHY NOT A SYSTEM SOURCE OVER `/api/tables/:table/records` ─────────────
 //
 // It renders rows and silently drops the whole feature set the surface exists
-// for. Inline edit, the typed create modal, the `_canCreate` gate, saved views
-// and density are each gated on `!isSystemSource` by construction. The DB
+// for. Inline edit, the typed create modal and the `_canCreate` gate are each
+// gated on `!isSystemSource` by construction. The DB
 // binding is what keeps them, which is why `columnsFrom` exists at all.
 
 import { fillHost, pageHeading } from '../../components/data-page'
@@ -242,32 +242,11 @@ const recordGrid = (): PageComponent =>
     // Without this a no-match search falls back to `emptyMessage` and tells the
     // operator the table is empty seconds after they watched it render a row.
     noMatchMessage: 'No record matches “{query}”',
-    // Saved views + density, both gated on `!isSystemSource` — available here,
-    // and ONLY here among the console grids, because this is the one bound to a
-    // real DB table. `density` additionally persists through a table key, which
-    // is the empty string for a system source, so declaring it elsewhere would
-    // paint a control that silently cannot save.
-    // The canvas's control row, in its order: `Grid · All invoices ·
-    // Hide fields · Filter · Group · Sort · Trash`. Five of the six are toolbar
-    // flags; `Trash` is the missing second view noted above.
-    //
-    // This is the row the 40px `toolbarRow()` exists for on OTHER surfaces, and
-    // deliberately does NOT get one here: every control below is the table
-    // island's own and renders INSIDE the grid frame, so lifting them into a
-    // page-level row would draw a second, emptier bar above a bar that already
-    // has them — and under `layout: 'fill'` it would cost the rows 40px to do
-    // it. A page-level row is for affordances that belong to the PAGE; this
-    // page has none that the grid does not already own.
-    //
-    // All five are gated on `!isSystemSource` in the island, so they can only
-    // be claimed by a DB-bound grid — which, among the console's seven, is this
-    // one alone.
+    // The reader's transient narrowing: Filter and Sort. Both last for the
+    // visit only and are stored nowhere; a lasting grouping or sort is a view
+    // declared on the table.
     toolbar: {
-      views: true,
-      density: true,
-      columnToggle: true,
       filters: true,
-      groupBy: true,
       sort: true,
     },
     // The island caps at 25 rows with or without this block; what the block adds

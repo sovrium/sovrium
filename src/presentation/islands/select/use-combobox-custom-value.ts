@@ -31,7 +31,6 @@ export function useComboboxCustomValue(allowCustomValue: boolean): ComboboxCusto
       if (!allowCustomValue) return
       const current = event.currentTarget.value
       if (current.length === 0) return
-      // eslint-disable-next-line functional/immutable-data -- React useRef mutation is the documented escape hatch for cross-render values
       lockedValueRef.current = current
       setInputValue(current)
     },
@@ -43,7 +42,6 @@ export function useComboboxCustomValue(allowCustomValue: boolean): ComboboxCusto
     // Combobox-internal clearing attempts so the locked value stays visible.
     if (lockedValueRef.current !== undefined && next === '') return
     if (next.length > 0) {
-      // eslint-disable-next-line functional/immutable-data -- React useRef mutation is the documented escape hatch for cross-render values
       lockedValueRef.current = undefined
     }
     setInputValue(next)

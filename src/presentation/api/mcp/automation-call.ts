@@ -40,7 +40,7 @@ import {
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
-import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-trigger-role-service'
+import { mayStartAutomationByName } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
@@ -95,8 +95,8 @@ const callerRoleForManualTrigger = (caller: McpCaller): string => caller.account
  * Whether `tools/list` offers this tool to the caller, as far as manual
  * automations are concerned: a tool that is not an automation tool is left to
  * the other filters, and an automation tool is offered exactly when the call
- * would run it — the same role, through the same {@link mayRunManualAutomation}
- * decision `runManualAutomation` applies.
+ * would run it — the same role, through the same {@link mayStartAutomationByName}
+ * decision `runManualAutomation` applies to a call by name.
  *
  * An automation that is off — switched off in config (`enabled: false`) or
  * paused by an operator (`pausedNames`) — is never offered: the call answers it
@@ -112,7 +112,7 @@ export const automationToolIsOffered = (
   const automation = resolveAutomationTool(app, toolName)
   if (automation === undefined) return true
   if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
-  return mayRunManualAutomation(automation, app, callerRoleForManualTrigger(caller))
+  return mayStartAutomationByName(automation, app, callerRoleForManualTrigger(caller))
 }
 
 /**
@@ -165,7 +165,7 @@ const automationErrorToJsonRpc = (error: RunAutomationError): never => {
  *   - `id` — the run identifier (correlates with `GET /api/automations/runs/:id`)
  *   - `status` — `'completed' | 'failed'` (public-facing alias for
  *     `success` / `failure`)
- * - `output` — last action's output, omitted when no action
+ *   - `output` — last action's output, omitted when no action
  *     produced output
  *   - `error` — present when the run ended in failure
  */
@@ -212,6 +212,7 @@ export const handleAutomationCall = async (
     processEnv: process.env,
     userRole: callerRoleForManualTrigger(caller),
     triggerData: { body: envelope.args },
+    byName: true,
     ...(caller.userId !== undefined ? { userId: caller.userId } : {}),
   })
 

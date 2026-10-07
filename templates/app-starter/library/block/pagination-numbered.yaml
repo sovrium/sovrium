@@ -1,0 +1,19 @@
+# sovrium-library: block/pagination-numbered@0.30.0
+name: pagination-numbered
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-wrap items-center justify-between gap-4
+    children:
+      - type: text
+        element: span
+        props:
+          className: text-sm text-foreground-subtle
+        content: Showing 21–40 of 142
+      - type: pagination
+        totalPages: 8
+        currentPage: 2
+        siblingCount: 1

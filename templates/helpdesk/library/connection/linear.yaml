@@ -1,0 +1,26 @@
+# sovrium-library: connection/linear@0.30.0
+name: linear
+type: apiKey
+label: Linear
+description: 'Linear GraphQL API, authenticated with a personal API key'
+props:
+  key: $env.LINEAR_API_KEY
+  header: Authorization
+baseUrl: https://api.linear.app
+operations:
+  - name: graphql
+    method: POST
+    path: /graphql
+    summary: Run a query or a mutation of the Linear API
+    params:
+      query:
+        in: body
+        type: string
+        required: true
+        description: The GraphQL document
+      variables:
+        in: body
+        type: object
+      operationName:
+        in: body
+        type: string

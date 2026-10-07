@@ -29,7 +29,7 @@
  *  - The `graph` component publishes the selected node's id on the shared-filter
  *    bus, which is a REQUEST-PARAM bus: a subscriber merges the published bag
  *    into its own HTTP request. With no parameter to merge into, the subscriber
- * re-requested this identical body, so `[internal ref]` stays pinned on
+ *    re-requested this identical body, so a pages graph spec stays pinned on
  *    an endpoint that ignores what the publisher publishes. That component's own
  *    module names the fix — "an O1 widening of the endpoint (a `?node=`
  *    parameter), not a change to this component".

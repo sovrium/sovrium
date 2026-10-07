@@ -6,7 +6,7 @@
  */
 
 /**
- * `record-field` renderer.
+ * `record-field` renderer ([internal ref] / the pages data components record detail view requirement).
  *
  * Read-only display of a single bound record field. The data-source resolver
  * (single-mode / collection `$record`) injects the raw value as
@@ -28,7 +28,10 @@ import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
+import { resolveValueCurrency } from '@/presentation/render/props/resolve-chart-field-context'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
@@ -60,10 +63,10 @@ function resolveFormat(component: Component | undefined): ColumnFormat | undefin
  * The three things every branch below paints on its root, and the reason they
  * travel together.
  *
- * `className` used to be DROPPED by all four branches — each emitted a bare
- * `<div data-component="record-field">` — so neither the app author's own class
- * nor `design.components['record-field']` could reach this renderer at all, and
- * the only place the defect could be fixed was here. Threading it as one object
+ * Every branch must carry `className`: a branch emitting a bare
+ * `<div data-component="record-field">` lets neither the app author's own class
+ * nor `design.components['record-field']` reach this renderer at all, and only
+ * this renderer can supply it. Threading it as one object
  * rather than as a fifth positional parameter keeps the branches' signatures
  * readable and makes "did this branch forget the class?" answerable by eye.
  */
@@ -106,7 +109,7 @@ function resolveField(
 /**
  * Resolve the download bucket for an attachment column: the bucket DECLARED on
  * the column, else the built-in `system` — never the app's first declared
- * bucket, which is the form-upload path's fallback..
+ * bucket, which is the form-upload path's fallback.
  */
 function resolveBucket(field: { readonly bucket?: unknown } | undefined): string {
   const bucket = field?.bucket
@@ -175,9 +178,18 @@ function renderAttachment(chrome: RecordFieldChrome, value: unknown, bucket: str
   )
 }
 
-/** Render a rich-text value as sanitized real HTML. */
-function renderRichText(chrome: RecordFieldChrome, value: unknown): ReactElement {
-  const safeHtml = typeof value === 'string' ? sanitizeRichTextHTML(value) : ''
+/**
+ * Render a rich-text value as sanitized real HTML, the author's prose part
+ * classes (`heading2`, `listItem`, `quote`, …) written onto the sanitised
+ * elements they name — the same names a markdown text takes.
+ */
+function renderRichText(
+  chrome: RecordFieldChrome,
+  value: unknown,
+  parts: Readonly<Record<string, string>> | undefined
+): ReactElement {
+  const safeHtml =
+    typeof value === 'string' ? applyProsePartClasses(sanitizeRichTextHTML(value), parts) : ''
   return (
     <div
       id={chrome.id}
@@ -185,7 +197,7 @@ function renderRichText(chrome: RecordFieldChrome, value: unknown): ReactElement
       data-testid={chrome.testId}
       data-component="record-field"
       data-component-type="record-field"
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; HTML is canonically sanitised before injection (security S2)
+      // eslint-disable-next-line sovrium/require-sanitized-html -- sanitizeRichTextHTML output; applyProsePartClasses only adds escaped class and data-part attributes
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   )
@@ -248,12 +260,14 @@ function renderRecordFieldSystemIsland(
 function renderPlainText(
   chrome: RecordFieldChrome,
   value: unknown,
-  format: ColumnFormat | undefined
+  format: ColumnFormat | undefined,
+  { currency }: { readonly currency?: CurrencyDisplayOptions } = {}
 ): ReactElement {
   const text = format
     ? formatCellValue(value, format, SSR_FORMAT_LOCALE, {
         timeZone: parseSovriumTimezone().zoneId,
         now: serverNow(),
+        ...(currency === undefined ? {} : { currency }),
       })
     : value === undefined || value === null
       ? ''
@@ -271,11 +285,46 @@ function renderPlainText(
   )
 }
 
+/** The format a field type reads in when the author declared none. */
+const FORMAT_BY_FIELD_TYPE: Readonly<Record<string, ColumnFormat>> = {
+  currency: 'currency',
+  date: 'short-date',
+  datetime: 'datetime',
+  'created-at': 'datetime',
+  'updated-at': 'datetime',
+}
+
+/** The record's system timestamps, which read as their declared twins do. */
+const SYSTEM_TIMESTAMP_TYPES: Readonly<Record<string, string>> = {
+  createdAt: 'created-at',
+  updatedAt: 'updated-at',
+}
+
+const defaultFormatOf = (
+  fieldType: string | undefined,
+  fieldName: string | undefined
+): ColumnFormat | undefined => {
+  const type =
+    fieldType ?? (fieldName === undefined ? undefined : SYSTEM_TIMESTAMP_TYPES[fieldName])
+  return type === undefined ? undefined : FORMAT_BY_FIELD_TYPE[type]
+}
+
+/** The bound field's currency display, when it declares one. */
+function currencyOf(
+  tables: Tables | undefined,
+  tableName: string | undefined,
+  fieldName: string | undefined
+): CurrencyDisplayOptions | undefined {
+  const table = tables?.find((t) => t.name === tableName)
+  return table === undefined ? undefined : resolveValueCurrency(table, fieldName)
+}
+
 export const recordFieldComponent: ComponentRenderer = ({
   elementProps,
   rawProps,
   tables,
   component,
+  designStyles,
 }): ReactElement => {
   const props = rawProps ?? {}
   const format = resolveFormat(component)
@@ -297,9 +346,11 @@ export const recordFieldComponent: ComponentRenderer = ({
   const field = resolveField(tables, tableName, fieldName)
   const fieldType = field?.type
 
-  if (fieldType === 'rich-text') return renderRichText(chrome, value)
+  if (fieldType === 'rich-text') return renderRichText(chrome, value, designStyles?.parts)
   if (fieldType !== undefined && ATTACHMENT_FIELD_TYPES.has(fieldType)) {
     return renderAttachment(chrome, value, resolveBucket(field))
   }
-  return renderPlainText(chrome, value, format)
+  return renderPlainText(chrome, value, format ?? defaultFormatOf(fieldType, fieldName), {
+    currency: currencyOf(tables, tableName, fieldName),
+  })
 }

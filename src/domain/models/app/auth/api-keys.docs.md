@@ -59,7 +59,7 @@ That is why a key needs no permission configuration of its own. It is a second w
 
 Banning a user stops their keys authenticating immediately, on every route. The key rows survive untouched, so lifting the ban restores the same keys — which matters because a temporary ban clears on its own once it expires, and destroying the credentials would make that expiry meaningless.
 
-No expiry is set on a key itself: it stays valid until revoked or its owner is banned. Treat one as you would a password — scope it to a job, store it in a secret manager, and revoke it when the job ends.
+No expiry is set on a key itself: it stays valid until revoked or its owner is banned. Treat one as you would a password — store it in a secret manager and revoke it when the job ends. A key cannot be scoped: it always carries its owner's full, live role. To limit what a job can do, mint its key from a dedicated account created for that job, holding the lowest role that does it — never from an admin account.
 
 ## Not the same thing as a connection
 

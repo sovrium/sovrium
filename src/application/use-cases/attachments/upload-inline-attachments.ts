@@ -16,11 +16,11 @@
  * left untouched so neither code path masks the other. Plain string keys
  * (already-uploaded references) pass through unchanged.
  *
- * A failed upload refuses the write. It used to run under `Effect.ignore` and
- * return the metadata object regardless, so the row was created pointing at a
- * key that had never been written: the API answered success with a
+ * A failed upload refuses the write. Running it under `Effect.ignore` and
+ * returning the metadata object regardless would create the row pointing at a
+ * key that was never written: the API would answer success with a
  * `{ key, size }` for bytes that do not exist, and every later read of that
- * record 404s on a file the API said it had stored. A dangling reference is
+ * record would 404 on a file the API said it had stored. A dangling reference is
  * worse than a refusal, because only the refusal is something the caller can
  * act on.
  */
@@ -63,10 +63,13 @@ const isInlineAttachmentPayload = (
   typeof (value as { name?: unknown }).name === 'string' &&
   typeof (value as { content?: unknown }).content === 'string'
 
-/** Upload one inline payload and return the canonical key-plus-metadata shape. */
+/**
+ * Upload one inline payload and return the canonical key-plus-metadata shape,
+ * attributed to `uploadedById` — the person writing the record.
+ */
 const uploadInlinePayload = (
   fieldName: string,
-  bucket: string,
+  target: { readonly bucket: string; readonly uploadedById: string | undefined },
   payload: {
     readonly name: string
     readonly content: string
@@ -88,12 +91,16 @@ const uploadInlinePayload = (
     const mimeType = payload.mimeType ?? inferMimeFromKey(payload.name)
     const key = `${crypto.randomUUID()}-${payload.name}`
     yield* storage
-      .upload(key, bytes, mimeType, bucket)
+      .upload(key, bytes, mimeType, target)
       .pipe(Effect.mapError(storageUnavailable(fieldName, 'the supplied file could not be stored')))
     return { key, name: payload.name, mimeType, size: bytes.length }
   })
 
-/** Persist every inline attachment payload the record write carries. */
+/**
+ * Persist every inline attachment payload the record write carries, each
+ * recorded as uploaded by the scope's `writerId` (the signed-in writer; absent
+ * for a visitor who is not signed in) — what erasure finds her files by.
+ */
 export const uploadInlineAttachmentContent = (input: {
   readonly scope: AttachmentScope
   readonly fields: Record<string, unknown>
@@ -112,7 +119,8 @@ export const uploadInlineAttachmentContent = (input: {
       (acc, f) => {
         const value = acc[f.name]
         if (!isInlineAttachmentPayload(value)) return Effect.succeed(acc)
-        return uploadInlinePayload(f.name, bucketForField(scope, f.name), value).pipe(
+        const target = { bucket: bucketForField(scope, f.name), uploadedById: scope.writerId }
+        return uploadInlinePayload(f.name, target, value).pipe(
           Effect.map((meta) => ({ ...acc, [f.name]: meta }))
         )
       }

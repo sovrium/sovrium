@@ -7,43 +7,21 @@
 
 import { ImportCsvDialog } from '../../import-csv-dialog'
 import { CreateRecordDialog } from '../create-record-dialog'
-import { DeleteViewConfirmDialog } from '../delete-view-confirm-dialog'
-import { SaveViewDialog } from '../save-view-dialog'
 import type { ViewDialogsProps } from '../view-props'
 
-/** The create-record dialog and the two saved-view dialogs. */
+/** The create-record dialog. */
 export function ViewDialogs(props: ViewDialogsProps) {
+  if (!props.creating) return undefined
   return (
-    <>
-      {props.creating && (
-        <CreateRecordDialog
-          fields={props.tableFields}
-          fieldMeta={props.fieldMeta}
-          title={props.newRecordLabel}
-          saveLabel={props.saveLabel}
-          cancelLabel={props.cancelLabel}
-          onCancel={props.onCancelCreate}
-          onSubmit={props.onSubmitCreate}
-        />
-      )}
-      <SaveViewDialog
-        open={props.ui.saveViewDialogOpen}
-        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- adapter closure bridges the dialog's `onOpenChange(boolean)` to the orchestrator's split open/close callbacks; the dialog re-renders only on `saveViewDialogOpen` flips, so the closure churn is bounded
-        onOpenChange={(o) =>
-          o ? props.ui.onOpenSaveViewDialog() : props.ui.onCloseSaveViewDialog()
-        }
-        onSave={props.onSaveNewView}
-      />
-      {props.ui.deleteViewTarget && (
-        <DeleteViewConfirmDialog
-          open={props.ui.deleteViewTarget !== null}
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- adapter closure for `onOpenChange(boolean)` → orchestrator's `onCloseDeleteViewDialog`. The dialog is only mounted while `deleteViewTarget !== null`, so re-renders are bounded.
-          onOpenChange={(o) => (!o ? props.ui.onCloseDeleteViewDialog() : undefined)}
-          viewName={props.ui.deleteViewTarget.name}
-          onConfirm={props.onConfirmDeleteView}
-        />
-      )}
-    </>
+    <CreateRecordDialog
+      fields={props.tableFields}
+      fieldMeta={props.fieldMeta}
+      title={props.newRecordLabel}
+      saveLabel={props.saveLabel}
+      cancelLabel={props.cancelLabel}
+      onCancel={props.onCancelCreate}
+      onSubmit={props.onSubmitCreate}
+    />
   )
 }
 

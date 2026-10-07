@@ -34,7 +34,6 @@ export interface LockFileData {
  */
 export const computeConfigHash = (content: string): string => {
   const hasher = new Bun.CryptoHasher('sha256')
-  // eslint-disable-next-line functional/no-expression-statements
   hasher.update(content)
   return hasher.digest('hex').slice(0, 12)
 }
@@ -45,7 +44,14 @@ export const computeConfigHash = (content: string): string => {
  * Exported so the synchronous shutdown cleanup in `server.ts` resolves the
  * exact same path the async writer uses (single source of truth).
  */
-export const getLockFilePath = (): string => join(getLockDir(), LOCK_FILE_NAME)
+export const getLockFilePath = (): string => lockFilePathIn(getLockDir())
+
+/**
+ * The lock file inside one directory. `sovrium restore` names its target data
+ * directory on the command line, so it asks this question of a directory that
+ * need not be the process's own — but of the SAME file name `sovrium stop` reads.
+ */
+export const lockFilePathIn = (lockDir: string): string => join(lockDir, LOCK_FILE_NAME)
 
 /**
  * Sidecar file used by `sovrium reload` to pass the `--message "..."` value
@@ -63,7 +69,6 @@ export const getReloadMessageFilePath = (): string => join(getLockDir(), 'reload
  * (`./.sovrium/`) may not exist yet on a fresh project.
  */
 export const writeLockFile = async (data: LockFileData): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(getLockDir(), { recursive: true })
   await writeFile(getLockFilePath(), JSON.stringify(data), 'utf-8')
 }
@@ -93,7 +98,6 @@ export const removeLockFile = async (): Promise<void> => {
  */
 export const isProcessRunning = (pid: number): boolean => {
   try {
-    // eslint-disable-next-line functional/no-expression-statements
     process.kill(pid, 0)
     return true
   } catch {
@@ -118,10 +122,8 @@ export const waitForProcessExit = async (
   intervalMs = 50
 ): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs
-  // eslint-disable-next-line functional/no-loop-statements -- polling for an external process' exit
   while (Date.now() < deadline) {
     if (!isProcessRunning(pid)) return true
-    // eslint-disable-next-line functional/no-expression-statements -- poll interval
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
   return !isProcessRunning(pid)

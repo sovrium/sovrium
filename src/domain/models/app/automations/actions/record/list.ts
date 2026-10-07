@@ -47,7 +47,7 @@ export type RecordListSort = Schema.Schema.Type<typeof RecordListSortSchema>
  *
  * The set-shaped read: which rows (`filter`), in what order (`sort`), how
  * many and from where (`limit` / `offset`), carrying which columns
- * (`fields`). Split out of `record/read` by [internal ref] — `read` is now
+ * (`fields`). Split out of `record/read` by the `record.read` split — `read` is now
  * primary-key-only, because collapsing a filtered set to `records[0]` from
  * an unordered query returned an arbitrary row.
  *

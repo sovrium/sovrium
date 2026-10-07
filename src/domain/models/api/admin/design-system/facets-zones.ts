@@ -68,7 +68,7 @@ export const designZoneRowSchema = Schema.Struct({
   // ROWS rather than a joined sentence, on the standing convention: `rowsKey`
   // hands a template a RECORD and `$record.` names a field of one, so bare
   // strings arrive unprintable — and a sentence would be the console's own
-  // wording, which [internal ref] refuses. The order is `ZoneVoiceOverrideSchema`'s own
+  // wording, which the facts-not-strings rule refuses. The order is `ZoneVoiceOverrideSchema`'s own
   // declaration order, which is a schema fact and not a chosen one.
   inherited: Schema.Array(
     Schema.Struct({

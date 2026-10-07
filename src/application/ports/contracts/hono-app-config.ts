@@ -70,7 +70,7 @@ export interface HonoAppConfig {
         rowsKey: string
       ) => Promise<readonly Record<string, unknown>[]>
       /**
-       * [internal ref]: the SINGLE-RECORD sibling, for a page-level `{ system }`
+       * The SINGLE-RECORD sibling, for a page-level `{ system }`
        * binding. Unlike the rows reader above, its absence is MEANINGFUL rather
        * than silent: the page falls back to the client-side enhancer marker,
        * because a render with no request has no caller whose 404 it could be.
@@ -95,7 +95,7 @@ export interface HonoAppConfig {
   ) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   /**
-   * RSS feed renderer ([internal ref] — [internal ref]).
+   * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
    * Returns the RSS 2.0 XML body for the first PUBLIC page that declares
    * `rss !== false` (`findRssPage`), or `undefined` when no such page exists

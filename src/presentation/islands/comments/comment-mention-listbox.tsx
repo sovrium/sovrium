@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- each option's handlers close over that option; the list re-renders on every keystroke anyway, because the term IS its input. */
-
 import {
   computeCommentMentionCaptionClasses,
   computeCommentMentionOptionClasses,

@@ -29,8 +29,8 @@
  * `RENDERED_BY_PARENT` describes a type a PARENT renderer consumes structurally
  * (a `tab-panel` folded into the tabs island), and no parent consumes this one;
  * `RENDER_TIME_ONLY` describes a type that is never schema-authored, and this
- * one is authored by definition — `command-palette` was removed from that list
- * on exactly that ground the day it became a real schema type.
+ * one is authored by definition — the same ground on which `command-palette`,
+ * a real schema type, is not in that list either.
  *
  * ─── ONE CONTROL, WHICHEVER PATH REACHES IT ─────────────────────────────────
  *
@@ -98,7 +98,7 @@ export const fieldSpecimenComponent: ComponentRenderer = ({
     <div
       {...omitInternalMarkers(elementPropsWithSpacing)}
       {...attributes}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the markup IS the specimen; a stateless SSR renderer emitting it once, on the same footing as the swatch painting its own colour. The HTML comes from the crud-form renderer over a decoded `fieldType` the boot rule already checked against the field catalogue, never from user input — and `content` is not an alternative, since its rich-text allowlist sanitiser drops every interactive element and would strip the specimen to bare label text.
+      // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

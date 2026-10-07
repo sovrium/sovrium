@@ -1,0 +1,64 @@
+# sovrium-library: block/footer-simple@0.30.0
+name: footer-simple
+# The landmark sits one level down, named outright: a block's outermost
+# element is drawn as a group, and a footer inside the page's main region is not a
+# landmark unless it says so.
+type: container
+children:
+  - type: container
+    element: footer
+    props:
+      role: contentinfo
+      className: border-t border-border px-5 py-8 sm:px-8 lg:px-16
+    children:
+      - type: container
+        props:
+          className: mx-auto w-full max-w-6xl
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: inline-flex items-center gap-2.5 text-lg font-semibold text-foreground
+                children:
+                  - type: container
+                    props:
+                      className: size-5 rounded bg-foreground
+                      aria-hidden: 'true'
+                  - type: text
+                    element: span
+                    content: $t:brand
+              - type: container
+                element: nav
+                props:
+                  className: flex flex-wrap gap-x-6 gap-y-2
+                  aria-label: $t:footer.nav
+                children:
+                  - type: link
+                    props:
+                      href: /link-1
+                      className: text-md text-foreground-muted hover:text-foreground
+                    content: $t:footer.link
+                  - type: link
+                    props:
+                      href: /link-2
+                      className: text-md text-foreground-muted hover:text-foreground
+                    content: $t:footer.link
+                  - type: link
+                    props:
+                      href: /link-3
+                      className: text-md text-foreground-muted hover:text-foreground
+                    content: $t:footer.link
+                  - type: link
+                    props:
+                      href: /link-4
+                      className: text-md text-foreground-muted hover:text-foreground
+                    content: $t:footer.link
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: $t:footer.copyright

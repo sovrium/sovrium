@@ -26,6 +26,7 @@ export {
   type CatalogState,
   type UtmView,
 } from './catalog'
+export { toAdminLink, toAdminLinkDetail } from './admin-link-projection'
 export { configSlugs, declaredLink } from './config-slugs'
 export {
   LinkMutationConflictError,

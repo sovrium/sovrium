@@ -105,7 +105,6 @@ export const probePostgresRuntimeSettings = async (url: string): Promise<boolean
     () => true,
     (error: unknown) => {
       if (isStartupParameterRefusal(error)) {
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- remembered so the refusal is probed and reported once per process
         refusingUrls.add(url)
         logWarning(
           '[database] the connection refuses runtime settings (a pooler such as PgBouncer?) — JIT compilation is left to the server',
@@ -115,10 +114,8 @@ export const probePostgresRuntimeSettings = async (url: string): Promise<boolean
       return false
     }
   )
-  // eslint-disable-next-line functional/no-expression-statements -- release of the probe's own client
   await client.close().catch(() => undefined)
   if (accepted) {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the process-wide answer every client reads (see `acceptingUrls`)
     acceptingUrls.add(url)
   }
   return accepted

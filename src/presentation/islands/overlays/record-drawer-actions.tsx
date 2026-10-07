@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- a footer button's handlers close over its action; transient surface, rendered only while the drawer is open */
-
 /**
  * The record drawer's footer actions (CAP-1): a row of buttons below the record
  * body, each firing against the loaded record — a `fetch`, or an `openDrawer`
@@ -128,7 +126,6 @@ export function DrawerActions({
   readonly loading: boolean
   readonly onLeave: () => void
 }): ReactElement | null {
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   if (actions.length === 0) return null
   return (
     <div className="border-border mt-2 flex flex-wrap gap-2 border-t pt-4">

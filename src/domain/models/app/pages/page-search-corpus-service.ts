@@ -262,7 +262,7 @@ export const documentsReadableBy = (
  * Whether a page search could answer a signed-in reader differently from a
  * visitor: some declared page is closed to a reader with no session, or some
  * page lists articles — any of which may gate itself in its front matter
- *, out of the config's sight. Only then is the session read.
+ * out of the config's sight. Only then is the session read.
  */
 export const hasGatedPage = (app: App): boolean =>
   (app.pages ?? []).some(

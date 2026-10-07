@@ -22,7 +22,7 @@ import type { Context } from 'hono'
 /**
  * Request-scoped client-IP resolution for Hono.
  *
- * The security rule itself is pure and lives in `@/domain/utils/client-ip`;
+ * The security rule itself is pure and lives in `@/domain/kernel/url/client-ip`;
  * this module is only the adapter that feeds it the two things that require a
  * live request — the headers and the transport peer — plus the operator's
  * declared hop count.
@@ -34,10 +34,8 @@ import type { Context } from 'hono'
  * buy a fresh bucket at one endpoint that it cannot buy at another.
  */
 
-// eslint-disable-next-line functional/no-let -- one-shot module-level memo; decoding the env var per request would put an Effect Schema parse on the hot path of every abuse-controlled endpoint
 let cachedHops: number | undefined
 
-// eslint-disable-next-line functional/no-let -- one-shot latch so the misconfiguration warning is emitted once per process, not once per request
 let warnedUntrustedHeader = false
 
 /**
@@ -61,7 +59,6 @@ const trustedProxyHops = (): number => {
       return TRUSTED_PROXY_HOPS_DEFAULT
     }
   })()
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo assignment
   cachedHops = resolved
   return resolved
 }
@@ -81,7 +78,6 @@ const warnIfHeaderIgnored = (input: {
 }): void => {
   if (warnedUntrustedHeader) return
   if (!hasUntrustedForwardingHeader(input)) return
-  // eslint-disable-next-line functional/no-expression-statements -- one-shot latch mutation
   warnedUntrustedHeader = true
 
   logWarning(

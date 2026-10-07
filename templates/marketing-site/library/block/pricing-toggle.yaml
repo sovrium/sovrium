@@ -1,0 +1,589 @@
+# sovrium-library: block/pricing-toggle@0.30.0
+name: pricing-toggle
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col mx-auto max-w-2xl items-center gap-4 text-center
+        children:
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: '[Pricing heading]'
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: One sentence on what every plan includes.
+      - type: tabs
+        layout: flow
+        defaultTab: monthly
+        props:
+          className: mt-10
+        panels:
+          - id: monthly
+            label: Monthly
+          - id: yearly
+            label: 'Yearly · [−00 %]'
+        children:
+          - type: grid
+            props:
+              className: grid grid-cols-1 mt-8 items-stretch gap-4 lg:grid-cols-3
+            children:
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan A]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] starting out.'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / month
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                    content: '[Choose Plan A]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Limit]'
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8 border-foreground ring-1 ring-foreground
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan B]'
+                      - type: badge
+                        content: '[Most chosen]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] who [need].'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / month
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                    content: '[Choose Plan B]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: 'Everything in [Plan A]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Limit]'
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan C]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] at scale.'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / month
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                    content: '[Choose Plan C]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: 'Everything in [Plan B]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Named contact]'
+          - type: grid
+            props:
+              className: grid grid-cols-1 mt-8 items-stretch gap-4 lg:grid-cols-3
+            children:
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan A]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] starting out.'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / year
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                    content: '[Choose Plan A]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Limit]'
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8 border-foreground ring-1 ring-foreground
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan B]'
+                      - type: badge
+                        content: '[Most chosen]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] who [need].'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / year
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                    content: '[Choose Plan B]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: 'Everything in [Plan A]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Limit]'
+              - type: card
+                props:
+                  className: flex flex-col gap-4 p-6 sm:p-8
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center justify-between gap-2
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-xl font-semibold text-foreground
+                        content: '[Plan C]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                    content: 'For [who] at scale.'
+                  - type: flex
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                        content: '[PRICE]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: / year
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                    content: '[Choose Plan C]'
+                  - type: divider
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-2
+                    children:
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: 'Everything in [Plan B]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Included item]'
+                      - type: flex
+                        props:
+                          className: flex items-start gap-2
+                        children:
+                          - type: icon
+                            props:
+                              name: check
+                              size: 18
+                              className: mt-0.5 flex-none text-foreground
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md text-foreground-muted
+                            content: '[Named contact]'
+      - type: flex
+        props:
+          className: flex flex-col mt-6 items-center text-center
+        children:
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle
+            content: '[Tax and billing note]'

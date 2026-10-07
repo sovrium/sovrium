@@ -87,10 +87,10 @@ function publisherAttributes(publishes: unknown): Record<string, string | undefi
  * The DISABLED pre-hydration skeleton the themed control still renders.
  *
  * Kept beside the native rendering because they are the same markup with one
- * attribute between them — which is precisely what [internal ref] observed, and what
+ * attribute between them — which is precisely what the `select.native` design observed, and what
  * makes it cheap for the two to drift apart if they live in different files.
  * The hydrated trigger lives in `plain-select.tsx` / `searchable-select.tsx`
- * and is styled via the [internal ref] var-fallback recipe in
+ * and is styled via the prestyled-islands rule var-fallback recipe in
  * `select-default-classes.ts`; this skeleton uses theme-layer-emitted utility
  * tokens instead, because the component layer cannot import the islands-layer
  * recipe under the layer boundary rules.

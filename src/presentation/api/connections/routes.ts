@@ -333,7 +333,6 @@ async function handleStatus(c: Context, app: App) {
       type: conn.type,
       status: deriveConnectionState(result.success),
       connected,
-      // eslint-disable-next-line unicorn/no-null -- contract field; null when no expiry recorded
       expiresAt: expiresAt?.toISOString() ?? null,
     },
     200
@@ -365,7 +364,6 @@ async function handleDisconnect(c: Context, app: App) {
   return c.json({ success: true, deleted: result.success }, 200)
 }
 
-/* eslint-disable drizzle/enforce-delete-with-where -- the `.delete()` below is a Hono route definition, not a Drizzle delete */
 export function chainConnectionRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/connections/:name/authorize', (c) => handleAuthorize(c, app))
@@ -374,4 +372,3 @@ export function chainConnectionRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/connections/:name/users', (c) => handleListUsers(c, app))
     .delete('/api/connections/:name/disconnect', (c) => handleDisconnect(c, app)) as T
 }
-/* eslint-enable drizzle/enforce-delete-with-where */

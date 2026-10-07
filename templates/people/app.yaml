@@ -17,6 +17,23 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# Optional: a Google app and a Google Docs template turn on the welcome
+# document for each new hire (library/recipe/record-to-google-doc.yaml).
+# Without them the app runs as before and that one automation cannot reach
+# Google.
+env:
+  - key: GOOGLE_CLIENT_ID
+    description: Client id of your Google Cloud OAuth app, for the Google connection.
+    required: false
+    secret: false
+  - key: GOOGLE_CLIENT_SECRET
+    description: Client secret of your Google Cloud OAuth app, for the Google connection.
+    required: false
+  - key: ONBOARDING_DOC_TEMPLATE_ID
+    description: Id of the Google Docs document copied as each new hire's welcome document.
+    required: false
+    secret: false
+
 tables:
   - $ref: ./config/tables/employees.yaml
   - $ref: ./config/tables/time_off_requests.yaml
@@ -24,6 +41,13 @@ tables:
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/approve-time-off.yaml
+  - $ref: ./config/automations/join-new-account-to-directory.yaml
+  - $ref: ./library/recipe/record-to-google-doc.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/add-person.yaml
+  - $ref: ./config/forms/request-time-off.yaml
 
 # Listed in the order of the sidebar: the directory first, then time off, then
 # the two pages only an admin opens.
@@ -38,3 +62,8 @@ pages:
 # floating pill, so it never sits over the calendar or the last row of a grid.
 badge:
   placement: footer
+
+# The Google account the welcome documents are copied from, installed from the
+# Sovrium library. Its credentials come from the environment, never this file.
+connections:
+  - $ref: ./library/connection/google.yaml

@@ -18,7 +18,7 @@
  * ─── AUTHORISATION ──────────────────────────────────────────────────────────
  *
  * The second of the two surfaces authorised by [internal ref] **amendment A1**
- * (2026-08-14). Same invariant, same bound: reading is observability, mutating
+ * Same invariant, same bound: reading is observability, mutating
  * is authoring; **no edit affordance, no write endpoint, no draft, no version
  * ledger, no history, no diff, no preview.** There is no request schema in
  * this module because there is nothing to write to.
@@ -126,7 +126,7 @@ export type EnvValueSource = typeof envValueSourceSchema.Type
  * It is also additive and non-authoritative: `hasDefault` and `defaultValue`
  * keep their exact meanings, and a consumer that ignores this field is
  * unaffected. `disclosed` is emitted if and only if `defaultValue` is present,
- * which is the invariant `[internal ref]` pins.
+ * which is the invariant an admin config env spec pins.
  */
 export const envDefaultStateSchema = Schema.Literals(['none', 'withheld', 'disclosed']).annotate({
   description: 'Whether a default is declared, and whether its literal is released to the reader',
@@ -148,7 +148,7 @@ export type EnvDefaultState = typeof envDefaultStateSchema.Type
  * the value cannot be echoed on the hope that no operator ever puts a
  * credential there.
  *
- * Until [internal ref] nothing distinguished `default: '3000'` from
+ * Until the env-default `secret` marker design nothing distinguished `default: '3000'` from
  * `default: 'sk_live_…'`, so this endpoint reported presence only. `EnvVarSchema`
  * now carries the `secret` marker that earlier revisions of this comment named
  * as the blocker, and `defaultValue` is emitted for exactly the variables an

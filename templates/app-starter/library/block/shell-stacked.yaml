@@ -1,0 +1,197 @@
+# sovrium-library: block/shell-stacked@0.30.0
+name: shell-stacked
+type: container
+props:
+  className: w-full
+children:
+  - type: container
+    element: header
+    props:
+      className: border-b border-border bg-background px-4 sm:px-6
+    children:
+      - type: flex
+        props:
+          className: flex items-center justify-between gap-4 h-16 gap-6
+        children:
+          - type: link
+            props:
+              href: /
+              className: inline-flex items-center gap-2.5 text-lg font-semibold text-foreground
+            children:
+              - type: container
+                props:
+                  className: size-5 rounded bg-foreground
+                  aria-hidden: 'true'
+              - type: text
+                element: span
+                content: '[App]'
+          - type: container
+            element: nav
+            props:
+              aria-label: Main
+              className: hidden items-center gap-6 md:flex
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: Overview
+              - type: link
+                props:
+                  href: /invoices
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: Invoices
+              - type: link
+                props:
+                  href: /clients
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: Clients
+              - type: link
+                props:
+                  href: /reports
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: Reports
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: search-input
+                scope: page
+                props:
+                  placeholder: Search
+                  aria-label: Search
+                  className: hidden w-56 lg:flex
+              - type: dropdown-menu
+                triggerLabel: Account
+                menuItems:
+                  - label: Overview
+                    icon: house
+                    action:
+                      type: navigate
+                      path: /
+                  - label: Invoices
+                    icon: file-text
+                    action:
+                      type: navigate
+                      path: /invoices
+                  - label: Settings
+                    icon: settings
+                    action:
+                      type: navigate
+                      path: /settings
+                  - separator: true
+                  - label: Sign out
+                    icon: log-out
+                    action:
+                      type: auth
+                      method: logout
+              - type: button
+                variant: ghost
+                props:
+                  aria-label: Menu
+                  aria-controls: shell-stacked-menu
+                  className: md:hidden
+                interactions:
+                  click:
+                    toggleElement: '#shell-stacked-menu'
+                children:
+                  - type: icon
+                    props:
+                      name: menu
+                      size: 20
+  - type: container
+    props:
+      id: shell-stacked-menu
+      style:
+        display: none
+      className: mx-auto w-full max-w-6xl border-t border-border pt-2 pb-6 md:!hidden
+    children:
+      - type: container
+        element: nav
+        props:
+          aria-label: Main
+          className: flex flex-col px-4
+        children:
+          - type: link
+            props:
+              href: /
+              className: block border-b border-border py-3 text-lg font-medium text-foreground
+            content: Overview
+          - type: link
+            props:
+              href: /invoices
+              className: block border-b border-border py-3 text-lg font-medium text-foreground
+            content: Invoices
+          - type: link
+            props:
+              href: /clients
+              className: block border-b border-border py-3 text-lg font-medium text-foreground
+            content: Clients
+          - type: link
+            props:
+              href: /reports
+              className: block border-b border-border py-3 text-lg font-medium text-foreground
+            content: Reports
+  - type: container
+    props:
+      className: border-b border-border px-4 py-7 sm:px-8
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-semibold tracking-tight text-foreground
+            content: Overview
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: 'This week, across every client.'
+  - type: container
+    element: main
+    props:
+      className: px-4 py-8 sm:px-8
+    children:
+      - type: grid
+        props:
+          className: grid grid-cols-1 gap-6 md:grid-cols-3
+        children:
+          - type: container
+            props:
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Summary]'
+          - type: container
+            props:
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Summary]'
+          - type: container
+            props:
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Summary]'
+      - type: container
+        props:
+          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle mt-6 h-56
+        children:
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Page content]'

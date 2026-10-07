@@ -1,0 +1,17 @@
+name: metrics
+path: /metrics
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Metrics · App starter
+  description: Where the budget goes.
+window:
+  default: 30d
+  presets:
+    - { id: 7d }
+    - { id: 30d }
+    - { id: 90d }
+components:
+  - $ref: ./_nav.yaml
+  - component: dashboard-metrics

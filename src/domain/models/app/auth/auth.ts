@@ -10,12 +10,16 @@ import { validateAccountDeletionTemplateLink } from './account-deletion-template
 import { AuthApiKeysConfigSchema } from './api-keys'
 import { AuthEmailTemplatesSchema } from './email-templates'
 import { GroupSchema } from './groups'
+import { PasskeysConfigSchema } from './passkeys'
 import {
   DefaultRoleSchema,
   ADMIN_TIER_ROLE_NAMES,
   BUILT_IN_ROLES,
   RolesConfigSchema,
 } from './roles'
+import { ScimConfigSchema } from './scim'
+import { AuthSsoConfigSchema } from './sso'
+import { validateEnterpriseAuth } from './sso/sso-validation'
 import { AuthStrategiesSchema, type AuthStrategy } from './strategies'
 import { TwoFactorConfigSchema } from './two-factor'
 
@@ -69,7 +73,7 @@ export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyT
  *
  * Structure:
  * - allowSignUp: Boolean controlling self-registration (optional, defaults to true)
- * - strategies: Array of authentication strategy objects (required, at least one)
+ * - strategies: Array of authentication strategy objects (at least one, unless auth.sso declares a provider)
  * - roles: Custom role definitions with hierarchy (optional)
  * - defaultRole: Role assigned to new users (optional, defaults to 'member')
  * - twoFactor: TOTP-based two-factor authentication (optional)
@@ -189,7 +193,7 @@ export const InvitationTokenExpirySchema = Schema.Union([
 // ============================================================================
 
 interface AuthConfigForValidation {
-  readonly strategies: readonly AuthStrategy[]
+  readonly strategies?: readonly AuthStrategy[]
   readonly twoFactor?: unknown
   readonly defaultRole?: string
   readonly roles?: readonly {
@@ -201,17 +205,28 @@ interface AuthConfigForValidation {
   readonly scopeTables?: readonly string[]
   readonly landingPath?: string
   readonly noAccessPath?: string
+  readonly sso?: Parameters<typeof validateEnterpriseAuth>[0]['sso']
+  readonly scim?: Parameters<typeof validateEnterpriseAuth>[0]['scim']
 }
 
 const validateTwoFactorRequiresEmailPassword = (
   config: AuthConfigForValidation
 ): string | undefined => {
   if (!config.twoFactor) return undefined
-  const hasEmailPassword = config.strategies.some((s) => s.type === 'emailAndPassword')
+  const hasEmailPassword = (config.strategies ?? []).some((s) => s.type === 'emailAndPassword')
   return hasEmailPassword
     ? undefined
     : 'Two-factor authentication requires emailAndPassword strategy'
 }
+
+/**
+ * An auth block needs a way in: at least one strategy, or — for an SSO-only
+ * app — at least one identity provider under `auth.sso`.
+ */
+const validateHasSignInMethod = (config: AuthConfigForValidation): string | undefined =>
+  (config.strategies ?? []).length > 0 || (config.sso ?? []).length > 0
+    ? undefined
+    : 'auth needs at least one strategy, or at least one identity provider in auth.sso'
 
 /**
  * `defaultRole` is the role handed to EVERY new sign-up, so its vocabulary is
@@ -322,10 +337,10 @@ export const AuthSchema = Schema.Struct({
   // ============================================================================
 
   /**
-   * Array of authentication strategies.
-   * At least one strategy must be defined. No duplicate types allowed.
+   * Array of authentication strategies. No duplicate types allowed. May be
+   * empty or omitted when `auth.sso` declares at least one identity provider.
    */
-  strategies: AuthStrategiesSchema,
+  strategies: Schema.optional(AuthStrategiesSchema),
 
   // ============================================================================
   // Role Configuration (optional)
@@ -390,6 +405,28 @@ export const AuthSchema = Schema.Struct({
    * their email immediately.
    */
   invitationTokenExpiry: Schema.optional(InvitationTokenExpirySchema),
+
+  // ============================================================================
+  // Enterprise sign-in (optional)
+  // ============================================================================
+
+  /**
+   * Single sign-on identity providers (optional). OIDC or SAML, declared in
+   * config only — there is no runtime registration endpoint.
+   */
+  sso: Schema.optional(AuthSsoConfigSchema),
+
+  /**
+   * Passkey (WebAuthn) sign-in (optional). `true`, or an object adding the
+   * authenticator display name and the admin-plane passkey requirement.
+   */
+  passkeys: Schema.optional(PasskeysConfigSchema),
+
+  /**
+   * SCIM 2.0 provisioning (optional). Presence mounts `/api/scim/v2/*`,
+   * authenticated by the bearer token the `$env.` reference names.
+   */
+  scim: Schema.optional(ScimConfigSchema),
 
   // ============================================================================
   // Groups (optional)
@@ -549,11 +586,13 @@ export const AuthSchema = Schema.Struct({
   Schema.check(
     Schema.makeFilter((config) => {
       return (
+        validateHasSignInMethod(config) ??
         validateTwoFactorRequiresEmailPassword(config) ??
         validateDefaultRoleExists(config) ??
         validateGroupNames(config) ??
         validateScopeTables(config) ??
         validateLandingPathRequiredWhenRolesHaveLanding(config) ??
+        validateEnterpriseAuth(config) ??
         validateAccountDeletionTemplateLink(config)
       )
     })

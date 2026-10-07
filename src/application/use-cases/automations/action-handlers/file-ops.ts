@@ -12,6 +12,7 @@ import {
   UNATTRIBUTED_BUCKET,
 } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { signUploadLink } from './file-sign-upload'
 import { mimeByExt, uploadArtifactTo } from './file-support'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -181,7 +182,6 @@ const copyOrMove = (
     if (typeof copied !== 'number') return copied
 
     if (deleteSource) {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
       const removed = yield* Effect.result(storage.delete(sourceKey, UNATTRIBUTED_BUCKET))
       if (removed._tag === 'Failure') return softError(`failed to remove source ${sourceKey}`)
     }
@@ -207,7 +207,6 @@ export const handleFileDelete: ActionHandler = (action) =>
     if (!key) return { status: 'failure', error: 'file.delete requires a key' } as const
 
     const storage = yield* StorageService
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
     const removed = yield* Effect.result(storage.delete(key, UNATTRIBUTED_BUCKET))
     if (removed._tag === 'Failure') {
       return { status: 'failure', error: `file not found: ${key}` } as const
@@ -221,21 +220,25 @@ export const handleFileDelete: ActionHandler = (action) =>
 // signUrl
 // ---------------------------------------------------------------------------
 
-export const handleFileSignUrl: ActionHandler = (action) =>
+/**
+ * A download link is the store's own presign for the key. An upload link is
+ * Sovrium's signed upload into the `system` bucket ({@link signUploadLink}), so
+ * every rule of that road — catalogue, type, size, never over a stored key —
+ * holds for what lands through it.
+ */
+export const handleFileSignUrl: ActionHandler = (action, app) =>
   Effect.gen(function* () {
     const p = props(action)
     const key = stringProp(p, 'key')
     if (!key) return softError('file.signUrl requires a key')
-    const operation = p['operation'] === 'upload' ? 'upload' : 'download'
     const expiresIn = optionalNumber(p, 'expiresIn') ?? 3600
     const contentType = p['contentType'] !== undefined ? stringProp(p, 'contentType') : undefined
 
     const storage = yield* StorageService
-    const signed = yield* Effect.result(
-      operation === 'upload'
-        ? storage.getSignedUploadUrl(key, expiresIn, contentType)
-        : storage.getSignedUrl(key, expiresIn)
-    )
+    if (p['operation'] === 'upload') {
+      return yield* signUploadLink(storage, app, { key, expiresIn, contentType })
+    }
+    const signed = yield* Effect.result(storage.getSignedUrl(key, expiresIn))
     if (signed._tag === 'Failure') return softError(`failed to sign url for ${key}`)
 
     return {
@@ -243,7 +246,7 @@ export const handleFileSignUrl: ActionHandler = (action) =>
       output: {
         url: signed.success,
         key,
-        operation,
+        operation: 'download',
         expiresIn,
         expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
       },

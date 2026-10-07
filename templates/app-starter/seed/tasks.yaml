@@ -1,0 +1,8 @@
+# The work under the first two projects.
+records:
+  - key: logo
+    fields: { title: Proof the new logo, project: '@projects.rebrand', done: true }
+  - key: palette
+    fields: { title: Agree the palette, project: '@projects.rebrand', done: false }
+  - key: sso
+    fields: { title: Wire single sign-on, project: '@projects.portal', done: false }

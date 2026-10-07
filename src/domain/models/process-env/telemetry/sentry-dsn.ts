@@ -6,8 +6,7 @@
  */
 
 /**
- * Sentry DSN parsing for the observability-export feature
- * ([internal ref] / -PERFORMANCE).
+ * Sentry DSN parsing for the observability-export feature.
  *
  * A Sentry DSN is `<scheme>://<public_key>@<host>[:port]/<project_id>`. The
  * public key authenticates the ingest request (via the `X-Sentry-Auth` header)

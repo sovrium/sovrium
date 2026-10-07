@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor: mounted per open cell, torn down on commit or cancel, and
-   its onChange closes over the draft source. */
-
 import { useRef, useState } from 'react'
 import {
   TABLE_EDITOR_PROSE_WIDTH,
@@ -70,7 +66,6 @@ export default function CodeCellEditor(props: CellEditorProps): ReactElement {
   const sourceRef = useRef(initialSource)
 
   const handleChange = (_name: string, next: string): void => {
-    // eslint-disable-next-line functional/immutable-data -- Ref carries the draft to a Tab/blur that fires before React state would settle.
     sourceRef.current = next
   }
 

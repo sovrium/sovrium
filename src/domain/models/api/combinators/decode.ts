@@ -35,7 +35,7 @@ import { Result, Schema } from 'effect'
  * response gate, whose stated job is to catch a smuggled token.
  */
 const optionsFor = (schema: Schema.Top): { readonly onExcessProperty?: 'error' } => {
-  const annotations = (schema as unknown as { ast?: { annotations?: Record<string, unknown> } }).ast
+  const annotations = (schema as { ast?: { annotations?: Record<string, unknown> } }).ast
     ?.annotations
   return annotations?.['strictKeys'] === true ? { onExcessProperty: 'error' } : {}
 }

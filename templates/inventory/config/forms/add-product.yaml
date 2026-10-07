@@ -1,0 +1,47 @@
+# The Add product dialog opens this form. A new product starts with no
+# stock: stock arrives by recording a movement.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 2
+name: add-product
+title: Add product
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: products
+display:
+  submitLabel: Add product
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: name
+    label: Product
+  - kind: table-field
+    column: sku
+    label: SKU
+  - kind: table-field
+    column: category
+    label: Category
+  - kind: table-field
+    column: supplier
+    label: Supplier
+  - kind: table-field
+    column: unit_cost
+    label: Unit cost
+  - kind: table-field
+    column: unit_price
+    label: Unit price
+  - kind: table-field
+    column: reorder_at
+    label: Reorder at
+  - kind: table-field
+    column: barcode
+    label: Barcode

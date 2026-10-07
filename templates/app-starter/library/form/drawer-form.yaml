@@ -1,0 +1,20 @@
+# sovrium-library: block/drawer-form@0.30.0
+id: 3
+name: drawer-form
+title: '[Reminder details]'
+submitTo:
+  table: reminders
+fields:
+  - kind: table-field
+    column: name
+    label: '[Name]'
+  - kind: table-field
+    column: days_late
+    label: '[Days after the due date]'
+  - kind: table-field
+    column: message
+    label: '[Message]'
+onSuccess:
+  type: toast
+  message: Reminder created.
+  variant: success

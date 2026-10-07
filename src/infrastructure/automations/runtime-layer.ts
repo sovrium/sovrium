@@ -8,7 +8,11 @@
 import { Effect, Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
+import { ConfigAccountProvisionerLive } from '@/infrastructure/auth/better-auth/config-account-provisioner-live'
+import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
+import { SentinelTokensLive } from '@/infrastructure/connections/sentinel-tokens-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
@@ -24,10 +28,12 @@ import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/reposit
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
 import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
-import type { Context } from 'effect'
+import { TemplateEngineLive } from '@/infrastructure/templates/template-engine-live'
+import { AutomationFiberBridgeLive } from './automation-fiber-bridge-live'
 
 /**
  * Combined infrastructure layer required by the automation engine
@@ -74,14 +80,14 @@ import type { Context } from 'effect'
  *
  * ── This is the ONLY composition of the automation runtime ───────────────────
  *
- * It used to have a smaller twin in `infrastructure/layers/table-layer.ts`,
- * built for the record-event trigger path and missing `AuthRepository`,
- * `AutomationApprovalRepository`, `AiService`, `StorageService` and
- * `ImageTransformService`. A handler needing one of those therefore worked from
- * a webhook or cron trigger and failed from a record trigger — a difference no
- * type caught, because the twin asserted its result carried no requirements
- * instead of proving it. The two are now one layer, and the assertion is gone,
- * so the compiler checks the claim.
+ * Do not build a smaller twin for one trigger path (e.g. record events in
+ * `infrastructure/layers/table-layer.ts`). A twin missing `AuthRepository`,
+ * `AutomationApprovalRepository`, `AiService`, `StorageService` or
+ * `ImageTransformService` makes a handler needing one of those work from a
+ * webhook or cron trigger and fail from a record trigger — a difference no type
+ * catches if the twin asserts its result carries no requirements instead of
+ * proving it. With one layer and no such assertion, the compiler checks the
+ * claim.
  *
  * When future migration specs add handlers that depend on additional
  * repositories, extend this merged layer rather than spreading
@@ -100,12 +106,33 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // alert and automatic pause decide from (`notifyPlatformFailure`,
   // `autoPauseOnFailures`), both on the run loop's own failure path.
   AutomationRunOutcomeRepositoryLive,
+  // `AuditLogRepository` — the automatic pause reads the last resume and writes
+  // its own entry through the audit funnel.
+  AuditLogRepositoryLive,
+  // `EmailSender` — the `email/send` step and the operator notices a failing run sends.
+  EmailSenderLive,
   AutomationApprovalRepositoryLive,
   AuthRepositoryLive,
   AutomationStateRepositoryLive,
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
+  // `SentinelTokens` — the connection-authenticated steps refuse to send the
+  // test seeder's placeholder credential upstream, and the connection status
+  // reads report it as disconnected.
+  SentinelTokensLive,
+  // `TemplateEngine` — `{{...}}` substitution in step props, trigger
+  // conditions, webhook responses and invoked action templates.
+  TemplateEngineLive,
+  // `OAuthTokenClient` — the token-endpoint requests and the refresh lock the
+  // connection-authenticated steps (`http/*`, `webhook/*`, `connection/*`) use.
+  OAuthTokenClientLive,
+  // `AutomationFiberBridge` — the sandbox's Promise boundary and the registry
+  // of record-event runs a step starts without waiting for.
+  AutomationFiberBridgeLive,
+  // `ConfigAccountProvisioner` — the `auth/createUser` step; loads the auth
+  // engine lazily, so a deployment without `auth:` never pays for it.
+  ConfigAccountProvisionerLive,
   AiServiceLive,
   // `SpeechService` — the `ai/transcribe` handler's speech endpoint (`STT_*`).
   // Its construction reads env only and cannot fail; an unset `STT_PROVIDER`
@@ -146,31 +173,6 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // bare; the admin route composes it the same way.
   Layer.provide(LinkRepositoryLive, DatabaseLive)
 )
-
-/**
- * Cross a Promise boundary WITHOUT leaving the caller's services behind.
- *
- * The code-action sandbox hands user JavaScript an `actions.ref(...)` method,
- * and `automation:call` hands it an invoker; both must return a Promise,
- * because that is the contract a `function` inside the sandbox can consume.
- * The boundary is therefore imposed by the sandbox, not chosen by the run loop.
- *
- * What was chosen — and is now undone — is what supplied the sub-program's
- * services on the far side of it. Each invocation used to `Effect.provide` the
- * whole `AutomationRuntimeLayer` again, so an automation whose code action
- * dispatched N steps built N copies of every repository, the AI service and the
- * storage service included, while the fiber that called it already held one
- * set. This takes the CALLER's services instead: `Effect.context` captures what
- * the run loop is running on, and nothing is constructed here at all.
- *
- * It lives in infrastructure rather than in the use case for the reason
- * standing rule E1 gives — a use case declares `R` and never runs — and beside
- * `AutomationRuntimeLayer` because this is the other half of the same seam.
- */
-export const runOnAutomationServices =
-  <R>(services: Context.Context<R>) =>
-  <A, E>(program: Effect.Effect<A, E, R>): Promise<A> =>
-    Effect.runPromiseWith(services)(program)
 
 /**
  * Provide the automation runtime's required infrastructure layers.

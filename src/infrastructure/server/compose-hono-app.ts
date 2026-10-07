@@ -22,6 +22,7 @@ import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-o
 import { requestedPath } from '@/domain/kernel/url/requested-path'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
+import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isLiveReloadEligible } from '@/infrastructure/process/env'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -33,6 +34,7 @@ import {
 } from '@/infrastructure/server/api-error-envelope'
 import { domainContextMiddleware, provideDomain } from '@/infrastructure/server/domain-runtime'
 import { resolveAuthContext } from '@/infrastructure/server/hono-auth-context'
+import { attachConfigHashSetter } from '@/infrastructure/server/lock-file-cleanup'
 import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middleware/catalog-request-cache'
 import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
@@ -44,10 +46,12 @@ import { reportException } from '@/infrastructure/telemetry/error-reporter'
 import { createRequestTraceMiddleware } from '@/infrastructure/telemetry/performance-middleware'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
 import { isOperatorActionable } from '@/infrastructure/telemetry/telemetry-sink'
+import { makeAdminReadHost } from '@/presentation/api/admin/admin-read-host'
 import { setupDesignSystemShareRoutes } from '@/presentation/api/admin/design-system-share-reader-routes'
 import { setupAdminMountRoutes } from '@/presentation/api/admin/mount-routes'
 import { fireAgentSchedule } from '@/presentation/api/agents/agent-schedule-runner'
-import { setupAuthMiddleware, setupAuthRoutes } from '@/presentation/api/auth/better-auth-routes'
+import { setupAuthMiddleware } from '@/presentation/api/auth/auth-middleware'
+import { setupAuthRoutes } from '@/presentation/api/auth/better-auth-routes'
 import { setupOauthConsentRoutes } from '@/presentation/api/auth/oauth-consent-routes'
 import { createApiRoutes } from '@/presentation/api/compose-api-routes'
 import { setupLinkRoutes } from '@/presentation/api/links/routes'
@@ -75,7 +79,6 @@ import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 function mountPerformanceMiddleware(honoApp: Readonly<Hono>): void {
   const { performance, traces } = getTelemetryConfig()
   if (performance === undefined && traces === undefined) return
-  // eslint-disable-next-line functional/no-expression-statements -- register Hono middleware
   honoApp.use(
     '*',
     createRequestTraceMiddleware({
@@ -204,7 +207,6 @@ export async function createHonoApp(
   // its folder's layers on every call. Nothing downstream depends on ordering
   // here — the value is constant for the life of the server — but leading the
   // chain means no route can be registered ahead of it. See ./domain-runtime.
-  // eslint-disable-next-line functional/no-expression-statements
   honoApp
     .use('*', domainContextMiddleware(config.domainContext))
     .use('*', requestId())
@@ -212,7 +214,7 @@ export async function createHonoApp(
     .use('*', dbQueryCountMiddleware())
     .use('*', catalogRequestCacheMiddleware())
 
-  // Per-request trace boundary ([internal ref] /
+  // Per-request trace boundary (the infrastructure observability performance requirement /
   // -TRACING). Mounted early so it spans the full downstream handling, but
   // deliberately INSIDE `dbQueryCountMiddleware` above: it reads
   // `currentDbQueryCount()` after `next()` resolves, and that read is only
@@ -226,7 +228,6 @@ export async function createHonoApp(
   // incoming host matches `SOVRIUM_REDIRECT_HOST`. A complete no-op unless BOTH
   // `SOVRIUM_REDIRECT_HOST` and `SOVRIUM_REDIRECT_HOST_TARGET` are set, so it has
   // zero blast radius on every other deployment — see ./middleware/host-redirect.
-  // eslint-disable-next-line functional/no-expression-statements
   honoApp.use('*', hostRedirect)
 
   // X-Sovrium-Config response header middleware. Carries the SHA-256 hash of
@@ -235,22 +236,18 @@ export async function createHonoApp(
   // reload) from any HTTP response without hitting the admin API. Config is
   // code-only — there is no runtime config-mutation surface and therefore no
   // file-vs-DB drift to report; the header is just the plain hash.
-  // eslint-disable-next-line functional/no-let
   let currentConfigHash = configHash ?? ''
   if (currentConfigHash) {
-    // eslint-disable-next-line functional/no-expression-statements
     honoApp.use('*', async (c, next) => {
       await next()
       c.header('X-Sovrium-Config', currentConfigHash)
     })
   }
 
-  // Store setter on honoApp for SIGUSR1 reload to update the hash
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, @typescript-eslint/no-explicit-any
-  ;(honoApp as any).__setConfigHash = (hash: string) => {
-    // eslint-disable-next-line functional/no-expression-statements
+  // Register the setter the SIGUSR1 reload calls to update the hash
+  attachConfigHashSetter(honoApp, (hash: string) => {
     currentConfigHash = hash
-  }
+  })
 
   // Analytics retention cleanup middleware — purges stale page view records.
   // Runs awaited on page requests to guarantee old data is removed before response.
@@ -294,19 +291,18 @@ export async function createHonoApp(
   // Built HERE, at the composition root, and threaded into the auth route chain
   // — the same vector `authInstance` travels on.
   //
-  // `auth-routes.ts` used to call `createEmailHandlers` itself, which put
-  // `sendEmail` and a live nodemailer transport in the import graph of a file
-  // that is otherwise a request handler. Constructing it at the root is what
-  // lets that file name the factory as a TYPE only and hold no transport.
+  // If `auth-routes.ts` called `createEmailHandlers` itself, `sendEmail` and a
+  // live nodemailer transport would sit in the import graph of a file that is
+  // otherwise a request handler. Constructing it at the root is what lets that
+  // file name the factory as a TYPE only and hold no transport.
   const emailHandlers = createEmailHandlers(app?.auth, app?.name)
-  // Config-mutation REST routes (`/api/admin/schema/*` draft→publish, versions,
-  // drift, preview) were retired with the config-code-only reshape:
+  // There are no config-mutation REST routes (config-code-only, [internal ref]):
   // config changes ONLY by editing the app config file.
 
   // Live SEO routes (/sitemap.xml, /robots.txt) are registered BEFORE the
   // public-directory catch-all (inside setupStaticAssets) so the generated
   // routes win over same-named static files, and they sit ahead of the page
-  // catch-all so they aren't treated as page paths ([internal ref]..015).
+  // catch-all so they aren't treated as page paths.
   // `setupStaticAssets` is async (it realpath()s `publicDir` once at mount
   // time for the symlink-escape guard); the await sits inline so the rest of
   // the pipeline stays a single expression. setupPageRoutes wraps the
@@ -361,7 +357,15 @@ export async function createHonoApp(
                           app
                         ),
                         app,
-                        { authInstance, runtime, emailHandlers }
+                        {
+                          authInstance,
+                          runtime,
+                          emailHandlers,
+                          // The admin-invitation store and engine over the same
+                          // instance — built here so the invitation use-cases
+                          // hold no query module and no engine type.
+                          invitations: createInvitationServices(authInstance),
+                        }
                       ),
                       app,
                       {
@@ -374,6 +378,9 @@ export async function createHonoApp(
                         // file itself.
                         configHash: configHash ?? '',
                         readStatusDocument,
+                        // The admin read tools answer against the same host the
+                        // admin routes build, which belongs to the admin slug.
+                        makeAdminReadHost,
                       }
                     ),
                     app,
@@ -433,7 +440,6 @@ export async function createHonoApp(
         // the log, not in the operator's paging surface. A 5xx (including
         // `hono/timeout`'s 504) is reported here exactly as before.
         if (isOperatorActionable(error)) {
-          // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget crash report
           void reportException(error, {
             method: c.req.method,
             url: c.req.url,
@@ -444,8 +450,8 @@ export async function createHonoApp(
         // An `HTTPException` carries its OWN status (and, when the raiser supplied
         // one, its own response). Honour it — this handler REPLACES Hono's default
         // `.onError`, which does exactly that via `if ('getResponse' in err)`.
-        // Losing it is what collapsed `hono/timeout`'s `HTTPException(504)` into a
-        // hard-coded 500 during the 2026-07-25 incident.
+        // Losing it collapses `hono/timeout`'s `HTTPException(504)` into a
+        // hard-coded 500, which is what a production incident looked like.
         const status = error instanceof HTTPException ? error.status : 500
         logError(`[server] ${c.req.method} ${c.req.path} → ${status}`, error)
 

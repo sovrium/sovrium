@@ -1,0 +1,40 @@
+name: settings-workspace
+path: /settings/workspace/:id
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Workspace · App starter'
+  description: 'The workspace settings.'
+# Marks this page's link in the settings sections.
+query:
+  section:
+    default: workspace
+    enum: [workspace]
+components:
+  - $ref: ./_nav.yaml
+  - type: flex
+    props:
+      className: mx-auto flex w-full max-w-360 flex-col md:flex-row md:gap-4
+    children:
+      - $ref: ./_settings-nav.yaml
+      - type: container
+        props:
+          className: flex min-w-0 flex-1 flex-col
+        children:
+          - type: container
+            element: section
+            props:
+              className: flex flex-col gap-1 px-4 pt-6 sm:px-8 sm:pt-8
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: 'Workspace'
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: 'The settings that apply to everyone in the workspace.'
+          - component: settings-form

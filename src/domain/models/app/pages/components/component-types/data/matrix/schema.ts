@@ -54,6 +54,7 @@
  */
 
 import { Schema } from 'effect'
+import { GraphTablesSourceSchema } from '../../../graph-tables-source'
 
 // ---------------------------------------------------------------------------
 // MatrixSystemSourceSchema / MatrixDataSourceSchema
@@ -76,15 +77,16 @@ import { Schema } from 'effect'
  * rows". Defaults are `'nodes'` and `'edges'`, which is what the one shipped
  * consumer emits.
  *
- * ─── AND WHY THERE IS NO DB-TABLE ARM ──────────────────────────────────────
+ * ─── AND WHY THE DB-TABLE ARM IS NOT A PLAIN `{ table }` ──────────────────
  *
  * `chart` offers a union because a chart over DB rows is a well-defined thing
  * — a series is a column. A matrix over DB rows is NOT: nothing in a table
  * says which rows are the axes and which cells connect them, so the arm would
  * validate and then render nothing. A union with one unusable arm is worse
  * than a narrow struct: it advertises a capability, passes decode, and fails
- * silently at render. Widening this to accept a table is a later change that
- * must first answer what a table-backed matrix MEANS.
+ * silently at render. The table arm therefore answers what a table-backed
+ * matrix MEANS before it accepts one: `GraphTablesSourceSchema` names the node
+ * tables and the edge sources, shared with `graph`.
  *
  * @example
  * ```yaml
@@ -135,18 +137,30 @@ export const MatrixSystemSourceSchema = Schema.Struct({
 })
 
 /**
- * Data binding for a `matrix` — a graph read endpoint, and nothing else.
+ * Data binding for a `matrix` — a graph read endpoint, OR the app's own tables.
  *
- * A `Struct` rather than a `Union` deliberately; see
- * {@link MatrixSystemSourceSchema} for why there is no DB-table arm.
+ * The endpoint arm is the original one and is unchanged. The tables arm
+ * ({@link GraphTablesSourceSchema}) answers the question the endpoint arm's
+ * docblock left open — what a table-backed graph MEANS — by having the author
+ * name which tables are nodes and where the edges come from.
  */
-export const MatrixDataSourceSchema = Schema.Struct({
-  /** Graph read-endpoint binding (the only binding a matrix accepts) */
+export const MatrixSystemDataSourceSchema = Schema.Struct({
+  /** Graph read-endpoint binding */
   system: MatrixSystemSourceSchema,
 }).annotate({
+  identifier: 'MatrixSystemDataSource',
+  title: 'Matrix System Data Source',
+  description: 'Graph read-endpoint binding for the grid',
+})
+
+export const MatrixDataSourceSchema = Schema.Union([
+  MatrixSystemDataSourceSchema,
+  GraphTablesSourceSchema,
+]).annotate({
   identifier: 'MatrixDataSource',
   title: 'Matrix Data Source',
-  description: 'Graph read-endpoint binding for the matrix grid',
+  description:
+    'Where the grid reads its graph: a read endpoint (`system`), or the app’s own tables (`nodes` and `edges`)',
 })
 
 // ---------------------------------------------------------------------------
@@ -312,7 +326,7 @@ export const MatrixGlyphSchema = Schema.Literals(['quadrant', 'filled', 'ops-lab
  * An earlier draft of this comment said `label` is "the word the legend and the
  * accessible twin use". There is no legend. `label` reaches exactly two places:
  * the twin's flag column, and the marked cell's `title` so a sighted reader can
- * hover the mark. `[internal ref]` asserts the label's occurrence count
+ * hover the mark. A pages matrix spec asserts the label's occurrence count
  * equals the flagged-edge count EXACTLY, which forbids a third occurrence — and
  * that assertion is the right one to keep: a legend would be prose explaining a
  * figure that is `aria-hidden` whenever `label` is omitted, so the reader who

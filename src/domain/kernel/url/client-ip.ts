@@ -73,17 +73,17 @@ const presentOrUndefined = (value: string | undefined): string | undefined => {
  *   `chain[length - hops]`. Only when that yields nothing do the single-valued
  *   headers (`CF-Connecting-IP`, then `X-Real-IP`) apply.
  *
- * WHY THE CHAIN WINS, and why the previous order was a bypass.
+ * WHY THE CHAIN WINS, and why the single-value headers do not out-rank it.
  *
- * This function used to return `CF-Connecting-IP`, then `X-Real-IP`,
- * unconditionally and AHEAD of the chain, justified by "a client cannot append
- * to them the way it can to a list". That reasoning conflates *appending* with
- * *setting*. Both are ordinary request headers: nothing strips them, and
- * `TRUSTED_PROXY_HOPS` is read as "some proxy exists", never as "this header
- * came from it". So a caller behind the documented Caddy deployment could
- * simply SEND its own `X-Real-IP` and shout over the chain — picking a fresh
- * rate-limit bucket per request on every limiter that keys on this value. It
- * did not need to forge the chain, only to out-rank it.
+ * Returning `CF-Connecting-IP`, then `X-Real-IP`, unconditionally and AHEAD of
+ * the chain is tempting — "a client cannot append to them the way it can to a
+ * list" — but that reasoning conflates *appending* with *setting*. Both are
+ * ordinary request headers: nothing strips them, and `TRUSTED_PROXY_HOPS` is
+ * read as "some proxy exists", never as "this header came from it". So a
+ * caller behind the documented Caddy deployment could simply SEND its own
+ * `X-Real-IP` and shout over the chain — picking a fresh rate-limit bucket per
+ * request on every limiter that keys on this value. It would not need to forge
+ * the chain, only to out-rank it.
  *
  * `TRUSTED_PROXY_HOPS` is a depth, and depth is a property of the CHAIN alone:
  * it is the one header shape whose trustworthiness the operator has actually

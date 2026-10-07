@@ -9,10 +9,11 @@ import {
   computeTablePagerClasses,
   computeTableToolbarButtonClasses,
 } from '@/presentation/design/table-default-classes'
+import { usePhoneViewport } from '../../../hooks/use-phone-viewport'
 import { LoadMoreButton } from '../../../parts/load-more-button'
-import { AlternateView } from '../alternate-view'
 import { PaginationControls } from '../pagination'
 import { TableContent } from '../table-content'
+import { PhoneRows } from './phone-rows'
 import type { GridBodyProps } from '../view-props'
 
 /**
@@ -57,8 +58,7 @@ function GridPager({
 }
 
 /**
- * The rows — or the alternate view that replaces them — and the pagers that say
- * where in the list they sit.
+ * The rows, and the pagers that say where in the list they sit.
  *
  * `pagination.position` is honoured as DOCUMENT ORDER, which is the only thing
  * "above the grid" can mean to a reader or to a screen reader: the top pager is
@@ -73,17 +73,25 @@ function GridPager({
  * needs no new state either.
  */
 export function GridBody(props: GridBodyProps) {
+  // `phoneLayout: rows` swaps the grid for items on a phone, and only there.
+  const phoneRows = usePhoneViewport(props.phoneLayout === 'rows')
   return (
     <>
-      {props.alternate && <AlternateView {...props.alternate} />}
-      {props.showGrid && showsPagerAt(props, 'top') && (
+      {showsPagerAt(props, 'top') && (
         <GridPager
           props={props}
           edge="top"
         />
       )}
-      {props.showGrid && <TableContent {...props.grid} />}
-      {props.showGrid && <GridFooter {...props} />}
+      {phoneRows ? (
+        <PhoneRows
+          table={props.grid.table}
+          ariaLabel={props.grid.ariaLabel}
+        />
+      ) : (
+        <TableContent {...props.grid} />
+      )}
+      <GridFooter {...props} />
     </>
   )
 }

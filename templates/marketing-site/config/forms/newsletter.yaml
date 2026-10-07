@@ -1,0 +1,15 @@
+# The newsletter sign-ups. Both newsletter blocks post to this form's route,
+# /api/forms/newsletter/submissions, so the list lives in one place: the
+# subscribers table. Connect a mailing tool with a library recipe — for
+# example `sovrium library add recipe/form-to-brevo --set form=newsletter`.
+id: 2
+name: newsletter
+title: Newsletter
+access:
+  require: all
+submitTo:
+  table: subscribers
+antiSpam:
+  honeypot: true
+fields:
+  - { kind: table-field, column: email, required: true, label: Email }

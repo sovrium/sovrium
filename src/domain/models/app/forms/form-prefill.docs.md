@@ -64,9 +64,17 @@ Parent-record prefill belongs on the page's form control, where a host record ac
 
 A page that shows one record — `dataSource: { mode: single }` — can hand that record to a form placed on it. The form control's `inlinePrefill` maps field names to values, and `$parent.<field>` (or `$record.<field>`) reads the page's record while the page renders. With `lockPrefill: true` the prefilled fields ride in hidden inputs on that page, so the visitor does not see or edit them there. The lock is presentational: it shapes this page, and a form embedded with `formRef` is also served on its own page with those fields visible. To hold a link or an account to the value the server fills in, declare the field `hidden: true` on the form — see below.
 
-It works on both kinds of page form: one that embeds a top-level form with `formRef`, and one declared in place with its own `dataSource`, `fields` and a `crud` create action. And it works wherever the form sits — directly on the page, inside a tab panel, or inside a dialog: the parent is the page's record in all three.
+It applies to a form placed with `formRef`, the only way to add a record from inside an app page, and it works wherever that form sits — directly on the page, inside a tab panel, or inside a dialog: the parent is the page's record in all three. A page form declared in place carries no `inlinePrefill`; such a form edits the record it is bound to and has nothing to prefill.
 
 ```yaml
+forms:
+  - id: 1
+    name: log-interaction
+    title: Log an interaction
+    submitTo: { table: interactions }
+    fields:
+      - { kind: table-field, column: summary }
+      - { kind: table-field, column: person }
 pages:
   - name: person-detail
     path: /people/:id
@@ -80,14 +88,10 @@ pages:
         props: { id: log-interaction, title: Log an interaction }
         children:
           - type: form
-            dataSource: { table: interactions }
-            fields:
-              - { field: summary, label: Summary }
-              - { field: person }
+            formRef: log-interaction
             inlinePrefill:
               prefill: { person: $parent.id }
               lockPrefill: true
-            action: { type: crud, operation: create, table: interactions }
 ```
 
 A hidden relationship field that nothing fills is stored empty: the record is created with no link, never with a reference to a record that does not exist.

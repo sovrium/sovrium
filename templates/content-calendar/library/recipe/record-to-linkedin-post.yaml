@@ -1,0 +1,51 @@
+# sovrium-library: recipe/record-to-linkedin-post@0.30.0
+# A piece that goes out on LinkedIn is posted there, on the connected
+# member's profile, the moment the team marks it Published: its title, then
+# its tracked link when it has one. Two changes from the library recipe: the
+# trigger waits for Published on a LinkedIn piece instead of firing for every
+# new idea, and the post text is the title and the link rather than the brief.
+# Set the LinkedIn variables (see `.env.example`) and connect the account from
+# the admin console to turn it on.
+name: record-to-linkedin-post
+trigger:
+  type: record
+  table: content
+  events:
+    - update
+  watchFields:
+    - status
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: Published
+      - field: '{{trigger.data.previousRecord.status}}'
+        operator: notEquals
+        value: Published
+      - field: '{{trigger.data.record.channels}}'
+        operator: contains
+        value: LinkedIn
+actions:
+  - name: member
+    type: connection
+    operator: call
+    props:
+      connection: linkedin
+      operation: get-userinfo
+  - name: publish
+    type: connection
+    operator: call
+    props:
+      connection: linkedin
+      operation: create-post
+      params:
+        X-Restli-Protocol-Version: 2.0.0
+        author: 'urn:li:person:{{steps.member.data.sub}}'
+        lifecycleState: PUBLISHED
+        specificContent:
+          com.linkedin.ugc.ShareContent:
+            shareCommentary:
+              text: '{{trigger.data.record.title}} {{trigger.data.record.tracked_link}}'
+            shareMediaCategory: NONE
+        visibility:
+          com.linkedin.ugc.MemberNetworkVisibility: PUBLIC

@@ -8,7 +8,7 @@
 import { Result, Schema } from 'effect'
 import { validator } from 'hono/validator'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import type { ValidationTargets } from 'hono'
+import type { Context, Env, ValidationTargets } from 'hono'
 
 /**
  * `zValidator`'s Effect-Schema twin, built on `hono/validator`.
@@ -33,6 +33,29 @@ import type { ValidationTargets } from 'hono'
  * pass `validationErrorHook` already emitted the canonical envelope; this makes
  * the rest agree instead of preserving the divergence.
  */
+
+/**
+ * The context of a handler mounted behind `effectValidator(target, schema)`.
+ *
+ * `c.req.valid(target)` is typed from the third `Context` parameter: the fluent
+ * chain fills it in, and a bare `Context` leaves it empty. A handler declared
+ * apart from its chain names the decoded shape here and reads it with a plain
+ * `c.req.valid(target)`. The chain's own context is assignable to this type,
+ * and so is a bare `Context`, so the handler stays callable from a test.
+ *
+ * @example
+ * ```typescript
+ * const handleList = (c: ValidatedContext<'query', ListQuery>) => {
+ *   const { limit } = c.req.valid('query')
+ * }
+ * app.get('/api/items', effectValidator('query', listQuerySchema), handleList)
+ * ```
+ */
+export type ValidatedContext<Target extends keyof ValidationTargets, A> = Context<
+  Env,
+  string,
+  { readonly out: { readonly [K in Target]: A } }
+>
 
 /** One field-level entry of the canonical validation envelope. */
 type FieldError = {
@@ -79,6 +102,38 @@ const toFieldErrors = (
     })
 
 /**
+ * Decode a value against an Effect Schema, or answer the canonical 400.
+ *
+ * The decoding half of {@link effectValidator}, for a handler that must run its
+ * own gates BEFORE the body is judged — a comment thread's sign-in and
+ * spam-trap gates answer first, so a malformed body cannot tell a prober which
+ * gate it reached. Same envelope as the route validator, so a client sees one
+ * shape whichever of the two refused.
+ */
+export const decodeOrValidationResponse = <A, I>(
+  c: Context,
+  schema: Schema.Codec<A, I, never, never>,
+  value: unknown,
+  target: string
+): A | Response => {
+  const decoded = Schema.decodeUnknownResult(schema)(value)
+  if (Result.isSuccess(decoded)) return decoded.success
+  return c.json(validationFailureBody(decoded.failure, target), 400)
+}
+
+/**
+ * The 400 body a request schema's refusal answers: one entry per failing
+ * field. Shared with the admin read registry's HTTP adapter, whose reads decode
+ * their query through the same schemas this validator once applied.
+ */
+export const validationFailureBody = (error: Readonly<Schema.SchemaError>, target: string) => ({
+  success: false as const,
+  message: 'Validation failed',
+  code: ApiErrorCode.VALIDATION_ERROR,
+  errors: toFieldErrors(error, target),
+})
+
+/**
  * Validate one request target against an Effect Schema.
  *
  * @param target - Hono validation target (`json`, `query`, `param`, …)
@@ -98,19 +153,4 @@ export const effectValidator = <Target extends keyof ValidationTargets, A, I>(
   // A schema needing a service or an async step cannot be decoded inside a
   // Hono validator, so it is rejected at the type level rather than at runtime.
   schema: Schema.Codec<A, I, never, never>
-) =>
-  validator(target, (value, c) => {
-    const decoded = Schema.decodeUnknownResult(schema)(value)
-    if (Result.isSuccess(decoded)) {
-      return decoded.success
-    }
-    return c.json(
-      {
-        success: false as const,
-        message: 'Validation failed',
-        code: ApiErrorCode.VALIDATION_ERROR,
-        errors: toFieldErrors(decoded.failure, target),
-      },
-      400
-    )
-  })
+) => validator(target, (value, c) => decodeOrValidationResponse(c, schema, value, target))

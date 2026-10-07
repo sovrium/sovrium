@@ -67,22 +67,30 @@ export class TablesOverviewRepository extends Context.Service<
      * Per-table write count within `[windowStart, windowEnd)` — one entry per
      * input table, in the same order. A row "counts as a write" when its
      * `updated_at` falls in the window. Missing tables contribute 0.
+     *
+     * An `undefined` end leaves the window open: every write from `windowStart`
+     * on counts, however far the database clock — which stamps `updated_at` —
+     * runs ahead of the application's. The current period is asked this way.
      */
     readonly countWritesPerTable: (
       tableNames: ReadonlyArray<string>,
       windowStart: Readonly<Date>,
-      windowEnd: Readonly<Date>
+      windowEnd: Readonly<Date> | undefined
     ) => Effect.Effect<ReadonlyArray<number>, TablesOverviewError>
 
     /**
      * Write count SUMMED across all input tables for each bucket window — one
      * entry per bucket, in order. Backs the overview's write-volume series
      * (`series.points[].writes`). Buckets are iterated sequentially so a wide
-     * series cannot swamp SQLite's single-writer connection.
+     * series cannot swamp SQLite's single-writer connection. A bucket whose
+     * `end` is `undefined` is open-ended, as `countWritesPerTable`'s window is.
      */
     readonly countWritesPerBucket: (
       tableNames: ReadonlyArray<string>,
-      buckets: ReadonlyArray<{ readonly start: Readonly<Date>; readonly end: Readonly<Date> }>
+      buckets: ReadonlyArray<{
+        readonly start: Readonly<Date>
+        readonly end: Readonly<Date> | undefined
+      }>
     ) => Effect.Effect<ReadonlyArray<number>, TablesOverviewError>
   }
 >()('TablesOverviewRepository') {}

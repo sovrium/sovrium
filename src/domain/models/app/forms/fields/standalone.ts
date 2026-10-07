@@ -84,7 +84,8 @@ export const StandaloneFieldSchema = Schema.Struct({
   /** Accepted MIME types for attachment fields. */
   accept: Schema.optional(
     Schema.String.annotate({
-      description: 'Comma-separated MIME types or file extensions the file picker accepts.',
+      description:
+        "Comma-separated MIME types or file extensions the file picker accepts. Enforced again on submission, on the file's content as well as its declared type: a file outside the list is refused with 400, and `image/*` does not admit SVG unless `image/svg+xml` or `.svg` is named.",
     })
   ),
   /** Max files for attachment fields. */
@@ -97,7 +98,10 @@ export const StandaloneFieldSchema = Schema.Struct({
   /** Maximum file size (bytes) for each uploaded file. */
   maxFileSize: Schema.optional(
     Schema.Finite.pipe(
-      Schema.annotate({ description: 'Largest size, in bytes, accepted for each uploaded file.' }),
+      Schema.annotate({
+        description:
+          "Largest size, in bytes, accepted for each uploaded file. Enforced again on submission: a larger file is refused with 413. The bucket's own limit applies too.",
+      }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),

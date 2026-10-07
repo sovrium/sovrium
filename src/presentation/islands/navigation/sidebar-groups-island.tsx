@@ -111,7 +111,6 @@ export default function SidebarGroupsIsland({
 
   useEffect(() => {
     if (endpoint === undefined || labelKey === undefined || hrefTemplate === undefined) return
-    // eslint-disable-next-line functional/no-let -- unmount guard for the async setState
     let live = true
     void fetchEntries({ endpoint, rowsKey, labelKey, hrefTemplate, itemProps, query }).then(
       (fetched) => {

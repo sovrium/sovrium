@@ -6,8 +6,7 @@
  */
 
 /**
- * `preview` — one component type, drawn with ONE option set to ONE value
- *.
+ * `preview` — one component type, drawn with ONE option set to ONE value.
  *
  * ─── WHAT IT IS FOR ────────────────────────────────────────────────────────
  *
@@ -115,7 +114,7 @@ export const previewComponent: ComponentRenderer = ({
   renderedChildren,
   component,
 }) => {
-  const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
+  const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const { type, option, value } = subjectOf(source)
   const caption = text(source, 'caption')
   const showValue = source['showValue'] !== false && option !== undefined && value !== undefined

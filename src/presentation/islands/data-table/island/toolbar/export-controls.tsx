@@ -62,9 +62,6 @@ export function ExportControl({
   const onSystemExportClick = useCallback(() => {
     if (!systemExportEndpoint) return
     const separator = systemExportEndpoint.includes('?') ? '&' : '?'
-    /* eslint-disable-next-line functional/immutable-data -- imperative navigation
-       is required to fire the browser-native CSV download from a button click
-       against the system read endpoint's export route */
     window.location.href = `${systemExportEndpoint}${separator}format=csv`
   }, [systemExportEndpoint])
 
@@ -158,9 +155,6 @@ export function ExportSelectedButton({
     const hasHidden = visibleCols.length < getNonSelectColumnCount(table)
     const fieldsParam = hasHidden ? `&fields=${visibleCols.map(encodeURIComponent).join(',')}` : ''
     const idsParam = `&recordIds=${selectedIds.map(encodeURIComponent).join(',')}`
-    /* eslint-disable-next-line functional/immutable-data -- imperative
-       navigation is required to fire the browser-native CSV download
-       from a button click while still using the existing GET endpoint */
     window.location.href = `/api/tables/${tableName}/export?format=csv${idsParam}${fieldsParam}`
   }, [table, tableName, systemExportEndpoint])
 

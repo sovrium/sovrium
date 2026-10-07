@@ -357,15 +357,10 @@ const drawnEdges = (
   })
 
 /**
- * One twin row per DRAWN node, in the order the drawing lays them out.
- *
- * `reaches` is the node's DIRECT successors, by label. Direct rather than
+ * What a node reaches DIRECTLY, by label — the edges of one drawing, as text,
+ * each led by its kind when it has one (`depends Ledger`). Direct rather than
  * transitive because the criterion is that "the edges exist as text, not only
- * as lines" — a transitive closure would be the island's reach SET, which is a
- * rendering decision and deliberately crosses nothing.
- */
-/**
- * What a node reaches DIRECTLY, by label — the edges of one drawing, as text.
+ * as lines": a transitive closure would be the island's reach SET.
  *
  * Closed over once per projection rather than passed down as an `edges` +
  * `labels` pair, which is a readability point as much as a parameter-count one:
@@ -378,7 +373,9 @@ type Reach = (id: string) => readonly string[]
 const reachOver =
   (edges: readonly GraphEdgeView[], labels: ReadonlyMap<string, string>): Reach =>
   (id) =>
-    edges.filter((edge) => edge.from === id).map((edge) => labels.get(edge.to) ?? edge.to)
+    edges
+      .filter((edge) => edge.from === id)
+      .map((edge) => `${edge.kind} ${labels.get(edge.to) ?? edge.to}`.trim())
 
 const twinRow = (
   node: GraphNodeView,

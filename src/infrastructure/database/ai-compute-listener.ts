@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { Context, Effect, Layer } from 'effect'
 import { Client } from 'pg'
 import { AiService } from '@/application/ports/services/ai-service'
@@ -16,6 +14,7 @@ import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
+import { AiComputeStatusRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-compute-status-repository-live'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { AiComputeKind } from '@/domain/models/app/tables/ai-compute-baseline'
@@ -25,7 +24,7 @@ import type { AiComputeRequestConfig } from '@/domain/models/app/tables/ai-compu
  * Payload emitted by the ai-* compute triggers via pg_notify.
  *
  * The `kind` discriminator selects the per-kind request builder. `record_id`
- * ([internal ref] Phase 2) locates the row for the refinement write-back — the trigger
+ * locates the row for the refinement write-back — the trigger
  * is a BEFORE INSERT/UPDATE trigger, so `NEW.id` is already populated (the
  * SERIAL default is evaluated before BEFORE-row triggers fire). `value` is the
  * deterministic baseline; `source` is the concatenated source content.
@@ -54,7 +53,7 @@ interface AiComputePayload {
 const CHANNEL = 'sovrium_ai_compute'
 
 /**
- * AI Compute Listener ([internal ref] Phase 2 — baseline-then-refined).
+ * AI Compute Listener (the real-AI-provider rule for AI-compute fields — baseline-then-refined).
  *
  * Subscribes to the PostgreSQL `sovrium_ai_compute` channel. The trigger writes
  * the deterministic baseline synchronously inside the INSERT/UPDATE transaction;
@@ -157,7 +156,6 @@ const connect = async (
 }
 
 /** `UNLISTEN` then close. Best-effort on both, and never rejects. */
-// eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
 const disconnect = async (client: Client): Promise<void> => {
   await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined)
   await client.end().catch(() => undefined)
@@ -174,7 +172,6 @@ const disconnect = async (client: Client): Promise<void> => {
  */
 export interface AiComputeListenerDriver {
   readonly open: (databaseUrl: string, handle: (raw: string) => void) => Promise<Client | undefined>
-  // eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
   readonly close: (client: Client) => Promise<void>
 }
 
@@ -241,7 +238,12 @@ const handlePayload = async (appId: string, raw: string): Promise<void> => {
     config,
   })
 
-  const result = await Effect.runPromise(program.pipe(Effect.provide(AiLive), Effect.result))
+  const result = await Effect.runPromise(
+    program.pipe(
+      Effect.provide(Layer.mergeAll(AiLive, AiComputeStatusRepositoryLive)),
+      Effect.result
+    )
+  )
   if (result._tag === 'Failure') {
     logError('[ai-compute] refinement program failed', result.failure)
   }

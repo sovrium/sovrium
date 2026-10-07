@@ -22,9 +22,12 @@ import {
   fillAuthoredReferences,
   referenceAuthoredValues,
 } from '../authored-references'
+import { readActionIdentity } from './action-identity'
 import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
+import { buildStep } from './step-record'
 import type { ReadTracker } from './read-tracker'
 import type { RunAccumulator, StepContext } from './types'
+import type { ActionRunContext, NestedStepInvoker } from '../action-handlers/shared'
 
 /**
  * Shared "dispatch one action via the handler registry, return its
@@ -53,6 +56,35 @@ interface DispatchActionInput {
   readonly tracker: ReadTracker
 }
 
+/**
+ * What every action dispatched on a step's behalf (by a script, a path or a
+ * loop) runs with besides its own props: the env, the invokers — sharing the
+ * step's cycle-detection stack and read tracker — and the record-event
+ * channel, so a record it writes starts the record automations of its table
+ * under the run's depth limit, exactly as a top-level step's write does.
+ */
+const dispatchedContext = (
+  ctx: StepContext,
+  acc: RunAccumulator,
+  invocationStack: ReadonlySet<string>,
+  tracker: ReadTracker
+): Pick<
+  ActionRunContext,
+  | 'envLookup'
+  | 'templates'
+  | 'invokeTemplate'
+  | 'invokeNativeAction'
+  | 'runNestedStep'
+  | 'recordEvents'
+> => ({
+  envLookup: ctx.envLookup,
+  templates: ctx.templates,
+  invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, tracker),
+  invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, tracker),
+  runNestedStep: buildNestedStepInvoker(ctx, acc, invocationStack, tracker),
+  recordEvents: ctx.recordEvents,
+})
+
 const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> => {
   const { action, resolvedProps, ctx, acc, invocationStack, failureLabel, tracker } = input
   const handlerKey = actionKey(
@@ -72,9 +104,7 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
     authoredProps: input.authoredProps,
     ...(input.templateVars === undefined ? {} : { templateVars: input.templateVars }),
     ...(input.propsFinal ? { propsFinal: true as const } : {}),
-    envLookup: ctx.envLookup,
-    invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, tracker),
-    invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, tracker),
+    ...dispatchedContext(ctx, acc, invocationStack, tracker),
   }
   // Its own announcing scope: this program runs detached from the calling
   // step's fiber, so the rows it writes are announced as one write of its own.
@@ -145,10 +175,11 @@ export const buildTemplateInvoker = (
     // as text, and so is the action other handlers read as written.
     const filled = fillAuthoredReferences(template.action, values)
     const isCode = String(template.action['type'] ?? '') === 'code'
-    const resolvedProps = renderAuthoredTemplateProps(isCode ? filled : referenced, {
-      ...ctx.templateContext,
-      ...authoredReferenceRoots(values),
-    })
+    const resolvedProps = renderAuthoredTemplateProps(
+      isCode ? filled : referenced,
+      { ...ctx.templateContext, ...authoredReferenceRoots(values) },
+      ctx.templates
+    )
     const newStack = new Set([...invocationStack, templateName])
     return dispatchActionAsPromise({
       action: filled,
@@ -218,6 +249,47 @@ export const buildNativeActionInvoker = (
       invocationStack,
       failureLabel: `native action '${type}.${operator}'`,
       tracker,
+    })
+  }
+}
+
+/**
+ * Build the dispatcher a `path` or a `loop` runs each nested action through
+ * (`ActionRunContext.runNestedStep`). Unlike {@link buildNativeActionInvoker},
+ * which hands a script only the `output`, it resolves with the WHOLE outcome
+ * and the nested step's record:
+ * the branch or loop decides what a failure, a `flow/stop` (`returnData`), a
+ * stopping filter or a pause does to the rest of its actions and to the run.
+ *
+ * The nested action keeps its own name and runs with the outputs the caller
+ * passes as `previousSteps` — the run's, plus what earlier nested actions of
+ * the same path or item produced — so `{{<step>.*}}` reads them.
+ */
+export const buildNestedStepInvoker = (
+  ctx: StepContext,
+  acc: RunAccumulator,
+  invocationStack: ReadonlySet<string>,
+  tracker: ReadTracker
+): NestedStepInvoker => {
+  return ({ action, props, previousSteps }) => {
+    const { type, operator } = readActionIdentity(action)
+    const handler = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
+    const rawAction = { ...action, props }
+    const subRunContext: ActionRunContext = {
+      previousSteps,
+      triggerData: ctx.triggerData,
+      rawAction,
+      authoredProps: props,
+      propsFinal: true,
+      ...dispatchedContext(ctx, acc, invocationStack, tracker),
+    }
+    const program = announceRecordWrites(ctx.app)(
+      handler(rawAction, ctx.app, ctx.automation, subRunContext)
+    )
+    return ctx.runProgram(program).then((outcome) => {
+      tracker.dispatched(ctx.app, rawAction, outcome.output)
+      // Recorded, and masked, exactly as a top-level step is.
+      return { outcome, step: buildStep(rawAction, props, outcome, ctx) }
     })
   }
 }

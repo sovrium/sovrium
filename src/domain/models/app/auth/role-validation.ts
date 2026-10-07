@@ -157,7 +157,7 @@ const firstRoleError = (validators: ReadonlyArray<() => string | undefined>): st
  *
  * Role cross-validation only occurs when `auth.roles` is explicitly defined.
  * Without explicit role definitions, any role name is accepted (format-only validation).
- * This supports [internal ref] where permissions use role names like 'editor'
+ * This supports a buckets bucket spec where permissions use role names like 'editor'
  * without needing to declare those roles in auth.roles.
  */
 export const validateAllRoleReferences = (app: {

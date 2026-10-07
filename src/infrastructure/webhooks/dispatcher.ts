@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
 import { generateSignature } from './signature'
 
 /**
@@ -31,6 +30,9 @@ interface DeliverWebhookOptions {
 /** Default hard timeout for a webhook HTTP request, in milliseconds. */
 const DEFAULT_TIMEOUT_MS = 30_000
 
+/** The most of a receiver's answer read and kept in the delivery log, in bytes. */
+const RESPONSE_BODY_CAP = 65_536
+
 /**
  * Deliver a webhook via HTTP POST.
  *
@@ -46,21 +48,6 @@ export const deliverWebhook = async (
 ): Promise<Record<string, unknown>> => {
   const secret = options?.secret
   const extraHeaders = options?.extraHeaders
-  // SSRF guard: reject loopback / link-local / RFC1918 / unsupported
-  // protocols BEFORE making the request. Returns a failure envelope shaped
-  // like a fetch error so existing callers handle it through their
-  // success-flag branch without an extra throw path.
-  const validation = validateOutboundUrl(url)
-  if (!validation.ok) {
-    return {
-      statusCode: 0,
-      responseBody: '',
-      duration: 0,
-      success: false,
-      error: `invalid_outbound_url_${validation.issue.reason}`,
-    }
-  }
-
   const body = JSON.stringify(payload)
   const signatureHeader: Readonly<Record<string, string>> = secret
     ? { 'X-Webhook-Signature': await generateSignature(body, secret) }
@@ -75,18 +62,22 @@ export const deliverWebhook = async (
 
   const startTime = performance.now()
 
-  const response = await withFetchTimeout(
+  // SSRF guard on the URL and on every redirect hop: a receiver that answers
+  // `302` to an internal address does not get the payload sent there. A refusal
+  // is returned as a failure envelope shaped like a fetch error so existing
+  // callers handle it through their success-flag branch without a throw path.
+  const sent = await guardedFetch(
     url,
-    {
-      method: 'POST',
-      headers,
-      body,
-    },
-    options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    { method: 'POST', headers, body },
+    { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxBodyBytes: RESPONSE_BODY_CAP }
   )
+  if (!sent.ok) {
+    return { statusCode: 0, responseBody: '', duration: 0, success: false, error: sent.message }
+  }
+  const { response } = sent
 
   const duration = performance.now() - startTime
-  const responseBody = await response.text()
+  const responseBody = guardedText(response)
 
   return {
     statusCode: response.status,

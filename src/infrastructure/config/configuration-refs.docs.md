@@ -49,13 +49,43 @@ fields:
 
 **Resolving before validation is what makes splitting safe.** A rule such as "a record automation must reference an existing table" is still checked across the whole app, even when the automation and the table live in different files. Splitting a config therefore costs nothing in checking — the validator never sees the seams.
 
-Errors are attributed back to the partial they came from rather than to the root, so a mistake in one table's file is reported against that file:
+Errors are attributed back to the partial they came from rather than to the root. `sovrium validate`, `start` and `build` list each problem under a heading naming its file — by its path from the root config's directory, since two partials in two folders can share a name — the root config first:
 
 ```text
 Error: Validation failed.
 
+2 problems
+
+app.yaml
+  Missing key
+    at ["tables"][0]["fields"][0]["name"]
+
+config/pages/sign-in.yaml
+  Unknown property 'elemnt' on component type 'text'
+    at pages[0].components[0]
+    Did you mean 'element'?
+    Accepted here: type, children, props, content, interactions, responsive, visibility, i18n, session, element, required
+```
+
+The `at` path is a position in the **resolved** config — `pages[0]` is the first page whether it is written inline or included — so the heading is what tells you which file to open. The field-type check names the partial at the start of its line instead:
+
+```text
   companies.yaml: Unknown field type "web-site" in field "website"
 ```
+
+## Editor help inside a partial
+
+A partial holds one section of the config, so the schema for a whole config does not describe it. `sovrium schema --output schemas/app.json` also writes one schema per top-level key, under `schemas/app/`. Point a partial at the file for the key it stands in for — a file listed under `tables` at `app/tables.json`:
+
+```yaml
+# yaml-language-server: $schema=../../schemas/app/tables.json
+- id: 1
+  name: Companies
+  fields:
+    - { id: 1, name: name, type: single-line-text, required: true }
+```
+
+`app/tables.json` describes the whole `tables` array, so it fits a partial that holds the array — `tables: { $ref: ./config/tables.yaml }`. A partial holding **one** table, one element of the array, is not described by any of the per-key files; leave it unmapped, or map the whole config file to `schemas/app.json` as usual.
 
 ## The `config/` convention
 

@@ -42,6 +42,20 @@ Better when several files across a workspace share the schema.
 }
 ```
 
+### A partial file holding one section
+
+A file pulled in with `$ref` holds the value of one top-level key — `tables.yaml` is the `tables` array — and the whole-config schema would flag every line of it. `sovrium schema --output schemas/app.json` also writes `schemas/app/<key>.json`, one schema per top-level key; point the partial at the one for its key:
+
+```yaml
+# yaml-language-server: $schema=./schemas/app/tables.json
+- id: 1
+  name: companies
+  fields:
+    - { id: 1, name: name, type: single-line-text }
+```
+
+The per-key files reference a shared `schemas/app/_defs.json` by relative path, so keep the `schemas/` folder together. A partial holding a single element — one table out of the array — matches none of them.
+
 ## JetBrains IDEs
 
 IntelliJ IDEA, WebStorm and their siblings map JSON Schemas natively, with no plugin, and one mapping covers both YAML and JSON.

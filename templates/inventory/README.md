@@ -33,6 +33,12 @@ buy next:
 - **Suppliers** — who you buy from, with each one's lead time.
 - **Assistant** — ask what to reorder and from whom, and have it draft the purchase order
   (needs an AI provider, see below).
+- Every weekday at 07:30, an email to purchasing with how many products to reorder and the
+  one closest to running out (needs SMTP, see `.env.example`).
+- Optional: an order confirmation in Google Docs for each new order, shared with the customer.
+  It is the `record-to-google-doc` recipe from the Sovrium library (`sovrium library add
+recipe/record-to-google-doc`); set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+  `GOOGLE_ORDER_TEMPLATE_ID` to turn it on — without them the app runs exactly the same.
 
 Stock on hand is never typed: it is the sum of the product's movements, so it cannot drift
 from the ledger. Sign-up is closed; an admin adds each account.
@@ -81,6 +87,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

@@ -185,7 +185,6 @@ function usePanelLoader(
     (id: string) => {
       if (lazyParam === undefined || resolvedIds.includes(id)) return
       if (requested.current.includes(id)) return
-      // eslint-disable-next-line functional/immutable-data -- Ref records an in-flight fetch so a second activation does not re-issue it
       requested.current = [...requested.current, id]
       void fetchPanelMarkup(lazyParam, id).then((html) => {
         if (html === undefined) {

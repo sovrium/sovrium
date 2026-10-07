@@ -15,7 +15,7 @@
  * ------------------------------------------------------------------------
  * `TablesOverviewRepository` is architected around a **per-table fan-out
  * budget** — "at most one query per configured table", bounded by an explicit
- * concurrency ceiling. That invariant is the documented fix for the 2026-07-25
+ * concurrency ceiling. That invariant is the documented fix for a pool-exhaustion
  * production 504, and its live implementation carries a file-level doc comment
  * saying so.
  *

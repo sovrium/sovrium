@@ -59,11 +59,11 @@ components:
                   - type: kanban
                     dataSource:
                       table: content
-                    props:
-                      className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Published]]:flex-[0_0_12rem]!'
                     kanbanGroupBy:
                       field: status
                       collapsed: [Published]
+                      columnSizing: fill
+                      columnWidths: { Published: 12rem }
                     drag:
                       enabled: true
                       persistAction:
@@ -92,11 +92,11 @@ components:
                       table: content
                       filter:
                         - { field: owner, operator: eq, value: $currentUser.id }
-                    props:
-                      className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Published]]:flex-[0_0_12rem]!'
                     kanbanGroupBy:
                       field: status
                       collapsed: [Published]
+                      columnSizing: fill
+                      columnWidths: { Published: 12rem }
                     drag:
                       enabled: true
                       persistAction:
@@ -131,6 +131,7 @@ components:
                   className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                 content: Waiting for your approval
               - type: table
+                readOnly: true
                 visibility:
                   roles: [admin]
                 props:

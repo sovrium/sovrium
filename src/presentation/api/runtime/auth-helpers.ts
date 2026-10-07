@@ -44,13 +44,12 @@ import type { Context } from 'hono'
  *    `maxSubmissions`. Spread this and add it: `{ ...errorBody(…), opensAt }`.
  * 3. **An existing `error` reader that has to keep working.** This is the
  *    common one, and the reason `error` is a REQUIRED input here while
- *    `errorResponseSchema` leaves it optional. Before W8, 88 sites across 21
- *    files answered with `{ error }` alone, in three mutually incompatible
- *    dialects, and dozens of shipped specs read `body.error`. Dropping the key
- *    to reach the canonical shape would have rewritten the wire format of every
- * one of them — a spec change, owned by `[internal ref]`, not a
- *    refactor. So the repair is ADDITIVE: `message` and `code` arrive, `error`
- *    stays exactly as it was, and no reader of the old shape breaks.
+ *    `errorResponseSchema` leaves it optional. Many routes answer with an
+ *    `error` key, and dozens of shipped specs read `body.error`. Dropping the
+ *    key to reach the canonical shape would rewrite the wire format of every
+ *    one of them — a spec change, not a refactor. So the envelope is ADDITIVE:
+ *    `message` and `code` sit beside `error`, which stays exactly as it was,
+ *    and no reader of the bare shape breaks.
  *
  * `message` defaults to `error` because the sentence dialect (`agents/*`,
  * `ai/*`) already put human-readable prose in `error` — there is nothing to

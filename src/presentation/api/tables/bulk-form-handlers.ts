@@ -5,12 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
-import { markUserAuthoredAiFieldsForRecords } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import {
-  batchDeleteProgram,
-  batchUpdateProgram,
-} from '@/application/use-cases/tables/batch-operations'
+  batchDeleteWithSideEffects,
+  batchUpdateWithSideEffects,
+} from '@/application/use-cases/tables/record-batch-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
@@ -18,8 +16,9 @@ import {
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { formatValidationError } from '@/presentation/api/tables/validation'
 import {
   sanitizeUpdateRichTextFields,
@@ -59,26 +58,18 @@ export async function handleFormBulkDelete(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   // Effective roles, not a bare role: the guarded branch below evaluates
   // `guard.effectiveRoles`, while this unguarded branch used a bare `userRole`
-  // that no `group:<name>` permission entry could ever match. The 403 below is
-  // pre-existing and deliberately preserved — every sibling authz denial
-  // answers 404 (S1 anti-enumeration) and these two bulk-form gates do not, but
-  // normalising that divergence is a separate decision and nothing pins it.
+  // that no `group:<name>` permission entry could ever match. A refusal is the
+  // 404 the single-record delete answers (S1): never a 403 confirming the
+  // table holds records the caller may not remove.
   if (
     !guard &&
     !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
   ) {
-    return c.json(
-      {
-        success: false,
-        message: 'You do not have permission to delete records in this table',
-        code: 'FORBIDDEN',
-      },
-      403
-    )
+    return notFound(c)
   }
 
   const body = await c.req.parseBody()
@@ -105,8 +96,10 @@ export async function handleFormBulkDelete(c: Context, app: App) {
     if (gateError) return gateError
   }
 
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect: execute batch delete
-  await runTableProgram(batchDeleteProgram(session, tableName, ids, { app }))
+  await runOnRequest(
+    c,
+    batchDeleteWithSideEffects({ session, tableName, app, ids, permanent: false })
+  )
 
   // The path arrives in the request body, so it is only honoured once proven
   // same-origin — otherwise it is an open redirect off this site.
@@ -256,23 +249,15 @@ async function resolveBulkUpdateGates(input: {
   const { c, app, session, tableName, userRole, userGroups, ids, data } = input
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
-  // Effective roles, not a bare role — same contract, and same deliberately
-  // preserved 403, as the bulk-delete gate above.
+  // Effective roles, not a bare role — same contract, and the same 404, as the
+  // bulk-delete gate above.
   if (
     !guard &&
     !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app)
   ) {
-    const refusal = c.json(
-      {
-        success: false,
-        message: 'You do not have permission to update records in this table',
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-    return { refusal }
+    return { refusal: notFound(c) }
   }
 
   if (ids.length === 0) {
@@ -337,23 +322,15 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
 
   const recordsData = ids.map((id) => ({ id, fields: resolved.fields }))
 
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect: execute batch update
-  await runTableProgram(
-    batchUpdateProgram({
-      session,
-      tableName,
-      recordsData,
+  // The batch update the records API runs, side effects included: a column the
+  // user wrote by hand is no longer reported as a failed computed fallback.
+  await runOnRequest(
+    c,
+    batchUpdateWithSideEffects({
+      ...{ session, tableName, app, linkReader: getLinkReader(c) },
+      records: recordsData,
       returnRecords: false,
-      app,
-      linkReader: getLinkReader(c),
     })
-  )
-
-  // [internal ref] Phase 2: same rule as every other write path — a column the user
-  // wrote by hand is no longer reported as a failed computed fallback.
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget; the redirect below does not wait on it
-  void Effect.runPromise(
-    markUserAuthoredAiFieldsForRecords({ app, tableName, records: recordsData })
   )
 
   // The path arrives in the request body, so it is only honoured once proven

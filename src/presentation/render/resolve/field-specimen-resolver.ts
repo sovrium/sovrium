@@ -146,7 +146,7 @@ function expandFieldSpecimen(
     },
     trustedContent:
       descriptor.compact === true ? html : `${html}${caption(descriptor.surface, fidelity)}`,
-  } as unknown as Component
+  } as Component
 }
 
 /**

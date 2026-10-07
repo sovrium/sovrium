@@ -82,9 +82,8 @@ export const NEEDS_CLIENT_HEADER = 'X-Sovrium-Needs-Client'
 /**
  * The console's swap-target region id.
  *
- * Emitted by the console's own shell component, `src/admin/config/components/shell.ts`,
- * which is where it moved when the TypeScript shell that used to wrap every
- * surface was deleted. The two spellings must agree; nothing but this comment
+ * Emitted by the console's own shell component, `src/admin/config/components/shell.ts`.
+ * The two spellings must agree; nothing but this comment
  * links them, because one is a config string and the other a server constant.
  */
 const ADMIN_CONTENT_REGION_ID = 'admin-surface-content'
@@ -194,7 +193,7 @@ export function extractRegionElement(fullHtml: string, markerId: string): string
  *
  * Inner rather than outer because the console's client keeps its own region
  * node and replaces only its children — the node survives the swap, which
- * [internal ref] asserts.
+ * an admin dashboard shell spa spec asserts.
  *
  * @param fullHtml - the full surface document rendered by the page pipeline
  */
@@ -276,5 +275,7 @@ export function extractDocumentDensity(fullHtml: string): string | undefined {
  * that decision for the full load.
  */
 export function documentLoadsClientScript(fullHtml: string): boolean {
-  return fullHtml.includes('<script src="/assets/client.js"')
+  // Under its stable name, or the content-hashed one a prebuilt release emits,
+  // whatever attribute precedes `src` (the loader's tag opens with `type="module"`).
+  return /<script\b[^>]*\ssrc="\/assets\/client(?:-[a-f0-9]{8})?\.js"/.test(fullHtml)
 }

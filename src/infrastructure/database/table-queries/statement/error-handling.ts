@@ -13,8 +13,6 @@ import {
 } from '@/domain/errors/driver-failure'
 import { DatabaseError, ValidationError } from '@/infrastructure/database'
 
-/* eslint-disable functional/prefer-immutable-types -- Error handler factories for Effect.tryPromise catch: returns mutable Error class instances, parameter signature fixed as (error: unknown) by Effect API */
-
 /**
  * Tagged carrier for a rejection that an INNER `Effect.tryPromise` must hand to
  * an OUTER handler without altering what that handler sees.

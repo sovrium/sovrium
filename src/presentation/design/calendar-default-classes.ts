@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computer for the Sovrium calendar TOOLBAR
- * (wave R-D, [internal ref]).
+ * (wave R-D, the prestyled-islands rule).
  *
  * FullCalendar's own `headerToolbar` is switched off in `calendar-view.tsx` and
  * this toolbar is rendered above the grid instead, driving the calendar through

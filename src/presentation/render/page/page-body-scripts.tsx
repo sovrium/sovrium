@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { ClientEntryScript } from '@/presentation/render/page/client-script-paths'
 import { isSchemaAuthoredComponent } from '@/presentation/render/registry/synthesized-component-types'
 import {
   renderInlineScriptTag,
@@ -127,10 +128,7 @@ function LanguageSwitcherScripts({
         reactKey: 'window-app-theme',
       })}
       {/* External script file loaded only when needed (defer ensures DOM is ready) */}
-      <script
-        src="/assets/language-switcher.js"
-        defer={true}
-      />
+      <ClientEntryScript path="/assets/language-switcher.js" />
     </>
   )
 }
@@ -153,12 +151,7 @@ function ScrollAnimationScript({
   )
   const needsAnimation = hasAuthoredComponents || design?.motion?.animations?.scaleUp
   if (!needsAnimation) return undefined
-  return (
-    <script
-      src="/assets/scroll-animation.js"
-      defer={true}
-    />
-  )
+  return <ClientEntryScript path="/assets/scroll-animation.js" />
 }
 
 /**
@@ -263,8 +256,7 @@ const clickScript = `!function(){function openModal(id){window.__sovriumOpenModa
  * ('dark' | 'light'). The complementary no-FOUC head script (see
  * `ThemeColorSchemeScript`) reads that stored value on the next page load so
  * the choice survives navigation without a flash. Concatenated into the single
- * body-end inline script to keep the page inline-script count stable
- *.
+ * body-end inline script to keep the page inline-script count stable.
  */
 const themeToggleScript = `!function(){document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle]");if(!e)return;var root=document.documentElement;var willEnable=!root.classList.contains("dark");if(willEnable){root.classList.add("dark")}else{root.classList.remove("dark")}try{window.localStorage.setItem("theme",willEnable?"dark":"light")}catch(err){}})}();`
 
@@ -272,15 +264,14 @@ const themeToggleScript = `!function(){document.addEventListener("click",functio
  * Code-block copy runtime (SECURITY: Safe - static code, no user input).
  *
  * Makes the `code` component's copy button actually copy. The button has existed
- * — and been asserted visible — since [internal ref] while doing nothing
- * at all; only reading the clipboard back tells the two states apart
- *.
+ * and been asserted visible — since a pages content spec while doing nothing
+ * at all; only reading the clipboard back tells the two states apart.
  *
  * Two properties are load-bearing:
  *
  *  - **Delegated, not a mount-time loop.** A loop over `[data-copy-code]` at load
  *    would miss every button inside a `tabs` panel, because those panels mount
- * AFTER hydration. A single document-level listener works
+ *    AFTER hydration. A single document-level listener works
  *    for any button that ever exists.
  *  - **The payload is the COMMAND only.** The copy scope is now the `<figure>`
  *    itself — the button lives in the frame's header, above the code, so the
@@ -289,7 +280,7 @@ const themeToggleScript = `!function(){document.addEventListener("click",functio
  *    walking `[data-copy-target]` → `[data-code-command]` →
  *    `pre:not([data-code-output])`, never by taking the scope's first `<pre>`.
  *    A reader pasting into a shell must not end up running
- * `Created hello-world.yaml` as a second command,
+ *    `Created hello-world.yaml` as a second command,
  *    nor the block's own filename header. The last fall-back covers the legacy
  *    post-render-splice path, where Shiki's replacement `<pre>` does not carry
  *    the renderer's `data-copy-target`.
@@ -353,7 +344,7 @@ function renderBodyEndScripts(config: {
       {/*
         Stateless behavioral enhancer scripts are concatenated into a single
         <script> tag (rather than emitted as separate elements) to keep the
-        page-level inline-script count stable. [internal ref] asserts
+        page-level inline-script count stable. A pages scripts spec asserts
         `script:not([src])` matches exactly one element under strict mode;
         adding a sibling <script> here would break that contract for a
         non-feature reason. Every enhancer below is an IIFE, so their internals
@@ -365,7 +356,7 @@ function renderBodyEndScripts(config: {
         themeToggleScript, copyCodeScript (code-block copy), marqueePauseScript.
       */}
       <script
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element; never re-renders client-side
+        // eslint-disable-next-line sovrium/require-sanitized-html -- a concatenation of engine-authored enhancer script constants
         dangerouslySetInnerHTML={{
           __html:
             clickScript +

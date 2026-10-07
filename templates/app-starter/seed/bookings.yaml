@@ -1,0 +1,22 @@
+# This week's meetings, dated from the day you seed so the week calendar is
+# never empty. Times are in UTC.
+records:
+  - key: kickoff
+    fields:
+      { title: Client portal review, starts_at: '{{today 09:30}}', ends_at: '{{today 10:30}}' }
+  - key: rebrand
+    fields:
+      {
+        title: Spring rebrand proofs,
+        starts_at: '{{today+1d 14:00}}',
+        ends_at: '{{today+1d 15:00}}',
+      }
+  - key: standup
+    fields: { title: Team planning, starts_at: '{{today-1d 08:30}}', ends_at: '{{today-1d 09:00}}' }
+  - key: audit
+    fields:
+      {
+        title: Accessibility audit check-in,
+        starts_at: '{{today+2d 11:00}}',
+        ends_at: '{{today+2d 11:30}}',
+      }

@@ -6,8 +6,7 @@
  */
 
 /**
- * `qr-code` content component-type
- *.
+ * `qr-code` content component-type.
  *
  * Renders a scannable symbol inline in the page. It sits beside `image` and
  * `iframe` rather than in the data components because it is a static rendering

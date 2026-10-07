@@ -5,142 +5,54 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect } from 'effect'
-import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
-import {
-  buildSyntheticSession,
-  buildSystemSession,
-} from '@/application/use-cases/automations/build-guest-session'
+import { Effect } from 'effect'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
-import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
-import { coerceEmptySelectToNull } from '@/application/use-cases/forms/coerce-empty-select'
 import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/emit-form-analytics-event'
+import { applySubmissionAccessLinks } from '@/application/use-cases/forms/submit-form-access-links'
 import {
   constraintRefusalForField,
   uniqueRefusalForField,
 } from '@/application/use-cases/forms/submit-form-constraint-errors'
-import {
-  FormFieldFormatError,
-  validateFieldFormats,
-} from '@/application/use-cases/forms/submit-form-format-validation'
+import { FormFieldFormatError } from '@/application/use-cases/forms/submit-form-format-validation'
 import { findUnpinnedHiddenField } from '@/application/use-cases/forms/submit-form-hidden-pins'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
 import { findUnofferedLinkField } from '@/application/use-cases/forms/submit-form-offered-links'
 import { checkRateLimit } from '@/application/use-cases/forms/submit-form-rate-limit'
-import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
-import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
-import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
+import { splitSubmissionSurface } from '@/domain/models/app/forms/submission-ledger-service'
 import {
-  buildConditionValueMap,
-  fieldSubmitIdentifier,
-  isAbsentValue,
-  isFieldRequired,
-  isFieldVisible,
-} from '@/domain/models/app/forms/form-field-helpers'
-import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
-import {
-  applyFieldDefaults,
-  applyMapping,
-  filterDeclaredFields,
-  filterTableBoundFields,
-  hiddenGroupFieldSet,
-  stripHiddenFields,
-  stripHiddenGroupFields,
-  stripSkippedStepFields,
-} from './submit-form-field-shaping'
-import type { FormSubmitterMeta } from '@/application/use-cases/automations/trigger-form-submission'
+  buildLinkedRecord,
+  buildSubmitterMeta,
+  checkAvailabilityWindow,
+  processSubmissionBody,
+} from './submit-form-body'
+import { FormNotFoundError, missingRowError, refuseAsMissingRow } from './submit-form-errors'
+import { filterTableBoundFields } from './submit-form-field-shaping'
+import { fireBoundTableRecordCreateAutomations, persistSubmission } from './submit-form-persist'
+import type { SubmitFormConfig } from './submit-form-body'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
-
-/**
- * Statuses that count toward `availability.maxSubmissions`. Spam-flagged
- * (`spam`) and failed (`failed`) submissions never consume a cap slot — only
- * "real" submissions in the `received → processing → done` lifecycle do.
- */
-const CAP_COUNTED_STATUSES = ['received', 'processing', 'done'] as const
 
 // Re-export so the route layer keeps a single import surface for all
 // submit-form failure types (honeypot + rate-limit rejections live in their
 // own modules to keep this file under the max-lines cap).
 export { FormHoneypotTrippedError } from '@/application/use-cases/forms/submit-form-honeypot'
 export { FormRateLimitedError } from '@/application/use-cases/forms/submit-form-rate-limit'
-
-/**
- * Form not found in the running app's `forms[]` array.
- */
-export class FormNotFoundError extends Data.TaggedError('FormNotFoundError')<{
-  readonly formName: string
-}> {}
-
-/**
- * Form-level required-field check failed (`fields[].required: true` set
- * by the form author, independent of whether the bound table column is
- * required). Surfaces as 400 in the route layer with the same
- * `fieldErrors` envelope used for column-level rejections so client UIs
- * can show a single inline error per field.
- */
-export class FormFieldRequiredError extends Data.TaggedError('FormFieldRequiredError')<{
-  readonly fieldName: string
-  readonly message: string
-}> {}
+export { FormSubmissionLimitError } from '@/application/use-cases/forms/submit-form-ledger'
 
 // FormFieldFormatError + validateFieldFormats moved to submit-form-format-validation.ts
-//. Re-exported so existing callers
+// ([internal ref] / a forms spec). Re-exported so existing callers
 // (presentation/api/routes/forms.ts) keep their import surface stable.
 export { FormFieldFormatError }
 export { FormFieldConstraintError } from '@/application/use-cases/forms/submit-form-constraint-errors'
-
-/**
- * Form field write violated a foreign-key constraint (typically a `user`-typed
- * column that auto-FKs to `auth_user.id` receiving a string that is not a real
- * user id). Surfaces as 400 with `fieldErrors` so the form-renderer can show
- * an inline error against the offending field instead of the previous opaque
- * 422 `{error:'submission_invalid', message:'Failed to create record in X'}`.
- *
- * [internal ref] (sovrium-partner repro / [internal ref]).
- */
-export class FormFieldForeignKeyError extends Data.TaggedError('FormFieldForeignKeyError')<{
-  readonly fieldName: string
-  readonly message: string
-}> {}
-
-/** The field error a reference to a row that does not exist gets. */
-const missingRowError = (fieldName: string | undefined) =>
-  new FormFieldForeignKeyError({
-    fieldName: fieldName ?? '',
-    message: `${fieldName ?? ''} references a record that does not exist`.trimStart(),
-  })
-
-/** A link the form did not offer, or a hidden link it did not render, is answered as a missing row. */
-const refuseAsMissingRow = (fieldName: string | undefined) =>
-  fieldName === undefined ? Effect.void : Effect.fail(missingRowError(fieldName))
-
-/**
- * Submission rejected because the form is not yet open (`availability.opensAt`
- * is in the future). Surfaces as 403 `{ error: 'form not yet open', opensAt }`.
- */
-export class FormNotYetOpenError extends Data.TaggedError('FormNotYetOpenError')<{
-  readonly opensAt: string
-}> {}
-
-/**
- * Submission rejected because the form has closed (`availability.closesAt` is
- * in the past). Surfaces as 403 `{ error: 'form closed', closedAt }`.
- */
-export class FormClosedError extends Data.TaggedError('FormClosedError')<{
-  readonly closedAt: string
-}> {}
-
-/**
- * Submission rejected because the form reached its `availability.maxSubmissions`
- * cap. Surfaces as 403 `{ error: 'submission limit reached', maxSubmissions,
- * currentCount }`.
- */
-export class FormSubmissionLimitError extends Data.TaggedError('FormSubmissionLimitError')<{
-  readonly maxSubmissions: number
-  readonly currentCount: number
-}> {}
+// The refusal types live in `submit-form-errors.ts`; re-exported for the same
+// single import surface.
+export {
+  FormClosedError,
+  FormFieldForeignKeyError,
+  FormFieldRequiredError,
+  FormNotFoundError,
+  FormNotYetOpenError,
+} from './submit-form-errors'
 
 /**
  * Result returned to the API layer after a successful submission.
@@ -173,455 +85,6 @@ export interface SubmitFormResult {
  */
 export const findFormByName = (app: Readonly<App>, name: string): Form | undefined =>
   app.forms?.find((form) => form.name === name)
-
-/**
- * Form-level required-field validation. Walks `form.fields[]` and rejects
- * the submission when any field flagged `required: true` (or activated by
- * `requiredWhen`) is missing, empty-string, an empty array, or `null`.
- *
- * Hidden-by-condition fields are excluded from the check:
- * a `required: true` field that is hidden by `visibleWhen` does not block
- * submission because the submitter can't fill it in.
- *
- * Runs BEFORE the bound-table write so attachment-required forms surface
- * a single 400 instead of a confusing column-level error chain.
- */
-const checkFormRequiredFields = (
-  form: Readonly<Form>,
-  body: Readonly<Record<string, unknown>>,
-  hiddenGroupFields: ReadonlySet<string>
-): Effect.Effect<void, FormFieldRequiredError, never> => {
-  const values = buildConditionValueMap(form, body)
-  const offending = form.fields.find((field) => {
-    const identifier = fieldSubmitIdentifier(field)
-    if (identifier === undefined) return false
-    // [internal ref]: a required field inside a hidden fieldGroup is skipped.
-    if (hiddenGroupFields.has(identifier)) return false
-    if (!isFieldVisible(field, values)) return false
-    if (!isFieldRequired(field, values)) return false
-    if (!(identifier in body)) return true
-    return isAbsentValue(body[identifier])
-  })
-  if (offending === undefined) return Effect.void
-  const fieldName = fieldSubmitIdentifier(offending) ?? 'field'
-  return Effect.fail(
-    new FormFieldRequiredError({
-      fieldName,
-      message: `${fieldName} is required`,
-    })
-  )
-}
-
-interface SubmitFormConfig {
-  readonly app: Readonly<App>
-  readonly formName: string
-  readonly body: Readonly<Record<string, unknown>>
-  /**
-   * SHA-256(salt + raw IP) computed at the route boundary, over a salt derived
-   * from the install's root secret and stable across restarts.
-   * The application + persistence layers NEVER see the raw IP — [internal ref]
-   * + S5 GDPR-erasure require hash-on-write. The hash also keys the
-   * in-process rate-limiter's per-IP bucket.
-   */
-  readonly submitterIpHash?: string
-  /**
-   * SHA-256(salt + rate-limit key): the same digest over the address as every
-   * per-address limit counts it — an IPv6 client by its /64. Keys the
-   * in-process rate-limiter's per-address bucket; never stored. Falls back to
-   * `submitterIpHash` when absent.
-   */
-  readonly rateLimitKeyHash?: string
-  readonly userAgent?: string
-  /**
-   * Query-string parameters captured at the route boundary. Used to resolve
-   * `$query.{name}` references in form-field `defaultValue` declarations
-   * (e.g. `defaultValue: '$query.utm_source'` captures the UTM tag at
-   * submission time).
-   */
-  readonly query?: Readonly<Record<string, string>>
-  /**
-   * Process env captured at the route boundary. Threaded through to the
-   * form-trigger dispatcher so action handlers can resolve `$env.VAR_NAME`
-   * references and so secrets get redacted from run-history. Mirrors the
-   * pattern used by record-event / webhook / cron triggers.
-   */
-  readonly processEnv?: Readonly<Record<string, string | undefined>>
-  /**
-   * Authenticated submitter id, captured by the route from the resolved
-   * session. Stored on the ledger row's `submitter_user_id` column
-   *. Absent for anonymous submissions.
-   */
-  readonly submitterUserId?: string
-  /**
-   * The signed-in submitter as the form's choices see them (`id`, `email`,
-   * `role`), so a `$currentUser` option filter selects at submission exactly
-   * the rows it offered on the page. Absent for anyone else.
-   */
-  readonly visitor?: Readonly<Record<string, unknown>>
-}
-
-/**
- * Assemble the submitter context that form-triggered automations read at
- * `{{trigger.data.meta.<member>}}`. Absent members collapse to the empty
- * string so a template reference never renders an unresolved literal.
- *
- * `submitterIpHash` is passed through as the digest the route boundary
- * computed — the raw address is not available at this layer, and must not be
- * (see `SubmitFormConfig.submitterIpHash`): `trigger.data` is forwarded
- * verbatim by the email / http / code actions and retained in run history.
- */
-const buildSubmitterMeta = (config: Readonly<SubmitFormConfig>): FormSubmitterMeta => ({
-  submittedAt: new Date().toISOString(),
-  submitterUserId: config.submitterUserId ?? '',
-  submitterUserAgent: config.userAgent ?? '',
-  submitterIpHash: config.submitterIpHash ?? '',
-})
-
-/**
- * Coerce the freshly-created table record's `id` (which the create
- * program returns as either a number or a string) into a string suitable
- * for storing in the ledger's `linked_record_id` text column.
- */
-const coerceLinkedRecordId = (
-  linkedRecord: { readonly id: unknown } | undefined
-): string | undefined => {
-  if (!linkedRecord) return undefined
-  const { id } = linkedRecord
-  if (typeof id === 'number') return String(id)
-  if (typeof id === 'string') return id
-  return undefined
-}
-
-/**
- * Submit-form orchestration program.
- *
- * Flow:
- *   1. Resolve the form from `app.forms[]` (404 when missing).
- *   2. Apply `submitTo.mapping` and field-declaration filter to the body.
- *   3. When `submitTo.table` is configured, write the row via the
- *      table-create program (validation + permissions + persistence).
- *   4. Unless `submitTo.storeSubmission: false`, write the ledger row in
- *      `system.form_submissions` so the submission appears in the admin
- *      Responses view.
- *   5. Return `{ submissionId, linkedRecordId }` to the API layer.
- *
- * When `storeSubmission` is disabled and the form has no table, the
- * submission is still treated as accepted but `submissionId` is empty
- * — the caller decides how to communicate that to the client.
- */
-/**
- * Optionally write the audit ledger row in `system.form_submissions`.
- * Returns the submission id when written, undefined when the form opts
- * out via `storeSubmission: false`.
- */
-const writeLedgerRow = (input: {
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly linkedRecordId: string | undefined
-  readonly submitterIpHash: string | undefined
-  readonly userAgent: string | undefined
-  readonly submitterUserId: string | undefined
-}) =>
-  Effect.gen(function* () {
-    const { form, mapped, linkedRecordId, submitterIpHash, userAgent, submitterUserId } = input
-    if (form.submitTo.storeSubmission === false) return undefined
-    const repo = yield* FormSubmissionRepository
-    const ledger = yield* repo.createTopLevel({
-      formName: form.name,
-      formId: form.id,
-      status: 'received',
-      data: mapped,
-      ...(form.submitTo.table !== undefined ? { linkedRecordTable: form.submitTo.table } : {}),
-      ...(linkedRecordId !== undefined ? { linkedRecordId } : {}),
-      ...(submitterIpHash !== undefined ? { submitterIpHash } : {}),
-      ...(userAgent !== undefined ? { userAgent } : {}),
-      ...(submitterUserId !== undefined ? { submitterUserId } : {}),
-    })
-    return ledger.id
-  })
-
-/**
- * Atomically reserve a cap slot in the ledger. Returns the ledger row id on
- * success, or fails with {@link FormSubmissionLimitError} when the cap is
- * already reached. Used in place of {@link writeLedgerRow} when the form
- * declares `availability.maxSubmissions`.
- *
- * The bound-table write happens AFTER the slot is reserved so a successful
- * reservation owns exactly one ledger row; a failed reservation never writes
- * the bound table (so `received|processing|done` rows never exceed the cap).
- */
-const reserveLedgerSlot = (input: {
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly maxSubmissions: number
-  readonly submitterIpHash: string | undefined
-  readonly userAgent: string | undefined
-  readonly submitterUserId: string | undefined
-}) =>
-  Effect.gen(function* () {
-    const { form, mapped, maxSubmissions, submitterIpHash, userAgent, submitterUserId } = input
-    const repo = yield* FormSubmissionRepository
-    const reserved = yield* repo.reserveTopLevelSlot({
-      formName: form.name,
-      formId: form.id,
-      status: 'received',
-      data: mapped,
-      maxSubmissions,
-      countStatuses: CAP_COUNTED_STATUSES,
-      ...(form.submitTo.table !== undefined ? { linkedRecordTable: form.submitTo.table } : {}),
-      ...(submitterIpHash !== undefined ? { submitterIpHash } : {}),
-      ...(userAgent !== undefined ? { userAgent } : {}),
-      ...(submitterUserId !== undefined ? { submitterUserId } : {}),
-    })
-    if (reserved === undefined) {
-      const currentCount = yield* repo.countByFormNameAndStatus({
-        formName: form.name,
-        statuses: CAP_COUNTED_STATUSES,
-      })
-      return yield* new FormSubmissionLimitError({ maxSubmissions, currentCount })
-    }
-    return reserved.id
-  })
-
-/**
- * Build the `linkedRecord` envelope shape consumed by the form trigger.
- * Returns null when no `submitTo.table` is configured (so action templates
- * can null-check against `{{trigger.data.linkedRecord}}`).
- */
-const buildLinkedRecord = (
-  form: Readonly<Form>,
-  linkedRecordPresent: boolean,
-  linkedRecordId: string | undefined
-): { readonly table: string; readonly id: string } | null => {
-  if (!linkedRecordPresent || form.submitTo.table === undefined) {
-    // eslint-disable-next-line unicorn/no-null -- public template contract
-    return null
-  }
-  return { table: form.submitTo.table, id: linkedRecordId ?? '' }
-}
-
-/**
- * [internal ref]: enforce the opensAt / closesAt window. Fails with
- * the matching availability error when the form is outside its window;
- * succeeds (void) when the form is open or has no window configured. Runs
- * BEFORE any write so a rejected submission leaves the ledger untouched.
- */
-const checkAvailabilityWindow = (
-  form: Readonly<Form>
-): Effect.Effect<void, FormNotYetOpenError | FormClosedError, never> => {
-  const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
-  if (windowState.kind === 'not-yet-open') {
-    return Effect.fail(new FormNotYetOpenError({ opensAt: windowState.opensAt }))
-  }
-  if (windowState.kind === 'closed') {
-    return Effect.fail(new FormClosedError({ closedAt: windowState.closedAt }))
-  }
-  return Effect.void
-}
-
-// validateFieldFormats moved to submit-form-format-validation.ts.
-
-/**
- * Run the body-processing pipeline: overlay defaults, drop hidden /
- * step-skipped / hidden-group field values, enforce form-level required
- * fields, then apply the `submitTo.mapping` rename. Returns the column-keyed
- * `mapped` payload ready for the bound-table write and ledger.
- *
- * Extracted from `submitFormProgram` so that orchestrator stays under the
- * per-function complexity / line caps. The ordering of the filters is
- * load-bearing — see the inline comments and the [internal ref]
- * / -138 specs.
- */
-const processSubmissionBody = (
-  app: Readonly<App>,
-  form: Readonly<Form>,
-  body: Readonly<Record<string, unknown>>,
-  query: Readonly<Record<string, string>>
-): Effect.Effect<Record<string, unknown>, FormFieldRequiredError | FormFieldFormatError, never> =>
-  Effect.gen(function* () {
-    // Overlay defaults (literals + `$query.X` / `$now`) BEFORE the
-    // declared-fields filter so hidden-only identifiers survive. Mapping is
-    // applied last so form-field name → table-column rename still works.
-    const withDefaults = applyFieldDefaults(body, form, query)
-    // [internal ref]: drop values for fields hidden by `visibleWhen`.
-    const fieldVisibilityFiltered = stripHiddenFields(form, withDefaults)
-    // [internal ref]: drop values for steps skipped by `visibleWhen`.
-    const stepFiltered = stripSkippedStepFields(form, fieldVisibilityFiltered)
-    // [internal ref]: drop values for hidden single-page fieldGroups.
-    const hiddenGroupFields = hiddenGroupFieldSet(form, stepFiltered)
-    const visibilityFiltered = stripHiddenGroupFields(stepFiltered, hiddenGroupFields)
-    // [internal ref]: enforce form-level required fields before
-    // any write so a missing field surfaces a focused 400.
-    yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields)
-    // [internal ref]: server-side format validation (email, etc.)
-    // before any DB write so garbage never lands in the bound table.
-    yield* validateFieldFormats(app, form, visibilityFiltered)
-    return applyMapping(filterDeclaredFields(visibilityFiltered, form), form.submitTo.mapping)
-  })
-
-/** Outcome of {@link persistSubmission}: the IDs needed by the trigger + result. */
-interface PersistOutcome {
-  readonly submissionId: string | undefined
-  readonly linkedRecordPresent: boolean
-  readonly linkedRecordId: string | undefined
-  /**
-   * The bound-table row AS STORED — server stamps (`created-by`, `created-at`)
-   * and column defaults included — which its record automations receive.
-   */
-  readonly linkedRecordFields?: Readonly<Record<string, unknown>>
-}
-
-/**
- * Persist a processed submission: reserve the cap slot (capped forms), write
- * the bound-table row (when `submitTo.table` is set), then write the ledger
- * row (skipped when the cap path already reserved it). Extracted from
- * `submitFormProgram` to keep the orchestrator under the complexity cap.
- */
-/**
- * Write the bound-table row for a submission (when `submitTo.table` is set).
- *
- * Y-5 follow-up: native HTML `<select>` widgets always submit a scalar even
- * for `multi-select` columns (PostgreSQL `text[]`); the scalar values for
- * array-typed columns are coerced into single-element arrays so the SQL insert
- * receives the shape `buildInsertClauses` expects.
- *
- * Authorship: an authenticated submission is authored by the REAL submitter —
- * it writes with the submitter's session AND stamps every `created-by`-typed
- * column (the literal `created_by` AND any custom-named one, e.g. `author`) by
- * name (the infra injection only fills the literal columns).
- *
- * An anonymous submission has no submitter to name, so it is authored by the
- * system actor: it writes with the system session and stamps every
- * `created-by` column (literal or custom-named) with `SYSTEM_USER_ID` — the
- * same value an automation-authored create writes. Authorship columns carry no
- * foreign key to the user table, so the sentinel is valid there; the
- * activity-log row's user foreign key still resolves it to NULL
- * (`resolveActorUserId`).
- */
-const writeBoundTableRecord = (input: {
-  readonly app: Readonly<App>
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly submitterUserId: string | undefined
-}) =>
-  Effect.gen(function* () {
-    const { app, form, mapped, submitterUserId } = input
-    if (form.submitTo.table === undefined) return undefined
-    const tableName = form.submitTo.table
-    return yield* createRecordProgram({
-      // [internal ref]: pass `app` so `createRecordProgram` can resolve the bound
-      // table's many-to-many fields and split them out of the base insert
-      // (writing junction rows against the resolved id) instead of jsonb-encoding
-      // them into a phantom base column. Without `app` the split is a no-op and a
-      // form filing an m2m field (partner `requests.pains`) fails with
-      // `column "pains" ... does not exist`, on plain AND view-backed tables.
-      app,
-      session:
-        submitterUserId !== undefined
-          ? buildSyntheticSession(submitterUserId)
-          : buildSystemSession(),
-      tableName,
-      fields: {
-        // Order matters: `''` becomes `null` FIRST, so the array coercion
-        // below sees an absent value and passes it through rather than
-        // wrapping it into `['']` — which the option CHECK constraint would
-        // reject just as surely as the bare `''`.
-        ...coerceScalarsForArrayColumns(
-          coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
-          app,
-          tableName
-        ),
-        ...buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId ?? SYSTEM_USER_ID),
-      },
-    })
-  })
-
-const persistSubmission = (input: {
-  readonly app: Readonly<App>
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly submitterIpHash: string | undefined
-  readonly userAgent: string | undefined
-  readonly submitterUserId: string | undefined
-}) =>
-  Effect.gen(function* () {
-    const { app, form, mapped, submitterIpHash, userAgent, submitterUserId } = input
-    // [internal ref]: reserve the cap slot atomically BEFORE the
-    // bound-table write so the counted-status ledger rows never exceed the
-    // cap, even under concurrency. A failed reservation fails fast and never
-    // touches the bound table.
-    const cappedSubmissionId =
-      form.availability?.maxSubmissions !== undefined
-        ? yield* reserveLedgerSlot({
-            form,
-            mapped,
-            maxSubmissions: form.availability.maxSubmissions,
-            submitterIpHash,
-            userAgent,
-            submitterUserId,
-          })
-        : undefined
-
-    const linkedRecord = yield* writeBoundTableRecord({ app, form, mapped, submitterUserId })
-    const linkedRecordId = coerceLinkedRecordId(linkedRecord)
-
-    // Capped forms already reserved their ledger row above; the standard
-    // write is skipped to avoid a duplicate row.
-    const submissionId =
-      cappedSubmissionId ??
-      (yield* writeLedgerRow({
-        form,
-        mapped,
-        linkedRecordId,
-        submitterIpHash,
-        userAgent,
-        submitterUserId,
-      }))
-
-    return {
-      submissionId,
-      linkedRecordPresent: linkedRecord !== undefined,
-      linkedRecordId,
-      ...(linkedRecord !== undefined && { linkedRecordFields: linkedRecord.fields }),
-    } satisfies PersistOutcome
-  })
-
-/**
- * [internal ref]: fire the bound table's `record`/`create` automations for a
- * form-created row, exactly like the direct records-API create path
- * (`record-write-handlers.ts` taps `triggerRecordEventAutomations`). The form
- * path bypasses that handler by calling `createRecordProgram` directly, so we
- * fire the same trigger here — AFTER the row commits, only when
- * `submitTo.table` produced a row. The STORED row's column-keyed fields —
- * server stamps and defaults included, not only the posted answers — are
- * surfaced under `{{trigger.data.record.X}}`. Errors are absorbed inside the
- * use case so a failing automation never rolls back the submission. No-op when
- * no bound-table row was written.
- */
-const fireBoundTableRecordCreateAutomations = (input: {
-  readonly app: Readonly<App>
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly outcome: PersistOutcome
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  readonly submitterUserId: string | undefined
-}) => {
-  const { app, form, mapped, outcome, processEnv, submitterUserId } = input
-  const { linkedRecordPresent, linkedRecordId, linkedRecordFields } = outcome
-  if (!linkedRecordPresent || form.submitTo.table === undefined || linkedRecordId === undefined) {
-    return Effect.void
-  }
-  // The row as stored wins over the answers posted: a record automation reads
-  // the same row whatever created it — the stamps and the defaults included.
-  return triggerRecordEventAutomations({
-    app,
-    tableName: form.submitTo.table,
-    event: 'create',
-    record: { id: linkedRecordId, ...mapped, ...linkedRecordFields },
-    processEnv,
-    ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
-  })
-}
 
 // eslint-disable-next-line max-lines-per-function -- single-pass form-submission generator: 8 sequential gates (validate / honeypot / rate-limit / availability / format-validate / coerce / persist / emit + trigger). Each step needs the prior step's resolved state. [internal ref] added the analytics emit call.
 export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
@@ -661,7 +124,9 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       userAgent,
     })
 
-    const mapped = yield* processSubmissionBody(app, form, body, query ?? {})
+    // An embedded form marks its surface on the query; the rest is the form's.
+    const { surface, query: formQuery } = splitSubmissionSurface(query ?? {})
+    const mapped = yield* processSubmissionBody(app, form, body, formQuery)
 
     // A link must name a row the form offers, and a hidden link or account only
     // what the server would have put in it for this submitter — both answered
@@ -670,13 +135,14 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     yield* findUnofferedLinkField(links).pipe(Effect.flatMap(refuseAsMissingRow))
     yield* findUnpinnedHiddenField(links).pipe(Effect.flatMap(refuseAsMissingRow))
 
-    // [internal ref]: translate FK violations on the bound-table
+    // [internal ref] / a forms spec: translate FK violations on the bound-table
     // write into a structured FormFieldForeignKeyError so the route layer
     // emits a 400 with `fieldErrors[]` instead of a generic 422. Mirrors the
     // FormFieldFormatError translation in `processSubmissionBody`.
     const persisted = yield* persistSubmission({
       app,
       form,
+      surface,
       mapped,
       submitterIpHash,
       userAgent,
@@ -692,6 +158,12 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       })
     )
     const { submissionId, linkedRecordPresent, linkedRecordId } = persisted
+    yield* applySubmissionAccessLinks({
+      form,
+      submissionId,
+      editTokenHash: config.editTokenHash,
+      resumeTokenHash: config.resumeTokenHash,
+    })
 
     // [internal ref]: write the unified analytics_events row for
     // every successful submission. Three-layer gate (env / app / form);
@@ -724,7 +196,6 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       app,
       formName: form.name,
       submissionData: mapped,
-      // eslint-disable-next-line unicorn/no-null -- public template contract: submissionId is null when storeSubmission is false
       submissionId: submissionId ?? null,
       formId: form.id,
       linkedRecord: buildLinkedRecord(form, linkedRecordPresent, linkedRecordId),
@@ -737,11 +208,9 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     })
 
     return {
-      // eslint-disable-next-line unicorn/no-null -- public contract: null when `storeSubmission: false`
       submissionId: submissionId ?? null,
-      // eslint-disable-next-line unicorn/no-null -- public contract: nullable
       linkedRecordId: linkedRecordId ?? null,
-      // [internal ref]: expose only the submitter-supplied bound-table columns
+      // Expose only the submitter-supplied bound-table columns
       // for `$record.<column>` redirect interpolation (see SubmitFormResult).
       record: filterTableBoundFields(mapped, form),
     } satisfies SubmitFormResult

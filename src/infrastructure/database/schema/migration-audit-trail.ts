@@ -44,7 +44,7 @@ import {
 import { FORMULA_ENGINE_VERSION } from '../formula/formula-engine-version'
 import { qualifiedSystemTable, systemObjectExistsSql, nowSqlLiteral } from '../sql/dialect-ddl'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
-import { escapeSqlString } from '../sql/sql-utils'
+import { isSqliteRuntime } from '../unsupported-in-sqlite'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -139,6 +139,19 @@ const calculateChecksum = (tables: readonly object[]): string => {
 }
 
 /**
+ * The placeholder for bound JSON text going into a `schema` column.
+ *
+ * On PostgreSQL the column is `jsonb`, and `bun:sql` encodes a bound JS string
+ * for a `jsonb` slot as a JSON STRING scalar — even under `$n::jsonb` — so the
+ * snapshot would be stored as one quoted string rather than an object. Casting
+ * through `text` first makes PostgreSQL parse it, exactly as it parsed the
+ * quoted literal this replaced. On SQLite the column holds text, and the bound
+ * string is stored as-is.
+ */
+const jsonTextParam = (position: number): string =>
+  isSqliteRuntime() ? `$${position}` : `CAST(CAST($${position} AS text) AS jsonb)`
+
+/**
  * Generate checksum for the current schema state
  * Uses SHA-256 hash of the JSON-serialized schema
  */
@@ -169,19 +182,16 @@ export const recordMigration = (
     const nextVersion =
       (versionResult[0] as { next_version: number } | undefined)?.next_version ?? 1
 
-    // Insert migration record
-    // SECURITY NOTE: Using string interpolation for version (number) and proper escaping for JSON
-    // - nextVersion is a number from database query, not user input
-    // - checksum is a hex string from SHA-256 hash, safe
-    // - schemaSnapshot is JSON-escaped to prevent SQL injection
+    // Insert migration record. Every value is bound: the snapshot is config
+    // text, and config text is never spliced into a statement.
     // NOTE: JSON.stringify is appropriate here - serializing trusted data for storage, not validation
     // @effect-diagnostics effect/preferSchemaOverJson:off
-    const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
+    const schemaJson = JSON.stringify(schemaSnapshot)
     const insertSQL = `
       INSERT INTO ${MIGRATION_HISTORY_TABLE} (version, checksum, schema)
-      VALUES (${nextVersion}, '${checksum}', '${escapedSchema}')
+      VALUES ($1, $2, ${jsonTextParam(3)})
     `
-    yield* executeSQL(tx, insertSQL)
+    yield* executeSQL(tx, insertSQL, [nextVersion, checksum, schemaJson])
     logDebug('[migrations] migration recorded', { version: String(nextVersion) })
   })
 
@@ -194,13 +204,12 @@ export const logRollbackOperation = (
   reason: string
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Escape single quotes in reason string to prevent SQL injection
-    const escapedReason = escapeSqlString(reason)
+    // The reason is an error message, which can quote config text: bound.
     const insertSQL = `
       INSERT INTO ${MIGRATION_LOG_TABLE} (operation, reason, status)
-      VALUES ('ROLLBACK', '${escapedReason}', 'COMPLETED')
+      VALUES ('ROLLBACK', $1, 'COMPLETED')
     `
-    yield* executeSQL(tx, insertSQL)
+    yield* executeSQL(tx, insertSQL, [reason])
     logDebug('[migrations] rollback operation logged')
   })
 
@@ -225,18 +234,17 @@ export const storeSchemaChecksum = (
     // `NOW()` (Postgres) / `CURRENT_TIMESTAMP` (SQLite) — both dialects support
     // `INSERT ... ON CONFLICT (id) DO UPDATE SET col = excluded.col`.
     const now = nowSqlLiteral()
-    const escapedSchema = escapeSqlString(fullSchemaJson)
     // The formula engine that computed the values this migration left behind
     // (see `formula-engine-version.ts`): stored beside the checksum, so the
     // next boot knows whether they need recomputing although the config did not move.
     const upsertSQL = `
       INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at, formula_engine_version)
-      VALUES ('singleton', '${checksum}', '${escapedSchema}', ${now}, ${FORMULA_ENGINE_VERSION})
+      VALUES ('singleton', $1, ${jsonTextParam(2)}, ${now}, ${FORMULA_ENGINE_VERSION})
       ON CONFLICT (id)
       DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now},
         formula_engine_version = EXCLUDED.formula_engine_version
     `
-    yield* executeSQL(tx, upsertSQL)
+    yield* executeSQL(tx, upsertSQL, [checksum, fullSchemaJson])
     logDebug('[migrations] schema checksum stored')
   })
 

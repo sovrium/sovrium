@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-let, functional/no-loop-statements, functional/no-expression-statements -- streaming SSE parsing is fundamentally stateful and imperative; isolated here so the rest of ai-service-live stays functional */
-
 import type { ChatChunk } from '@/application/ports/services/ai-service'
 
 /**

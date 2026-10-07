@@ -127,8 +127,8 @@ export const configuration = defineSection({
       body: envVarsProjectBody,
       documents: [],
       // No `stories:`. Every story this article's content is about is already
-      // cited exactly once elsewhere — `[internal ref]` and
-      // `[internal ref]` under `cli-api`, `[internal ref]`
+      // cited exactly once elsewhere — the CLI commands start requirement and
+      // The CLI server management requirement under `cli-api`
       // under `operations` — and the coverage gate treats a second claim on one
       // id as an error, not as better coverage.
       stories: [],

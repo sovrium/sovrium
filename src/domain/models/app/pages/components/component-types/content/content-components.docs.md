@@ -38,6 +38,8 @@ When the **whole** `content` is exactly one token and its value is an object or 
 
 <!-- sovrium:options type:code -->
 
+A framed block takes classes by part through `classes`: `frame` is the frame around the code and its bar, `caption` is the bar naming the file or the command. Painting both in the code theme's own ground makes bar and code read as one panel.
+
 ### Frames, output and the copy button
 
 A bare block leaves the reader guessing whether it is a file to save or a command to run. The frame answers that, and it is resolved in this order, first match winning:

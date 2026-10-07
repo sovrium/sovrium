@@ -6,7 +6,7 @@
  */
 
 /**
- * Scoped-sidebar filter.
+ * Scoped-sidebar filter (the pages access scoped sidebar requirement, P-5).
  *
  * Pure functions composed by the SSR sidebar renderer to:
  *   1. Substitute `$record.<field>` placeholders in label/href templates,

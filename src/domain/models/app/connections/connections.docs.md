@@ -137,7 +137,7 @@ Some APIs issue short-lived tokens from a key without being OAuth2 servers: Spen
     body: { client_id: $env.SPENDESK_CLIENT_ID, client_secret: $env.SPENDESK_CLIENT_SECRET }
 ```
 
-The first call that needs a token posts `body` to `tokenUrl` — as JSON, or as form fields with `bodyType: form` — and reads the token at `tokenPath` (default `access_token`) and its lifetime in seconds at `expiresInPath` (default `expires_in`) in the JSON answer; an answer without a lifetime is kept for an hour. The token is stored encrypted as the connection's shared token and sent on every call in `header` (default `Authorization`) after `prefix` (default `Bearer`; `''` sends it alone) until it expires, when the next call asks again. Concurrent first calls share one token request, and changing the endpoint, the credential or the paths makes the next call ask for a new token rather than reuse one issued for the old configuration. A refused token request fails the step, naming the connection, and the API is never called without a token. `tokenUrl` passes the same outbound-address guard as the http actions.
+The first call that needs a token posts `body` to `tokenUrl` — as JSON, or as form fields with `bodyType: form` — and reads the token at `tokenPath` (default `access_token`) and its lifetime in seconds at `expiresInPath` (default `expires_in`) in the JSON answer; an answer without a lifetime is kept for an hour. The token is stored encrypted as the connection's shared token and sent on every call in `header` (default `Authorization`) after `prefix` (default `Bearer`; `''` sends it alone) until it expires, when the next call asks again. Concurrent first calls share one token request, and changing the endpoint, the credential or the paths makes the next call ask for a new token rather than reuse one issued for the old configuration. A refused token request fails the step, naming the connection, and the API is never called without a token. `tokenUrl` passes the same outbound-address guard as the http actions, and so does every redirect it answers with; the same holds for the OAuth2 token, refresh and client-credentials requests.
 
 ## Using one
 
@@ -148,63 +148,9 @@ The first call that needs a token posts `body` to `tokenUrl` — as JSON, or as 
   props: { url: 'https://api.example.com/me', connection: github-api }
 ```
 
-## Operations: an endpoint declared once, called by name
+## Operations
 
-A connection can also declare the endpoints of its service as `operations`, against a `baseUrl`. Each operation names the method, the path and the parameters it takes, with where each one goes and its type; an automation step then calls it by name with `type: connection`, `operator: call`.
-
-```yaml
-env:
-  - { key: QONTO_API_KEY, description: Qonto API key }
-  - { key: BANK_IBAN, description: IBAN of the account to read, secret: false }
-
-connections:
-  - name: qonto
-    type: apiKey
-    props: { key: $env.QONTO_API_KEY, header: Authorization }
-    baseUrl: https://thirdparty.qonto.com/v2
-    operations:
-      - name: list-transactions
-        method: GET
-        path: /transactions
-        params:
-          iban: { in: query, type: string, required: true }
-          status: { in: query, type: array, items: { type: string, enum: [pending, completed] } }
-        pagination:
-          {
-            style: page,
-            pageParam: current_page,
-            itemsPath: transactions,
-            nextPath: meta.next_page,
-          }
-
-automations:
-  - name: rent-payments
-    trigger: { type: manual }
-    actions:
-      - name: fetch
-        type: connection
-        operator: call
-        props:
-          connection: qonto
-          operation: list-transactions
-          params: { iban: $env.BANK_IBAN, status: [completed] }
-          paginate: all
-```
-
-Sovrium places and encodes every value: a path parameter fills exactly one `{name}` segment, even when the value holds a `/`; a query array is sent as repeated keys (`status=pending&status=completed`); body parameters become a JSON object by default, or a form or multipart body when the operation's `body` says so; header parameters travel as request headers. The connection's own authentication is attached to every request, OAuth2 tokens included, refreshed first when they have expired.
-
-`baseUrl` is a literal URL, `$env.VAR`, or `$token.FIELD` for a service that hands each customer their own API root with the token. Salesforce returns it as `instance_url`: keep it with the OAuth2 prop `tokenFields: [instance_url]` and set `baseUrl: $token.instance_url`. The kept fields are captured from every token response — the first exchange and each refresh — and stored encrypted with the token; a config whose `baseUrl` reads a field the connection does not keep is refused when it loads.
-
-A call is checked when the config loads: an unknown operation, a parameter the operation does not declare, a missing required parameter or a literal of the wrong type refuses the config, naming the step. A value produced by a template is checked when the step runs.
-
-What the next step reads:
-
-- `steps.<name>.data` is the decoded response body. With `paginate: all`, or `paginate: N` for at most N pages, it is instead the items of every page read, concatenated in order, following the operation's `pagination` (page number, offset, cursor, the `Link` header, or the id of the last item read — `style: lastItem`, which stops when `hasMorePath` reads false).
-- `steps.<name>.response.status` and `steps.<name>.response.headers` describe the last answer.
-
-A non-2xx answer fails the step, and its error names the operation and the status. A `429` or `503` answer carrying `Retry-After` is retried after the delay the service asked for, up to three times and never after a wait longer than a minute. Every request passes the same outbound-address guard and per-request timeout (`timeout`, 15 seconds by default) as the HTTP actions.
-
-<!-- sovrium:options ConnectionOperationSchema -->
+A connection can also declare the endpoints of its service as `operations` and call them by name from any automation step. They have their own article: **Connection Operations**.
 
 ## Not the same thing as an API key your instance issues
 

@@ -30,12 +30,10 @@
  *     `sql` fragment is silently coerced to NULL on `bun:sqlite`, so every write
  *     is emitted as a `Date` value for `.set()` / `.values()` to map.
  *
- * 3. **`passwordHash` is never selected into the returned record.** [internal ref] D5
+ *  3. **`passwordHash` is never selected into the returned record.** the links-are-records design
  *     keeps it out of the console payload, and the row-mapper is the last place
  *     that promise can be made structurally.
  */
-
-/* eslint-disable unicorn/no-null -- every nullable column and every port field is spelled `null`, not `undefined`: SQL has one absence marker and the port contract mirrors it, so `undefined` here would mean "leave alone" on a write and would silently drop the key on a read. */
 
 import type {
   CreateLinkInput,
@@ -232,14 +230,11 @@ const createContent = (input: Readonly<CreateLinkInput>) => ({
   // row carrying both would resolve through `targets` while the catalog
   // reported `destination`.
   destination: input.destination ?? null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dialect-conditional JSON column shape
-  targets: (input.targets === undefined ? null : [...input.targets]) as any,
+  targets: input.targets === undefined ? null : [...input.targets],
   title: input.title ?? null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dialect-conditional JSON column shape
-  tags: [...(input.tags ?? [])] as any,
+  tags: [...(input.tags ?? [])],
   notes: input.notes ?? null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dialect-conditional JSON column shape
-  utm: (input.utm ?? null) as any,
+  utm: input.utm ?? null,
   createdBy: input.createdBy ?? null,
 })
 
@@ -276,13 +271,10 @@ export const overlayValues = (input: {
   appName: input.appName,
   slug: input.slug,
   source: 'config' as const,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dialect-conditional JSON column shape
-  tags: [] as any,
+  tags: [],
   enabled: true,
   disabledAt: input.disabled ? input.now : null,
   createdBy: input.actorId ?? null,
   createdAt: input.now,
   updatedAt: input.now,
 })
-
-/* eslint-enable unicorn/no-null */

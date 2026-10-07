@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
 import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
 
 /**
@@ -19,7 +20,7 @@ export function extractSessionTimeout(analytics: BuiltInAnalytics | undefined): 
  * Check if built-in analytics tracking should be injected for a given page path.
  *
  * Returns true when analytics is configured and enabled, and the page path
- * is not in the excludedPaths list.
+ * matches none of the `excludedPaths` glob patterns.
  */
 export function shouldInjectAnalytics(
   analytics: BuiltInAnalytics | undefined,
@@ -29,9 +30,9 @@ export function shouldInjectAnalytics(
   if (analytics === true) return true
   const { excludedPaths } = analytics
   if (!excludedPaths || excludedPaths.length === 0) return true
-  return !excludedPaths.some((pattern: string) => {
-    // Support simple glob patterns: * matches any segment, ** matches anything
-    const regex = new RegExp('^' + pattern.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$')
-    return regex.test(pagePath)
-  })
+  // The same matcher the collector applies to the events it receives, so the
+  // beacon is left out of exactly the pages whose events would be dropped —
+  // `/admin/*` covers everything beneath `/admin`, as the option documents —
+  // and a `.` or `(` in a pattern is matched literally.
+  return !matchesAnyGlobPattern(excludedPaths, pagePath)
 }

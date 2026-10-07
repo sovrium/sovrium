@@ -61,7 +61,6 @@ export const absoluteShortUrl = (c: Context, slug: string): string => {
  * field, months later, where nobody can fix it.
  */
 export const respondWithQr = (c: Context, outcome: LinkOutcome, slug: string): Response => {
-  // eslint-disable-next-line unicorn/no-null -- Hono's empty-body idiom; see analytics.ts
   if (outcome.kind === 'gone') return c.body(null, 410)
 
   // `encodeQrSvg` returns a result rather than throwing (the domain layer is
@@ -85,7 +84,4 @@ export const respondWithQr = (c: Context, outcome: LinkOutcome, slug: string): R
  * operator has to retire an address that is already in print.
  */
 export const respondGone = (c: Context, outcome: { readonly location?: string }): Response =>
-  outcome.location === undefined
-    ? // eslint-disable-next-line unicorn/no-null -- Hono's empty-body idiom; see analytics.ts
-      c.body(null, 410)
-    : c.redirect(outcome.location, 302)
+  outcome.location === undefined ? c.body(null, 410) : c.redirect(outcome.location, 302)

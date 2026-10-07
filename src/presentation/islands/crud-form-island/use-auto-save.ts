@@ -108,7 +108,6 @@ export function useAutoSave(params: UseAutoSaveParams): UseAutoSaveResult {
   // Latest values + record kept in a ref so debounce/blur callbacks read fresh
   // data without re-subscribing on every keystroke.
   const valuesRef = useRef(values)
-  // eslint-disable-next-line functional/immutable-data -- ref mirrors latest controlled values
   valuesRef.current = values
 
   const runSave = useCallback(() => {

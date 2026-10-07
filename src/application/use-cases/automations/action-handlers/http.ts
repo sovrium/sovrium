@@ -8,8 +8,7 @@
 import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { appendQueryObject } from '@/domain/kernel/url/query-string'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
 import { resolveConnectionHeaders } from './auth-headers'
 import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
@@ -61,10 +60,8 @@ const HTTP_TIMEOUT_MAX_MS = 120_000
  * The per-request timeout budget: `props.timeout` when declared, otherwise
  * {@link HTTP_REQUEST_TIMEOUT_MS}.
  *
- * 15 000 ms — not the 30 000 the annotation used to name — is the real
- * fallback, and stays the fallback: honouring the annotation's number instead
- * would silently double the budget of every `http/*` action that declares
- * nothing.
+ * 15 000 ms is the real fallback, not 30 000: a 30 000 ms default would
+ * silently double the budget of every `http/*` action that declares nothing.
  */
 const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
   const declared = numberProp(props, 'timeout', HTTP_REQUEST_TIMEOUT_MS)
@@ -83,7 +80,7 @@ const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
  *
  * Returns the response as `output: { response: { status, headers, body } }`
  * so subsequent steps can read it via `context.steps.<name>.response.*`
- *. String bodies pass through
+ * String bodies pass through
  * verbatim; JSON-shaped bodies are stringified on the way out — unless
  * `props.contentType` declares another encoding.
  */
@@ -130,38 +127,16 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
     Effect.withSpan('automations.handle-http-request', { attributes: actionAttributes(action) })
   )
 
-/** The hard cap on a captured response body, in UTF-16 code units. */
-const RESPONSE_BODY_CAP = 65_536
-
-/** A response body as captured, plus whether the cap cut it short. */
-interface CapturedBody {
-  readonly body: string | undefined
-  readonly truncated: boolean
-}
-
 /**
- * Read the response body as text, capped at 64 KiB so a misbehaving
- * upstream cannot swell run-history memory. Failures are swallowed so the
- * handler still surfaces the response status + headers when the body is
- * unreadable (some upstreams reject `.text()` after a particular code path).
- *
- * The cap STAYS — what changes is that hitting it is now reported. Past the
- * cap the JSON parse of the mutilated text fails, so no structured `body` is
- * exposed and the step reports a bare success; nothing distinguished that from
- * an endpoint that genuinely returned nothing (the motivating case being a
- * wide Google Sheets `values.get`). `truncated` is that distinction
- *.
+ * The hard cap on a captured response body, in BYTES: the body is read up to
+ * it and the rest is never downloaded, so a misbehaving upstream can neither
+ * swell run-history memory nor hold the run open with an answer that never
+ * ends. Hitting it is reported as `truncated` — past the cap the JSON parse of
+ * the mutilated text fails, so no structured `body` is exposed, and nothing
+ * else would distinguish that from an endpoint that genuinely returned nothing
+ * (the motivating case being a wide Google Sheets `values.get`,
  */
-const readResponseBodySafe = async (response: Response): Promise<CapturedBody> => {
-  try {
-    const text = await response.text()
-    return text.length > RESPONSE_BODY_CAP
-      ? { body: text.slice(0, RESPONSE_BODY_CAP), truncated: true }
-      : { body: text, truncated: false }
-  } catch {
-    return { body: undefined, truncated: false }
-  }
-}
+const RESPONSE_BODY_CAP = 65_536
 
 /**
  * True when the `Content-Type` header (any casing — RFC 7230 §3.2 makes HTTP
@@ -178,7 +153,7 @@ const isJsonContentType = (headers: Readonly<Record<string, string>>): boolean =
 /**
  * Attempt to expose a STRUCTURED, JSON-parsed `body` for the response so a
  * later step can read a field via `{{steps.X.body.<key>}}`
- *. The parsed value is
+ * The parsed value is
  * only surfaced when the `Content-Type` declares JSON OR the raw text parses
  * as a JSON object/array — primitive JSON (a bare number/string/bool) is not
  * worth a dotted-path lookup and is left out so non-JSON responses keep the
@@ -224,25 +199,18 @@ const performHttpWithResponseOutput = async (input: {
   readonly timeoutMs: number
 }): Promise<ActionOutcome> => {
   const { url, method, headers, body: requestBody, timeoutMs } = input
-  // SSRF guard: reject loopback / link-local / RFC1918 / non-http(s)
-  // BEFORE fetch, so a misconfigured automation can't probe internal
-  // services through the http/* action handler.
-  const validation = validateOutboundUrl(url)
-  if (!validation.ok) {
-    return { status: 'failure', error: `invalid_outbound_url_${validation.issue.reason}` }
-  }
-
+  // SSRF guard on the URL AND on every redirect hop: a misconfigured or
+  // hostile target can't steer the http/* action handler to internal services.
   try {
-    const response = await withFetchTimeout(
+    const sent = await guardedFetch(
       url,
-      {
-        method,
-        headers,
-        ...(requestBody !== undefined ? { body: requestBody } : {}),
-      },
-      timeoutMs
+      { method, headers, ...(requestBody !== undefined ? { body: requestBody } : {}) },
+      { timeoutMs, maxBodyBytes: RESPONSE_BODY_CAP }
     )
-    const { body, truncated } = await readResponseBodySafe(response)
+    if (!sent.ok) return { status: 'failure', error: sent.message }
+    const { response } = sent
+    const { truncated } = response
+    const body = guardedText(response)
     const responseHeaders: Readonly<Record<string, string>> = Object.fromEntries(
       response.headers.entries()
     )
@@ -251,7 +219,7 @@ const performHttpWithResponseOutput = async (input: {
     const responseEnvelope = {
       status: response.status,
       headers: responseHeaders,
-      ...(body !== undefined ? { body } : {}),
+      body,
       ...(truncated ? { truncated: true } : {}),
     }
     // Expose a STRUCTURED, JSON-parsed `body` ALONGSIDE the raw-text
@@ -264,7 +232,7 @@ const performHttpWithResponseOutput = async (input: {
     if (!response.ok) {
       return {
         status: 'failure',
-        error: classifyHttpError(response.status, body?.slice(0, 200)),
+        error: classifyHttpError(response.status, body.slice(0, 200)),
         output: { response: responseEnvelope, ...parsedBodyField },
       }
     }
@@ -373,8 +341,7 @@ const encodeFormBody = (body: Readonly<Record<string, unknown>>): string =>
  *    the whole way back to the default behaviour.
  * 2. **The shorthand governs the encoding, not only the header.** Announcing
  *    `application/x-www-form-urlencoded` over a JSON payload is a worse lie
- *    than ignoring the field, which is what the handler did before
- *.
+ *    than ignoring the field, which is what the handler did before.
  *
  * A string body always passes through verbatim: the author already serialised
  * it and only wants the header named.
@@ -404,7 +371,7 @@ const applyContentTypeShorthand = (
 
 /**
  * Serialise `props.body` for an HTTP POST and decide whether to default the
- * `Content-Type` header. [internal ref]: when the
+ * `Content-Type` header. An automation action HTTP post spec: when the
  * caller provides a JSON-shaped body and no explicit Content-Type, default
  * to `application/json` and JSON-stringify. POST-003: when an explicit
  * Content-Type is set, honour it and leave the body untouched (string

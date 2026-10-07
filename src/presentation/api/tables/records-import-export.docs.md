@@ -55,6 +55,8 @@ The response streams the file with an attachment disposition, named after the ta
 
 **Both formats carry RAW values**, not the formatted ones the grid displays: a currency column exports `1250.5`, not `€1,250.50`, and an attachment column exports its storage key rather than the signed URL the read path enriches it with. So a CSV taken out of one table re-imports into another without a translation step, and neither format has to be preferred on those grounds. The difference between them is shape — CSV is one header row and one row per record, JSON an array of objects — and in both the column name is the FIELD NAME as declared, never its `label`.
 
+**One exception to raw values, in CSV only.** A text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet opening the file reads it as text rather than running it as a formula; number cells are written unchanged. A number field's value never gains the prefix, even a negative one, so a column of balances still sums. JSON carries every value as stored.
+
 The file is streamed with an attachment disposition named `<table>-<YYYY-MM-DD>` plus the extension, so a browser saves it under a name that says what it is and when it was taken.
 
 Export honours field-level read permissions: columns the caller may not read are absent from the file rather than blank in it.

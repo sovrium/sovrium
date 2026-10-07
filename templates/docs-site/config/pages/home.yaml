@@ -1,33 +1,78 @@
 # The landing page: what the site is in two sentences, the one command that
 # starts it, and three ways into the documentation.
 #
-# The pitch is markdown, set in the reading typography of the `prose` layout.
 # On a markdown page the first component renders above the text and the rest
-# below it: the bar above, the three section cards and the footer below.
+# below it: the bar and the overline above, the calls to action, the command,
+# the three section cards and the footer below.
 name: home
 path: /
 meta:
   title: Docs · write docs as files, publish them as a site
   description: A documentation site whose every page is a markdown file in your repository.
 
+# The title and the lead are markdown, set in the reading typography of the
+# `prose` layout and styled by part: a wider measure, the large title, the
+# muted lead. The overline above them and the two calls to action and the
+# install command below them are components, so each takes its own classes.
 markdown:
   layout: prose
+  classes:
+    parts:
+      article: '!max-w-[880px] !px-0 !pt-0 !pb-0 max-lg:!px-6 max-md:!px-3'
+      heading1: >-
+        !mt-[26px] !mb-0 !max-w-[760px] !text-[52px] !leading-[1.05] !tracking-[-0.025em]
+        !font-semibold max-md:!text-[34px]
+      lead: '!mt-5 !mb-0 !max-w-[640px] !text-[19px] !leading-[1.6] !text-foreground-muted'
   content: |
-    Docs · built from markdown
-
     # Write docs as files. Publish them as a site.
 
     Every page is a markdown file in your repository. The sidebar, the outline,
     previous and next, and the highlighted code come from configuration.
 
-    [Read the introduction](/docs/introduction) [Install](/docs/installation)
-
-    ```bash
-    sovrium init my-docs --template docs-site
-    cd my-docs && sovrium start app.yaml
-    ```
-
 components:
-  - $ref: ./_site-header.yaml
+  # The first component renders above the text: the bar, then the overline
+  # that opens the pitch.
+  - type: container
+    children:
+      - $ref: ./_site-header.yaml
+      - type: container
+        props:
+          className: mx-auto w-full max-w-[880px] pt-[72px] max-lg:px-6 max-md:px-3 max-md:pt-8
+        children:
+          - type: text
+            element: p
+            props:
+              className: font-mono text-xs uppercase tracking-wider text-foreground-subtle
+            content: Docs · built from markdown
+  # Below the text: the two ways in, the first one filled, and the command
+  # that starts the site, its bar in the code theme's own `#0d0d0d` ground.
+  - type: container
+    props:
+      className: mx-auto flex w-full max-w-[880px] flex-col items-start gap-5 pt-5 max-lg:px-6 max-md:px-3
+    children:
+      - type: container
+        props:
+          className: flex gap-2.5
+        children:
+          - type: link
+            props:
+              href: /docs/introduction
+              className: inline-flex h-9 items-center rounded-md border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground no-underline
+            content: Read the introduction
+          - type: link
+            props:
+              href: /docs/installation
+              className: inline-flex h-9 items-center rounded-md border border-border bg-background-raised px-3 text-sm font-medium text-foreground no-underline
+            content: Install
+      - type: code
+        props:
+          language: bash
+        classes:
+          parts:
+            frame: w-full max-w-[640px] border-[#0d0d0d]
+            caption: '!border-white/10 !bg-[#0d0d0d] !text-[#8b949e]'
+        content: |-
+          sovrium init my-docs --template docs-site
+          cd my-docs && sovrium start app.yaml
   - $ref: ./_section-cards.yaml
   - $ref: ./_site-footer.yaml

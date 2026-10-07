@@ -6,7 +6,7 @@
  */
 
 /**
- * RAG acceleration configuration — pure domain logic (Phase 2, [internal ref]).
+ * RAG acceleration configuration — pure domain logic (Phase 2, the SQLite RAG design).
  *
  * Phase 1 (the shipped default) computes cosine similarity in application code
  * over Float32 BLOB vectors. Phase 2 adds an OPT-IN acceleration layer:

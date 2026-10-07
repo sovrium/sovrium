@@ -29,7 +29,7 @@
 
 import { measureContrast, srgbHex } from '@/domain/kernel/color/color-contrast'
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
-import { stringifyTokenValue } from './design-system-schema'
+import { stringifyTokenValue } from './design-system-token-rows'
 import type { FlatTokenRow } from '@/domain/models/api/admin/design-system/component-types'
 import type { DiscardedDeclaration } from '@/domain/models/api/admin/design-system/facets'
 
@@ -55,7 +55,7 @@ import type { DiscardedDeclaration } from '@/domain/models/api/admin/design-syst
  * and no presence operator — so an omitted level is a state the page cannot
  * detect, and a dark badge would go on printing a light measurement with
  * nothing saying so. That is the exact failure of disclosure
- * `[internal ref]` exists to pin.
+ * an admin design system spec exists to pin.
  */
 /**
  * The colour patch, typed so the ONE required member survives the spread.

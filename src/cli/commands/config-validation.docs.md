@@ -14,22 +14,47 @@ Success prints `Valid configuration: <name>` and exits `0`. **The decode is the 
 
 ## What failure looks like
 
-Problems print under a single header and exit `1`. An unrecognised property is named, located, and answered with the keys that node does accept:
+Problems print under a single header, counted and grouped by the file they live in, and the run exits `1`. An unrecognised property is named, located, and answered with the keys that node does accept:
 
 ```text
 Error: Validation failed.
 
+1 problem
+
+app.yaml
   Unknown property 'tag' on component type 'text'
     at pages[0].components[0]
-    Accepted here: type, children, props, content, interactions, responsive,
-                   visibility, i18n, session, element, required
+    Accepted here: type, children, props, content, interactions, responsive, visibility, i18n, session, element, required
 ```
 
 A near miss also gets `Did you mean 'element'?` — but **only when the correction is actually derivable**. A suggestion produced unconditionally would confidently send you to the wrong property, so a name with no near neighbour gets the accepted-key list and nothing more.
 
-Structural problems that are not a stray key print as the decoder's indented tree instead. Read that one from the bottom: it walks down through the schema before it reaches your config, so the top is machinery and the last lines are the finding.
+Structural problems that are not a stray key — a missing required key, a value of the wrong type — print in the decoder's own words, each followed by the path it sits at:
 
-**One property per run.** A config with three typos reports one of them. Fix it and run again.
+```text
+  Missing key
+    at ["tables"][0]["fields"][0]["name"]
+```
+
+**Every mistake in one run.** A config with three typos reports all three, each once. One that lives in a `$ref` partial is listed under that file's path from the root config's directory:
+
+```text
+Error: Validation failed.
+
+2 problems
+
+app.yaml
+  Missing key
+    at ["tables"][0]["fields"][0]["name"]
+
+pages/home.yaml
+  Unknown property 'elemnt' on component type 'text'
+    at pages[0].components[0]
+    Did you mean 'element'?
+    Accepted here: type, children, props, content, interactions, responsive, visibility, i18n, session, element, required
+```
+
+A mistake is reported against the shape you meant — the component whose `type` you wrote — and never again for every other shape that position accepts. Past 50 problems the report prints the first 50 and closes with `and N more problems`; `--json` carries them all.
 
 ## The four classes of error
 
@@ -63,10 +88,12 @@ The third class runs _after_ the decode and prints plainly rather than as a tree
 ```text
 Error: Validation failed.
 
+1 problem
+
   Unknown field type "web-site" in field "website"
 ```
 
-**A single-word type is not flagged.** The sweep reports a type only when it cannot recognise it **and** it contains a `-` or `_`. A bare word like `colour` is treated as a plausible alias, passes validation, and fails later during SQL generation — so check spellings against the field-type reference rather than relying on this sweep alone.
+**Every unrecognised type is flagged, a single word included.** A type passes only when it is a catalogued field type, or becomes one once its underscores are read as hyphens (`single_line_text` is `single-line-text`). A bare word like `colour` is reported the same way as `web-site`, and the message lists every known field type to pick from.
 
 ### Reading the config against itself
 
@@ -74,6 +101,8 @@ The fourth class is the one that changes what your app **does**, not only what t
 
 ```text
 Error: Validation failed.
+
+1 problem
 
   rowColorField: field 'statuss' not found in table 'orders'. Available: id, customer, status
 ```

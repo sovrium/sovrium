@@ -9,6 +9,24 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a Microsoft 365 OAuth client and a Teams channel turn on the post of
+# each asset event — a check-out, a repair, a return — to that channel
+# (library/recipe/record-to-teams-channel.yaml). Without them the app runs as
+# before and that one automation cannot reach Teams.
+env:
+  - key: MICROSOFT_CLIENT_ID
+    description: Client id of your Microsoft Entra app registration, for the Teams posts.
+    required: false
+  - key: MICROSOFT_CLIENT_SECRET
+    description: Client secret of the same app registration.
+    required: false
+  - key: TEAMS_TEAM_ID
+    description: Id of the team whose channel receives each asset event.
+    required: false
+  - key: TEAMS_CHANNEL_ID
+    description: Id of that channel.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -17,6 +35,16 @@ tables:
   - $ref: ./config/tables/assets.yaml
   - $ref: ./config/tables/check_outs.yaml
   - $ref: ./config/tables/asset_events.yaml
+
+# The register as a CSV file in storage on the first of each month, and the
+# library recipe that posts each asset event to a Teams channel.
+automations:
+  - $ref: ./config/automations/register-export.yaml
+  - $ref: ./library/recipe/record-to-teams-channel.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/register-asset.yaml
 
 # Listed in the order of the sidebar: the Register is the home page.
 pages:
@@ -30,3 +58,6 @@ pages:
 # floating pill, so it never sits over the last row of a grid.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/microsoft-365.yaml

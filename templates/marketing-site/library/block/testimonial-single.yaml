@@ -1,0 +1,43 @@
+# sovrium-library: block/testimonial-single@0.30.0
+name: testimonial-single
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: flex
+    props:
+      className: flex flex-col mx-auto max-w-3xl items-center gap-6 text-center
+    children:
+      - type: icon
+        props:
+          name: quote
+          size: 30
+          className: text-foreground-subtle
+      - type: text
+        element: blockquote
+        props:
+          className: text-2xl font-medium leading-snug tracking-tight text-balance text-foreground sm:text-3xl
+        content: '“[One quote, specific enough that only this customer could have said it.]”'
+      - type: flex
+        props:
+          className: flex items-center gap-3
+        children:
+          - type: avatar
+            label: '[Full name]'
+            initials: AB
+            size: lg
+          - type: flex
+            props:
+              className: flex flex-col gap-0.5 text-left
+            children:
+              - type: text
+                element: span
+                props:
+                  className: text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: span
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role, organisation]'

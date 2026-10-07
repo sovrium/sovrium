@@ -13,14 +13,22 @@ import {
   EmailAndPasswordStrategySchema,
   MagicLinkStrategySchema,
   OAuthStrategySchema,
+  PasskeysConfigSchema,
+  ScimConfigSchema,
+  SsoOidcConfigSchema,
+  SsoProviderSchema,
+  SsoSamlConfigSchema,
   TwoFactorConfigSchema,
 } from '@/domain/models/app/auth'
 import authEmailPasswordBody from '@/domain/models/app/auth/auth-email-password.docs.md' with { type: 'file' }
 import authEmailTemplatesBody from '@/domain/models/app/auth/auth-email-templates.docs.md' with { type: 'file' }
 import authOverviewBody from '@/domain/models/app/auth/auth-overview.docs.md' with { type: 'file' }
+import authPasskeysBody from '@/domain/models/app/auth/auth-passkeys.docs.md' with { type: 'file' }
 import authPasswordlessBody from '@/domain/models/app/auth/auth-passwordless.docs.md' with { type: 'file' }
 import authRegistrationBody from '@/domain/models/app/auth/auth-registration.docs.md' with { type: 'file' }
+import authScimBody from '@/domain/models/app/auth/auth-scim.docs.md' with { type: 'file' }
 import authSocialOauthBody from '@/domain/models/app/auth/auth-social-oauth.docs.md' with { type: 'file' }
+import authSsoBody from '@/domain/models/app/auth/auth-sso.docs.md' with { type: 'file' }
 import authStrategiesBody from '@/domain/models/app/auth/auth-strategies.docs.md' with { type: 'file' }
 import authTwoFactorBody from '@/domain/models/app/auth/auth-two-factor.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
@@ -214,6 +222,82 @@ export const auth = defineSection({
       body: authTwoFactorBody,
       documents: [TwoFactorConfigSchema],
       stories: ['US-AUTH-TWO-FACTOR-AUTH'],
+    }),
+    defineArticle({
+      slug: 'auth-sso',
+      title: 'Single Sign-On (OIDC & SAML)',
+      description:
+        'Declare OpenID Connect and SAML 2.0 identity providers in config — the sign-in buttons, email-domain routing, role mapping from a claim, and who may sign up.',
+      keywords: [
+        'sovrium',
+        'single sign-on',
+        'SSO',
+        'OIDC',
+        'OpenID Connect',
+        'SAML',
+        'Okta',
+        'Entra ID',
+        'Keycloak',
+        'identity provider',
+        'role mapping',
+        'domains',
+      ],
+      order: 7022,
+      sidebarLabel: 'Single Sign-On',
+      body: authSsoBody,
+      documents: [SsoProviderSchema, SsoOidcConfigSchema, SsoSamlConfigSchema],
+      stories: [
+        'US-AUTH-SSO-001',
+        'US-AUTH-SSO-002',
+        'US-AUTH-SSO-003',
+        'US-AUTH-SSO-004',
+        'US-AUTH-SSO-005',
+        'US-AUTH-SSO-006',
+      ],
+    }),
+    defineArticle({
+      slug: 'auth-passkeys',
+      title: 'Passkeys',
+      description:
+        'Enable passkey (WebAuthn) sign-in beside the other strategies — registering a passkey, the passkey sign-in button, and requiring one for administrators.',
+      keywords: [
+        'sovrium',
+        'passkeys',
+        'WebAuthn',
+        'FIDO2',
+        'passwordless',
+        'security key',
+        'rpName',
+        'requireForAdmin',
+      ],
+      order: 7024,
+      sidebarLabel: 'Passkeys',
+      body: authPasskeysBody,
+      documents: [PasskeysConfigSchema],
+      stories: ['US-AUTH-PASSKEYS-001', 'US-AUTH-PASSKEYS-002', 'US-AUTH-PASSKEYS-003'],
+    }),
+    defineArticle({
+      slug: 'auth-scim',
+      title: 'SCIM Provisioning',
+      description:
+        'Let the identity provider create, update and deactivate users and group memberships over SCIM 2.0, authenticated by a bearer token from the environment.',
+      keywords: [
+        'sovrium',
+        'SCIM',
+        'SCIM 2.0',
+        'provisioning',
+        'deprovisioning',
+        'joiners and leavers',
+        'Okta',
+        'Entra ID',
+        'bearer token',
+        'groups',
+      ],
+      order: 7026,
+      sidebarLabel: 'SCIM Provisioning',
+      body: authScimBody,
+      documents: [ScimConfigSchema],
+      stories: ['US-AUTH-SCIM-001', 'US-AUTH-SCIM-002', 'US-AUTH-SCIM-003'],
     }),
   ],
 })

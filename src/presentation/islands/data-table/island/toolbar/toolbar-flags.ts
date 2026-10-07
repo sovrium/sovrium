@@ -15,38 +15,30 @@ import type { DataTableToolbar } from '@/domain/models/app/pages/components/comp
  *
  * Every field of `DataTableToolbar` is optional, so a render site reading it
  * directly spells `toolbarConfig?.filters &&` — and an optional chain is a
- * decision point in its own right, so each of the nine controls cost TWO
+ * decision point in its own right, so each control cost TWO
  * branches to gate rather than one. Resolving the block once collapses that
  * back to `flags.filters &&`.
  */
 export interface ToolbarFlags {
-  readonly viewSwitcher: boolean
   readonly filters: boolean
   readonly sort: boolean
-  readonly groupBy: boolean
-  readonly columnToggle: boolean
   readonly export: boolean
   readonly refresh: boolean
-  readonly density: boolean
 }
 
 export function resolveToolbarFlags(config: DataTableToolbar | undefined): ToolbarFlags {
   return {
-    viewSwitcher: config?.viewSwitcher === true,
     filters: config?.filters === true,
     sort: config?.sort === true,
-    groupBy: config?.groupBy === true,
-    columnToggle: config?.columnToggle === true,
     export: config?.export === true,
     refresh: config?.refresh === true,
-    density: config?.density === true,
   }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // EMPTINESS — whether each cluster of the bar will render anything at all
 //
-// The bar asks all four of these before drawing itself, because an empty
+// The bar asks all three of these before drawing itself, because an empty
 // toolbar is a 17px band with a bottom rule and no content sitting above the
 // header row — chrome claiming space for nothing, and a rule the reader takes
 // for the top of the table.
@@ -68,18 +60,16 @@ export function resolveToolbarFlags(config: DataTableToolbar | undefined): Toolb
 /**
  * Whether this cluster will render anything at all.
  *
- * It mirrors the five conditions in the component below, one term each, and it
+ * It mirrors the three conditions in the component below, one term each, and it
  * lives HERE rather than beside its caller so that adding a control and
  * forgetting the predicate is a one-line-apart mistake rather than a
- * three-file one. The bar asks all four clusters this before drawing itself —
+ * three-file one. The bar asks all three clusters this before drawing itself —
  * see `toolbar-bar.tsx`.
  */
 export function hasLeadingControls(props: LeadingControlsProps): boolean {
   return (
     props.canCreate ||
     (props.showSearch && props.searchConfig !== undefined) ||
-    props.activeViewName !== undefined ||
-    props.viewSwitcherEnabled ||
     (props.saveStatus !== undefined && props.saveStatus !== 'idle')
   )
 }
@@ -96,23 +86,14 @@ export function hasLeadingControls(props: LeadingControlsProps): boolean {
  * else is configured.
  */
 export function hasQueryControls(props: QueryControlsProps): boolean {
-  return props.canImport || props.filtersEnabled || props.sortEnabled || props.groupByEnabled
+  return props.canImport || props.filtersEnabled || props.sortEnabled
 }
 
 /**
  * Whether this cluster will render anything at all — see
  * {@link hasLeadingControls} for why the predicate sits beside the component
  * whose branches it mirrors.
- *
- * The settings dialog needs no term of its own: it renders only alongside the
- * density menu, so `densityEnabled` already covers it.
  */
 export function hasDisplayControls(props: DisplayControlsProps): boolean {
-  return (
-    props.columnToggleEnabled ||
-    props.canExportSelection ||
-    props.exportEnabled ||
-    props.refreshEnabled ||
-    props.densityEnabled
-  )
+  return props.canExportSelection || props.exportEnabled || props.refreshEnabled
 }

@@ -11,16 +11,16 @@
  * Pure functions that drive the multi-step form server endpoints:
  *   - `isStepVisible` — evaluate `step.visibleWhen` against accumulated
  *     submission values. Skipped steps render nothing, validate nothing,
- * and contribute no values to the final submission.
+ *     and contribute no values to the final submission.
  *   - `getVisibleSteps` — filter `form.steps[]` by `visibleWhen`.
  *   - `findStep` / `findStepIndex` — look up by id.
- * - `resolveNextStepId` — [internal ref]: evaluate `goToWhen` rules in
+ *   - `resolveNextStepId` — a forms spec: evaluate `goToWhen` rules in
  *     order; first match wins; otherwise fall through to the next visible
  *     step in declaration order.
  *   - `collectFieldsInSkippedSteps` — list every field identifier that
  *     belongs to a step whose `visibleWhen` evaluates false. The final
  *     `POST /submissions` handler uses this to drop their values from the
- * persisted record.
+ *     persisted record.
  *
  * All helpers expect the `Form` shape with `steps[]` already cross-validated
  * (see `domain/models/app/forms/forms-validation.ts`). Reuses the field-value
@@ -94,7 +94,7 @@ export const findStep = (form: Readonly<FormShape>, stepId: string): FormStepSha
   getDeclaredSteps(form).find((step) => step.id === stepId)
 
 /**
- * [internal ref]: resolve the next step id after the supplied step.
+ * Resolve the next step id after the supplied step.
  *
  *   1. Walk `step.goToWhen[]` in order. The first rule whose `when`
  *      evaluates true wins; its `goTo` is the next step.
@@ -126,7 +126,7 @@ export const resolveNextStepId = (
 }
 
 /**
- * [internal ref]: collect every field identifier that belongs to a step
+ * Collect every field identifier that belongs to a step
  * whose `visibleWhen` evaluates false. The final `POST /submissions`
  * handler uses this to drop those values from the persisted record so a
  * skipped step contributes nothing to the bound table OR to the

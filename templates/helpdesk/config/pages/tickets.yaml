@@ -57,6 +57,7 @@ components:
                       - { value: Billing, label: Billing }
                       - { value: Feature request, label: Feature request }
               - type: table
+                readOnly: true
                 props:
                   id: all-tickets
                 dataSource:
@@ -90,6 +91,10 @@ components:
             canEdit: false
             dataSource:
               table: tickets
+            # "Open full page" leads to the ticket's own page, where the team
+            # writes its internal notes (config/pages/ticket.yaml).
+            navigation:
+              fullPage: /tickets/$record.id
             # Named by the ticket it opens: its number, then its subject.
             props:
               title: '#$record.id · $record.subject'

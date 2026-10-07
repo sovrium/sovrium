@@ -5,15 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { transformRecord } from '@/application/use-cases/tables/record-transformer'
 import { hasUpdatePermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import { handleRouteError } from './error-handlers'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 import type { FieldWriter } from '@/domain/models/app/tables/field-write-permission-service'
 import type { Context } from 'hono'
@@ -95,14 +96,15 @@ export function filterAllowedFieldsWithRole(
 }
 
 /**
- * Handle case where no fields are allowed after filtering
+ * Answer an update left with no field to write once the forbidden ones were
+ * filtered out.
  */
-export async function handleNoAllowedFields(config: {
-  recordId: string
-  forbiddenFields: readonly string[]
-  app: App
-  c: Context
-}): Promise<Response> {
+export const noAllowedFieldsResponse = (config: {
+  readonly recordId: string
+  readonly forbiddenFields: readonly string[]
+  readonly app: App
+  readonly c: Context
+}): Effect.Effect<Response, never, TableRepository> => {
   const { recordId, forbiddenFields, app, c } = config
   // Both callers derive these from the same `getTableContext(c)`, so reading
   // them here keeps the caller-supplied set down to what is genuinely local.
@@ -116,40 +118,34 @@ export async function handleNoAllowedFields(config: {
   // the field-permission boundary is not discoverable. The attempted field
   // names are intentionally omitted from the response envelope.
   if (attemptedForbiddenFields.length > 0) {
-    return c.json(
-      {
-        success: false,
-        error: 'Not Found',
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
+    return Effect.succeed(
+      c.json(
+        {
+          success: false,
+          error: 'Not Found',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
+        },
+        404
+      )
     )
   }
 
   // If only system-protected fields were filtered, return unchanged record
-  try {
-    const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-    if (result._tag === 'Failure') {
-      return handleRouteError(c, result.failure)
-    }
-    const record = result.success
-
-    if (!record) {
-      return notFound(c)
-    }
-
-    // This is the ONLY PATCH branch that emits the `{ record }` envelope, and
-    // it used to serve `rawGetRecordProgram`'s output verbatim — a program that
-    // receives neither `app` nor `userRole` and so structurally cannot filter.
-    // A PATCH whose body reduced to exactly the system-protected `user_id`
-    // cleared the 404 guard above and echoed every read-restricted column on
-    // the row. Route it through the same canonical filter every other
-    // record-bearing response uses.
-    const caller = { role: userRole, groups: userGroups }
-    const readable = filterReadableFields({ app, tableName, caller, record })
-    return c.json({ record: transformRecord(readable, { app, tableName }) }, 200)
-  } catch (error) {
-    return handleRouteError(c, error)
-  }
+  return Effect.match(rawGetRecordProgram(session, tableName, recordId), {
+    onFailure: (error) => handleRouteError(c, error),
+    onSuccess: (record) => {
+      if (!record) return notFound(c)
+      // This is the ONLY PATCH branch that emits the `{ record }` envelope, so
+      // it must not serve `rawGetRecordProgram`'s output verbatim — a program
+      // that receives neither `app` nor `userRole` and so structurally cannot
+      // filter. A PATCH whose body reduces to exactly the system-protected
+      // `user_id` clears the 404 guard above and would echo every
+      // read-restricted column on the row. Route it through the same canonical
+      // filter every other record-bearing response uses.
+      const caller = { role: userRole, groups: userGroups }
+      const readable = filterReadableFields({ app, tableName, caller, record })
+      return c.json({ record: transformRecord(readable, { app, tableName }) }, 200)
+    },
+  })
 }

@@ -1,0 +1,120 @@
+# sovrium-library: block/auth-sign-up@0.30.0
+name: auth-sign-up
+type: container
+element: main
+props:
+  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+children:
+  - type: container
+    props:
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2 text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: layers
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: $app.label
+      - type: flex
+        props:
+          className: flex flex-col gap-6
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1.5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: Create your account
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: It takes a minute. You can change everything later.
+          - type: form
+            action:
+              type: auth
+              method: signup
+              strategy: email
+              submitLabel: Create account
+              onSuccess: &onSuccess
+                navigate: /
+          - type: flex
+            props:
+              className: flex items-center gap-3 text-sm text-foreground-subtle
+              role: separator
+            children:
+              - type: container
+                props:
+                  className: h-px flex-1 bg-border
+              - type: text
+                element: span
+                content: or
+              - type: container
+                props:
+                  className: h-px flex-1 bg-border
+            visibility:
+              declares: auth.oauth
+          - type: form
+            action:
+              type: auth
+              method: login
+              strategy: oauth
+              provider: google
+              onSuccess: *onSuccess
+            visibility:
+              declares: auth.oauth
+          - type: flex
+            props:
+              className: flex flex-wrap gap-1 text-md text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Already have an account?
+              - type: link
+                props:
+                  href: /sign-in
+                  className: font-medium text-foreground underline underline-offset-4
+                content: Sign in
+        visibility:
+          declares: auth.signUp
+      - type: flex
+        props:
+          className: flex flex-col gap-6
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1.5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: Sign-up is closed
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Ask an administrator of $app.label to invite you. The invitation email has a link that creates your account.
+          - type: flex
+            props:
+              className: flex flex-wrap gap-1 text-md text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Already have an account?
+              - type: link
+                props:
+                  href: /sign-in
+                  className: font-medium text-foreground underline underline-offset-4
+                content: Sign in
+        visibility:
+          unlessDeclares: auth.signUp

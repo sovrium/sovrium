@@ -56,12 +56,10 @@ export const actorTypeSchema = Schema.Literals([
  * every emit site so that one person, one session, hitting two endpoints is
  * recorded identically.
  *
- * HISTORY: this began as the four-value operator-plane tier enum
- * `admin | operator | auditor | system` from an external design plan (cited as
- * "§12 Q1"; the plan file no longer exists). `auditor` and the RBAC middleware
- * that enforced the tiers were removed in `a76f3608c`, and `isAdminTier` later
- * grew the config-declared and implicit-top-role admit paths. Widening the enum
- * to carry the full role is a separate API-contract decision: the read route
+ * The enum is narrower than the roles `isAdminTier` admits (it also admits
+ * config-declared and implicit-top-role admins), and no middleware enforces
+ * these values as tiers. Widening the enum to carry the full role is a
+ * separate API-contract decision: the read route
  * `safeParse`s the WHOLE audit-log response, so a value outside this enum 500s
  * the entire page rather than one row. Widen the enum FIRST, then store wider
  * values — never the reverse.

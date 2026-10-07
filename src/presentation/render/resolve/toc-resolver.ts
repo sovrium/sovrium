@@ -95,7 +95,7 @@ function withId(component: Component, id: string): Component {
  */
 function uniqueSlug(base: string, seen: Map<string, number>): string {
   const count = seen.get(base) ?? 0
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- local mutation of a private accumulator scoped to walkAndAssignIds; no external escape
+  // eslint-disable-next-line functional/immutable-data -- local mutation of a private accumulator scoped to walkAndAssignIds; no external escape
   seen.set(base, count + 1)
   return count === 0 ? base : `${base}-${count + 1}`
 }
@@ -138,7 +138,7 @@ function walkAndAssignIds(
       // entry rather than emit `<a href="#">`.
       if (!existing && base.length === 0) return component
       const id = existing ?? uniqueSlug(base, seen)
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-restricted-syntax -- single-pass walker collects in document order; private accumulator never escapes
+      // eslint-disable-next-line functional/immutable-data, no-restricted-syntax -- single-pass walker collects in document order; private accumulator never escapes
       collected.push({ level, text, id })
       return existing ? component : withId(component, id)
     }

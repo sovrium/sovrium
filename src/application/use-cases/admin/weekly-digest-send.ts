@@ -34,8 +34,9 @@
  * design: two servers on one database would each catch up.
  */
 
-import { Data, Effect, type Context } from 'effect'
+import { Effect, type Context } from 'effect'
 import { AdminDigestSnapshotRepository } from '@/application/ports/repositories/admin/admin-digest-snapshot-repository'
+import { EmailSender } from '@/application/ports/services/email-sender'
 import { resolveNotificationRecipients } from '@/application/use-cases/admin/resolve-notification-recipients'
 import {
   buildWeeklyDigest,
@@ -44,7 +45,6 @@ import {
 import { renderWeeklyDigestEmail } from '@/application/use-cases/admin/weekly-digest-email'
 import { DAY_MS, HOUR_MS } from '@/domain/kernel/time/time-series-bucketing'
 import { parseSovriumNotifyDigest } from '@/domain/models/process-env/notifications'
-import { sendEmail } from '@/infrastructure/email/email-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getSovriumVersion } from '@/infrastructure/process/version'
@@ -61,13 +61,9 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { SystemNotificationEmail } from '@/infrastructure/email/system-notification-template'
 
-class WeeklyDigestSendError extends Data.TaggedError('WeeklyDigestSendError')<{
-  readonly cause: unknown
-}> {}
-
 /** Every port sending a summary reads. */
 export type WeeklyDigestSendServices =
-  WeeklyDigestServices | AdminDigestSnapshotRepository | AuthRepository
+  WeeklyDigestServices | AdminDigestSnapshotRepository | AuthRepository | EmailSender
 
 /** The length of the first summary's period, and the rhythm the catch-up measures against. */
 const WEEK_MS = 7 * DAY_MS
@@ -87,15 +83,19 @@ const sendOne = (
   to: string,
   email: SystemNotificationEmail,
   fromName: string
-): Effect.Effect<boolean> =>
-  Effect.tryPromise({
-    try: () =>
-      sendEmail({ to, fromName, subject: email.subject, text: email.text, html: email.html }),
-    catch: (cause) => new WeeklyDigestSendError({ cause }),
+): Effect.Effect<boolean, never, EmailSender> =>
+  Effect.gen(function* () {
+    return yield* (yield* EmailSender).send({
+      to,
+      fromName,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    })
   }).pipe(
     Effect.as(true),
     Effect.tapCause((cause) =>
-      Effect.sync(() => logError('[weekly-digest] sendEmail failed', cause, { to }))
+      Effect.sync(() => logError('[weekly-digest] send failed', cause, { to }))
     ),
     // effect-swallow: logged above; an undelivered address leaves `sent_at` NULL
     // when it was the only one, which is what the boot catch-up retries.
@@ -108,7 +108,7 @@ const deliver = (
   digest: WeeklyDigest,
   recipients: readonly string[],
   env: NoticeEnv
-): Effect.Effect<number> =>
+): Effect.Effect<number, never, EmailSender> =>
   Effect.gen(function* () {
     const email = renderWeeklyDigestEmail(app, digest, env)
     const outcomes = yield* Effect.forEach(recipients, (to) => sendOne(to, email, app.name), {
@@ -152,7 +152,7 @@ const storeAndDeliver = (
 ): Effect.Effect<
   { readonly sent: boolean; readonly recipients: number },
   AdminDigestSnapshotDatabaseError,
-  AdminDigestSnapshotRepository | AuthRepository
+  AdminDigestSnapshotRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const repository = yield* AdminDigestSnapshotRepository
@@ -228,7 +228,7 @@ const resendStored = (
 ): Effect.Effect<
   boolean,
   AdminDigestSnapshotDatabaseError,
-  AdminDigestSnapshotRepository | AuthRepository
+  AdminDigestSnapshotRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     if (snapshot.metrics === undefined) return false

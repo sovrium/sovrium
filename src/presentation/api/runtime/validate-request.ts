@@ -79,10 +79,10 @@ export async function validateRequest<S extends Schema.Top>(
     return { success: true, data: decodeOrThrow(schema)(rawBody) }
   } catch (error) {
     if (Schema.isSchemaError(error)) {
-      // NOTE: this function deliberately never emits 413. It used to special-case
-      // a Zod `too_big` on an array whose `maximum >= 1000` and return
-      // `{ error: 'PayloadTooLarge' }` — a non-canonical envelope missing the
-      // `message` that `errorResponseSchema` requires. That branch was dead:
+      // NOTE: this function deliberately never emits 413. A special case for a
+      // `too_big` on an array whose `maximum >= 1000` returning
+      // `{ error: 'PayloadTooLarge' }` would be a non-canonical envelope missing
+      // the `message` that `errorResponseSchema` requires — and dead code:
       // `batchCreateRecordsRequestSchema.records` (`domain/models/api/tables/records.ts`)
       // is the only array in any schema reaching `validateRequest` with a
       // `.max(>= 1000)`, and its route (`handleBatchCreate`) already calls

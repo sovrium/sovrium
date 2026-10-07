@@ -15,7 +15,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * current step context (templates already resolved by the run loop)
  * and either continue the automation or halt subsequent steps.
  *
- * Spec: [internal ref] + REGRESSION.
+ * Spec: an automation action filter continue spec + REGRESSION.
  * The group combinator is read from the `logic` key ('and' | 'or'); -003/-004
  * pin the `logic: 'or'` semantics (passes on any single match).
  *

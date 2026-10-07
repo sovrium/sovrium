@@ -1,0 +1,32 @@
+# Dependabot on the public GitHub mirror (sovrium/sovrium): ALERTS ONLY.
+#
+# `open-pull-requests-limit: 0` turns version-update pull requests off for each
+# ecosystem. The file exists so GitHub's dependency graph covers every manifest
+# the mirror ships and raises an alert when an advisory lands on a pinned
+# version, without waiting for the next push to run the Dependency Audit gate.
+#
+# Not decided here, by design: the alerts themselves and Dependabot SECURITY
+# update pull requests are repository settings (Settings → Code security), and
+# security-update pull requests are not subject to this limit. Upgrades land
+# through the source repository on Forgejo, never through a PR opened on the
+# mirror, because the mirror is rewritten from that source on every release.
+#
+# The mirror copies this file explicitly (scripts/release/filtered-mirror.sh);
+# GitHub only reads it from the default branch there.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

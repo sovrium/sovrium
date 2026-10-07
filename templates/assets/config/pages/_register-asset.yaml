@@ -7,27 +7,4 @@ props:
   id: register-asset-dialog
   title: Register asset
   description: Give it the tag printed on its label, so it can be found and counted.
-children:
-  - type: form
-    dataSource:
-      table: assets
-    fields:
-      - { field: asset_tag, label: Asset tag }
-      - { field: name, label: Asset }
-      - { field: category, label: Category }
-      - { field: location, label: Location }
-      - { field: serial, label: Serial }
-      - { field: barcode, label: Barcode }
-      - { field: purchased_on, label: Purchased }
-      - { field: value, label: Value }
-      - { field: warranty_end, label: Warranty ends }
-    action:
-      type: crud
-      operation: create
-      table: assets
-      submitLabel: Register asset
-      onSuccess:
-        navigate: /
-        toast:
-          message: Asset registered
-          variant: success
+formRef: register-asset

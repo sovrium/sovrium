@@ -28,7 +28,7 @@ import type { ComponentRenderer } from './component-dispatch-config'
 /**
  * Derive an input's visual state from native HTML attributes carried in
  * `elementProps`. The input schema does not currently expose a `state` field
- * ([internal ref] keeps the schema vocabulary frozen — see plan-piped-locket), so the
+ * (the prestyled-islands rule keeps the schema vocabulary frozen — see plan-piped-locket), so the
  * state is read from props the schema already permits:
  *
  *   - `props.disabled === true`        → `'disabled'`
@@ -47,7 +47,7 @@ function deriveInputState(elementProps: Record<string, unknown>): InputState {
 }
 
 /**
- * Build the merged className for an input ([internal ref], prestyled-by-default).
+ * Build the merged className for an input (the prestyled-islands rule, prestyled-by-default).
  *
  * Defaults come from {@link computeInputDefaultClasses} — a Tailwind recipe
  * with inline OKLCH var-fallbacks so a schema author who writes the bare
@@ -77,7 +77,16 @@ export const inputComponent: ComponentRenderer = ({
     elementProps.className as string | undefined,
     designStyles?.replace
   )
-  const props = { ...elementProps, className: mergedClassName }
+  // A standalone input's authored `label` names it when nothing else does —
+  // without it the control is announced as an anonymous "edit text".
+  const authoredLabel = rawProps?.['label']
+  const props = {
+    ...elementProps,
+    className: mergedClassName,
+    ...(typeof authoredLabel === 'string' &&
+      elementProps['aria-label'] === undefined &&
+      elementProps['aria-labelledby'] === undefined && { 'aria-label': authoredLabel }),
+  }
   // `one-time-code` is the one `inputType` that is NOT an HTML input type: it
   // names an autofill contract (`autocomplete` plus a numeric `inputmode`)
   // rather than a native control, so it is TRANSLATED here instead of being

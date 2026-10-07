@@ -10,11 +10,10 @@
  *
  * `forms.ts` answers a submission through a chain of small checks — does the
  * request name a form, does that form exist, is it open yet, has it closed, has
- * it hit its cap, did the honeypot trip, is the caller over its rate limit — and
- * each check used to carry its own inline response literal. The result was a
- * file where the availability ladder's interesting line (`instanceof
- * FormClosedError`) was outnumbered four to one by the shape of the body it
- * returned.
+ * it hit its cap, did the honeypot trip, is the caller over its rate limit.
+ * Inline response literals in each check would leave the availability ladder's
+ * interesting line (`instanceof FormClosedError`) outnumbered four to one by
+ * the shape of the body it returns.
  *
  * Two things make this worth its own module rather than a helper at the bottom
  * of `forms.ts`. The availability ladder becomes readable as a ladder; and the

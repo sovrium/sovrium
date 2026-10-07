@@ -39,7 +39,7 @@ const wrap = makeDbWrap((cause) => new AutomationPauseDatabaseError({ cause }))
  *
  *   - `pause` is `INSERT ... ON CONFLICT DO NOTHING` against the UNIQUE
  *     `automation_name`. The second call is a silent no-op that leaves the
- * ORIGINAL `paused_at` untouched — required by [internal ref],
+ *     ORIGINAL `paused_at` untouched — required by an admin automations pause spec,
  *     which asserts a repeated pause does not move the timestamp forward.
  *   - `resume` is a bare DELETE, which affects zero rows when none matched.
  */
@@ -77,12 +77,10 @@ export const AutomationPauseRepositoryLive = Layer.succeed(AutomationPauseReposi
       // Display name first, email as the fallback identifier, null when the
       // account was erased. Never a fabricated placeholder — the console
       // renders "unknown" from the null rather than being told a name.
-      // eslint-disable-next-line unicorn/no-null
       pausedBy: row.userName ?? row.userEmail ?? null,
       pausedAt: row.pausedAt,
       // The column is free text in storage; only the platform writes it, with
       // the one value the contract names.
-      // eslint-disable-next-line unicorn/no-null
       reason: row.reason === null ? null : (row.reason as AutomationPauseReason),
     }))
   }),

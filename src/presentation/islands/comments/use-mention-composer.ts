@@ -61,7 +61,6 @@ async function fetchMentionable(
     { credentials: 'include', signal }
   )
   if (!response.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query reports a thrown fetch as the failed state the picker shows
     throw new Error(`mentionable ${response.status}`)
   }
   const body = (await response.json()) as { readonly users?: readonly MentionCandidate[] }

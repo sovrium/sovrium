@@ -244,19 +244,17 @@ const LINK_FOCUS_CLASS = [
  * What every link variant shares: the underline METRICS, the focus mark, the
  * inert treatment of a disabled anchor, and the transition.
  *
- * ─── NO HOVER UNDERLINE, AND NO PROSE MODE EITHER ([internal ref] clause 4) ────────
+ * ─── NO HOVER UNDERLINE, AND NO PROSE MODE EITHER (THE STANDALONE-LINK RECIPE RULE clause 4) ────────
  *
- * `hover:underline` used to sit here, and the Design System console review of
- * 2026-09-16 retired it: a standalone link answers a pointer with a COLOUR, not
- * with a rule under the word. Each {@link LINK_VARIANT} carries that colour,
- * because the right one depends on the resting tone — removing the underline
- * and replacing it with nothing would leave a worse affordance than the one
- * being retired.
+ * There is no `hover:underline` here: a standalone link answers a pointer with a
+ * COLOUR, not with a rule under the word. Each {@link LINK_VARIANT} carries that
+ * colour, because the right one depends on the resting tone — no underline and
+ * nothing in its place would be a worse affordance still.
  *
- * The review permits an inline link INSIDE PROSE to keep its underline, which
+ * The rule permits an inline link INSIDE PROSE to keep its underline, which
  * reads like a second mode on {@link computeLinkClasses}. It is not one.
- * Measured live 2026-09-16 on the four pages the founder cited: they carry 8 to
- * 14 links each and ZERO of them sit inside a `<p>`. A `link` COMPONENT is an
+ * Measured live on the design-system console pages: they carry 8 to 14 links
+ * each and ZERO of them sit inside a `<p>`. A `link` COMPONENT is an
  * authored, standalone affordance; a link inside a paragraph comes from the
  * markdown path, which applies none of these recipes at all. The exemption has
  * no subject here, and a mode nothing would ever pass is an API invented to
@@ -265,7 +263,7 @@ const LINK_FOCUS_CLASS = [
  * The underline metrics (`underline-offset-4 decoration-2`) STAY: they are what
  * the focus mark below is drawn with.
  *
- * ─── AND A DISABLED ANCHOR HAS TO BE MADE INERT ([internal ref] clause 3) ──────────
+ * ─── AND A DISABLED ANCHOR HAS TO BE MADE INERT (the standalone-link recipe rule clause 3) ──────────
  *
  * An `<a>` has no `disabled` attribute, so `aria-disabled` is the only mark a
  * disabled link can carry — and a mark alone changes nothing: the element keeps
@@ -328,20 +326,20 @@ const ICON_SIZE: Record<IconSize, string> = {
  *   - `'muted'`   — chrome tone (`sv-fg-muted`). Status / leading affordances.
  *   - `'primary'` — accent tone (`sv-primary`). Brand-call-out icons.
  *
- * ─── WHY THE DEFAULT NAMES NO COLOUR AT ALL (X10, 2026-09-16) ──────────────
+ * ─── WHY THE DEFAULT NAMES NO COLOUR AT ALL ────────────────────────────────
  *
- * It used to be `sv-fg`, which is the right colour on a page and the WRONG one
- * inside a filled control: it OVERRIDES the fill's own foreground instead of
- * inheriting it. Measured live on the Design System console, 2026-09-16, on the
- * attached split button: the chevron stroked oklch(0.14 0 0) on a button filled
+ * Not `sv-fg`, which is the right colour on a page and the WRONG one inside a
+ * filled control: it OVERRIDES the fill's own foreground instead of inheriting
+ * it. Measured live on the Design System console, on the attached split
+ * button: with `sv-fg` the chevron stroked oklch(0.14 0 0) on a button filled
  * oklch(0.205 0 0) — 1.11:1, black on black — while the same button's own
  * `color` was already oklch(0.985 0 0), white. The button had it right and the
  * icon painted over it.
  *
  * Inheriting costs nothing on an ordinary page, where `currentColor` resolves
  * to the body foreground — which is `sv-fg`. An author naming `muted` or
- * `primary` is choosing a colour on purpose and still gets it; X10 is about the
- * case where nobody chose one.
+ * `primary` is choosing a colour on purpose and still gets it; this default is
+ * about the case where nobody chose one.
  */
 export type IconTone = 'default' | 'muted' | 'primary'
 
@@ -624,7 +622,7 @@ const KBD_CHORD = 'inline-flex items-center gap-1 align-middle'
  *
  * 1px on three sides and 2px underneath. That single asymmetry is the whole
  * difference between something a reader sees as a KEY and something they see as
- * a badge, and it is the value `[internal ref]` measures —
+ * a badge, and it is the value a design system component kbd spec measures —
  * in both colour schemes, because a keycap is a SHAPE and only its colours
  * belong to the scheme.
  *

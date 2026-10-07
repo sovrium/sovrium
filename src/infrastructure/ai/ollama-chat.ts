@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- AiProviderError tagged class is mutable by Data.TaggedError design */
-
 import { Effect, Stream } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
 import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
@@ -206,6 +204,7 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
           ollamaUrl(conn.baseUrl),
           {
             method: 'POST',
+            redirect: 'follow',
             headers: ollamaHeaders(conn.apiKey),
             // Schema would be ceremonial here: the request body is Ollama's
             // native `/api/chat` wire format (an opaque `Record<string, unknown>`
@@ -217,7 +216,6 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
         )
         if (!response.ok) {
           const body = await response.text().catch(() => '')
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: response.status,
             message: `Ollama returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -230,7 +228,6 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
         // `content` is only malformed when no tool calls came back with it.
         const content = typeof rawContent === 'string' ? rawContent : toolCalls ? '' : undefined
         if (content === undefined) {
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: 502,
             message: 'Ollama returned a malformed chat response',

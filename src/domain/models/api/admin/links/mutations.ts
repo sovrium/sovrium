@@ -17,7 +17,6 @@
  * That 409 is the clause the console's whole [internal ref] position rests on. A DB row
  * able to shadow a config link would be config mutation through a data-shaped
  * side door — the one path by which "a link is a record" would stop being true.
- * D2.
  *
  * **Why 409 and not 404**: the caller is an authenticated admin who can SEE the
  * row in the catalog. A 404 would be a lie, and would send them looking for a

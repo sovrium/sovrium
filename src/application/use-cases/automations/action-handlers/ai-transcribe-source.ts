@@ -6,7 +6,8 @@
  */
 
 /**
- * Reading the `source` of an `ai/transcribe` step.
+ * Reading the `source` of an `ai/transcribe` step — and the value of a
+ * connection operation's `file` parameter, which names a file the same way.
  *
  * `source` is either a storage key or the value of an attachment field, and an
  * attachment value reaches a step in several shapes: a bare key, the
@@ -73,10 +74,11 @@ const locate = (value: unknown): Located | undefined => {
   return undefined
 }
 
-const declaredMime = (value: unknown): string | undefined => {
+/** A field the attachment itself declares (`mimeType`, `filename`), when it carries one. */
+const declaredField = (value: unknown, field: string): string | undefined => {
   const first = Array.isArray(value) ? value[0] : value
   return typeof first === 'object' && first !== null
-    ? stringField(first as Record<string, unknown>, 'mimeType')
+    ? stringField(first as Record<string, unknown>, field)
     : undefined
 }
 
@@ -96,11 +98,11 @@ export const resolveTranscribeSource = (
 ): TranscribeSource | undefined => {
   const located = locate(value)
   if (located === undefined || located.key === '[object Object]') return undefined
-  const mimeType = declaredMime(value)
+  const mimeType = declaredField(value, 'mimeType')
   return {
     key: located.key,
     bucket: bucketProp ?? located.bucket ?? SYSTEM_BUCKET_NAME,
-    fileName: fileNameOf(located.key),
+    fileName: declaredField(value, 'filename') ?? fileNameOf(located.key),
     ...(mimeType !== undefined ? { mimeType } : {}),
   }
 }

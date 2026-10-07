@@ -67,6 +67,12 @@
  */
 
 import { projectGraph, type GraphView } from '@/presentation/render/resolve/graph-projection'
+import {
+  tablesKeyOf,
+  tablesSourceOf,
+  tablesSourceOfKey,
+  type TablesEnvelopeReader,
+} from '@/presentation/render/resolve/graph-tables-envelope'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
@@ -117,13 +123,19 @@ const requestUrlOf = (component: Component): string | undefined => {
     : withStaticQuery(system.endpoint, system.query)
 }
 
+/** The key a graph's envelope is read under: its endpoint URL, or its table source. */
+const envelopeKeyOf = (component: Component): string | undefined => {
+  const tables = tablesSourceOf(component.dataSource)
+  return tables === undefined ? requestUrlOf(component) : tablesKeyOf(tables)
+}
+
 /** Every distinct URL the page's graphs read — the first walk. */
 const collectUrls = (node: unknown): readonly string[] => {
   if (Array.isArray(node)) return node.flatMap(collectUrls)
   if (typeof node !== 'object' || node === null) return []
   if (isGraph(node)) {
-    const url = requestUrlOf(node as Component)
-    return url === undefined ? [] : [url]
+    const key = envelopeKeyOf(node as Component)
+    return key === undefined ? [] : [key]
   }
   return collectUrls((node as { readonly children?: unknown }).children)
 }
@@ -131,18 +143,23 @@ const collectUrls = (node: unknown): readonly string[] => {
 /** Read each distinct URL once, in parallel, borrowing the caller's identity. */
 const readEnvelopes = async (
   urls: readonly string[],
-  fetchSystemRecord: SystemRecordFetcher | undefined
-): Promise<Envelopes> => {
-  if (fetchSystemRecord === undefined) return new Map()
-  return new Map(
+  readers: {
+    readonly fetchSystemRecord: SystemRecordFetcher | undefined
+    readonly readTables: TablesEnvelopeReader | undefined
+  }
+): Promise<Envelopes> =>
+  new Map(
     await Promise.all(
-      [...new Set(urls)].map(
-        async (url) =>
-          [url, await fetchSystemRecord(url, undefined).catch(() => undefined)] as const
-      )
+      [...new Set(urls)].map(async (url) => {
+        const tables = tablesSourceOfKey(url)
+        const read =
+          tables === undefined
+            ? readers.fetchSystemRecord?.(url, undefined)
+            : readers.readTables?.(tables)
+        return [url, await (read ?? Promise.resolve(undefined)).catch(() => undefined)] as const
+      })
     )
   )
-}
 
 /**
  * Replace one graph's binding with the drawing read for it.
@@ -152,9 +169,9 @@ const readEnvelopes = async (
  * accessible twin reads — but `projectGraph` copies it into `graphView`, and
  * `graphView` is deliberately skipped by the `$t:` pass that runs later on the
  * render walk, because the rest of that object is what an endpoint returned:
- * data, not vocabulary. So an authored token used to cross into the projection
- * raw, and the pass that would have resolved it then ran on a field nobody
- * reads. Resolving the component BEFORE it is projected fixes that without
+ * data, not vocabulary. So an authored token would cross into the projection
+ * raw, and the pass that would resolve it would run on a field nobody reads.
+ * Resolving the component BEFORE it is projected avoids that without
  * widening the skip — what reaches the drawing is vocabulary already.
  */
 const attachView = (
@@ -165,7 +182,7 @@ const attachView = (
   const component = localize === undefined ? source : localize(source)
   const system = bindingOf(component)
   const { dataSource: _spent, ...rest } = component as Component & { dataSource?: unknown }
-  const url = requestUrlOf(component)
+  const url = envelopeKeyOf(component)
   const envelope = url === undefined ? undefined : envelopes.get(url)
   const graphView: GraphView =
     url === undefined
@@ -173,7 +190,7 @@ const attachView = (
       : envelope === undefined
         ? { kind: 'unavailable' }
         : projectGraph(envelope, {
-            ...(component as unknown as Parameters<typeof projectGraph>[1]),
+            ...(component as Parameters<typeof projectGraph>[1]),
             ...(system?.nodesKey === undefined ? {} : { nodesKey: system.nodesKey }),
             ...(system?.edgesKey === undefined ? {} : { edgesKey: system.edgesKey }),
           })
@@ -210,15 +227,18 @@ const mapNode = (
  *   active language. Supplied by the caller rather than derived here so this module
  *   stays ignorant of i18n; absent (a page with no dictionary) the component is
  *   projected exactly as authored.
+ * @param readTables - Reads a table source's envelope as the visitor; absent, such a
+ *   source draws as unavailable.
  */
 export async function resolveGraphs(
   page: Page,
   fetchSystemRecord: SystemRecordFetcher | undefined,
-  localize?: (component: Component) => Component
+  localize?: (component: Component) => Component,
+  readTables?: TablesEnvelopeReader
 ): Promise<Page> {
   if (page.components === undefined) return page
   const urls = collectUrls(page.components)
-  const envelopes = await readEnvelopes(urls, fetchSystemRecord)
+  const envelopes = await readEnvelopes(urls, { fetchSystemRecord, readTables })
   const components = mapNode(page.components, envelopes, localize)
   if (components === page.components) return page
   return { ...page, components: components as Page['components'] }

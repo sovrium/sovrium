@@ -18,13 +18,12 @@
  * would not answer. It says nothing about the value, which is why it carries
  * the originating cause for the server and nothing field-scoped for the client.
  *
- * Keeping them apart is the whole of the fail-closed fix. Every one of these
- * sites used to substitute a fabricated value for the one it could not obtain —
- * a zero-byte download, an ignored upload — and report success, so an outage
- * was persisted as data: an oversized file admitted into a capped column, a
- * `size: 0` written for bytes nobody read, a row pointing at a key that was
- * never stored. Collapsing the two back into one error would restore exactly
- * that, because a caller cannot retry an answer it was told was a verdict.
+ * Keeping them apart is what makes these sites fail closed. A site that
+ * substitutes a fabricated value for the one it could not obtain — a zero-byte
+ * download, an ignored upload — and reports success persists an outage as
+ * data: an oversized file admitted into a capped column, a `size: 0` written
+ * for bytes nobody read, a row pointing at a key that was never stored.
+ * Collapsing the two into one error would invite exactly that, because a caller cannot retry an answer it was told was a verdict.
  */
 
 import { Data } from 'effect'

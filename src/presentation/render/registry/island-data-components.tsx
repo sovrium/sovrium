@@ -11,11 +11,13 @@ import {
   computeGalleryCardClasses,
   computeGalleryGridClasses,
 } from '@/presentation/design/gallery-default-classes'
+import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-class-resolution'
 import {
   computeTableFillShellClasses,
   computeTableShellClasses,
 } from '@/presentation/design/table-default-classes'
 import { computeTimelineShellClasses } from '@/presentation/design/timeline-default-classes'
+import { withGridChipPart } from '@/presentation/render/props/option-badge-paints'
 import {
   resolveRowExpandDrawerProps,
   resolveRowExpandRowClick,
@@ -51,11 +53,11 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // The component `id` doubles as the `searchSourceId`: a system-source
     // directory's external filter bar scopes its `island:system-query` events
     // to this id so only the matching grid re-queries
-    //.
     searchSourceId: elementProps.id,
     dataSource: elementProps.dataSource,
-    // A grid reading through one of its table's views is read-only.
+    // A grid reading through one of its table's views offers no export and no live refresh.
     isViewBound: elementProps.isViewBound,
+    readOnly: elementProps.readOnly,
     columns: elementProps.columns,
     pagination: elementProps.pagination,
     search: elementProps.search,
@@ -72,21 +74,18 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     noMatchMessage: elementProps.noMatchMessage,
     showRowNumbers: elementProps.showRowNumbers,
     rowHeight: elementProps.rowHeight,
-    // How the grid occupies its parent. Forwarded because hydration replaces
-    // this host's contents wholesale: the outer surface can be dressed
-    // server-side, but the scroll region and the pinned column heads are drawn
-    // by the island, so a value that stopped here would re-dress a frame around
-    // rows that still flowed.
+    // How the grid occupies its parent, and reads on a phone. Forwarded because
+    // hydration replaces this host's contents wholesale: the scroll region, the
+    // pinned heads and the phone rows are all drawn by the island.
     layout: elementProps.layout,
+    phoneLayout: elementProps.phoneLayout,
     bulkActions: elementProps.bulkActions,
     autoSave: elementProps.autoSave,
     tableFields: elementProps.tableFields,
     fieldMeta: elementProps.fieldMeta,
     tablePermissions: elementProps.tablePermissions,
-    tableViews: elementProps.tableViews,
-    // Render-time create-permission gate:
-    // forwarded so the island's toolbar offers the create affordance only when
-    // the current role may create the bound table.
+    // Render-time create-permission gate: the toolbar offers the create
+    // affordance only when the current role may create the bound table.
     canCreate: elementProps.canCreate,
     // Render-time update-permission gate: the
     // permission-derived default for a column's `editable`. Read by the island;
@@ -101,16 +100,9 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     cancelLabel: elementProps.cancelLabel,
     // Every other string the grid writes itself, where it differs from English.
     uiStrings: elementProps.uiStrings,
+    // The bound view's grouping (a grid groups only through a view).
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
-    // View-type switcher: the ordered set of view
-    // types the toolbar offers, their localizable labels, and the per-view
-    // bindings the non-grid views need to render. Validation guarantees each
-    // binding is present whenever its view type is listed.
-    views: elementProps.views,
-    viewLabels: elementProps.viewLabels,
-    kanbanGroupBy: elementProps.kanbanGroupBy,
-    dateField: elementProps.dateField,
     // Row-click action surfaced to the island. The schema narrows this to the
     // two variants the handler implements — `{ type: 'navigate', path }` and
     // `{ action: 'openDrawer', component }` — so nothing else can arrive here.
@@ -149,15 +141,11 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
   }
 }
 
-/**
- * Extracts gallery island props from section component props.
- *
- * Forwarded to the gallery island for client-side data fetching and
- * responsive card-grid rendering with $record.* template substitution.
- */
+/** The gallery island's props, the author's piece classes merged here, on the server. */
 function extractGalleryProps(
   elementProps: Record<string, unknown>,
-  tables: ComponentDispatchConfig['tables']
+  tables: ComponentDispatchConfig['tables'],
+  parts: Readonly<Record<string, string>> | undefined
 ): Record<string, unknown> {
   const tableName = (elementProps.dataSource as { readonly table?: unknown } | undefined)?.table
   const weekdays = resolveWeekdayFields(tables?.find((table) => table.name === tableName))
@@ -168,15 +156,15 @@ function extractGalleryProps(
     galleryCard: elementProps.galleryCard,
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
+    featured: elementProps.featured,
+    ...declaredGalleryPartClasses(parts),
   }
 }
 
 /**
  * Extracts data-timeline island props from section component props.
  *
- * Forwarded to the timeline island for client-side data fetching and
- * time-axis rendering of records as horizontal bars / point markers. The
- * timeline display bindings (`startField`, `endField`, `labelField`,
+ * The timeline display bindings (`startField`, `endField`, `labelField`,
  * `groupBy`, `colorField`, `defaultZoom`, and the Gantt affordances below) live
  * inside the component's freeform `props` object — `component-renderer.tsx`
  * lifts them to the top level of `elementProps` for this extractor.
@@ -194,14 +182,14 @@ function extractTimelineProps(elementProps: Record<string, unknown>): Record<str
     labelField: elementProps.labelField,
     groupBy: elementProps.groupBy,
     colorField: elementProps.colorField,
-    // `optionValue → hex` for the field `colorField` names, resolved
-    // server-side from `app.tables` (the island only ever sees records).
+    // `optionValue → hex` for `colorField`, resolved server-side from `app.tables`.
     colorFieldColors: elementProps.colorFieldColors,
     defaultZoom: elementProps.defaultZoom,
     showToday: elementProps.showToday,
     showDependencies: elementProps.showDependencies,
     dependencyField: elementProps.dependencyField,
     emptyMessage: elementProps.emptyMessage,
+    resizeFields: elementProps.resizeFields,
   }
 }
 
@@ -260,8 +248,8 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
 /** Data-oriented island components: data-table, kanban, calendar */
 export const islandDataComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   calendar: islandCalendarComponent,
-  gallery: ({ elementProps, tables }) => {
-    const islandProps = extractGalleryProps(elementProps, tables)
+  gallery: ({ elementProps, tables, designStyles }) => {
+    const islandProps = extractGalleryProps(elementProps, tables, designStyles?.parts)
     // The ONE element naming the gallery; the grid writes `data-columns` onto it.
     const layout = typeof elementProps.layout === 'string' ? elementProps.layout : 'grid'
     return (
@@ -347,7 +335,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     const expandDrawer = resolveRowExpandDrawerProps({ component, tables, languages, currentLang })
     const expandRowClick = resolveRowExpandRowClick(component)
     const propsJson = JSON.stringify({
-      ...extractDataTableProps(elementProps),
+      ...withGridChipPart(extractDataTableProps(elementProps), ctx.designStyles?.parts?.['chip']),
       ...(expandRowClick && { onRowClick: expandRowClick }),
     })
     // `layout: 'fill'` dresses the mount host SERVER-side, before a line of
@@ -378,7 +366,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         // data-table-view.tsx). Before the refactor the chrome lived on an
         // inner child, leaving this mount host transparent post-hydration
         // (the "unstyled surface" footgun the ISLAND-DEFAULTS contract
-        // guards against). [internal ref]: the shell chrome (border + radius +
+        // guards against). The prestyled-islands rule: the shell chrome (border + radius +
         // bg + overflow-hidden) now flows through
         // `computeTableShellClasses()` so var-fallback paints the surface
         // even when the theme layer is absent; `w-full` stays raw because

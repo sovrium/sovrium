@@ -27,8 +27,11 @@ import {
 import { computeCodeChallenge } from '@/domain/kernel/identity/pkce'
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { exchangeMetaLongLivedToken } from '@/infrastructure/connections/long-lived-token-exchange'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import {
+  guardedFetch,
+  guardedText,
+  TOKEN_RESPONSE_MAX_BYTES,
+} from '@/infrastructure/egress/guarded-fetch'
 // prettier-ignore
 import { RESERVED_AUTH_PARAMS, RESERVED_TOKEN_PARAMS, applyExtraParamsExcludingReserved } from './oauth2-reserved-params'
 import type { OAuth2AuthCodeProps, OAuth2Props } from './oauth2-props'
@@ -194,8 +197,9 @@ const toLongLivedToken = async (
 
 /**
  * Exchange an authorization code (+ PKCE verifier) for tokens at the provider
- * `tokenUrl`. SSRF-guarded via `validateOutboundUrl` so a misconfigured
- * `tokenUrl` cannot exchange the auth code against an internal host.
+ * `tokenUrl`. SSRF-guarded on the URL and every redirect hop (`guardedFetch`)
+ * so a misconfigured `tokenUrl` cannot exchange the auth code against an
+ * internal host.
  */
 export const exchangeCodeForToken = async (
   props: OAuth2AuthCodeProps,
@@ -209,17 +213,10 @@ export const exchangeCodeForToken = async (
     }
   | { readonly ok: false; readonly error: string }
 > => {
-  // SSRF guard: a misconfigured `tokenUrl` must not exchange the auth code
-  // against an internal host. Mirrors the guard on the refresh path.
-  const validation = validateOutboundUrl(props.tokenUrl)
-  if (!validation.ok) {
-    return { ok: false, error: `token_invalid_url_${validation.issue.reason}` }
-  }
-
   const body = buildTokenExchangeBody(props, code, codeVerifier)
 
   try {
-    const response = await withFetchTimeout(
+    const sent = await guardedFetch(
       props.tokenUrl,
       {
         method: 'POST',
@@ -229,12 +226,17 @@ export const exchangeCodeForToken = async (
         },
         body: body.toString(),
       },
-      OAUTH_CALLBACK_TIMEOUT_MS
+      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
     )
+    if (!sent.ok) return { ok: false, error: `token_invalid_url_${sent.reason}` }
+    const { response } = sent
     if (!response.ok) {
       return { ok: false, error: `token_endpoint_${String(response.status)}` }
     }
-    const tokens = (await response.json()) as OAuthTokenResponse
+    // Cut at the size cap, the answer is not JSON; say so rather than surface
+    // the parser's message about a truncated document.
+    if (response.truncated) return { ok: false, error: 'token_response_too_large' }
+    const tokens = JSON.parse(guardedText(response)) as OAuthTokenResponse
     const exchanged = await toLongLivedToken(props, tokens)
     if (!exchanged.ok) return exchanged
     return {

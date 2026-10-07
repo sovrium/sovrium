@@ -16,12 +16,14 @@
 import { Effect } from 'effect'
 import { websocket } from 'hono/bun'
 import { confineHost } from '@/domain/kernel/url/request-base-url'
+import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { drainBackgroundRuns } from '@/infrastructure/automations/background-runs'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import { ServerStopError } from '@/infrastructure/errors/server-stop-error'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { disposeDomainRuntime } from '@/infrastructure/server/domain-runtime'
 import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
+import type { App } from '@/domain/models/app'
 import type { DomainRuntime } from '@/infrastructure/server/domain-runtime'
 import type { Hono } from 'hono'
 
@@ -91,11 +93,11 @@ export interface StopOptions {
  * re-arm forever, so the drain alone never completes. Telemetry is last so
  * anything logged during teardown still has somewhere to go.
  *
- * ## What used to be here, and why it is not (W4, standing rule E3)
+ * ## Why there are no explicit disposers here (standing rule E3)
  *
- * Three explicit teardown calls sat between these steps: `disposeCronScheduler`,
- * `aiComputeListener.stop()` and `stopAiKnowledgeListener()`. All three are now
- * finalizers on the runtime's own scope — the cron registry is an
+ * The cron scheduler and the two pg `LISTEN` clients are not torn down by
+ * calls between these steps. They are finalizers on the runtime's own scope —
+ * the cron registry is an
  * `Effect.acquireRelease` whose release interrupts every armed fiber
  * (`scheduling/cron-scheduler-live.ts`), and each pg `LISTEN` client is an
  * `Effect.acquireRelease` inside its layer (`database/ai-*-listener.ts`). So
@@ -103,9 +105,9 @@ export interface StopOptions {
  * exit path rather than only on the graceful one. Re-adding an explicit
  * disposer here would run the teardown twice.
  *
- * Cron is the one ordering change worth naming: it used to be interrupted
- * BEFORE the drain, so no tick could start work against a closing socket. It
- * now runs after. The window is the 150 ms drain plus the forced close, and a
+ * Cron's ordering is worth naming: it is interrupted AFTER the drain, not
+ * before, so a tick can start work against a closing socket. The window is the
+ * 150 ms drain plus the forced close, and a
  * tick landing inside it is already handled — `runCallbackSafely` absorbs the
  * whole cause, and `run-cron-automation` re-checks the pause table at fire
  * time. Trading that for a teardown that also fires when the boot FAILS is the
@@ -116,22 +118,19 @@ export interface StopOptions {
  * `shutdownTelemetry()` is `disposeObsRuntime()`, which does
  * `runtimes.delete('full')` on a module-level map, and `activeRuntime()` reads
  * `runtimes.get('full') ?? bootstrapRuntime()` with no lazy re-creation — so it
- * is one-way for the whole PROCESS rather than for this server. That made it
- * wrong for any stop happening BEFORE the real listener had bound, and the
- * static render pass used to produce exactly such stops: one throwaway server
- * per language, each stopped while the server that mattered had not started, so
- * the first of them switched OTLP export off for the rest of the process —
- * silently, since `initObsRuntime()` is `void`-ed in `telemetry-sink.ts`.
+ * is one-way for the whole PROCESS rather than for this server. That makes it
+ * wrong for any stop happening BEFORE the real listener has bound: a throwaway
+ * server stopped while the server that matters has not started would switch
+ * OTLP export off for the rest of the process — silently, since
+ * `initObsRuntime()` is `void`-ed in `telemetry-sink.ts`.
  *
- * That whole class of stop is gone. Rendering no longer binds anything
- * (`render-app.ts`), so every `createStopEffect` in the process now belongs to
- * a listener that really was serving and really is ending — which is what
- * makes this step unconditional again, and is why the flag that used to guard
- * it has no caller left to set it.
+ * No such stop exists. Rendering binds nothing (`render-app.ts`), so every
+ * `createStopEffect` in the process belongs to a listener that really was
+ * serving and really is ending — which is what makes this step unconditional,
+ * with no flag guarding it.
  */
 export const createStopEffect = (
   server: ReturnType<typeof Bun.serve>,
-  // eslint-disable-next-line functional/prefer-immutable-types -- ManagedRuntime is an Effect-owned type behind a local alias
   runtime: DomainRuntime,
   options: StopOptions = {}
 ): Effect.Effect<void, ServerStopError> =>
@@ -152,7 +151,7 @@ export const createStopEffect = (
     })
     // A run an automation's write started in the background finishes now, or
     // is interrupted and recorded as stopped — while the services it writes
-    // its row through are still up ([internal ref], `background-runs.ts`).
+    // its row through are still up (the chained-run shutdown and cross-automation cycle rule, `background-runs.ts`).
     yield* drainBackgroundRuns(BACKGROUND_RUN_GRACE_MS)
     // The socket is closed; nothing can still be running against these services.
     // `dispose` releases the layer scope — which is what makes a scoped resource
@@ -252,6 +251,47 @@ const boundAddress = (
 const malformedHostResponse = (): Response =>
   new Response('Bad Request', { status: 400, headers: { 'Content-Type': 'text/plain' } })
 
+/** The upload limit when neither a bucket nor `STORAGE_MAX_FILE_SIZE` sets one (100 MiB). */
+const DEFAULT_UPLOAD_LIMIT_BYTES = 100 * 1024 * 1024
+
+/** The JSON API body limit when `API_BODY_LIMIT_BYTES` is unset (25 MiB). */
+const DEFAULT_API_BODY_LIMIT_BYTES = 25 * 1024 * 1024
+
+/** Room for a multipart envelope around the largest file the deployment accepts. */
+const MULTIPART_ENVELOPE_BYTES = 1024 * 1024
+
+/**
+ * The largest request body the LISTENER accepts, before any route reads it.
+ *
+ * Bun buffers a request body up to `maxRequestBodySize` (128 MiB when unset)
+ * whatever the route, so a route that reads its body before anything else —
+ * sign-in, an anonymous form — made every client able to park that much memory
+ * per request. The ceiling is derived from what the deployment can legitimately
+ * receive: the largest file any bucket accepts (a bucket's own `maxFileSize`,
+ * or the global `STORAGE_MAX_FILE_SIZE`, else 100 MiB, which the built-in
+ * `system` bucket and every bucket without its own limit use) plus 1 MiB for the
+ * multipart envelope, and never below the JSON API limit
+ * (`API_BODY_LIMIT_BYTES`, 25 MiB by default). Anything larger is refused by
+ * Bun with `413` before Hono sees it.
+ *
+ * Pure in `app` and `env`, so a `--watch` reload recomputes it from the new
+ * config and a test can pin each case.
+ */
+export const resolveMaxRequestBodySize = (
+  app: Readonly<Pick<App, 'buckets'>>,
+  env: Readonly<Record<string, string | undefined>> = process.env
+): number => {
+  const globalUploadLimit =
+    parsePositiveIntEnv(env['STORAGE_MAX_FILE_SIZE']) ?? DEFAULT_UPLOAD_LIMIT_BYTES
+  const largestUpload = Math.max(
+    globalUploadLimit,
+    ...(app.buckets ?? []).map((bucket) => bucket.maxFileSize ?? 0)
+  )
+  const apiBodyLimit =
+    parsePositiveIntEnv(env['API_BODY_LIMIT_BYTES']) ?? DEFAULT_API_BODY_LIMIT_BYTES
+  return Math.max(largestUpload + MULTIPART_ENVELOPE_BYTES, apiBodyLimit)
+}
+
 /**
  * Build the `Bun.serve` options for the Hono app.
  *
@@ -264,10 +304,19 @@ const malformedHostResponse = (): Response =>
  * Bun passes the live `server` as the second `fetch` argument; we forward it
  * to Hono as the `env` so `upgradeWebSocket` (via `getBunServer(c)`) can
  * reach `server.upgrade()`.
+ *
+ * `maxRequestBodySize` is {@link resolveMaxRequestBodySize}: a body above it is
+ * refused with `413` by Bun itself.
  */
-const buildBunServeOptions = (honoApp: Readonly<Hono>, port: number, hostname: string) => ({
+const buildBunServeOptions = (
+  honoApp: Readonly<Hono>,
+  port: number,
+  hostname: string,
+  maxRequestBodySize: number
+) => ({
   port,
   hostname,
+  maxRequestBodySize,
   fetch: (request: Request, server: unknown): Response | Promise<Response> =>
     hasMalformedHost(request)
       ? malformedHostResponse()
@@ -304,10 +353,11 @@ interface SwappableServer {
 export const reloadBunServer = (
   server: ReturnType<typeof Bun.serve>,
   honoApp: Readonly<Hono>,
-  hostname: string
+  hostname: string,
+  maxRequestBodySize: number
 ): void => {
-  const swappable = server as unknown as SwappableServer
-  swappable.reload(buildBunServeOptions(honoApp, server.port ?? 0, hostname))
+  const swappable = server as SwappableServer
+  swappable.reload(buildBunServeOptions(honoApp, server.port ?? 0, hostname, maxRequestBodySize))
 }
 
 /**
@@ -316,10 +366,11 @@ export const reloadBunServer = (
 export const startBunServer = (
   honoApp: Readonly<Hono>,
   port: number,
-  hostname: string
+  hostname: string,
+  maxRequestBodySize: number
 ): Effect.Effect<ReturnType<typeof Bun.serve>, ServerCreationError, never> =>
   Effect.try({
-    try: () => Bun.serve(buildBunServeOptions(honoApp, port, hostname)),
+    try: () => Bun.serve(buildBunServeOptions(honoApp, port, hostname, maxRequestBodySize)),
     catch: (error) => new ServerCreationError(error),
   }).pipe(
     // Retry on EADDRINUSE with port 0 (auto-select) as fallback
@@ -337,7 +388,7 @@ export const startBunServer = (
         Effect.try({
           try: () => {
             logWarning(`[server] Port ${port} in use; using an OS-assigned port (see URL below).`)
-            return Bun.serve(buildBunServeOptions(honoApp, 0, hostname))
+            return Bun.serve(buildBunServeOptions(honoApp, 0, hostname, maxRequestBodySize))
           },
           catch: (error) => new ServerCreationError(error),
         })

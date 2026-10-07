@@ -6,8 +6,8 @@
  */
 
 import { markRecordCommentsReadProgram } from '@/application/use-cases/tables/comment-read-state-programs'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { notFoundResponse } from './comment-handler-shared'
 import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
@@ -47,7 +47,8 @@ export async function handleMarkCommentsRead(c: Context, app: App) {
   const gateError = await checkRecordReadGate(c, app, table, recordId)
   if (gateError) return gateError
 
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     markRecordCommentsReadProgram({ session, tableId, recordId, tableName: table.name })
   )
 

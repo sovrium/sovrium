@@ -8,7 +8,7 @@
 import type { App } from '@/domain/models/app'
 
 /**
- * [internal ref]: pure derivation of a table's native `many-to-many` relationship
+ * Pure derivation of a table's native `many-to-many` relationship
  * fields from the app schema. A many-to-many field has no base column — its
  * value lives in an auto-generated junction table — so the record-create
  * pipeline must split it from the base INSERT and the read pipeline must

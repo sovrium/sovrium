@@ -9,10 +9,10 @@
  * The row-level gate of `POST /api/tables/:table/records/upsert`.
  *
  * An upsert is a create and an update behind one verb, and it answers to the
- * rules both of those answer to. It used to check only the table-level grants,
- * so a member could merge onto a row the table's `read`/`write` rules hide from
- * them — and read it back in the response — or hand a row they own to someone
- * else, both of which a PATCH of theirs is refused.
+ * rules both of those answer to. Checking only the table-level grants would let
+ * a member merge onto a row the table's `read`/`write` rules hide from them —
+ * and read it back in the response — or hand a row they own to someone else,
+ * both of which a PATCH of theirs is refused.
  *
  * Records are grouped by their merge key and each group's fields merged in
  * order, since the upsert applies them in order to the same row. A group that
@@ -77,7 +77,7 @@ export async function enforceUpsertRowGate(input: {
   const { c, app, table, tableName, userRole, userGroups, session, records, fieldsToMergeOn } =
     input
   if (!table?.rowLevelPermissions) return undefined
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   if (!guard) return undefined
 
   const targets: readonly UpsertTarget[] = await Promise.all(

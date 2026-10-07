@@ -19,13 +19,15 @@
  */
 
 import { Data, Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
-import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
-  applyImageTransform,
-  mimeForFormat,
-  type ImageTransformFailure,
-} from '@/infrastructure/storage/apply-image-transform'
+  ImageTransformService,
+  type NegotiatedTransformFailure,
+} from '@/application/ports/services/image-transform-service'
+import {
+  StorageService,
+  isStorageObjectNotFound,
+} from '@/application/ports/services/storage-service'
+import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import type { StorageError } from '@/application/ports/services/storage-service'
 import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
 
@@ -34,13 +36,13 @@ import type { TransformParams } from '@/domain/models/app/buckets/image-transfor
  *
  * A tagged failure rather than an `{ ok: false }` return, because it is a
  * failure: the caller asked for bytes this file or this build cannot produce,
- * and the whole reason the silent passthrough was removed is that answering
- * with the UNtransformed bytes let an operator believe a transform had run.
+ * and there is no silent passthrough because answering with the UNtransformed
+ * bytes would let an operator believe a transform had run.
  * `failure.reason` distinguishes an undecodable source and a missing encoder
  * (both the caller's problem) from a genuine pipeline fault.
  */
 export class ImageTransformRejected extends Data.TaggedError('ImageTransformRejected')<{
-  readonly failure: ImageTransformFailure
+  readonly failure: NegotiatedTransformFailure
 }> {}
 
 /** Bytes ready to be served, with the content type they are actually in. */
@@ -75,33 +77,67 @@ export const produceTransformedFile = (input: {
   readonly bucket: string
   readonly transform: TransformParams
   readonly acceptHeader: string | undefined
-}): Effect.Effect<TransformedFile, StorageError | ImageTransformRejected, StorageService> =>
+}): Effect.Effect<
+  TransformedFile,
+  StorageError | ImageTransformRejected,
+  StorageService | ImageTransformService
+> =>
   Effect.gen(function* () {
     const source = yield* readBucketFile({ key: input.key, bucket: input.bucket })
-    // effect-promise: total -- `applyImageTransform` catches every pipeline error and reports it as an `{ ok: false }` outcome; it resolves or is interrupted, and never rejects.
-    const transformed = yield* Effect.promise(() =>
-      applyImageTransform(source, input.transform, input.acceptHeader)
+    const transformed = yield* (yield* ImageTransformService).negotiateTransform(
+      source,
+      input.transform,
+      input.acceptHeader
     )
     if (!transformed.ok) return yield* new ImageTransformRejected({ failure: transformed })
     return {
       bytes: transformed.bytes,
-      contentType: transformed.format
-        ? mimeForFormat(transformed.format)
-        : inferMimeFromKey(input.key),
+      contentType: transformed.contentType ?? inferMimeFromKey(input.key),
     }
   }).pipe(Effect.withSpan('buckets.produce-transformed-file'))
 
-/** Write a file's bytes into a bucket under an already-resolved key. */
+/**
+ * Write a file's bytes into a bucket under an already-resolved key, recording
+ * `uploadedById` — the signed-in person behind the write — as its uploader.
+ */
 export const storeBucketFile = (input: {
   readonly key: string
   readonly content: Uint8Array
   readonly mimeType: string
   readonly bucket: string
+  readonly uploadedById?: string
 }): Effect.Effect<void, StorageError, StorageService> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    yield* storage.upload(input.key, input.content, input.mimeType, input.bucket)
+    yield* storage.upload(input.key, input.content, input.mimeType, {
+      bucket: input.bucket,
+      uploadedById: input.uploadedById,
+    })
   }).pipe(Effect.withSpan('buckets.store-file'))
+
+/** Whether a bucket holds an object at a key, and who the catalog says uploaded it. */
+export type StoredObjectOwner =
+  { readonly stored: false } | { readonly stored: true; readonly uploadedBy: string | undefined }
+
+/**
+ * Who uploaded the object a bucket holds at `key` — what the owner-or-admin
+ * rule reads before a delete or an overwrite. A key the bucket does not hold
+ * (absent, or another bucket's) answers `stored: false`; any other storage
+ * failure propagates, so an outage is never mistaken for "nobody's".
+ */
+export const readStoredObjectOwner = (input: {
+  readonly key: string
+  readonly bucket: string
+}): Effect.Effect<StoredObjectOwner, StorageError, StorageService> =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    const found = yield* Effect.result(storage.getMetadata(input.key, input.bucket))
+    if (found._tag === 'Success') {
+      return { stored: true, uploadedBy: found.success.uploadedBy } as const
+    }
+    if (isStorageObjectNotFound(found.failure)) return { stored: false } as const
+    return yield* found.failure
+  }).pipe(Effect.withSpan('buckets.read-object-owner'))
 
 /** Remove a file from a bucket. */
 export const removeBucketFile = (input: {

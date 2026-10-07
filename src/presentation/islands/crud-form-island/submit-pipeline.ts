@@ -8,25 +8,18 @@
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { omitsEmptyValue } from '@/presentation/design/field-type-behavior'
-import { evaluateCondition, isFieldVisible } from '../parts/crud-form/conditions'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { showSuccessToast } from '../parts/crud-form/toast'
 import { isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { formString } from './form-strings'
-import { type SubmitContext } from './types'
+import { type FormState, type SubmitContext } from './types'
 
-export function findMissingRequiredFields(
+function findMissingRequiredFields(
   fields: readonly FieldDef[],
   values: Record<string, string>
 ): readonly string[] {
-  return fields
-    .filter((f) => {
-      if (!isFieldVisible(f, values)) return false
-      const dynamicRequired = f.requiredWhen ? evaluateCondition(f.requiredWhen, values) : false
-      return !!(f.required || dynamicRequired) && !values[f.name]?.trim()
-    })
-    .map((f) => f.name)
+  return fields.filter((f) => !!f.required && !values[f.name]?.trim()).map((f) => f.name)
 }
 
 /**
@@ -39,7 +32,7 @@ const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length // 7
 
 /**
  * Detect rich-text fields whose current value exceeds the configured
- * `maxLength` (asserted by [internal ref]). Returns the first
+ * `maxLength`. Returns the first
  * over-limit field, or `undefined` when all fields are within their limit.
  *
  * The character count is the raw HTML length minus the empty-document
@@ -75,7 +68,6 @@ function resolveFormInputData(
 
 async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   const name = ctx.automationName
-  // eslint-disable-next-line functional/no-throw-statements -- caller (submitCrudForm) expects thrown errors
   if (!name) throw new Error('Automation name is required')
   const resolvedInput = resolveFormInputData(ctx.inputData ?? {}, ctx.values)
   const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
@@ -85,27 +77,24 @@ async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   })
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { message?: string }
-    // eslint-disable-next-line functional/no-throw-statements -- caller (submitCrudForm) expects thrown errors
     throw new Error(body.message ?? 'Automation failed')
   }
 }
 
 /**
- * Result of a successful create/update mutation. Carries the created /
- * updated record so `onSuccess.redirect` can interpolate `$record.id` etc.
+ * Result of a successful update mutation. Carries the updated record so
+ * `onSuccess.redirect` can interpolate `$record.id` etc.
  */
 type MutationResult = { readonly record?: Record<string, unknown> }
 
 async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
-  // Exclude values for fields that are conditionally hidden (visibleWhen not met).
-  // Hidden-input fields (field.hidden) are submitted unconditionally — except an
+  // Hidden-input fields (field.hidden) are submitted like any other — except an
   // EMPTY one whose column cannot hold '' (below): a hidden link nothing filled
   // is no link, stored as NULL, not a reference to a record that does not exist.
   const heldValues = Object.fromEntries(
     Object.entries(ctx.values).filter(([key, value]) => {
       const field = ctx.fields.find((f) => f.name === key)
       if (!field) return true
-      if (!field.hidden && !isFieldVisible(field, ctx.values)) return false
       // Omit untouched fields whose column cannot hold an empty string: '' is
       // the browser's "nothing entered" sentinel, never a legal value for a
       // choice / numeric / temporal / relational / attachment column. Omitting
@@ -129,10 +118,6 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   // number, a list, an ISO instant. Converted once, on the way out.
   const visibleValues = toWireFields(ctx.fields, heldValues)
   switch (ctx.operation) {
-    case 'create': {
-      const created = await ctx.createRecord.mutateAsync(visibleValues)
-      return { record: created as Record<string, unknown> }
-    }
     case 'update':
       if (ctx.recordId) {
         const updated = await ctx.updateRecord.mutateAsync({
@@ -155,9 +140,8 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
 }
 
 /**
- * Resolve the canonical record fields from a create/update mutation result.
- * The create response carries field aliases at the root (`record.id`,
- * `record.<field>`); the update response nests them under `record.record`.
+ * Resolve the canonical record fields from an update mutation result, which
+ * nests them under `record.record` (a bare record is read as it is).
  */
 function resolveRecordFields(result: MutationResult): Record<string, unknown> {
   const record = result.record ?? {}
@@ -170,7 +154,7 @@ function resolveRecordFields(result: MutationResult): Record<string, unknown> {
  * page (snapshotting the submitted values for an optional summary) and, when
  * `redirect` is set, navigate to the resolved URL after a short delay. Any
  * `$record.<field>` placeholders in `redirect` are substituted against the
- * created/updated record via the shared `substituteRecordVars` helper.
+ * updated record via the shared `substituteRecordVars` helper.
  */
 function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   ctx.setState({ isPending: false, successPageShown: { values: { ...ctx.values } } })
@@ -199,10 +183,7 @@ function handleDefaultSuccess(ctx: SubmitContext): void {
   )
   // onSuccess.type: 'reset' — clear the form for rapid repeat entry. Retains
   // any fields listed in preserveFields. Skipped for delete operations.
-  if (ctx.resetOnSuccess && ctx.operation !== 'delete') {
-    ctx.resetValues()
-    ctx.afterReset?.()
-  }
+  if (ctx.resetOnSuccess && ctx.operation !== 'delete') ctx.resetValues()
   const target = toSafeRedirectPath(ctx.redirectUrl)
   if (target !== undefined) {
     // Delay redirect to allow DB writes to propagate before external queries
@@ -212,7 +193,7 @@ function handleDefaultSuccess(ctx: SubmitContext): void {
 
 /**
  * PG-04: dispatch a `sovrium:crud-success`
- * CustomEvent on `document` after a successful create / update / delete so:
+ * CustomEvent on `document` after a successful update / delete so:
  *
  *   1. Sibling data-table islands bound to the same `table` invalidate their
  *      TanStack Query cache and refetch (see use-island-setup.ts).
@@ -267,34 +248,46 @@ function handleMutationError(ctx: SubmitContext, err: unknown): void {
   }
 }
 
-function validateCrudInputs(ctx: SubmitContext): boolean {
-  if (ctx.operation !== 'create' && ctx.operation !== 'update') return true
-  const missing = findMissingRequiredFields(ctx.fields, ctx.values)
+/**
+ * The form state that stops a submit before it leaves the browser — a required
+ * field left empty, or a rich-text body over its `maxLength` — or `undefined`
+ * when every field may be sent. Read by the script submit and by the native
+ * post an edit form makes, so both refuse the same values the same way.
+ */
+export function blockingFieldState(
+  fields: readonly FieldDef[],
+  values: Record<string, string>,
+  uiStrings: SubmitContext['uiStrings']
+): FormState | undefined {
+  const missing = findMissingRequiredFields(fields, values)
   if (missing.length > 0) {
-    const first = missing[0]!
-    ctx.setState({
+    return {
       fieldError: {
-        field: first,
-        message: formString(ctx.uiStrings, 'form.required', 'This field is required'),
+        field: missing[0]!,
+        message: formString(uiStrings, 'form.required', 'This field is required'),
       },
       invalidFields: missing,
       isPending: false,
-    })
-    return false
+    }
   }
-  const overLimit = findOverLimitField(ctx.fields, ctx.values)
-  if (overLimit) {
-    ctx.setState({
-      fieldError: {
-        field: overLimit.name,
-        message: `Content exceeds maximum of ${overLimit.maxLength} characters`,
-      },
-      invalidFields: [overLimit.name],
-      isPending: false,
-    })
-    return false
+  const overLimit = findOverLimitField(fields, values)
+  if (overLimit === undefined) return undefined
+  return {
+    fieldError: {
+      field: overLimit.name,
+      message: `Content exceeds maximum of ${overLimit.maxLength} characters`,
+    },
+    invalidFields: [overLimit.name],
+    isPending: false,
   }
-  return true
+}
+
+function validateCrudInputs(ctx: SubmitContext): boolean {
+  if (ctx.operation !== 'update') return true
+  const blocking = blockingFieldState(ctx.fields, ctx.values, ctx.uiStrings)
+  if (blocking === undefined) return true
+  ctx.setState(blocking)
+  return false
 }
 
 export async function submitCrudForm(ctx: SubmitContext): Promise<void> {

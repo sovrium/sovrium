@@ -1,0 +1,27 @@
+# sovrium-library: recipe/form-to-pipedrive-lead@0.30.0
+name: form-to-pipedrive-lead
+trigger:
+  type: form
+  form: demo-request
+actions:
+  - name: person
+    type: connection
+    operator: call
+    props:
+      connection: pipedrive
+      operation: create-person
+      params:
+        name: '{{trigger.data.name}}'
+        emails:
+          - value: '{{trigger.data.email}}'
+            primary: true
+            label: work
+  - name: lead
+    type: connection
+    operator: call
+    props:
+      connection: pipedrive
+      operation: create-lead
+      params:
+        title: 'Demo request: {{trigger.data.name}}'
+        person_id: '{{steps.person.data.data.id}}'

@@ -73,7 +73,6 @@ export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
         })
         .returning()
       if (!row) {
-        /* eslint-disable-next-line functional/no-throw-statements */
         throw new Error('user_access INSERT returned no rows')
       }
       return shapeRow(row)

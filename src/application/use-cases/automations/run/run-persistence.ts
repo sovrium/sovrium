@@ -20,6 +20,7 @@ import {
   type RunReads,
 } from '@/domain/models/app/automations/run-record-refs-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { storedNestedOf } from './nested-step-record'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
@@ -48,7 +49,7 @@ const runActorOverlay = (
 /**
  * Persist an early `'queued'` row for a run before the scheduler admits
  * it to the in-flight pool. Returns the DB-generated UUID so the trigger
- * dispatcher can surface it in the immediate response ([internal ref]:
+ * dispatcher can surface it in the immediate response (an API automation runs spec:
  * the async webhook must return a runId that the cancel endpoint can find
  * via {@link AutomationRunRepository.findById}).
  *
@@ -118,6 +119,10 @@ export const markRunRunning = (
     }
   }).pipe(Effect.withSpan('automations.mark-run-running'))
 
+/** The steps a path or a loop ran, kept on its own row (`nested-step-record.ts`). */
+const nestedColumn = (step: ExecutedStep): { readonly nested?: unknown } =>
+  step.paths === undefined && step.iterations === undefined ? {} : { nested: storedNestedOf(step) }
+
 /**
  * Finalise an in-flight run: write the terminal status, the
  * timings, the error string, and the per-step rows. Uses
@@ -126,7 +131,7 @@ export const markRunRunning = (
  * lifecycle so the cancel endpoint and external API consumers see the
  * same id throughout. Step rows are inserted via a separate query path
  * (no `replaceSteps` API yet); on a fresh DB this is "insert N steps for
- * `runId`" which the engine has historically done atomically inside
+ * `runId`" which the engine does atomically inside
  * `repo.create`. Here we update status on the existing row and then
  * INSERT step rows directly using a tiny SQL helper to keep the path
  * compatible with both Postgres and SQLite.
@@ -152,6 +157,7 @@ const buildStepsInput = (
     ...(step.output !== undefined ? { output: step.output as unknown } : {}),
     ...(step.logs !== undefined ? { logs: step.logs } : {}),
     ...(step.reads !== undefined ? { reads: step.reads } : {}),
+    ...nestedColumn(step),
     startedAt,
     completedAt: finishedAt,
     ...(step.error !== undefined ? { error: step.error } : {}),

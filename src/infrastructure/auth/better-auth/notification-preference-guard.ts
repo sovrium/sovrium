@@ -72,7 +72,6 @@ export const NOTIFICATION_PREFERENCE_ADDITIONAL_FIELDS = {
  * neighbouring one — one vocabulary for "this door does not take that from you".
  */
 export async function applyNotificationPreferenceGuard(
-  // eslint-disable-next-line functional/prefer-immutable-types -- the Better Auth hook context is mutable by its own type
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable
 ): Promise<void> {
@@ -85,7 +84,6 @@ export async function applyNotificationPreferenceGuard(
   const { role } = session.user as { readonly role?: string | null }
   if (typeof role === 'string' && isAdminTier(role, app)) return
 
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('BAD_REQUEST', {
     message:
       'Notification preferences belong to the operator emails, which only admin-tier accounts receive.',

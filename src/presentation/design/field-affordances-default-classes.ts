@@ -8,7 +8,7 @@
 /**
  * Prestyled-by-default class computers for field-type **affordances** — the
  * visuals that are unique to a specific field-type and have no Base UI / form
- * primitive to inherit from ([internal ref], Phase 4 slice 1).
+ * primitive to inherit from (the prestyled-islands rule, Phase 4 slice 1).
  *
  * Phase 2 already prestyled the form-control primitives the bulk of the 49
  * field-types reuse (text → input, single-select/multi-select → select,

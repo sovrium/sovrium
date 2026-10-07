@@ -35,14 +35,12 @@ export type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] exten
  * what it read to the after hook of the same request, and lets the entry go
  * with the request — including one the after hook never reads.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 export const requestKey = (ctx: AuthMiddlewareCtx): object | undefined => {
   const key: unknown = (ctx as { context?: unknown }).context
   return typeof key === 'object' && key !== null ? key : undefined
 }
 
 /** The non-empty `userId` the request body names, when it names one. */
-// eslint-disable-next-line functional/prefer-immutable-types
 export const readTargetUserId = (ctx: AuthMiddlewareCtx): string | undefined => {
   const body = ctx.body as { userId?: unknown } | undefined
   return typeof body?.userId === 'string' && body.userId !== '' ? body.userId : undefined

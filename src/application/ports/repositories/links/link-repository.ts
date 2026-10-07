@@ -17,7 +17,7 @@
  *
  * Three shapes are deliberate:
  *
- * - **`LinkRecord` carries no `passwordHash`.** [internal ref] D5 forbids the hash from
+ *  - **`LinkRecord` carries no `passwordHash`.** the links-are-records design forbids the hash from
  *    reaching the console payload, and the cheapest way to keep a promise like
  *    that is to make it structurally impossible: a field the port never returns
  *    cannot be spread into a response by a future handler that forgot.

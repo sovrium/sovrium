@@ -6,7 +6,9 @@
  */
 
 import { Context, Duration, Effect, Layer, Data } from 'effect'
+import { parseEmailTransport } from '@/domain/models/process-env/email-transport'
 import { isEmailConfigured } from '@/infrastructure/process/env'
+import { sendThroughEmailApi } from './email-api-transport'
 import { getTransporter, getDefaultFrom, type SendMailOptions } from './nodemailer'
 import { reportUndeliverableMessage } from './undeliverable-message'
 
@@ -61,9 +63,10 @@ class SmtpSendTimeoutError extends Data.TaggedError('SmtpSendTimeoutError')<{
 }> {}
 
 /**
- * Deliver an email through the SMTP transport, or no-op when email is disabled.
+ * Deliver an email through the selected transport — SMTP by default, or the
+ * HTTP API `EMAIL_PROVIDER` names — or no-op when email is disabled.
  *
- * When `SMTP_HOST` is unset there is no transport: the intended message is
+ * When no transport is configured: the intended message is
  * REPORTED and a synthetic id is returned without touching the network. This
  * keeps Better Auth and automation flows resolving cleanly instead of throwing
  * ECONNREFUSED against a non-existent local SMTP server.
@@ -81,6 +84,14 @@ async function deliver(options: Readonly<SendMailOptions>): Promise<string> {
   if (!isEmailConfigured()) {
     reportUndeliverableMessage(options)
     return EMAIL_DISABLED_MESSAGE_ID
+  }
+
+  // `EMAIL_PROVIDER` picks the road; boot already refused a selector that names
+  // no transport or lacks its credentials, so this resolves. An HTTP transport
+  // rejects with its own `EmailApiError`, which names the provider and status.
+  const transport = parseEmailTransport(process.env)
+  if (transport.kind !== 'smtp') {
+    return Effect.runPromise(sendThroughEmailApi(transport, options))
   }
 
   const transporter = getTransporter()

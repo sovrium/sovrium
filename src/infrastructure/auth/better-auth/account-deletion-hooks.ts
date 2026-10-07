@@ -11,7 +11,8 @@ import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-r
 // eslint-disable-next-line boundaries/dependencies -- see accountRemovalRefusal above: a deletion request that stood can only be observed, and so recorded, from inside Better Auth's `after` hook.
 import { recordAccountDeletionRequest } from '@/application/use-cases/auth/record-user-acts'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { purgeAccount, resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge'
+import { purgeAccount } from '@/infrastructure/database/account-purge'
+import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
 import { runAuthHookProgram } from './admin-role-guards'
 import { endpointSucceeded, sessionUserId, type AuthMiddlewareCtx } from './hook-context'
 import type { App } from '@/domain/models/app'
@@ -103,7 +104,6 @@ export const buildDeleteUserConfig = (
         app
       )
       if (outcome._tag === 'Refused') {
-        // eslint-disable-next-line functional/no-throw-statements
         throw new APIError('CONFLICT', { message: outcome.message })
       }
     },
@@ -111,7 +111,6 @@ export const buildDeleteUserConfig = (
 }
 
 /** `true` when this request reaches the open deletion door. */
-// eslint-disable-next-line functional/prefer-immutable-types
 const doorIsOpen = (ctx: AuthMiddlewareCtx): boolean =>
   ctx.context.options.user?.deleteUser?.enabled === true
 
@@ -122,7 +121,6 @@ const doorIsOpen = (ctx: AuthMiddlewareCtx): boolean =>
  */
 const guardCallbackUrl = (value: unknown): void => {
   if (value === undefined || toSafeRedirectPath(value) !== undefined) return
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('BAD_REQUEST', { message: 'Invalid callbackURL' })
 }
 
@@ -131,7 +129,6 @@ const guardCallbackUrl = (value: unknown): void => {
  * request — a refused request stores no token and mails nothing.
  */
 export async function applyAccountDeletionBeforeHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AccountDeletionDeps
@@ -148,7 +145,6 @@ export async function applyAccountDeletionBeforeHooks(
   if (userId === undefined) return
   const refusal = await removalRefusal(deps)(userId, app)
   if (refusal === undefined) return
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('CONFLICT', { message: refusal })
 }
 
@@ -158,7 +154,6 @@ export async function applyAccountDeletionBeforeHooks(
  * a request carrying a token is a confirmation, recorded by the erasure.
  */
 export async function applyAccountDeletionAfterHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   deps?: AccountDeletionDeps
 ): Promise<void> {

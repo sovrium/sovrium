@@ -22,9 +22,8 @@
  * `text-3xl`) and structural-spacing classes (`mb-3`, `mt-4`, `pl-4`) stay raw
  * — a rung is a Tailwind utility backed by `--text-*`, which the platform theme
  * layer declares, so an override already wins at the variable and cascading it
- * a second time here would be redundant. That is true as of 2026-09-09 and was
- * NOT true before it: the ladder emitted `--font-size-*`, a namespace no utility
- * reads, so this paragraph described a cascade that did not exist.
+ * a second time here would be redundant. This depends on the ladder emitting
+ * `--text-*`: a `--font-size-*` namespace would be read by no utility.
  *
  * The Sovrium typographic identity is value-driven (IBM Plex Sans +
  * JetBrains Mono — two families, since [internal ref] amendment A2 withdrew the
@@ -114,10 +113,8 @@
  *                              flow through the same `@theme` cascade as
  *                              colours, so a tenant overriding the ladder
  *                              already wins — a helper would add nothing
- *                              beyond the raw utility name. (Until 2026-09-09
- *                              this named `--font-size-*`, which no utility
- *                              read, so the claim was false in the one
- *                              direction that mattered.)
+ *                              beyond the raw utility name. (It must be
+ *                              `--text-*`: no utility reads `--font-size-*`.)
  *   - LINK MARK               — the inline `<a>` rendered by the `link`
  *                              component-type lives inside the
  *                              interactive-renderers + `interactive`
@@ -160,12 +157,10 @@ export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
  * h1 30 · h2 24 · h3 20 · h4 16 · h5 13 · h6 12. Every level stays on the same
  * `text-fg` colour so they read as one focal-content hierarchy.
  *
- * The rungs moved twice here and only once visibly. The platform ladder shifted
- * into `--text-*` on 2026-09-09, so the SAME class name now names a smaller
- * size; each level below is therefore re-picked to the px the canvas draws
- * rather than left on its old class. The one real change is h2, which the
- * canvas puts at 24 where this was 20 — h1 and h2 sat one step apart and read
- * as the same weight of announcement.
+ * Each level below is picked by the px the canvas draws, not by class name:
+ * the platform ladder lives in `--text-*`, where a class name can name a
+ * smaller size than the stock Tailwind one. h2 sits at the canvas' 24, so h1
+ * and h2 do not read as the same weight of announcement.
  *
  * - h1: page title, bold, tight tracking.
  * - h2: major section, semibold.
@@ -302,9 +297,9 @@ const CODE_BLOCK = [
  * a tone; adds a border + `radius-md` to give the block a definite
  * boundary; and sets the SAME `text-sm` as inline code, because a sample that
  * changes size between running text and its own block reads as two different
- * languages. It used to sit a step smaller, on the argument that a framed block
- * need not track the parent paragraph's line-height — true, and an argument for
- * leaving the LEADING alone rather than for shrinking the type.
+ * languages. A framed block need not track the parent paragraph's line-height —
+ * true, but that is an argument for leaving the LEADING alone, not for
+ * shrinking the type.
  *
  * `overflow-x-auto` is critical for long lines — without it, a wide code
  * sample would push the page's layout. The horizontal scrollbar lives

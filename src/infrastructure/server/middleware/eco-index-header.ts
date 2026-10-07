@@ -134,7 +134,6 @@ const isAttachmentDownload = (c: Readonly<Context>): boolean =>
  * `X-Eco-Index` header. Hoisted out of the middleware factory so the
  * `consistent-function-scoping` lint stays happy.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 async function handleEcoIndexResponse(c: Context, next: Next): Promise<void> {
   await next()
 

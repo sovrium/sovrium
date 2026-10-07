@@ -1,0 +1,104 @@
+# sovrium-library: block/kpi-sparkline@0.30.0
+name: kpi-sparkline
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: container
+    element: nav
+    props:
+      aria-label: Period
+      className: flex w-fit items-center gap-0.5 rounded-md border border-border p-0.5
+    children:
+      - type: link
+        content: 7 days
+        props:
+          href: '?period=7d'
+          className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+        activeWhen:
+          value: $window.id
+          equals: 7d
+        activeProps:
+          aria-current: page
+          className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+      - type: link
+        content: 30 days
+        props:
+          href: '?period=30d'
+          className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+        activeWhen:
+          value: $window.id
+          equals: 30d
+        activeProps:
+          aria-current: page
+          className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+      - type: link
+        content: 90 days
+        props:
+          href: '?period=90d'
+          className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+        activeWhen:
+          value: $window.id
+          equals: 90d
+        activeProps:
+          aria-current: page
+          className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+  - type: grid
+    props:
+      className: grid grid-cols-1 mt-4 gap-4 md:grid-cols-3
+    children:
+      - type: kpi
+        label: '[Records]'
+        dataSource:
+          table: projects
+          filter:
+            - field: due_date
+              operator: gte
+              value: $window.start
+            - field: due_date
+              operator: lte
+              value: $window.end
+        kpiAggregate:
+          function: count
+        kpiFormat:
+          type: compact
+        sparkline: &sparkline
+          field: budget
+          groupBy: due_date
+          interval: week
+          days: 90
+      - type: kpi
+        label: '[Total]'
+        dataSource:
+          table: projects
+          filter:
+            - field: due_date
+              operator: gte
+              value: $window.start
+            - field: due_date
+              operator: lte
+              value: $window.end
+        kpiAggregate:
+          function: sum
+          field: budget
+        kpiFormat:
+          type: compact
+        sparkline: *sparkline
+      - type: kpi
+        label: '[Average]'
+        dataSource:
+          table: projects
+          filter:
+            - field: due_date
+              operator: gte
+              value: $window.start
+            - field: due_date
+              operator: lte
+              value: $window.end
+        kpiAggregate:
+          function: avg
+          field: budget
+        kpiFormat:
+          type: compact
+        sparkline: *sparkline

@@ -1,0 +1,7 @@
+name: moved
+path: /moved
+meta:
+  title: 'Page moved · [Product]'
+  description: '[Where the page you looked for went.]'
+components:
+  - component: not-found-with-links

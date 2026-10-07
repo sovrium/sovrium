@@ -99,7 +99,7 @@ export interface ChatTurnInput {
  * cannot enumerate the tables they lack access to by reading the status. The
  * refusal's own message is deliberately discarded from the envelope.
  */
-const refuseAsNotFound = async (c: Readonly<Context>, input: ChatTurnInput): Promise<Response> => {
+const refuseAsNotFound = async (c: Context, input: ChatTurnInput): Promise<Response> => {
   // AWAITED, as it was inline: a spec that asserts the refusal row exists
   // immediately after the 404 would otherwise race the write.
   await recordChatActivity(input.services, {
@@ -127,7 +127,7 @@ const turnToPersist = (
  * response envelope.
  */
 export const finishChatTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: ChatTurnInput,
   aiReply: string
 ): Promise<Response> => {
@@ -199,13 +199,13 @@ export const finishChatTurn = async (
  * Complete a chat turn after the (non-forbidden) record-mutation pipeline
  * resolved it. The reply text is the executor's summary for an applied
  * mutation (so the created/updated record details surface —
- * [internal ref]), the validation message for a rejected
+ * an AI chat mutate spec), the validation message for a rejected
  * mutation, or the AI's text otherwise. Persists the exchange to conversation
  * history, records `ai.chat.message` activity, and builds the
  * `{ reply, actions, pendingConfirmation? }` envelope.
  */
 const finishMutationTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: ChatTurnInput,
   aiReply: string,
   mutation: Exclude<MutationTurnResult, { kind: 'forbidden' }>
@@ -232,7 +232,7 @@ const finishMutationTurn = async (
     ...(mutation.kind === 'pending' && { pendingConfirmation: mutation.pendingConfirmation }),
   }
   // Surface the remaining chat quota so clients can self-throttle
-  //. Header is present only when rate limiting is set.
+  // Header is present only when rate limiting is set.
   if (input.rateLimitRemaining !== undefined) {
     return c.json(body, 200, {
       'X-RateLimit-Remaining': input.rateLimitRemaining.toString(),
@@ -243,13 +243,13 @@ const finishMutationTurn = async (
 
 /**
  * Complete a chat turn after the read-query pipeline answered it
- *. Persists the exchange to conversation history,
+ * Persists the exchange to conversation history,
  * records an `ai.chat.query` activity row attributed to the acting user's
  * email, and builds the `{ reply, actions }` envelope
  * with the single `type: 'query'` action.
  */
 const finishQueryTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: ChatTurnInput,
   reply: string,
   action: ChatAction
@@ -278,7 +278,7 @@ const finishQueryTurn = async (
 /**
  * Choose the reply text for a chat turn: the mutation executor's summary /
  * message takes precedence over the raw AI text when the turn was a record
- * mutation, so the created/updated record details ([internal ref] /
+ * mutation, so the created/updated record details (an AI chat mutate spec /
  * 015) and validation errors surface to the caller.
  */
 const resolveReply = (aiReply: string, mutation: MutationTurnResult): string => {

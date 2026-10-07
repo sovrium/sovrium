@@ -1,0 +1,14 @@
+# The three demo accounts, one per role, created before any table is filled.
+#
+# No password is written here: all three take `SOVRIUM_SEED_PASSWORD` from the
+# environment, so a password never lands in a file you might commit.
+users:
+  - email: ana.lindqvist@starter.example
+    name: Ana Lindqvist
+    role: admin
+  - email: marc.oyelaran@starter.example
+    name: Marc Oyelaran
+    role: member
+  - email: sana.okafor@starter.example
+    name: Sana Okafor
+    role: viewer

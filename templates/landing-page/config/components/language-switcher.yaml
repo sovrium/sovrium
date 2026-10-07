@@ -7,4 +7,6 @@ name: language-switcher
 type: language-switcher
 props:
   variant: toggle
-  className: '[&_a]:h-8'
+classes:
+  parts:
+    link: h-8

@@ -24,7 +24,7 @@
  *   - `isFieldVisible(field, values)` — apply `field.visibleWhen` against
  *     a value record. Always-visible when no rule.
  *   - `isFieldRequired(field, values)` — apply `field.requiredWhen` (wins
- * over `required: true`) against a value record. [internal ref].
+ *     over `required: true`) against a value record.
  *
  * Lives in `domain-model-shared` so both `application-use-case` (submit
  * orchestration) and `presentation-api-route` (advance handler) can import
@@ -152,7 +152,7 @@ export const isFieldVisible = (
 }
 
 /**
- * [internal ref]: evaluate whether a field is required for THIS submission:
+ * Evaluate whether a field is required for THIS submission:
  *   - `required: true` always counts (legacy unconditional behaviour) UNLESS
  *     `requiredWhen` is also set — the conditional rule always wins.
  *   - `requiredWhen` flips the field into required when its rule evaluates

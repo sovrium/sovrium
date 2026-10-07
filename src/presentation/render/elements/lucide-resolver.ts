@@ -15,7 +15,7 @@ import type { ComponentType } from 'react'
  * ⚠️ SERVER ONLY. This module namespace-imports `lucide-react` and reads it
  * through a computed key, which is unshakeable by construction — no bundler can
  * prove which of the ~2,000 icons the index reaches, so it retains all of them.
- * Measured 2026-09-03 against the real `buildRuntimeAssets`: one client island
+ * Measured against the real `buildRuntimeAssets`: one client island
  * importing this module pulls a **668,323-byte** chunk (174,296 gzip) into the
  * island graph, and `Island Payload Budget` cannot see it because it measures
  * only the EAGER closure while lucide sits one `import()` boundary beyond.
@@ -114,7 +114,6 @@ export const resolveLucideIconNode = (iconName: string | undefined): LucideIconN
   const component = resolveLucideIcon(iconName) as ForwardRefLike | undefined
   if (!component || typeof component.render !== 'function') return undefined
   try {
-    // eslint-disable-next-line unicorn/no-null -- forwardRef render takes a null ref
     const element = component.render({}, null)
     return readIconDataNode(element?.props?.['icon'])
   } catch {

@@ -42,7 +42,7 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
  * `infrastructure/database/views/view-generators.ts` and
  * `infrastructure/database/repositories/tables/tables-overview-repository-live.ts`.
  *
- * Note this is a DIFFERENT risk from the 2026-07-25 pool-exhaustion incident:
+ * Note this is a DIFFERENT risk from shared-pool exhaustion:
  * because the work rides the transaction's own connection, it cannot starve the
  * shared pool. The bound here is about queue depth and connection hold time.
  *
@@ -124,7 +124,6 @@ export async function createSingleRecord(
   try {
     return await executeInsertReturning(tx, tableName, clauses)
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
     throw handleInsertError(error)
   }
 }

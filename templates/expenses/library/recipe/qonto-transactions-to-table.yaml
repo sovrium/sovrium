@@ -1,0 +1,39 @@
+# sovrium-library: recipe/qonto-transactions-to-table@0.30.0
+name: qonto-transactions-to-table
+trigger:
+  type: cron
+  expression: 0 7 * * *
+actions:
+  - name: fetch
+    type: connection
+    operator: call
+    props:
+      connection: qonto
+      operation: list-transactions
+      params:
+        bank_account_id: your-bank-account-id
+        per_page: 100
+      paginate: all
+  - name: fresh
+    type: state
+    operator: filterNew
+    props:
+      input: '{{steps.fetch.data}}'
+      key: transaction_id
+      namespace: qonto
+  - name: fileEach
+    type: loop
+    operator: each
+    props:
+      items: '{{steps.fresh.items}}'
+      actions:
+        - name: fileTransaction
+          type: record
+          operator: create
+          props:
+            table: bank_transactions
+            data:
+              transaction_id: '{{loop.item.transaction_id}}'
+              label: '{{loop.item.label}}'
+              amount: '{{loop.item.amount}}'
+              settled_at: '{{loop.item.settled_at}}'

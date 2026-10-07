@@ -137,7 +137,7 @@ export const redactSecretsForEnv = (
  * points at helps nobody. It says nothing about a value the OPERATOR supplied. An
  * OS-supplied value is a credential by provenance whatever it happens to look
  * like, and a filter that reads only the string cannot tell the two apart — so
- * `DISPATCH_TOKEN='$env.LOOKS_LIKE_A_REFERENCE'` in the environment used to
+ * `DISPATCH_TOKEN='$env.LOOKS_LIKE_A_REFERENCE'` in the environment would
  * silently opt that secret out of redaction for the rest of the run, which is the
  * one direction this function must never fail in.
  *
@@ -216,11 +216,10 @@ const containsEnvReference = (value: string): boolean =>
  * single connection's props, given the keys to inspect for that
  * connection's type.
  */
-const secretsFromConnection = (conn: Readonly<Record<string, unknown>>): readonly string[] => {
-  const type = String(conn['type'] ?? '')
-  const keys = SECRET_PROP_KEYS_BY_TYPE[type]
+const secretsFromConnection = (conn: RedactableConnection): readonly string[] => {
+  const keys = SECRET_PROP_KEYS_BY_TYPE[conn.type]
   if (!keys) return []
-  const props = conn['props'] as Record<string, unknown> | undefined
+  const { props } = conn
   if (props === undefined) return []
   return keys
     .map((key) => props[key])
@@ -228,8 +227,18 @@ const secretsFromConnection = (conn: Readonly<Record<string, unknown>>): readonl
     .filter((val) => !containsEnvReference(val))
 }
 
+/**
+ * The part of a declared connection the redactor reads: its auth `type` and
+ * its `props`. Every member of the decoded `app.connections` union satisfies
+ * it, so callers pass `app.connections` as decoded.
+ */
+export type RedactableConnection = {
+  readonly type: string
+  readonly props?: Readonly<Record<string, unknown>>
+}
+
 export const collectConnectionSecrets = (
-  connections: ReadonlyArray<Readonly<Record<string, unknown>>> | undefined
+  connections: ReadonlyArray<RedactableConnection> | undefined
 ): readonly string[] => {
   if (!connections || connections.length === 0) return []
   return connections.flatMap((conn) => secretsFromConnection(conn))
@@ -250,7 +259,7 @@ export const redactSecretsForApp = (
   value: unknown,
   envVars: ReadonlyArray<EnvVar> | undefined,
   processEnv: Readonly<Record<string, string | undefined>>,
-  connections: ReadonlyArray<Readonly<Record<string, unknown>>> | undefined
+  connections: ReadonlyArray<RedactableConnection> | undefined
 ): unknown => {
   const connectionSecrets = collectConnectionSecrets(connections)
   const afterConnections =

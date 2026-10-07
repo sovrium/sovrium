@@ -44,29 +44,7 @@ components:
               id: add-deal-dialog
               title: Add deal
               description: The deal lands on the board in the stage you choose.
-            children:
-              - type: form
-                dataSource:
-                  table: deals
-                fields:
-                  - field: name
-                  - field: company
-                  - field: contact
-                  - field: stage
-                  - field: value
-                  - field: probability
-                  - field: close_date
-                  - field: owner
-                action:
-                  type: crud
-                  operation: create
-                  table: deals
-                  submitLabel: Add deal
-                  onSuccess:
-                    navigate: /
-                    toast:
-                      message: Deal added
-                      variant: success
+            formRef: add-deal
           - type: container
             props:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
@@ -137,8 +115,6 @@ components:
               # columns take only what their heading needs. On a phone every
               # column keeps a readable width and the board scrolls sideways.
               - type: kanban
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Won]]:flex-[0_0_6rem]! md:[&_[data-column=Lost]]:flex-[0_0_6rem]!'
                 dataSource:
                   table: deals
                   bindTo: pipeline-filter
@@ -150,6 +126,8 @@ components:
                   # The two outcome columns start folded: they hold the month's
                   # results, not work in progress.
                   collapsed: [Won, Lost]
+                  columnSizing: fill
+                  columnWidths: { Won: 6rem, Lost: 6rem }
                 drag:
                   enabled: true
                   persistAction:

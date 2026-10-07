@@ -102,8 +102,7 @@ export interface ConnectionAppTokenSummary {
 /**
  * Token-row metadata for admin listing. Exposes per-user state without
  * the access/refresh-token plaintext — admins seeing which users have
- * connected MUST NOT receive the token values, per
- * [internal ref].
+ * connected MUST NOT receive the token values.
  */
 export interface ConnectionUserSummary {
   readonly userId: string
@@ -124,7 +123,7 @@ export interface ConnectionUserSummary {
  * upserts on this pair so a user re-authorizing the same connection
  * replaces their existing token row.
  *
- * Spec contract: spec `[internal ref]` asserts that the
+ * Spec contract: an automation connection spec asserts that the
  * raw access_token column is encrypted at rest. Tests can use
  * `decryptToken` from `[internal ref]` to round-trip
  * back to plaintext for content assertions, OR assert that the raw

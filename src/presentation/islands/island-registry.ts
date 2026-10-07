@@ -140,6 +140,8 @@ const loadTabs = () => import('./disclosure/tabs-island')
 const loadFileUpload = () => import('./file-upload/file-upload-island')
 const loadNumberInput = () => import('./form-controls/number-input-island')
 const loadSplitPane = () => import('./split-pane-island')
+const loadStepper = () => import('./disclosure/stepper-island')
+const loadSignaturePad = () => import('./form-controls/signature-pad-island')
 const loadSidebarGroups = () => import('./navigation/sidebar-groups-island')
 const loadSidebarBadge = () => import('./navigation/sidebar-badge-island')
 const loadSidebarDisclosure = () => import('./navigation/sidebar-disclosure-island')
@@ -165,6 +167,12 @@ const loadPageRecordSystem = () => import('./page-record-system-island')
  */
 export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   'split-pane': loadSplitPane,
+  // The first gesture on a stepper is Continue, and the SSR button carries no
+  // handler — a stepper mounting one Suspense boundary later swallows it.
+  stepper: loadStepper,
+  // The first gesture on a pad is the stroke in its well, which does not exist
+  // until the island has mounted.
+  'signature-pad': loadSignaturePad,
   'page-record-system': loadPageRecordSystem,
   'ai-chat': loadAiChat,
   tabs: loadTabs,
@@ -228,10 +236,16 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // the user (or the spec) drags the divider, so it cannot wait for a Suspense
   // fallback to resolve.
   'split-pane': lazy(loadSplitPane),
-  // The three view-type islands are bound ONCE in `view-type-islands.ts`,
-  // because the data-table's view switcher renders the SAME lazy components
-  // when it swaps the grid out. One binding keeps both consumers on one chunk
-  // per view type (and keeps all three off the universal island payload).
+  // `stepper` — renders nothing; moves between the server-rendered step bodies.
+  stepper: lazy(loadStepper),
+  'signature-pad': lazy(loadSignaturePad),
+  // `tree` — reads its rows from the records API and nests them; lazy (eco R2).
+  tree: lazy(() => import('./tree/tree-island')),
+  // `map` — a dependency-free pin layer over the operator's tiles or a grid.
+  map: lazy(() => import('./map/map-island')),
+  // The three record-view islands are bound in `view-type-islands.ts`, which
+  // keeps each on its own lazy chunk (and all three off the universal island
+  // payload).
   kanban: KanbanIslandLazy,
   calendar: CalendarIslandLazy,
   gallery: GalleryIslandLazy,

@@ -20,7 +20,6 @@
  * and the field-resolution pipeline.
  */
 
-import { type CSSProperties } from 'react'
 import { renderToString } from 'react-dom/server'
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
 import { findDeclaredDirection } from '@/domain/models/app/languages/language-detection'
@@ -38,7 +37,13 @@ import {
   stepDescriptionsHtml,
   stepItems,
 } from './form-field-resolver'
-import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
+import { withLinkAnswers } from './form-link-answers'
+import { FormPageMain } from './form-page-main'
+import {
+  resolveFormPrefill,
+  type FormLinkState,
+  type FormPrefillContext,
+} from './form-prefill-resolver'
 import { FormBodyStep } from './form-renderer-multi-step'
 import { prefillColumnsOf } from './record-prefill-resolver'
 import type { EmbeddedFormPrefillContext } from './form-body'
@@ -70,7 +75,7 @@ const FormHead = ({
       name="description"
       content={description || title}
     />
-    {/* [internal ref]: link the globally-compiled theme stylesheet (also
+    {/* Link the globally-compiled theme stylesheet (also
         serves the standalone form page so the embed shell inherits the
         same theme tokens — including CSS variables like --color-primary
         and --color-text — without a separate per-form bundle). */}
@@ -80,23 +85,6 @@ const FormHead = ({
     />
   </head>
 )
-
-/**
- * Build the per-form theme style overlay from `display.theme`. Each token
- * maps onto a scoped CSS custom property on the form's `<main>` element so
- * the override applies to THIS form only (a sibling form without the block
- * inherits the app theme). Returns `undefined` when no theme is declared so
- * React omits the `style` attribute entirely.
- */
-function formThemeStyle(form: Readonly<Form>): CSSProperties | undefined {
-  const theme = form.display?.theme
-  if (!theme) return undefined
-  const primary = theme.primaryColor ? { '--color-primary': theme.primaryColor } : {}
-  const background = theme.backgroundColor ? { '--color-background': theme.backgroundColor } : {}
-  const radius = theme.borderRadius ? { '--radius': theme.borderRadius } : {}
-  const style = { ...primary, ...background, ...radius }
-  return Object.keys(style).length > 0 ? (style as CSSProperties) : undefined
-}
 
 /**
  * Platform chrome of a STANDALONE form page: the "Built with Sovrium" badge and
@@ -139,6 +127,7 @@ function FormPage({
   activeLang,
   prefill,
   optionSets,
+  link,
 }: {
   readonly app: App
   readonly form: Form
@@ -146,9 +135,9 @@ function FormPage({
   readonly activeLang?: string
   readonly prefill?: Readonly<Record<string, PrefillValue>>
   readonly optionSets?: FormOptionSets
+  readonly link?: FormLinkState
 }) {
   const { languages } = app
-  const title = resolveText(form.title, languages, form.name, activeLang)
   const documentLang = resolveDocumentLang(languages, activeLang)
   // The document's direction follows its language, exactly as a page's does:
   // without `dir` an Arabic form lays its labels and inputs out left to right.
@@ -158,7 +147,6 @@ function FormPage({
   // `lockPrefill: false`. An empty map is treated as "no prefill".
   const prefillContext =
     prefill && Object.keys(prefill).length > 0 ? { prefill, lockPrefill: false } : undefined
-  const themeStyle = formThemeStyle(form)
 
   return (
     <html
@@ -167,27 +155,22 @@ function FormPage({
       data-density={resolveFormDensityStep(app, form)}
     >
       <FormHead
-        title={title}
+        title={resolveText(form.title, languages, form.name, activeLang)}
         // The description renders as inline markdown on the page; a search result
         // or a link preview shows the meta verbatim, so it keeps the words only.
         description={markdownToText(resolveText(form.description, languages, '', activeLang))}
         cssHref={getVersionedCssPath(app)}
       />
       <body>
-        <main
-          className="form-page"
-          data-form-name={form.name}
-          {...(themeStyle ? { style: themeStyle } : {})}
-        >
-          <FormBody
-            app={app}
-            form={form}
-            embed={embed}
-            activeLang={activeLang}
-            prefillContext={prefillContext}
-            {...(optionSets !== undefined ? { optionSets } : {})}
-          />
-        </main>
+        <FormPageMain
+          app={app}
+          form={form}
+          embed={embed}
+          activeLang={activeLang}
+          prefillContext={prefillContext}
+          optionSets={optionSets}
+          link={link}
+        />
         {!embed && (
           <FormPageChrome
             app={app}
@@ -271,8 +254,9 @@ function renderFormDocument(opts: {
       form={form as Form}
       embed={embed}
       activeLang={activeLang}
-      prefill={resolveStandalonePrefill(app, form, prefillCtx)}
+      prefill={withLinkAnswers(resolveStandalonePrefill(app, form, prefillCtx), prefillCtx?.link)}
       {...(prefillCtx?.optionSets !== undefined ? { optionSets: prefillCtx.optionSets } : {})}
+      {...(prefillCtx?.link === undefined ? {} : { link: prefillCtx.link })}
     />
   )
   return `<!DOCTYPE html>\n${html}`
@@ -397,7 +381,7 @@ export function renderEmbeddedFormBody(
   // `embed={false}` so the embedded form gets standalone-like attributes (no
   // `data-embed`) and `mountRuntime` so the inline client runtime is emitted —
   // it intercepts the submit and honors `onSuccess.redirect` instead of the
-  // native 303-to-Referer (GAP-H3 / [internal ref]). Exactly one embedded form
+  // native 303-to-Referer (GAP-H3 / a forms spec). Exactly one embedded form
   // runs per host page, so the runtime's single-form lookup never collides.
   //
   // `activeLang` (P9) localizes the embedded form's `$t:` strings to the host

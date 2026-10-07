@@ -9,8 +9,13 @@ import { Effect, Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
+import {
+  resolveClientRuntimePreloads,
+  resolveClientScriptPaths,
+} from '@/infrastructure/assets/client-entries'
+import { readInvitationFacts } from '@/infrastructure/auth/better-auth/invitation-page-reader'
 import { getSovriumVersion } from '@/infrastructure/process/version'
-import { buildIslands } from '@/infrastructure/server/route-setup/static-assets'
+import { buildIslands } from '@/infrastructure/server/route-setup/island-assets'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/render/page/render-error-pages'
 import { renderPage } from '@/presentation/render/page/render-page'
 import { renderRssFeed } from '@/presentation/render/page/render-rss-feed'
@@ -37,11 +42,13 @@ function createDataSourceDbAdapter(
       Effect.runPromise(repo.fetchManyToManyLinks(tableName, recordId, fields)),
     fetchUserAssignments: (userId, tableSlug) =>
       Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
-    // [internal ref]: overlay user_access roles onto the
+    // [internal ref] / a pages collection spec: overlay user_access roles onto the
     // Better Auth session role so page access checks see the engineer role.
     fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
     // The accounts an embedded form's `user` picker offers a signed-in visitor.
     fetchAccountChoices: (limit) => Effect.runPromise(auth.listAccountChoices(limit)),
+    // A `page.invitation` page's lookup of the token in its address.
+    readInvitation: readInvitationFacts,
   }
 }
 
@@ -71,7 +78,11 @@ export const PageRendererLive = Layer.effect(
     const dataSourceRepo = yield* DataSourceRepository
     const authRepo = yield* AuthRepository
     const db = createDataSourceDbAdapter(dataSourceRepo, authRepo)
-    const islandBuilder = { buildIslands }
+    const islandBuilder = {
+      buildIslands,
+      clientScriptPaths: resolveClientScriptPaths,
+      clientRuntimePreloads: resolveClientRuntimePreloads,
+    }
     // `$app.engineVersion` — the engine's OWN version, read ONCE while this
     // Layer is built (before the listener binds) and handed to every render.
     //
@@ -91,10 +102,14 @@ export const PageRendererLive = Layer.effect(
         // The route's table reader travels on `db`, beside the other readers
         // the data-source pass is handed, so it reaches every grid that pass
         // stamps without a parameter threaded through each page stage.
-        const { readTableAsCaller, ...context } = requestContext ?? {}
+        const { readTableAsCaller, signFileUrl, ...context } = requestContext ?? {}
         return renderPage(app, path, {
           ...context,
-          db: readTableAsCaller === undefined ? db : { ...db, readTableAsCaller },
+          db: {
+            ...db,
+            ...(readTableAsCaller !== undefined && { readTableAsCaller }),
+            ...(signFileUrl !== undefined && { signFileUrl }),
+          },
           islandBuilder,
           engineVersion,
         })

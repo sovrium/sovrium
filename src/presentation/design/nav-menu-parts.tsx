@@ -67,7 +67,7 @@ export const MENU_TRIGGER_CONTENT_CLASSES = 'flex min-w-0 flex-1 items-center ga
  * so the indicator is present on first paint and never flashes in on hydration.
  */
 export function NavChevronDown(): ReactElement {
-  // [internal ref] (round-4, [internal ref]): no
+  // The navbar dropdown capability set (round-4, the pages nav spec and pages dropdown menu spec): no
   // hardcoded color — the chevron inherits `currentColor` from the trigger text.
   // `transition-transform group-data-[popup-open]:rotate-180` flips the chevron
   // when the enclosing `group` trigger's menu is open (Base UI stamps

@@ -25,13 +25,20 @@
  *   if (!validation.ok) return failureFor(validation.issue)
  *   const response = await withFetchTimeout(validation.url, init, timeoutMs)
  *
+ * Redirects are NOT followed unless the caller says so. `redirect` defaults
+ * to `'manual'`, so a 3xx comes back as itself: `validateOutboundUrl` judged
+ * the first URL only, and a followed redirect would send the request — and
+ * its headers — wherever the answer points, unchecked. A caller that fetches
+ * a user-influenced URL goes through `guardedFetch`, which re-checks every
+ * hop; a caller whose redirects are legitimate and whose target is fixed (the
+ * release download, a configured AI endpoint) passes `redirect: 'follow'`.
+ *
  * Caller-supplied `init.signal` is intentionally NOT supported in the v1
  * API. None of the current six call sites pass one; if a future caller
  * needs to compose two signals, extend this helper to merge them with
  * `AbortSignal.any([init.signal, controller.signal])` (Bun + Node 20+).
  */
 export async function withFetchTimeout(
-  // eslint-disable-next-line functional/prefer-immutable-types -- RequestInfo and URL are Web standard interfaces with setters; immutability lint can't prove our consumers don't mutate them. We don't.
   input: RequestInfo | URL,
   init: Readonly<Omit<RequestInit, 'signal'>>,
   timeoutMs: number
@@ -39,7 +46,11 @@ export async function withFetchTimeout(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    return await fetch(input, { ...init, signal: controller.signal })
+    return await fetch(input, {
+      ...init,
+      redirect: init.redirect ?? 'manual',
+      signal: controller.signal,
+    })
   } finally {
     clearTimeout(timer)
   }
@@ -63,7 +74,6 @@ export async function withFetchTimeout(
  * `AbortError` a timed-out `withFetchTimeout` rejects with.
  */
 export async function withFetchStallTimeout<T>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- RequestInfo and URL are Web standard interfaces with setters; see withFetchTimeout
   input: RequestInfo | URL,
   init: Readonly<Omit<RequestInit, 'signal'>>,
   stallMs: number,
@@ -73,7 +83,6 @@ export async function withFetchStallTimeout<T>(
   const timer = setTimeout(() => controller.abort(), stallMs)
   try {
     const response = await fetch(input, { ...init, signal: controller.signal })
-    // eslint-disable-next-line functional/no-expression-statements -- re-arm: the headers are progress
     timer.refresh()
     const watched =
       response.body === null
@@ -82,7 +91,6 @@ export async function withFetchStallTimeout<T>(
             response.body.pipeThrough(
               new TransformStream<Uint8Array, Uint8Array>({
                 transform(chunk, stream) {
-                  // eslint-disable-next-line functional/no-expression-statements -- re-arm: a chunk is progress
                   timer.refresh()
                   stream.enqueue(chunk)
                 },

@@ -1,0 +1,7 @@
+name: not-found
+path: /404
+meta:
+  title: 'Page not found · [Product]'
+  description: '[The page you looked for is not here.]'
+components:
+  - component: not-found-centered

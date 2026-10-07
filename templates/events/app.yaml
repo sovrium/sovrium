@@ -27,10 +27,31 @@ env:
     required: false
     default: http://localhost:3000
     secret: false
+  # Optional: a Discord bot token and a channel id turn on the post of each
+  # event as it opens to the community's channel
+  # (config/automations/announce-event.yaml, through
+  # library/connection/discord.yaml). Without them the app runs as before.
+  - key: DISCORD_BOT_TOKEN
+    description: Token of your Discord bot, for the post of each event as it opens.
+    required: false
+  - key: DISCORD_CHANNEL_ID
+    description: Id of the Discord channel the events are announced in.
+    required: false
+  # Optional: a Google OAuth client lets an organizer connect the shared Google
+  # calendar, whose events are then filed into calendar_events every hour
+  # (library/recipe/google-calendar-events-to-table.yaml). Without it the app
+  # runs as before and that table stays empty.
+  - key: GOOGLE_CLIENT_ID
+    description: OAuth client id of your Google Cloud project, for the shared calendar.
+    required: false
+  - key: GOOGLE_CLIENT_SECRET
+    description: OAuth client secret of your Google Cloud project, for the shared calendar.
+    required: false
 
 tables:
   - $ref: ./config/tables/events.yaml
   - $ref: ./config/tables/registrations.yaml
+  - $ref: ./config/tables/calendar_events.yaml
 
 # The two public forms render on `/register` and `/waitlist/<event>`; the third opens
 # in a dialog on the Overview.
@@ -39,10 +60,23 @@ forms:
   - $ref: ./config/forms/join-waitlist.yaml
   - $ref: ./config/forms/new-event.yaml
 
+# First-party analytics: page views of the public pages and one event per
+# registration (config/automations/track-registration.yaml), counted on this
+# server with no cookie and no outside service. The organizers' own pages are
+# left out, so the figures are the community's, not the staff's.
+analytics:
+  excludedPaths:
+    - /calendar
+    - /registrations
+    - /sign-in
+
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/confirm-registration.yaml
   - $ref: ./config/automations/recount-seats.yaml
+  - $ref: ./config/automations/announce-event.yaml
+  - $ref: ./config/automations/track-registration.yaml
+  - $ref: ./library/recipe/google-calendar-events-to-table.yaml
 
 # Listed in the order of the sidebar, then the public pages.
 pages:
@@ -60,3 +94,7 @@ pages:
 # floating pill, so it never sits over the last card.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/discord.yaml
+  - $ref: ./library/connection/google.yaml

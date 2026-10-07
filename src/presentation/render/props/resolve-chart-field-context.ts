@@ -9,6 +9,7 @@ import {
   resolveCurrencyOptions,
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
+import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import {
   optionLabel,
   optionValue,
@@ -149,6 +150,78 @@ export function resolveChartFieldContext(
   }
 }
 
+/**
+ * Field types whose chart categories are named by a label the records read
+ * carries beside the stored key (an account's name, a related row's display
+ * field). The aggregate read answers the keys alone, so a chart grouped by one
+ * keeps reading records.
+ */
+const LABELLED_TYPES: ReadonlySet<string> = new Set([
+  'user',
+  'created-by',
+  'updated-by',
+  'deleted-by',
+  'relationship',
+])
+
+/** A figure the aggregate read answers as the island draws it: a count, or a number. */
+const numericFigure = (
+  tables: Tables,
+  tableName: string,
+  aggregate: { readonly function: string; readonly field?: string }
+): boolean =>
+  aggregate.function === 'count' ||
+  (aggregate.field !== undefined &&
+    minMaxKindOf({ tables }, tableName, aggregate.field) === 'number')
+
+/**
+ * Bound to one of its table's views, a figure reads the view's records route,
+ * which applies the view's filter: the aggregate read takes the table's rows,
+ * so it would count records the view leaves out.
+ */
+const readsThroughView = (component: { readonly dataSource?: unknown }): boolean => {
+  const source = component.dataSource as { readonly view?: unknown } | undefined
+  return typeof source?.view === 'string'
+}
+
+/**
+ * Whether a chart's figures can come from ONE aggregate read
+ * (`GET /api/tables/:t/aggregate`) instead of a page of records: it aggregates,
+ * over a number (or counts), grouped by a field the read can name — a calendar
+ * bucket only over a date. Never for a chart bound to a view (see `readsThroughView`).
+ */
+export function resolveChartAggregateRead(
+  tables: Tables,
+  table: Tables[number],
+  component: ChartComponent
+): boolean {
+  const aggregate = component.chartAggregate
+  if (aggregate === undefined || readsThroughView(component)) return false
+  const field = findField(table, aggregate.groupBy)
+  if (field === undefined || LABELLED_TYPES.has(field.type)) return false
+  if (!numericFigure(tables, table.name, aggregate)) return false
+  if (aggregate.interval === undefined) return true
+  const kind = minMaxKindOf({ tables }, table.name, aggregate.groupBy)
+  return kind === 'date' || kind === 'date-time'
+}
+
+/**
+ * Whether a KPI's figure can come from one aggregate read: a count, a ratio
+ * (two counts), or a number — and never for a KPI bound to a view (see
+ * `readsThroughView`).
+ */
+export const resolveKpiAggregateRead = (
+  tables: Tables,
+  table: Tables[number],
+  component: KpiComponent
+): boolean => {
+  const aggregate = component.kpiAggregate ?? { function: 'count' }
+  return (
+    !readsThroughView(component) &&
+    (aggregate.function === 'ratio' || numericFigure(tables, table.name, aggregate))
+  )
+}
+
 /** A KPI's aggregated field's currency display (none for a count). */
 export function resolveKpiValueCurrency(
   table: Tables[number],
@@ -172,17 +245,42 @@ export function resolveFigureFieldContext(
         readonly type: 'kpi'
         readonly component: KpiComponent
       },
-  table: Tables[number]
+  table: Tables[number],
+  tables: Tables
 ): {
   readonly categoryOptions?: readonly ChartCategoryOptionInput[]
   readonly valueCurrency?: CurrencyDisplayOptions
+  readonly aggregateRead?: boolean
 } {
   if (figure.type === 'kpi') {
-    return { valueCurrency: resolveKpiValueCurrency(table, figure.component) }
+    return {
+      valueCurrency: resolveKpiValueCurrency(table, figure.component),
+      aggregateRead: resolveKpiAggregateRead(tables, table, figure.component),
+    }
   }
   const { series } = figure.component
+  const aggregateRead = resolveChartAggregateRead(tables, table, figure.component)
   if (series !== undefined && series.length > 0) {
-    return { valueCurrency: resolveSeriesCurrency(table, series) }
+    return { valueCurrency: resolveSeriesCurrency(table, series), aggregateRead }
   }
-  return resolveChartFieldContext(table, figure.component)
+  return { ...resolveChartFieldContext(table, figure.component), aggregateRead }
 }
+
+/**
+ * {@link resolveFigureFieldContext} for a component known only by its type
+ * literal. `Component` is still `any` (see `component.ts`); naming the branch
+ * here is what makes a renamed chart or KPI key fail the typecheck above.
+ */
+export const resolveFigureInputsFor = (
+  type: 'chart' | 'kpi',
+  component: unknown,
+  table: Tables[number],
+  tables: Tables
+): ReturnType<typeof resolveFigureFieldContext> =>
+  resolveFigureFieldContext(
+    type === 'chart'
+      ? { type, component: component as ChartComponent }
+      : { type, component: component as KpiComponent },
+    table,
+    tables
+  )

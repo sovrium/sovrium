@@ -1,0 +1,18 @@
+# sovrium-library: block/modal-form@0.30.0
+id: 4
+name: modal-form
+title: '[Invite a member]'
+submitTo:
+  table: people
+fields:
+  - kind: table-field
+    column: name
+    label: '[Name]'
+  - kind: table-field
+    column: email
+    label: '[Email]'
+    placeholder: name@example.com
+onSuccess:
+  type: toast
+  message: Invitation recorded.
+  variant: success

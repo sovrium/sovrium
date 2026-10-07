@@ -13,7 +13,7 @@
  * three for as long as there have been two. What each one is there for:
  *   - `src/presentation/islands/` — client-hydrated island recipes
  *   - `src/presentation/design/` — every recipe the SERVER renders, plus every
- *     recipe BOTH sides share, since W6 merged those two directories into one.
+ *     recipe BOTH sides share, in one directory.
  *     It holds the SSR element recipes (button/input/forms/…), which were
  *     silently missed when this generator scanned only the islands dir: the
  *     recipe-only arbitrary classes (e.g. the input error-state
@@ -90,13 +90,11 @@ import { join } from 'node:path'
  * `v('sv-X', T.Y)` template literals must be safelisted. BOTH are scanned, and
  * `walkRecipeDir` recurses, so a recipe in a subdirectory is still found.
  *
- * THREE DIRECTORIES BECAME TWO IN W6, and the count is the only thing that
- * changed. The SSR element recipes (`ui/sections/renderers/element-renderers/`)
- * and the shared recipes (`utils/recipes/`) both landed in the ONE neutral leaf
- * `presentation/design/`, which is what that directory exists for: a recipe
- * reachable by BOTH an island and an SSR renderer cannot live in either tree,
- * because the two may not import each other. Measured across the move: 28
- * `*-default-classes.ts` files in, 28 out, and the emitted candidate corpus
+ * The SSR element recipes and the shared recipes both live in the ONE neutral
+ * leaf `presentation/design/`, which is what that directory exists for: a
+ * recipe reachable by BOTH an island and an SSR renderer cannot live in either
+ * tree, because the two may not import each other. When the SSR and shared
+ * recipe directories were merged into it, the emitted candidate corpus stayed
  * identical to the byte — 0 added, 0 removed across 40,087 candidates.
  *
  * THESE ARE ASSEMBLED FROM SEGMENTS AND NO REWRITER CAN SEE THEM. Neither

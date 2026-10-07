@@ -14,7 +14,7 @@ import {
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   createValidationLayer,
   formatValidationError,
@@ -163,7 +163,6 @@ export function checkBatchFieldPermissions(config: {
     return notFound(c)
   }
 
-  // eslint-disable-next-line unicorn/no-null -- null indicates no permission error
   return null
 }
 
@@ -190,7 +189,6 @@ export function validateStrippedRecordsNotEmpty(config: {
     return notFound(c)
   }
 
-  // eslint-disable-next-line unicorn/no-null -- null indicates no error
   return null
 }
 
@@ -257,7 +255,7 @@ export async function validateBulkFieldValues(
     { concurrency: 1 }
   ).pipe(Effect.provide(layer))
 
-  const results = await Effect.runPromise(provideDomain(c, program))
+  const results = await runDomainPromise(c, program)
   const firstFailure = results.find((result) => result._tag === 'Failure')
   return firstFailure === undefined ? undefined : formatValidationError(firstFailure.failure, c)
 }

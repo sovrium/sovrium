@@ -188,6 +188,6 @@ export const roleHiddenByDefaultReadRules = (
   if (app.tables?.some((candidate) => candidate.name === table) !== true) return undefined
   // The predicate is typed on the decoded `App`; it reads only `tables` and the
   // role ladder under `auth`, both of which the structural shape passes through.
-  const decoded = app as unknown as App
+  const decoded = app as App
   return roles.find((role) => !isFieldReadableByCaller(decoded, table, { role }, field))
 }

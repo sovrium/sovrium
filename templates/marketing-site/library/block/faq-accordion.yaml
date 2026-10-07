@@ -1,0 +1,58 @@
+# sovrium-library: block/faq-accordion@0.30.0
+name: faq-accordion
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-3xl
+    children:
+      - type: text
+        element: h2
+        props:
+          className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1] sm:text-4xl'
+        content: Questions
+      - type: accordion
+        accordionType: single
+        defaultOpen:
+          - question-1
+        props:
+          className: mt-8
+        children:
+          - type: container
+            element: section
+            props:
+              id: question-1
+            content:
+              title: '[The question visitors ask first]'
+              body: '[A direct answer in two or three sentences. Link to the page that goes deeper.]'
+          - type: container
+            element: section
+            props:
+              id: question-2
+            content:
+              title: '[What happens to my data if I leave?]'
+              body: '[A direct answer in two or three sentences. Link to the page that goes deeper.]'
+          - type: container
+            element: section
+            props:
+              id: question-3
+            content:
+              title: '[Who can see what?]'
+              body: '[A direct answer in two or three sentences. Link to the page that goes deeper.]'
+          - type: container
+            element: section
+            props:
+              id: question-4
+            content:
+              title: '[How long does it take to start?]'
+              body: '[A direct answer in two or three sentences. Link to the page that goes deeper.]'
+          - type: container
+            element: section
+            props:
+              id: question-5
+            content:
+              title: '[What does it cost after the first year?]'
+              body: '[A direct answer in two or three sentences. Link to the page that goes deeper.]'

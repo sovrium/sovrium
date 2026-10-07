@@ -8,7 +8,7 @@
 /**
  * The two kit categories a page SHOWS: content and display.
  *
- * Twenty-one types between them, and the largest half of the completion pass.
+ * Two dozen types between them, and the largest half of the completion pass.
  * Split out from `catalog-specimens/state.ts` for size rather than for
  * principle — but the line the split falls on is real: everything here presents
  * something already decided, where `interactive` and `feedback` report a state
@@ -37,7 +37,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 
 const component = (value: unknown): Component => value as Component
 
-/** The eleven content types. */
+/** The content types — count them in the array, not in this line. */
 const CONTENT_SPECIMENS: readonly CatalogSpecimen[] = [
   {
     type: 'text',
@@ -139,13 +139,11 @@ const CONTENT_SPECIMENS: readonly CatalogSpecimen[] = [
     component: component({
       type: 'image',
       props: {
-        // A served file rather than the inline SVG this used to draw. The old
-        // comment argued an inline `data:` URI kept the kit page's network
-        // sweep free of an unrelated asset; what
-        // it drew was a flat grey rectangle, which tells a reader nothing
-        // about how an image renders. The sweep is unaffected either way — it
-        // forbids non-GET and cross-origin requests, and this is a same-origin
-        // GET for an asset the console itself ships.
+        // A served file rather than an inline `data:` SVG: a flat grey
+        // placeholder tells a reader nothing about how an image renders. The
+        // kit page's network sweep is unaffected — it forbids non-GET and
+        // cross-origin requests, and this is a same-origin GET for an asset
+        // the console itself ships.
         src: '/assets/design-system/sample-still.avif',
         alt: 'Image swatch',
         // The sample is 960×540; these keep the drawn box at the same 16:9
@@ -194,16 +192,41 @@ const CONTENT_SPECIMENS: readonly CatalogSpecimen[] = [
         'back. Look at the page you embedded it on.',
     },
   },
+  {
+    // Every one of its three faces — an image with zoom, a PDF in its viewer,
+    // anything else as a download — is drawn from a file the server SIGNED for
+    // the caller (`file-preview-resolver.ts`); a preview with no signable file
+    // carries none and draws nothing. The console holds no file of its own to
+    // sign, and the files an instance does hold are your buckets' — the read the
+    // confidentiality bound keeps out of this page.
+    type: 'file-preview',
+    refusal: {
+      state: 'needs-data-source',
+      note:
+        'Shows a stored file inline: an image with zoom, a PDF in its viewer, anything else as ' +
+        'a download. Every face is drawn from a file signed for the reader, and the only files ' +
+        'this instance holds are in your buckets, which this console may not read. See it on a ' +
+        'data-bound page.',
+    },
+  },
 ]
 
-/** The ten display types. */
+/** One step's body: a line of quiet prose, always valid, so Continue moves on. */
+const stepBody = (content: string): unknown => ({
+  type: 'text',
+  element: 'p',
+  props: { className: 'text-foreground-subtle text-sm' },
+  content,
+})
+
+/** The display types — count them in the array, not in this line. */
 const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
   {
     // A GROUP OF THREE, and the count is load-bearing rather than decorative.
     // It is the shape that shows every decision the type makes at once: the
     // stack overlap, initials DERIVED from a name the config never spells out,
     // and enough members that a `max` has something to hide — which is what
-    // `[internal ref]` draws a preview of, capping this
+    // A design system component preview spec draws a preview of, capping this
     // specimen at two and reading the overflow as `+1`. A single avatar would
     // document a disc; this documents the component.
     type: 'avatar',
@@ -328,6 +351,29 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
       children: [
         { type: 'text', element: 'p', content: 'Invoice sent · 14:02' },
         { type: 'text', element: 'p', content: 'Record created · 13:40' },
+      ],
+    }),
+  },
+  {
+    // Three steps, the middle one OPTIONAL, with plain text bodies. Text is
+    // always valid, so Continue moves on in the live drawing and the rail's
+    // complete state is one click away; the optional step is what puts Skip
+    // beside Continue when it is reached. No `onFinish`: the last button is
+    // drawn and runs nothing, which keeps the specimen free of a write path.
+    type: 'stepper',
+    component: component({
+      type: 'stepper',
+      props: { id: 'design-system-kit-stepper' },
+      steps: [
+        { id: 'kit-details', label: 'Details', description: 'Who the project is for' },
+        { id: 'kit-billing', label: 'Billing', description: 'Can wait', optional: true },
+        { id: 'kit-review', label: 'Review' },
+      ],
+      finishLabel: 'Create project',
+      children: [
+        stepBody('Name the project and its client.'),
+        stepBody('Add a billing contact, or skip and add one later.'),
+        stepBody('Check the details before the project is created.'),
       ],
     }),
   },

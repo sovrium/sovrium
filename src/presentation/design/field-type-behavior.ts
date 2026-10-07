@@ -15,12 +15,11 @@ import type { FieldType } from '@/domain/models/app/tables/fields'
  * hydrated form island, and the data-table's inline cell editor — so no surface
  * can drift apart from the others per field type.
  *
- * The grid used to keep its own partial copy of this decision (a
- * `SELECT_FIELD_TYPES` set, a `NUMBER_FIELD_TYPES` set and a `resolveInputType`
- * chain in `editable-cell.tsx`), and eight field types fell through it to a
- * plain text box: six could not express their value at all, and `checkbox`,
- * `rating` and `datetime` looked editable while silently accepting prose. That
- * copy is gone; the widgets below are what replaced it.
+ * No surface keeps its own partial copy of this decision. A partial copy (say,
+ * a select-type set, a number-type set and an input-type chain in the grid)
+ * lets field types fall through to a plain text box: some cannot express their
+ * value at all, and `checkbox`, `rating` or `datetime` look editable while
+ * silently accepting prose. The widgets below are the one decision.
  *
  * A widget names a CONTROL CLASS, not a rendering. Each surface still owns its
  * own total widget → control table, and they may differ in chrome — the grid
@@ -85,9 +84,8 @@ export interface FieldTypeBehavior {
    * legitimately accept `''` (free text, rich text, code, json, attachments)
    * are `send`.
    *
-   * `barcode` is neither, and used to be recorded here as `send` on the stated
-   * ground that a barcode column "legitimately accepts `''`". That was true of
-   * a bare `barcode` field and FALSE of one declaring `format`, which emits
+   * `barcode` is neither, and not `send`: a barcode column "legitimately
+   * accepts `''`" only as a bare `barcode` field, NOT when it declares `format`, which emits
    * `check_<field>_format` — a CHECK that `''` fails on both dialects. Per-type
    * granularity is structurally too coarse for a type whose constraint is
    * opt-in, so it is `omit-when-formatted`.
@@ -179,6 +177,9 @@ const FIELD_TYPE_BEHAVIOR = {
   // ── Attachments (an empty string is not a storage key) ──────────────────
   'single-attachment': { widget: 'file-single', emptyValuePolicy: 'omit' },
   'multiple-attachments': { widget: 'file-multiple', emptyValuePolicy: 'omit' },
+  // Written by a `signature-pad`, never by a generic form control: an empty
+  // value is omitted so an edit that does not sign leaves the field alone
+  signature: { widget: 'file-single', emptyValuePolicy: 'omit' },
 
   // ── Computed / system-managed: never writable, so never send a blank ────
   formula: TEXT_OMITS_EMPTY,

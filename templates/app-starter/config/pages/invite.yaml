@@ -1,0 +1,10 @@
+name: invite
+# The invitation email links to /accept-invitation, so this page lives there:
+# an app page at that path replaces the built-in one.
+path: /accept-invitation
+meta:
+  title: Invitation · App starter
+  description: Accept an invitation.
+invitation: {}
+components:
+  - component: auth-invitation-accept

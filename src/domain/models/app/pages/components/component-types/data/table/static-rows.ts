@@ -30,17 +30,47 @@
  * renames `data-table` to `table` should not also have to guess at `headers`.
  *
  * `caption` carries no prefix and never did; it is left alone for the same
- * reason.
+ * reason. `tableColumns` takes the prefix for the opposite one: a bound grid
+ * already has `columns`, whose entries name a `field`, and an authored column
+ * names none — one key meaning two shapes would be refused in neither.
  */
 
 import { Schema } from 'effect'
 
 /**
- * Header labels, row cells and a caption — the whole of a table's static mode.
+ * How one authored column is drawn, index-aligned with `tableHeaders`.
+ *
+ * A selector from a wrapper (`[&_td:nth-child(3)]:text-right`) names a position
+ * in markup rather than the column the author wrote; this entry sits at the
+ * column's own index instead. `align` reaches the header and the body cells — a column of
+ * figures is right-aligned top to bottom; `className` reaches the body cells
+ * only, since a header row reads in one face whatever its columns carry.
+ */
+const StaticColumnSchema = Schema.Struct({
+  align: Schema.optional(
+    Schema.Literals(['left', 'center', 'right']).annotate({
+      description: "Alignment of the column's header and body cells (default: left)",
+    })
+  ),
+  className: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Tailwind classes on every body cell of the column — a mono face for a time, a muted ink for a secondary value. The header cell is styled by the table's `header` part",
+      examples: ['font-mono', 'text-foreground-muted'],
+    })
+  ),
+}).annotate({
+  title: 'Written Table Column',
+  description: 'How one written column is drawn: its alignment and the classes of its body cells',
+})
+
+/**
+ * Header labels, row cells, a caption and per-column drawing — the whole of a
+ * table's static mode.
  *
  * Each is optional on its own: a table with headers and no rows is a legal
  * empty state, and a caption belongs to either mode. What is NOT legal is
- * declaring `tableRows` beside a `dataSource` — the binding would win and the
+ * declaring `tableRows` (or `tableColumns`) beside a `dataSource` — the binding would win and the
  * authored rows would vanish with no symptom, so that pair is refused by name
  * in `component-xor-rules.ts` rather than resolved.
  */
@@ -65,5 +95,14 @@ export const staticRowFields = {
   ),
   caption: Schema.optional(
     Schema.String.annotate({ description: 'Caption text displayed above or below the table' })
+  ),
+  tableColumns: Schema.optional(
+    Schema.Array(StaticColumnSchema).pipe(
+      Schema.annotate({
+        description:
+          'How each written column is drawn, in the order the headers declare: its alignment and the classes of its body cells. A shorter list leaves the remaining columns as they are',
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
   ),
 } as const

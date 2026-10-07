@@ -1,0 +1,63 @@
+# sovrium-library: block/pricing-comparison@0.30.0
+name: pricing-comparison
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: text
+        element: h2
+        props:
+          className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1] sm:text-4xl'
+        content: Compare plans
+      - type: container
+        props:
+          className: mt-8 overflow-x-auto rounded-lg border border-border bg-background-raised
+        children:
+          - type: table
+            tableHeaders:
+              - Feature
+              - '[Plan A]'
+              - '[Plan B]'
+              - '[Plan C]'
+            tableRows:
+              - - '[Feature one]'
+                - Included
+                - Included
+                - Included
+              - - '[Feature two]'
+                - —
+                - Included
+                - Included
+              - - '[Limit]'
+                - '[n]'
+                - '[n]'
+                - Unlimited
+              - - '[Feature four]'
+                - —
+                - —
+                - Included
+              - - '[Support]'
+                - Email
+                - Email
+                - '[Named contact]'
+              - - Price
+                - '[PRICE]'
+                - '[PRICE]'
+                - '[PRICE]'
+            tableColumns:
+              - className: font-medium
+              - {}
+              - {}
+              - {}
+            props:
+              className: '!table !w-full !rounded-none !border-0 !bg-transparent min-w-[36rem] text-left text-md text-foreground'
+            classes:
+              parts:
+                header: border-b border-border px-4 py-3 text-sm font-medium text-foreground-subtle
+                row: '*:border-b *:border-border last:*:border-b-0'
+                cell: px-4 py-3

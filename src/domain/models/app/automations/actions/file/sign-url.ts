@@ -40,7 +40,8 @@ export const FileSignUrlActionSchema = Schema.Struct({
     expiresIn: Schema.optional(
       Schema.Finite.pipe(
         Schema.annotate({
-          description: 'URL expiration time in seconds (default: 3600)',
+          description:
+            'URL expiration time in seconds (default: 3600); an upload URL is held between 60 seconds and 7 days',
         }),
         Schema.check(Schema.isGreaterThan(0))
       )
@@ -50,7 +51,8 @@ export const FileSignUrlActionSchema = Schema.Struct({
     operation: Schema.optional(
       Schema.Literals(['download', 'upload']).pipe(
         Schema.annotate({
-          description: 'URL operation type (default: download)',
+          description:
+            'URL operation type (default: download). An upload URL points at the app and writes a new file into the private `system` bucket; a key that already holds a file is refused',
         })
       )
     ),
@@ -59,7 +61,8 @@ export const FileSignUrlActionSchema = Schema.Struct({
     contentType: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotate({
-          description: "Content type to bind to an upload URL (operation: 'upload')",
+          description:
+            "Content type an upload URL accepts (operation: 'upload'); an upload of any other type is refused. Ignored for a download",
         })
       )
     ),

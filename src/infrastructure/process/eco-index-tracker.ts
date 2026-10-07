@@ -14,11 +14,11 @@
  * `GET /api/admin/footprint/overview` route handler for the `ecoIndexHeader`
  * panel.
  *
- * ## `currentGrade` is nullable, and that is the correction
+ * ## `currentGrade` is nullable, deliberately
  *
- * The tracker used to initialise `currentGrade` to `'A'`, so a freshly booted
- * instance reported grade A alongside `graded: 0` — a top grade awarded before
- * anything had been measured, which is exactly what [internal ref] D6 forbids. There
+ * Initialising `currentGrade` to `'A'` would make a freshly booted instance
+ * report grade A alongside `graded: 0` — a top grade awarded before anything
+ * has been measured, which is exactly what [internal ref] D6 forbids. There
  * is no honest letter for "nothing graded yet", so the field is `null` until a
  * response is graded. The console renders that as its empty state rather than
  * as an A.
@@ -72,17 +72,12 @@ export interface EcoIndexTrackerSnapshot {
  * Deliberately mutable: {@link recordGradedResponse} increments a bucket in
  * place on every response, and the snapshot reader copies before handing it out.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- deliberately mutable per the JSDoc above: the returned histogram is incremented in place by recordGradedResponse
 const emptyHistogram = (): Record<EcoIndexGrade, number> =>
   Object.fromEntries(GRADES.map((grade) => [grade, 0])) as Record<EcoIndexGrade, number>
 
-// eslint-disable-next-line functional/no-let -- counter mutated by the middleware
 let gradedCount = 0
-// eslint-disable-next-line functional/no-let, unicorn/no-null -- last grade mutated by the middleware; `null` (not `undefined`) is the API contract's "nothing graded yet" sentinel
 let currentGrade: EcoIndexGrade | null = null
-// eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- per-grade counts are incremented in place on the hot response path; a frozen record would mean re-allocating the histogram once per response
 let histogram: Record<EcoIndexGrade, number> = emptyHistogram()
-// eslint-disable-next-line functional/no-let -- running byte total mutated by the middleware
 let totalBytes = 0
 
 /**
@@ -95,13 +90,9 @@ let totalBytes = 0
  *   can never disagree with the grade the client actually received.
  */
 export const recordGradedResponse = (grade: EcoIndexGrade, bytes: number): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
   gradedCount += 1
-  // eslint-disable-next-line functional/no-expression-statements -- last-grade mutation is the point
   currentGrade = grade
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- histogram mutation is the point
   histogram[grade] += 1
-  // eslint-disable-next-line functional/no-expression-statements -- running total mutation is the point
   totalBytes += Number.isFinite(bytes) && bytes > 0 ? bytes : 0
 }
 
@@ -111,7 +102,6 @@ export const readEcoIndexTrackerSnapshot = (): EcoIndexTrackerSnapshot => ({
   graded: gradedCount,
   since: readTelemetryEpoch(),
   histogram: { ...histogram },
-  // eslint-disable-next-line unicorn/no-null -- `null` is the contract's "nothing graded yet" sentinel, deliberately distinct from a measured 0 bytes
   meanBytes: gradedCount === 0 ? null : Math.round(totalBytes / gradedCount),
 })
 
@@ -126,12 +116,8 @@ export const readEcoIndexTrackerSnapshot = (): EcoIndexTrackerSnapshot => ({
  * counters share.
  */
 export const resetEcoIndexTrackerAtBoot = (): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   gradedCount = 0
-  // eslint-disable-next-line functional/no-expression-statements, unicorn/no-null -- boot reset restores the "nothing graded yet" sentinel
   currentGrade = null
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   histogram = emptyHistogram()
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   totalBytes = 0
 }

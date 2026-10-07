@@ -82,17 +82,15 @@ components:
                   - { id: reorder, label: Reorder list }
                 children:
                   - type: table
+                    readOnly: true
                     dataSource:
                       table: products
+                      view: by_category
                       bindTo: products-filter
                       sharedFilter: {}
-                      sort:
-                        - { field: name, direction: asc }
                     rowHeight: short
                     columns:
                       $ref: ./_product-columns.yaml
-                    groupBy:
-                      field: category
                     summary:
                       - { field: name, function: count, label: Products }
                       - { field: stock_on_hand, function: sum, label: Σ }
@@ -107,6 +105,7 @@ components:
                   # reorder point. The filter is part of the grid, so a reader
                   # cannot lift it by accident.
                   - type: table
+                    readOnly: true
                     dataSource:
                       table: products
                       bindTo: products-filter

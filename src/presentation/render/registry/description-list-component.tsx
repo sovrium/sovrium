@@ -45,15 +45,41 @@ import {
   type DescriptionListLayout,
 } from '../../design/display-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { NOT_SET, renderFieldDetail } from './description-list-field-detail'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
-import type { ReactElement } from 'react'
+import type { Tables } from '@/domain/models/app/tables'
+import type { ReactElement, ReactNode } from 'react'
 
-/** One term-and-detail pair, as the schema declares it. */
+/**
+ * One term-and-detail pair, as the schema declares it: a text `detail`, or a
+ * `field` of the bound record whose value the binding pass stamped on it.
+ */
 interface DescriptionItem {
   readonly term: string
-  readonly detail: string
+  readonly detail?: string
+  readonly field?: string
+  readonly _recordValue?: unknown
+  readonly _recordTable?: string
   readonly action?: { readonly label: string; readonly href: string }
+}
+
+/** What a row's `<dd>` reads, given the render context a field detail needs. */
+interface DetailContext {
+  readonly tables: Tables | undefined
+  readonly lang: string
+}
+
+/** The detail node of a row, or `undefined` when it is empty. */
+function detailOf(item: DescriptionItem, context: DetailContext): ReactNode {
+  if (item.field === undefined) return item.detail === '' ? undefined : item.detail
+  return renderFieldDetail({
+    fieldName: item.field,
+    value: item._recordValue,
+    tableName: item._recordTable,
+    tables: context.tables,
+    lang: context.lang,
+  })
 }
 
 /**
@@ -83,8 +109,8 @@ const dividersOf = (
  * detail.
  *
  * A `<dl>` admits `<div>` wrappers and a wrapper admits `<dt>` and `<dd>` and
- * nothing else. The action used to be drawn as their sibling, which is invalid
- * markup rather than a styling choice, and it matters past pedantry: assistive
+ * nothing else. Drawing the action as their sibling would be invalid markup
+ * rather than a styling choice, and it matters past pedantry: assistive
  * technology pairs a list's terms with their details by exactly that structure,
  * and a stray element inside the group is where the pairing stops being
  * predictable.
@@ -99,47 +125,52 @@ const renderRow = ({
   index,
   layout,
   dividers,
+  context,
 }: {
   readonly item: DescriptionItem
   readonly index: number
   readonly layout: DescriptionListLayout
   readonly dividers: boolean
-}): ReactElement => (
-  <div
-    key={index}
-    data-description-row=""
-    className={computeDescriptionRowClasses({ layout })}
-  >
-    <dt className={computeDescriptionTermClasses({ layout, dividers })}>{item.term}</dt>
-    <dd
-      className={computeDescriptionDetailClasses({
-        layout,
-        dividers,
-        withAction: item.action !== undefined,
-      })}
+  readonly context: DetailContext
+}): ReactElement => {
+  const detail = detailOf(item, context)
+  return (
+    <div
+      key={index}
+      data-description-row=""
+      className={computeDescriptionRowClasses({ layout })}
     >
-      {item.detail === '' ? (
-        <span
-          data-description-empty=""
-          className={computeDescriptionEmptyClasses()}
-        >
-          {EMPTY_DETAIL}
-        </span>
-      ) : (
-        item.detail
-      )}
-      {item.action === undefined ? undefined : (
-        <a
-          data-description-action=""
-          href={item.action.href}
-          className={computeDescriptionActionClasses({ layout, dividers })}
-        >
-          {item.action.label}
-        </a>
-      )}
-    </dd>
-  </div>
-)
+      <dt className={computeDescriptionTermClasses({ layout, dividers })}>{item.term}</dt>
+      <dd
+        className={computeDescriptionDetailClasses({
+          layout,
+          dividers,
+          withAction: item.action !== undefined,
+        })}
+      >
+        {detail === undefined ? (
+          <span
+            data-description-empty=""
+            className={computeDescriptionEmptyClasses()}
+          >
+            {item.field === undefined ? EMPTY_DETAIL : NOT_SET}
+          </span>
+        ) : (
+          detail
+        )}
+        {item.action === undefined ? undefined : (
+          <a
+            data-description-action=""
+            href={item.action.href}
+            className={computeDescriptionActionClasses({ layout, dividers })}
+          >
+            {item.action.label}
+          </a>
+        )}
+      </dd>
+    </div>
+  )
+}
 
 /**
  * `description-list` — the facts about one thing, each named.
@@ -151,8 +182,11 @@ const renderRow = ({
 export const descriptionListComponent: ComponentRenderer = ({
   elementPropsWithSpacing,
   component,
+  tables,
+  currentLang,
 }) => {
-  const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
+  const context: DetailContext = { tables, lang: currentLang ?? 'en-US' }
+  const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const items = Array.isArray(source['items'])
     ? (source['items'] as readonly DescriptionItem[])
     : []
@@ -169,7 +203,7 @@ export const descriptionListComponent: ComponentRenderer = ({
       )}
     >
       <dl className={computeDescriptionListClasses({ layout })}>
-        {items.map((item, index) => renderRow({ item, index, layout, dividers }))}
+        {items.map((item, index) => renderRow({ item, index, layout, dividers, context }))}
       </dl>
     </div>
   )

@@ -11,6 +11,9 @@ account.
   card is a `$t:` key, so each language shares with its own
 - **Tables** (1): demo_requests (written by the form only; read by an admin only)
 - **Forms** (1): demo-request (public, honeypot; confirms with the address typed)
+- **Automations** (1): form-to-pipedrive-lead — a library recipe (`library/recipe/`, with its
+  `library/connection/pipedrive.yaml`) turning each demo request into a Pipedrive lead once
+  `PIPEDRIVE_API_TOKEN` is set
 - **Components** (3): feature-card, step-card, language-switcher
 - **Singletons**: design, languages (every sentence is a `$t:` key), auth (sign-up closed)
 - **Static assets**: `public/` — `favicon.svg`, `og-en.png`, `og-fr.png`

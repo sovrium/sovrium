@@ -40,7 +40,7 @@ export const CACHED_PAGE_CACHE_CONTROL = 'public, max-age=300'
 
 /**
  * `Cache-Control` for ANONYMOUS renders of paths the page cache cannot hold
- * (dynamic routes, presence pages, database-backed collections). The HTML still
+ * that read NO record data (dynamic routes, presence pages). The HTML still
  * varies only with public data, so browsers and CDNs may share it briefly —
  * this is what lets a CDN absorb navigation even though the server renders
  * fresh. `stale-while-revalidate` keeps repeat navigation instant while the
@@ -49,12 +49,30 @@ export const CACHED_PAGE_CACHE_CONTROL = 'public, max-age=300'
 export const SHARED_BYPASS_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300'
 
 /**
+ * `Cache-Control` for ANONYMOUS renders of pages that read record data (a
+ * table or a system endpoint). Such a page changes the moment someone writes a
+ * record, so no copy may be shown again without asking: browsers and CDNs may
+ * keep the bytes, but must revalidate them on every visit. The response carries
+ * a weak `ETag` and a matching `If-None-Match` is answered `304` (see
+ * `page-revalidation.ts`), so an unchanged page costs a header exchange, and
+ * the visit after a write is fresh by construction.
+ */
+export const REVALIDATED_PAGE_CACHE_CONTROL = 'public, no-cache'
+
+/**
  * `Cache-Control` for responses that must never be shared: a session or
  * preview render (personalised output), or any render while the operator has
  * turned the page cache off (`ECO_PAGE_CACHE=off` / dev bypass — honour the
  * "don't cache" intent end-to-end).
  */
 export const PRIVATE_CACHE_CONTROL = 'private, no-cache'
+
+/**
+ * `Cache-Control` for a page declaring `invitation`: it is drawn from the token
+ * in its own address, so every visit is answered afresh and no copy is kept,
+ * by a shared cache or by the browser — whatever the session or cache setting.
+ */
+export const PER_VISIT_CACHE_CONTROL = 'private, no-store'
 
 /** The pre-render disposition of one page request. */
 export interface PageCacheDecision {
@@ -74,7 +92,8 @@ export interface PageCacheDecision {
  * `'static'` or `'content'` path while `ECO_PAGE_CACHE` is on. Everything else
  * renders fresh; a session or preview render (or a cache-off render) must stay
  * private, while an anonymous bypass of a dynamic path is still shareable
- * downstream.
+ * downstream — revalidated on every visit when the page reads record data,
+ * held briefly when it does not.
  */
 export function decidePageCache(
   app: App,
@@ -87,9 +106,26 @@ export function decidePageCache(
   const classification = classifyRenderablePath(app, path)
   return {
     usable: shareableBypass && classification.verdict !== 'dynamic',
-    bypassCacheControl: shareableBypass ? SHARED_BYPASS_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
+    bypassCacheControl: bypassCacheControlFor(shareableBypass, classification),
     classification,
   }
+}
+
+/**
+ * The `Cache-Control` a bypass carries: never stored for an invitation page;
+ * otherwise private unless the render is anonymous
+ * with the cache on; otherwise revalidated on every visit when the page reads
+ * record data, and briefly shareable when it varies only with its URL.
+ */
+function bypassCacheControlFor(
+  shareableBypass: boolean,
+  classification: RenderablePathCacheability
+): string {
+  if (classification.page?.invitation !== undefined) return PER_VISIT_CACHE_CONTROL
+  if (!shareableBypass) return PRIVATE_CACHE_CONTROL
+  return classification.readsRecordData
+    ? REVALIDATED_PAGE_CACHE_CONTROL
+    : SHARED_BYPASS_CACHE_CONTROL
 }
 
 /**

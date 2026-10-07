@@ -1,0 +1,7 @@
+name: two-step
+path: /two-step
+meta:
+  title: Enter your code · App starter
+  description: The second sign-in step.
+components:
+  - component: auth-two-factor

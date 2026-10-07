@@ -10,18 +10,21 @@ import {
   resolveInterpreterStringOverrides,
 } from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
-import {
-  computeListLoadMoreClasses,
-  computeListShellClasses,
-} from '@/presentation/design/list-default-classes'
+import { computeListLoadMoreClasses } from '@/presentation/design/list-default-classes'
 import {
   hostClassName,
   hostComponentType,
 } from '@/presentation/render/registry/island-host-attributes'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { renderEmptyBoundList } from './empty-bound-list'
+import {
+  parseListDisplay,
+  renderListIsland,
+  type EngineLocale,
+  type ListDisplayProps,
+} from './list-island-host'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
-import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
 /** Stable identity for the search-list SSR placeholder input. */
@@ -98,24 +101,6 @@ interface ListPaginationProps {
   readonly paginationStyle: string | undefined
 }
 
-interface ListDisplayProps {
-  readonly itemTemplate?: Record<string, unknown>
-  readonly emptyMessage?: string
-  readonly loadMore?: string
-  readonly highlight?: boolean
-  readonly maxItems?: number
-}
-
-/**
- * Reads the `_listDisplay` prop into its declarative config. Both resolvers
- * (`data-source-rows.ts`, `data-source-modes.ts`) stamp it as an OBJECT, never
- * a JSON string, so the props translation pass has already resolved its `$t:`
- * keys by the time it lands here — one shape, no second spelling to drift.
- */
-function parseListDisplay(raw: unknown): ListDisplayProps | undefined {
-  return typeof raw === 'object' && raw !== null ? (raw as ListDisplayProps) : undefined
-}
-
 /** Builds the serialized island props from the resolved search element props. */
 function buildSearchIslandProps(
   elementProps: Record<string, unknown>,
@@ -141,81 +126,6 @@ function buildSearchIslandProps(
     bindTo,
     'data-testid': elementProps['data-testid'] as string | undefined,
   })
-}
-
-/**
- * Renders the `list` island placeholder for a CLIENT-fetching data-bound list
- * (CAP-1). The resolver stamped `_listIslandMode` + `_listDataSource` (the DB
- * table OR system read endpoint) + `_listDisplay`; this host forwards them to
- * the island, which fetches its rows and renders the `itemTemplate`. A system
- * source is read-only — no write affordances are emitted.
- */
-/** The active page language and app translations, for the engine's own strings. */
-interface EngineLocale {
-  readonly currentLang: string | undefined
-  readonly languages: Languages | undefined
-}
-
-function renderListIsland(
-  elementProps: Record<string, unknown>,
-  { currentLang, languages }: EngineLocale
-): ReactElement {
-  const listDisplay = parseListDisplay(elementProps['_listDisplay'])
-  const dataSource = JSON.parse((elementProps['_listDataSource'] as string) ?? '{}') as unknown
-  // The table-derived inputs (`list-island-inputs.ts`): currencies, and the
-  // other facts about the bound fields a row prints the way a grid row does.
-  const inputs = JSON.parse((elementProps['_listInputs'] as string) ?? '{}') as object
-  const islandProps = JSON.stringify({
-    ...inputs,
-    dataSource,
-    itemTemplate: listDisplay?.itemTemplate,
-    // The paging affordance. Without this line the island cannot know a control
-    // was asked for, so `listDisplay.loadMore` had no reader on this path at all
-    // and a paged list ended silently at its first page.
-    loadMore: listDisplay?.loadMore,
-    emptyMessage: listDisplay?.emptyMessage,
-    // How many rows the list is allowed to DRAW. Without this line the island
-    // never learns the cap was declared, so `listDisplay.maxItems` had no reader
-    // anywhere and an author who capped a list got the whole collection.
-    maxItems: listDisplay?.maxItems,
-    // The list's loading and failure chrome in the page language, sent only
-    // where it differs from the English the island is written in.
-    uiStrings: resolveInterpreterStringOverrides(['list.', 'rateLimit.'], currentLang, languages),
-  })
-  return (
-    <div
-      id={elementProps['id'] as string | undefined}
-      data-island="list"
-      data-component="list"
-      data-component-type={hostComponentType(elementProps)}
-      className={hostClassName(elementProps)}
-      // On the HOST rather than inside the island payload, where it used to sit
-      // and where nothing read it: the island returns a fragment, so it has no
-      // single element of its own to name, and the host is the element that is
-      // there before hydration and still there after. It is also where the two
-      // other data islands put theirs, so one selector addresses any of them.
-      data-testid={elementProps['data-testid'] as string | undefined}
-      data-island-props={islandProps}
-    >
-      {/* SSR skeleton: VISIBLE pulse rows before island hydration so the host
-          has a non-zero box (Playwright treats an empty/zero-height host as
-          hidden). Skeleton rows are `<div>` (not `<li>`) so `#id li` resolves to
-          the hydrated itemTemplate items only. The island replaces this host's
-          children on mount. */}
-      <div
-        role="status"
-        aria-label={resolveInterpreterString('list.loading', currentLang, languages)}
-        className={`${computeListShellClasses()} space-y-2 p-2`}
-      >
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={`list-skeleton-${String(i)}`}
-            className="bg-background-subtle h-6 w-full animate-pulse rounded"
-          />
-        ))}
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -323,45 +233,25 @@ function renderListWithPagination(
 }
 
 /**
- * A bound list with no row. It says its `listDisplay.emptyMessage`, as the
- * item-template list does; with none it stays a visible, empty box.
- */
-function renderEmptyBoundList(
-  domProps: Record<string, unknown>,
-  emptyMessage: unknown
-): ReactElement {
-  if (typeof emptyMessage === 'string') {
-    return (
-      <div {...domProps}>
-        <p data-list-empty="">{emptyMessage}</p>
-      </div>
-    )
-  }
-  return (
-    <ul
-      {...domProps}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call style merge inside a stateless render function; memoization happens in the outer component
-      style={{
-        ...(domProps.style as object | undefined),
-        display: 'block',
-        minHeight: '1px',
-      }}
-    />
-  )
-}
-
-/**
  * Special components (card-*, navigation, list, etc.)
  *
  * These components have complex rendering logic or use custom UI components.
  */
 export const specialComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
-  list: ({ elementProps, content, design, renderedChildren, currentLang, languages }) => {
+  list: ({
+    elementProps,
+    content,
+    design,
+    renderedChildren,
+    currentLang,
+    languages,
+    designStyles,
+  }) => {
     // CAP-1: a client-fetching data-bound list (DB table OR system read
     // endpoint), stamped by the data-source resolver. Emit the `list` island
     // host; the island fetches its rows and renders the itemTemplate items.
     if (elementProps['_listIslandMode']) {
-      return renderListIsland(elementProps, { currentLang, languages })
+      return renderListIsland(elementProps, { currentLang, languages }, designStyles)
     }
 
     // Show error if dataSource validation failed
@@ -392,7 +282,7 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
     }
     // Ensure data-bound lists are visible even when empty (no records in table)
     if (dataSourceBound && !content) {
-      return renderEmptyBoundList(domProps, elementProps['_listEmptyMessage'])
+      return renderEmptyBoundList(domProps, elementProps)
     }
     return Renderers.renderList(domProps, content, design)
   },

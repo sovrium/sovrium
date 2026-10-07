@@ -1,0 +1,89 @@
+# sovrium-library: block/header-with-links@0.30.0
+name: header-with-links
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-4
+        children:
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: container
+                props:
+                  className: size-1.5 rounded-sm bg-primary
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: $t:header.section
+          - type: text
+            element: h1
+            props:
+              className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05] max-w-3xl'
+            content: $t:pricing.title
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-2xl
+            content: $t:header.lead
+          - type: flex
+            props:
+              className: flex mt-6 flex-wrap gap-x-8 gap-y-3 border-t border-border pt-5
+            children:
+              - type: link
+                props:
+                  href: '#topic-one'
+                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                children:
+                  - type: text
+                    element: span
+                    content: $t:header.topic1
+                  - type: icon
+                    props:
+                      name: arrow-right
+                      size: 16
+              - type: link
+                props:
+                  href: '#topic-two'
+                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                children:
+                  - type: text
+                    element: span
+                    content: $t:header.topic2
+                  - type: icon
+                    props:
+                      name: arrow-right
+                      size: 16
+              - type: link
+                props:
+                  href: '#topic-three'
+                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                children:
+                  - type: text
+                    element: span
+                    content: $t:header.topic3
+                  - type: icon
+                    props:
+                      name: arrow-right
+                      size: 16
+              - type: link
+                props:
+                  href: '#topic-four'
+                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                children:
+                  - type: text
+                    element: span
+                    content: $t:header.topic4
+                  - type: icon
+                    props:
+                      name: arrow-right
+                      size: 16

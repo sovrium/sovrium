@@ -1,0 +1,56 @@
+# sovrium-library: block/auth-magic-link@0.30.0
+name: auth-magic-link
+type: container
+element: main
+props:
+  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+children:
+  - type: container
+    props:
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2 text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: layers
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: $app.label
+      - type: flex
+        props:
+          className: flex flex-col gap-1.5
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: Sign in with a link
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: We email you a link that signs you in. No password needed.
+      - type: form
+        action:
+          type: auth
+          method: login
+          strategy: magicLink
+          submitLabel: Send me a link
+          onSuccess:
+            type: successPage
+            title: Check your inbox
+            message: 'We sent a sign-in link to $form.email. It works once and expires soon. Nothing there? Check your spam folder, or send a new one.'
+      - type: flex
+        props:
+          className: flex flex-wrap gap-1 text-md text-foreground-muted
+        children:
+          - type: link
+            props:
+              href: /sign-in
+              className: font-medium text-foreground underline underline-offset-4
+            content: Sign in with a password

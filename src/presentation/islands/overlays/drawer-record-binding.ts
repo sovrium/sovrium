@@ -60,7 +60,7 @@ function populateControls(
     .forEach((control) => {
       const key = control.getAttribute('name')
       if (!key || !(key in record) || control.type === 'file') return
-      // eslint-disable-next-line functional/immutable-data, no-param-reassign -- writing the dispatched record into the not-yet-mounted skeleton IS the contract
+      // eslint-disable-next-line no-param-reassign -- writing the dispatched record into the not-yet-mounted skeleton IS the contract
       control.value = skeletonValueText(fieldTypes.get(key), record[key])
     })
 }

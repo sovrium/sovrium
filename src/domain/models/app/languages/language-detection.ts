@@ -111,8 +111,8 @@ export const LANGUAGE_PREFERENCE_COOKIE = 'sovrium_language'
  * One browser carries ONE preference across every app served from a host, and
  * the embedded operator console is a second app on the operator's own origin
  *: an unchecked echo would serve the console `lang="es-ES"` over the
- * English strings it actually has, which is the failure `[internal ref]`
- * pins for the operator's translation table and `[internal ref]` generalises
+ * English strings it actually has, which is the failure an admin design system spec
+ * pins for the operator's translation table and a languages spec generalises
  * to the preference.
  *
  * The LOCALE rather than the short code, because that is what the rest of the
@@ -121,7 +121,7 @@ export const LANGUAGE_PREFERENCE_COOKIE = 'sovrium_language'
  * `supported[].locale`. Answering the short code here would make the server and
  * its own client script disagree on every switched page. (The `/{lang}/` URL
  * prefix keeps answering the short code it was addressed by — see
- * `[internal ref]`, which reads that `lang` off the wire.)
+ * a languages spec, which reads that `lang` off the wire.)
  *
  * `persistSelection: false` is honoured on the READ side as well as the write
  * side. Cookies are host-scoped rather than port-scoped, so an app that asked

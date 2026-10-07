@@ -7,7 +7,7 @@
 
 /**
  * Fold a system endpoint's ROWS into ONE `code` block's content
- * (`code.contentFrom`, [internal ref]).
+ * (`code.contentFrom`, the facts-not-strings rule).
  *
  * ─── WHY THIS IS NOT A ROW TEMPLATE ────────────────────────────────────────
  *

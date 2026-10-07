@@ -83,7 +83,6 @@ export function RichTextEditorField({
       onChange(name, ed.getHTML())
     },
   })
-  // eslint-disable-next-line functional/immutable-data -- React ref pattern: refs are designed to be mutated
   editorRef.current = editor
 
   // Re-sync editor content when the `value` prop changes (used by the update
@@ -104,7 +103,6 @@ export function RichTextEditorField({
       const { target } = e
       const file = target.files?.[0]
       // Reset the input so the same file can be re-selected
-      // eslint-disable-next-line functional/immutable-data -- DOM mutation: clearing the file input value is the standard pattern
       target.value = ''
       if (!file || !editorRef.current) return
       const url = await uploadImageToBucket(file, bucket)

@@ -21,7 +21,7 @@ import type { Bucket } from './bucket'
  *
  * On its own that is the intended compatibility fallback: an app that never
  * wrote a `buckets[]` block still needs somewhere to put a form attachment
- * (`[internal ref]`/`-014`). It becomes a privilege escalation only in
+ * (the buckets perm specs). It becomes a privilege escalation only in
  * combination with the second fact: `StorageService` addresses objects by a
  * FLAT key with no bucket dimension, so the key of an object the operator
  * reserved to `admin` can simply be handed to the system bucket, where nothing
@@ -52,7 +52,7 @@ import type { Bucket } from './bucket'
  * It gives the system bucket no bucket→object binding, so it cannot stop one
  * DECLARED bucket being used to reach another declared bucket's object. That
  * needs a bucket dimension on the storage port and is tracked separately
- * (`[internal ref]`/`-003`).
+ * (the buckets download traversal specs).
  *
  * Nor does it touch `public`. `public: true` short-circuits the read gate
  * before any permission is consulted, and the system bucket is

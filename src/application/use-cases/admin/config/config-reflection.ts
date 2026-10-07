@@ -151,7 +151,6 @@ export function buildConfigReflection(
   const countOf = (family: ConfigDeclarationFamily): number => familyItems(redacted, family).length
 
   return {
-    // eslint-disable-next-line unicorn/no-null -- JSON.stringify's replacer arg requires `null` (not `undefined`) to take the indent
     appJson: JSON.stringify(redacted, null, 2),
     declarationCount: CONFIG_DECLARATION_FAMILIES.reduce(
       (total, family) => total + countOf(family),

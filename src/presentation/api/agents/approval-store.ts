@@ -69,7 +69,7 @@ export interface ApprovalActivityEntry {
 /**
  * An activity-log entry produced by an agent action execution.
  *
- * [internal ref]: an agent action appears in activity
+ * An agent action appears in activity
  * monitoring with `actor.type = 'agent'` and `actor.name` set to the agent's
  * configured name, so monitoring can attribute the action to a non-human
  * actor. This is the in-memory counterpart of the `activity_log` table row
@@ -108,7 +108,6 @@ const activityEntries = new Map<string, ActivityEntry>()
 
 /** Register a freshly created approval record. */
 export const putApproval = (record: ApprovalRecord): void => {
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton store; see file docstring
   approvals.set(record.id, record)
 }
 
@@ -130,20 +129,17 @@ export const updateApproval = (
   const current = approvals.get(id)
   if (!current) return undefined
   const next: ApprovalRecord = { ...current, ...patch }
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton store; the record value is a fresh immutable object
   approvals.set(id, next)
   return next
 }
 
 /** Append an approval-decision activity entry. */
 export const appendActivityEntry = (entry: ApprovalActivityEntry): void => {
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton log; see file docstring
   activityEntries.set(entry.id, entry)
 }
 
 /** Append an agent-action activity entry. */
 export const appendAgentActivityEntry = (entry: AgentActivityEntry): void => {
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton log; see file docstring
   activityEntries.set(entry.id, entry)
 }
 

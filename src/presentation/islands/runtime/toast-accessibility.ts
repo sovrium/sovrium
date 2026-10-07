@@ -96,7 +96,6 @@ export function resolveToastDismissLabel(container: Element): string {
 export function appendToastMessage(toast: Element, message: string): void {
   const span = document.createElement('span')
   span.setAttribute('data-toast-message', '')
-  /* eslint-disable-next-line functional/immutable-data -- textContent mutation required to render toast text */
   span.textContent = message
   toast.appendChild(span)
 }
@@ -130,7 +129,6 @@ export function appendToastDismissControl(toast: Element, label: string): void {
   button.setAttribute('type', 'button')
   button.setAttribute('data-toast-dismiss', '')
   button.setAttribute('aria-label', label)
-  /* eslint-disable-next-line functional/immutable-data -- textContent mutation required to render the dismiss glyph */
   button.textContent = '×'
   button.addEventListener('click', () => {
     toast.remove()

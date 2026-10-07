@@ -29,7 +29,7 @@ components:
                   className: text-xs text-foreground-muted
                 content: No account needed. We only use your email to answer this ticket.
           # What happens after sending: three steps, and the promise the app
-          # keeps — a copy by email straight away, then a person.
+          # keeps — the team sees it straight away, then a person replies.
           - type: container
             element: aside
             props:
@@ -58,12 +58,12 @@ components:
                         element: p
                         props:
                           className: text-sm font-medium text-foreground
-                        content: We confirm by email
+                        content: The team sees it at once
                       - type: text
                         element: p
                         props:
                           className: text-[13px] text-foreground-muted
-                        content: Straight away, with a copy of what you sent.
+                        content: It lands in the queue the moment you send it.
               - type: container
                 props:
                   className: flex items-start gap-3

@@ -42,7 +42,6 @@ const formatterFor = (zone: string): Intl.DateTimeFormat => {
     minute: '2-digit',
     second: '2-digit',
   })
-  // eslint-disable-next-line functional/immutable-data -- a per-zone formatter cache: building one costs far more than formatting with it
   formatters.set(zone, formatter)
   return formatter
 }

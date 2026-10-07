@@ -1,0 +1,85 @@
+# sovrium-library: connection/mistral@0.30.0
+name: mistral
+type: bearer
+label: Mistral AI
+description: 'Mistral API, authenticated with an API key'
+props:
+  token: $env.MISTRAL_API_KEY
+baseUrl: https://api.mistral.ai
+operations:
+  - name: chat-completion
+    method: POST
+    path: /v1/chat/completions
+    summary: Chat Completion
+    params:
+      model:
+        in: body
+        type: string
+        required: true
+      temperature:
+        in: body
+        type: number
+      top_p:
+        in: body
+        type: number
+      max_tokens:
+        in: body
+        type: integer
+      stream:
+        in: body
+        type: boolean
+      stop:
+        in: body
+        type: array
+      random_seed:
+        in: body
+        type: integer
+      metadata:
+        in: body
+        type: object
+      messages:
+        in: body
+        type: array
+        required: true
+      response_format:
+        in: body
+        type: object
+      tools:
+        in: body
+        type: array
+      tool_choice:
+        in: body
+        type: object
+      presence_penalty:
+        in: body
+        type: number
+      frequency_penalty:
+        in: body
+        type: number
+      'n':
+        in: body
+        type: integer
+      prediction:
+        in: body
+        type: object
+      parallel_tool_calls:
+        in: body
+        type: boolean
+      reasoning_effort:
+        in: body
+        type: string
+      prompt_mode:
+        in: body
+        type: string
+      guardrails:
+        in: body
+        type: array
+      prompt_cache_key:
+        in: body
+        type: string
+      service_tier:
+        in: body
+        type: string
+      safe_prompt:
+        in: body
+        type: boolean

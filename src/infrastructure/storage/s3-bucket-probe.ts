@@ -8,25 +8,24 @@
 /**
  * Once-per-process S3 bucket reachability probe.
  *
- * `StorageServiceLive` used to `Effect.tryPromise` a `s3ValidateBucket()` LIST
- * inside its `Layer.effect` body and FAIL construction when the bucket did not
- * answer. Two consequences followed from that, and both were wrong:
+ * `StorageServiceLive` does not run a `s3ValidateBucket()` LIST inside its
+ * `Layer.effect` body and FAIL construction when the bucket does not answer.
+ * That would have two consequences, both wrong:
  *
- *  - **Every layer build paid a network round trip.** The layer is built once
- *    per composition, and `routes/buckets/effect-runner.ts` re-provided it per
- *    request — so a signed-URL request cost an S3 `LIST` before it did any
- *    work.
- *  - **A route-level outage read as a construction failure.** Once the domain
+ *  - **Every layer build would pay a network round trip.** A layer re-provided
+ *    per request would make a signed-URL request cost an S3 `LIST` before it
+ *    did any work.
+ *  - **A route-level outage would read as a construction failure.** The domain
  *    layer is owned by the server runtime (see
- *    `@docs/infrastructure/framework/effect.md`, "Runtime and lifecycle"), a
+ *    `@docs/infrastructure/framework/effect.md`, "Runtime and lifecycle"), so a
  *    bucket that is briefly unreachable would take down the whole runtime —
  *    every route, not just the ones that touch storage — and every caller's
- *    tagged union would have to name a `StorageError` it cannot act on. That is
- *    why both composition roots had to wrap the layer in `Layer.orDie`.
+ *    tagged union would have to name a `StorageError` it cannot act on, or
+ *    every composition root would have to wrap the layer in `Layer.orDie`.
  *
- * So the probe is now advisory: it runs at most once per process per endpoint,
+ * So the probe is advisory: it runs at most once per process per endpoint,
  * never fails, and reports its outcome so the caller can log it. Operator
- * ENV VALIDATION stays fatal and stays where it was — a missing
+ * ENV VALIDATION stays fatal — a missing
  * `STORAGE_S3_BUCKET` is a configuration error the operator must fix before the
  * process is useful, whereas an unreachable bucket is a condition that can
  * resolve itself while the server runs.
@@ -53,7 +52,6 @@ interface CachedProbe {
   readonly result: Promise<S3BucketProbeResult>
 }
 
-// eslint-disable-next-line functional/no-let -- process-local memo; surviving across layer builds is the entire point
 let cached: CachedProbe | undefined
 
 /**
@@ -77,7 +75,6 @@ export const probeS3BucketOnce = (
     (): S3BucketProbeResult => ({ reachable: true }),
     (cause: unknown): S3BucketProbeResult => ({ reachable: false, cause })
   )
-  // eslint-disable-next-line functional/no-expression-statements -- writing the memo is the point
   cached = { key, result }
   return result
 }

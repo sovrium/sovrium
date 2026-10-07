@@ -6,8 +6,7 @@
  */
 
 /**
- * Shared SSR search-bar for data-bound island components
- *.
+ * Shared SSR search-bar for data-bound island components.
  *
  * Data-bound components (calendar, kanban, …) accept a `ComponentSearchSchema`
  * via the `search` field of the `data-bound` module. When `search.enabled` is

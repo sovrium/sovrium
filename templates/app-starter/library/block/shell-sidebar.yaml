@@ -1,0 +1,84 @@
+# sovrium-library: block/shell-sidebar@0.30.0
+name: shell-sidebar
+type: flex
+props:
+  className: 'flex min-h-[40rem] w-full items-stretch'
+children:
+  - type: sidebar
+    rail:
+      below: md
+    props:
+      className: flex-none border-r border-border bg-background-subtle py-4 md:w-60 md:px-2
+    groups:
+      - label: Workspace
+        items:
+          - label: Overview
+            href: /
+            icon: house
+          - label: Invoices
+            href: /invoices
+            icon: file-text
+            badge: '12'
+            activeMatch: prefix
+          - label: Clients
+            href: /clients
+            icon: users
+            activeMatch: prefix
+          - label: Automations
+            href: /automations
+            icon: workflow
+            activeMatch: prefix
+          - label: Reports
+            href: /reports
+            icon: chart-column
+            activeMatch: prefix
+      - label: Settings
+        items:
+          - label: General
+            href: /settings
+            icon: settings
+          - label: Members
+            href: /settings/members
+            icon: users
+  - type: container
+    element: main
+    props:
+      className: min-w-0 flex-1 px-4 py-6 sm:px-10 sm:py-8
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-3xl font-semibold tracking-tight text-foreground
+                content: Invoices
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Everything billed this quarter.
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: button
+                variant: outline
+                label: Export
+              - type: button
+                variant: default
+                label: New invoice
+      - type: container
+        props:
+          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle mt-6 h-72
+        children:
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Page content]'

@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor: mounted per open cell, torn down on commit or cancel, and
-   its handlers close over the draft instant. */
-
 import { useState } from 'react'
 import { computeTableAddRowInputClasses } from '@/presentation/design/table-default-classes'
 import {

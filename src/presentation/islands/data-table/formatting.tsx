@@ -10,27 +10,27 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
-import {
-  matchesConditionOperators,
-  satisfiesFieldCondition,
-} from '@/domain/models/app/tables/condition-operators'
 import { resolveDisplayLabel } from '@/presentation/design/field-display'
-import { computeTableActionRowClasses } from '@/presentation/design/table-default-classes'
 import { computeCurrencyDisplayClasses } from '../../design/field-affordances-default-classes'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { RecordButton } from '../runtime/record-button'
 import { readDisplayLabel } from '../runtime/record-display-label'
-import { ActionButton, type ActionControlLabels } from './action-cell'
+import {
+  DEFAULT_SAVE_LABEL,
+  DEFAULT_CANCEL_LABEL,
+  buildActionCellRenderer,
+} from './action-cell-renderer'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
-import { rowIdOf } from './row-identity'
+import { cellClassOf, columnPresentationMeta, drawsTextChip } from './column-presentation'
+import { textCellContent } from './text-chip-cell'
+import { withValueLabelOptions } from './value-label-options'
+import type { ActionControlLabels } from './action-cell'
 import type { CellFieldOptions } from './cell-renderers'
 import type { FieldMeta, FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
 import type {
-  ActionColumn,
   ActionColumnItem,
-  CellStyleCondition,
   ColumnFormat,
   DataTableColumn,
   FieldColumn,
@@ -45,31 +45,6 @@ export type RowActionHandler = (
   action: ActionColumnItem,
   record: TableRecord
 ) => void | Promise<void>
-
-// ---------------------------------------------------------------------------
-// Conditional cell styling
-// ---------------------------------------------------------------------------
-
-/**
- * Evaluates conditional cell style rules against a cell value.
- * Returns the first matching className or empty string.
- */
-export function evaluateCellStyle(
-  value: unknown,
-  conditions: readonly CellStyleCondition[]
-): string {
-  const matched = conditions.find((condition) => matchesConditionOperators(condition.when, value))
-  return matched?.className ?? ''
-}
-
-/**
- * Evaluates an action item's optional `visibleWhen` predicate against a row,
- * via the shared domain matcher — the same one a `button` field's
- * `visibleWhen` spends, so the two cannot drift.
- */
-function isActionVisible(action: ActionColumnItem, record: TableRecord): boolean {
-  return satisfiesFieldCondition(action.visibleWhen, record)
-}
 
 // ---------------------------------------------------------------------------
 // Cell renderer builder
@@ -157,7 +132,10 @@ function wrapWithClass(content: React.ReactNode, className: string): React.React
  * the browser at all. Widening that struct is what lets the scalar renderers
  * read the field the author actually declared.
  */
-function buildCellFieldOptions(meta: FieldMeta | undefined, locale: string): CellFieldOptions {
+export function buildCellFieldOptions(
+  meta: FieldMeta | undefined,
+  locale: string
+): CellFieldOptions {
   // `timeZone` already travels to the editor; a read-only cell needs the same
   // one, or the grid shows one calendar day and opens on another.
   const timeZone = meta?.edit?.timeZone
@@ -188,13 +166,10 @@ interface ButtonCellOptions {
  * Build the cell renderer for a `type: 'button'` field, or `undefined` when
  * the field is not one.
  *
- * A button cell is the one field cell that is an ACTION rather than a
- * readout, so it takes the whole row instead of a bare value: `visibleWhen`
- * is evaluated against the record, and an automation button needs the record
- * id to invoke. Returns `undefined` for every other field type so callers can
- * fall through to their normal value-rendering path.
+ * A button cell is an ACTION, not a readout, so it takes the whole row: its
+ * `visibleWhen` reads the record, and an automation button needs the record id.
  */
-function buildButtonCellRenderer(
+export function buildButtonCellRenderer(
   field: string,
   options: ButtonCellOptions
 ): ((ctx: DataTableCellContext) => React.ReactNode) | undefined {
@@ -220,23 +195,33 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
   const buttonRenderer = buildButtonCellRenderer(col.field, options)
   if (buttonRenderer) return buttonRenderer
 
-  // Looked up ONCE. The same entry was previously re-read four times, each
-  // optional chain costing a branch, which is what pushed this function over
-  // the complexity cap once the button short-circuit above joined it.
+  // Looked up ONCE: each re-read cost a branch against the complexity cap.
   const meta = fieldMeta?.[col.field]
-  const fieldTypeRenderer = meta?.type ? FIELD_TYPE_TO_CELL_RENDERER[meta.type] : undefined
-  const fieldOptions = buildCellFieldOptions(meta, locale)
+  const fieldTypeRenderer = fieldTypeRendererOf(col, meta?.type)
+  const baseOptions = buildCellFieldOptions(meta, locale)
+  // On an option column a `valueLabels` entry relabels the chip rather than
+  // replacing it with plain text (`value-label-options.ts`).
+  const chipLabels = fieldTypeRenderer && withValueLabelOptions(baseOptions, col.valueLabels)
+  const fieldOptions = chipLabels || baseOptions
   const currencyOptions = resolveCurrencyOptions(meta)
 
-  if (!col.format && !col.cellStyle && !fieldTypeRenderer && !col.valueLabels) return undefined
+  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) return undefined
 
   return ({ getValue, row }: DataTableCellContext) =>
     renderValueCell(
       getValue(),
-      { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions },
+      { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, chipLabels: !!chipLabels },
       readDisplayLabel(row.original, col.field)
     )
 }
+
+/** The field type's own renderer, unless the column draws a text chip instead. */
+const fieldTypeRendererOf = (col: FieldColumn, type: string | undefined) =>
+  type === undefined || drawsTextChip(col, type) ? undefined : FIELD_TYPE_TO_CELL_RENDERER[type]
+
+/** Whether a column's own keys change how a value reads (else TanStack prints it). */
+const shapesItsValue = (col: FieldColumn, type: string | undefined): boolean =>
+  Boolean(col.format ?? col.cellStyle ?? col.valueLabels) || drawsTextChip(col, type)
 
 /** The chrome {@link renderValueCell} resolves once per column, not per row. */
 interface ValueCellChrome {
@@ -246,26 +231,24 @@ interface ValueCellChrome {
     (typeof FIELD_TYPE_TO_CELL_RENDERER)[keyof typeof FIELD_TYPE_TO_CELL_RENDERER] | undefined
   readonly fieldOptions: CellFieldOptions | undefined
   readonly currencyOptions: CurrencyDisplayOptions | undefined
+  /** The column's `valueLabels` are drawn inside its option chips. */
+  readonly chipLabels?: boolean
 }
 
 /**
  * The value-rendering ladder — label substitution, then explicit format, then
  * field-type affordance, then plain text, each wrapped in the `cellStyle` class.
  *
- * Split out of {@link buildFieldCellRenderer} so that neither half carries the
- * combined branch count of the button short-circuit AND this ladder: they were
- * added by two different changes that only met when those changes merged.
+ * Split out of {@link buildFieldCellRenderer} so neither half carries the other's
+ * branch count.
  */
 function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?: unknown) {
   const { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions } = chrome
-  const conditionalClass = col.cellStyle ? evaluateCellStyle(value, col.cellStyle) : ''
+  const conditionalClass = cellClassOf(value, col)
 
-  // valueLabels — render-only display-label substitution for known raw values.
-  // Highest-precedence display path: an explicit per-value label overrides the
-  // format / field-type chrome below. Unmapped values fall through to those
-  // paths (passthrough). The record value and the records API contract are
-  // never mutated — only the rendered cell text is substituted.
-  const label = col.valueLabels?.[String(value)]
+  // valueLabels — render-only, highest precedence: a per-value label overrides the
+  // chrome below; unmapped values fall through. The record itself is never changed.
+  const label = chrome.chipLabels ? undefined : col.valueLabels?.[String(value)]
   if (label !== undefined) return wrapWithClass(label, conditionalClass)
 
   // Path 1 — explicit format override
@@ -283,65 +266,17 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
     return wrapWithClass(displayValue, composed)
   }
 
-  // Path 2 — field-type-driven affordance. A resolved relationship label stands
-  // in for the stored key HERE and only here: `valueLabels` and an explicit
-  // `format` were both written by an author against the value the column
-  // actually stores, so substituting under them would break what they matched on.
+  // Path 2 — field-type-driven affordance. A resolved relationship label stands in
+  // for the stored key HERE only: `valueLabels` and an explicit `format` were written
+  // against the value the column stores, so substituting under them would break them.
   if (fieldTypeRenderer)
     return wrapWithClass(
       fieldTypeRenderer({ value: displayLabel ?? value, fieldOptions }),
       conditionalClass
     )
 
-  // Path 3 — cellStyle only (no format / no field-type renderer)
-  return wrapWithClass(String(value ?? ''), conditionalClass)
-}
-
-// ---------------------------------------------------------------------------
-// Column mapping: Domain config → TanStack Table ColumnDef
-// ---------------------------------------------------------------------------
-
-/** Platform-default (English) fallbacks when the host supplies no labels. */
-const DEFAULT_SAVE_LABEL = 'Save'
-const DEFAULT_CANCEL_LABEL = 'Cancel'
-
-/**
- * Builds the per-row cell renderer for an action column. Each action button is
- * first gated by its optional `visibleWhen` predicate (see {@link isActionVisible}),
- * so a button renders only on rows whose named field value satisfies the
- * condition; actions without a predicate render on every row. Each rendered
- * action delegates to {@link ActionButton}, which arms an inline `alertdialog`
- * confirm when the action item carries a `confirm` message (the per-row analog of
- * the bulk-action confirm gate).
- *
- * The renderer is a fresh CLOSURE on every island render, and `flexRender` makes
- * a closure an element type — so every cell this builds is destroyed and rebuilt
- * whenever the grid re-reads itself. That is why an armed confirm is addressed
- * by `confirmKey` and held above the rows: the key is the row identity React
- * already reconciles by, paired with the same ordinal as the child `key`, so a
- * rebuilt cell asks for its gate back under exactly the name it stored it under.
- */
-function buildActionCellRenderer(
-  col: ActionColumn,
-  onActionClick: RowActionHandler | undefined,
-  labels: ActionControlLabels
-) {
-  return ({ row }: DataTableCellContext) => (
-    <div className={computeTableActionRowClasses()}>
-      {col.actions
-        .filter((action) => isActionVisible(action, row.original))
-        .map((action, actionIndex) => (
-          <ActionButton
-            key={`action-${String(actionIndex)}`}
-            confirmKey={`${rowIdOf(row)}::action-${String(actionIndex)}`}
-            action={action}
-            record={row.original}
-            onActionClick={onActionClick}
-            labels={labels}
-          />
-        ))}
-    </div>
-  )
+  // Path 3 — the text, or a chip when the column asks for one (`badgeForm`)
+  return wrapWithClass(textCellContent(value, col, fieldOptions), conditionalClass)
 }
 
 /**
@@ -399,7 +334,7 @@ export function mapColumnsToColumnDefs(
         ...(cellRenderer && { cell: cellRenderer }),
         meta: {
           frozen: col.frozen,
-          cellStyle: col.cellStyle,
+          ...columnPresentationMeta(col),
           field: col.field,
           editable: col.editable,
           // Carried beside `size` above so the header cell can tell an authored
@@ -420,104 +355,4 @@ export function mapColumnsToColumnDefs(
       meta: { actions: true },
     } satisfies DataTableColumnDef
   })
-}
-
-/**
- * Builds a read-only cell renderer for an auto-generated column when the
- * field-type has a dedicated chrome (user pill, status pill, JSON preview,
- * …). Returns undefined when the field-type falls through to TanStack
- * Table's `String(value)` default — caller omits the `cell` key.
- */
-function buildAutoCellRenderer(
-  field: string,
-  options: AutoColumnOptions
-): ((ctx: DataTableCellContext) => React.ReactNode) | undefined {
-  const { fieldMeta } = options
-  // A button field is an action, not a readout — it takes precedence over the
-  // value-rendering path below, which would render its (always absent) value.
-  const buttonRenderer = buildButtonCellRenderer(field, options)
-  if (buttonRenderer) return buttonRenderer
-
-  const fieldType = fieldMeta?.[field]?.type
-  if (!fieldType) return undefined
-  const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
-  if (!renderer) return undefined
-  const fieldOptions = buildCellFieldOptions(fieldMeta?.[field], options.locale)
-  return ({ getValue, row }: DataTableCellContext) =>
-    renderer({ value: readDisplayLabel(row.original, field) ?? getValue(), fieldOptions })
-}
-
-/**
- * Shared options for the two auto-column generators. Bundled rather than
- * passed positionally because the pair already sat at the four-parameter cap.
- *
- * `tableName` is what lets an automation button in an auto-generated column
- * address its own invoke endpoint.
- */
-export interface AutoColumnOptions {
-  /**
-   * The active page locale (`<html lang>` ← `meta.lang`), so a generated
-   * column's dates read like a declared column's on the same page.
-   */
-  readonly locale: string
-  /**
-   * Opts every generated column into inline double-click editing — used by
-   * `refreshMode: 'realtime'` data tables, which are inline-editable by
-   * default so optimistic updates can be exercised.
-   */
-  readonly editable?: boolean
-  readonly fieldMeta?: FieldMetaMap
-  readonly tableName?: string
-  /** Re-reads the rows after a button run that may have written to one. */
-  readonly onButtonInvoked?: () => void
-}
-
-/** The column def shared by both auto-generation paths. */
-function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableColumnDef {
-  const cellRenderer = buildAutoCellRenderer(field, options)
-  // A button column's header is the button's own label — `ship_button` is a
-  // config identifier, not something to show a reader. Otherwise the field's
-  // declared `label`, then the RAW name verbatim (never humanized: that would
-  // restyle every heading in every already-shipped app with no config edit).
-  const meta = options.fieldMeta?.[field]
-  const header = meta?.button?.label ?? resolveDisplayLabel(undefined, meta?.label, field)
-  return {
-    accessorKey: field,
-    header,
-    enableSorting: true,
-    meta: {
-      field,
-      ...(options.editable === true && meta?.readOnly !== true && { editable: true }),
-    },
-    ...(cellRenderer && { cell: cellRenderer }),
-  } satisfies DataTableColumnDef
-}
-
-/**
- * Auto-generates column defs from record keys when no explicit columns provided
- */
-export function autoGenerateColumns(
-  records: readonly TableRecord[],
-  options: AutoColumnOptions
-): readonly DataTableColumnDef[] {
-  const firstRecord = records[0]
-  if (!firstRecord) return []
-  // Record keys come from the database, and a button field has no column
-  // there — so append the table's button fields, which would otherwise never
-  // reach this path at all.
-  const buttonFields = Object.keys(options.fieldMeta ?? {}).filter(
-    (name) => options.fieldMeta?.[name]?.button && !(name in firstRecord)
-  )
-  return [...Object.keys(firstRecord), ...buttonFields].map((key) => buildAutoColumn(key, options))
-}
-
-/**
- * Auto-generates column defs from table field names when no records are available.
- * Used as a fallback when the table is empty and no explicit columns are configured.
- */
-export function autoGenerateColumnsFromFields(
-  fields: readonly string[],
-  options: AutoColumnOptions
-): readonly DataTableColumnDef[] {
-  return fields.map((field) => buildAutoColumn(field, options))
 }

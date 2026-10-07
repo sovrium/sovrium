@@ -56,7 +56,6 @@ export const ACCOUNT_PREFERENCE_FIELDS = {
  * email switch from an account that is not admin-tier.
  */
 export async function applyAccountPreferenceGuards(
-  // eslint-disable-next-line functional/prefer-immutable-types -- the Better Auth hook context is mutable by its own type
   ctx: AuthMiddlewareCtx,
   languages: Languages | undefined,
   app: AdminRoleResolvable
@@ -68,7 +67,7 @@ export async function applyAccountPreferenceGuards(
 /**
  * The languages of the operator console mounted on this host, or `undefined`
  * when it is not served — the write door accepts them beside the host's own
- * (`acceptedPreferenceLanguages`, [internal ref]).
+ * (`acceptedPreferenceLanguages`, a languages spec).
  *
  * The same two switches `buildEmbeddedAppMounts` reads — the app's
  * `admin: false` and the deployment's `SOVRIUM_ADMIN=off` — so the write door

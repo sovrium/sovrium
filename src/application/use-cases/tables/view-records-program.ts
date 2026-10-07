@@ -16,6 +16,9 @@
  *    reader's own field grants still narrow inside that (the list program
  *    strips what the role may not read);
  *  - the caller's sort wins over the view's, which is the default order;
+ *  - the view's `groupBy` is applied whatever the caller asks: the response
+ *    carries the whole-view count (and the asked totals) of every group at
+ *    every level, as the records list does for `?groupBy=`;
  *  - deleted rows stay out whatever the request says — the trash is a privilege
  *    of the records route.
  *
@@ -38,6 +41,7 @@ import {
   findViewByKey,
   intersectViewFields,
   mergeViewFilter,
+  viewGroupByParam,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
 import { createListRecordsProgram } from './list-records-program'
@@ -45,6 +49,7 @@ import { TableNotFoundError, viewReadAdmits, type TableCaller } from './table-op
 import type { AggregateConfig } from './aggregation-helpers'
 import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
@@ -99,9 +104,9 @@ const callerOf = (config: ViewRecordsConfig): TableCaller => ({
 export function getViewRecordsProgram(
   config: ViewRecordsConfig
 ): Effect.Effect<
-  Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations'>,
+  Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations' | 'groups'>,
   TableNotFoundError | ForbiddenError | DatabaseError,
-  TableRepository | AuthRepository | DataSourceRepository
+  TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
     const { tableId, viewId, app, userRole, session } = config
@@ -122,6 +127,7 @@ export function getViewRecordsProgram(
     }
 
     const query = config.query ?? {}
+    const groupBy = viewGroupByParam(view.groupBy)
     const page = yield* createListRecordsProgram({
       session,
       tableName: table.name,
@@ -137,18 +143,25 @@ export function getViewRecordsProgram(
       limit: query.limit,
       offset: query.offset,
       ...(query.aggregate !== undefined && { aggregate: query.aggregate }),
+      ...(groupBy !== undefined && { groupBy }),
       origin: config.origin,
     })
 
-    return {
-      records: page.records.map(withServedAiCompute),
-      pagination: page.pagination,
-      ...(page.aggregations !== undefined && { aggregations: page.aggregations }),
-    }
+    return servedPage(page)
   }).pipe(Effect.withSpan('tables.get-view-records-program'))
 }
 
 type ViewRecord = ListRecordsResponse['records'][number]
+
+/** The list program's page as this route answers it. */
+const servedPage = (
+  page: ListRecordsResponse
+): Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations' | 'groups'> => ({
+  records: page.records.map(withServedAiCompute),
+  pagination: page.pagination,
+  ...(page.aggregations !== undefined && { aggregations: page.aggregations }),
+  ...(page.groups !== undefined && { groups: page.groups }),
+})
 
 /**
  * A record's `_aiCompute` block narrowed to the columns the record carries.

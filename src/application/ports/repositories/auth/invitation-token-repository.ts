@@ -6,6 +6,7 @@
  */
 
 import { Context, Data, type Effect } from 'effect'
+import type { PendingInvitationRow } from '@/application/ports/contracts/invitation-services'
 
 /** Database error for admin-invitation token lookups. */
 export class InvitationTokenDatabaseError extends Data.TaggedError('InvitationTokenDatabaseError')<{
@@ -60,5 +61,10 @@ export class InvitationTokenRepository extends Context.Service<
     readonly findByToken: (
       token: string
     ) => Effect.Effect<InvitationTokenRecord | undefined, InvitationTokenDatabaseError>
+    /** Every outstanding invitation, expired ones included, newest first — never a token. */
+    readonly listPending: Effect.Effect<
+      readonly PendingInvitationRow[],
+      InvitationTokenDatabaseError
+    >
   }
 >()('InvitationTokenRepository') {}

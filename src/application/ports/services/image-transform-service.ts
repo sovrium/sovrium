@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
 import type { Effect } from 'effect'
 
 /**
@@ -72,19 +73,37 @@ export interface ImageTransformResult {
  *
  * ## Every operation can fail, including `transform`
  *
- * `transform` used to declare error channel `never` and degrade to a verbatim
+ * `transform` does not declare error channel `never` and degrade to a verbatim
  * passthrough, on the reasoning that "the automation contract is a file exists
- * at the destination, not the pixels were re-encoded". That reasoning is what
- * let a compiled binary in which NO transform worked ship unnoticed: the
- * passthrough answered `200` with a plausible `Content-Type` for every request,
- * so no assertion could tell a working pipeline from an absent one.
+ * at the destination, not the pixels were re-encoded". That reasoning lets a
+ * compiled binary in which NO transform works ship unnoticed: the passthrough
+ * answers `200` with a plausible `Content-Type` for every request, so no
+ * assertion can tell a working pipeline from an absent one.
  *
- * A transform that cannot be performed is now an error the caller has to
+ * A transform that cannot be performed is an error the caller has to
  * handle. Callers may still choose to be lenient — but they choose it
  * explicitly, at a site where the decision is visible.
  *
  * Implementation lives in the infrastructure layer.
  */
+/** A negotiated HTTP transform that produced bytes. `contentType` is set when the bytes were transcoded. */
+export interface NegotiatedTransformSuccess {
+  readonly ok: true
+  readonly bytes: Uint8Array
+  readonly contentType?: string
+}
+
+/**
+ * A negotiated HTTP transform that could not be produced, for the route to turn
+ * into HTTP. `too-large` is a source whose header declares more pixels than
+ * the pipeline decodes, refused before any decode.
+ */
+export interface NegotiatedTransformFailure {
+  readonly ok: false
+  readonly reason: 'undecodable' | 'unsupported-format' | 'too-large' | 'failed'
+  readonly message: string
+}
+
 export class ImageTransformService extends Context.Service<
   ImageTransformService,
   {
@@ -105,5 +124,16 @@ export class ImageTransformService extends Context.Service<
       input: Uint8Array,
       options: ImageTransformOptions
     ) => Effect.Effect<ImageTransformResult, ImageTransformError>
+    /**
+     * The on-the-fly bucket-download transform: resize and transcode from URL
+     * parameters, negotiating the output format from the request's `Accept`
+     * header when no explicit format is given. Never fails — an image that cannot
+     * be produced is a RESULT the route turns into a status.
+     */
+    readonly negotiateTransform: (
+      input: Uint8Array,
+      params: Readonly<TransformParams>,
+      acceptHeader: string | undefined
+    ) => Effect.Effect<NegotiatedTransformSuccess | NegotiatedTransformFailure>
   }
 >()('ImageTransformService') {}

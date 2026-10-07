@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto'
 import { deriveSubkey } from '@/infrastructure/crypto/root-secret'
 
 /**
- * IP hashing for form submissions ([internal ref], S5 pre-launch security).
+ * IP hashing for form submissions (a forms spec, S5 pre-launch security).
  *
  * Sovrium NEVER persists raw submitter IPs to the `form_submissions` ledger.
  * The submission pipeline computes `SHA-256(salt + ip)` at write time and
@@ -59,7 +59,6 @@ const HASH_ALGORITHM = 'sha256'
  */
 const IP_HASH_SALT_PURPOSE = 'sovrium-form-ip-hash-salt'
 
-// eslint-disable-next-line functional/no-let -- one-shot process-lifetime memo: scryptSync is deliberately expensive and this runs on every form submission and every comment
 let cachedSalt: string | undefined
 
 /**
@@ -75,7 +74,6 @@ let cachedSalt: string | undefined
  */
 export const resolveIpHashSalt = (): string => {
   if (cachedSalt !== undefined) return cachedSalt
-  // eslint-disable-next-line functional/no-expression-statements -- memo assignment
   cachedSalt = deriveSubkey(IP_HASH_SALT_PURPOSE).toString('hex')
   return cachedSalt
 }

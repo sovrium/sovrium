@@ -14,11 +14,11 @@
  * BYTES, and the only way to keep it is to read them.
  *
  * That last one is why this program can fail two ways. A download that FAILS is
- * not a zero-byte file. It used to be treated as one
- * (`orElseSucceed(() => new Uint8Array(0))`), which made `0 > max` false and so
- * silently disabled the cap for the whole duration of a storage outage — an
- * oversized file was admitted into a capped column and the caller was told the
- * write succeeded. The cap is a promise about bytes nobody read, so the only
+ * not a zero-byte file. Treating it as one
+ * (`orElseSucceed(() => new Uint8Array(0))`) would make `0 > max` false and so
+ * silently disable the cap for the whole duration of a storage outage — an
+ * oversized file admitted into a capped column and the caller told the write
+ * succeeded. The cap is a promise about bytes nobody read, so the only
  * truthful answer is that it could not be checked.
  */
 

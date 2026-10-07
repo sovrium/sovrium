@@ -1,0 +1,24 @@
+# Every internal note written on a ticket's page is collected for the morning
+# notes digest (morning-notes-digest.yaml) instead of emailing the team on
+# each one: a note is useful to know, not urgent. Collecting is the first half
+# of a digest — this automation fills a named bucket, and the scheduled one
+# empties it.
+#
+# `when: created` takes the note the moment it lands; tickets have no
+# moderation, so there is nothing to wait for.
+name: collect-ticket-notes
+label: New note — collect it for the morning digest
+description: Collect each new internal note on a ticket for the next morning's notes digest.
+enabled: true
+trigger:
+  type: comment
+  table: tickets
+  when: created
+actions:
+  - name: collect
+    type: digest
+    operator: collect
+    props:
+      digestKey: ticket-notes
+      item: '#{{trigger.record.id}} {{trigger.record.subject}} — {{trigger.comment.author.name}}'
+      deduplicateBy: '{{trigger.comment.id}}'

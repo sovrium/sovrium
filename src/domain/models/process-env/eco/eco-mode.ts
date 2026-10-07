@@ -46,11 +46,11 @@ export const DEFAULT_ECO_MODE: EcoMode = 'balanced'
  * Resolve `ECO_MODE` from a snapshot of env vars to a canonical posture.
  * Unset or empty resolves to the eco-aligned default (`balanced`).
  *
- * A SET-but-unrecognised value throws. `ECO_MODE=strcit` used to
- * resolve to `balanced` — indistinguishable from never setting the variable —
- * so an operator who believed they had opted into the strictest posture ran
- * the middle one, and the dashboard confirmed `balanced` without ever saying
- * the typed input had been discarded.
+ * A SET-but-unrecognised value throws. Resolving `ECO_MODE=strcit` to
+ * `balanced` would be indistinguishable from never setting the variable — an
+ * operator who believed they had opted into the strictest posture would run
+ * the middle one, and the dashboard would confirm `balanced` without ever
+ * saying the typed input had been discarded.
  *
  * @throws Error when set to anything other than `strict`, `balanced` or `lenient`.
  */
@@ -60,12 +60,7 @@ export const parseEcoMode = (processEnv: Readonly<Record<string, string | undefi
     fallback: DEFAULT_ECO_MODE,
   })
 
-// `resolveActivatedSubKnobs` and its `EcoSubKnob` union were deleted with the
-// `activatedSubKnobs` dashboard field. They named `ECO_AI_MAX_CARBON_CLASS`
-// and `ECO_RETENTION_PURGE_DAYS`, both of which have since been removed for
-// having no enforcement point — so the resolver reported that `strict`
-// "activates" two variables that no longer exist and one the request path
-// never read. `ECO_MODE`'s single real effect now runs through
+// `ECO_MODE`'s single real effect runs through
 // `resolveEffectiveLowDataDefault` in `./eco-low-data-default`, and the
 // dashboard reports the low-data value actually produced rather than a claim
-// about what the posture activates.
+// about which sub-knobs the posture "activates".

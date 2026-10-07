@@ -6,17 +6,23 @@
  */
 
 import React from 'react'
+import {
+  type FormSectionLayout,
+  groupFieldsIntoSections,
+} from '@/domain/models/app/pages/components/component-types/data/form/sections-service'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
-import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
-import { evaluateCondition, isFieldVisible } from './conditions'
+import {
+  computeFormFieldErrorClasses,
+  computeFormGroupClasses,
+  computeFormGroupLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/design/form-layout-classes'
 import { type FieldDef, labelOf, renderField } from './fields'
+import { FormRegions } from './main-aside'
+import { formAsideOf, type FormAsideLayout } from './main-aside-regions'
+import { SaveBar, type SaveBarState } from './save-bar'
 import { clearMarkOf, isMarkedCleared } from './wire-values'
-
-export interface FieldGroup {
-  readonly label: string
-  readonly fields: readonly string[]
-}
 
 export interface FormFieldsState {
   readonly fieldError?: { readonly field: string; readonly message: string }
@@ -34,8 +40,7 @@ interface RenderProps {
   readonly fieldError?: { readonly field: string; readonly message: string }
   /**
    * The record this form edits, when it edits one. Only a `button` field reads
-   * it — an automation button needs a row to run against, and a create form
-   * has none yet.
+   * it — an automation button needs a row to run against.
    */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
   /** The form's interface strings in the page language, keyed by catalogue key; English when absent. */
@@ -52,25 +57,6 @@ function renderHiddenField(field: FieldDef, values: Record<string, string>): Rea
       readOnly
     />
   )
-}
-
-/**
- * Recompute a field's disabled / required flags from its conditional rules,
- * returning the original object when neither moved so the render stays
- * referentially stable.
- */
-function applyConditionalFlags(field: FieldDef, values: Record<string, string>): FieldDef {
-  const isDisabled = !!(
-    field.disabled ||
-    (field.disabledWhen && evaluateCondition(field.disabledWhen, values))
-  )
-  const isRequired = !!(
-    field.required ||
-    (field.requiredWhen && evaluateCondition(field.requiredWhen, values))
-  )
-  return isDisabled !== !!field.disabled || isRequired !== !!field.required
-    ? { ...field, disabled: isDisabled, required: isRequired }
-    : field
 }
 
 /** The widgets whose empty control means "untouched", so clearing needs its own gesture. */
@@ -121,21 +107,20 @@ function ClearControl(props: {
 }
 
 function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
-  const effectiveField = applyConditionalFlags(field, props.values)
   const value = props.values[field.name] ?? ''
   return (
     <React.Fragment key={field.name}>
       <div>
         {renderField({
-          field: effectiveField,
+          field,
           value,
           onChange: props.onChange,
           invalid: invalidSet.has(field.name),
           ...(props.binding === undefined ? {} : { binding: props.binding }),
         })}
-        {offersClear(effectiveField, value, props) && (
+        {offersClear(field, value, props) && (
           <ClearControl
-            field={effectiveField}
+            field={field}
             onChange={props.onChange}
             uiStrings={props.uiStrings}
           />
@@ -165,10 +150,7 @@ function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set
   )
 }
 
-/**
- * Render a single field in a form (hidden, conditionally hidden, or visible).
- * Returns `undefined` (not rendered) when the field is hidden by `visibleWhen`.
- */
+/** Render a single field in a form: a hidden input, or its visible control. */
 function renderOneField(
   field: FieldDef | undefined,
   props: RenderProps,
@@ -176,55 +158,28 @@ function renderOneField(
 ): React.ReactElement | undefined {
   if (!field) return
   if (field.hidden) return renderHiddenField(field, props.values)
-  if (!isFieldVisible(field, props.values)) return
   return renderVisibleField(field, props, invalidSet)
 }
 
 interface FormFieldsProps extends FormFieldsState, RenderProps {
   readonly fields: readonly FieldDef[]
-  readonly fieldGroups?: readonly FieldGroup[]
   readonly layout?: string
+  /** Titled groups of fields — layout only; a field in no section follows the last one. */
+  readonly sections?: readonly FormSectionLayout[]
 }
 
-function GroupedFields(props: {
-  readonly fields: readonly FieldDef[]
-  readonly fieldGroups: readonly FieldGroup[]
-  readonly layout?: string
-  readonly renderProps: RenderProps
-  readonly invalidSet: Set<string>
-}) {
-  const { fields, fieldGroups, layout, renderProps, invalidSet } = props
-  const fieldMap = new Map(fields.map((f) => [f.name, f]))
-  const groupedFieldNames = new Set(fieldGroups.flatMap((g) => g.fields))
-  const ungroupedFields = fields.filter((f) => !groupedFieldNames.has(f.name))
-  const isTwoColumn = layout === 'two-column'
-  const groupGridStyle = isTwoColumn
-    ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }
-    : undefined
-
-  return (
-    <>
-      {fieldGroups.map((group) => (
-        <div
-          key={group.label}
-          data-field-group
-        >
-          <div data-field-group-label>{group.label}</div>
-          <div style={groupGridStyle}>
-            {group.fields.map((fieldName) =>
-              renderOneField(fieldMap.get(fieldName), renderProps, invalidSet)
-            )}
-          </div>
-        </div>
-      ))}
-      {ungroupedFields.map((field) => renderOneField(field, renderProps, invalidSet))}
-    </>
-  )
+function renderFieldRun(
+  fields: readonly FieldDef[],
+  layout: string | undefined,
+  renderProps: RenderProps,
+  invalidSet: Set<string>
+): React.ReactNode {
+  const drawn = fields.map((field) => renderOneField(field, renderProps, invalidSet))
+  return layout === 'two-column' ? <div className="grid grid-cols-2 gap-4">{drawn}</div> : drawn
 }
 
 export function FormFields(props: FormFieldsProps) {
-  const { fields, values, onChange, fieldError, invalidFields, fieldGroups, layout, binding } =
-    props
+  const { fields, values, onChange, fieldError, invalidFields, layout, binding } = props
   const invalidSet = new Set(invalidFields ?? [])
   const renderProps: RenderProps = {
     values,
@@ -233,28 +188,28 @@ export function FormFields(props: FormFieldsProps) {
     binding,
     uiStrings: props.uiStrings,
   }
+  const grouped = groupFieldsIntoSections(fields, props.sections)
 
-  if (fieldGroups && fieldGroups.length > 0) {
-    return (
-      <GroupedFields
-        fields={fields}
-        fieldGroups={fieldGroups}
-        layout={layout}
-        renderProps={renderProps}
-        invalidSet={invalidSet}
-      />
-    )
-  }
-
-  if (layout === 'two-column') {
-    return (
-      <div className="grid grid-cols-2 gap-4">
-        {fields.map((field) => renderOneField(field, renderProps, invalidSet))}
-      </div>
-    )
-  }
-
-  return <>{fields.map((field) => renderOneField(field, renderProps, invalidSet))}</>
+  return (
+    <>
+      {grouped.sections.map((section) => (
+        <fieldset
+          key={section.title}
+          className={computeFormGroupClasses()}
+        >
+          {/* The title is the group's name AND a heading, so a reader can jump to it. */}
+          <legend>
+            <h2 className={computeFormGroupLabelClasses()}>{section.title}</h2>
+          </legend>
+          {section.description !== undefined && (
+            <p className={computeFormHelpTextClasses()}>{section.description}</p>
+          )}
+          {renderFieldRun(section.fields, layout, renderProps, invalidSet)}
+        </fieldset>
+      ))}
+      {renderFieldRun(grouped.rest, layout, renderProps, invalidSet)}
+    </>
+  )
 }
 
 interface FormBodyProps {
@@ -268,12 +223,17 @@ interface FormBodyProps {
   /** The submit button's caption while a save is in flight; English when absent. */
   readonly savingLabel?: string
   readonly variant?: string
-  readonly fieldGroups?: readonly FieldGroup[]
   readonly layout?: string
   /** Forwarded to the fields so a `button` field can address its own record. */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
   /** Forwarded to the fields — see `RenderProps.uiStrings`. */
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
+  /** Forwarded to the fields — see `FormFieldsProps.sections`. */
+  readonly sections?: readonly FormSectionLayout[]
+  /** `layout: main-aside` — the aside's width and fields; the submit button joins them. */
+  readonly aside?: FormAsideLayout
+  /** `stickyActions` — the pinned bar the submit button moves into. */
+  readonly saveBar?: SaveBarState
 }
 
 function ErrorSummary(props: {
@@ -298,21 +258,67 @@ function ErrorSummary(props: {
   )
 }
 
+/** The form's submit button, its caption the saving label while a save is in flight. */
+function SubmitButton({
+  props,
+  locked,
+}: {
+  readonly props: FormBodyProps
+  readonly locked: boolean
+}) {
+  return (
+    <button
+      type="submit"
+      data-crud-submit=""
+      className={computeButtonDefaultClasses()}
+      disabled={props.state.isPending || locked}
+      {...(props.variant && { 'data-variant': props.variant })}
+    >
+      {props.state.isPending ? (props.savingLabel ?? 'Saving...') : props.submitLabel}
+    </button>
+  )
+}
+
+/** The submit button at the end of the form, or inside the pinned save bar. */
+function FormFooter({
+  bar,
+  children,
+}: {
+  readonly bar: SaveBarState | undefined
+  readonly children: React.ReactElement
+}) {
+  if (bar === undefined) return children
+  return (
+    <SaveBar
+      bar={bar}
+      submit={children}
+    />
+  )
+}
+
 export function FormBody(props: FormBodyProps) {
-  const {
-    fields,
-    values,
-    state,
-    onFieldChange,
-    redirectUrl,
-    useNativeForm,
-    submitLabel,
-    savingLabel,
-    variant,
-    fieldGroups,
-    layout,
-    binding,
-  } = props
+  const { fields, values, state, onFieldChange, redirectUrl, useNativeForm, layout, binding } =
+    props
+  const fieldsOf = (subset: readonly FieldDef[]) => (
+    <FormFields
+      fields={subset}
+      values={values}
+      onChange={onFieldChange}
+      fieldError={state.fieldError}
+      invalidFields={state.invalidFields}
+      layout={layout}
+      {...(binding === undefined ? {} : { binding })}
+      {...(props.sections === undefined ? {} : { sections: props.sections })}
+      uiStrings={props.uiStrings}
+    />
+  )
+  const submit = (
+    <SubmitButton
+      props={props}
+      locked={props.saveBar?.changes === 0}
+    />
+  )
+  const aside = formAsideOf(layout, props.aside)
   return (
     <>
       {state.fieldError && (
@@ -321,16 +327,11 @@ export function FormBody(props: FormBodyProps) {
           fieldError={state.fieldError}
         />
       )}
-      <FormFields
+      <FormRegions
         fields={fields}
-        values={values}
-        onChange={onFieldChange}
-        fieldError={state.fieldError}
-        invalidFields={state.invalidFields}
-        fieldGroups={fieldGroups}
-        layout={layout}
-        {...(binding === undefined ? {} : { binding })}
-        uiStrings={props.uiStrings}
+        aside={aside}
+        fieldsOf={fieldsOf}
+        submit={submit}
       />
       {redirectUrl && useNativeForm && (
         <input
@@ -340,15 +341,7 @@ export function FormBody(props: FormBodyProps) {
         />
       )}
       {state.error && <div role="alert">{state.error}</div>}
-      <button
-        type="submit"
-        data-crud-submit=""
-        className={computeButtonDefaultClasses()}
-        disabled={state.isPending}
-        {...(variant && { 'data-variant': variant })}
-      >
-        {state.isPending ? (savingLabel ?? 'Saving...') : submitLabel}
-      </button>
+      {aside === undefined && <FormFooter bar={props.saveBar}>{submit}</FormFooter>}
     </>
   )
 }

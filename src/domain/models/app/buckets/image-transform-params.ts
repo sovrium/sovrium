@@ -196,10 +196,9 @@ export const DEFAULT_FIT: TransformFit = 'inside'
 /**
  * Parse the `fit` parameter.
  *
- * An unrecognised value is an ERROR, not a fallback. It used to resolve
- * silently to `cover`, so a typo changed the output instead of reporting
- * itself — and `cover`, `contain` and `outside` are themselves now
- * unrecognised, having been withdrawn along with cropping.
+ * An unrecognised value is an ERROR, not a fallback: a silent fallback would
+ * let a typo change the output instead of reporting itself. `cover`, `contain`
+ * and `outside` are themselves unrecognised, because there is no cropping.
  */
 const parseFit = (raw: string | undefined): TransformParseResult | TransformFit | undefined => {
   if (raw === undefined || raw === '') return undefined

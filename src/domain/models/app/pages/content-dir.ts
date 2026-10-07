@@ -373,7 +373,7 @@ export const ContentDirSchema = Schema.Struct({
 
   /**
    * "Edit this page" URL template for docs-layout articles
-   *. When set, every generated article
+   * When set, every generated article
    * renders an "Edit this page" link in the docs header whose `href` is this
    * template with the following placeholders interpolated:
    *   - `{slug}` — the resolved article slug (e.g. `installation`, or

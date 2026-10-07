@@ -1,0 +1,74 @@
+# sovrium-library: block/content-prose@0.30.0
+name: content-prose
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    element: article
+    props:
+      className: mx-auto flex w-full max-w-2xl flex-col gap-6
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2
+        children:
+          - type: container
+            props:
+              className: size-1.5 rounded-sm bg-primary
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Category · reading time]'
+      - type: text
+        element: h1
+        props:
+          className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05] lg:text-5xl'
+        content: '[Article title]'
+      - type: text
+        element: p
+        props:
+          className: text-lg text-pretty text-foreground-muted sm:text-xl
+        content: '[Standfirst: the one idea the article defends.]'
+      - type: text
+        element: p
+        props:
+          className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+        content: '[Body paragraph. A comfortable measure sits between 60 and 75 characters per line, which this column keeps at every width.]'
+      - type: flex
+        props:
+          className: flex flex-col mt-2 gap-2
+        children:
+          - type: container
+            props:
+              className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-video
+              role: img
+              aria-label: Figure illustrating the article
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: figure · 16:9
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle
+            content: '[Caption]'
+      - type: text
+        element: h2
+        props:
+          className: mt-4 text-2xl font-semibold tracking-tight text-foreground
+        content: '[Section heading]'
+      - type: text
+        element: p
+        props:
+          className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+        content: '[Paragraph.]'
+      - type: text
+        element: blockquote
+        props:
+          className: my-2 border-l-2 border-foreground pl-6 text-2xl font-medium leading-snug text-balance text-foreground
+        content: '[A pull quote, lifted from the text.]'

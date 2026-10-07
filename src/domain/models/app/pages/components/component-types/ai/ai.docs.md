@@ -32,7 +32,7 @@ Set `voiceInput` on an `ai-chat` component (beside `type`, like every other opti
 
 ## It degrades honestly where AI cannot run
 
-An app may declare an agent on a deployment that has no AI provider configured. The renderer does not draw a broken composer in that case: it drops the island and renders a `role="status"` line saying that the assistant is unavailable here.
+An app may declare an agent on a deployment that has no AI provider configured. The renderer does not draw a broken composer in that case: it drops the island and renders a `role="status"` line saying that the assistant is unavailable here and naming the variables to set — `AI_PROVIDER`, and `AI_API_KEY` for a hosted provider.
 
 The notice, and the message shown when a reply fails, follow the page's language: English and French are built in, and any other language shows English.
 

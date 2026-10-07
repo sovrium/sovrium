@@ -43,27 +43,7 @@ components:
               id: add-task-dialog
               title: Add task
               description: Link it to a deal so it shows on the deal too.
-            children:
-              - type: form
-                dataSource:
-                  table: tasks
-                fields:
-                  - field: title
-                  - field: deal
-                  - field: contact
-                  - field: due_date
-                  - field: priority
-                  - field: owner
-                action:
-                  type: crud
-                  operation: create
-                  table: tasks
-                  submitLabel: Add task
-                  onSuccess:
-                    navigate: /tasks
-                    toast:
-                      message: Task added
-                      variant: success
+            formRef: add-task
           - type: container
             props:
               className: flex items-start gap-4 px-5 pb-5 pt-4 max-lg:flex-col

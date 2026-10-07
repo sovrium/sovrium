@@ -494,7 +494,7 @@ const markSection = (): PageComponent =>
                 'reproduction width or the ways it must never be used. The pair below is what a ' +
                 'declared one publishes.',
               configKey: 'design.logo',
-              href: '/en/docs/design',
+              href: DOCS_DESIGN,
             }),
             markLockupExample(),
           ],
@@ -595,7 +595,7 @@ const colorRolesSection = (): PageComponent =>
                     'resolves to the platform’s own and nothing says which ground it was ' +
                     'designed to sit against.',
                   configKey: 'design.colorRoles',
-                  href: '/en/docs/design-components',
+                  href: `${DOCS_DESIGN}-components`,
                 }),
               ],
             },
@@ -756,7 +756,7 @@ const imagerySection = (): PageComponent =>
                     'screenshot or an icon on it may be. Declare principles, photography, ' +
                     'iconSet or patterns to write them down.',
                   configKey: 'design.imagery',
-                  href: '/en/docs/design-components',
+                  href: `${DOCS_DESIGN}-components`,
                 }),
               ],
             },

@@ -1,0 +1,52 @@
+# sovrium-library: block/record-related-list@0.30.0
+name: record-related-list
+type: container
+element: section
+props:
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+children:
+  - type: flex
+    props:
+      className: flex items-center justify-between gap-3
+    children:
+      - type: text
+        element: h2
+        props:
+          className: text-md font-semibold text-foreground
+        content: Tasks
+      - type: button
+        variant: secondary
+        props:
+          label: Add a task
+          interactions:
+            click:
+              modal: record-related-list-add-dialog
+  - type: table
+    readOnly: true
+    dataSource:
+      table: tasks
+      filter:
+        - field: project
+          operator: eq
+          value: $record.id
+    columns:
+      - field: title
+        label: Title
+        editable: false
+    phoneLayout: rows
+    emptyMessage: No task yet. Add one to see it here.
+  - type: dialog
+    props:
+      id: record-related-list-add-dialog
+      title: Add a task
+      description: It is linked to this record.
+    children:
+      - type: form
+        formRef: record-related-list-add
+        classes:
+          parts:
+            title: sr-only
+        inlinePrefill:
+          prefill:
+            project: $parent.id
+          lockPrefill: true

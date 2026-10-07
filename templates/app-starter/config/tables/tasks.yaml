@@ -1,0 +1,12 @@
+# The work under each project. `project` points back at its project, which is
+# what lets a project page list its tasks and add one already linked.
+id: 2
+name: tasks
+fields:
+  - { id: 1, name: title, type: single-line-text, required: true }
+  - { id: 2, name: project, type: relationship, relatedTable: projects }
+  - { id: 3, name: done, type: checkbox }
+permissions:
+  read: authenticated
+  create: authenticated
+  update: authenticated

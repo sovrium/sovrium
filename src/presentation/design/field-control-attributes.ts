@@ -37,6 +37,16 @@ export interface TypedColumnConfig {
   readonly ratingStyle?: string
 }
 
+/**
+ * One option of a choice column as a form control offers it: the stored
+ * `value` and the `label` drawn for it, already in the page language. Shared
+ * by the resolved def, the SSR skeleton and the island's def.
+ */
+export interface ChoiceOption {
+  readonly value: string
+  readonly label: string
+}
+
 /** The slice of a form field these decisions read. */
 export interface ControlAttributeField extends TypedColumnConfig {
   readonly type: string
@@ -187,4 +197,35 @@ export function numericAdornmentOf(field: ControlAttributeField): NumericAdornme
 export function toDateInputValue(value: string): string {
   const head = value.trim().slice(0, 10)
   return /^\d{4}-\d{2}-\d{2}$/.test(head) ? head : ''
+}
+
+/**
+ * Carry a typed column's own control configuration onto the resolved field def,
+ * so the form draws the control the data table edits that column with: a number
+ * input stepped by `precision`, with its currency or percent sign and its bounds;
+ * a date-and-time input read in the column's `timeZone`; a rating scale of `max`
+ * ranks in the column's glyph. Returns an empty overlay for every other type so
+ * the caller spreads it unconditionally. The table-bound crud form and the hosted
+ * form both read it here, so a column is configured alike on both forms.
+ */
+export function resolveTypedColumnConfig(
+  fieldType: string,
+  tf: Readonly<Record<string, unknown>>
+): TypedColumnConfig {
+  const widget = fieldWidgetOf(fieldType)
+  const numberProp = (key: string) => (typeof tf[key] === 'number' ? { [key]: tf[key] } : {})
+  const stringProp = (key: string, as = key) =>
+    typeof tf[key] === 'string' ? { [as]: tf[key] } : {}
+  if (widget === 'number') {
+    return {
+      ...numberProp('precision'),
+      ...numberProp('min'),
+      ...numberProp('max'),
+      ...stringProp('currency'),
+      ...stringProp('symbolPosition'),
+    }
+  }
+  if (widget === 'rating') return { ...numberProp('max'), ...stringProp('style', 'ratingStyle') }
+  if (widget === 'datetime') return stringProp('timeZone')
+  return {}
 }

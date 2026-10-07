@@ -37,13 +37,16 @@ import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { logError } from '@/infrastructure/logging/logger'
 import type {
+  AuditActionCount,
+  AuditListFilter,
+} from '@/application/ports/repositories/admin/audit-log-repository'
+import type {
   AuditLogEntry,
   AuditResult,
   AuditTransport,
 } from '@/domain/models/api/admin/audit-log/entry'
 import type { ActorRole, ActorType } from '@/domain/models/api/admin/envelope/actor'
 import type { Severity } from '@/domain/models/api/admin/envelope/severity'
-import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
 
 /** Drizzle row shape inferred from the pg-core schema. */
@@ -73,11 +76,9 @@ function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> 
     actorId: entry.actor.id,
     actorType: entry.actor.type,
     actorRole: entry.actor.role,
-    // eslint-disable-next-line unicorn/no-null -- DB column is nullable text; null is the contract for "no email captured"
     actorEmail: entry.actor.email ?? null,
     resourceType: entry.resource.type,
     resourceId: entry.resource.id,
-    // eslint-disable-next-line unicorn/no-null -- DB column is nullable text; null is the contract for "no human-readable label"
     resourceName: entry.resource.name ?? null,
     severity: entry.severity,
     result: entry.result,
@@ -92,7 +93,6 @@ function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> 
     // See `src/infrastructure/database/sql/sql-utils.ts` for the upstream
     // tracking link.
     metadata:
-      // eslint-disable-next-line unicorn/no-null -- DB column is nullable jsonb; null is the contract for "no metadata"
       entry.metadata !== undefined ? (jsonbLiteral(entry.metadata) as unknown as null) : null,
   }
 }
@@ -145,7 +145,6 @@ function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> {
  */
 export async function appendAuditEntryToDb(entry: Readonly<AuditLogEntry>): Promise<void> {
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await db.insert(auditLog).values(rowFromEntry(entry))
   } catch (error) {
     // Best-effort emit; do not crash the host request.
@@ -173,7 +172,6 @@ export async function appendAuditEntryToDbTx(
   // builder is identical to `db.insert(...)`. Cast to the same writer
   // facade so TypeScript does not need a separate overload.
   const writer = tx as unknown as DrizzleDB
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside an open transaction
   await writer.insert(auditLog).values(rowFromEntry(entry))
 }
 
@@ -195,12 +193,7 @@ export async function shedActorEmailInDbTx(
   userId: string
 ): Promise<void> {
   const writer = tx as unknown as DrizzleDB
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside an open transaction
-  await writer
-    .update(auditLog)
-    // eslint-disable-next-line unicorn/no-null -- a cleared address is SQL NULL, never a placeholder
-    .set({ actorEmail: null })
-    .where(eq(auditLog.actorId, userId))
+  await writer.update(auditLog).set({ actorEmail: null }).where(eq(auditLog.actorId, userId))
 }
 
 /**
@@ -325,12 +318,6 @@ export async function hasAuditEntrySinceLatest(
     logError('[audit-log] failed to look up an earlier entry', error, { action: input.action })
     return false
   }
-}
-
-/** One action's count, as {@link countAuditEntriesByAction} answers it. */
-export interface AuditActionCount {
-  readonly action: string
-  readonly count: number
 }
 
 /**

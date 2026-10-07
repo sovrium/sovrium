@@ -10,12 +10,11 @@ import { deriveSubkey } from '@/infrastructure/crypto/root-secret'
 /**
  * The signing secret behind sessions, cookies and signed storage URLs.
  *
- * `AUTH_SECRET` used to be the weaker of Sovrium's two secrets: nothing
- * validated it, and when it was absent Better Auth substituted its own
- * publicly-documented default, while two Sovrium call sites fell back to a
- * hard-coded `'sovrium-signed-url-dev-secret'`. "No environment variables" was
- * therefore quiet rather than safe. Deriving it from the root secret makes the
- * zero-config install genuinely secret-bearing.
+ * Left to itself, `AUTH_SECRET` would be the weaker of Sovrium's two secrets:
+ * nothing validates it, and when it is absent Better Auth substitutes its own
+ * publicly-documented default, so "no environment variables" would be quiet
+ * rather than safe. Deriving it from the root secret makes the zero-config
+ * install genuinely secret-bearing, with no hard-coded fallback anywhere.
  *
  * An explicitly-set `AUTH_SECRET` still wins, and that precedence is not a
  * nicety — deriving over the top of a deployment that already supplies one

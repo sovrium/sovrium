@@ -38,7 +38,7 @@ import {
   findViewByKey,
   sortFieldNames,
 } from '@/domain/models/app/tables/views/view-read-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { runEffect } from '@/presentation/api/runtime'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateAggregateParam } from './field-permission-validation'
@@ -177,7 +177,7 @@ async function withRowLevelScope(
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
   if (table?.rowLevelPermissions === undefined) return query
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   const scoped = buildListFilter(table, guard, undefined, query.filter)
   return scoped === 'empty' || scoped === 'reject' ? 'empty' : { ...query, filter: scoped }
 }
@@ -186,7 +186,7 @@ export async function handleListViewRecords(c: Context, app: App) {
   const { session, tableId, userRole, userGroups } = getTableContext(c)
   const viewId = c.req.param('viewId') ?? ''
   const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-  const accessRoles = await resolveAccessRolesFor(session, table === undefined ? [] : [table])
+  const accessRoles = await resolveAccessRolesFor(c, session, table === undefined ? [] : [table])
   const prepared = prepareForAdmittedCaller(c, app, { viewId, accessRoles })
   if (prepared?.ok === false) return prepared.response
   const query = prepared?.ok === true ? await withRowLevelScope(c, app, prepared.query) : undefined
@@ -196,7 +196,8 @@ export async function handleListViewRecords(c: Context, app: App) {
 
   return runEffect(
     c,
-    provideTableLive(
+    provideDomain(
+      c,
       getViewRecordsProgram({
         tableId,
         viewId,

@@ -16,6 +16,13 @@ import {
 import { logError } from '../../logging'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
+/**
+ * The transport every handler hands its message to. Defaults to the
+ * process-wide {@link sendEmail}; a caller (a unit test) injects its own to
+ * observe the message a handler builds without sending it.
+ */
+export type SendAuthEmail = typeof sendEmail
+
 /** Every value a custom template can name. */
 type SubstitutionContext = Readonly<{
   name?: string
@@ -105,7 +112,8 @@ type EmailHandlerConfig = Readonly<{
 const createEmailHandler = (
   config: EmailHandlerConfig,
   customTemplate?: AuthEmailTemplate,
-  appName?: string
+  appName?: string,
+  send: SendAuthEmail = sendEmail
 ) => {
   return async ({
     user,
@@ -122,8 +130,7 @@ const createEmailHandler = (
     try {
       // Custom template takes precedence - use it entirely (don't mix with defaults)
       if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
+        await send({
           to: user.email,
           fromName: appName,
           subject: substituteVariables(customTemplate.subject, context),
@@ -139,8 +146,7 @@ const createEmailHandler = (
           actionUrl,
         })
 
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
+        await send({
           to: user.email,
           fromName: appName,
           subject: defaultTemplate.subject,
@@ -158,7 +164,11 @@ const createEmailHandler = (
 /**
  * Create password reset email handler with optional custom templates
  */
-const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate, appName?: string) =>
+const createPasswordResetEmailHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) =>
   createEmailHandler(
     {
       emailType: 'password reset',
@@ -167,13 +177,18 @@ const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate, app
         passwordResetEmail({ appName, userName, resetUrl: actionUrl, expiresIn: '1 hour' }),
     },
     customTemplate,
-    appName
+    appName,
+    send
   )
 
 /**
  * Create email verification handler with optional custom templates
  */
-const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate, appName?: string) =>
+const createVerificationEmailHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) =>
   createEmailHandler(
     {
       emailType: 'verification',
@@ -183,7 +198,8 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate, appN
         emailVerificationEmail({ appName, userName, verifyUrl: actionUrl, expiresIn: '24 hours' }),
     },
     customTemplate,
-    appName
+    appName,
+    send
   )
 
 /**
@@ -210,7 +226,11 @@ export const buildMagicLinkDefaultEmail = ({
 /**
  * Create magic link email handler with optional custom templates
  */
-const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate, appName?: string) =>
+const createMagicLinkEmailHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) =>
   createEmailHandler(
     {
       emailType: 'magic link',
@@ -219,7 +239,8 @@ const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate, appName
         buildMagicLinkDefaultEmail({ userName, actionUrl, appName }),
     },
     customTemplate,
-    appName
+    appName,
+    send
   )
 
 /**
@@ -229,14 +250,17 @@ const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate, appName
  * Unlike other handlers, this doesn't require a URL/token — it fires
  * after the user record is created in the database.
  */
-const createWelcomeEmailHandler = (customTemplate?: AuthEmailTemplate, appName?: string) => {
+const createWelcomeEmailHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) => {
   return async (user: Readonly<{ email: string; name: string }>) => {
     const context = { name: user.name, email: user.email, appName }
 
     try {
       if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
+        await send({
           to: user.email,
           fromName: appName,
           subject: substituteVariables(customTemplate.subject, context),
@@ -260,7 +284,11 @@ const createWelcomeEmailHandler = (customTemplate?: AuthEmailTemplate, appName?:
  * from Better Auth's emailOTP plugin. The handler substitutes $otp in
  * the custom template with the actual code.
  */
-const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate, appName?: string) => {
+const createEmailOtpHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) => {
   return async ({
     email,
     otp,
@@ -272,8 +300,7 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate, appName?: str
     try {
       if (customTemplate?.subject) {
         const context = { email, otp, appName }
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
+        await send({
           to: email,
           fromName: appName,
           subject: substituteVariables(customTemplate.subject, context),
@@ -285,8 +312,7 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate, appName?: str
         return
       }
       // Default OTP email
-      // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-      await sendEmail({
+      await send({
         to: email,
         fromName: appName,
         subject: `Your ${resolveBrand(appName)} verification code`,
@@ -308,7 +334,8 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate, appName?: str
  */
 const createTwoFactorBackupCodesHandler = (
   customTemplate?: AuthEmailTemplate,
-  appName?: string
+  appName?: string,
+  send: SendAuthEmail = sendEmail
 ) => {
   return async ({
     email,
@@ -324,8 +351,7 @@ const createTwoFactorBackupCodesHandler = (
 
       if (customTemplate?.subject) {
         const context = { email, name, codes: formattedCodes, appName }
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
+        await send({
           to: email,
           fromName: appName,
           subject: substituteVariables(customTemplate.subject, context),
@@ -337,8 +363,7 @@ const createTwoFactorBackupCodesHandler = (
         return
       }
       // Default backup codes email
-      // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-      await sendEmail({
+      await send({
         to: email,
         fromName: appName,
         subject: `Your ${resolveBrand(appName)} backup codes`,
@@ -361,8 +386,12 @@ const createTwoFactorBackupCodesHandler = (
  * mailed once the account is erased: the address is the personal data the
  * erasure removes, and the redirect already confirms it.
  */
-const createAccountDeletionHandler = (customTemplate?: AuthEmailTemplate, appName?: string) => {
-  const send = createEmailHandler(
+const createAccountDeletionHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) => {
+  const sendDeletion = createEmailHandler(
     {
       emailType: 'account deletion',
       // Better Auth builds the whole link, token and callback URL included.
@@ -371,10 +400,11 @@ const createAccountDeletionHandler = (customTemplate?: AuthEmailTemplate, appNam
         accountDeletionEmail({ appName, userName, confirmUrl: actionUrl, expiresIn: '24 hours' }),
     },
     customTemplate,
-    appName
+    appName,
+    send
   )
   return ({ email, name, url }: Readonly<{ email: string; name?: string; url: string }>) =>
-    send({ user: { email, name }, url, token: '' })
+    sendDeletion({ user: { email, name }, url, token: '' })
 }
 
 /**
@@ -416,7 +446,11 @@ export const buildInvitationDefaultEmail = ({
  * roll back the verification token row (the admin can still surface the
  * link manually if SMTP is misconfigured).
  */
-const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate, appName?: string) => {
+const createInvitationEmailHandler = (
+  customTemplate?: AuthEmailTemplate,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) => {
   return async ({
     email,
     name,
@@ -432,8 +466,7 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate, appNam
 
     try {
       if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
-        await sendEmail({
+        await send({
           to: email,
           fromName: appName,
           subject: substituteVariables(customTemplate.subject, context),
@@ -446,8 +479,7 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate, appNam
       }
 
       // Default invitation template
-      // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
-      await sendEmail({
+      await send({
         to: email,
         fromName: appName,
         ...buildInvitationDefaultEmail({ name, url, inviterName, appName }),
@@ -461,20 +493,25 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate, appNam
 /**
  * Create email handlers from auth configuration
  */
-export const createEmailHandlers = (authConfig?: Auth, appName?: string) => {
-  const templates = authConfig?.emailTemplates
+export const createEmailHandlers = (
+  authConfig?: Auth,
+  appName?: string,
+  send: SendAuthEmail = sendEmail
+) => {
+  const templates: NonNullable<Auth['emailTemplates']> = authConfig?.emailTemplates ?? {}
 
   return {
-    passwordReset: createPasswordResetEmailHandler(templates?.resetPassword, appName),
-    verification: createVerificationEmailHandler(templates?.verification, appName),
-    magicLink: createMagicLinkEmailHandler(templates?.magicLink, appName),
-    welcome: createWelcomeEmailHandler(templates?.welcome, appName),
-    emailOtp: createEmailOtpHandler(templates?.emailOtp, appName),
+    passwordReset: createPasswordResetEmailHandler(templates.resetPassword, appName, send),
+    verification: createVerificationEmailHandler(templates.verification, appName, send),
+    magicLink: createMagicLinkEmailHandler(templates.magicLink, appName, send),
+    welcome: createWelcomeEmailHandler(templates.welcome, appName, send),
+    emailOtp: createEmailOtpHandler(templates.emailOtp, appName, send),
     twoFactorBackupCodes: createTwoFactorBackupCodesHandler(
-      templates?.twoFactorBackupCodes,
-      appName
+      templates.twoFactorBackupCodes,
+      appName,
+      send
     ),
-    accountDeletion: createAccountDeletionHandler(templates?.accountDeletion, appName),
-    invitation: createInvitationEmailHandler(templates?.invitation, appName),
+    accountDeletion: createAccountDeletionHandler(templates.accountDeletion, appName, send),
+    invitation: createInvitationEmailHandler(templates.invitation, appName, send),
   }
 }

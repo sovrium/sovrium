@@ -6,8 +6,7 @@
  */
 
 /**
- * `marquee` — a continuously scrolling band of children
- *.
+ * `marquee` — a continuously scrolling band of children.
  *
  * CSS-only: there is NO island. The band's whole behaviour — the infinite loop,
  * its direction, the pause states, and the `prefers-reduced-motion` fallback —
@@ -160,7 +159,7 @@ export const marqueeComponent: ComponentRenderer = ({
             data-marquee-group="true"
             aria-hidden="true"
             inert
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; the clone is pre-rendered markup from the same tree
+            // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
             dangerouslySetInnerHTML={{ __html: cloneHtml }}
           />
         </div>

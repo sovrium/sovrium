@@ -14,7 +14,7 @@
  * second way to run the same agent under the same privileged identity, and for
  * as long as it carried no gates of its own an operator who capped an agent at
  * two actions a minute got that cap on `/execute` and no cap at all here
- *. Sharing the code is what makes "the same
+ * Sharing the code is what makes "the same
  * gates" true by construction instead of by two copies staying in step.
  */
 
@@ -38,7 +38,7 @@ import type { Context } from 'hono'
  * before any AI round-trip, so the provider is never called on a denied
  * request. Returns `undefined` when the run may proceed.
  */
-export const checkExecutionGates = (c: Readonly<Context>, agent: Agent): Response | undefined => {
+export const checkExecutionGates = (c: Context, agent: Agent): Response | undefined => {
   if (agent.enabled === false) {
     return c.json(
       errorBody({
@@ -93,7 +93,7 @@ export const checkExecutionGates = (c: Readonly<Context>, agent: Agent): Respons
  * A `queued` decision claims neither an action-window slot nor a concurrency
  * slot — the action is deferred, not dropped.
  */
-export const checkLimitGates = (c: Readonly<Context>, agent: Agent): Response | undefined => {
+export const checkLimitGates = (c: Context, agent: Agent): Response | undefined => {
   const limits = resolveAgentLimits(agent.limits)
 
   const rate = checkActionRateLimit(agent.name, limits.maxActionsPerMinute)
@@ -124,7 +124,7 @@ export const checkLimitGates = (c: Readonly<Context>, agent: Agent): Response | 
  * the HTTP answer to it is a gate concern — the same split `agentNotFound`
  * already makes in `agent-lookup.ts`.
  */
-export const tokenBudgetExhausted = (c: Readonly<Context>, agentName: string): Response =>
+export const tokenBudgetExhausted = (c: Context, agentName: string): Response =>
   c.json(
     errorBody({
       error: `Daily token budget exhausted for agent '${agentName}'.`,

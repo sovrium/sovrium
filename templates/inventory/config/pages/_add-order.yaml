@@ -5,24 +5,4 @@ props:
   id: add-order-dialog
   title: Add order
   description: Name the customer and what the order is worth; it starts in Draft.
-children:
-  - type: form
-    dataSource:
-      table: orders
-    fields:
-      - { field: order_number, label: Order number }
-      - { field: customer, label: Customer }
-      - { field: lines, label: Lines }
-      - { field: units, label: Units }
-      - { field: total, label: Total }
-      - { field: placed_at, label: Placed on }
-    action:
-      type: crud
-      operation: create
-      table: orders
-      submitLabel: Add order
-      onSuccess:
-        navigate: /orders
-        toast:
-          message: Order added
-          variant: success
+formRef: add-order

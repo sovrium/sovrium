@@ -57,8 +57,6 @@ components:
               # columns take only what their heading needs. On a phone every
               # column keeps a readable width and the board scrolls sideways.
               - type: kanban
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Won]]:flex-[0_0_7.5rem]! md:[&_[data-column=Lost]]:flex-[0_0_7.5rem]!'
                 dataSource:
                   table: deals
                   bindTo: pipeline-filter
@@ -70,6 +68,8 @@ components:
                   # The outcome columns start folded: they hold results, not
                   # work in progress.
                   collapsed: [Won, Lost]
+                  columnSizing: fill
+                  columnWidths: { Won: 7.5rem, Lost: 7.5rem }
                 drag:
                   enabled: true
                   persistAction:

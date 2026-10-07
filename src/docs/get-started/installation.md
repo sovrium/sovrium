@@ -33,11 +33,19 @@ docker pull ghcr.io/sovrium/sovrium:latest
 
 After installing, the `sovrium` command is available from anywhere.
 
+The install script downloads over HTTPS only and installs the binary only when its published sha256 matches. When the checksum cannot be fetched, cannot be read or does not match, it stops with nothing installed and tells you how to report it. `--insecure-skip-checksum` installs without that check and says so; use it only when you have verified the archive another way.
+
+The checksum proves the download is intact, not who built it, because it comes from the same release page. Each release archive and its checksums file also carry a build provenance attestation, which proves the file came out of the project's release workflow from a known commit (older releases, published before attestations were added, have none); the Docker image carries its provenance and SBOM in the registry. With the GitHub CLI installed, check an archive with:
+
+```bash
+gh attestation verify sovrium-<version>-<platform>.tar.gz -R sovrium/sovrium
+```
+
 ## Cloud installation
 
 Run Sovrium on a managed host without provisioning a server yourself. Any platform that runs a long-lived container will do: point it at the published `ghcr.io/sovrium/sovrium` image. Render, Railway, Heroku, Platform.sh and Fly.io all run Sovrium this way. Scalingo can too, or you can deploy there from source with the Sovrium buildpack, which downloads the released, checksum-verified binary — see **Deploy on Scalingo**.
 
-Whichever host you pick, set `BASE_URL` (required) and `SOVRIUM_ENCRYPTION_KEY`. Sovrium generates its own encryption key when none is given, but a managed host rebuilds the container filesystem on every deploy, so a self-generated key would not survive one unless it lands on a persistent volume — on a managed host, set it explicitly. There is only one secret to look after: the session-signing secret is derived from the encryption key, so you never set `AUTH_SECRET` alongside it. Generate one with `sovrium secret generate`, or with `openssl rand -hex 32` if you do not have the binary to hand yet. `DATABASE_URL` is optional — Sovrium defaults to embedded SQLite — and so are the `SMTP_*` variables for sending email.
+Whichever host you pick, set `BASE_URL` (required) and `SOVRIUM_ENCRYPTION_KEY`. Sovrium generates its own encryption key when none is given, but a managed host rebuilds the container filesystem on every deploy, so a self-generated key would not survive one unless it lands on a persistent volume — on a managed host, set it explicitly. That is the only secret you need: the session-signing secret is derived from the encryption key, so leave `AUTH_SECRET` unset unless you have a reason to manage it separately. Generate the key with `sovrium secret generate encryption`, or with `openssl rand -hex 32` if you do not have the binary to hand yet. If you do set `AUTH_SECRET`, it wins over the derived value and the two rotate independently: changing the encryption key no longer signs anyone out, changing `AUTH_SECRET` signs everyone out, and you now have two secrets to keep and back up. An existing deployment that already sets `AUTH_SECRET` should keep it — removing it switches to the derived secret and signs every user out once. `DATABASE_URL` is optional — Sovrium defaults to embedded SQLite — and so are the `SMTP_*` variables for sending email.
 
 Vercel is not supported, because it is serverless: it offers no persistent server or container, and Sovrium needs a long-running process to serve your app and store its data.
 

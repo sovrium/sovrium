@@ -5,18 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  createCommentRequestSchema,
-  updateCommentRequestSchema,
-} from '@/domain/models/api/tables/comments'
+import { aggregateRecordsQuerySchema } from '@/domain/models/api/tables/aggregate'
+import { updateCommentRequestSchema } from '@/domain/models/api/tables/comments'
 import { listRecordsQuerySchema } from '@/domain/models/api/tables/params'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
 } from '@/domain/models/api/tables/records'
+import { acceptsFormBody } from '@/presentation/api/middleware/json-body'
 import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
 import { handleGetRecordHistory } from './activity-handlers'
+import { handleAggregateRecords } from './aggregate-handlers'
 import { handleFormBulkDelete, handleFormBulkUpdate } from './bulk-form-handlers'
 import {
   handleCreateComment,
@@ -41,9 +41,7 @@ import {
 } from './record-handlers'
 import { handleSubscribe } from './subscribe-handlers'
 import type { App } from '@/domain/models/app'
-import type { Hono } from 'hono'
-
-/* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
+import type { Context, Hono } from 'hono'
 
 // A single fluent Hono chain — splitting it breaks Hono's RPC client type
 // inference (the chain's structure is load-bearing for the generated
@@ -58,12 +56,22 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
         conditionalRead(),
         (c) => handleListRecords(c, resolveApp())
       )
-      .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, resolveApp()))
-      .post('/api/tables/:tableId/records/bulk-delete', (c) =>
-        handleFormBulkDelete(c, resolveApp())
+      .get(
+        '/api/tables/:tableId/aggregate',
+        effectValidator('query', aggregateRecordsQuerySchema),
+        conditionalRead(),
+        (c) => handleAggregateRecords(c, resolveApp())
       )
-      .post('/api/tables/:tableId/records/bulk-update', (c) =>
-        handleFormBulkUpdate(c, resolveApp())
+      .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, resolveApp()))
+      // The four HTML-form verbs: the only routes here that take a form post
+      // (every other body must be JSON — `refuseNonJsonBody`).
+      .post(
+        '/api/tables/:tableId/records/bulk-delete',
+        acceptsFormBody((c: Context) => handleFormBulkDelete(c, resolveApp()))
+      )
+      .post(
+        '/api/tables/:tableId/records/bulk-update',
+        acceptsFormBody((c: Context) => handleFormBulkUpdate(c, resolveApp()))
       )
       .post(
         '/api/tables/:tableId/records',
@@ -80,12 +88,14 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
         effectValidator('json', updateRecordRequestSchema),
         (c) => handleUpdateRecord(c, resolveApp())
       )
-      .post('/api/tables/:tableId/records/:recordId/update', (c) =>
-        handleFormUpdateRecord(c, resolveApp())
+      .post(
+        '/api/tables/:tableId/records/:recordId/update',
+        acceptsFormBody((c: Context) => handleFormUpdateRecord(c, resolveApp()))
       )
       .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, resolveApp()))
-      .post('/api/tables/:tableId/records/:recordId/delete', (c) =>
-        handleFormDeleteRecord(c, resolveApp())
+      .post(
+        '/api/tables/:tableId/records/:recordId/delete',
+        acceptsFormBody((c: Context) => handleFormDeleteRecord(c, resolveApp()))
       )
       .post('/api/tables/:tableId/records/:recordId/restore', (c) =>
         handleRestoreRecord(c, resolveApp())
@@ -99,10 +109,11 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
       .get('/api/tables/:tableId/records/:recordId/comments', (c) =>
         handleListComments(c, resolveApp())
       )
-      .post(
-        '/api/tables/:tableId/records/:recordId/comments',
-        effectValidator('json', createCommentRequestSchema),
-        (c) => handleCreateComment(c, resolveApp())
+      // No route validator: the thread's sign-in, record and spam-trap gates
+      // answer before the body is judged (`checkCreateCommentGate`), so a
+      // malformed post cannot tell a prober which gate it reached.
+      .post('/api/tables/:tableId/records/:recordId/comments', (c) =>
+        handleCreateComment(c, resolveApp())
       )
       .post('/api/tables/:tableId/records/:recordId/comments/read', (c) =>
         handleMarkCommentsRead(c, resolveApp())
@@ -125,5 +136,3 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
       )
   )
 }
-
-/* eslint-enable drizzle/enforce-delete-with-where */

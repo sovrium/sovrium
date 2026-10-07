@@ -11,9 +11,9 @@
  * ## Why this module exists
  *
  * Importing `better-auth` costs ~356 ms of a ~730 ms cold boot, and roughly
- * three apps in four declare no `auth:` block at all — yet every server used to
- * pay for it, because six modules on the static boot graph named the package
- * directly:
+ * three apps in four declare no `auth:` block at all — yet every server would
+ * pay for it if a module on the static boot graph named the package directly.
+ * These modules need its values:
  *
  *   - `server.ts`            → `createAuthInstance`, `rekeyUnreadableJwks`
  *   - `route-setup/api-routes.ts`     → `createAuthInstance`
@@ -21,7 +21,7 @@
  *   - `route-setup/auth-routes.ts`    → the `@better-auth/oauth-provider` metadata handlers
  *   - `route-setup/mcp/auth.ts`       → `createMcpProtectedRequestHandler`
  *
- * Each of those is now an `import type` (erased at transpile) plus a value that
+ * Each of those uses an `import type` (erased at transpile) plus a value that
  * arrives as a PARAMETER. This module is the one place that still names the
  * package as a value, and `createHonoApp` loads it with a single
  * `await import(...)` guarded by `app.auth`.

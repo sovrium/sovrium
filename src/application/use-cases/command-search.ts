@@ -29,6 +29,7 @@ import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
+import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
@@ -48,8 +49,7 @@ import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-ev
  */
 
 /**
- * Per-source result ceiling for the two PAGE sources
- *.
+ * Per-source result ceiling for the two PAGE sources.
  *
  * Records were already capped at 25; the declared-page and article matches
  * were not, and both are unbounded in the same way that produced the 504. A
@@ -308,7 +308,7 @@ const pageResults = (
   app: App,
   query: string,
   pageReader: SessionInfo | undefined
-): Effect.Effect<readonly CommandSearchResult[], never> =>
+): Effect.Effect<readonly CommandSearchResult[], never, ContentDirReader> =>
   Effect.gen(function* () {
     const documents = yield* loadReadablePageDocuments(app, pageReader)
     const search = (kind: 'page' | 'article') =>
@@ -342,7 +342,7 @@ export const SearchCommandPalette = (
 ): Effect.Effect<
   readonly CommandSearchResult[],
   CommandSearchDatabaseError,
-  CommandSearchRepository | DataSourceRepository | AuthRepository
+  CommandSearchRepository | DataSourceRepository | AuthRepository | ContentDirReader
 > =>
   Effect.gen(function* () {
     const repo = yield* CommandSearchRepository
@@ -356,11 +356,10 @@ export const SearchCommandPalette = (
       tables,
       (table) =>
         Effect.gen(function* () {
-          // PERMISSION SCOPING. This scan used to walk EVERY table and EVERY
-          // text column with no gate whatsoever, and its `label` is a raw value
-          // from whichever column matched — so a `read: ['admin']` table's
-          // contents were searchable, and a field-restricted column was a
-          // perfectly good needle. The plan supplies the four answers the records
+          // PERMISSION SCOPING. The scan's `label` is a raw value from
+          // whichever column matched, so walking EVERY table and EVERY text
+          // column ungated would make a `read: ['admin']` table's contents
+          // searchable, and a field-restricted column a perfectly good needle. The plan supplies the four answers the records
           // API composes: may this caller read the table, which columns, which
           // rows her row-level rule admits, and are soft-deleted rows in scope.
           const scan = yield* tableScanFor(app, table, scope)

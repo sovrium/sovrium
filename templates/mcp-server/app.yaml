@@ -35,6 +35,14 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a GitHub token lets an admin import a runbook kept in a repository
+# (config/automations/import-runbook.yaml). Without it the app runs as before
+# and only that import cannot reach GitHub.
+env:
+  - key: GITHUB_TOKEN
+    description: GitHub token with read access to the repositories your runbooks live in.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -48,3 +56,10 @@ pages:
 # The page's footer carries its own "Built with Sovrium" line, so the engine's
 # badge is switched off.
 badge: false
+
+# An admin's import of a runbook from GitHub, through the library connection.
+automations:
+  - $ref: ./config/automations/import-runbook.yaml
+
+connections:
+  - $ref: ./library/connection/github.yaml

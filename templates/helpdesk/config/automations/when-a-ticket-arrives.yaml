@@ -2,13 +2,19 @@
 #
 # 1. It is stamped with when it arrived and when its first reply is due, four
 #    hours later. The Queue and All tickets read both.
-# 2. The requester gets a copy of what they sent, so they know it arrived.
+# 2. The team's inbox is told, with who wrote in and about what.
+#
+# The requester is deliberately not emailed here. Their address comes from a
+# public form, so anyone can type someone else's: an automatic copy would let a
+# stranger make your domain mail their text to any inbox. The confirmation page
+# tells the requester the ticket arrived; a person replies by email later.
+# Replace support@example.com with your own team's address.
 #
 # A form submission's record trigger carries the answers only, so the ticket's
 # id is read back from the table before it is updated.
 name: when-a-ticket-arrives
-label: New ticket — set its due time and confirm receipt
-description: Stamp a new ticket with its arrival and first-reply due time, then email the requester a copy.
+label: New ticket — set its due time and tell the team
+description: Stamp a new ticket with its arrival and first-reply due time, then tell the team's inbox.
 enabled: true
 trigger:
   type: record
@@ -39,14 +45,13 @@ actions:
       data:
         opened_at: '{{arrivedAt.instant}}'
         first_reply_due: '{{replyDue.instant}}'
-  - name: emailRequester
+  - name: emailTeam
     type: email
     operator: send
     props:
-      to: '{{trigger.data.record.requester_email}}'
-      subject: 'We have your ticket: {{trigger.data.record.subject}}'
+      to: support@example.com
+      subject: 'New ticket: {{trigger.data.record.subject}}'
       body: |
-        <p>Hello {{trigger.data.record.requester_name}},</p>
-        <p>Your ticket <strong>{{trigger.data.record.subject}}</strong> is with the
-        team. A person reads every ticket and usually replies within one
-        business day.</p>
+        <p><strong>{{trigger.data.record.subject}}</strong> came in from
+        {{trigger.data.record.requester_name}} ({{trigger.data.record.requester_email}}).</p>
+        <p>Its first reply is due in four hours. It waits in the Queue.</p>

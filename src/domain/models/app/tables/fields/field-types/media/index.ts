@@ -8,3 +8,4 @@
 export * from './single-attachment-field'
 export * from './multiple-attachments-field'
 export * from './barcode-field'
+export * from './signature-field'

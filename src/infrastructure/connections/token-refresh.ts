@@ -7,8 +7,15 @@
 
 import { Effect } from 'effect'
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import {
+  guardedFetch,
+  guardedText,
+  TOKEN_RESPONSE_MAX_BYTES,
+} from '@/infrastructure/egress/guarded-fetch'
+import type {
+  OAuth2RefreshProps,
+  RefreshResult,
+} from '@/application/ports/services/oauth-token-client'
 
 /**
  * OAuth2 refresh-token exchange (C-2).
@@ -19,7 +26,7 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
  * refresh token. New access (and optionally rotated refresh) tokens go
  * through the same `ConnectionTokenRepository.upsertForUser` path that
  * encrypts before write — so the encrypted-at-rest invariant from
- * [internal ref] holds for refreshed tokens as well.
+ * an automation connection spec holds for refreshed tokens as well.
  *
  * Concurrency: see `withRefreshLock` below — multiple in-flight refresh
  * requests for the same `(connectionId, userId)` key share a single
@@ -27,38 +34,12 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
  * the provider with duplicate refreshes.
  */
 
-export interface OAuth2RefreshProps {
-  readonly clientId: string
-  readonly clientSecret: string
-  readonly tokenUrl: string
-  readonly scopes?: readonly string[]
-  readonly audience?: string
-  readonly extraTokenParams?: Readonly<Record<string, string>>
-  readonly authenticationMethod?: 'header' | 'body'
-  /**
-   * Extra fields of the token response the connection keeps (`tokenFields`),
-   * e.g. Salesforce's `instance_url`. Captured as strings beside the token.
-   */
-  readonly keepFields?: readonly string[]
-}
-
 export interface RefreshTokenResponse {
   readonly access_token?: string
   readonly refresh_token?: string
   readonly expires_in?: number
   readonly token_type?: string
 }
-
-export type RefreshResult =
-  | {
-      readonly ok: true
-      readonly accessToken: string
-      readonly refreshToken: string | undefined
-      readonly expiresAt: Date | undefined
-      /** The kept response fields present in the answer (see `keepFields`). */
-      readonly fields?: Readonly<Record<string, string>>
-    }
-  | { readonly ok: false; readonly error: string }
 
 /**
  * Build the form-encoded body parameters sent to the token endpoint when
@@ -95,7 +76,7 @@ const buildTokenBodyEntries = (
   //   Authorization header.
   // The default is 'header' because RFC 6749 §2.3.1 prescribes HTTP
   // Basic for client authentication and stipulates that providers
-  // SHOULD support it; [internal ref] asserts this
+  // SHOULD support it; an automation connection spec asserts this
   // wire-level contract by sending no `authenticationMethod` and
   // expecting `Authorization: Basic` on the refresh request.
   const credentialEntries: readonly (readonly [string, string])[] =
@@ -198,7 +179,7 @@ const fieldsOf = (
  * on failure returns a tagged error string the caller can surface as an
  * action failure or re-authorization prompt.
  *
- * Failure modes (covered by [internal ref]):
+ * Failure modes:
  *   - `refresh_endpoint_4xx` — provider rejected the refresh token
  *     (revoked, expired, or invalid). Caller should mark the connection
  *     as needing re-authorization.
@@ -206,6 +187,8 @@ const fieldsOf = (
  *     retry or surface as an action failure.
  *   - `refresh_response_missing_access_token` — malformed provider
  *     response.
+ *   - `refresh_response_too_large` — the answer exceeded the token-response
+ *     size cap and was cut, so it was not parsed.
  *   - `refresh_request_failed` — network/timeout failure.
  */
 export const refreshAccessToken = async (
@@ -239,25 +222,24 @@ const postTokenRequest = async (
   entries: readonly (readonly [string, string])[],
   tag: 'refresh' | 'token'
 ): Promise<RefreshResult> => {
-  // SSRF guard: a misconfigured `tokenUrl` pointing at internal infra
-  // would cause the request to leak the client credentials to the wrong
-  // host. Reject loopback / link-local / RFC1918 / non-http(s) first.
-  const validation = validateOutboundUrl(props.tokenUrl)
-  if (!validation.ok) {
-    return { ok: false, error: `${tag}_invalid_url_${validation.issue.reason}` }
-  }
+  // SSRF guard on the URL and every redirect hop: a `tokenUrl` pointing at
+  // internal infra, or answering with a redirect to it, would leak the client
+  // credentials to the wrong host.
   const body = new URLSearchParams(entries as [string, string][])
   try {
-    const response = await withFetchTimeout(
+    const sent = await guardedFetch(
       props.tokenUrl,
       { method: 'POST', headers: buildRefreshHeaders(props), body: body.toString() },
-      OAUTH_CALLBACK_TIMEOUT_MS
+      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
     )
+    if (!sent.ok) return { ok: false, error: `${tag}_invalid_url_${sent.reason}` }
+    const { response } = sent
     if (!response.ok) {
       const range = response.status >= 400 && response.status < 500 ? '4xx' : '5xx'
       return { ok: false, error: `${tag}_endpoint_${range}_${String(response.status)}` }
     }
-    const tokens = (await response.json()) as RefreshTokenResponse
+    if (response.truncated) return { ok: false, error: `${tag}_response_too_large` }
+    const tokens = JSON.parse(guardedText(response)) as RefreshTokenResponse
     return parseRefreshResponse(tokens, props.keepFields)
   } catch (error) {
     return {
@@ -331,7 +313,7 @@ const refreshKey = (input: {
  * (e.g. `{ ok: true, token: '<persisted-access-token>' }`) than the
  * raw upstream `RefreshResult`. Coalescing the entire refresh+persist
  * into a single locked unit is what makes
- * [internal ref] (and -083) actually one /token POST in
+ * an automation connection spec (and -083) actually one /token POST in
  * practice — the previous version locked only the upstream call,
  * leaving a window where caller B's `findForUser` could observe the
  * pre-refresh token in the database between A's response and A's
@@ -380,11 +362,9 @@ export const withRefreshLock = async <T>(
   if (pending !== undefined) return pending as Promise<T>
   const promise = exec().finally(() => {
     if (inFlight.get(key) === promise) {
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- managed module-level dedup cache; drizzle false positive (Map.delete not DB)
       inFlight.delete(key)
     }
   })
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- managed module-level dedup cache
   inFlight.set(key, promise)
   return promise
 }

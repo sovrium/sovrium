@@ -19,7 +19,7 @@ import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
 
 /**
- * SSR picker for `user`-typed columns.
+ * SSR picker for `user`-typed columns ([internal ref] / the forms specs).
  *
  * Emits a `<div data-field-type="user" data-field-name="..."
  * data-allow-multiple="true|false">` wrapping a native `<select>` whose

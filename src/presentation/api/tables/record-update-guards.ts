@@ -9,12 +9,12 @@ import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { checkRecordUpdateValues, findReadonlyUpdateField } from './record-rules'
 import { createValidationLayer, sanitizeRichTextFields } from './validation'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type {
   FieldFormatError,
@@ -40,32 +40,35 @@ export interface FieldConditionCheckInput {
  * Evaluated against the record's CURRENT stored value — fetched here — so a
  * locked record cannot be mutated through any field. Returns a `400` response
  * when locked, or `undefined` when the update may proceed.
- *
  */
-export async function checkFieldConditionReadOnly(
+export const fieldConditionLock = (
   input: FieldConditionCheckInput
-): Promise<Response | undefined> {
+): Effect.Effect<Response | undefined, never, TableRepository> => {
   const { c, table, session, tableName, recordId } = input
   const hasConditions = table?.fields?.some(
     (field) =>
       'conditions' in field && Array.isArray(field.conditions) && field.conditions.length > 0
   )
-  if (!table || !hasConditions) return undefined
+  if (!table || !hasConditions) return Effect.undefined
 
-  const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (fetched._tag === 'Failure' || !fetched.success) return undefined
-
-  if (isRecordReadOnly(table.fields, fetched.success as Readonly<Record<string, unknown>>)) {
-    return c.json(
-      {
-        success: false,
-        message: 'Cannot update record: a field condition has made this record read-only',
-        code: 'VALIDATION_ERROR',
-      },
-      400
-    )
-  }
-  return undefined
+  return rawGetRecordProgram(session, tableName, recordId).pipe(
+    Effect.map((row) =>
+      row && isRecordReadOnly(table.fields, row)
+        ? c.json(
+            {
+              success: false,
+              message: 'Cannot update record: a field condition has made this record read-only',
+              code: 'VALIDATION_ERROR',
+            },
+            400
+          )
+        : undefined
+    ),
+    // The lock is judged on a row that can be read; one that cannot is left to
+    // the write, which refuses or reports it on its own.
+    // effect-swallow: an unreadable row is the write's to refuse, not the lock's
+    Effect.orElseSucceed(() => undefined)
+  )
 }
 
 /**
@@ -105,28 +108,31 @@ export interface UpdateValueCheck {
  * `formatValidationError`, which is what keeps the update path's wire shape and
  * statuses (422 format, 400 cardinality) from drifting from the create path's;
  * `undefined` when the update may proceed.
- *
- * @see [internal ref],
  */
+export const updateValueViolation = (input: Readonly<UpdateValueCheck>) => {
+  const { c, app, tableName, userRole, fields } = input
+  const { userGroups, session } = getTableContext(c)
+  return checkRecordUpdateValues(fields).pipe(
+    Effect.provide(
+      createValidationLayer(app, tableName, {
+        role: userRole,
+        groups: userGroups,
+        signedOut: isGuestSession(session.userId),
+      })
+    ),
+    Effect.match({
+      onFailure: (violation): FieldFormatError | FieldValidationError | FieldStorageError =>
+        violation,
+      onSuccess: () => undefined,
+    })
+  )
+}
+
+/** {@link updateValueViolation} on the request's services, for a handler not yet composed into one program. */
 export async function validateUpdateFieldValues(
   input: Readonly<UpdateValueCheck>
 ): Promise<FieldFormatError | FieldValidationError | FieldStorageError | undefined> {
-  const { c, app, tableName, userRole, fields } = input
-  const outcome = await Effect.runPromise(
-    provideDomain(
-      c,
-      checkRecordUpdateValues(fields).pipe(
-        Effect.provide(
-          createValidationLayer(app, tableName, {
-            role: userRole,
-            groups: getTableContext(c).userGroups,
-            signedOut: isGuestSession(getTableContext(c).session.userId),
-          })
-        )
-      )
-    ).pipe(Effect.result)
-  )
-  return outcome._tag === 'Failure' ? outcome.failure : undefined
+  return runDomainPromise(input.c, updateValueViolation(input))
 }
 
 /**
@@ -158,20 +164,23 @@ export async function validateUpdateFieldValues(
  * Ordering: this runs AFTER the role/field-permission gates and after format
  * validation, matching the create path, so an unauthorized caller still gets
  * the S1 anti-enumeration 404 first.
- *
- * @see [internal ref],
  */
+export const sanitizedRichTextFields = (
+  app: App,
+  tableName: string,
+  writer: Parameters<typeof createValidationLayer>[2],
+  fields: Record<string, unknown>
+): Effect.Effect<Record<string, unknown>> =>
+  sanitizeRichTextFields(fields).pipe(Effect.provide(createValidationLayer(app, tableName, writer)))
+
+/** {@link sanitizedRichTextFields}, resolved, for a handler not yet composed into one program. */
 export async function sanitizeUpdateRichTextFields(
   app: App,
   tableName: string,
   writer: Parameters<typeof createValidationLayer>[2],
   fields: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  return Effect.runPromise(
-    sanitizeRichTextFields(fields).pipe(
-      Effect.provide(createValidationLayer(app, tableName, writer))
-    )
-  )
+  return Effect.runPromise(sanitizedRichTextFields(app, tableName, writer, fields))
 }
 
 /**

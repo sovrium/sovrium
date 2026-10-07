@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- AiError tagged classes are mutable by Data.TaggedError design */
-
 import { Effect, Layer, Stream } from 'effect'
 import {
   AiService,

@@ -76,7 +76,6 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
     wrap(async () => {
       const ttlAt = ttlMs === undefined ? undefined : new Date(Date.now() + ttlMs)
       const encodedValue = encodeJsonbValue(value)
-      // eslint-disable-next-line functional/no-expression-statements
       await db
         .insert(automationState)
         .values({
@@ -111,7 +110,6 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
       // null sentinel — specs assert `body.actions.<name>.value).toBeNull()`
       // when the key is missing or expired. Returning undefined would omit
       // the field from JSON serialization and break that contract.
-      // eslint-disable-next-line unicorn/no-null
       return rows[0]?.value ?? null
     }),
 
@@ -132,7 +130,6 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
 
   delete: ({ automationId, key }) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
       await db
         .delete(automationState)
         .where(and(eq(automationState.automationId, automationId), eq(automationState.key, key)))

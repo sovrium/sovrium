@@ -126,18 +126,15 @@ const traceIdIndex = new Map<string, RequestTraceBox>()
  * The span box of the current request, or `undefined` outside one (boot, cron,
  * background listeners). Read by the envelope builder to snapshot the trace.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- callers receive the live, mutable box on purpose: it keeps filling while the request runs
 export const currentRequestTrace = (): RequestTraceBox | undefined => storage.getStore()
 
 /** Append one child span to a box, or count it as dropped past the cap. */
-// eslint-disable-next-line functional/prefer-immutable-types -- the box is deliberately mutable; appending to it is this seam's entire purpose
 const collectChild = (box: RequestTraceBox, span: Tracer.Span): void => {
   if (box.spans.length >= MAX_COLLECTED_SPANS) {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- sanctioned mutation: overflow counter on the request-scoped box
     box.dropped += 1
     return
   }
-  // eslint-disable-next-line functional/immutable-data, no-restricted-syntax, functional/no-expression-statements -- sanctioned mutation: O(1) append; rebuilding the array per span is O(n^2) over a 1000-span request
+  // eslint-disable-next-line no-restricted-syntax -- sanctioned mutation: O(1) append; rebuilding the array per span is O(n^2) over a 1000-span request
   box.spans.push(span)
 }
 
@@ -167,9 +164,7 @@ export const recordSpan = (span: Tracer.Span): void => {
     return
   }
 
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- sanctioned mutation: binding the request root, once
   box.root = span
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- sanctioned mutation: registering the box makes every descendant attributable by traceId
   traceIdIndex.set(span.traceId, box)
 }
 
@@ -186,7 +181,6 @@ export const withRequestTrace = async <A>(
   decision: RequestTraceDecision,
   body: () => Promise<A>
 ): Promise<{ readonly value: A; readonly trace: RequestTraceBox }> => {
-  // eslint-disable-next-line functional/prefer-immutable-types -- the box exists to be appended to from tracer callbacks outside this frame
   const box: RequestTraceBox = {
     sampled: decision.sampled,
     emitTransaction: decision.emitTransaction,
@@ -200,7 +194,6 @@ export const withRequestTrace = async <A>(
   } finally {
     const traceId = box.root?.traceId
     if (traceId !== undefined && traceIdIndex.get(traceId) === box) {
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- sanctioned mutation: Map#delete, not a Drizzle query; releasing the index slot, whose leak would grow unboundedly
       traceIdIndex.delete(traceId)
     }
   }

@@ -11,17 +11,16 @@
  *  - `POST /api/ai/agents/:name/chat`   — agent-bound chat turn that, when the
  *    agent declares `memory.facts.enabled: true`, extracts an atomic fact from
  *    the turn and persists it to `system.ai_facts` for the agent's namespace
- *.
+ *    (an AI memory facts memory spec).
  *  - `POST /api/ai/agents/:name/recall` — recall the facts the calling user
  *    has stored for the agent's namespace, oldest first. Per-user scoped so
  *    a caller never recalls another user's facts even within a shared
- * namespace.
+ *    namespace.
  *
  * Fact extraction is gated on the per-agent schema flag (`memory.facts`): when
  * omitted or `false`, no fact is ever extracted or stored
- *. The `namespace` declared on the agent
- * isolates facts — an agent in namespace A never reads namespace B's facts
- *.
+ * The `namespace` declared on the agent
+ * isolates facts — an agent in namespace A never reads namespace B's facts.
  *
  * Auth: the `/api/ai/agents/*` paths get the `authMiddleware` chain installed
  * in `api-routes.ts` when `app.auth` is configured, so the calling user's id
@@ -47,8 +46,8 @@ import type { Hono, Context } from 'hono'
 const DEFAULT_MAX_FACTS = 100
 
 /** Resolve the authenticated user's id, or undefined when no session. */
-const resolveUserId = (c: Readonly<Context>): string | undefined => {
-  const session = getSessionContext(c as unknown as Context)
+const resolveUserId = (c: Context): string | undefined => {
+  const session = getSessionContext(c)
   return session?.userId
 }
 
@@ -61,7 +60,7 @@ const resolveNamespace = (agent: Agent): string => agent.memory?.facts?.namespac
 
 /** Read `{ message, sessionId }` from an agent-chat request body. */
 const parseFactsChatBody = async (
-  c: Readonly<Context>
+  c: Context
 ): Promise<{ readonly message: string; readonly sessionId: string }> => {
   const body = (await c.req.json().catch(() => ({}))) as {
     readonly message?: unknown
@@ -118,11 +117,7 @@ const maybeStoreFact = async (
  * agent has memory enabled. Reads the reply off a CLONE so the envelope the
  * shared turn produced is returned untouched.
  */
-const storeFactFromTurn = async (
-  c: Readonly<Context>,
-  agent: Agent,
-  response: Response
-): Promise<void> => {
+const storeFactFromTurn = async (c: Context, agent: Agent, response: Response): Promise<void> => {
   if (response.status !== 200) return
   const body = (await response
     .clone()
@@ -132,7 +127,7 @@ const storeFactFromTurn = async (
   await maybeStoreFact(requireDomainContext(c), agent, resolveUserId(c), body.reply)
 }
 
-const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Response> => {
+const handleFactsChat = async (c: Context, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
   if (typeof agentName !== 'string' || agentName.length === 0) {
     return c.json(
@@ -145,7 +140,7 @@ const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Respons
     return agentNotFound(c)
   }
 
-  // [internal ref]: this is the FOURTH per-agent invocation route, and
+  // This is the FOURTH per-agent invocation route, and
   // it sits under a different prefix (`/api/ai/agents/*`) from the other three.
   // That prefix also attaches `authMiddleware` without chaining `requireAuth()`,
   // so gating `/api/agents/*` alone would leave the agent reachable here.
@@ -173,12 +168,16 @@ const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Respons
  * for the agent's namespace. Returns `{ facts: [{ fact, createdAt }] }`,
  * oldest first. Per-user scoped.
  */
-const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Response> => {
+const handleFactsRecall = async (c: Context, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === agentName)
   if (agent === undefined) {
     return agentNotFound(c)
   }
+  // The same trigger gate as the chat turn that writes these facts: a caller who
+  // may not reach the agent is answered exactly as for an undeclared name.
+  const triggerRefusal = await checkTriggerPermission(c, agent, app)
+  if (triggerRefusal) return triggerRefusal
   const userId = resolveUserId(c)
   if (userId === undefined) {
     return c.json(
@@ -212,12 +211,8 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
  * registered — the handlers return 404 for agents not declared in
  * `app.agents`, keeping the API shape stable across configurations.
  */
-export function chainAiFactsRoutes<T extends Hono>(honoApp: T, app?: App): T {
+export function chainAiFactsRoutes(honoApp: Hono, app?: App): Hono {
   return honoApp
-    .post('/api/ai/agents/:name/chat', (c) =>
-      handleFactsChat(c as unknown as Readonly<Context>, app)
-    )
-    .post('/api/ai/agents/:name/recall', (c) =>
-      handleFactsRecall(c as unknown as Readonly<Context>, app)
-    ) as unknown as T
+    .post('/api/ai/agents/:name/chat', (c) => handleFactsChat(c, app))
+    .post('/api/ai/agents/:name/recall', (c) => handleFactsRecall(c, app))
 }

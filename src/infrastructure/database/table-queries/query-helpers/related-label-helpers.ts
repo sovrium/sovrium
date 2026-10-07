@@ -34,7 +34,7 @@ const coerceId = (value: string | number): string | number =>
  * Width of the per-request fan-out.
  *
  * Bounded for the same reason `readManyToMany` is: the width is a function of
- * how many relationship columns a table declares, and the 2026-07-25
+ * how many relationship columns a table declares, and a production
  * pool-exhaustion incident established that "bounded by configuration" is not a
  * safety argument on the shared pool. Two matches the DB-bound precedent used
  * across the read helpers, leaving eight of the ten default pool slots free.

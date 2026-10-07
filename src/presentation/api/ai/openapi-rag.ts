@@ -89,8 +89,9 @@ export const ragGroup: StaticGroupSpec = {
       ),
       responses: {
         200: effectJsonResponse(Schema.Unknown, 'Agent knowledge configuration'),
-        401: errorResponse('Not authenticated'),
-        404: errorResponse('Agent not found'),
+        404: errorResponse(
+          'Agent not declared in the app schema, or the caller lacks permission to invoke it'
+        ),
       },
     },
   ],

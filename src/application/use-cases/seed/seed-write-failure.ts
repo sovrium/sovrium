@@ -10,11 +10,11 @@
  *
  * ## The defect this exists to close
  *
- * A rejected row used to report `Failed to create record in companies` — the
- * message of the outermost `DatabaseError` wrapper. The real reason was never
- * missing; it sat on `.cause` and was discarded. A template author then had to
- * bisect a data set field-by-field with throwaway seed files to find out which
- * value the database objected to. A refusal that is CORRECT and unactionable
+ * Reporting only the message of the outermost `DatabaseError` wrapper
+ * (`Failed to create record in companies`) discards the real reason, which sits
+ * on `.cause`. A template author would then have to bisect a data set
+ * field-by-field with throwaway seed files to find out which value the
+ * database objected to. A refusal that is CORRECT and unactionable
  * still costs the ten minutes.
  *
  * ## What this does NOT do

@@ -6,8 +6,7 @@
  */
 
 /**
- * Durable AI chat-memory glue for the `/api/ai/chat` route
- *.
+ * Durable AI chat-memory glue for the `/api/ai/chat` route.
  *
  * Bridges the chat handlers in `ai-chat.ts` to the `AiMemoryRepository`
  * use-cases: loading prior turns for context injection, persisting completed
@@ -33,7 +32,7 @@ import type { ConversationMessage } from '@/presentation/api/ai/chat-conversatio
 /**
  * Resolve the operator-tunable `AI_MEMORY_CONTEXT_MESSAGES` cap — the maximum
  * number of prior persisted messages injected into the AI context window
- *. Unset / unparseable → no extra cap beyond the
+ * Unset / unparseable → no extra cap beyond the
  * in-memory store's own window.
  */
 const resolveMemoryContextLimit = (): number | undefined => {
@@ -128,14 +127,14 @@ export interface ChatTurnToPersist {
  * Persist a completed user/assistant exchange, optionally tagging the
  * conversation row with the `agentName` that produced it so agent threads are
  * distinguished from generic chat turns in the conversation list
- *. Best-effort and `anonymous`-skipped.
+ * Best-effort and `anonymous`-skipped.
  *
  * The single implementation — {@link persistTurnDurably} is a positional
  * convenience over it. Attribution being an OPTIONAL field of one writer,
  * rather than a second writer, is what keeps it transport-independent: an
  * agent-bound turn is attributed whether it arrived on
  * `/api/agents/:name/chat` or on `/api/ai/chat` with `{ agent }`
- *. Two writers is exactly how the two transports came to
+ * Two writers is exactly how the two transports came to
  * disagree — one of them simply had no parameter to pass.
  */
 export const persistChatTurnDurably = async (

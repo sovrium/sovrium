@@ -66,6 +66,23 @@ export const UNATTRIBUTED_BUCKET: unique symbol = Symbol.for('sovrium/storage/un
 /** The bucket an operation is attributed to, or an explicit opt-out. */
 export type BucketBinding = string | typeof UNATTRIBUTED_BUCKET
 
+/** A write naming its bucket AND the signed-in person behind it. */
+export interface AttributedUpload {
+  readonly bucket: BucketBinding
+  readonly uploadedById: string | undefined
+}
+
+/**
+ * Where an upload lands: a bare {@link BucketBinding} for a road with nobody
+ * behind it (an anonymous form, an automation, `sovrium seed`), or an
+ * {@link AttributedUpload} naming the uploader too.
+ */
+export type UploadTarget = BucketBinding | AttributedUpload
+
+/** The bucket and the uploader an {@link UploadTarget} names. */
+export const uploadTargetParts = (target: UploadTarget): AttributedUpload =>
+  typeof target === 'object' ? target : { bucket: target, uploadedById: undefined }
+
 /**
  * Storage Service Port
  *
@@ -77,6 +94,14 @@ export type BucketBinding = string | typeof UNATTRIBUTED_BUCKET
  * a caller naming bucket A may reach an object that belongs to bucket B.
  * `list` and `getTotalBytes` stay deliberately global — they back quota
  * accounting and operator dashboards, which measure the whole instance.
+ *
+ * `upload` also records WHO wrote the object (`uploadedById`, the catalog's
+ * `uploaded_by_id`) whenever a signed-in person is behind the write: that is
+ * what erasure removes a person's objects by, and what decides who may delete
+ * or replace an object in a bucket that declares no `delete` / `upload`. A
+ * road with nobody behind it (an anonymous form, an automation, `sovrium
+ * seed`) passes none, and a re-upload that names nobody keeps the uploader the
+ * catalog already records.
  */
 export class StorageService extends Context.Service<
   StorageService,
@@ -85,30 +110,29 @@ export class StorageService extends Context.Service<
       key: string,
       content: Uint8Array,
       mimeType: string,
-      bucket: BucketBinding
+      target: UploadTarget
     ) => Effect.Effect<void, StorageError>
     readonly download: (
       key: string,
       bucket: BucketBinding
     ) => Effect.Effect<Uint8Array, StorageError>
     readonly delete: (key: string, bucket: BucketBinding) => Effect.Effect<void, StorageError>
-    readonly getSignedUrl: (key: string, expiresIn: number) => Effect.Effect<string, StorageError>
     /**
-     * Presigned URL for an upload (HTTP PUT) to `key`. Backends that cannot
-     * issue presigned URLs (local filesystem, bytea) fail with `StorageError`,
-     * mirroring `getSignedUrl`.
+     * Remove the stored BYTES of an object whose catalog row has already been
+     * deleted — erasure deletes the rows inside its transaction and calls this
+     * after the commit, so a rolled-back erasure never destroys a file.
+     * Idempotent: an absent object is not a failure. A no-op for the bytea
+     * provider, whose payload cascades with the row.
      */
-    readonly getSignedUploadUrl: (
-      key: string,
-      expiresIn: number,
-      contentType?: string
-    ) => Effect.Effect<string, StorageError>
+    readonly deleteUncataloguedBytes: (key: string) => Effect.Effect<void, StorageError>
+    readonly getSignedUrl: (key: string, expiresIn: number) => Effect.Effect<string, StorageError>
     /**
      * File metadata from the storage catalog (`system.file_storage_metadata`),
      * which every provider keeps in sync. Fails with `StorageError` when no
      * file is stored under `key`. `bucket` is the binding the catalog records
      * for the object, absent when it belongs to none — what a copy carries to
-     * its destination so the object stays reachable where it was.
+     * its destination so the object stays reachable where it was. `uploadedBy`
+     * is the id of the person who uploaded it, absent when nobody is recorded.
      */
     readonly getMetadata: (
       key: string,
@@ -120,6 +144,7 @@ export class StorageService extends Context.Service<
         readonly size: number
         readonly lastModified: string
         readonly bucket?: string
+        readonly uploadedBy?: string
       },
       StorageError
     >

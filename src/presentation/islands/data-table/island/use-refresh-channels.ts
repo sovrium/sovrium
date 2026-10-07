@@ -17,6 +17,12 @@ interface RefreshChannelsParams {
   readonly table: string | undefined
   /** Component id (`props.id`) a sibling action names when it asks for a re-read. */
   readonly sourceId: string | undefined
+  /**
+   * A system source's endpoint, which a sibling may name instead of an id: an
+   * account form that just changed the reader's keys, passkeys or sessions asks
+   * every grid reading that list to re-read, whatever its id.
+   */
+  readonly endpoint?: string | undefined
   readonly onRefresh: () => void
 }
 
@@ -39,6 +45,7 @@ interface RefreshChannelsParams {
 export function useGridRefreshChannels({
   table,
   sourceId,
+  endpoint,
   onRefresh,
 }: RefreshChannelsParams): void {
   useEffect(() => {
@@ -51,10 +58,10 @@ export function useGridRefreshChannels({
   }, [table, onRefresh])
 
   useEffect(() => {
-    if (!sourceId) return undefined
+    if (!sourceId && !endpoint) return undefined
     return subscribeIslandEvent('sovrium:refetch', (detail) => {
-      if (detail.id !== sourceId) return
+      if (detail.id !== sourceId && detail.id !== endpoint) return
       onRefresh()
     })
-  }, [sourceId, onRefresh])
+  }, [sourceId, endpoint, onRefresh])
 }

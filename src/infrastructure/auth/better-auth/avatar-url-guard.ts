@@ -58,7 +58,6 @@ const IMAGE_WRITING_PATHS: ReadonlyMap<string, 'body' | 'data'> = new Map([
  * `/update-user` must keep working), whereas an explicit `null` is a caller
  * clearing their avatar, which is allowed.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 const readImageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): unknown => {
   const body = ctx.body as { image?: unknown; data?: { image?: unknown } } | undefined
   if (location === 'data') {
@@ -79,11 +78,12 @@ const readImageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): unkn
  * against `/api/buckets/{bucket}/files/{key}`. That is NOT enough, and the spec
  * says so by refusing `/api/buckets/avatars/files/not-mine.png` — a value with
  * exactly the right shape. Shape proves the URL points at THIS origin; it does
- * not prove the object is the caller's. Ownership is unknowable today because
- * `file_storage_metadata.uploaded_by_id` is written by nothing, so a
- * shape-only allow-list would let any user point their avatar at any object in
- * any public bucket — another user's avatar, or an uploaded document — and have
- * this instance serve it under its own origin as that user's face.
+ * not prove the object is the caller's. Upload roads now record the uploader
+ * (`file_storage_metadata.uploaded_by_id`), but every object stored before
+ * they did carries none, and a shape-only allow-list would let any user point
+ * their avatar at any such object in any public bucket — another user's avatar,
+ * or an uploaded document — and have this instance serve it under its own
+ * origin as that user's face.
  *
  * So the rule is the narrow one: a client may CLEAR the column and nothing
  * else. Setting it is a server-side act, performed by the upload route after it
@@ -107,7 +107,6 @@ const readImageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): unkn
  * nothing to enumerate, so a 400 discloses nothing and — unlike a 404 — tells
  * the caller what to fix.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 export function applyAvatarUrlGuard(ctx: AuthMiddlewareCtx) {
   const location = IMAGE_WRITING_PATHS.get(ctx.path)
   if (location === undefined) return
@@ -116,7 +115,6 @@ export function applyAvatarUrlGuard(ctx: AuthMiddlewareCtx) {
   // Absent → the request is not about the avatar. Explicit null → clearing it.
   if (image === undefined || image === null) return
 
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('BAD_REQUEST', {
     message:
       'A profile image cannot be set directly. Upload one through the account avatar endpoint, or send `image: null` to clear it.',

@@ -58,6 +58,16 @@ fields:
     name: registered_at
     type: created-at
 
+views:
+  # The attendee list as the Registrations page shows it: by event, the
+  # latest registrations first.
+  - id: by_event
+    name: By event
+    sorts:
+      - { field: registered_at, direction: desc }
+    groupBy:
+      field: event
+
 # Organizers read and update attendees; only an admin removes one. A
 # signed-in member who tries to delete gets the same 404 as a missing row.
 permissions:

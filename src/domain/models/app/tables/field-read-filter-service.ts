@@ -8,6 +8,7 @@
 import {
   DENY_WHEN_UNDECLARED,
   evaluatePermission,
+  NO_GRANT_ROLE,
   permits,
   type PermissionCaller,
 } from '@/domain/models/app/auth/permission-evaluation'
@@ -97,8 +98,9 @@ function isFieldExcludedByDefaultRules(
   const field = table?.fields.find((f) => f.name === fieldName)
   if (!field) return false
 
-  // Viewer role: most restrictive access
-  if (userRole === 'viewer') {
+  // Viewer role, and a caller whose stored role grants nothing: most
+  // restrictive access
+  if (userRole === 'viewer' || userRole === NO_GRANT_ROLE) {
     return shouldExcludeForViewer(fieldName, field.type)
   }
 

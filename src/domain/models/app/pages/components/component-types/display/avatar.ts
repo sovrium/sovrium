@@ -50,7 +50,7 @@
  * a one-line addition here; an arbitrary length is a permanent one.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 007, plus this type's own REGRESSION rollup
+ * Specs: the design system component avatar specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

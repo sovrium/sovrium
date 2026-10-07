@@ -90,6 +90,18 @@ const XOR_RULES: readonly KeyPairRule[] = [
     explanation:
       'A table draws EITHER the rows you wrote in the config, OR the records its `dataSource` binds as a grid — never both. The binding wins, so the authored rows would be dropped without a trace on the page. Remove whichever one you did not mean: drop `dataSource` to keep the written rows, or drop `tableRows` (and `tableHeaders`, which are its labels) to keep the record binding.',
   },
+  {
+    type: 'table',
+    keys: ['tableColumns', 'dataSource'],
+    explanation:
+      'A table draws EITHER the rows you wrote in the config, OR the records its `dataSource` binds as a grid — never both. `tableColumns` describes how the WRITTEN columns are drawn, so beside a binding it would be dropped without a trace on the page. Remove whichever one you did not mean: drop `dataSource` to keep the written table, or drop `tableColumns` and style the bound grid through its `columns` entries.',
+  },
+  {
+    type: 'file-preview',
+    keys: ['field', 'file'],
+    explanation:
+      'A file preview shows EITHER the file held by an attachment `field` of the bound record, OR one fixed `file` in a bucket — never both, and one would be dropped without a trace. Remove whichever one you did not mean: drop `file` to preview the record’s attachment, or drop `field` to preview the fixed file.',
+  },
 ]
 
 /** Is this a plain object (and not an array)? */
@@ -142,6 +154,12 @@ const LENGTH_RULES: readonly KeyPairRule[] = [
     keys: ['panels', 'children'],
     explanation:
       '`panels[i]` names the tab that shows `children[i]`, so the two must be the same length. A mismatch puts the wrong body under every tab after it, and nothing on the page says so. Add the missing entry. A tab set whose panels ALL carry their own `body` string needs no `children` at all — but once any panel has a component body, every panel needs a `children` slot, because the alignment is positional.',
+  },
+  {
+    type: 'stepper',
+    keys: ['steps', 'children'],
+    explanation:
+      '`steps[i]` names the step that shows `children[i]`, so the two must be the same length. A mismatch puts the wrong body under every step after it. Add the missing entry, or remove the extra one.',
   },
 ]
 

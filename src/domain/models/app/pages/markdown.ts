@@ -6,6 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { ComponentClassesSchema } from '../component-style'
+import { CssLengthSchema } from '../css-length'
 
 // ─── Table of Contents ───────────────────────────────────────────────────────
 
@@ -13,6 +15,21 @@ import { Schema } from 'effect'
  * Table of contents configuration for markdown pages.
  */
 const MarkdownTocSchema = Schema.Struct({
+  /**
+   * Shallowest heading depth to include. A docs page whose `h1` is its title
+   * starts its outline at `2`, so the outline does not repeat the title as its
+   * first entry.
+   */
+  minDepth: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'Shallowest heading depth to include (1-6, default 1). Set 2 when the page title is its only h1.',
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 6 }))
+    )
+  ),
+
   /** Maximum heading depth to include in the TOC */
   maxDepth: Schema.optional(
     Schema.Finite.pipe(
@@ -32,6 +49,66 @@ const MarkdownTocSchema = Schema.Struct({
     identifier: 'MarkdownToc',
     title: 'Table of Contents',
     description: 'Configuration for automatic table of contents generation',
+  })
+)
+
+// ─── Reading frame ───────────────────────────────────────────────────────────
+
+/**
+ * The measurements of the frame a `docs` layout draws around the article: the
+ * section sidebar on the left, the outline on the right, the article between.
+ *
+ * Until this key a template could only tune them from OUTSIDE — a header
+ * component reaching the regions rendered after it with sibling selectors
+ * (`lg:[&~div_nav[data-component=docs-sidebar-nav]]:w-[248px]`), which broke
+ * the day the frame's markup moved. Each one is a named measurement here
+ * instead. Every key is optional, and an omitted key keeps the built-in value.
+ */
+const MarkdownFrameSchema = Schema.Struct({
+  sidebarWidth: Schema.optional(
+    CssLengthSchema.annotate({
+      description: 'Width of the section sidebar from the lg breakpoint up, in px or rem',
+      examples: ['248px', '16rem'],
+    })
+  ),
+  tocWidth: Schema.optional(
+    CssLengthSchema.annotate({
+      description: 'Width of the outline column from the lg breakpoint up, in px or rem',
+      examples: ['220px'],
+    })
+  ),
+  contentMaxWidth: Schema.optional(
+    CssLengthSchema.annotate({
+      description:
+        "The article column's reading measure, in px or rem — the widest its header (breadcrumb, title, page actions), its text and its closing lines run, so the title never overhangs the paragraph under it",
+      examples: ['653px', '42rem'],
+    })
+  ),
+  stickyOffset: Schema.optional(
+    CssLengthSchema.annotate({
+      description:
+        "Height of a sticky header above the frame, in px or rem: the sidebar and the outline stick below it and fill the viewport's remaining height",
+      examples: ['3.5rem', '56px'],
+    })
+  ),
+  menuButton: Schema.optional(
+    Schema.Literals(['frame', 'header']).annotate({
+      description:
+        "Where the button that opens the sections on a phone sits: 'frame' (default) above the article, or 'header' — lifted into the page's first component, left of its content, so a sticky header carries it",
+    })
+  ),
+  articleActions: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Whether the article header carries its page actions (copy as markdown, view as markdown) beside the title (default: true)',
+    })
+  ),
+}).pipe(
+  Schema.annotate({
+    identifier: 'MarkdownFrame',
+    title: 'Docs Frame',
+    description:
+      'Measurements of the frame a docs layout draws around the article: sidebar and outline widths, reading measure, sticky offset, and where the phone menu button and the page actions sit',
   })
 )
 
@@ -84,6 +161,23 @@ export const MarkdownSchema = Schema.Struct({
 
   /** Table of contents configuration */
   toc: Schema.optional(MarkdownTocSchema),
+
+  /** The docs layout's measurements — see {@link MarkdownFrameSchema}. */
+  frame: Schema.optional(MarkdownFrameSchema),
+
+  /**
+   * Classes for the parts the markdown layout draws: the frame's regions
+   * (`frame`, the row holding the three columns; `sidebar`, `navGroup`,
+   * `navGroupLabel`, `navLink`, `menuButton`, `toc`, `article`,
+   * `articleHeader`, `articleActions`, `articleLinks`, `lastUpdated`, `callout`
+   * and its per-kind parts) and the article's prose (`heading1`, `paragraph`,
+   * `list`, `table`, `link`, `codeBlock`, …), with `states.current` for the
+   * current sidebar link. The
+   * same vocabulary a component's `classes` takes, so the reading frame is
+   * restyled by part name rather than by selectors from a neighbouring
+   * component.
+   */
+  classes: Schema.optional(ComponentClassesSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'Markdown',

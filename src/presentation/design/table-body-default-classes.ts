@@ -94,11 +94,11 @@ export const computeTableBodyClasses = (): string => 'divide-border bg-backgroun
 /**
  * The four states a body row can be painted in.
  *
- * They are EXCLUSIVE, which is the change from what shipped: striping, hover
- * and selection used to be three independent background utilities on the same
- * element with no ordering guarantee between them, so a selected row inside a
- * striped grid was painted by whichever rule the stylesheet happened to emit
- * last. Collapsing them onto one axis makes selection win by construction.
+ * They are EXCLUSIVE. As three independent background utilities on the same
+ * element, striping, hover and selection would have no ordering guarantee
+ * between them, so a selected row inside a striped grid would be painted by
+ * whichever rule the stylesheet happened to emit last. One axis makes selection
+ * win by construction.
  */
 export type TableRowState = 'default' | 'striped' | 'selected' | 'filled'
 

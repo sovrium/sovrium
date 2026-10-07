@@ -1,0 +1,53 @@
+# Each task marked done is announced to another system, signed the same way the
+# task webhook expects: two Task APIs can point at each other.
+#
+# The payload is written once, as text, so the signature covers exactly the
+# bytes that are sent. It carries the task's id only; the receiver reads the
+# rest through the REST API with its own key, so nothing the receiver may not
+# read leaves this app.
+#
+# With `TASK_EVENTS_URL` unset the run stops at the first step: it shows in the
+# run history as stopped, and nothing is sent. Set `TASK_WEBHOOK_SECRET` with it,
+# or the signature is made with an empty key.
+name: task-done-call-out
+trigger:
+  type: record
+  table: tasks
+  events:
+    - update
+actions:
+  - name: onlyWhenConfigured
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.done}}'
+            operator: equals
+            value: true
+          - field: $env.TASK_EVENTS_URL
+            operator: isNotEmpty
+      onFalse: stop
+  - name: payload
+    type: data
+    operator: set
+    props:
+      value: '{"event":"task.done","task":"{{trigger.data.record.id}}"}'
+  - name: sign
+    type: crypto
+    operator: hmac
+    props:
+      input: '{{steps.payload.value}}'
+      secret: $env.TASK_WEBHOOK_SECRET
+      algorithm: sha256
+      encoding: hex
+  - name: announce
+    type: http
+    operator: post
+    props:
+      url: $env.TASK_EVENTS_URL
+      contentType: json
+      headers:
+        X-Signature: 'sha256={{steps.sign.signature}}'
+      body: '{{steps.payload.value}}'

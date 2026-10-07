@@ -36,7 +36,6 @@ export interface ActivityLogOutput {
  * Map infrastructure ActivityLog to application output
  */
 function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
-  // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
   const user = log.user != null ? log.user : null
   return {
     id: log.id,

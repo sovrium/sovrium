@@ -6,7 +6,7 @@
  */
 
 /**
- * Active-assignment cookie contract.
+ * Active-assignment cookie contract (the auth active scope session requirement, P-6).
  *
  * Two presentation-layer surfaces depend on this contract:
  *   1. `src/presentation/api/routes/active-scope.ts` — the HTTP API

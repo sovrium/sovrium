@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { DOCS_CONTENT_MEASURE_CLASSES } from './docs-frame'
 import type { CollectionPrevNext } from '@/presentation/render/resolve/content-dir-lister'
 
 /**
@@ -38,7 +39,7 @@ export function DocsPrevNext({
     <div
       data-component="docs-prev-next"
       data-component-type="pagination"
-      className="border-border text-md mt-12 grid grid-cols-1 gap-4 border-t pt-8 sm:grid-cols-2"
+      className={`border-border text-md mt-12 grid grid-cols-1 gap-4 border-t pt-8 sm:grid-cols-2 ${DOCS_CONTENT_MEASURE_CLASSES}`}
     >
       {previous ? (
         <a

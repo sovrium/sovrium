@@ -50,7 +50,6 @@ import {
 import { generateCodeVerifier, generateOAuthState } from '@/domain/kernel/identity/pkce'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
 import {
   buildAuthorizeUrl,
   exchangeCodeForToken,
@@ -65,6 +64,7 @@ import {
 } from '@/presentation/api/connections/oauth2-props'
 import { errorBody, requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -95,9 +95,9 @@ const ACTION_ERROR_BY_STATUS = {
 /**
  * A connection-action refusal.
  *
- * This used to build its own `{ error }` envelope — a second wire shape beside
- * the canonical one, with no `message` for a human and no `code` to branch on.
- * It now builds the canonical envelope and keeps the short slug in `error`,
+ * Builds the canonical envelope rather than a bare `{ error }` — which would be
+ * a second wire shape, with no `message` for a human and no `code` to branch
+ * on — and keeps the short slug in `error`,
  * which is what `[internal ref]` matches on.
  */
 const actionError = (c: Context, status: 400 | 500 | 502, error: string) =>
@@ -124,7 +124,7 @@ const findConfig = (app: App, name: string): ConnectionConfigDef | undefined => 
 const runAdmin = <A, E>(
   c: Context,
   program: Effect.Effect<A, E, ConnectionRepository | ConnectionTokenRepository | OAuthStateStore>
-) => Effect.runPromise(provideDomain(c, program).pipe(Effect.result))
+) => runOnRequest(c, program)
 
 /**
  * Resolve a runtime `system.connections` row by id or name. The tagged result

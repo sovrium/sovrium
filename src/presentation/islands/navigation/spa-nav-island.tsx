@@ -59,6 +59,5 @@ function resolveRegion(props: SpaNavIslandProps): SpaRegion {
 /** SPA-nav island — renders nothing; wires content-only navigation. */
 export default function SpaNavIsland(props: SpaNavIslandProps): ReactElement | null {
   useSpaNavigation(resolveRegion(props))
-  // eslint-disable-next-line unicorn/no-null -- React components must return null to render nothing
   return null
 }

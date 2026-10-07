@@ -416,8 +416,7 @@ export const applyApprovalOutcome = (input: {
  * Resolve a paused approval. On approve the run resumes (downstream actions
  * execute); on reject the paused run is finalised terminal and nothing else
  * runs. A request already past its timeout is resolved by that timeout first,
- * and the late answer is refused. See module docstring for the full contract
- *.
+ * and the late answer is refused. See module docstring for the full contract.
  */
 export const resolveAutomationApproval = (
   options: ResolveApprovalOptions

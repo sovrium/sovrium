@@ -21,11 +21,11 @@
  *
  * This module originally kept the inline read's EXACT comparison — no trimming,
  * no case folding — on the reasoning that widening the accepted spellings of
- * `off` would be a behaviour change dressed up as a refactor. [internal ref] has since
+ * `off` would be a behaviour change dressed up as a refactor. The refuse-unknown-environment-values rule has since
  * superseded that reasoning: a SET-but-unrecognised `ECO_*` value now throws
  * rather than silently resolving to the default. The old behaviour meant
  * `ECO_FORM_ANALYTICS=OFF` kept recording, and an operator who had plainly
- * expressed an intent never learned it was discarded — the same failure [internal ref]
+ * expressed an intent never learned it was discarded — the same failure the refuse-unknown-environment-values rule
  * exists to end. The parser is therefore folded onto the shared helper, which
  * also makes it enumerable by the boot-time validator in
  * `infrastructure/server/validate-eco-env.ts`.

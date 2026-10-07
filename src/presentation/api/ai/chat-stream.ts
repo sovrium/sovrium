@@ -8,7 +8,7 @@
 /**
  * Streaming AI chat helpers — `POST /api/ai/chat/stream`.
  *
- * Drives `[internal ref]` ([internal ref] — Streaming
+ * Drives `[internal ref]` (the AI chat streaming requirement — Streaming
  * AI Responses). Split out of `ai-chat.ts` to keep that file under the
  * `max-lines` cap; the buffered `/api/ai/chat` route stays there.
  *
@@ -19,13 +19,13 @@
  *    errors AND the `AI_CHAT_STREAM_TIMEOUT` deadline can map to a non-200
  *    HTTP status (502/503/504) BEFORE `streamSSE` commits the response.
  *  - Forward chunks to the wire in real time via the `runEffectSse` bridge
- *, with the source-stream's `Scope` kept alive
+ * with the source-stream's `Scope` kept alive
  *    across pre-flight + drain via manual `Scope` management so the
  *    underlying provider connection is not torn down between phases.
  *  - Persist the assembled assistant message to durable conversation history
- * once the stream reaches its terminal chunk.
+ *    once the stream reaches its terminal chunk.
  *    `onTerminate` only persists when `reason === 'completed'` AND the
- * terminal `done` chunk was observed.
+ *    terminal `done` chunk was observed.
  *
  * Timeout semantics shift: prior to the SSE-bridge refactor,
  * `AI_CHAT_STREAM_TIMEOUT` deadlined the whole exchange (because the route
@@ -71,7 +71,6 @@ export const encodeChatChunk = (chunk: ChatChunk): EncodedChunk => {
         // OpenAI SSE protocol literally uses JSON null here for non-terminal
         // chunks; substituting undefined would omit the field and break
         // strict clients that switch on its presence.
-        // eslint-disable-next-line unicorn/no-null -- protocol-mandated null value
         { index: 0, delta: { content: chunk.delta }, finish_reason: null },
       ],
     },
@@ -118,7 +117,7 @@ export interface StreamTurnInput {
  * non-streaming route's tagged-error → status mapping so the two surfaces
  * are predictable for the same provider failure modes.
  */
-const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
+const mapPreflightError = (c: Context, err: unknown): Response => {
   const tagged = err as { readonly _tag?: string; readonly message?: string }
   if (tagged._tag === 'StreamTimeout') {
     return c.json(
@@ -172,7 +171,7 @@ const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
  *   3. Map any failure (config error, provider error, timeout, empty
  *      stream) to a non-200 JSON response.
  *
- * ## Why this one scope is NOT `Effect.scoped` (W4 exception, and it is real)
+ * ## Why this one scope is NOT `Effect.scoped` (a real exception)
  *
  * Standing rule E3 says a resource with a lifetime is a scoped layer or an
  * `Effect.acquireRelease`. This site cannot be either, and the reason is
@@ -184,12 +183,12 @@ const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
  * close the scope — and tear down the in-flight HTTP connection — the moment the
  * pre-flight resolved, which is before the first chunk reaches the wire.
  *
- * So the scope is created explicitly and handed off. What W4 DID remove is the
- * remembered part: three separate `Scope.close` call sites, one per pre-flight
- * exit, each of which was a leak if a later edit added a fourth exit above it.
- * The empty-stream case is now folded into the error channel and a single
- * `Effect.onExit` closes the scope on ANY pre-flight failure, so the only close
- * left is the deliberate hand-off in `onTerminate`.
+ * So the scope is created explicitly and handed off — but nothing has to be
+ * remembered: there is no `Scope.close` per pre-flight exit (each would leak if
+ * a later edit added another exit above it). The empty-stream case is folded
+ * into the error channel and a single `Effect.onExit` closes the scope on ANY
+ * pre-flight failure, so the only other close is the deliberate hand-off in
+ * `onTerminate`.
  *
  * Making this a true `Effect.scoped` means teaching `runEffectSse` to own a
  * scope across the commit boundary — a change to the shared SSE bridge that all
@@ -202,13 +201,13 @@ const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
  *      the terminal `done` chunk into closure-captured mutable state.
  *   6. The bridge's `onTerminate` callback persists ONLY when
  *      `reason === 'completed'` AND the terminal `done` chunk was observed
- * ([internal ref] contract).
+ *      (the AI chat stream specs contract).
  *   7. The externally-held `Scope` is closed by `onTerminate` for ALL
  *      termination reasons so the provider connection is released exactly
  *      once.
  */
 export const buildStreamResponse = async (
-  c: Readonly<Context>,
+  c: Context,
   input: StreamTurnInput
 ): Promise<Response> => {
   const timeoutMs = resolveStreamTimeoutMs()
@@ -289,7 +288,6 @@ const buildPersistAccumulator = (
   readonly tap: (chunk: ChatChunk) => Effect.Effect<void>
   readonly snapshot: () => { readonly assembled: string; readonly sawDone: boolean }
 } => {
-  /* eslint-disable functional/no-let, functional/no-expression-statements -- closure-captured accumulators for the chat-history persist-on-success contract; mutation is the explicit purpose of this helper */
   let assembled = head.type === 'content' ? head.delta : ''
   let sawDone = head.type === 'done'
   return {
@@ -303,7 +301,6 @@ const buildPersistAccumulator = (
       }),
     snapshot: () => ({ assembled, sawDone }),
   }
-  /* eslint-enable functional/no-let, functional/no-expression-statements */
 }
 
 /**

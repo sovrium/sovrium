@@ -140,7 +140,6 @@ const reportCheck = (plans: readonly TargetPlan[], catalogue: SkillsCatalogue): 
       "Run 'sovrium skills' to bring them up to date. Edited files need --force;\n" +
       'a foreign directory has to be renamed first.',
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -207,7 +206,6 @@ export const handleSkillsCommand = async (options: SkillsCommandOptions = {}): P
   }
   if (plans.some((plan) => blockingFindings(plan, force).length > 0)) return refuse(plans, force)
 
-  // eslint-disable-next-line functional/no-expression-statements
   await Promise.all(plans.map(applyPlan)).catch((error: unknown) => {
     printFailure({
       headline: `Could not write the agent skills into ${projectDir}.`,

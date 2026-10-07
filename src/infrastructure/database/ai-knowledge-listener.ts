@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { Context, Effect, Layer } from 'effect'
 import { Client } from 'pg'
 import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
@@ -33,8 +31,7 @@ import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
  * Mirrors the AI compute listener. PostgreSQL `AFTER INSERT/UPDATE/DELETE`
  * triggers `pg_notify` the `sovrium_ai_knowledge` channel; this listener
  * receives each event and (re)embeds or removes the affected record's
- * embeddings via the eco-routed `AiService` ([internal ref]:
- * [internal ref]).
+ * embeddings via the eco-routed `AiService` (the AI RAG table knowledge requirement:
  *
  * PostgreSQL cannot make outbound HTTP calls from PL/pgSQL, so the trigger
  * is a thin NOTIFY emitter and the embedding round-trip happens here.
@@ -200,7 +197,6 @@ const connect = async (
 }
 
 /** `UNLISTEN` then close. Best-effort on both, and never rejects. */
-// eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
 const disconnect = async (client: Client): Promise<void> => {
   await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined)
   await client.end().catch(() => undefined)
@@ -218,7 +214,6 @@ export interface AiKnowledgeListenerDriver {
     bindings: ReadonlyArray<KnowledgeTableBinding>,
     handle: (raw: string) => void
   ) => Promise<Client | undefined>
-  // eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
   readonly close: (client: Client) => Promise<void>
 }
 
@@ -317,7 +312,7 @@ export const makeAiKnowledgeListenerLayer = (
  * Combined RAG startup runner — embeds the document knowledge in
  * `AI_KNOWLEDGE_DIR` and the table-knowledge that exists at boot. Best-effort:
  * never blocks server startup. Single entry point so the server composition
- * root has one call instead of two ([internal ref] /
+ * root has one call instead of two (the AI RAG document knowledge requirement /
  * TABLE-KNOWLEDGE).
  *
  * The auto-embed CHANGE listener is no longer started from here: it is

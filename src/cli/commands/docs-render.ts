@@ -290,7 +290,6 @@ const jsonDocument = async (
           })),
       })),
   }
-  // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
   return `${JSON.stringify(document, null, 2)}\n`
 }
 
@@ -322,10 +321,7 @@ const answerConfig = async (manual: Manual, path: string | undefined, format: Do
     )
 
   return ok(
-    format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify(answer, null, 2)}\n`
-      : manual.renderConfigOption(answer)
+    format === 'json' ? `${JSON.stringify(answer, null, 2)}\n` : manual.renderConfigOption(answer)
   )
 }
 
@@ -346,8 +342,7 @@ const answerEnv = async (manual: Manual, variable: string | undefined, format: D
 
   return ok(
     format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify({ variable, templateLines, mentions }, null, 2)}\n`
+      ? `${JSON.stringify({ variable, templateLines, mentions }, null, 2)}\n`
       : manual.renderEnvVariable({ variable, templateLines, mentions })
   )
 }
@@ -369,8 +364,7 @@ const answerCli = async (manual: Manual, verb: string | undefined, format: DocsF
 
   return ok(
     format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify({ verb, help, article: entry?.address }, null, 2)}\n`
+      ? `${JSON.stringify({ verb, help, article: entry?.address }, null, 2)}\n`
       : manual.renderCliVerb({ verb, help, article: entry?.body })
   )
 }
@@ -400,8 +394,7 @@ const answerSearch = async (manual: Manual, query: string, format: DocsFormat) =
 
   return ok(
     format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify({ query, hits }, null, 2)}\n`
+      ? `${JSON.stringify({ query, hits }, null, 2)}\n`
       : manual.renderSearchResults(query, hits)
   )
 }
@@ -439,8 +432,7 @@ const answerAdmin = async (manual: Manual, page: string | undefined, format: Doc
 
   return ok(
     format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify({ page, routes }, null, 2)}\n`
+      ? `${JSON.stringify({ page, routes }, null, 2)}\n`
       : manual.renderAdminPage({ page, routes })
   )
 }
@@ -472,8 +464,7 @@ const answerAddress = async (manual: Manual, address: string, format: DocsFormat
   const rendered = await renderOne(manual, located)
   return ok(
     format === 'json'
-      ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-        `${JSON.stringify({ address: manual.articleAddress(located), title: located.article.title, body: rendered }, null, 2)}\n`
+      ? `${JSON.stringify({ address: manual.articleAddress(located), title: located.article.title, body: rendered }, null, 2)}\n`
       : rendered
   )
 }

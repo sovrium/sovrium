@@ -1,0 +1,42 @@
+# A task posted in by another system: a form, a monitoring alert, a script on
+# a machine that holds no API key.
+#
+# The caller signs the raw body with the shared secret and sends the hex
+# HMAC-SHA256 in `X-Signature` as `sha256=<hex>`; the trigger checks it before
+# any step runs and answers 401 otherwise. With `TASK_WEBHOOK_SECRET` unset
+# every call is refused, so the endpoint stays closed until you choose a secret.
+#
+#   body='{"title":"Rotate the staging certificate","priority":"High"}'
+#   sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$TASK_WEBHOOK_SECRET" | cut -d' ' -f2)
+#   curl -H "X-Signature: sha256=$sig" -H "content-type: application/json" \
+#     -d "$body" localhost:3000/api/automations/task-intake/webhook
+#
+# The last step answers the caller with the new task's id, which is what a
+# sender needs to follow the task up through the REST API.
+name: task-intake
+trigger:
+  type: webhook
+  method: POST
+  auth:
+    type: hmac
+    header: X-Signature
+    prefix: 'sha256='
+    secret: $env.TASK_WEBHOOK_SECRET
+actions:
+  - name: create
+    type: record
+    operator: create
+    props:
+      table: tasks
+      data:
+        title: '{{trigger.data.body.title}}'
+        description: '{{trigger.data.body.description}}'
+        priority: '{{trigger.data.body.priority}}'
+  - name: answer
+    type: webhook
+    operator: response
+    props:
+      status: 201
+      body:
+        id: '{{steps.create.result.id}}'
+        title: '{{trigger.data.body.title}}'

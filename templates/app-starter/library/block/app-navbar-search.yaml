@@ -1,0 +1,62 @@
+# sovrium-library: block/app-navbar-search@0.30.0
+name: app-navbar-search
+type: container
+element: header
+props:
+  className: border-b border-border bg-background px-4 sm:px-6
+children:
+  - type: flex
+    props:
+      className: flex items-center justify-between gap-4 h-16
+    children:
+      - type: link
+        props:
+          href: /
+          className: inline-flex items-center gap-2.5 text-lg font-semibold text-foreground
+        children:
+          - type: container
+            props:
+              className: size-5 rounded bg-foreground
+              aria-hidden: 'true'
+          - type: text
+            element: span
+            content: '[App]'
+      - type: search-input
+        scope: page
+        props:
+          placeholder: 'Search clients, invoices…'
+          aria-label: Search
+          className: hidden w-full max-w-md md:flex
+      - type: flex
+        props:
+          className: flex items-center gap-1
+        children:
+          - type: link
+            props:
+              href: /notifications
+              aria-label: Notifications
+              className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+            children:
+              - type: icon
+                props:
+                  name: bell
+                  size: 18
+          - type: dropdown-menu
+            triggerLabel: Account
+            menuItems:
+              - label: Profile
+                icon: user
+                action:
+                  type: navigate
+                  path: /profile
+              - label: Settings
+                icon: settings
+                action:
+                  type: navigate
+                  path: /settings
+              - separator: true
+              - label: Sign out
+                icon: log-out
+                action:
+                  type: auth
+                  method: logout

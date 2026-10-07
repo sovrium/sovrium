@@ -1,0 +1,40 @@
+# The Add order dialog opens this form. A new order starts in Draft.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 1
+name: add-order
+title: Add order
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: orders
+display:
+  submitLabel: Add order
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /orders
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: order_number
+    label: Order number
+  - kind: table-field
+    column: customer
+    label: Customer
+  - kind: table-field
+    column: lines
+    label: Lines
+  - kind: table-field
+    column: units
+    label: Units
+  - kind: table-field
+    column: total
+    label: Total
+  - kind: table-field
+    column: placed_at
+    label: Placed on

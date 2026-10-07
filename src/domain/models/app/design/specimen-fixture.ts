@@ -111,8 +111,7 @@ export const SPECIMEN_TABLE_NAME = 'design_system_specimens'
  *
  * The first three entries are FROZEN. Several catalogue specimens and their
  * specs are pinned on `Ada Lovelace` reaching the page, so growth is
- * append-only at the head — a build that reordered or renamed them fails
- * `[internal ref]`.
+ * append-only at the head — a build that reordered or renamed them fails.
  *
  * `startDay` is authored rather than stepped because the three frozen rows sit
  * on days 4, 11 and 18: any linear step reproducing those repeats every fourth

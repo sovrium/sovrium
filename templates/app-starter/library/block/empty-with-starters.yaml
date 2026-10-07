@@ -1,0 +1,97 @@
+# sovrium-library: block/empty-with-starters@0.30.0
+name: empty-with-starters
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col max-w-2xl gap-2
+    children:
+      - type: text
+        element: h2
+        props:
+          className: text-xl font-semibold text-foreground
+        content: Start your first automation
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: Pick a starting point. You can change every step afterwards.
+  - type: grid
+    props:
+      className: grid grid-cols-1 mt-6 max-w-4xl gap-3 sm:grid-cols-3
+    children:
+      - type: link
+        props:
+          href: /automations/new?start=record
+          className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-foreground hover:border-border-strong hover:bg-background-subtle
+        children:
+          - type: icon
+            props:
+              name: bell
+              size: 20
+          - type: text
+            element: span
+            props:
+              className: mt-2 text-md font-semibold text-foreground
+            content: When a record is created
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-subtle
+            content: Notify a person or a channel.
+      - type: link
+        props:
+          href: /automations/new?start=schedule
+          className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-foreground hover:border-border-strong hover:bg-background-subtle
+        children:
+          - type: icon
+            props:
+              name: clock
+              size: 20
+          - type: text
+            element: span
+            props:
+              className: mt-2 text-md font-semibold text-foreground
+            content: On a schedule
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-subtle
+            content: 'Run every day, week or month.'
+      - type: link
+        props:
+          href: /automations/new?start=form
+          className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-foreground hover:border-border-strong hover:bg-background-subtle
+        children:
+          - type: icon
+            props:
+              name: mail
+              size: 20
+          - type: text
+            element: span
+            props:
+              className: mt-2 text-md font-semibold text-foreground
+            content: When a form is sent
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-subtle
+            content: 'Reply, and file the answer.'
+  - type: container
+    props:
+      className: mt-6
+    children:
+      - type: link
+        props:
+          href: /automations/new
+          className: inline-flex items-center gap-1.5 text-md font-medium text-foreground underline-offset-4 hover:underline
+        children:
+          - type: text
+            element: span
+            content: Start from scratch
+          - type: icon
+            props:
+              name: arrow-right
+              size: 16

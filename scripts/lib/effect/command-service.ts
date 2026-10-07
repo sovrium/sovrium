@@ -36,6 +36,8 @@ import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schedule from 'effect/Schedule'
+import { TSC_BIN, tscChildEnv } from '../typescript-check-outcome'
+import { timeoutAwakeOrElse } from './awake-deadline'
 import type { Subprocess } from 'bun'
 import type * as Scope from 'effect/Scope'
 
@@ -430,11 +432,14 @@ const runCommand = (
     // The scope is INSIDE the timeout on purpose: a timeout interrupts the
     // fiber, interruption closes the scope, and closing the scope terminates
     // the child. Putting the timeout inside would abandon the process again.
-    Effect.timeoutOrElse({
-      duration: Duration.millis(opts.timeout),
-      orElse: () =>
-        Effect.fail(new CommandTimeoutError({ command: display, timeoutMs: opts.timeout })),
-    }),
+    // Counted in AWAKE time (`awake-deadline.ts`): a child frozen with a
+    // sleeping host has not overrun, and must not be killed on waking.
+    (self) =>
+      timeoutAwakeOrElse(self, {
+        duration: Duration.millis(opts.timeout),
+        orElse: () =>
+          Effect.fail(new CommandTimeoutError({ command: display, timeoutMs: opts.timeout })),
+      }),
     Effect.filterOrFail(
       (result) => !(opts.throwOnError && result.exitCode !== 0),
       (result) =>
@@ -620,8 +625,10 @@ export const typecheck = (options?: CommandOptions) =>
   // Addressed by path, not as `tsc`: node_modules/.bin/tsc is TypeScript 7
   // (tsgo's compiler, installed under the `@typescript/native` alias). See
   // `TSC_BIN` in [internal ref].
-  spawn(['./node_modules/typescript/bin/tsc', '--noEmit', '--incremental'], {
+  spawn([TSC_BIN, '--noEmit', '--incremental'], {
     timeout: 60_000,
+    // A bare tsc OOMs at Node's default heap on this type graph.
+    env: tscChildEnv(),
     ...options,
   })
 

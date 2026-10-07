@@ -181,10 +181,10 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
  *
  * Why that matters: `application/use-cases/admin/overview.ts` documents a peak
  * of ~8 connections for the cross-domain roll-up, "under bun:sql's
- * ~10-connection default pool". That budget is PER REQUEST. The 2026-07-25
- * production incident observed three concurrent overview requests
+ * ~10-connection default pool". That budget is PER REQUEST. A production
+ * incident observed three concurrent overview requests
  * (`07:50:35.591/.595/.599`) — ~24 connections against ~10 — so every query
- * queued and every failure landed on the 30 s wall together. The roll-up is now
+ * queued and every failure landed on the 30 s wall together. The roll-up is
  * bounded across requests too (see `ADMIN_OVERVIEW_MAX_CONCURRENT`), and an
  * operator who provisions a larger Postgres can raise the ceiling here.
  */

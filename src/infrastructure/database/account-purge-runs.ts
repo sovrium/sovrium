@@ -105,7 +105,7 @@ const existingColumns = async (
   table: string,
   candidates: readonly string[]
 ): Promise<readonly string[]> => {
-  const existing = await getExistingColumnNames(tx as unknown as RawSqlRunner, table, candidates)
+  const existing = await getExistingColumnNames(tx as RawSqlRunner, table, candidates)
   return candidates.filter((column) => existing.has(column))
 }
 
@@ -222,9 +222,10 @@ const forRuns = (
 /** The four statements that scrub a set of runs, given its `IN (…)` list. */
 const SCRUB_STATEMENTS: readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] = [
   (ids) =>
+    // sql-literal: keyword -- the dialect's own clock expression, no caller value
     sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
   (ids) =>
-    sql`UPDATE ${systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL WHERE run_id IN (${ids})`,
+    sql`UPDATE ${systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL, nested = NULL WHERE run_id IN (${ids})`,
   (ids) =>
     sql`UPDATE ${systemTableRef('automation_approval_requests')} SET message = NULL WHERE run_id IN (${ids})`,
   (ids) =>
@@ -241,7 +242,6 @@ export const scrubRuns = async (
   runIds: readonly string[]
 ): Promise<number> => {
   if (runIds.length === 0) return 0
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
   await inTurn(SCRUB_STATEMENTS, (statement) => forRuns(tx, runIds, statement))
   return runIds.length
 }

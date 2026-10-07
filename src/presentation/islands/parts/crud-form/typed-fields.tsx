@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Per-field controls: each handler closes over its field's name and current
-   value, which are exactly what re-render it. */
-
 import { useId, type ReactElement, type ReactNode } from 'react'
 import {
   numericAdornmentOf,
@@ -210,17 +206,17 @@ export function MultiSelectField({ field, value, onChange }: TypedFieldProps): R
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {(field.options ?? []).map((option) => (
           <label
-            key={option}
+            key={option.value}
             className="text-foreground flex items-center gap-2 text-sm font-medium"
           >
             <input
               type="checkbox"
-              checked={selected.includes(option)}
-              onChange={() => toggle(option)}
+              checked={selected.includes(option.value)}
+              onChange={() => toggle(option.value)}
               className="accent-primary h-4 w-4"
               {...(field.readOnly && { readOnly: true, disabled: true })}
             />
-            {option}
+            {option.label}
           </label>
         ))}
       </div>

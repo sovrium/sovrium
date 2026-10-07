@@ -1,0 +1,21 @@
+# sovrium-library: block/dl-stacked@0.30.0
+name: dl-stacked
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: description-list
+    layout: stacked
+    props:
+      className: max-w-4xl
+    items:
+      - term: '[Legal name]'
+        field: legal_name
+      - term: '[Contact]'
+        field: contact_email
+      - term: '[Billing address]'
+        field: billing_address
+      - term: '[Payment terms]'
+        field: payment_terms
+      - term: '[VAT number]'
+        field: vat_number

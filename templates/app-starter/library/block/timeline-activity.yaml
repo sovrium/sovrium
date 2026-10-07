@@ -1,0 +1,39 @@
+# sovrium-library: block/timeline-activity@0.30.0
+name: timeline-activity
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Activity]'
+      - type: flex
+        props:
+          className: flex max-w-2xl flex-col
+        children:
+          - type: list
+            dataSource:
+              table: activity
+              sort:
+                - field: happened_at
+                  direction: desc
+              limit: 20
+            listDisplay:
+              itemTemplate:
+                title: $record.actor $record.summary
+                metadata:
+                  - field: happened_at
+                    format: relative-time
+              emptyMessage: Nothing has happened yet.
+              loadMore: button

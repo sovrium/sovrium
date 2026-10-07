@@ -89,7 +89,6 @@ export async function eraseUnderLastAdminRail(
  */
 export const selectAdminCandidates = (
   runner: Readonly<Pick<DrizzleDB, 'select'>>,
-  // eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating
   users: ReturnType<typeof authUsersTable>,
   adminRoles: readonly string[]
 ) =>
@@ -142,7 +141,7 @@ export async function readErasureSubject(
   const rows = (await executeRaw(
     tx,
     sql`SELECT email, role, banned FROM ${authTableRef('user')} WHERE id = ${userId}`
-  )) as unknown as readonly {
+  )) as readonly {
     email: string | null
     role: string | null
     banned: boolean | number | null

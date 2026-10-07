@@ -37,11 +37,8 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
+import { computeMenuItemClasses, computeMenuItemToggleTrackClasses } from './menu-default-classes'
 import { MenuItemBody, MenuItemToggleThumb } from './menu-popup-body'
-import {
-  computeMenuItemClasses,
-  computeMenuItemToggleTrackClasses,
-} from './overlay-default-classes'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 

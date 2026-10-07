@@ -11,6 +11,22 @@ import { optBool } from '../../../shared-schemas'
 /**
  * Toolbar control visibility flags.
  *
+ * ─── WHAT A TOOLBAR MAY OFFER ──────────────────────────────────────────────
+ *
+ * Only controls whose effect is TRANSIENT: search, the filter builder and the
+ * sort builder narrow what this reader sees until the page is left, and are
+ * stored nowhere — not on the server, not in the browser. Export and refresh act
+ * on what is on screen.
+ *
+ * Nothing a reader could SAVE lives here — no saved-views menu (`views`),
+ * view-type switcher (`viewSwitcher`), column-visibility panel
+ * (`columnToggle`), density toggle (`density`) or runtime group-by picker
+ * (`groupBy`). A lasting way of looking at a table is
+ * configuration, declared once as one of the table's `views[]` and bound by
+ * `dataSource.view`; a board, a calendar and a grid of the same records are
+ * three components. Each of those keys is refused at load with a message naming
+ * that replacement.
+ *
  * @example
  * ```yaml
  * toolbar:
@@ -21,30 +37,25 @@ import { optBool } from '../../../shared-schemas'
  */
 export const DataTableToolbarSchema = Schema.Struct({
   /** Show global search input */
-  search: optBool('Show search input'),
+  search: optBool(
+    'Show a search box. What the reader types narrows the rows until they leave the page and is stored nowhere.'
+  ),
   /** Show filter builder UI */
-  filters: optBool('Show filter builder'),
+  filters: optBool(
+    'Show the filter builder. Filters the reader adds narrow the rows until they leave the page and are stored nowhere.'
+  ),
   /** Show sort builder UI */
-  sort: optBool('Show sort builder'),
+  sort: optBool(
+    'Show the sort builder. A sort the reader picks orders the rows until they leave the page and is stored nowhere.'
+  ),
   /** Show CSV/JSON export button */
   export: optBool('Show export button'),
   /** Show manual refresh button */
   refresh: optBool('Show refresh button'),
-  /** Show row density toggle */
-  density: optBool('Show row density toggle'),
-  /** Show column visibility toggle */
-  columnToggle: Schema.optional(
-    Schema.Boolean.annotate({ description: 'Show column visibility toggle' })
-  ),
-  /** Show runtime group-by picker (PG-03 / [internal ref]) */
-  groupBy: optBool('Show runtime group-by picker'),
-  /** Show saved-views dropdown — opens the personal-views menu (PG-03 / [internal ref]) */
-  views: optBool('Show saved-views dropdown'),
-  /** Show view-type switcher (grid/kanban/calendar/etc.) inside the toolbar (PG-03 / [internal ref]) */
-  viewSwitcher: optBool('Show view-type switcher'),
 }).annotate({
   title: 'Data Table Toolbar',
-  description: 'Toolbar control visibility configuration',
+  description:
+    'Toolbar controls. Search, filters and sort narrow the rows for the current visit only and are never saved; a lasting filter, sort, grouping or field selection is one of the table’s views, bound with dataSource.view.',
 })
 
 export type DataTableToolbar = Schema.Schema.Type<typeof DataTableToolbarSchema>

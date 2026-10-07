@@ -6,6 +6,7 @@
  */
 
 import { Fragment, type ReactElement } from 'react'
+import { cn } from '@/presentation/design/class-merge'
 import {
   computeSidebarGroupClasses,
   computeSidebarGroupLabelClasses,
@@ -78,13 +79,14 @@ function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
       ? undefined
       : resolveChildTranslation(group.label, i18n.currentLang, i18n.languages)
   const Heading = group.headingLevel === undefined ? undefined : (`h${group.headingLevel}` as const)
+  const labelClasses = cn(computeSidebarGroupLabelClasses(rail, drawer), i18n.parts?.['groupLabel'])
   return (
     <>
       {label !== undefined &&
         (Heading === undefined ? (
-          <p className={computeSidebarGroupLabelClasses(rail, drawer)}>{label}</p>
+          <p className={labelClasses}>{label}</p>
         ) : (
-          <Heading className={computeSidebarGroupLabelClasses(rail, drawer)}>{label}</Heading>
+          <Heading className={labelClasses}>{label}</Heading>
         ))}
       {group.items !== undefined && group.items.length > 0 && (
         <ul className={computeSidebarGroupListClasses()}>
@@ -165,9 +167,11 @@ export function renderSidebarGroups(
     // is declared, so the class list stays the one it has always been.
     <div
       key="sidebar-groups"
-      className={`${computeSidebarNavClasses()}${
-        rail === undefined ? '' : ` ${computeSidebarRailNavClasses(rail, drawer)}`
-      }`}
+      className={cn(
+        computeSidebarNavClasses(),
+        rail === undefined ? undefined : computeSidebarRailNavClasses(rail, drawer),
+        i18n.parts?.['nav']
+      )}
       data-sidebar-root=""
       data-component-type={componentType}
     >

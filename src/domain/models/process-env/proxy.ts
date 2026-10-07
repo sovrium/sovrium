@@ -12,7 +12,7 @@ import { Schema } from 'effect'
  *
  * How many reverse proxies sit between the internet and this process. It is a
  * deployment fact only the operator knows, so it lives in an env var and never
- * in `app.*` schema ([internal ref]: operator concerns are env, app intent is schema).
+ * in `app.*` schema (the env-configured AI provider rule: operator concerns are env, app intent is schema).
  *
  * This number is the sole reason the app may believe a forwarding header.
  * Proxies **append** to `X-Forwarded-For`, so a value the client supplied

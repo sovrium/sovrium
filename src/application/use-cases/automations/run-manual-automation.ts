@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import {
   mayRunManualAutomation,
+  mayStartAutomationByName,
   requiredManualTriggerRole,
 } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
@@ -68,6 +69,12 @@ export interface RunManualAutomationOptions {
   readonly triggerData?: TriggerData
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId?: string
+  /**
+   * The caller names the automation — the direct trigger route, the MCP tool,
+   * the AI chat — rather than pressing a control bound to it. A declared
+   * `permissions.trigger` then narrows who may start it, on top of the role rule.
+   */
+  readonly byName?: boolean
 }
 
 /**
@@ -89,6 +96,7 @@ export const runManualAutomation = ({
   triggerData = {},
   handlers = defaultActionHandlers,
   userId,
+  byName = false,
 }: RunManualAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -102,7 +110,10 @@ export const runManualAutomation = ({
     // The role decision is the one `tools/list` uses to decide which manual
     // automations an MCP caller is offered, so what is listed is what runs.
     const requiredRole = requiredManualTriggerRole(automation, app)
-    if (!mayRunManualAutomation(automation, app, userRole)) {
+    const admitted = byName
+      ? mayStartAutomationByName(automation, app, userRole)
+      : mayRunManualAutomation(automation, app, userRole)
+    if (!admitted) {
       return yield* Effect.fail({
         _tag: 'AutomationManualRoleRequired' as const,
         name,

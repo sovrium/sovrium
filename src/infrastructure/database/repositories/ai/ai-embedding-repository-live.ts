@@ -10,7 +10,7 @@
  * `AiEmbeddingRepository` port:
  *
  *   - `AiEmbeddingRepositoryLive`   — Postgres (pgvector `<=>` cosine search).
- * - `AiEmbeddingRepositorySqlite` — SQLite: vectors stored as a
+ *   - `AiEmbeddingRepositorySqlite` — SQLite: vectors stored as a
  *     `Float32Array` BLOB, cosine similarity computed in application code.
  *
  * Both return the same `EmbeddingSearchResult` shape and honour the same
@@ -128,8 +128,7 @@ const toInsertBatches = (
  * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. Every statement runs on the
  * `db` facade — the SHARED pool — and the number of statements grows with the
  * size of the ingested document or table. A wide unbounded fan-out against the
- * ten default pool slots was the mechanism of the 2026-07-25 production 504
- * incident. Knowledge sync is best-effort (every caller pipes
+ * ten default pool slots was the mechanism of a production 504 incident. Knowledge sync is best-effort (every caller pipes
  * `Effect.catch(() => Effect.void)`), but "best-effort" bounds the
  * CONSEQUENCE of a failure, not the CONNECTIONS it holds while succeeding.
  *
@@ -203,7 +202,6 @@ const searchImpl = async (input: {
 }
 
 const deleteBySourceIdPrefixImpl = async (prefix: string): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- prefix delete of stale embeddings
   await db.execute(sql`DELETE FROM system.ai_embeddings WHERE source_id LIKE ${`${prefix}%`}`)
 }
 
@@ -245,7 +243,6 @@ const insertManySqliteImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<
     embedding: serializeEmbedding(row.embedding) as unknown as ReadonlyArray<number>,
     metadata: row.metadata ?? undefined,
   }))
-  // eslint-disable-next-line functional/no-expression-statements -- batched embedding insert
   await db.insert(aiEmbeddingsSqliteTyped).values(values)
 }
 
@@ -300,7 +297,7 @@ const searchSqliteImpl = async (input: {
               : eq(aiEmbeddingsSqliteTyped.agentName, input.agentName)
           )
         : sql`${aiEmbeddingsSqliteTyped.embedding} IS NOT NULL`
-    )) as unknown as ReadonlyArray<CandidateRow>
+    )) as ReadonlyArray<CandidateRow>
 
   const scored = candidates
     .map((row) => ({
@@ -315,7 +312,6 @@ const searchSqliteImpl = async (input: {
 }
 
 const deleteBySourceIdPrefixSqliteImpl = async (prefix: string): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- prefix delete of stale embeddings
   await db
     .delete(aiEmbeddingsSqliteTyped)
     .where(like(aiEmbeddingsSqliteTyped.sourceId, `${prefix}%`))

@@ -50,6 +50,7 @@
  * `.use(...)` line is ever forgotten. Do not reorder these chains.
  */
 
+import { requireAdminEditorOnWrites } from '@/presentation/api/middleware/admin-editor-writes'
 import {
   authMiddleware,
   requireAuth,
@@ -69,7 +70,7 @@ import type { ContextVariableMap, Hono } from 'hono'
  * serves both mirrors and the chain type flows through the call sites unchanged.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mirrors Hono's own env widening verbatim; narrowing to `unknown` breaks assignability at the call site
-type SessionHono = Hono<{ Variables: ContextVariableMap & Record<string, any> }>
+export type SessionHono = Hono<{ Variables: ContextVariableMap & Record<string, any> }>
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 
@@ -147,7 +148,7 @@ export const chainAdminRouteGuards = (
     // the other — Hono needs at least one segment to match `/*`, so the
     // wildcard alone would leave the segment-less LIST open to an anonymous
     // caller, while the bare path alone would leave the per-boot detail read
-    // open. `[internal ref]` asserts the list path for that reason.
+    // open. An admin releases ledger spec asserts the list path for that reason.
     .use('/api/admin/releases', authMiddleware(auth))
     .use('/api/admin/releases', requireAdminTier(resolveAppForTier))
     .use('/api/admin/releases/*', authMiddleware(auth))
@@ -224,7 +225,7 @@ export const chainAdminRouteGuards = (
     // endpoint was unreachable from the day it shipped, and silently: an
     // anti-enumeration 404 given to an admin is byte-identical to the one the
     // route is supposed to give an anonymous caller, so the guard looked exactly
-    // like a guard that worked. `[internal ref]` reads the
+    // like a guard that worked. An admin design system facets spec reads the
     // ladder as a signed-in admin, which is what makes the difference visible.
     .use('/api/admin/design-system/guidance', authMiddleware(auth))
     .use('/api/admin/design-system/guidance', requireAdminTier(resolveAppForTier))
@@ -269,7 +270,7 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/automations', requireAdminTier(resolveAppForTier))
     .use('/api/admin/automations/*', authMiddleware(auth))
     .use('/api/admin/automations/*', requireAdminTier(resolveAppForTier))
-    // Admin-tier users overview.
+    // Admin-tier users overview (the admin users overview requirement / ADM-1).
     // requireAdminTier 404s for missing-session AND wrong-role callers
     // per keystone §6.4 (anti-enumeration), so the route surface stays
     // hidden from non-admin-tier traffic.
@@ -303,7 +304,7 @@ export const chainAdminRouteGuards = (
     // how `/api/admin/buckets` (bare) sits beside `/api/admin/buckets/*`.
     .use('/api/admin/connections', authMiddleware(auth))
     .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
-    // Short-link console ([internal ref]-*). BOTH the bare list path and the
+    // Short-link console (the admin links requirement-*). BOTH the bare list path and the
     // `/*` wildcard are needed: Hono requires at least one segment to match
     // `/*`, so `/api/admin/links` (list + create) would fall through to the
     // catch-all alone, while `/api/admin/links/:slug` and the
@@ -314,7 +315,7 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/links/*', authMiddleware(auth))
     .use('/api/admin/links/*', requireAdminTier(resolveAppForTier))
     // The Organisation page's access-graph read
-    //. `/api/admin/organisation` is a
+    // `/api/admin/organisation` is a
     // NEW namespace, so it gets an explicit entry rather than being left to the
     // defense-in-depth catch-all — an ungated sibling inside a guarded
     // namespace is how a gap starts, and the entries above record what that has
@@ -339,6 +340,9 @@ export const chainAdminRouteGuards = (
     // first for every known path).
     .use('/api/admin/*', authMiddleware(auth))
     .use('/api/admin/*', requireAdminTier(resolveAppForTier))
+    // The operational writes only `admin-editor` may make, from ONE list
+    // (`admin-editor-writes.ts`); the read-only tier gets the stranger's 404.
+    .use('/api/admin/*', requireAdminEditorOnWrites(resolveAppForTier))
 
 /**
  * Register every `/api/admin/*` guard for an app with NO `app.auth`.
@@ -400,12 +404,6 @@ export const chainAdminRouteGuardsWithoutAuth = (
     // Bare connection-list path — the
     // `/*` wildcard does not cover the segment-less list path.
     .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
-    // Short-link console ([internal ref]-*). BOTH the bare list path and the
-    // `/*` wildcard are needed: Hono requires at least one segment to match
-    // `/*`, so `/api/admin/links` (list + create) would fall through to the
-    // catch-all alone, while `/api/admin/links/:slug` and the
-    // `/:slug/{enable,disable}` state routes need the wildcard. Same pairing as
-    // `/api/admin/buckets` and `/api/admin/connections` above.
     // [internal ref] A6: the decisions register read. The EXACT path, never a `/*`
     // wildcard — Hono needs at least one segment to match `/*`, and
     // `/api/admin/decisions` is the only URL that surface serves, so a
@@ -415,6 +413,7 @@ export const chainAdminRouteGuardsWithoutAuth = (
     // both spellings for the same reason.
     .use('/api/admin/releases', requireAdminTier(resolveAppForTier))
     .use('/api/admin/releases/*', requireAdminTier(resolveAppForTier))
+    // Short-link console — both spellings, as in the auth-enabled branch.
     .use('/api/admin/links', requireAdminTier(resolveAppForTier))
     .use('/api/admin/links/*', requireAdminTier(resolveAppForTier))
     // The Organisation page's access-graph read — the no-auth mirror. One line,
@@ -432,3 +431,4 @@ export const chainAdminRouteGuardsWithoutAuth = (
     // routes on a no-auth app. Registered LAST so the `requireAuth()` 401s
     // on `/api/admin/storage/*` above keep short-circuiting first.
     .use('/api/admin/*', requireAdminTier(resolveAppForTier))
+    .use('/api/admin/*', requireAdminEditorOnWrites(resolveAppForTier))

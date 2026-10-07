@@ -7,23 +7,22 @@
 
 /**
  * Per-client rate limiter for `GET /api/command-search` (in-memory sliding
- * window) — [internal ref].
+ * window) — the pages command search hardening requirement, [internal ref].
  *
  * `/api/command-search` is the only UNAUTHENTICATED surface in the app that
  * performs an unbounded multi-table scan: the route works without a session and
  * simply reports `favorited: false` for everything. Every sibling scanning
- * surface is already limited (`/api/tables/*` records + activity, `/api/ai/chat`,
- * `/api/shared-views/*`); this one was missed, and it is the endpoint behind the
+ * surface is already limited (`/api/tables/*` records + activity, `/api/ai/chat`);
+ * this one was missed, and it is the endpoint behind the
  * production Gateway Timeout recorded as GlitchTip `SOVRIUM-WEBSITE-3`.
  *
- * Modelled on `user-views/shared-views-rate-limit.ts` and sharing its
- * `createSlidingWindowLimiter()` primitive and its 429 envelope verbatim — a
+ * Built on the shared `createSlidingWindowLimiter()` primitive and its 429 envelope verbatim — a
  * second spelling of "you are rate limited" is a client-side branch nobody
  * asked for.
  *
- * The ONE departure is the key: **client IP**, not `session.userId`. The
- * shared-views limiter runs after `requireAuth()` and can rely on a session
- * being present; an anonymous caller here has no id to key on. Anything coarser
+ * The key is the **client IP**, not `session.userId`: a limiter running after
+ * `requireAuth()` can rely on a session being present, but an anonymous caller
+ * here has no id to key on. Anything coarser
  * (a global counter) would let one abusive client lock out every reader, which
  * converts an abuse problem into an outage. The address comes from the canonical
  * `getRequestRateLimitKey` (an IPv6 client by its /64) so a forged forwarding header cannot buy a fresh bucket
@@ -33,8 +32,8 @@
  *  - `COMMAND_SEARCH_RATE_LIMIT_MAX`       max requests per window (default 30)
  *  - `COMMAND_SEARCH_RATE_LIMIT_WINDOW_MS` window length in ms (default 60_000)
  *
- * 30 rather than the shared-views 60 because each request here is far more
- * expensive, and it still clears a fast typist: debounced palette input produces
+ * 30 rather than the activity limiter's order of magnitude because each request
+ * here is far more expensive, and it still clears a fast typist: debounced palette input produces
  * a handful of requests per search, not dozens.
  *
  * Caveat inherited from the shared primitive: the `Map` is process-local, so

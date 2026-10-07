@@ -1,0 +1,13 @@
+# sovrium-library: block/toast-confirm@0.30.0
+name: toast-confirm
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: button
+    label: Send invoice
+    action:
+      type: toast
+      message: Invoice sent. Atelier Nord will receive it in a minute.
+      variant: success
+      duration: 5000

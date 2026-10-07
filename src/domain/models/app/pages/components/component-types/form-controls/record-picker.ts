@@ -14,21 +14,18 @@ import { visibilityFields } from '../modules/visibility'
 /**
  * `record-picker` — search another table and link the row you find.
  *
- * ─── WHY THIS IS A TYPE, AFTER [internal ref] REFUSED ONE ─────────────────────────
+ * ─── WHY THIS IS A TYPE ─────────────────────────────────────────────────────
  *
- * [internal ref] (2026-09-09) refused a `record-picker` component type on the grounds
- * that a `relationship` COLUMN already resolves to this widget wherever it is
- * bound, so a type would be a second way to declare one control. That reasoning
- * holds for the bound case and is unchanged: a `form` or a `table` over a table
- * with a `relationship` column still needs no `type: record-picker`, and the
- * dispatch that gives it one is not going anywhere.
+ * A `relationship` COLUMN already resolves to this widget wherever it is bound,
+ * so for the bound case a type would be a second way to declare one control: a
+ * `form` or a `table` over a table with a `relationship` column needs no
+ * `type: record-picker`, and gets the widget by dispatch.
  *
- * [internal ref] (2026-09-11) overturns it for the UNBOUND case, which the earlier
- * decision did not weigh. A page that is not a crud-form — a filter bar, a
- * console panel, a step in a wizard that writes somewhere else — has no column
- * to dispatch from, and therefore no way to offer a search over a table at all.
- * The refusal's own invalidation signal named this: *"an author reaching for a
- * searchable picker NOT backed by a table relationship."*
+ * The type exists for the UNBOUND case. A page that is not a crud-form — a
+ * filter bar, a console panel, a step in a wizard that writes somewhere else —
+ * has no column to dispatch from, and therefore no other way to offer a search
+ * over a table at all: an author reaching for a searchable picker NOT backed by
+ * a table relationship.
  *
  * ─── WHY `select` IS NOT THIS, IN ITS OWN WORDS ────────────────────────────
  *
@@ -92,7 +89,7 @@ export const RecordPickerSourceSchema = Schema.Struct({
    * `validateTableNameReferences` — which keys on the SHAPE that binds a table
    * (`dataSource.table`) rather than on a list of component types, so this
    * bespoke struct is covered without naming `record-picker` anywhere. It was
-   * not, until [internal ref]: its sibling `SelectOptionSourceSchema`, which
+   * not, until a CLI validate spec: its sibling `SelectOptionSourceSchema`, which
    * this schema is shaped after, was checked, but `validateAllSelectOptionSources`
    * gates on `type === 'select'` and the picker fell through.
    */

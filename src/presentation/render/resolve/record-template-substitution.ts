@@ -19,13 +19,12 @@ import { substituteRecordVars } from '@/presentation/render/resolve/data-source-
  * Map every string value of a flat key→value map through a `$record.*`
  * substitution, leaving non-string values untouched.
  *
- * The substitution function stays INJECTED even though both callers now reach
- * the same implementation — the page renderer re-exports
+ * The substitution function stays INJECTED even though both callers reach the
+ * same implementation — the page renderer re-exports
  * `domain/utils.substituteRecordVars` and the button renderer imports it
- * directly. It used to be injected because the two disagreed on `null` (the
- * renderer's copy rendered the literal `'null'`); it is injected now because
- * this loop has no business knowing which substitutor its caller wants, and an
- * inlined import would silently re-fix that choice here.
+ * directly. It is injected because this loop has no business knowing which
+ * substitutor its caller wants, and an inlined import would silently re-fix
+ * that choice here.
  *
  * Both `substituteRecordInProps` / `substituteRecordInAction` (here) and the
  * automation-button renderer's `resolveInputDataRecordVars` share this loop.
@@ -146,19 +145,68 @@ function substituteRecordInFields(fields: unknown, record: Record<string, unknow
 }
 
 /**
- * Build the spreadable `{ action?, fields? }` patch for a collection-template
- * component — substituting `$record.*` in an action's `inputData` and a form's
- * `fields[].defaultValue`. Keys are present only when there is something to
- * spread, so the caller can `...patch` without clobbering absent fields.
+ * Build the spreadable `{ action?, fields?, confirmText? }` patch for a
+ * collection-template component — substituting `$record.*` in an action's
+ * `inputData`, a form's `fields[].defaultValue`, an alert dialog's
+ * `confirmText` (the name a reader types to confirm a delete) and a derived
+ * breadcrumb's `currentLabel` (the record's own name ending the trail). Keys are present
+ * only when there is something to spread, so the caller can `...patch` without
+ * clobbering absent fields.
  */
 export function buildRecordTemplatePatch(
-  component: { readonly action?: unknown; readonly fields?: unknown },
-  record: Record<string, unknown>
-): { action?: unknown; fields?: unknown } {
+  component: {
+    readonly action?: unknown
+    readonly fields?: unknown
+    readonly confirmText?: unknown
+    readonly currentLabel?: unknown
+    readonly type?: string
+    readonly items?: unknown
+  },
+  record: Record<string, unknown>,
+  tableName?: string
+): {
+  action?: unknown
+  fields?: unknown
+  confirmText?: string
+  currentLabel?: string
+  items?: unknown
+} {
+  const items = withDescriptionFieldValues(component, record, tableName)
   const action = substituteRecordInAction(component.action, record)
   const fields = substituteRecordInFields(component.fields, record)
+  const { confirmText, currentLabel } = component
   return {
     ...(action !== undefined && { action }),
     ...(fields !== undefined && { fields }),
+    ...(typeof confirmText === 'string' && {
+      confirmText: substituteRecordVars(confirmText, record),
+    }),
+    ...(typeof currentLabel === 'string' && {
+      currentLabel: substituteRecordVars(currentLabel, record),
+    }),
+    ...(items !== undefined && { items }),
   }
+}
+
+/**
+ * A `description-list` entry naming a `field` carries the bound record's raw
+ * value and table on to the renderer, which draws it BY ITS TYPE — the same
+ * hand-off a `record-field` gets from `injectRecordFieldValue`. A text entry
+ * (`detail`) is left to the ordinary `$record.` substitution.
+ */
+export function withDescriptionFieldValues(
+  component: { readonly type?: string; readonly items?: unknown },
+  record: Record<string, unknown>,
+  tableName: string | undefined
+): readonly unknown[] | undefined {
+  if (component.type !== 'description-list' || !Array.isArray(component.items)) return undefined
+  return component.items.map((item: unknown) => {
+    const field = (item as { readonly field?: unknown } | undefined)?.field
+    if (typeof field !== 'string') return item
+    return {
+      ...(item as Record<string, unknown>),
+      _recordValue: record[field] ?? null,
+      ...(tableName !== undefined ? { _recordTable: tableName } : {}),
+    }
+  })
 }

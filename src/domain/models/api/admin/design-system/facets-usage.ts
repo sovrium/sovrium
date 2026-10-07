@@ -50,7 +50,7 @@ export const usageSubjectSchema = Schema.Literals(['type', 'component']).annotat
  * the reference draws, indistinguishably from the types that genuinely have no
  * usage. And `props` carries native HTML attributes whose values collide with
  * type names: thirteen `props.type: 'button'` across the shipped apps inflate
- * `button` by 45% if the walk descends into it. `[internal ref]` pins
+ * `button` by 45% if the walk descends into it. An admin design system spec pins
  * exactly that collision, with a `/phantom` route that must NOT be counted.
  *
  * A subject nobody writes is a row with `count: 0` and an empty `routes`, not
@@ -90,7 +90,7 @@ export const usageRowSchema = Schema.Struct({
     description:
       'Whether this template is too tall to draw inline, so a card collapses it behind a way in. REQUIRED on every row, `false` for a `type` subject — the gate a page reads, which cannot be an absence because there is no presence operator to test one with.',
   }),
-  // ─── THE COPY PAYLOAD, ADMITTED UNDER [internal ref] ───────────────────────────
+  // ─── THE COPY PAYLOAD, ADMITTED UNDER THE FACTS-NOT-STRINGS RULE ───────────────────────────
   //
   // The same test `componentTypeDetail.snippet` passes, and the same
   // serialiser: it walks the declared template and prints its own keys in its
@@ -235,7 +235,7 @@ export const usageResponseSchema = Schema.Struct({
  *
  * ─── AND THE READOUT IS TWO NUMBERS, NOT ONE STRING ────────────────────────
  *
- * [internal ref]: `16 / 24` is a rendered string embedding a separator the console
+ * `16 / 24` is a rendered string embedding a separator the console
  * chose. The page composes it from two facts — three sibling nodes, the middle
  * one a literal — exactly as `contrastRatio` leaves the `:1` to the page.
  */

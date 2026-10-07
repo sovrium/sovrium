@@ -9,8 +9,9 @@
  * Aggregation helpers for the records list API.
  *
  * Handles both the shortcut `field:op,field:op` query form (which produces
- * flat scalar results) and the JSON form (per-field records). Also provides
- * in-memory grouped aggregations for the `?groupBy=field` parameter.
+ * flat scalar results) and the JSON form (per-field records), and names the
+ * shape of one group of a grouped read (computed by the database, see
+ * `record-groups.ts`).
  */
 
 export interface AggregateConfig {
@@ -54,10 +55,7 @@ export type RawAggregations = {
 export type OrderedAnswer = (field: string, value: Ordered) => Ordered
 
 /** An aggregate over no values: `null` on the wire, where `undefined` would drop the key. */
-// eslint-disable-next-line unicorn/no-null -- JSON wire contract: the records API answers null for an aggregate over no values
 const NO_VALUES = null
-
-type NumericOp = 'sum' | 'avg' | 'min' | 'max'
 
 function collectAggregatedFields(aggregate: AggregateConfig): readonly string[] {
   return [
@@ -125,98 +123,6 @@ export function reshapeShortcutAggregations(
   }
 }
 
-function extractNumericValues(
-  records: readonly Readonly<Record<string, unknown>>[],
-  field: string
-): readonly number[] {
-  return records
-    .map((r) => r[field])
-    .filter((v): v is number | string => v !== null && v !== undefined)
-    .map((v) => Number(v))
-    .filter((n) => !Number.isNaN(n))
-}
-
-function applyNumericOp(values: readonly number[], op: NumericOp): number {
-  if (op === 'sum') return values.reduce((s, n) => s + n, 0)
-  if (op === 'avg') return values.reduce((s, n) => s + n, 0) / values.length
-  if (op === 'min') return Math.min(...values)
-  return Math.max(...values)
-}
-
-/** A record value as an ordered answer: a number, or a date's ISO text. */
-const orderedOf = (value: unknown): Ordered | undefined => {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value.toISOString()
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
-  if (typeof value !== 'string' || value.trim() === '') return undefined
-  const numeric = Number(value)
-  if (Number.isFinite(numeric)) return numeric
-  return /^\d{4}-\d{2}-\d{2}/.test(value) ? value : undefined
-}
-
-/**
- * The `min` or `max` of each requested field within a group: numbers by
- * magnitude, dates in time order (ISO text sorts as time does). A field with
- * no value answers `null`, as the SQL aggregate over the whole list does.
- */
-export function aggregateOrdered(
-  records: readonly Readonly<Record<string, unknown>>[],
-  fields: readonly string[],
-  op: 'min' | 'max'
-): Readonly<Record<string, OrderedOrNull>> {
-  return fields.reduce<Record<string, OrderedOrNull>>((acc, field) => {
-    const values = records.map((r) => orderedOf(r[field])).filter((v) => v !== undefined)
-    if (values.length === 0) return { ...acc, [field]: NO_VALUES }
-    if (values.every((v) => typeof v === 'number')) {
-      return { ...acc, [field]: applyNumericOp(values, op) }
-    }
-    const texts = values.filter((v): v is string => typeof v === 'string').toSorted()
-    const picked = op === 'min' ? texts[0] : texts[texts.length - 1]
-    return picked === undefined ? acc : { ...acc, [field]: picked }
-  }, {})
-}
-
-/**
- * Compute a numeric aggregation for each of the requested fields; a field with
- * no value answers `null`, as the SQL aggregate over the whole list does.
- */
-export function aggregateNumeric(
-  records: readonly Readonly<Record<string, unknown>>[],
-  fields: readonly string[],
-  op: NumericOp
-): Readonly<Record<string, Numeric>> {
-  return fields.reduce<Record<string, Numeric>>((acc, field) => {
-    const values = extractNumericValues(records, field)
-    if (values.length === 0) return { ...acc, [field]: NO_VALUES }
-    return { ...acc, [field]: applyNumericOp(values, op) }
-  }, {})
-}
-
-function buildRawAggregationsForGroup(
-  groupRecords: readonly Readonly<Record<string, unknown>>[],
-  aggregate: AggregateConfig
-): RawAggregations {
-  return {
-    ...(aggregate.count ? { count: String(groupRecords.length) } : {}),
-    ...(aggregate.sum && aggregate.sum.length > 0
-      ? { sum: aggregateNumeric(groupRecords, aggregate.sum, 'sum') }
-      : {}),
-    ...(aggregate.avg && aggregate.avg.length > 0
-      ? { avg: aggregateNumeric(groupRecords, aggregate.avg, 'avg') }
-      : {}),
-    ...(aggregate.min && aggregate.min.length > 0
-      ? { min: aggregateOrdered(groupRecords, aggregate.min, 'min') }
-      : {}),
-    ...(aggregate.max && aggregate.max.length > 0
-      ? { max: aggregateOrdered(groupRecords, aggregate.max, 'max') }
-      : {}),
-  }
-}
-
-function toGroupName(record: Readonly<Record<string, unknown>>, groupBy: string): string {
-  const raw = record[groupBy]
-  return raw === null || raw === undefined ? '' : String(raw)
-}
-
 /**
  * One partition of the view: the ancestor values that name it, and its numbers.
  *
@@ -234,51 +140,4 @@ export interface GroupPartition {
   readonly count: number
   /** Present only when the request also carried `?aggregate=`. */
   readonly aggregations?: AggregationOutput
-}
-
-/** The path a record belongs to at one depth, as a comparable key. */
-function pathKeyOf(record: Readonly<Record<string, unknown>>, levels: readonly string[]): string {
-  return JSON.stringify(levels.map((field) => toGroupName(record, field)))
-}
-
-/**
- * Partition records by EVERY prefix of the grouping levels, in first-seen order.
- *
- * One level in, this returns exactly what the single-field partition always
- * returned. Two levels in it returns the level-1 partitions AND the level-2
- * ones, because a nested grid renders a header — and so needs a count and a
- * total — at every depth, not only the innermost. Answering only the deepest
- * would destroy the parent-versus-child comparison that is the reason to nest.
- *
- * Runs over the whole filtered result set rather than one page, so a group that
- * spills past a page boundary still reports its view-wide numbers.
- */
-export function computeGroupPartitions(
-  records: readonly Readonly<Record<string, unknown>>[],
-  levels: readonly string[],
-  aggregate?: AggregateConfig,
-  answer?: OrderedAnswer
-): readonly GroupPartition[] {
-  return levels.flatMap((_field, index) => {
-    const prefix = levels.slice(0, index + 1)
-    // One pass: every record is keyed once, and `Map.groupBy` keeps the
-    // partitions in first-seen order.
-    const partitions = Map.groupBy(records, (record) => pathKeyOf(record, prefix))
-    return [...partitions].map(([key, partition]) => {
-      const path = JSON.parse(key) as readonly string[]
-      const built = aggregate ? buildRawAggregationsForGroup(partition, aggregate) : undefined
-      const raw =
-        built === undefined || answer === undefined
-          ? built
-          : answerOrderedAggregations(built, answer)
-      return {
-        name: path[path.length - 1] ?? '',
-        path,
-        count: partition.length,
-        ...(raw && aggregate
-          ? { aggregations: aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw }
-          : {}),
-      }
-    })
-  })
 }

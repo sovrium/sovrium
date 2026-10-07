@@ -16,9 +16,9 @@
  * been paid for:
  *
  * - The website generator's flattener rewrote two acceptance criteria that
- * quoted the syntax they were documenting — `[internal ref]` documented
+ *   quoted the syntax they were documenting — a pages llms spec documented
  *   the `` `- [title](url): description` `` bullet shape and
- * `[internal ref]` documented `` `![alt](src)` ``. It published
+ *   a pages markdown spec documented `` `![alt](src)` ``. It published
  *   `- title: description` as the documented format. Nothing failed: the
  *   corruption is byte-consistent with itself, so the drift gate compared the
  *   mangled output against the mangled expectation forever.

@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/immutable-data -- a ref's `.current` IS the mutable cell React gives a component for values that must survive a render without causing one; every write below is one of those. */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /** What the thread needs to page itself as the reader scrolls. */

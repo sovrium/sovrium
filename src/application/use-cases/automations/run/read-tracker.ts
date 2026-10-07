@@ -107,8 +107,6 @@ export const redactedReads = (
   ctx: Pick<StepContext, 'app' | 'processEnv'>
 ): { readonly reads?: readonly StepRead[] } => {
   if (reads === undefined) return {}
-  const connections = ctx.app.connections as unknown as
-    ReadonlyArray<Readonly<Record<string, unknown>>> | undefined
-  const redacted = redactSecretsForApp(reads, ctx.app.env, ctx.processEnv, connections)
+  const redacted = redactSecretsForApp(reads, ctx.app.env, ctx.processEnv, ctx.app.connections)
   return { reads: redacted as readonly StepRead[] }
 }

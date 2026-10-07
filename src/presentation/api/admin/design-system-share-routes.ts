@@ -9,12 +9,15 @@
  * The admin half of the design-system share link ([internal ref] amendment A3 Part 2).
  *
  *   - POST   /api/admin/design-system/shares      — mint; returns the plaintext ONCE
- *   - GET    /api/admin/design-system/shares      — list; metadata only
  *   - DELETE /api/admin/design-system/shares/:id  — revoke
+ *
+ * The list (`GET /api/admin/design-system/shares`, metadata only) is an admin
+ * read-registry entry in `design-system-specimen-share-read-operations.ts`,
+ * mounted with its MCP tool from one description.
  *
  * The fourth surface, `GET /s/design-system/{token}`, is the ANONYMOUS reader
  * and lives in `infrastructure/server/route-setup/design-system-share-routes.ts`.
- * These three are admin-guarded like every other A1/A2 surface.
+ * These are admin-guarded like every other A1/A2 surface.
  *
  * ─── THE GUARD IS NOT INHERITED, AND THAT IS THE TRAP ───────────────────────
  *
@@ -24,7 +27,7 @@
  * So `/api/admin/design-system/shares` inherits nothing from its neighbours: it
  * carries its own explicit entry in BOTH guard mirrors (auth-enabled and
  * no-auth), on the bare path AND the `/*` wildcard the `:id` revoke route
- * needs. `[internal ref]` is what notices if that is ever undone.
+ * needs. An admin design system spec is what notices if that is ever undone.
  *
  * ─── THE PLAINTEXT IS EMITTED EXACTLY ONCE ──────────────────────────────────
  *
@@ -39,10 +42,8 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import {
   designSystemShareUrl,
-  listDesignSystemShares,
   mintDesignSystemShare,
   revokeDesignSystemShare,
 } from '@/application/use-cases/admin/design-system-share'
@@ -51,6 +52,7 @@ import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalo
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { DesignSystemShareRepositoryLive } from '@/infrastructure/database/repositories/design-system/design-system-share-repository-live'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
 import { internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { DesignSystemShareRepository } from '@/application/ports/repositories/design-system/design-system-share-repository'
@@ -71,7 +73,7 @@ const runShares = <A, E>(program: Effect.Effect<A, E, DesignSystemShareRepositor
  * `emitAuditEvent` DROPS an action missing from `ACTION_CATALOG` with a warning
  * rather than throwing, so an unregistered action succeeds silently and leaves
  * no trace — which is why `design.share.created` / `design.share.revoked` are
- * registered there and asserted by `[internal ref]`.
+ * registered there and asserted by an admin design system spec.
  *
  * The share ID is the resource id; the TOKEN is never passed. An audit log is
  * precisely the artifact an operator exports and forwards, so a token recorded
@@ -122,38 +124,6 @@ export async function handlePostDesignSystemShare(c: Context, app: App): Promise
 }
 
 /**
- * `GET /api/admin/design-system/shares` — the live shares, metadata only.
- *
- * ─── THE ENVELOPE IS THE FAMILY'S, NOT THIS ROUTE'S OWN ─────────────────────
- *
- * `{ items, total }`, like every other design-system read. This one answered a
- * BARE ARRAY until the console needed to bind it: a config page reads its rows
- * with a flat `body[rowsKey]` lookup defaulting to `items`, so an array
- * resolves `undefined` and the page draws zero rows — silently, with no error
- * and no empty state, so an author cannot tell a broken binding from an empty
- * list. `total` counts the rows THIS response carried, which is the rule the
- * sibling reads already follow so that a tally can never disagree with the list
- * beneath it.
- *
- * Widening the envelope does not widen the ROW. There is no `url`, deliberately:
- * the URL is the token, and the token is gone. A partial address here would only
- * invite the "copy again" affordance this endpoint exists to withhold. An
- * operator who lost the link revokes it and mints another — which is what makes
- * the link revocable in the first place.
- */
-export async function handleGetDesignSystemShares(c: Context, app: App): Promise<Response> {
-  const result = await runShares(listDesignSystemShares(app.name))
-  if (result._tag === 'Failure') return internalError(c)
-
-  c.header('Cache-Control', 'no-store')
-  const items = result.success.map((share) => ({
-    id: share.id,
-    createdAt: share.createdAt.toISOString(),
-  }))
-  return c.json({ items, total: items.length }, 200)
-}
-
-/**
  * `DELETE /api/admin/design-system/shares/:id` — revoke.
  *
  * 404 on an unknown or already-revoked id, never 403 and never a silent 200:
@@ -176,24 +146,20 @@ export async function handleDeleteDesignSystemShare(c: Context, app: App): Promi
 }
 
 /**
- * Chain the three admin share endpoints onto a Hono instance.
+ * Chain the two admin share actions onto a Hono instance.
  *
  * `resolveApp` is the live-App resolver (not the boot-time `app`), matching the
  * two design-system exports beside it: the share is scoped by `app.name`, so a
  * reload that renames the app must be reflected without a restart.
  */
-/* eslint-disable drizzle/enforce-delete-with-where -- the `.delete()` below is a Hono route definition, not a Drizzle delete */
 
 export function chainAdminDesignSystemShareRoutes<T extends Hono>(
   honoApp: T,
   resolveApp: () => App
 ): T {
   return honoApp
-    .get('/api/admin/design-system/shares', (c) => handleGetDesignSystemShares(c, resolveApp()))
     .post('/api/admin/design-system/shares', (c) => handlePostDesignSystemShare(c, resolveApp()))
     .delete('/api/admin/design-system/shares/:id', (c) =>
       handleDeleteDesignSystemShare(c, resolveApp())
     ) as T
 }
-
-/* eslint-enable drizzle/enforce-delete-with-where */

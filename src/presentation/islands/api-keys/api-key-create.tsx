@@ -63,7 +63,6 @@ function CreateForm({
         name="name"
         type="text"
         value={name}
-        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- controlled-input handler for a single field; hoisting buys nothing measurable
         onChange={(event) => setName(event.target.value)}
         placeholder="What will carry this key?"
         className={FIELD_CLASS}
@@ -122,7 +121,6 @@ export function ApiKeyCreate({ onCreate }: ApiKeyCreateProps): ReactElement {
     <div className="flex flex-col gap-3">
       <button
         type="button"
-        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- a one-line disclosure toggle; a useCallback here would cost more to read than it saves
         onClick={() => setOpen((previous) => !previous)}
         className={PRIMARY_BUTTON}
       >

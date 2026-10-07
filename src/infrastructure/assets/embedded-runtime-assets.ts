@@ -15,15 +15,18 @@
  */
 
 export interface RuntimeAssets {
-  /** Embedded path of the client runtime bundle (`/assets/client.js`). */
+  /** Embedded path of the client runtime loader entry (`/assets/client.js`). */
   readonly clientBundle: string
+  /** Client runtime chunk filename → embedded path (`/assets/client-chunks/<name>`). */
+  readonly clientChunks: Readonly<Record<string, string>>
+  /** Embedded path of the page search runtime (`/sovrium-search/runtime.js`). */
+  readonly pageSearchRuntime: string
   /** Static client-script filename → embedded path (`/assets/<name>`). */
   readonly clientScripts: Readonly<Record<string, string>>
   /** Island entry + chunk filename → embedded path (`/assets/islands/<name>`). */
   readonly islands: Readonly<Record<string, string>>
 }
 
-// eslint-disable-next-line functional/no-let -- single-shot memoization cache
 let cache: Promise<RuntimeAssets> | undefined
 
 /**
@@ -33,9 +36,8 @@ let cache: Promise<RuntimeAssets> | undefined
  * do not exist — never evaluates it. Memoized for the process lifetime.
  */
 export const getRuntimeAssets = (): Promise<RuntimeAssets> => {
-  // eslint-disable-next-line functional/no-expression-statements -- memoization cache write
   cache ??= import('./embedded-runtime-assets.generated').then(
-    (m) => m.RUNTIME_ASSETS as unknown as RuntimeAssets
+    (m) => m.RUNTIME_ASSETS as RuntimeAssets
   )
   return cache
 }

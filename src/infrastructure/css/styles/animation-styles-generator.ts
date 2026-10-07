@@ -105,11 +105,10 @@ export function processAnimationConfigObject(
 /**
  * Process a single entry of `design.motion.animations`.
  *
- * An entry is `true | 'fade-in 1s ease' | {…}`. It used to share a record with
- * three RESERVED names — `duration`, `easing`, `keyframes` — which a guard here
- * had to skip while walking it. `motion` gives each of those its own member, so
- * the guard is gone and an animation may legitimately be CALLED `duration`;
- * keeping the skip would have silently dropped it.
+ * An entry is `true | 'fade-in 1s ease' | {…}`. `motion` gives `duration`,
+ * `easing` and `keyframes` their own members, so the animation record holds no
+ * RESERVED names and there is no guard skipping them: an animation may
+ * legitimately be CALLED `duration`, and such a skip would silently drop it.
  *
  * @param name - Animation name
  * @param config - Animation configuration (can be boolean, string, or object)

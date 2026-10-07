@@ -1,8 +1,8 @@
 # Views
 
-> Saved ways of looking at a table — declarative filters, sorts, grouping and column selection, or a raw SQL query.
+> Declared ways of looking at a table — declarative filters, sorts, grouping and column selection, or a raw SQL query.
 
-A view is a named, saved configuration of how a table's records are filtered, sorted, grouped and projected. Views live under a table's `views` array, and both the records API and the operator console can be asked for one by name.
+A view is a named configuration of how a table's records are filtered, sorted, grouped and projected. Views live under a table's `views` array and are part of the config: they are never created or saved by a reader. The records API and the operator console can be asked for one by name, and every data component on a page can show one.
 
 A view id may be any legal name, including a SQL keyword such as `all` or `order`. A view with a text id, or with a `query`, is stored as a database view under that id, so the id must differ from every table's name and from the views of every other table: `sovrium validate` refuses a clash and names it.
 
@@ -54,7 +54,41 @@ filters:
 
 <!-- sovrium:options ViewGroupBySchema -->
 
-`sorts` is an ordered list, so a second entry breaks the ties the first leaves. `groupBy` takes one field; its `direction` orders the groups themselves rather than the rows inside them.
+`sorts` is an ordered list, so a second entry breaks the ties the first leaves. `groupBy` takes a field; its `direction` orders the groups themselves rather than the rows inside them, and `collapsed` draws them closed until a reader opens one. `thenBy` adds up to two nested levels inside the first, three in all, each with its own `field`, `direction` and `collapsed`. Naming the same field at two levels is refused: every record in a group already shares the value that group was formed on, so the repeated level would partition nothing.
+
+## Showing a view on a page
+
+Every data component that reads a table — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's views or directly to the table, through `dataSource`:
+
+```yaml
+tables:
+  - name: tasks
+    views:
+      - id: open_by_stage
+        name: Open tasks by stage
+        filters: { and: [{ field: done, operator: isFalse, value: false }] }
+        sorts: [{ field: due_date, direction: asc }]
+        fields: [title, stage, owner, due_date]
+        groupBy: { field: stage }
+pages:
+  - name: tasks
+    path: /tasks
+    components:
+      - type: table
+        dataSource: { table: tasks, view: open_by_stage }
+      - type: kanban
+        dataSource: { table: tasks, view: open_by_stage }
+        kanbanGroupBy: { field: stage }
+      - type: calendar
+        dataSource: { table: tasks, view: open_by_stage }
+        dateField: due_date
+```
+
+Bound to a view, a component reads the records the view returns: the view's filters, sorts, grouping and `fields` apply on the server. The view owns them, so the binding may not repeat them — a `filter`, `sort` or `fields` beside `view` is refused when the config loads, with a message naming the view. The component keeps what says how it draws the records: a grid's columns, a board's `kanbanGroupBy`, a calendar's `dateField`, a gallery's card fields, a chart's axes. A board, a calendar and a grid of the same view are three components, each with its own binding.
+
+Bound directly to a table, a component may narrow it with its own `dataSource.filter` and `dataSource.sort`.
+
+A reader's search, filter and sort from a grid's toolbar narrow what she sees for that visit only. They are stored nowhere, and a reload shows the component as configured.
 
 ## SQL mode
 

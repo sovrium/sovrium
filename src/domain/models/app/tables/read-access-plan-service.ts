@@ -62,7 +62,10 @@
  * `rowPredicate` is `'unresolved'` — a value it must not silently ignore.
  */
 
-import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
+import {
+  SIGNED_OUT_VISITOR_ROLE,
+  type PermissionCaller,
+} from '@/domain/models/app/auth/permission-evaluation'
 import {
   hasReadPermissionForRoles,
   readOpensToEveryone,
@@ -451,6 +454,20 @@ export const admitsSignedOut = (app: App, table: TableLike): boolean => {
 }
 
 /**
+ * The principal a plan is judged on. A caller WITHOUT a session is judged as
+ * the records API judges her: in an app with sign-in, the signed-out visitor
+ * principal (`SIGNED_OUT_VISITOR_ROLE`, which takes no undeclared default and
+ * never holds `'authenticated'`, on the table and on every field alike); in an
+ * app without, the `guest` placeholder every caller is there. Never the bare
+ * empty role, which the evaluators treat as a role that grants nothing.
+ */
+const judgedPrincipal = (app: App, principal: ReadPrincipal): ReadPrincipal => {
+  if (principal.isAuthenticated) return principal
+  const role = app.auth === undefined ? 'guest' : SIGNED_OUT_VISITOR_ROLE
+  return { role, effectiveRoles: [role], isAuthenticated: false }
+}
+
+/**
  * Compose the four read controls into one plan.
  *
  * The table gate uses {@link hasReadPermissionForRoles} — inheritance-aware and
@@ -459,7 +476,8 @@ export const admitsSignedOut = (app: App, table: TableLike): boolean => {
  * `permissions: { inherit: 'parent' }` must not read as ungated.
  */
 export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan => {
-  const { app, table, principal, policy, rowContext } = input
+  const { app, table, policy, rowContext } = input
+  const principal = judgedPrincipal(app, input.principal)
 
   if (!table) {
     return {

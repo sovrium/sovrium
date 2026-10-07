@@ -8,7 +8,7 @@
 | ------------- | -------------------------------------------------------------------------------------------- |
 | `table-field` | Bound to a column on the submit target; type, validation and persistence flow from the table |
 | `standalone`  | Typed inline through `inputType`, and not written to a column directly                       |
-| `calculation` | A read-only value computed from other fields; renders no input                               |
+| `calculation` | A read-only value computed from other fields, recomputed as they change                      |
 | `section`     | A visual divider with an optional heading; renders no input                                  |
 | `signature`   | Captures a drawn or typed signature                                                          |
 
@@ -117,11 +117,17 @@ fields:
   - kind: calculation
     name: total
     label: Total
-    formula: '{{quantity}} * {{unit_price}}'
+    formula: '{{round (multiply quantity unit_price) 2}}'
     format: currency
 ```
 
-The formula references other fields by name. The result is read-only and recomputes as its inputs change.
+A calculation shows a read-only value computed from other fields of the same form, and recomputes it in the browser as those fields change. The formula is one template expression in the same `{{...}}` grammar automations use — a field name on its own, or a number helper applied to field names, numbers or another helper call in parentheses. The helpers are `add`, `subtract`, `multiply`, `divide`, `modulo`, `round`, `ceil`, `floor`, `abs`, `min`, `max`, `clamp` and `percentage`; they compute what their automation namesakes compute, except that `round` gives a number rather than text. Dividing by zero gives `0`. There is no second formula language to learn.
+
+The value stays empty until every field it reads holds a number. `format: currency` shows it with two decimals and `format: percent` draws a `%` beside it; `number` and `text` show it as computed.
+
+A formula naming a field the form does not have, a helper outside the number family, or another calculation that in turn depends on this one, fails when the configuration is decoded, naming the form and the field.
+
+The computed value is submitted with the other answers and stored in the submission under the field's `name`; it is not written to the bound table. The browser's arithmetic is never trusted on its own: the server recomputes every calculation from the submitted inputs (one that reads another is computed after it), fills in a value the submission left out, and refuses a submission whose value disagrees with `400` and a field error naming the calculation, writing nothing.
 
 ## Section and signature fields
 
@@ -151,7 +157,7 @@ The top-level `prefill` map does the same job with the wiring kept in one block.
 
 ## Inline relationship create
 
-When a form is placed on a parent record's page — a "new ticket" button on a project page — a parent reference ties the new child back to its parent automatically. It is configured on the page's form control, whether that control embeds a top-level form with `formRef` or declares its own `crud` create form in place, and whether it sits on the page, in a tab panel or in a dialog.
+When a form is placed on a parent record's page — a "new ticket" button on a project page — a parent reference ties the new child back to its parent automatically. It is configured on the page's form control that embeds the top-level form with `formRef` — the only way to add a record from inside an app page — whether that control sits on the page, in a tab panel or in a dialog.
 
 <!-- sovrium:options InlinePrefillSchema -->
 

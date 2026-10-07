@@ -91,7 +91,7 @@ export const fieldTypeSummarySchema = Schema.Struct({
   // exists to deliver — the page would go stale on the day a tenth category
   // ships, and silently, showing eight of nine.
   //
-  // Admitted under [internal ref] as a fact rather than an editorial choice: it names
+  // Admitted under the facts-not-strings rule as a fact rather than an editorial choice: it names
   // no word, no sentence and no label. The ORDER it refers to is the registry's
   // own, published as the array order of this response.
   firstInCategory: Schema.Boolean.annotate({
@@ -108,7 +108,7 @@ export const fieldTypeSummarySchema = Schema.Struct({
   //
   // Both are DERIVED at the registry (`fieldTypeSampleValue`,
   // `isReadOnlyFieldType`) rather than written out here, so a fiftieth field
-  // type arrives with both. Admitted under [internal ref] on the same ground as
+  // type arrives with both. Admitted under the facts-not-strings rule on the same ground as
   // `categoryTitle`: a console inventing its own would be a second set for one
   // concept, hand-written forty-nine times, drifting from the day it was typed.
   sampleValue: Schema.String.annotate({

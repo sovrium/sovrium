@@ -17,12 +17,12 @@ import {
  *
  * A single filter condition for filtering records.
  *
- * `operator` is a CLOSED vocabulary. It used to be a bare `Schema.String`, and
+ * `operator` is a CLOSED vocabulary, not a bare `Schema.String`:
  * `generateSqlCondition` answers an operator it does not recognise with
- * `field = value` rather than an error — so `{ operator: 'gt' }` decoded, booted
- * and then silently selected equality. `gt` is not a hypothetical typo: it is a
+ * `field = value` rather than an error — so `{ operator: 'gt' }` would decode,
+ * boot and then silently select equality. `gt` is not a hypothetical typo: it is a
  * real operator in the page/data-source filter vocabulary, so an author moving a
- * filter between the two surfaces wrote it in good faith and got the wrong rows.
+ * filter between the two surfaces would write it in good faith and get the wrong rows.
  *
  * The refusal is attached to the STRUCT, not to `operator`, so the message can
  * name the `field` the condition came from — a config with filters on six

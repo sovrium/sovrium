@@ -15,8 +15,11 @@ nobody else is offered it.
 - **Forms** (1): publish-announcement (rendered on `/publish`)
 - **Pages** (8): portal (`/portal`, Home), news, people, resources, publish (managers only),
   home (`/`), sign-in (the link), sign-in-password (the fallback)
-- **Automations** (1): sign-new-announcement (signs, dates and addresses a new announcement)
-- **Singletons**: auth, design
+- **Automations** (2): sign-new-announcement (signs, dates and addresses a new announcement),
+  and record-to-teams-channel — a library recipe (`library/recipe/`, with its
+  `library/connection/microsoft-365.yaml`) posting each new announcement to a Teams channel
+  once the Microsoft variables are set
+- **Singletons**: auth, design, env
 - **Seed data**: `seed/` — eight sign-in accounts, forty-six colleagues (thirty-eight of them
   invented), six announcements, thirty-one acknowledgements, three dates and ten resources,
   dated relative to the day you seed

@@ -7,7 +7,7 @@
 
 /**
  * Container-directive component resolution for markdown pages
- * ([internal ref], cluster 3).
+ * (the pages layout markdown pages requirement, cluster 3).
  *
  * The domain markdown renderer extracts container directives
  * (`::: name [attrs]\n...\n:::`) into a parallel `directives[]` array and
@@ -40,7 +40,7 @@ import type { Design } from '@/domain/models/app/design'
  * placeholders. The non-greedy `[\s\S]*?` stops at the FIRST `</div>` after
  * the opening — safe because markdown-it (`html: false`) never emits nested
  * `<div>` elements itself, and directive nesting is not part of the
- * [internal ref] spec surface.
+ * the pages layout markdown pages requirement spec surface.
  *
  * The renderer emits the close fence as `</div>\n` (newline after); the
  * regex tolerates optional trailing whitespace so the splice strips it
@@ -120,7 +120,7 @@ const CALLOUT_ACCENT_CLASSES: Readonly<Record<CalloutType, string>> = {
  * Render the `callout` directive as an alert element. Carries `role="alert"`
  * so screen readers announce it AND so the spec test
  * `[role="alert"], [data-component="alert"]` matches; the `alert` class and,
- * on an info callout, the `info` class satisfy [internal ref]
+ * on an info callout, the `info` class satisfy a pages markdown spec
  * (theme-aware token classes — the matcher regex is `/(info|alert)/`).
  *
  * The declared kind (`::: callout type="warning"`) is normalised to one of

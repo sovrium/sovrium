@@ -1,0 +1,71 @@
+# sovrium-library: block/blog-cards@0.30.0
+name: blog-cards
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-10
+        children:
+          - type: flex
+            props:
+              className: flex flex-wrap items-end justify-between gap-4
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+                content: '[From the blog]'
+              - type: link
+                props:
+                  href: /blog
+                  className: inline-flex items-center gap-1.5 text-md font-medium text-foreground underline-offset-4 hover:underline
+                children:
+                  - type: text
+                    element: span
+                    content: '[All posts]'
+                  - type: icon
+                    props:
+                      name: arrow-right
+                      size: 16
+          - type: gallery
+            dataSource:
+              table: posts
+              sort:
+                - field: published_at
+                  direction: desc
+              limit: 3
+            layout: grid
+            gridColumns:
+              mobile: 1
+              md: 2
+              lg: 3
+            emptyMessage: No post published yet.
+            galleryCard:
+              coverImage: $record.cover
+              aspectRatio: 16:10
+              children:
+                - type: text
+                  element: span
+                  props:
+                    className: font-mono text-sm text-foreground-subtle
+                  content: $record.published_at
+                - type: text
+                  element: h3
+                  props:
+                    className: text-lg font-semibold text-foreground
+                  content: $record.title
+                - type: text
+                  element: p
+                  props:
+                    className: line-clamp-2 text-md text-foreground-muted
+                  content: $record.excerpt
+              onClick:
+                type: navigate
+                path: /blog/$record.id

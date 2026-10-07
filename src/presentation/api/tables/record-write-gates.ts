@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   hasCreatePermissionForRoles,
@@ -12,15 +13,16 @@ import {
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { createAllowed } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
-import { checkFieldConditionReadOnly } from './record-update-guards'
+import { fieldConditionLock } from './record-update-guards'
 import { checkTableUpdatePermissionWithRole } from './record-update-permissions'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
 import {
   passesTableRoleGate,
   type RowLevelGuardContext,
-  enforceFormMutationGate,
-  resolveGuardForTable,
+  formMutationGate,
+  guardForTable,
 } from './row-level-guard'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type {
   TableGateScope,
@@ -108,7 +110,9 @@ interface UpdateGateInput {
   readonly change: Readonly<Record<string, unknown>>
 }
 
-async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Response | undefined> {
+const updateGateAndPredicate = (
+  input: UpdateGateInput
+): Effect.Effect<Response | undefined, never, TableRepository> => {
   const { c, app, table, session, tableName, userRole, userGroups, recordId, guard, change } = input
 
   if (!guard) {
@@ -124,7 +128,7 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
       buildEffectiveRoles(userRole, userGroups),
       c
     )
-    return permissionCheck.allowed ? undefined : permissionCheck.response
+    return Effect.succeed(permissionCheck.allowed ? undefined : permissionCheck.response)
   }
 
   // The single-record gate the delete door asks: the read grant, the row
@@ -132,7 +136,7 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
   // on the row as it stands and `write.when` on the row as written. A row the
   // read rule hides from the caller is refused as a missing one, even where
   // the write rule admits it. Every denial is the missing row's 404 (S1).
-  return enforceFormMutationGate({
+  return formMutationGate({
     c,
     table,
     session,
@@ -146,15 +150,19 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
 
 /**
  * Run all pre-mutation update gates in order: the Z-3 role/predicate gate
- * then the field-`condition` read-only lock. Returns the first failing
+ * then the field-`condition` read-only lock. Resolves the first failing
  * response, or `undefined` when the update may proceed.
  */
-export async function checkUpdateGates(input: UpdateGateInput): Promise<Response | undefined> {
+export const updateGates = (
+  input: UpdateGateInput
+): Effect.Effect<Response | undefined, never, TableRepository> => {
   const { c, table, session, tableName, recordId } = input
-  const updateGateError = await checkUpdateGateAndPredicate(input)
-  if (updateGateError) return updateGateError
-  // Reject updates to records locked by a field `condition` (readOnly: true).
-  return checkFieldConditionReadOnly({ c, table, session, tableName, recordId })
+  return Effect.filterOrElse(
+    updateGateAndPredicate(input),
+    (refusal) => refusal !== undefined,
+    // Reject updates to records locked by a field `condition` (readOnly: true).
+    () => fieldConditionLock({ c, table, session, tableName, recordId })
+  )
 }
 
 /**
@@ -173,7 +181,7 @@ export async function checkUpdateGates(input: UpdateGateInput): Promise<Response
  * role-only check otherwise. Extracted so handleFormUpdateRecord stays
  * under the 50-line/function limit.
  */
-export async function resolveFormUpdateAuth(input: {
+export const formUpdateAuth = (input: {
   readonly c: Context
   readonly app: App
   readonly tableName: string
@@ -184,28 +192,31 @@ export async function resolveFormUpdateAuth(input: {
   readonly recordId: string
   /** The posted change — `write.when` is checked on the row as written too. */
   readonly change: Readonly<Record<string, unknown>>
-}): Promise<Response | undefined> {
+}) => {
   const { c, app, tableName, userRole, userGroups, session, recordId, change } = input
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
-
-  if (guard) {
-    return enforceFormMutationGate({
-      c,
-      table,
-      session,
-      tableName,
-      recordId,
-      guard,
-      op: 'write',
-      change,
-    })
-  }
-  const permissionCheck = checkTableUpdatePermissionWithRole(
-    app,
-    tableName,
-    buildEffectiveRoles(userRole, userGroups),
-    c
+  return Effect.flatMap(
+    guardForTable(session, { userRole, userGroups }, table, app),
+    (guard): Effect.Effect<Response | undefined, never, TableRepository> => {
+      if (guard) {
+        return formMutationGate({
+          c,
+          table,
+          session,
+          tableName,
+          recordId,
+          guard,
+          op: 'write',
+          change,
+        })
+      }
+      const permissionCheck = checkTableUpdatePermissionWithRole(
+        app,
+        tableName,
+        buildEffectiveRoles(userRole, userGroups),
+        c
+      )
+      return Effect.succeed(permissionCheck.allowed ? undefined : permissionCheck.response)
+    }
   )
-  return permissionCheck.allowed ? undefined : permissionCheck.response
 }

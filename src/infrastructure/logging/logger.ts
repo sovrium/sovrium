@@ -101,6 +101,44 @@ export class Logger extends Context.Service<
  * helpers only where there is genuinely no Effect to be inside of.
  */
 
+/**
+ * Attribute keys whose VALUE is a credential, matched case-insensitively as a
+ * substring so `http.request.header.authorization`, `set-cookie`,
+ * `sovrium.connection.access_token` and a bespoke `x-acme-api-key` are all
+ * covered without an exhaustive list.
+ */
+const SECRET_ATTRIBUTE_KEY =
+  /authorization|cookie|token|secret|password|api[-_]?key|private[-_]?key/i
+
+/** A value that carries its own scheme marker is a credential whatever its key. */
+const CREDENTIAL_VALUE = /^\s*(?:bearer|basic)\s+\S/i
+
+/** What a redacted attribute carries. The key stays: "it was sent" is the useful fact. */
+export const REDACTED_LOG_VALUE = '[redacted]'
+
+/**
+ * Every log line's structured attributes, with credential values replaced.
+ *
+ * Applied by default on every path into the sink — the `Logger` service and
+ * the four plain helpers — because the attributes ride the OTLP record to an
+ * external collector, where a token is no longer the operator's to revoke
+ * quietly. The message itself is not scanned: it is a stable sentence with no
+ * interpolated values by convention (see the top of this file).
+ */
+export const redactLogAttributes = (
+  attributes: LogAttributes | undefined
+): LogAttributes | undefined =>
+  attributes === undefined
+    ? undefined
+    : Object.fromEntries(
+        Object.entries(attributes).map(([key, value]) => [
+          key,
+          SECRET_ATTRIBUTE_KEY.test(key) || CREDENTIAL_VALUE.test(value)
+            ? REDACTED_LOG_VALUE
+            : value,
+        ])
+      )
+
 /** The ambient span, or `undefined` outside one. Never fails. */
 const currentSpanOrNone: Effect.Effect<Tracer.Span | undefined> = Effect.currentSpan.pipe(
   // Not a swallowed failure: `Effect.currentSpan` fails with `NoSuchElementError`
@@ -137,7 +175,10 @@ export const makeLoggerLayer = (emit: TelemetrySink): Layer.Layer<Logger> => {
     currentSpanOrNone.pipe(
       Effect.flatMap((span) =>
         Effect.sync(() => {
-          emit(level, message, cause, { attributes, parentSpan: span })
+          emit(level, message, cause, {
+            attributes: redactLogAttributes(attributes),
+            parentSpan: span,
+          })
         })
       )
     )
@@ -205,7 +246,7 @@ export const LoggerSilent = Layer.succeed(Logger, {
  * @param cause - Optional error cause for stack trace + Sentry forwarding
  */
 export const logError = (message: string, cause?: unknown, attributes?: LogAttributes): void =>
-  emitTelemetryLog('error', message, cause, { attributes })
+  emitTelemetryLog('error', message, cause, { attributes: redactLogAttributes(attributes) })
 
 /**
  * Log a warning message
@@ -216,7 +257,7 @@ export const logError = (message: string, cause?: unknown, attributes?: LogAttri
  * @param message - Warning message
  */
 export const logWarning = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('warn', message, undefined, { attributes })
+  emitTelemetryLog('warn', message, undefined, { attributes: redactLogAttributes(attributes) })
 
 /**
  * Log an info message
@@ -226,7 +267,7 @@ export const logWarning = (message: string, attributes?: LogAttributes): void =>
  * @param message - Info message
  */
 export const logInfo = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('info', message, undefined, { attributes })
+  emitTelemetryLog('info', message, undefined, { attributes: redactLogAttributes(attributes) })
 
 /**
  * Log a debug message
@@ -237,4 +278,4 @@ export const logInfo = (message: string, attributes?: LogAttributes): void =>
  * @param message - Debug message
  */
 export const logDebug = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('debug', message, undefined, { attributes })
+  emitTelemetryLog('debug', message, undefined, { attributes: redactLogAttributes(attributes) })

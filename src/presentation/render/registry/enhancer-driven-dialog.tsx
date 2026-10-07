@@ -12,9 +12,9 @@ import type { ReactElement, ReactNode } from 'react'
 const HIDDEN_STYLE = { display: 'none' } as const
 
 const PANEL_DEFAULTS =
-  // `shadow-lg`, not `shadow-xl`: the `xl` step was retired from the scale and
-  // the utility fell through to Tailwind's own stock elevation, putting a
-  // shadow from outside the design system on a modal.
+  // `shadow-lg`, not `shadow-xl`: the scale has no `xl` step, so the utility
+  // would fall through to Tailwind's own stock elevation, putting a shadow from
+  // outside the design system on a modal.
   'bg-background-overlay text-foreground relative max-h-full w-full max-w-md overflow-y-auto rounded-md p-6 shadow-lg'
 
 /**
@@ -86,19 +86,15 @@ function renderDialogPanelBody(
   renderedChildren: readonly ReactElement[]
 ): ReactNode {
   if (typeof formRefHtml === 'string') {
-    return (
-      <div
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only; trusted server-generated markup from `expandFormRefs`
-        dangerouslySetInnerHTML={{ __html: formRefHtml }}
-      />
-    )
+    // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
+    return <div dangerouslySetInnerHTML={{ __html: formRefHtml }} />
   }
   return renderedChildren
 }
 
 /**
- * SSR markup for a `hydrate: false` dialog — the zero-JavaScript overlay that
- * `dialog` absorbed when `modal` was retired.
+ * SSR markup for a `hydrate: false` dialog — the zero-JavaScript overlay form
+ * of `dialog` (there is no separate `modal` type).
  *
  * It emits exactly what the always-present click enhancer in
  * `page-body-scripts.tsx` reads, and nothing else:

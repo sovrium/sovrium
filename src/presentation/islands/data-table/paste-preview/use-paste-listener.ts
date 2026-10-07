@@ -46,7 +46,6 @@ export function usePasteListener({
     const scope = container.closest<HTMLElement>('[data-island]') ?? container
 
     // Tracks whether the table was the last element the user interacted with.
-    // eslint-disable-next-line functional/no-let -- mutable activity flag scoped to this effect
     let active = false
 
     const handlePointerDown = (event: MouseEvent): void => {

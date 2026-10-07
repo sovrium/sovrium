@@ -101,7 +101,6 @@ export const rulesNameCurrentUser = (
   rlp: RowLevelPermissions | undefined,
   name: CurrentUserScalar
 ): boolean =>
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property of the RowLevelPermissions struct, not a Drizzle query.
   [rlp?.read?.when, rlp?.write?.when, rlp?.create?.when, rlp?.delete?.when].some(
     (when) => when !== undefined && ruleNamesCurrentUser(when, name)
   )

@@ -30,7 +30,7 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
 /**
  * `true` when the given guest email already has an approved comment on this
  * table — the `autoApprove.previouslyApproved` precondition
- *. See {@link approvedGuestCommentByEmail} for
+ * See {@link approvedGuestCommentByEmail} for
  * why the match is scoped per-table.
  *
  * An existence probe (`SELECT 1 ... LIMIT 1`), deliberately NOT a count: the

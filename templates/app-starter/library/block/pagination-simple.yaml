@@ -1,0 +1,30 @@
+# sovrium-library: block/pagination-simple@0.30.0
+name: pagination-simple
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: container
+    element: nav
+    props:
+      aria-label: Pagination
+    children:
+      - type: flex
+        props:
+          className: flex items-center justify-between gap-4
+        children:
+          - type: link
+            props:
+              href: '?page=1'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+            content: Previous
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-subtle
+            content: Page 2 of 8
+          - type: link
+            props:
+              href: '?page=3'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+            content: Next

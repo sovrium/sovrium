@@ -6,20 +6,19 @@
  */
 
 /**
- * Pure synthesis of SEO `<head>` meta for content-directory pages
- *.
+ * Pure synthesis of SEO `<head>` meta for content-directory pages.
  *
  * A `contentDir` page generates one route per markdown file, so its SEO meta
  * cannot be authored statically in `page.meta` — it must be derived per request
  * from the resolved slug + each file's frontmatter:
  *
- * - canonical: the absolute resolved URL of THIS page,
+ *  - canonical: the absolute resolved URL of THIS page,
  *    so search engines collapse duplicate query-string / trailing-slash forms.
- * - hreflang alternates: when the page path carries a
+ *  - hreflang alternates: when the page path carries a
  *    `:lang` segment and the app declares multiple languages, one
  *    `rel="alternate"` per configured locale (plus `x-default`) pointing at the
  *    same slug under each language prefix.
- * - Open Graph: og:title / og:description / og:image
+ *  - Open Graph: og:title / og:description / og:image
  *    derived from the markdown file's frontmatter.
  *
  * This lives in the domain layer because it is a pure transform (no I/O): the

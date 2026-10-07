@@ -1,0 +1,15 @@
+# A week of what happened, newest first on the dashboards.
+records:
+  - key: a1
+    fields:
+      { actor: Ana Lindqvist, summary: moved Client portal to Active, happened_at: '{{today-1d}}' }
+  - key: a2
+    fields:
+      { actor: Marc Oyelaran, summary: added a task to Spring rebrand, happened_at: '{{today-2d}}' }
+  - key: a3
+    fields:
+      {
+        actor: Ana Lindqvist,
+        summary: put Accessibility audit on hold,
+        happened_at: '{{today-5d}}',
+      }

@@ -18,6 +18,8 @@ import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
 import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
+import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -34,24 +36,24 @@ import type { ConnectionTokenRepository } from '@/application/ports/repositories
 import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import type { ConfigAccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { AiService } from '@/application/ports/services/ai-service'
+import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
+import type { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
+import type { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
+import type { TemplateEngine, TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 
 /**
- * Step record retained in run history.
- *
- * Mirrors `AutomationRunRecord['steps'][number]` so the run loop can build
- * an array of these directly without reshaping at the end. `output` is the
- * action handler's `outcome.output` — needed by the runs detail endpoint
- * so callers wanting per-step outputs (intermediate-step
- * assertions in multi-action regressions) can read them from the steps[]
- * array in `GET /api/automations/runs/:id`.
+ * Step record retained in run history; `output` is the handler's
+ * `outcome.output`, read back by `GET /api/automations/runs/:id`.
  */
 export interface ExecutedStep {
   readonly name: string
@@ -66,11 +68,11 @@ export interface ExecutedStep {
    *    the run via `onFalse: 'stop'`. The filter step itself is recorded with
    *    this status so the runs-API surface (`GET /api/automations/runs/:id`)
    *    can observe the filter outcome; subsequent steps remain omitted from
-   * `steps` — [internal ref].
+   *    `steps[]`.
    *  - `'skipped'` — the run loop short-circuited before this step ran because
    *    an earlier step propagated a failure (no `continueOnError`). The step
    *    is still recorded in `steps[]` so callers can observe which actions
-   * were intentionally not executed — [internal ref].
+   *    were intentionally not executed.
    */
   readonly status: 'success' | 'failure' | 'filtered' | 'skipped'
   readonly error?: string
@@ -80,11 +82,18 @@ export interface ExecutedStep {
   readonly logs?: readonly StepLogEntry[]
   /** What the step recorded reading as it ran (`read-tracker.ts`), when it did. */
   readonly reads?: readonly StepRead[]
+  /** A `path/branch` step's paths and a `loop/each` step's items, with the steps run inside. */
+  readonly paths?: readonly { readonly name: string; readonly steps: readonly ExecutedStep[] }[]
+  readonly iterations?: readonly {
+    readonly index: number
+    readonly steps: readonly ExecutedStep[]
+  }[]
 }
 
-/**
- * Accumulator type for `Effect.reduce` over the action list.
- */
+/** The steps a `path` or a `loop` ran, as its outcome hands them to its step record. */
+export type NestedStepRuns = Pick<ExecutedStep, 'paths' | 'iterations'>
+
+/** Accumulator type for `Effect.reduce` over the action list. */
 export interface RunAccumulator {
   readonly steps: ReadonlyArray<ExecutedStep>
   /**
@@ -115,13 +124,13 @@ export interface RunAccumulator {
    * Shallow-merged outputs from every step that produced one (later steps
    * win on collisions). Surfaces as `output` in webhook/manual responses;
    * per-step isolation lives in `actions[stepName]` + the runs API
-   *. Single-step runs behave like "last action's output".
+   * Single-step runs behave like "last action's output".
    */
   readonly lastOutput: Record<string, unknown> | undefined
   /**
    * Set true when a filter action returns `status: 'filtered'`. Causes
    * the run loop to short-circuit subsequent steps without recording
-   * them — matches [internal ref]'s
+   * them — matches an automation action filter continue spec's
    * "premiumStep === undefined" branch.
    */
   readonly halted: boolean
@@ -167,6 +176,8 @@ export interface StepContext {
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   /** `{ trigger: { data: TriggerData } }` — used to resolve `{{trigger.X}}`. */
   readonly templateContext: Readonly<Record<string, unknown>>
+  /** The template engine, read once from the `TemplateEngine` port by the run loop. */
+  readonly templates: TemplateRenderer
   /** Identity of the running automation; threaded into each handler call. */
   readonly automation: AutomationContext
   /** Raw trigger payload — code action sandbox flattens this for `context.trigger.data`. */
@@ -232,6 +243,8 @@ export type StepRequirements =
   | AuthRepository
   | ConnectionRepository
   | ConnectionTokenRepository
+  | SentinelTokens
+  | TemplateEngine
   | AnalyticsRepository
   | AiService
   | AiEmbeddingRepository
@@ -240,37 +253,26 @@ export type StepRequirements =
   | SpeechService
   | LinkRepository
   | ServerOrigin
+  | AuditLogRepository
+  | EmailSender
+  | AiComputeStatusRepository
+  | OAuthTokenClient
+  | ConfigAccountProvisioner
 
-/**
- * Combined service requirement for the run-loop entry points. Aliased so
- * the function signatures stay one line (max-lines-per-function compliance).
- */
+/** Combined service requirement for the run-loop entry points. */
 export type RunRequirements =
-  | TableRepository
+  | StepRequirements
   | AutomationRepository
   | AutomationRunRepository
   // The failure history the post-run alert and the automatic pause read, and
   // the pause the latter writes.
   | AutomationRunOutcomeRepository
   | AutomationPauseRepository
-  | AutomationStateRepository
-  | AutomationDigestRepository
-  | AutomationApprovalRepository
-  | AuthRepository
-  | ConnectionRepository
-  | ConnectionTokenRepository
-  | AnalyticsRepository
-  | AiService
-  | AiEmbeddingRepository
-  | StorageService
-  | ImageTransformService
-  | SpeechService
-  | LinkRepository
-  | ServerOrigin
-  // A record a step writes starts the record automations of its table,
-  // whose trigger data hydrates user and relationship fields through these two.
+  // A record a step writes starts the record automations of its table, whose
+  // trigger data hydrates user and relationship fields (with `DataSource…`).
   | CommentRepository
-  | DataSourceRepository
+  // The sandbox's Promise boundary and the background record-event registry.
+  | AutomationFiberBridge
 
 /**
  * Locally re-typed `app.actions[]` template entry. The runtime invoker
@@ -303,18 +305,16 @@ export interface RunAutomationResult {
    *  - `'failure'` — at least one action failed (and lacked `continueOnError`)
    *  - `'timed-out'` — the run loop exceeded `automation.timeout`; persisted
    *    runs surface this status verbatim so callers can distinguish a hard
-   * timeout from a routine failure ([internal ref]..008).
+   *    timeout from a routine failure.
    *  - `'exhausted'` — an action's retry policy was configured (`maxAttempts >
    *    1`) AND all attempts failed; distinct from `'failure'` so callers can
-   *    tell a single-shot failure apart from a fully-exhausted retry budget
-   * ([internal ref]..011).
+   *    tell a single-shot failure apart from a fully-exhausted retry budget.
    *  - `'completed-with-errors'` — at least one action failed BUT every failing
    *    action declared `continueOnError: true`, so subsequent actions still
-   *    executed. Distinguishes "all green" from "partially-degraded green"
-   *.
+   *    executed. Distinguishes "all green" from "partially-degraded green".
    *  - `'skipped'` — a `filter`/`continue` action evaluated false and halted
    *    the run via `onFalse: 'stop'` before any non-filter action completed
-   *. Surfaces as `'skipped'` on the runs API.
+   * Surfaces as `'skipped'` on the runs API.
    */
   readonly status:
     | 'success'
@@ -408,7 +408,7 @@ export interface ExecuteAutomationRunInput {
    * the `'queued'` run row lands in `system.automation_runs`. Threaded
    * through so the async webhook dispatcher (`respondImmediately: true`)
    * can surface the persisted runId in its 202 response BEFORE the loop
-   * has finished — [internal ref] depends on this so the cancel
+   * has finished — an API automation runs spec depends on this so the cancel
    * endpoint can locate the in-flight run by id.
    *
    * When omitted (the synchronous webhook path, manual-trigger, replay,
@@ -544,27 +544,6 @@ export const cryptoRandomId = (): string => {
 }
 
 /**
- * Cap on `error` field length surfaced to the trigger response and
- * persisted to `system.automation_runs.error` — guards against a
- * misbehaving upstream inflating run-history payloads.
- */
-export const MAX_ERROR_LENGTH = 500
-const TRUNCATION_SUFFIX = '… (truncated)'
-
-/**
- * Truncate AFTER redaction. If we truncated first and the secret straddled
- * the cut point, redaction would not match the literal string and a partial
- * secret could leak into history. Always: redact -> truncate.
- *
- * @internal — exported for unit tests; production callers go through
- * `redactString` which composes redaction + truncation in the correct order.
- */
-export const truncateError = (input: string): string => {
-  if (input.length <= MAX_ERROR_LENGTH) return input
-  return input.slice(0, MAX_ERROR_LENGTH) + TRUNCATION_SUFFIX
-}
-
-/**
  * True when an earlier step has already propagated a failure that should
  * short-circuit the remaining actions in the run. `'failure'` and
  * `'exhausted'` halt the loop; `'completed-with-errors'` does NOT (its
@@ -574,3 +553,5 @@ export const truncateError = (input: string): string => {
  */
 export const isTerminalFailureStatus = (status: RunAccumulator['runStatus']): boolean =>
   status === 'failure' || status === 'exhausted' || status === 'cancelled'
+
+export { MAX_ERROR_LENGTH, truncateError } from './error-truncation'

@@ -25,7 +25,7 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
         // Session, tableId, and userRole are guaranteed by middleware chain
         const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
         const app = resolveApp()
-        const caller = await resolveTableReadCaller(app, {
+        const caller = await resolveTableReadCaller(c, app, {
           session,
           tableName,
           userRole,
@@ -45,7 +45,7 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
         // Session, tableId, and userRole are guaranteed by middleware chain
         const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
         const app = resolveApp()
-        const caller = await resolveTableReadCaller(app, {
+        const caller = await resolveTableReadCaller(c, app, {
           session,
           tableName,
           userRole,

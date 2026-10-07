@@ -1,0 +1,27 @@
+# Every way in a business app usually needs, declared once. The sign-in page
+# draws only what is listed here: remove passkeys and its button disappears.
+strategies:
+  - type: emailAndPassword
+  - type: magicLink
+# Passkeys: sign in with a fingerprint, a face or the device PIN.
+passkeys: true
+# Two-step verification with an authenticator app, offered on the security page.
+twoFactor: true
+# Personal API keys, listed and created on the API keys page.
+apiKeys: true
+# How long an invitation link works. The team page and the invitation dialog
+# say seven days, so change their copy if you change this.
+invitationTokenExpiry: 7d
+# Single sign-on through your company's identity provider. The secret is read
+# from the environment, so nothing sensitive sits in this file; without the
+# variables the app still starts and the provider simply cannot complete a
+# sign-in until you set them.
+sso:
+  - id: company
+    type: oidc
+    label: Company account
+    domains: [example.com]
+    oidc:
+      issuer: https://idp.example.com
+      clientId: $env.SSO_CLIENT_ID
+      clientSecret: $env.SSO_CLIENT_SECRET

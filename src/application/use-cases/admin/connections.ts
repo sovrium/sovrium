@@ -54,8 +54,6 @@ import {
   soonestExpiryMs,
 } from '@/domain/models/app/admin/connection-status'
 
-/* eslint-disable unicorn/no-null -- the API envelope canonically uses `null` for an absent connection-level `expiresAt` (no token rows OR no recorded expiry) and for a per-user token with no recorded expiry, matching the nullable Zod response contract */
-
 // ─── Pure coercion + projection helpers ──────────────────────────────────────
 
 /** Coerce a dialect-native timestamp to an ISO 8601 string. */
@@ -129,7 +127,7 @@ function buildUserToken(summary: Readonly<ConnectionUserSummary>): ConnectionUse
 /**
  * Outcome of the connection-list build. `Ok` carries the response-schema-
  * validated body; `ValidationFailed` signals the assembled body failed the
- * `.strict()` response gate (the route maps this to a 500 + logs the Zod error —
+ * `.strict()` response gate (the route maps this to a 500 + logs the schema decode error —
  * a stray secret field would fail the parse rather than leak).
  */
 export type ConnectionsListOutcome =
@@ -229,5 +227,3 @@ export const BuildConnectionDetail = (
       body: { connection: parsed.data.connection, tokens: parsed.data.tokens },
     } as const
   }).pipe(Effect.withSpan('admin.build-connection-detail'))
-
-/* eslint-enable unicorn/no-null */

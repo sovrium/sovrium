@@ -1,0 +1,44 @@
+# Recipe 6 — a sub-automation: leads in, one tier and one log line each.
+#
+# An `automation-call` trigger means nothing starts this automation but
+# another one calling it (recipe 5). It reads the ten latest leads, and its
+# loop runs one step per lead, the lead at `loop.item`: `$ref: log-lead-review`,
+# a step declared once under `actions:` in app.yaml. That step writes the
+# lead's line in the activity log with its tier, by the simplest rule that is
+# true — a lead who gave a company is a company lead. Make the rule yours (a
+# domain list, a size, a country) in that one place, and every automation
+# that reviews leads follows it.
+#
+# The return step hands the count back to the caller.
+name: score-leads
+label: Leads → tier + log (called by recipe 5)
+description: Give each of the latest leads a tier, log it, and return how many it reviewed.
+enabled: true
+trigger:
+  type: automation-call
+actions:
+  - name: latest
+    type: record
+    operator: list
+    props:
+      table: leads
+      sort:
+        - { field: captured_at, direction: desc }
+      limit: 10
+  - name: eachLead
+    type: loop
+    operator: each
+    props:
+      items: '{{latest.records}}'
+      continueOnItemError: true
+      actions:
+        - name: log
+          $ref: log-lead-review
+          $vars:
+            recipe: score-leads
+  - name: done
+    type: automation
+    operator: return
+    props:
+      data:
+        reviewed: '{{eachLead.iterations}}'

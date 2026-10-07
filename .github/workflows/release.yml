@@ -11,14 +11,25 @@ concurrency:
   group: release
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  id-token: write
-  packages: write
-  # Build provenance for the desktop installers. An installer is downloaded by
-  # someone who has no way to rebuild it, so "this file came out of this
-  # workflow, from this commit" is the only thing they can check.
-  attestations: write
+# NOTHING at the top level, and every job states its own block. The default
+# token used to carry `contents`/`packages`/`id-token`/`attestations: write`
+# into every lane, so a compromised third-party action in a Homebrew push or a
+# demo deploy could rewrite the release, push a GHCR image and mint OIDC tokens.
+# Now each job holds only what its own steps do:
+#
+#   contents: write      — the jobs that create, upload to, or un-draft the
+#                          release (`gh release create|upload|edit`)
+#   id-token + attestations: write
+#                        — the jobs that attest what they built: the three CLI
+#                          lanes, the desktop installers, the combined checksums
+#   packages: write      — `build-docker` alone (GHCR push)
+#   contents: read       — everything else (checkout of this public repo);
+#                          the tap, template and demo jobs write elsewhere with
+#                          their OWN secrets, never with this token
+#
+# `Workflow Pins` (scripts/drift/check-workflow-pins.ts) fails on any `write`
+# here, so this block cannot quietly widen again.
+permissions: {}
 
 # The runtime-manifest guard refuses to generate the embedded asset manifest
 # from a symlinked node_modules. Its one opt-out names a throwaway checkout and
@@ -31,10 +42,12 @@ jobs:
   # ── Create GitHub Release (entry point for all other jobs) ───
   release:
     name: Create GitHub Release
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create GitHub Release (draft)
         env:
@@ -101,6 +114,10 @@ jobs:
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:
     name: Build macOS Binaries
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     needs: [release]
     # Both darwin arches build on ONE Apple-Silicon runner: arm64 native, x64
     # cross-compiled via `bun build --target=bun-darwin-x64`. This removes the
@@ -113,10 +130,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -174,11 +191,8 @@ jobs:
           fi
           echo "OK: binary served $(printf '%s' "$CSS" | wc -c) bytes of compiled CSS"
 
-      - name: Package, checksum, and upload both arches
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Package and checksum both arches
         run: |
-          TAG="${{ github.ref_name }}"
           VERSION="${{ steps.version.outputs.version }}"
           for TARGET in darwin-arm64 darwin-x64; do
             # Tar a bare `sovrium` so every platform's tarball shares the same
@@ -188,6 +202,27 @@ jobs:
             tar czf "sovrium-${VERSION}-${TARGET}.tar.gz" sovrium
             shasum -a 256 "sovrium-${VERSION}-${TARGET}.tar.gz" > "sovrium-${VERSION}-${TARGET}.sha256"
             rm -f sovrium
+          done
+
+      # The `.sha256` beside an archive comes from the same release a tamperer
+      # would edit, so it proves integrity and never authenticity. The
+      # attestation is what does: `gh attestation verify <archive> -R
+      # sovrium/sovrium` checks that the file came out of THIS workflow, from
+      # this commit (docs/infrastructure/release/verifying-downloads.md).
+      - name: Attest the archives
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            sovrium-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+            sovrium-${{ steps.version.outputs.version }}-darwin-x64.tar.gz
+
+      - name: Upload both arches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          for TARGET in darwin-arm64 darwin-x64; do
             gh release upload "${TAG}" \
               "sovrium-${VERSION}-${TARGET}.tar.gz" \
               "sovrium-${VERSION}-${TARGET}.sha256" \
@@ -202,7 +237,7 @@ jobs:
       # rule, costs one upload, and keeps `build-desktop` independent of when
       # the release stops being a draft.
       - name: Upload the engines for the desktop bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engine-darwin
           if-no-files-found: error
@@ -214,6 +249,10 @@ jobs:
   # ── Build Linux binaries (cross-compile on ubuntu) ──────────
   build-binary-linux:
     name: Build Linux Binary (${{ matrix.target }})
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     needs: [release]
     strategy:
       matrix:
@@ -226,10 +265,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -284,7 +323,7 @@ jobs:
       # See the macOS job for why this is an artifact and not a release download.
       - name: Upload the engine for the desktop bundle
         if: matrix.target == 'linux-x64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engine-linux-x64
           if-no-files-found: error
@@ -304,6 +343,13 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           sha256sum "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
+
+      # See the macOS job: the attestation is the authenticity proof the
+      # same-channel `.sha256` cannot be.
+      - name: Attest the archive
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: sovrium-${{ steps.version.outputs.version }}-${{ matrix.target }}.tar.gz
 
       - name: Upload to GitHub Release
         env:
@@ -339,6 +385,10 @@ jobs:
   # this job is what makes them take effect.
   build-binary-windows:
     name: Build Windows Binary
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     needs: [release]
     runs-on: windows-latest
     # Cap runtime so a wedged runner cannot hang the run and hold the
@@ -362,10 +412,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -383,7 +433,7 @@ jobs:
 
       # See the macOS job for why this is an artifact and not a release download.
       - name: Upload the engine for the desktop bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engine-windows-x64
           if-no-files-found: error
@@ -434,6 +484,13 @@ jobs:
           sha256sum "sovrium-${VERSION}-windows-x64.zip" > "sovrium-${VERSION}-windows-x64.sha256"
           cat "sovrium-${VERSION}-windows-x64.sha256"
 
+      # See the macOS job: the attestation is the authenticity proof the
+      # same-channel `.sha256` cannot be.
+      - name: Attest the archive
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: sovrium-${{ steps.version.outputs.version }}-windows-x64.zip
+
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -465,6 +522,10 @@ jobs:
   # workaround, not a preference.
   build-desktop:
     name: Build Desktop (${{ matrix.label }})
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     needs: [build-binary-macos, build-binary-linux, build-binary-windows]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 75
@@ -540,10 +601,10 @@ jobs:
             updater-platform: linux-x86_64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -562,7 +623,7 @@ jobs:
         run: rustup target add ${{ matrix.rust-target }}
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: desktop/src-tauri -> target
           key: ${{ matrix.rust-target }}
@@ -582,7 +643,7 @@ jobs:
       # compile would produce a second binary, and "the installer contains the
       # binary we published" would stop being a fact about the release.
       - name: Download the engine
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ matrix.engine-artifact }}
           path: .
@@ -955,7 +1016,7 @@ jobs:
       # It therefore attests the checksum file and any updater signature too,
       # which is correct — they are published assets as well.
       - name: Attest the installers
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/release/*
 
@@ -975,7 +1036,7 @@ jobs:
       # produces none, and the manifest job refuses on its own terms when a
       # platform is missing.
       - name: Upload the updater signatures
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: updater-sigs-${{ matrix.slug }}
           if-no-files-found: ignore
@@ -995,6 +1056,8 @@ jobs:
   # after the fact is an updater that never starts.
   assemble-updater-manifest:
     name: Assemble Updater Manifest
+    permissions:
+      contents: write
     needs: [build-desktop]
     if: ${{ !cancelled() && needs.build-desktop.result == 'success' }}
     runs-on: ubuntu-latest
@@ -1016,7 +1079,7 @@ jobs:
 
       - name: Download the updater signatures
         if: steps.secrets.outputs.updater == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: updater-sigs-*
           merge-multiple: true
@@ -1089,6 +1152,10 @@ jobs:
   # ── Aggregate checksums after all binaries are built ────────
   aggregate-checksums:
     name: Aggregate Checksums
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     needs: [build-binary-macos, build-binary-linux, build-binary-windows, build-desktop]
     # `!cancelled()` so a red desktop lane still produces the combined checksums for
     # the five binaries. The per-target downloads below are already `|| true`,
@@ -1137,6 +1204,16 @@ jobs:
             echo "No checksums found to aggregate"
             exit 0
           fi
+
+      # The combined file is what a user runs `sha256sum -c` against, so it gets
+      # its own attestation beside the per-archive ones the build lanes made.
+      # Skipped when nothing was aggregated: a `subject-path` matching no file
+      # fails the step.
+      - name: Attest the combined checksums
+        if: hashFiles(format('sovrium-{0}-checksums.txt', steps.version.outputs.version)) != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: sovrium-${{ steps.version.outputs.version }}-checksums.txt
 
       - name: Upload combined checksums
         env:
@@ -1198,15 +1275,17 @@ jobs:
   # `publish-templates-manual.yml`, `deploy-demos-manual.yml`.
   update-homebrew:
     name: Update Homebrew Formula
+    permissions:
+      contents: read
     needs: [publish-release]
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -1237,7 +1316,7 @@ jobs:
           fi
 
       - name: Checkout homebrew-tap repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: sovrium/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -1261,16 +1340,18 @@ jobs:
   # See update-homebrew for the publish-release dependency rationale.
   update-scoop:
     name: Update Scoop Manifest
+    permissions:
+      contents: read
     needs: [publish-release]
     # See update-homebrew for why this is not the implicit `success()`.
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -1301,7 +1382,7 @@ jobs:
           fi
 
       - name: Checkout scoop-bucket repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: sovrium/scoop-bucket
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -1332,16 +1413,18 @@ jobs:
   # distribution is never blocked — a red here flags a post-release sync gap.
   publish-templates:
     name: Publish template repositories
+    permissions:
+      contents: read
     needs: [publish-release]
     # See update-homebrew for why this is not the implicit `success()`.
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -1377,6 +1460,8 @@ jobs:
   # lagging mirror (no continue-on-error).
   verify-mirrors:
     name: Verify template mirrors
+    permissions:
+      contents: read
     needs: [publish-templates]
     # Same reason as update-homebrew: without `!cancelled()` this job inherits
     # `build-desktop`'s failure through the chain, three jobs away.
@@ -1384,7 +1469,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Read version
         id: version
@@ -1434,13 +1519,15 @@ jobs:
   # "any script/manifest change must be scp'd before the next release" runbook.
   deploy-demos:
     name: Deploy demo fleet
+    permissions:
+      contents: read
     needs: [verify-mirrors]
     # See verify-mirrors. The mirror check remains a hard gate on the deploy.
     if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Read version
         id: version
@@ -1448,32 +1535,58 @@ jobs:
           TAG="${{ github.ref_name }}"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify demo fleet SSH key is configured
+      - name: Verify demo fleet SSH key and host key are configured
         env:
           DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
           if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
             echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
             exit 1
           fi
+          # Fail CLOSED without a pinned host key. The previous `ssh-keyscan`
+          # trusted whatever key answered on every run, so anyone on the path
+          # could impersonate the host and receive a root session.
+          if [ -z "${DEMO_FLEET_KNOWN_HOSTS}" ]; then
+            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the demo host key is not pinned, so this job refuses to connect. Add the host's known_hosts line(s) as that secret."
+            exit 1
+          fi
 
       - name: Configure SSH
+        env:
+          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEMO_FLEET_SSH_KEY }}" > ~/.ssh/demo_fleet
+          chmod 700 ~/.ssh
+          printf '%s\n' "${DEMO_FLEET_SSH_KEY}" > ~/.ssh/demo_fleet
           chmod 600 ~/.ssh/demo_fleet
-          # TODO: pin the host key instead of TOFU keyscan.
-          ssh-keyscan -H 163.172.175.246 >> ~/.ssh/known_hosts 2>/dev/null
+          printf '%s\n' "${DEMO_FLEET_KNOWN_HOSTS}" > ~/.ssh/demo_fleet_known_hosts
+          chmod 600 ~/.ssh/demo_fleet_known_hosts
 
       - name: Upgrade fleet to this release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          # The login user is a repository VARIABLE so moving off root is a
+          # settings change, not a workflow edit, once the host has an
+          # unprivileged deploy user (scaleway-infra-maintainer).
+          DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          # The version reaches a REMOTE shell, so it is validated here rather
+          # than trusted: a release version and nothing else.
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::refusing to deploy: '${VERSION}' is not a release version"
+            exit 1
+          fi
           # Runs the HOST-RESIDENT copy of upgrade-fleet.sh (see the job
           # comment above for why: docs/ is stripped from the public mirror,
           # so this checkout never has the script). Its exit code is the job's
           # gate (staggered restart + health check + auto-rollback happen
           # host-side).
-          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 "
+          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
+            "${DEMO_USER}@163.172.175.246" "
             set -e
             test -x /root/upgrade-fleet.sh || {
               echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
@@ -1481,20 +1594,23 @@ jobs:
               echo 'See: docs/development/demo-fleet/operations.md'
               exit 1
             }
-            VERSION=${VERSION} bash /root/upgrade-fleet.sh
+            VERSION='${VERSION}' bash /root/upgrade-fleet.sh
           "
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:
     name: Build Docker Image
+    permissions:
+      contents: read
+      packages: write
     needs: [release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -1514,20 +1630,20 @@ jobs:
           bun run build:binary -- --target linux-arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Set up QEMU for multi-arch
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -1535,6 +1651,12 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository }}:latest
+          # SLSA provenance and an SPDX SBOM, attached to the image index in
+          # the registry (BuildKit attestations: no extra permission beyond the
+          # GHCR push). Read them with `docker buildx imagetools inspect
+          # ghcr.io/sovrium/sovrium:<version> --format '{{ json .Provenance }}'`.
+          provenance: mode=max
+          sbom: true
 
   # ── Publish the draft release once all assets are present ───
   # The release job creates a DRAFT so binary jobs can append assets
@@ -1549,6 +1671,8 @@ jobs:
   # their failure from propagating, as for the distribution jobs below.
   publish-release:
     name: Publish GitHub Release
+    permissions:
+      contents: write
     # Runs as soon as all binary archives + the aggregate checksums file
     # are uploaded so the release is non-draft *before* update-homebrew /
     # update-scoop fire — those jobs fetch .sha256 assets over plain HTTPS

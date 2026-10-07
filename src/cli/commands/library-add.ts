@@ -228,7 +228,6 @@ const execute = async ({
   installs,
   env,
 }: Execution): Promise<boolean> => {
-  // eslint-disable-next-line functional/no-expression-statements -- the writes ARE the command
   await Promise.all([
     ...installs
       .filter((install) => !install.present)
@@ -357,7 +356,6 @@ export const runLibraryAdd = async (request: LibraryAddRequest): Promise<void> =
   const primaryId = request.catalogue.libraryEntryId(request.entry)
   // Parameters are refused FIRST, before the config is even looked for; the
   // plan resolves them again from the same input.
-  // eslint-disable-next-line functional/no-expression-statements
   resolveParams(primaryId, request.entry, request.sets)
   const configPath = await findConfig(process.cwd(), request.into)
   const format = rootFormatOf(configPath)

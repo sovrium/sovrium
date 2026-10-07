@@ -133,7 +133,6 @@ type AdmissionOutcome = readonly [PageCacheAdmission, Map<string, PageCacheEntry
 /** Pair an admission verdict with the store it produced, measuring occupancy once. */
 const admitted = (
   verdict: { readonly evicted: number; readonly refused: number },
-  // eslint-disable-next-line functional/prefer-immutable-types -- `Ref.modify` requires the mutable `Map` this pairs with; measuring it does not mutate it
   cache: Map<string, PageCacheEntry>
 ): AdmissionOutcome => [{ ...verdict, ...measureOccupancy(cache) }, cache]
 

@@ -71,7 +71,6 @@ const currentDialect = (): 'postgres' | 'sqlite' => parseDatabaseDialectConfig()
  * @param column - Drizzle column expression (the timestamp source)
  * @param bucket - Time bucket granularity
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const dateTruncTimeBucket = (
   column: SQL | Column,
   bucket: 'hour' | 'day' | 'week' | 'month'
@@ -156,12 +155,10 @@ type AllowedJsonKey = (typeof ALLOWED_JSON_KEYS)[number]
  * @param jsonColumn - The JSON column expression (`properties`, etc.)
  * @param key        - Top-level JSON key (from the allowlist)
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const jsonExtractPath = (jsonColumn: SQL | Column, key: AllowedJsonKey): SQL => {
   // Belt-and-suspenders: enforce the allowlist at runtime even if a caller
   // bypasses the static type via `as AllowedJsonKey`.
   if (!ALLOWED_JSON_KEYS.includes(key)) {
-    // eslint-disable-next-line functional/no-throw-statements -- input-validation guard at a security-critical boundary
     throw new Error(`jsonExtractPath: key "${key}" is not in the allowlist`)
   }
   if (currentDialect() === 'sqlite') {
@@ -217,7 +214,6 @@ export const jsonExtractPath = (jsonColumn: SQL | Column, key: AllowedJsonKey): 
  * @param column - Drizzle column expression, or a `sql.identifier(...)`
  * @param text   - The caller's raw search text (bound as a param, matched literally)
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const containsInsensitive = (column: LikeOperand, text: string): SQL =>
   sql`lower(${column}) LIKE lower(${`%${escapeLikeMetacharacters(text)}%`}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
 
@@ -294,7 +290,6 @@ export const searchAnyColumn = (
  * @param column - Drizzle column expression, or a `sql.identifier(...)`
  * @param suffix - The raw trailing text to exclude (matched literally)
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const notEndsWithInsensitive = (column: LikeOperand, suffix: string): SQL =>
   sql`lower(${column}) NOT LIKE lower(${`%${escapeLikeMetacharacters(suffix)}`}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
 
@@ -352,7 +347,6 @@ export const notEndsWithInsensitive = (column: LikeOperand, suffix: string): SQL
  * @param column - Drizzle column expression, or a `sql.identifier(...)`
  * @param prefix - The raw leading text to match (bound as a param, matched literally)
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const startsWithLiteral = (column: LikeOperand, prefix: string): SQL =>
   sql`substr(${column}, 1, ${sql.raw(String(prefix.length))}) = ${prefix}`
 
@@ -372,12 +366,10 @@ export const startsWithLiteral = (column: LikeOperand, prefix: string): SQL =>
  * @param amount - Non-negative integer
  * @param unit   - `'year' | 'month' | 'day' | 'hour'`
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL is an upstream drizzle-orm type; we never mutate it */
 export const dateIntervalAgo = (amount: number, unit: 'year' | 'month' | 'day' | 'hour'): SQL => {
   // Guard the amount: must be a non-negative integer. `unit` is a closed
   // enum so no runtime check needed beyond the static type.
   if (!Number.isInteger(amount) || amount < 0) {
-    // eslint-disable-next-line functional/no-throw-statements -- input-validation guard
     throw new Error(`dateIntervalAgo: amount must be a non-negative integer (got ${amount})`)
   }
   if (currentDialect() === 'sqlite') {

@@ -117,20 +117,33 @@ export const FeatureValueSchema = Schema.Union([
  * ```
  *
  */
-export const FeaturesSchema = Schema.Record(
-  Schema.String.pipe(
-    Schema.check(
-      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-        message:
-          'Feature name must be camelCase starting with a letter (e.g., darkMode, liveChat, cookieConsent)',
-      })
-    )
-  ),
-  FeatureValueSchema
-).annotate({
-  title: 'Feature Flags',
-  description: 'Client-side feature toggles',
-})
+const FeatureNameSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+      message:
+        'Feature name must be camelCase starting with a letter (e.g., darkMode, liveChat, cookieConsent)',
+    })
+  )
+)
+
+export const FeaturesSchema = Schema.Record(Schema.String, FeatureValueSchema).pipe(
+  Schema.annotate({
+    title: 'Feature Flags',
+    description: 'Client-side feature toggles',
+  }),
+  // Keys: any string in the key position, and the pattern enforced by
+  // `isPropertyNames`, so a mistyped key is refused by name at its own path
+  // with the pattern it must match. A pattern on the key schema itself makes
+  // Effect 4 skip the entry, and the config report then named it an unknown
+  // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+  Schema.check(
+    Schema.isPropertyNames(FeatureNameSchema, {
+      toJsonSchema: () => ({
+        propertyNames: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9]*$' },
+      }),
+    })
+  )
+)
 
 /** @public */
 export type FeatureConfig = Schema.Schema.Type<typeof FeatureConfigSchema>

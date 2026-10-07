@@ -47,16 +47,11 @@ export function handleRouteError(c: Context, error: unknown): Response {
 /**
  * Handle errors from record restore operations.
  *
- * This used to carry a restore-specific `errorMessage === 'Record is not
- * deleted'` branch, because the producer raised that state as an untyped
- * `DatabaseError` and the exact wording was the only thing that
- * distinguished it from an infrastructure fault.
- *
- * `restoreRecordProgram` now fails with a typed `ValidationError`, which
- * `sanitizeError` already maps to `VALIDATION_ERROR` / 400 while echoing the
- * error's own message — reproducing the previous response byte for byte
- * (`[internal ref]` pins all three of status, `message` and
- * `code`). The special case is therefore redundant, and this handler is now a
+ * No restore-specific branch is needed (no matching on an error message such
+ * as 'Record is not deleted'): `restoreRecordProgram` fails with a typed
+ * `ValidationError`, which `sanitizeError` maps to `VALIDATION_ERROR` / 400
+ * while echoing the error's own message (an API tables records restore spec
+ * pins all three of status, `message` and `code`). This handler is a
  * pass-through kept for call-site clarity at the restore route.
  */
 export function handleRestoreRecordError(c: Context, error: unknown): Response {

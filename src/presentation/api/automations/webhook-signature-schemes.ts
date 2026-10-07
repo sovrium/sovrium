@@ -6,12 +6,14 @@
  */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import type { App } from '@/domain/models/app'
 
 /**
  * Signature schemes of an incoming `hmac` webhook beyond the default hex
- * digest: `base64` (Shopify) and the three timestamped provider formats —
+ * digest: `base64` (Shopify), the three timestamped provider formats —
  * Stripe (`t=,v1=`), Slack (`v0:`) and Svix (`svix-id`, `svix-timestamp`,
- * `svix-signature`). Each is verified over the RAW body exactly as the
+ * `svix-signature`) — and `hmac-timestamp`, a documented layout under a
+ * header the operator names. Each is verified over the RAW body exactly as the
  * provider signs it, compared in constant time, and the timestamped ones
  * refuse a signed timestamp further than `tolerance` seconds from the server
  * clock, which is what stops a captured request being replayed.
@@ -19,6 +21,8 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 /** Default replay window, in seconds — the providers' own recommendation. */
 export const DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300
+
+type WebhookTrigger = NonNullable<App['automations']>[number]['trigger']
 
 type HeaderReader = (name: string) => string | undefined
 
@@ -108,6 +112,88 @@ export const verifyTimestampedSignature = (
   if (scheme === 'stripe') return verifyStripe(input)
   if (scheme === 'slack') return verifySlack(input)
   return verifySvix(input)
+}
+
+type WebhookAuth = NonNullable<Extract<WebhookTrigger, { type: 'webhook' }>['auth']>
+
+/** The `format` presets `scheme: hmac-timestamp` reads, as the schema lists them. */
+export type HmacTimestampFormat = NonNullable<WebhookAuth['format']>
+
+/** How an `hmac-timestamp` auth names its layout: a preset, or the keys spelled out. */
+export type HmacTimestampLayoutSpec = Pick<
+  WebhookAuth,
+  'format' | 'timestampKey' | 'signatureKey' | 'separator' | 'join'
+>
+
+/**
+ * Where an `hmac-timestamp` layout puts its fields and how it joins the
+ * signed string: the separator between entries, the timestamp's and the
+ * signature's field names, and the character between `<ts>` and the body.
+ */
+export interface HmacTimestampLayout {
+  readonly separator: string
+  readonly ts: string
+  readonly sig: string
+  readonly join: string
+}
+
+const HMAC_TIMESTAMP_PRESETS: Readonly<Record<HmacTimestampFormat, HmacTimestampLayout>> = {
+  't=<ts>,v1=<sig>': { separator: ',', ts: 't', sig: 'v1', join: '.' },
+  'ts=<ts>;h1=<sig>': { separator: ';', ts: 'ts', sig: 'h1', join: ':' },
+  't=<ts>,v0=<sig>': { separator: ',', ts: 't', sig: 'v0', join: '.' },
+}
+
+/**
+ * The layout an `hmac-timestamp` auth names — its `format` preset, or its
+ * spelled-out keys with `separator` and `join` defaulting to `,` and `.`.
+ * `undefined` when it names neither completely; the load-time check refuses
+ * that config, and a config that bypassed it fails closed.
+ */
+export const hmacTimestampLayout = (
+  spec: HmacTimestampLayoutSpec
+): HmacTimestampLayout | undefined => {
+  if (spec.format !== undefined) return HMAC_TIMESTAMP_PRESETS[spec.format]
+  if (spec.timestampKey === undefined || spec.signatureKey === undefined) return undefined
+  return {
+    separator: spec.separator ?? ',',
+    ts: spec.timestampKey,
+    sig: spec.signatureKey,
+    join: spec.join ?? '.',
+  }
+}
+
+/** `name=value` entries of a signature header, split on the first `=` of each. */
+const headerEntries = (
+  value: string,
+  separator: string
+): ReadonlyArray<readonly [string, string]> =>
+  value
+    .split(separator)
+    .map((part) => part.trim())
+    .filter((part) => part.includes('='))
+    .map((part) => [part.slice(0, part.indexOf('=')), part.slice(part.indexOf('=') + 1)] as const)
+
+/**
+ * `hmac-timestamp`: the timestamp and one or more signatures carried together
+ * in the header the operator names, laid out as `layout` says. The signature
+ * is the lowercase hex HMAC-SHA256 of `<ts><join><raw body>`; any of several
+ * signature entries may match (a rotated secret), each compared in constant
+ * time; the timestamp must sit within `tolerance` of the server clock.
+ */
+export const verifyHmacTimestamp = (
+  layout: HmacTimestampLayout,
+  headerName: string,
+  input: TimestampedInput
+): boolean => {
+  const entries = headerEntries(input.header(headerName) ?? '', layout.separator)
+  const timestamp = entries.find(([name]) => name === layout.ts)?.[1]
+  const signatures = entries.filter(([name]) => name === layout.sig).map(([, value]) => value)
+  if (!withinTolerance(timestamp, input.nowSeconds, input.toleranceSeconds)) return false
+  if (signatures.length === 0) return false
+  return anyMatches(
+    signatures,
+    hmacSha256(input.secret, `${timestamp}${layout.join}${input.rawBody}`, 'hex')
+  )
 }
 
 /** Verify a digest of the raw body read from one header, after an optional prefix. */

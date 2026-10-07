@@ -19,6 +19,27 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# Optional: a Microsoft 365 app and a Teams channel turn on posting each new
+# announcement to that channel (library/recipe/record-to-teams-channel.yaml).
+# Without them the app runs as before and that one automation cannot reach
+# Teams.
+env:
+  - key: MICROSOFT_CLIENT_ID
+    description: Client id of your Microsoft Entra app, for the Teams connection.
+    required: false
+    secret: false
+  - key: MICROSOFT_CLIENT_SECRET
+    description: Client secret of your Microsoft Entra app, for the Teams connection.
+    required: false
+  - key: TEAMS_TEAM_ID
+    description: Id of the Microsoft Teams team whose channel hears about new announcements.
+    required: false
+    secret: false
+  - key: TEAMS_CHANNEL_ID
+    description: Id of the Teams channel each new announcement is posted to.
+    required: false
+    secret: false
+
 tables:
   - $ref: ./config/tables/company.yaml
   - $ref: ./config/tables/members.yaml
@@ -34,6 +55,7 @@ forms:
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/sign-new-announcement.yaml
+  - $ref: ./library/recipe/record-to-teams-channel.yaml
 
 # Listed in the order of the navigation, then the public pages.
 pages:
@@ -50,3 +72,8 @@ pages:
 # floating pill, so it never sits over the news.
 badge:
   placement: footer
+
+# The Microsoft 365 account the Teams post goes through, installed from the
+# Sovrium library. Its credentials come from the environment, never this file.
+connections:
+  - $ref: ./library/connection/microsoft-365.yaml

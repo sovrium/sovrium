@@ -26,6 +26,7 @@ import * as Effect from 'effect/Effect'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
 import { buildRuntimeAssets } from '../lib/runtime-assets'
+import { TSC_BIN, tscChildEnv } from '../lib/typescript-check-outcome'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
@@ -86,10 +87,16 @@ const BUILD_TSBUILDINFO = join(PROJECT_ROOT, 'node_modules/.cache/tsc/tsconfig.b
  * `CommandService` — see the class comment on `BuildScriptError` for why the
  * rest of the pipeline stays plain `async`/sync (SC1).
  */
-async function run(cmd: readonly string[], label: string, timeoutMs: number): Promise<void> {
+async function run(
+  cmd: readonly string[],
+  label: string,
+  timeoutMs: number,
+  env?: Record<string, string>
+): Promise<void> {
   console.log(`\n${label}`)
   const program = spawn(cmd, {
     cwd: PROJECT_ROOT,
+    ...(env === undefined ? {} : { env }),
     inherit: true,
     timeout: timeoutMs,
     throwOnError: false,
@@ -226,9 +233,11 @@ async function generateDeclarations(): Promise<void> {
   // stay on TypeScript 6. See `TSC_BIN` in
   // [internal ref].
   await run(
-    ['./node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'],
+    [TSC_BIN, '-p', 'tsconfig.build.json'],
     'Generating .d.ts declarations',
-    DECLARATION_EMIT_TIMEOUT_MS
+    DECLARATION_EMIT_TIMEOUT_MS,
+    // A bare tsc OOMs at Node's default heap on this type graph.
+    tscChildEnv()
   )
 }
 
@@ -300,14 +309,20 @@ function fixPathAliases(): void {
  *
  * Assets:
  * - dist/client-scripts/*.js  — Static JS files served as /assets/*.js
- * - dist/client-bundle.js     — Pre-built client runtime (forms, modals, etc.)
- * - dist/island-entry.js      — Pre-built island entry (React islands bootstrap)
+ * - dist/client-bundle.js     — Client runtime LOADER, served as /assets/client.js;
+ *                               imports its features from client-chunks/
+ * - dist/client-chunks/*.js   — The client runtime's split features (forms,
+ *                               modals, etc. live in client-core-runtime-<hash>.js)
+ * - dist/island-chunks/island-entry.js — Pre-built island entry (React islands bootstrap)
  * - dist/island-chunks/*.js   — Code-split island component chunks
+ * - dist/page-search-runtime.js — The page search runtime
  */
 async function copyRuntimeAssets(): Promise<void> {
   console.log('\nCopying and building runtime assets')
   await buildRuntimeAssets(DIST_DIR, SRC_DIR)
-  console.log('  Built client-bundle.js, island-chunks/, and copied client scripts')
+  console.log(
+    '  Built client-bundle.js + client-chunks/, island-chunks/, and minified client scripts'
+  )
 }
 
 // ---------------------------------------------------------------------------

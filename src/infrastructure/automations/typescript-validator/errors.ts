@@ -5,20 +5,5 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data } from 'effect'
-
-/**
- * Failure raised when in-process `tsc` finds a type error in a
- * `runTypescript` code action body. The `message` carries the raw tsc
- * diagnostic; `automationId`, `actionIndex`, `file`, `line`, `column`
- * pinpoint the exact source location so the operator can fix the
- * offending action before the listener binds.
- */
-export class TSValidationError extends Data.TaggedError('TSValidationError')<{
-  readonly automationId: string
-  readonly actionIndex: number
-  readonly file: string
-  readonly line: number
-  readonly column: number
-  readonly message: string
-}> {}
+/** The validation failure is declared with its port; re-exported for the validator's own modules. */
+export { TSValidationError } from '@/application/ports/services/typescript-validator'

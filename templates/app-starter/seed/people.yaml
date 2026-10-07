@@ -1,0 +1,20 @@
+# The team directory: the people a member list shows, including someone who
+# never signs in. Kept apart from the sign-in accounts in `users.yaml`.
+records:
+  - key: ana
+    fields:
+      {
+        name: Ana Lindqvist,
+        role: Studio lead,
+        status: Active,
+        email: ana.lindqvist@starter.example,
+      }
+  - key: marc
+    fields:
+      { name: Marc Oyelaran, role: Designer, status: Active, email: marc.oyelaran@starter.example }
+  - key: sana
+    fields:
+      { name: Sana Okafor, role: Developer, status: Active, email: sana.okafor@starter.example }
+  - key: luis
+    fields:
+      { name: Luis Ferreira, role: Accountant, status: Away, email: luis.ferreira@starter.example }

@@ -262,7 +262,6 @@ export function DemoNotice({
   readonly lang?: string
 }): Readonly<ReactElement> | null {
   const config = getDemoNoticeDisplayConfig()
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   if (!config) return null
 
   const labels = getDemoNoticeLabels(lang)
@@ -298,10 +297,7 @@ export function DemoNotice({
         credentialless or disabled notice leaks nothing.
       */}
       {config.credentials && (
-        <script
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only, static prefill script; never re-renders client-side
-          dangerouslySetInnerHTML={{ __html: DEMO_NOTICE_PREFILL_SCRIPT }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: DEMO_NOTICE_PREFILL_SCRIPT }} />
       )}
     </>
   )

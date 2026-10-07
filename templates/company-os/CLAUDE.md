@@ -8,11 +8,14 @@ on a decision.
 
 ## This app at a glance
 
-- **Tables** (8): companies, contacts, deals, projects, project_tasks, tickets, employees,
-  time_off_requests
+- **Tables** (9): companies, contacts, deals, projects, project_tasks, tickets, employees,
+  time_off_requests, customer_invoices (admin-only, filled by the Pennylane recipe)
 - **Pages** (8): home (`/`), sales, companies, delivery, support, people, assistant, sign-in
-- **Automations** (3): open-project-on-won-deal, notify-contact-on-resolved-ticket,
-  approve-time-off
+- **Automations** (4): open-project-on-won-deal (stops with a `flow` stop when the deal's
+  project is already open), notify-contact-on-resolved-ticket, approve-time-off, and
+  pennylane-invoices-to-table — a library recipe (`library/recipe/`, with its
+  `library/connection/pennylane.yaml`) filing each morning's new invoices once
+  `PENNYLANE_API_TOKEN` is set
 - **AI agents** (1): ops-assistant
 - **Singletons**: auth, design
 - **Seed data**: `seed/` — nine sign-in accounts, six clients, nine deals, six projects, eight

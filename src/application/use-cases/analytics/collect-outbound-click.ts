@@ -31,7 +31,7 @@ export interface CollectOutboundClickInput {
  * Record one `outbound_click`.
  *
  * A new `event_type` value in the existing `system.analytics_events` — no DDL,
- * no second table, no counter column ([internal ref] D6). Every reader that
+ * no second table, no counter column. Every reader that
  * already aggregates `link_click` reads this population for free.
  *
  * `event_name` is the destination HOSTNAME rather than the full href, because

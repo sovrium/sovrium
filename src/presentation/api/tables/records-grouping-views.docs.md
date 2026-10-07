@@ -37,6 +37,52 @@ Without `aggregate`, `groupBy` returns `groups` as `{ name, path, count }`. With
 
 The figures reconcile down the levels: the level-2 groups of one parent sum to that parent, and the level-1 groups sum to the top-level total. Every count and every aggregation describes the whole filtered result set rather than the page returned beside it, so the figures do not move as you page through the same query, and a group whose rows all fall on a later page still appears.
 
+Groups are listed in the order the request's sort first meets them: with no `sort`, the group of the oldest record comes first.
+
+**What a grouped listing costs.** The page is read with the same `limit` and `offset` as an ungrouped listing, the total with one count, and the groups with one grouped query per level, all in the database. A grouped page over five thousand rows reads the same page of rows as one over fifty, plus one row per group — the cost grows with the number of distinct values, not with the table. Grouping by a field whose values are nearly all different still returns one group per value, so keep `groupBy` to fields with a handful of values.
+
+## The aggregate read
+
+When you need figures and not rows — a dashboard card, a chart — ask the table's aggregate read. It answers over every record the filter matches, computed by the database, and never returns records.
+
+```
+GET /api/tables/deals/aggregate?groupBy=source&aggregate=value:sum
+```
+
+<!-- sovrium:options aggregateRecordsQuerySchema -->
+
+`filter` and `aggregate` take exactly the grammar of the records list, so a binding moves from one to the other unchanged. `q` takes the records list's search term too, matched the same way and combined with `filter`, so a figure bound to a search box narrows to the records the box matches. `aggregations` is always present and always carries `count`; with no `aggregate` it carries `count` alone. With `groupBy` the answer also lists `groups`, one per value of that field, each with its own `count` and figures, in the shape the records list uses; a group's `name` is the value as the records API reads it, and an empty value groups as `''`. `interval` buckets a `date` or `datetime` field by calendar — `day`, `week` (starting on Monday), `month`, `quarter` or `year` — and names each group by the bucket's first day as an ISO date (`2026-01-01`); on any other field it answers `400`. Groups are listed in ascending order of their value. `numerator` and `denominator`, sent together, ask for a ratio: each is a filter expression in the same grammar, added to `filter`, and the answer gains `ratio: { numerator, denominator, percent }` — the two counts, computed by the same read, and `numerator ÷ denominator × 100`, which is `null` when nothing matches the denominator. One without the other answers `400`.
+
+```json
+{
+  "aggregations": { "count": 250, "sum": 1375000 },
+  "groups": [
+    {
+      "name": "Inbound",
+      "path": ["Inbound"],
+      "count": 100,
+      "aggregations": { "count": 100, "sum": 600000 }
+    },
+    {
+      "name": "Outbound",
+      "path": ["Outbound"],
+      "count": 100,
+      "aggregations": { "count": 100, "sum": 500000 }
+    },
+    {
+      "name": "Partner referral",
+      "path": ["Partner referral"],
+      "count": 50,
+      "aggregations": { "count": 50, "sum": 275000 }
+    }
+  ]
+}
+```
+
+<!-- sovrium:options aggregateRecordsResponseSchema -->
+
+Every field the read names — in `aggregate`, in `groupBy` or in `filter` — is checked as on the records list: a field the caller may not read, or one the table does not have, answers `404`, so the two cannot be told apart. A grouping that would produce more than 500 groups answers `400` rather than a partial answer: group by a field with fewer values, or narrow the filter. The read costs the same database work over fifty records as over fifty thousand: one row for the totals and one per group. It counts against the same per-minute read budget as the records list, which is why a dashboard card asks it once rather than reading a page of records.
+
 ## Saved views
 
 A view bundles a filter tree and a sort order under a stable id, so a recurring query is one parameter rather than a re-encoded expression on every request.
@@ -73,9 +119,9 @@ Explicit parameters interact with the view differently depending on which one th
 | `fields`  | The view's field configuration is **ignored** on this endpoint            |
 | `groupBy` | The view's grouping is **ignored** on this endpoint                       |
 
-**`?view=` applies filters and sorts only.** A view's `fields` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the view's column list should apply. **Neither endpoint applies a view's `groupBy`**, and the view endpoint accepts no `groupBy` parameter: it never answers `groups`. It does accept `aggregate`, and answers `aggregations` computed over the rows the view returns — the totals of a summary row on a grid bound to the view; an aggregate on a column the view does not list is refused. For grouped figures, call the records list with `?view=` and an explicit `groupBy`.
+**`?view=` applies filters and sorts only.** A view's `fields` and `groupBy` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the whole view should apply — it is the one every page component bound to the view reads. It applies the view's `groupBy` itself, every level of it: the answer carries `groups` exactly as the records list does for a `groupBy` of the same fields, and a `groupBy` parameter on the request is ignored — the view owns its grouping. It also accepts `aggregate`, and answers `aggregations` computed over the rows the view returns — the totals of a summary row on a grid bound to the view, and, when the view groups, the same totals per group; an aggregate on a column the view does not list is refused.
 
-`GET /api/tables/:t/views/:v/records` accepts `page`, `limit`, `sort`, `q`, `aggregate` and a `filter` that only narrows the view's own; `fields` is intersected with the view's list. It needs no session when the view is public. The view is named by its id or its name, the answer carries the same `pagination` envelope as the records list, deleted rows are never included whatever `deleted` or `includeDeleted` say, and a `filter`, `sort` or search on a column the view does not list is refused or skipped rather than answered.
+`GET /api/tables/:t/views/:v/records` accepts `page`, `limit`, `sort`, `q`, `aggregate` and a `filter` that only narrows the view's own (a reader's transient narrowing — the view's own conditions always apply); `fields` is intersected with the view's list. It needs no session when the view is public. The view is named by its id or its name, the answer carries the same `pagination` envelope as the records list, deleted rows are never included whatever `deleted` or `includeDeleted` say, and a `filter`, `sort` or search on a column the view does not list is refused or skipped rather than answered.
 
 A view definition, read from `GET /api/tables/:t/views`, `GET /api/tables/:t/views/:v` or the `views` of `GET /api/tables/:t`, lists only the fields, filter conditions, sorts and grouping the caller may read; a view whose filter or sort rests on fields hidden from the caller is still listed, without those entries. Its own filter still decides which records it serves, and those records are masked as the records API masks them.
 

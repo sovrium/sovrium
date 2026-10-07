@@ -10,17 +10,21 @@
  * through one of its table's declared views.
  *
  * `view` sits on the SHARED data source schema, so every data-bound component
- * type decodes it, while only the `table` component reads through it. Three
- * refusals follow, each because the alternative is a binding that silently
- * serves more than its author meant:
+ * type decodes it, while only the nine components that read a table's records
+ * — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi`, `map`,
+ * `tree` — read through it. Four refusals follow, each because the alternative is a binding
+ * that silently serves more (or other) than its author meant:
  *
- *  - a view that the bound table does not declare, by id or by name — the grid
- *    would fall back to nothing an author wrote;
+ *  - a view that the bound table does not declare, by id or by name — the
+ *    component would fall back to nothing an author wrote;
  *  - `view` beside a system read endpoint — a system source has no table, so it
  *    has no views (the decode already refuses the key on that variant; this
  *    keeps the refusal if the variant ever widens);
- *  - `view` on any component other than `table` — an ignored `view` on a kanban
- *    board would serve the whole table to a reader the author meant to narrow.
+ *  - `view` on any other component — a form writes, and an ignored `view` would
+ *    serve the whole table to a reader the author meant to narrow;
+ *  - `filter`, `sort` or `fields` beside `view` — the view owns those, and two
+ *    sources of truth for one rule means one of them silently loses. The
+ *    message names the view the condition belongs on.
  *
  * A binding whose TABLE does not resolve is left to the table-name rule, which
  * already names it; a `$param.<name>` table is resolved per request and cannot
@@ -33,8 +37,21 @@ import { findViewByKey } from '@/domain/models/app/tables/views/view-read-servic
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null
 
-/** The one component type that reads through a view. */
-const VIEW_READER_TYPE = 'table'
+/** The component types that read a table's records, and so may read them through a view. */
+const VIEW_READER_TYPES: ReadonlySet<string> = new Set([
+  'table',
+  'kanban',
+  'calendar',
+  'gallery',
+  'list',
+  'chart',
+  'kpi',
+  'map',
+  'tree',
+])
+
+/** What a view decides for every component bound to it, refused beside `view`. */
+const VIEW_OWNED_KEYS = ['filter', 'sort', 'fields'] as const
 
 interface DeclaredView {
   readonly id: string | number
@@ -118,8 +135,12 @@ const checkBinding = (
   if (binding.source['system'] !== undefined) {
     return `${at}: a system read endpoint has no table, so it has no views — remove \`view\` or bind a table`
   }
-  if (binding.type !== VIEW_READER_TYPE) {
-    return `${at}: only the \`table\` component reads through a view — remove \`view\` from this ${binding.type ?? 'binding'}, or use a \`table\``
+  if (binding.type === undefined || !VIEW_READER_TYPES.has(binding.type)) {
+    return `${at}: only a component that reads records (table, kanban, calendar, gallery, list, chart, kpi, map, tree) reads through a view — remove \`view\` from this ${binding.type ?? 'binding'}`
+  }
+  const repeated = VIEW_OWNED_KEYS.find((key) => binding.source[key] !== undefined)
+  if (repeated !== undefined) {
+    return `${binding.surface}.dataSource.${repeated}: the view '${binding.view}' owns the ${repeated} of every component bound to it — declare it on the view '${binding.view}' instead, or bind the table directly without \`view\``
   }
   const { table } = binding.source
   if (typeof table !== 'string') return undefined

@@ -168,9 +168,7 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
       wrap(async () => {
         const orderBy =
           input.sortColumn !== undefined
-            ? sql` ORDER BY ${sql.identifier(input.sortColumn)} ${sql.raw(
-                input.sortDirection === 'asc' ? 'ASC' : 'DESC'
-              )}`
+            ? sql` ORDER BY ${sql.identifier(input.sortColumn)} ${input.sortDirection === 'asc' ? sql.raw('ASC') : sql.raw('DESC')}`
             : sql``
         const query = sql`SELECT ${selectClause(input.columns)} FROM ${relation}${conditionsClause(input.filter, input.conditions, input.readScope)}${orderBy} LIMIT ${input.limit}`
         return await executeRawTyped<Record<string, unknown>>(db, query)

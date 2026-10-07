@@ -1,0 +1,39 @@
+# The top bar every signed-in page shares: where you are, and the way to the
+# other pages. On a phone the links fold into one menu at the right.
+type: container
+element: header
+props:
+  className: border-b border-border bg-background px-4 sm:px-8
+children:
+  - type: flex
+    props:
+      className: mx-auto flex h-14 w-full max-w-360 items-center gap-6
+    children:
+      - {
+          type: link,
+          content: App starter,
+          props: { href: /, className: text-md font-semibold text-foreground },
+        }
+      - type: flex
+        props:
+          className: hidden items-center gap-4 text-md text-foreground-muted md:flex
+        children:
+          - { type: link, content: Overview, props: { href: / } }
+          - { type: link, content: Metrics, props: { href: /metrics } }
+          - { type: link, content: Worklist, props: { href: /worklist } }
+          - { type: link, content: Projects, props: { href: /projects } }
+          - { type: link, content: Settings, props: { href: /settings } }
+          - { type: link, content: Blocks, props: { href: /kit/data } }
+      - type: container
+        props:
+          className: ml-auto md:hidden
+        children:
+          - type: dropdown-menu
+            triggerLabel: Menu
+            menuItems:
+              - { label: Overview, action: { type: navigate, path: / } }
+              - { label: Metrics, action: { type: navigate, path: /metrics } }
+              - { label: Worklist, action: { type: navigate, path: /worklist } }
+              - { label: Projects, action: { type: navigate, path: /projects } }
+              - { label: Settings, action: { type: navigate, path: /settings } }
+              - { label: Blocks, action: { type: navigate, path: /kit/data } }

@@ -7,63 +7,50 @@
 
 import { dirname, basename, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
-import {
-  formatConfigCandidatesLine,
-  formatDiscoveredConfigNotice,
-} from '@/domain/kernel/config-parsing/default-config-files'
+import { printConfigDeprecationWarnings } from '@/cli/runtime/config-deprecation-warnings'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
+import { formatMessageReport } from '@/domain/models/app/app-config-report-service'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
+import {
+  parseConfigWithRefSources,
+  validateFileExists,
+  validateFileFormat,
+} from './validate-config-source'
+import { coveredFiles, discoverValidationConfig, printJsonReport } from './validate-report'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /**
- * Load config file for validation, returning both resolved data and $ref source mappings
+ * The `$ref` source map of a config file, for ATTRIBUTION only, never fatal.
+ *
+ * `start` and `build` read their config through their own loader, which keeps
+ * no source map; this re-reads the root's raw content so their refusal can name
+ * the partial a problem lives in, exactly as `validate`'s does. Any failure here
+ * yields an empty map: the loader has already parsed the file, and a report
+ * without headings is better than a refusal about attribution. A TypeScript
+ * config has no `$ref`s.
  */
-const validateFileExists = async (filePath: string): Promise<void> => {
-  const exists = await Bun.file(filePath).exists()
-  if (!exists) {
-    printStderr(`Error: File not found: ${filePath}`)
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
+export const collectConfigAttribution = async (
+  configFile: string | undefined
+): Promise<{ readonly refSources?: ReadonlyMap<string, string>; readonly configFile?: string }> => {
+  // An inline config (`APP_SCHEMA=...`) has no file, so nothing to attribute to.
+  if (configFile === undefined) return {}
+  const absolutePath = resolve(configFile)
+  const format = detectFormat(absolutePath)
+  if (format !== 'json' && format !== 'yaml') {
+    return { refSources: new Map<string, string>(), configFile: absolutePath }
   }
-}
-
-const validateFileFormat = (filePath: string): ReturnType<typeof detectFormat> => {
-  const format = detectFormat(filePath)
-  if (format === 'unsupported') {
-    printStderr(`Error: Unsupported file format. Supported: .json, .yaml, .yml, .ts`)
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
+  try {
+    const { collectRefSources } = await lazyImportSchema()
+    const { parseYamlContent, parseJsonContent } =
+      await import('@/domain/models/app/app-content-parsing')
+    const content = await Bun.file(absolutePath).text()
+    const raw = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
+    return { refSources: collectRefSources(raw, dirname(absolutePath)), configFile: absolutePath }
+  } catch {
+    return { refSources: new Map<string, string>(), configFile: absolutePath }
   }
-  return format
-}
-
-const parseConfigWithRefSources = async (
-  filePath: string,
-  format: ReturnType<typeof detectFormat>,
-  loadFromFile: (path: string) => Promise<unknown>,
-  collectRefSources: (data: unknown, baseDir: string) => ReadonlyMap<string, string>
-): Promise<{ readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> }> => {
-  // TypeScript configs use native imports, no $ref resolution needed
-  if (format === 'typescript') {
-    const parsed = await loadFromFile(filePath)
-    return { parsed, refSources: new Map<string, string>() }
-  }
-
-  const { parseYamlContent, parseJsonContent } =
-    await import('@/domain/models/app/app-content-parsing')
-
-  // Read and parse raw content to collect $ref sources before resolution
-  const content = await Bun.file(filePath).text()
-  const rawParsed = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
-  const absolutePath = resolve(filePath)
-  const baseDir = dirname(absolutePath)
-  const refSources = collectRefSources(rawParsed, baseDir)
-
-  // Load with full $ref resolution
-  const parsed = await loadFromFile(filePath)
-  return { parsed, refSources }
 }
 
 /**
@@ -87,7 +74,6 @@ export const loadConfigForValidationWithSources = async (
     printStderr(
       `Error: Failed to parse file: ${error instanceof Error ? error.message : String(error)}`
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 }
@@ -164,16 +150,15 @@ export const detectUnknownFieldTypes = async (
  * below is the reverse case: `validate`-only on purpose, documented at its own
  * definition.
  *
- * ON THE UNKNOWN-FIELD-TYPE SWEEP, which is the `validate`-only one. Its three
- * former companions — the data-table field-reference sweep, the cross-component
- * field-reference sweep and the `rowColorField` sweep — now run inside
- * `decodeAppConfigObject`, so `start` and `build` refuse the same configs
- * `validate` does. That sweep deliberately did NOT go with them, and the reason
- * is NOT the one this file used to give.
+ * ON THE UNKNOWN-FIELD-TYPE SWEEP, which is the `validate`-only one. The
+ * data-table field-reference sweep, the cross-component field-reference sweep
+ * and the `rowColorField` sweep run inside `decodeAppConfigObject`, so `start`
+ * and `build` refuse the same configs `validate` does. This sweep deliberately
+ * does NOT run there.
  *
- * WHAT THE OLD REASON SAID, AND WHY IT WAS WRONG. It claimed the sweep "depends
- * on the `$ref` source map collected at parse time, which an in-memory config
- * never has". `refSources` is used for ATTRIBUTION only — the `<file>: ` prefix
+ * NOT BECAUSE OF THE SOURCE MAP. It is tempting to say the sweep "depends on
+ * the `$ref` source map collected at parse time, which an in-memory config
+ * never has". It does not: `refSources` is used for ATTRIBUTION only — the `<file>: ` prefix
  * naming which partial a table came from. Detection is
  * `isRecognizedFieldType(field.type, KNOWN_FIELD_TYPES)` and needs no map at
  * all; handed an empty one the sweep still detects, it just cannot name a
@@ -181,7 +166,7 @@ export const detectUnknownFieldTypes = async (
  *
  * THE REAL REASON: BOOT ALREADY REFUSES, AND THREE SPECS PIN HOW. An
  * unrecognised `type` reaches `generateCreateTableDDL`, which throws `Unknown
- * field type: <type>` from INSIDE the migration transaction. `[internal ref]`
+ * field type: <type>` from INSIDE the migration transaction. A migration error spec
  * and its two siblings assert that exact message AND the rollback it causes —
  * that a sibling table named earlier in the same config was not created.
  * Refusing at decode time would move the refusal before any transaction opened,
@@ -242,6 +227,12 @@ export interface ValidationOutcome {
    */
   readonly findings: readonly ConfigFinding[]
   /**
+   * The same refusal as the report a person reads — a count line, then every
+   * problem grouped by file. What `sovrium validate` prints, and what `start`
+   * and `build` print for the same config.
+   */
+  readonly report: readonly string[]
+  /**
    * Non-fatal notices from the shared pipeline — today, deprecated config keys.
    *
    * Kept apart from `errors` all the way to the print site. A deprecation is
@@ -257,9 +248,8 @@ export interface ValidationOutcome {
  * Validate one parsed config. THE single decode path behind both the
  * interactive `sovrium validate` command and the progress pipeline's sweep.
  *
- * Those two used to be separate implementations in this same file, and they
- * could disagree: the interactive command re-implemented the decode inline
- * while the pipeline sweep called the shared decoder. Now both land here, which
+ * One implementation for both, so they cannot disagree (as they would if the
+ * interactive command re-implemented the decode inline). Both land here, which
  * in turn lands on `decodeAppConfigObject` — the same pipeline `sovrium start`
  * and `sovrium build` run.
  *
@@ -274,11 +264,15 @@ export interface ValidationOutcome {
  */
 export const validateParsedConfig = async (
   parsed: unknown,
-  refSources: ReadonlyMap<string, string>
+  refSources: ReadonlyMap<string, string>,
+  configFile?: string
 ): Promise<ValidationOutcome> => {
   // Lazily imported to keep the compiled-binary `validate` path domain-only.
   const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
-  const decoded = decodeAppConfigObject(parsed, { refSources })
+  const decoded = decodeAppConfigObject(parsed, {
+    refSources,
+    ...(configFile !== undefined && { configFile }),
+  })
 
   if (!decoded.valid) {
     return {
@@ -286,6 +280,7 @@ export const validateParsedConfig = async (
       name: '',
       errors: decoded.errors,
       findings: decoded.findings,
+      report: decoded.report,
       notices: [],
     }
   }
@@ -301,81 +296,8 @@ export const validateParsedConfig = async (
     // it would let a caller that reads only `findings` see `valid: false` with
     // nothing to act on.
     findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
+    report: formatMessageReport(postDecodeErrors),
     notices: decoded.notices,
-  }
-}
-
-/**
- * Resolve the config to validate when the operator named none.
- *
- * `validate` has no env-var source, so its order is simply positional →
- * discovery → refusal. Everything downstream is untouched: a discovered file
- * travels the same `loadConfigForValidationWithSources` path a named one does,
- * so it fails identically when it is broken.
- */
-const discoverValidationConfig = async (): Promise<string> => {
-  const { discoverDefaultConfigFile } = await lazyImportSchema()
-  const discovered = await discoverDefaultConfigFile(process.cwd())
-
-  if (!discovered) {
-    printStderr(
-      `Error: No config file provided.\n\n` +
-        `${formatConfigCandidatesLine(process.cwd())}\n\n` +
-        `Usage:\n  sovrium validate <config.json|config.yaml>\n\n` +
-        `Run 'sovrium init' to scaffold a new project.`
-    )
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-
-  printStderr(formatDiscoveredConfigNotice(discovered))
-  return discovered
-}
-
-/**
- * Every file the verdict actually covered: the root, plus each `$ref` partial it
- * pulled in.
- *
- * Information the caller could not otherwise compute. A supervisor that wants to
- * re-validate when the config changes has no way to learn what the root reached
- * without resolving the graph itself, and a one-file config makes the field look
- * redundant precisely because it is the shape where it carries nothing.
- */
-const coveredFiles = (
-  rootPath: string,
-  refSources: ReadonlyMap<string, string>
-): readonly string[] => [...new Set([resolve(rootPath), ...refSources.values()])]
-
-/**
- * Write the verdict as ONE JSON document on stdout, and nothing else.
- *
- * "Nothing else" is the whole promise, not a preference. The caller is a program
- * running this command and parsing what comes back; one stray human-readable
- * line — a success banner, a discovered-config notice, a deprecation — and its
- * `JSON.parse` throws for a reason that has nothing to do with the config it
- * asked about. Everything conversational already prints on stderr, and this is
- * why that discipline has to hold.
- *
- * `findings` and `notices` stay two fields for the same reason `errors` and
- * `notices` are two fields in prose mode: a notice is not a refusal, and a
- * deploy gate that treats findings as failures must not fail on a working
- * config. The exit code is unchanged by the flag — a verdict that reported
- * differently depending on how it was asked would be two verdicts.
- */
-const printJsonReport = (outcome: ValidationOutcome, files: readonly string[]): void => {
-  Effect.runSync(
-    Console.log(
-      JSON.stringify({
-        valid: outcome.valid,
-        files,
-        findings: outcome.findings,
-        notices: outcome.notices,
-      })
-    )
-  )
-  if (!outcome.valid) {
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
   }
 }
 
@@ -387,7 +309,9 @@ export const handleValidateCommand = async (filePath?: string, json = false): Pr
 
   // Load resolved config and collect $ref source mappings for error attribution
   const { parsed, refSources } = await loadConfigForValidationWithSources(resolvedPath)
-  const outcome = await validateParsedConfig(parsed, refSources)
+  // Deprecated keys still decode, so only a walk of the raw config sees them.
+  printConfigDeprecationWarnings(parsed)
+  const outcome = await validateParsedConfig(parsed, refSources, resolve(resolvedPath))
 
   if (json) {
     return printJsonReport(outcome, coveredFiles(resolvedPath, refSources))
@@ -402,9 +326,10 @@ export const handleValidateCommand = async (filePath?: string, json = false): Pr
     // No guidance line, deliberately (T18): the error block already names every
     // offending property and value, so the block IS the guidance. `validate` also
     // has no side effects, so there is no "nothing was written" to reassure about.
-    const errorLines = outcome.errors.map((err) => `  ${err}`).join('\n')
-    printStderr(`Error: Validation failed.\n\n${errorLines}`)
-    // eslint-disable-next-line functional/no-expression-statements
+    //
+    // The report is the one `start` and `build` print for the same config: every
+    // problem, counted, grouped under the file it lives in.
+    printStderr(`Error: Validation failed.\n\n${outcome.report.join('\n')}`)
     process.exit(1)
   }
 

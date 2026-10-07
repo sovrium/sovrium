@@ -7,9 +7,14 @@
 
 import { isLocalDevDefault } from '@/domain/models/process-env/dev-mode'
 import { parseEcoFormAnalytics } from '@/domain/models/process-env/eco/eco-form-analytics'
-import { hasSmtpHost } from '@/domain/models/process-env/email'
+import { isOutgoingEmailConfigured } from '@/domain/models/process-env/email-transport'
 import { isDebugLevel } from '@/domain/models/process-env/logging'
-import { isInsecureOptOut, isLoopbackHost } from '@/infrastructure/process/security-posture'
+import {
+  isInsecureOptOut,
+  isLoopbackHost,
+  resolveBindHostname,
+  resolveCanonicalHost,
+} from '@/infrastructure/process/security-posture'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
 /**
@@ -25,7 +30,9 @@ export const isProduction = (): boolean => getNodeEnv() === 'production'
 export const isDevelopment = (): boolean => getNodeEnv() === 'development'
 
 /**
- * Whether outgoing email is configured (`SMTP_HOST` is set).
+ * Whether outgoing email can leave this process: `SMTP_HOST` is set for the
+ * default SMTP transport, or `EMAIL_PROVIDER` names an HTTP transport whose
+ * credentials are all present.
  *
  * The thin infra accessor over the `env/email` model, and the shape every other
  * predicate in this file already has. It lives here rather than in
@@ -37,7 +44,7 @@ export const isDevelopment = (): boolean => getNodeEnv() === 'development'
  * `layers/table-layer -> checkForExistingRecords`, where an area-level
  * allowance cannot tell a pure helper from a live one.
  */
-export const isEmailConfigured = (): boolean => hasSmtpHost(env)
+export const isEmailConfigured = (): boolean => isOutgoingEmailConfigured(env)
 
 /**
  * Whether debug-level logging is active for this process.
@@ -115,45 +122,62 @@ export const isFormAnalyticsEnabled = (): boolean => parseEcoFormAnalytics(env) 
 /**
  * Collect the optional insecure-posture security warning as a structured
  * startup phase ("silent on a safe posture, loud when explicitly relaxed on a
- * public bind").
+ * public deployment").
  *
  * Security-sensitive defaults — CSRF enforcement and secure cookies (see
- * `src/infrastructure/auth/better-auth/auth.ts`) — are now gated on TRANSPORT
+ * `src/infrastructure/auth/better-auth/auth.ts`) — are gated on TRANSPORT
  * POSTURE, not `NODE_ENV` (see `security-posture.ts`). They are secure by
- * default on a non-loopback bind, and relaxed on loopback OR when the operator
- * sets the master `SOVRIUM_ALLOW_INSECURE=1` opt-out.
+ * default on a non-loopback canonical origin, and relaxed on loopback OR when
+ * the operator sets the master `SOVRIUM_ALLOW_INSECURE` opt-out.
  *
- * The dangerous combination worth flagging loudly is therefore: binding a
- * NON-LOOPBACK interface (a publicly-reachable deployment) WHILE the master
- * insecure opt-out is set — that deliberately disables CSRF + secure cookies on
- * a public surface. We surface that as a `⚠` banner phase so it is impossible
- * to miss.
+ * The warning keys on the CANONICAL origin — `BASE_URL` when declared, else the
+ * bind — and not on the socket. Behind a reverse proxy the socket binds
+ * loopback while browsers reach an https origin; keying on the socket hid the
+ * relaxed posture exactly where a forgotten flag does the most harm.
  *
  * Behaviour:
- *   - Loopback bind (the dev default), with or without the opt-out → SUPPRESSED
- *     (returns `undefined`). Local DX stays clean.
- *   - Non-loopback bind WITHOUT the opt-out → secure by default, nothing to
- *     warn about → `undefined`.
- *   - Non-loopback bind WITH `SOVRIUM_ALLOW_INSECURE=1` → returns a structured
- *     `⚠` warning StartupPhase (never a raw pre-banner `console.warn`).
+ *   - Loopback canonical origin, with or without the opt-out → `undefined`.
+ *     Local DX stays clean.
+ *   - Non-loopback origin WITHOUT the opt-out → secure, nothing to warn about.
+ *   - Non-loopback origin WITH the opt-out → a structured `⚠` StartupPhase
+ *     (never a raw pre-banner `console.warn`). Its label never names
+ *     `BASE_URL`: that is {@link collectPublicOriginWarning}'s line.
  *
- * @param bindHost - the effective bind/canonical host (server.ts passes the
- *   resolved hostname). When loopback, the warning is suppressed.
+ * @param bindHost - the host the socket bound (server.ts passes it).
  */
 export const collectInsecureEnvWarning = (bindHost?: string): StartupPhase | undefined => {
-  // Loopback bind → relaxed posture is expected and intentional → suppress.
-  if (isLoopbackHost(bindHost)) {
-    return undefined
+  if (!isInsecureOptOut() || isLoopbackHost(resolveBindHostname(bindHost))) return undefined
+  return {
+    label:
+      'SOVRIUM_ALLOW_INSECURE is set on a publicly-reachable deployment — CSRF protection and secure cookies are DISABLED',
+    type: 'warning' as const,
   }
-  // Non-loopback bind with the master insecure opt-out explicitly set is a
-  // dangerous public posture (CSRF + secure cookies disabled on a reachable
-  // interface). Surface it LOUD.
-  if (isInsecureOptOut()) {
-    return {
-      label:
-        'SOVRIUM_ALLOW_INSECURE is set on a non-loopback bind — CSRF protection and secure cookies are DISABLED on a publicly-reachable interface',
-      type: 'warning' as const,
-    }
-  }
-  return undefined
 }
+
+/**
+ * Warn when the server binds a reachable interface but the public origin is
+ * not declared: `BASE_URL` unset, or naming a loopback origin.
+ *
+ * Unset, links the server mints (password resets, invitations, short links)
+ * fall back to the socket address. Loopback — typically a local example copied
+ * into a container — keeps CSRF checks and `Secure` cookies relaxed on a server
+ * the network can reach, because the posture follows the declared origin. One
+ * line naming `BASE_URL` and the bind, never `SOVRIUM_ALLOW_INSECURE`; silent
+ * on a loopback bind, the local default.
+ */
+export const collectPublicOriginWarning = (bindHost?: string): StartupPhase | undefined => {
+  if (bindHost === undefined || isLoopbackHost(bindHost)) return undefined
+  const canonicalHost = resolveCanonicalHost()
+  if (canonicalHost !== undefined && !isLoopbackHost(canonicalHost)) return undefined
+  const label =
+    canonicalHost === undefined
+      ? `BASE_URL is not set while the server binds ${bindHost} — links it mints fall back to the socket address; set BASE_URL to the public origin`
+      : `BASE_URL names a loopback origin (${env['BASE_URL'] ?? ''}) while the server binds ${bindHost} — CSRF checks and Secure cookies stay relaxed on a reachable interface; set BASE_URL to the public origin`
+  return { label, type: 'warning' as const }
+}
+
+/** Both posture `⚠` phases for `bindHost`, in banner order; empty on a safe posture. */
+export const collectPostureWarnings = (bindHost?: string): readonly StartupPhase[] =>
+  [collectInsecureEnvWarning(bindHost), collectPublicOriginWarning(bindHost)].filter(
+    (phase): phase is StartupPhase => phase !== undefined
+  )

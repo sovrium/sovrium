@@ -1,0 +1,107 @@
+# sovrium-library: block/vertical-nav-settings@0.30.0
+name: vertical-nav-settings
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-6 md:flex-row md:gap-12
+    children:
+      - type: container
+        props:
+          className: md:hidden
+        children:
+          - type: dropdown-menu
+            triggerLabel: Settings sections
+            menuItems:
+              - label: General
+                action:
+                  type: navigate
+                  path: /settings?section=general
+              - label: Members
+                action:
+                  type: navigate
+                  path: /settings/members?section=members
+              - label: Billing
+                action:
+                  type: navigate
+                  path: /settings/billing?section=billing
+              - label: Notifications
+                action:
+                  type: navigate
+                  path: /settings/notifications?section=notifications
+              - label: Danger zone
+                action:
+                  type: navigate
+                  path: /settings/danger?section=danger
+      - type: container
+        element: nav
+        props:
+          aria-label: Settings
+          className: hidden flex-none flex-col gap-1 md:flex md:w-50
+        children:
+          - type: link
+            props:
+              href: /settings?section=general
+              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+            activeWhen:
+              value: $query.section
+              equals: general
+            activeProps:
+              aria-current: page
+              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+            content: General
+          - type: link
+            props:
+              href: /settings/members?section=members
+              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+            activeWhen:
+              value: $query.section
+              equals: members
+            activeProps:
+              aria-current: page
+              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+            content: Members
+          - type: link
+            props:
+              href: /settings/billing?section=billing
+              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+            activeWhen:
+              value: $query.section
+              equals: billing
+            activeProps:
+              aria-current: page
+              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+            content: Billing
+          - type: link
+            props:
+              href: /settings/notifications?section=notifications
+              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+            activeWhen:
+              value: $query.section
+              equals: notifications
+            activeProps:
+              aria-current: page
+              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+            content: Notifications
+          - type: link
+            props:
+              href: /settings/danger?section=danger
+              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+            activeWhen:
+              value: $query.section
+              equals: danger
+            activeProps:
+              aria-current: page
+              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+            content: Danger zone
+      - type: container
+        props:
+          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-80 min-w-0 flex-1
+        children:
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Settings panel]'

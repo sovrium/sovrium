@@ -9,8 +9,7 @@
  * The per-request TRACE BOUNDARY: one Hono middleware that opens the span box
  * (`request-trace-context.ts`) around a request, takes the sampling decision
  * once, and — when Sentry performance sampling is armed — reports the finished
- * request as a transaction envelope
- * ([internal ref] / -TRACING).
+ * request as a transaction envelope.
  *
  * It is mounted when EITHER signal is armed, because the box has two consumers
  * and only one of them is the transaction:
@@ -28,11 +27,11 @@
  *
  * ## ONE dice roll, deliberately
  *
- * The Sentry transaction gate and Effect's span-export gate used to be
+ * The Sentry transaction gate and Effect's span-export gate must not be
  * INDEPENDENT `Math.random()` draws taken in different files — this middleware
- * and `runRequestEffect`. At a rate of 0.1 the chance that one request won both
- * was 1%, so a sampled transaction almost never coincided with a sampled trace
- * and the two could not be cross-read even in principle. The draw is taken once
+ * and `runRequestEffect`. At a rate of 0.1 the chance that one request wins both
+ * is 1%, so a sampled transaction would almost never coincide with a sampled
+ * trace and the two could not be cross-read even in principle. The draw is taken once
  * here and both gates read it off the box, which makes "sampled" mean the same
  * thing on both sides of a request by construction.
  *

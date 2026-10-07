@@ -20,6 +20,10 @@
  * - `required` drives required-field validation.
  * - `inputType` selects the native input type (`email` → `<input type="email">`,
  *   a password-like column → `<input type="password">`, otherwise `text`).
+ * - `autoComplete` / `inputMode` are the browser hints, decided once by
+ *   {@link withAuthFieldHints} so the skeleton and the island draw the same.
+ * - `errorId` is the id of the field's inline-error region, unique per form so
+ *   two forms on one page never share one.
  */
 export interface AuthFormField {
   readonly name: string
@@ -27,18 +31,117 @@ export interface AuthFormField {
   readonly required: boolean
   readonly placeholder?: string
   readonly inputType: 'email' | 'password' | 'text'
+  readonly autoComplete?: string
+  readonly inputMode?: 'numeric'
+  readonly errorId?: string
 }
+
+/** What an auth form's browser hints depend on. */
+export interface AuthFieldHintContext {
+  readonly method: string
+  /** The action's `strategy`, or its `factor` for a second-factor step. */
+  readonly variant?: string
+  /** The app offers passkeys, so a sign-in email field also offers them. */
+  readonly passkeyAutofill?: boolean
+}
+
+/** Methods whose password field asks for the password the reader already has. */
+const CURRENT_PASSWORD_METHODS: ReadonlySet<string> = new Set([
+  'login',
+  'enableTwoFactor',
+  'disableTwoFactor',
+])
+
+/** The factors whose code a device can autofill: digits from an authenticator app. */
+const ONE_TIME_CODE_FACTORS: ReadonlySet<string> = new Set(['totp'])
+
+/** The `autocomplete` and `inputmode` a field takes in a form of `context`. */
+function fieldHints(
+  field: AuthFormField,
+  context: AuthFieldHintContext
+): Pick<AuthFormField, 'autoComplete' | 'inputMode'> {
+  const { method, variant, passkeyAutofill } = context
+  if (field.inputType === 'email')
+    return {
+      autoComplete: method === 'login' && passkeyAutofill === true ? 'username webauthn' : 'email',
+    }
+  if (field.inputType === 'password')
+    return {
+      autoComplete: CURRENT_PASSWORD_METHODS.has(method) ? 'current-password' : 'new-password',
+    }
+  if (method === 'verifyTwoFactor' && field.name === 'code')
+    return variant === undefined || ONE_TIME_CODE_FACTORS.has(variant)
+      ? { autoComplete: 'one-time-code', inputMode: 'numeric' }
+      : { autoComplete: 'off' }
+  return {}
+}
+
+/**
+ * The fields with their browser hints and per-form error ids filled in.
+ *
+ * - an email is `email`, or `username webauthn` on a sign-in form of an app
+ *   offering passkeys, so the browser proposes a saved passkey in the field;
+ * - a password is `current-password` where the reader types the one they have
+ *   (signing in, confirming a two-step change) and `new-password` elsewhere;
+ * - a second-factor code from an authenticator app is `one-time-code` with a
+ *   numeric keyboard; a recovery code is not autofilled.
+ *
+ * The error id is scoped by the form's method and variant, so a page carrying
+ * the code form and the recovery-code form names two distinct regions.
+ */
+export function withAuthFieldHints(
+  fields: readonly AuthFormField[],
+  context: AuthFieldHintContext
+): readonly AuthFormField[] {
+  const scope = [context.method, context.variant].filter(Boolean).join('-')
+  return fields.map((field) => ({
+    ...field,
+    ...fieldHints(field, context),
+    errorId: `${scope}-${field.name}-error`,
+  }))
+}
+
+/** The id of a field's inline-error region; the bare `<name>-error` for an older payload. */
+export const authFieldErrorId = (field: AuthFormField): string =>
+  field.errorId ?? `${field.name}-error`
 
 /** The authentication flows an auth form / button can drive. */
 export type AuthMethod = 'login' | 'signup' | 'logout' | 'resetPassword' | 'setNewPassword'
 
+/**
+ * The account methods an auth FORM runs — the second-factor step, two-step
+ * enrolment, invitations answered from their link, a new API key, signing the
+ * other devices out. The island draws them from a lazily loaded module, so a
+ * sign-in page never downloads the enrolment screens.
+ */
+const ACCOUNT_FORM_METHODS: ReadonlySet<string> = new Set([
+  'verifyTwoFactor',
+  'enableTwoFactor',
+  'disableTwoFactor',
+  'acceptInvitation',
+  'declineInvitation',
+  'createApiKey',
+  'revokeOtherSessions',
+])
+
+/** Whether a form's method is one of the account methods. */
+export const isAccountFormMethod = (method: string | undefined): boolean =>
+  method !== undefined && ACCOUNT_FORM_METHODS.has(method)
+
 /** Submit-button label for each auth method. */
-const SUBMIT_LABELS: Record<AuthMethod, string> = {
+const SUBMIT_LABELS: Readonly<Record<string, string>> = {
   login: 'Sign In',
   signup: 'Sign Up',
   logout: 'Log Out',
   resetPassword: 'Send Reset Link',
   setNewPassword: 'Set New Password',
+  verifyTwoFactor: 'Verify',
+  enableTwoFactor: 'Turn on two-step verification',
+  disableTwoFactor: 'Turn off two-step verification',
+  acceptInvitation: 'Accept invitation',
+  declineInvitation: 'Decline',
+  createApiKey: 'Create key',
+  revokeOtherSessions: 'Sign out of other devices',
 }
 
 /**
@@ -52,7 +155,7 @@ const SUBMIT_LABELS: Record<AuthMethod, string> = {
  * `submitLabel` (with `$t:key` localization) before falling back here.
  */
 export function authSubmitLabel(method: string | undefined): string {
-  return SUBMIT_LABELS[method as AuthMethod] ?? SUBMIT_LABELS.login
+  return SUBMIT_LABELS[method ?? 'login'] ?? 'Sign In'
 }
 
 /**
@@ -60,12 +163,13 @@ export function authSubmitLabel(method: string | undefined): string {
  * while the request is running. Mirrors {@link SUBMIT_LABELS} so a localized
  * console never falls back to a bare, untranslated `Loading…`.
  */
-const PENDING_LABELS: Record<AuthMethod, string> = {
+const PENDING_LABELS: Readonly<Record<string, string>> = {
   login: 'Signing in…',
   signup: 'Creating account…',
   logout: 'Logging out…',
   resetPassword: 'Sending…',
   setNewPassword: 'Saving…',
+  verifyTwoFactor: 'Verifying…',
 }
 
 /**
@@ -78,7 +182,8 @@ const PENDING_LABELS: Record<AuthMethod, string> = {
  * French admin dashboard shows `Connexion…`, never a hardcoded `Loading...`).
  */
 export function authPendingLabel(method: string | undefined): string {
-  return PENDING_LABELS[method as AuthMethod] ?? PENDING_LABELS.login
+  if (isAccountFormMethod(method)) return PENDING_LABELS[method ?? ''] ?? 'Saving…'
+  return PENDING_LABELS[method ?? 'login'] ?? 'Signing in…'
 }
 
 const EMAIL_FIELD: AuthFormField = {
@@ -95,6 +200,27 @@ const PASSWORD_FIELD: AuthFormField = {
   inputType: 'password',
 }
 
+/** The one field the second-factor step asks for, named after its factor. */
+const codeField = (factor: string | undefined): AuthFormField => ({
+  name: 'code',
+  label: factor === 'backupCode' ? 'Recovery code' : 'Verification code',
+  required: true,
+  inputType: 'text',
+})
+
+/** The fields of an account method's form; `undefined` for any other method. */
+function accountMethodFields(
+  method: string,
+  factor?: string
+): readonly AuthFormField[] | undefined {
+  if (method === 'verifyTwoFactor') return [codeField(factor)]
+  if (method === 'createApiKey')
+    return [{ name: 'name', label: 'Name', required: true, inputType: 'text' }]
+  if (['enableTwoFactor', 'disableTwoFactor', 'acceptInvitation'].includes(method))
+    return [PASSWORD_FIELD]
+  return isAccountFormMethod(method) ? [] : undefined
+}
+
 /**
  * Default email + password fields used when an auth form does not declare an
  * explicit `fields[]` array.
@@ -106,8 +232,14 @@ const PASSWORD_FIELD: AuthFormField = {
  *   sign-in never reads.
  * - `logout` → nothing: signing out needs no input, so the form is its button.
  * - `login` / `signup` (and any unknown method) → email + password.
+ * - an account method → its own fields: the code (named by `strategy`, which
+ *   carries the action's `factor` for `verifyTwoFactor`), the password that
+ *   confirms a two-step change or sets an invitee's account, a new key's name,
+ *   or nothing at all.
  */
 export function defaultAuthFields(method: string, strategy?: string): readonly AuthFormField[] {
+  const account = accountMethodFields(method, strategy)
+  if (account !== undefined) return account
   if (method === 'logout') return []
   if (method === 'setNewPassword') return [PASSWORD_FIELD]
   if (method === 'resetPassword') return [EMAIL_FIELD]

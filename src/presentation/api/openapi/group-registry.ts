@@ -15,6 +15,7 @@ import { ragGroup } from '../ai/openapi-rag'
 import { analyticsGroup } from '../analytics/openapi'
 import { authGroup } from '../auth/openapi'
 import { accountGroup } from '../auth/openapi-account'
+import { scimGroup } from '../auth/openapi-scim'
 import { automationCollectionGroup, automationGroupSpec } from '../automations/openapi'
 import { bucketGroupSpec } from '../buckets/openapi'
 import { connectionGroupSpec } from '../connections/openapi'
@@ -63,6 +64,7 @@ export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   analyticsGroup,
   authGroup,
   accountGroup,
+  scimGroup,
   aiChatGroup,
   aiConversationGroup,
   ragGroup,

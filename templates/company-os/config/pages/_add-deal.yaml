@@ -1,29 +1,9 @@
-# The "Add deal" dialog, shared by Home and the Pipeline. The form sits inline
-# in the dialog so an optional field left empty (no owner yet, no close date)
-# is simply left out of the new record.
+# The "Add deal" dialog, shared by Home and the Pipeline. It opens the add-deal
+# form (config/forms/add-deal.yaml); an optional field left empty (no owner
+# yet, no close date) is simply left out of the new record.
 type: dialog
 props:
   id: add-deal-dialog
   title: Add deal
   description: The deal lands on the Pipeline in the stage you choose.
-children:
-  - type: form
-    dataSource:
-      table: deals
-    fields:
-      - { field: name, label: Deal }
-      - { field: company, label: Client }
-      - { field: stage, label: Stage }
-      - { field: value, label: Value }
-      - { field: close_date, label: Expected close }
-      - { field: owner, label: Owner }
-    action:
-      type: crud
-      operation: create
-      table: deals
-      submitLabel: Add deal
-      onSuccess:
-        navigate: /sales
-        toast:
-          message: Deal added
-          variant: success
+formRef: add-deal

@@ -10,13 +10,13 @@
  *
  * ─── THREE REACHES, BECAUSE A COMPONENT IS NOT ONE BAG ─────────────────────
  *
- * A recipe used to merge into `props` and nothing else, and that single reach
- * decided which states could be published honestly. `props` addresses HTML
- * attributes; a component's own declared options are siblings of `props`, and
- * its `dataSource` is a sibling too. So a state reached by a declared option —
- * a grid whose rows can be selected — and a state reached by the data source
- * answering differently — a grid with no rows — were both unreachable, and the
- * only way to publish either was to file it as a DEPICTION: a drawing presented
+ * A recipe that merged into `props` and nothing else would decide which states
+ * could be published honestly. `props` addresses HTML attributes; a
+ * component's own declared options are siblings of `props`, and its
+ * `dataSource` is a sibling too. So a state reached by a declared option — a
+ * grid whose rows can be selected — and a state reached by the data source
+ * answering differently — a grid with no rows — would both be unreachable, and
+ * the only way to publish either would be to file it as a DEPICTION: a drawing presented
  * with the authority of a rendering, which is the one claim
  * `state-vocabulary.ts` exists to refuse.
  *

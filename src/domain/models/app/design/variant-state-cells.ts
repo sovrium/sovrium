@@ -87,7 +87,7 @@ export interface VariantStateCell {
    * ─── WHY THE PRODUCER HAS TO SAY IT ────────────────────────────────────────
    *
    * `data-design-state` answers "which states does this type have", and
-   * `[internal ref]` pins each state at `toHaveCount(1)`. Stamping it
+   * an admin design system spec pins each state at `toHaveCount(1)`. Stamping it
    * on every cell makes that question have one answer per variant — twenty-eight
    * of them for `button`. The drawing side avoids that with an outer-row INDEX
    * (`exhibit: index === 0` in `variantMatrix`), and a config page has no
@@ -105,7 +105,7 @@ export interface VariantStateCell {
    * hand-maintained-list-versus-growing-schema failure, one row down.
    *
    * A MECHANICAL projection of the array published beside it, carrying no word
-   * and no reading order, which is what admits it under [internal ref] on the same
+   * and no reading order, which is what admits it under the facts-not-strings rule on the same
    * terms as `cells` itself.
    */
   readonly exhibit: boolean

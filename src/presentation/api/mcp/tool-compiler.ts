@@ -6,7 +6,7 @@
  */
 
 /**
- * MCP tool catalog compiler ([internal ref]/TABLES, M-1/M-3).
+ * MCP tool catalog compiler (the AI MCP server discovery requirement, M-1/M-3).
  *
  * Walks `app.tables[].aiAccess` and `app.actions[].aiAccess` to produce the
  * MCP `tools/list` payload. Extracted from `mcp-routes.ts` to keep both
@@ -71,8 +71,7 @@ export interface CompiledTool {
  *
  * - `confirmDestructive`: When `false`, `requireConfirmation: true` no longer
  *   forces `destructiveHint=true` (operators opt out via
- * `MCP_CONFIRM_DESTRUCTIVE=false`,
- * [internal ref]). Default: `true` (force-confirm is on).
+ *   `MCP_CONFIRM_DESTRUCTIVE=false`). Default: `true` (force-confirm is on).
  */
 export interface McpCompileOptions {
   readonly confirmDestructive?: boolean
@@ -368,8 +367,7 @@ const buildActionToolAnnotations = (
  * its own confirmation flow) can disable the force-upgrade with
  * `MCP_CONFIRM_DESTRUCTIVE=false`. When that env switch is off, author
  * `annotations.destructive: false` is honored verbatim and `requireConfirmation`
- * stops asymmetrically upgrading the hint ([internal ref],
- * [internal ref]).
+ * stops asymmetrically upgrading the hint.
  */
 const forceDestructiveOnConfirmation = (
   annotations: CompiledToolAnnotations,

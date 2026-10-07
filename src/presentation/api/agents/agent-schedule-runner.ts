@@ -19,7 +19,7 @@
  *    deliberately NOT gated by it. A scheduler that posted to its own
  *    `/schedule/trigger` over loopback would arrive with no session and be
  *    refused by the very grant the agent declares — which is exactly what
- * [internal ref] measures, and why the cron path calls
+ *    an AI agent schedule spec measures, and why the cron path calls
  *    {@link fireAgentSchedule} in-process instead, the way
  *    `registerAccountPurgeScheduler` calls `purgeDueAccounts` directly.
  *
@@ -69,8 +69,7 @@ const scheduleRequiresApproval = (agent: Agent): boolean => {
  * Run the scheduled task once: the AI round-trip carrying `taskPrompt` as the
  * user message, the token accounting that charges
  * it to the agent's daily budget, the activity-feed
- * attribution, and the approval decision
- *.
+ * attribution, and the approval decision.
  *
  * The caller owns the concurrency slot — see {@link fireAgentSchedule} and the
  * route handler.
@@ -127,7 +126,7 @@ export const runScheduledAgentTask = async (
  * The cron entry point: fire one scheduled run in-process, or skip it silently.
  *
  * Skips — rather than erroring — when the agent has no schedule, is disabled
- *, the deployment has no AI provider ([internal ref]: a
+ * the deployment has no AI provider (the inert-AI-agent boot rule: a
  * declared agent is then INERT, and recording an `agent.scheduled` row for a
  * run that reached no provider would report work the deployment cannot have
  * done), or the agent is already at `maxConcurrentTasks` — which is what stops
@@ -144,7 +143,6 @@ export const fireAgentSchedule = async (agent: Agent, services: DomainContext): 
   const limits = resolveAgentLimits(agent.limits)
   if (!acquireConcurrencySlot(agent.name, limits.maxConcurrentTasks)) return
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- the outcome is the scheduler's, not a caller's
     await runScheduledAgentTask(agent, schedule.taskPrompt, services)
   } finally {
     releaseConcurrencySlot(agent.name)

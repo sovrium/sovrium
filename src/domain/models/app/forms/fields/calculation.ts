@@ -10,8 +10,15 @@ import { commonFieldProps } from '../form-field-props'
 
 /**
  * Calculation field — read-only computed value derived from other fields.
- * The formula references other field names via `{{fieldName}}` template syntax.
+ *
+ * The formula is ONE template expression in the same `{{...}}` grammar the
+ * automation templates use — a bare field name (`{{quantity}}`) or a helper
+ * call over sibling field names (`{{round (multiply quantity unit_price) 2}}`).
+ * There is no separate formula language. The browser recomputes the value as
+ * its inputs change; the server recomputes it from the submitted inputs and
+ * refuses a submission whose value disagrees.
  */
+const SINGLE_TEMPLATE_EXPRESSION = /^\s*\{\{[^{}]+\}\}\s*$/
 export const CalculationFieldSchema = Schema.Struct({
   kind: Schema.Literal('calculation').annotate({
     description: 'Which kind of field this is. It decides which of the other keys apply.',
@@ -20,11 +27,11 @@ export const CalculationFieldSchema = Schema.Struct({
     description:
       'Identifier for this field within the form; it is the key the answer is stored and reported under.',
   }).pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
-  /** Formula expression — references other fields via {name} syntax. */
+  /** Formula — one `{{...}}` template expression over sibling field names. */
   formula: Schema.String.annotate({
     description:
-      'Expression computing the value, referring to other fields of the form as `{{fieldName}}`.',
-  }).pipe(Schema.check(Schema.isMinLength(1))),
+      'One template expression computing the value from other fields of the form, written in the `{{...}}` template grammar: a field name such as `{{quantity}}`, or a helper applied to field names such as `{{multiply quantity unit_price}}` or `{{round (divide total guests) 2}}`. Only the number helpers are available.',
+  }).pipe(Schema.check(Schema.isMinLength(1), Schema.isPattern(SINGLE_TEMPLATE_EXPRESSION))),
   /** Output format hint for the renderer. */
   format: Schema.optional(
     Schema.Literals(['number', 'currency', 'percent', 'text']).annotate({

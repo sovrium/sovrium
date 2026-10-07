@@ -14,16 +14,16 @@
  * `src/presentation/islands/island-registry.ts` owns the general story: there is
  * exactly ONE island entry module, and a browser fetches an ES module's entire
  * static import closure before evaluating a line of it, so a static `import`
- * there is eager for EVERY island-bearing page. Twelve of fourteen static
- * imports moved behind `import()` on 2026-09-01 and bought their timing
- * guarantee back with a runtime pass (`preloadIslandsWithin`).
+ * there is eager for EVERY island-bearing page. So most islands load behind
+ * `import()` and buy their timing guarantee back with a runtime pass
+ * (`preloadIslandsWithin`).
  *
- * Two could not follow. A runtime preload buys *"resolved before the mount
+ * Two cannot. A runtime preload buys *"resolved before the mount
  * pass"*, never *"resolved before `load`"*: the entry is a deferred module
  * script, its top-level `await` does not hold back the load event, and
  * `page.goto()` returns on `load`. The `crud-form` chunk pulls a sub-graph
  * (react-hook-form, zod, the field renderers), so it loses that race RELIABLY
- * rather than occasionally: measured 2026-09-02 over four runs with the preload
+ * rather than occasionally: measured over four runs with the preload
  * links suppressed, 8, 9, 9 and 10 of the seventeen specs in
  * `[internal ref]` failed —
  * against 17/17 passing on two runs with the links emitted.
@@ -50,12 +50,12 @@
  * href cannot be a constant. Only the `[name]` half is stable, and only because
  * Bun substitutes the BASENAME OF THE RESOLVED FILE — not of the import
  * specifier. That distinction is load-bearing rather than pedantic:
- * `import('./crud-form-island')` resolved to `crud-form-island/index.tsx` and
- * emitted `index-<hash>.js`, indistinguishable from the two other
- * directory-index chunks in the same build. The module was renamed to
- * `crud-form-island/crud-form-island.tsx` in the same commit so the emitted name
- * is unambiguous, and {@link resolveChunk} PROVES the match is unique on every
- * boot rather than trusting it.
+ * `import('./crud-form-island')` resolving to `crud-form-island/index.tsx` would
+ * emit `index-<hash>.js`, indistinguishable from the other directory-index
+ * chunks in the same build. The module is therefore named
+ * `crud-form-island/crud-form-island.tsx` so the emitted name is unambiguous,
+ * and {@link resolveChunk} PROVES the match is unique on every boot rather than
+ * trusting it.
  *
  * Resolution cannot run the other way (specifier -> file) at request time: the
  * compiled binary ships no `src/` to resolve against, only the emitted chunk
@@ -92,7 +92,7 @@ export type IslandPreloadManifest = Readonly<Record<string, readonly string[]>>
  * --------------------------------------------------------
  * The dev/watch path builds into `<tmpdir>/sovrium-islands-<pid>` — one
  * directory per PROCESS, not per build — and `Bun.build` does not clean its
- * `outdir` (measured 2026-09-22: building twice into one directory leaves both
+ * `outdir` (measured: building twice into one directory leaves both
  * builds' content-hashed chunks side by side). Every rebuild therefore ADDS a
  * `crud-form-island-<hash>.js` rather than replacing one, and a rebuild happens
  * on every request while `isDevCacheDisabled()` holds.
@@ -179,7 +179,6 @@ function collectStaticClosure(
 
   const visit = async (path: string): Promise<void> => {
     if (seen.has(path)) return
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the visited set IS the accumulator this walk exists to fill, and it is marked BEFORE the first await so two concurrent branches cannot both descend into one chunk
     seen.add(path)
 
     const source = await reader.read(path).catch(() => undefined)
@@ -216,7 +215,8 @@ function collectStaticClosure(
 function resolveChunk(
   files: readonly string[],
   islandType: string,
-  chunkName: string
+  chunkName: string,
+  bundle: string
 ): string | undefined {
   const escaped = chunkName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const pattern = new RegExp(`(?:^|/)${escaped}-[a-z0-9]+\\.js$`)
@@ -225,8 +225,8 @@ function resolveChunk(
   if (matches.length === 1) return matches[0]
 
   logError(
-    `[ISLANDS] preload manifest: expected exactly one chunk named "${chunkName}-<hash>.js" for ` +
-      `island "${islandType}", found ${matches.length}${matches.length > 0 ? ` (${matches.join(', ')})` : ''}. ` +
+    `[${bundle}] preload manifest: expected exactly one chunk named "${chunkName}-<hash>.js" for ` +
+      `"${islandType}", found ${matches.length}${matches.length > 0 ? ` (${matches.join(', ')})` : ''}. ` +
       `No modulepreload will be emitted for it, so its mount races the load event again — see ` +
       `src/infrastructure/assets/island-preload-manifest.ts. Most likely the island module was ` +
       `renamed (update PRELOADED_ISLAND_CHUNK_NAMES) or resolved to a directory index (give the ` +
@@ -241,21 +241,38 @@ function resolveChunk(
  * Chunks already in the ENTRY's own static closure are SUBTRACTED: the browser
  * fetches those as part of the entry's module graph regardless, so a link for
  * them would add `<head>` bytes and move nothing. What remains is exactly the
- * sub-graph that used to arrive too late.
+ * sub-graph that would otherwise arrive too late.
  *
  * @param reader - access to the emitted bundle
  * @param entryFile - the entry's path relative to the island asset root
  */
-export async function computeIslandPreloadManifest(
+export function computeIslandPreloadManifest(
   reader: IslandChunkReader,
   entryFile: string
+): Promise<IslandPreloadManifest> {
+  return computeChunkPreloadManifest(reader, entryFile, PRELOADED_ISLAND_CHUNK_NAMES, 'ISLANDS')
+}
+
+/**
+ * The same walk over any split bundle: each key of `chunkNames` → the chunks
+ * its `[name]` chunk needs before it can evaluate, minus the entry's own static
+ * closure. The client runtime resolves its features with it (`client-entries.ts`).
+ *
+ * @param chunkNames - key → the `[name]` Bun gave that key's chunk
+ * @param bundle - the label a resolution failure is logged under
+ */
+export async function computeChunkPreloadManifest(
+  reader: IslandChunkReader,
+  entryFile: string,
+  chunkNames: Readonly<Record<string, string>>,
+  bundle: string
 ): Promise<IslandPreloadManifest> {
   const files = await reader.list()
   const entryClosure = await collectStaticClosure(reader, entryFile)
 
   const entries = await Promise.all(
-    Object.entries(PRELOADED_ISLAND_CHUNK_NAMES).map(async ([islandType, chunkName]) => {
-      const chunk = resolveChunk(files, islandType, chunkName)
+    Object.entries(chunkNames).map(async ([islandType, chunkName]) => {
+      const chunk = resolveChunk(files, islandType, chunkName, bundle)
       if (chunk === undefined) return undefined
       const closure = await collectStaticClosure(reader, chunk)
       const needed = [...closure].filter((path) => !entryClosure.has(path)).toSorted()

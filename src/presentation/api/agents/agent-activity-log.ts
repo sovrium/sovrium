@@ -8,7 +8,7 @@
 /**
  * Agent-action activity log.
  *
- * [internal ref]: when an agent executes an action it must appear in
+ * When an agent executes an action it must appear in
  * activity monitoring with `actor_type = 'agent'` and `actor_name` set to the
  * agent's name. The `system.ai_activity_logs` feed carries this AI-interaction
  * monitoring data; it is distinct from the `system.activity_logs` CRUD audit

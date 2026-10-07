@@ -22,7 +22,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * `mode: 'async'` fires the callee fire-and-forget; the call step still
  * records `{ result: {} }` so subsequent actions stay total.
  *
- * Spec: [internal ref]..005 + REGRESSION.
+ * Spec: the automation action automation call specs + REGRESSION.
  */
 const fail = (error: string): Effect.Effect<ActionOutcome> =>
   Effect.succeed({ status: 'failure', error } as const satisfies ActionOutcome)
@@ -65,9 +65,9 @@ export const handleAutomationCall: ActionHandler = (action, _app, _automation, r
  *
  * Outside an `automation-call` context the payload simply has nowhere to
  * go — the action still succeeds (the run completes normally), matching
- * [internal ref] ("ineffective, not an error").
+ * an automation action automation return spec ("ineffective, not an error").
  *
- * Spec: [internal ref]..004 + REGRESSION.
+ * Spec: the automation action automation return specs + REGRESSION.
  */
 export const handleAutomationReturn: ActionHandler = (action) => {
   const props = (action['props'] ?? {}) as Readonly<Record<string, unknown>>

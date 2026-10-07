@@ -8,11 +8,10 @@
 /**
  * Single source of truth for the deployment's SECURITY POSTURE.
  *
- * Historically four independent security controls (CSRF enforcement, secure
- * cookies, outbound-URL SSRF guarding, and an encryption-key dev fallback since
- * removed) all keyed off `NODE_ENV === 'production'`. That coupled four
- * orthogonal concerns to one operational string: forgetting to set
- * `NODE_ENV=production` silently disabled all four. This module decouples each
+ * Independent security controls (CSRF enforcement, secure cookies,
+ * outbound-URL SSRF guarding) must not all key off `NODE_ENV === 'production'`:
+ * that couples orthogonal concerns to one operational string, so forgetting to
+ * set `NODE_ENV=production` would silently disable all of them. This module decouples each
  * control and gives each an individually-secure default with an explicit,
  * narrow opt-out.
  *
@@ -21,7 +20,7 @@
  *
  *   | Env var                         | Default  | Effect when set                       |
  *   | ------------------------------- | -------- | ------------------------------------- |
- *   | `SOVRIUM_ALLOW_INSECURE=1`      | secure   | master relax: cookies + CSRF + SSRF   |
+ *   | `SOVRIUM_ALLOW_INSECURE=1|true` | secure   | master relax: cookies + CSRF + SSRF   |
  *   | `SOVRIUM_ALLOW_PRIVATE_OUTBOUND`| SSRF on  | permit private/loopback outbound      |
  *   |                                 |          | targets (narrow)                      |
  *   | `BASE_URL` / `HOSTNAME`         | loopback | canonical origin / bind host —        |
@@ -43,17 +42,66 @@
 
 const env = process.env as Record<string, string | undefined>
 
-/** True when the env var is set to a non-empty value (an explicit opt-in). */
-const isFlagSet = (value: string | undefined): boolean => value !== undefined && value !== ''
+/**
+ * The two posture flags. Each is VALUE-keyed: `1` or `true` (any case, outer
+ * whitespace ignored) relaxes, empty or absent is the secure default, and any
+ * other value is refused at boot by {@link validatePostureFlags}.
+ *
+ * Presence-keyed reading was the defect this replaces: an operator who wrote
+ * `SOVRIUM_ALLOW_INSECURE=0` or `=false` to switch the relaxation OFF switched
+ * it ON, because any non-empty value counted as set.
+ */
+const POSTURE_FLAGS = {
+  SOVRIUM_ALLOW_INSECURE: 'relax the security posture',
+  SOVRIUM_ALLOW_PRIVATE_OUTBOUND: 'permit private and loopback outbound targets',
+} as const
+
+type PostureFlag = keyof typeof POSTURE_FLAGS
+
+/** How one posture-flag value reads: relaxing, the secure default, or refused. */
+const readPostureFlag = (value: string | undefined): 'relaxed' | 'secure' | 'invalid' => {
+  const trimmed = (value ?? '').trim()
+  if (trimmed === '') return 'secure'
+  return /^(?:1|true)$/i.test(trimmed) ? 'relaxed' : 'invalid'
+}
+
+/** The one predicate every read site of a posture flag goes through. */
+const isFlagSet = (flag: PostureFlag): boolean => readPostureFlag(env[flag]) === 'relaxed'
 
 /**
- * Master insecure opt-out (`SOVRIUM_ALLOW_INSECURE=1`). When set, every
+ * The boot refusal for a posture flag holding a value that is neither `1`,
+ * `true` nor empty, or `undefined` when both flags are usable.
+ *
+ * ONE line naming the variable, the value in double quotes and the accepted
+ * values, so an operator who wrote `0` meaning "off" learns on the first boot
+ * that the variable is switched off by removing it. Pure in `source` so the
+ * server boot and `sovrium init --from-url` refuse with the same words.
+ */
+export const validatePostureFlags = (
+  source: Readonly<Record<string, string | undefined>> = env
+): string | undefined => {
+  const refused = (Object.keys(POSTURE_FLAGS) as readonly PostureFlag[]).find(
+    (flag) => readPostureFlag(source[flag]) === 'invalid'
+  )
+  if (refused === undefined) return undefined
+  return `${refused} must be 1 or true to ${POSTURE_FLAGS[refused]}, or unset; "${source[refused] ?? ''}" is not accepted.`
+}
+
+/**
+ * Master insecure opt-out (`SOVRIUM_ALLOW_INSECURE=1` or `true`). When set, every
  * narrower control relaxes: insecure cookies + CSRF off + private outbound
  * allowed. Intended for trusted private/local deployments where the operator has
  * explicitly accepted the relaxed posture. It no longer governs the encryption
  * key — there is nothing left to relax there.
  */
-export const isInsecureOptOut = (): boolean => isFlagSet(env['SOVRIUM_ALLOW_INSECURE'])
+export const isInsecureOptOut = (): boolean => isFlagSet('SOVRIUM_ALLOW_INSECURE')
+
+/**
+ * The narrow private-outbound opt-out ALONE (`SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`
+ * or `true`), without the master flag: what the plain-`http` rule for a
+ * private host reads in `init --from-url` and its redirect follower.
+ */
+export const isPrivateOutboundOptIn = (): boolean => isFlagSet('SOVRIUM_ALLOW_PRIVATE_OUTBOUND')
 
 /**
  * True when `host` is a loopback / non-routable bind that only the local
@@ -70,9 +118,9 @@ export const isInsecureOptOut = (): boolean => isFlagSet(env['SOVRIUM_ALLOW_INSE
  * protection disabled and session cookies served without `Secure` — on the
  * most exposed bind there is.
  *
- * The codebase already carried the correct twin: `isLoopbackOrigin`
- * (`server/route-setup/auth-routes.ts`) accepts only `localhost`, `127.0.0.1`
- * and `[::1]`, and has never accepted `0.0.0.0`. The two helpers now agree.
+ * {@link isLoopbackOrigin}, which decides whether the relaxed posture may
+ * reflect a CORS origin, parses the origin and asks THIS function about its
+ * hostname, so the two cannot drift.
  *
  * Empty / undefined → treated as loopback (the unset dev default; `server.ts`
  * itself falls back to `localhost` when no hostname is configured).
@@ -90,22 +138,45 @@ const stripIpv6Brackets = (host: string): string =>
   host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
 
 /**
- * Resolve the effective bind/canonical hostname used to decide transport
- * posture. Precedence (most-specific first):
- *   1. `explicit` (the `ServerConfig.hostname` passed by the caller),
- *   2. the host of a configured `BASE_URL` canonical origin,
+ * Whether `origin` is a plain-HTTP loopback origin (`http://localhost:3000`,
+ * `http://127.0.0.1`, `http://[::1]:5173`).
+ *
+ * The origin is PARSED and its hostname compared exactly against the loopback
+ * set, never matched by prefix: `http://localhost.evil.com` starts with
+ * `http://localhost` and is a public host anyone can register.
+ */
+export const isLoopbackOrigin = (origin: string): boolean => {
+  try {
+    const parsed = new URL(origin)
+    return parsed.protocol === 'http:' && parsed.hostname !== '' && isLoopbackHost(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The host of the declared canonical origin (`BASE_URL`), or `undefined` when
+ * it is unset or not a URL.
+ */
+export const resolveCanonicalHost = (): string | undefined => parseHostFromUrl(env['BASE_URL'])
+
+/**
+ * Resolve the effective canonical hostname used to decide transport posture.
+ * Precedence (the declared public origin first):
+ *   1. the host of a configured `BASE_URL` canonical origin,
+ *   2. `bindHost` (the `ServerConfig.hostname` the socket actually bound),
  *   3. the `HOSTNAME` env var,
  *   4. `localhost` (the dev default).
  *
- * Mirrors `server.ts` (`config.hostname ?? Bun.env.HOSTNAME || 'localhost'`)
- * and `auth.ts` (`BASE_URL || http://localhost:PORT`) but folds the canonical
- * `BASE_URL` origin in so a public deployment that sets only `BASE_URL`
- * (without `HOSTNAME`) is still classified non-loopback. See the HARNESS NOTE.
+ * `BASE_URL` outranks the bind because it is what browsers reach: behind a
+ * reverse proxy the socket binds loopback while the public origin is https,
+ * and the posture — and the warnings that name it — must follow the origin.
+ * See the HARNESS NOTE.
  */
-export const resolveBindHostname = (explicit?: string): string => {
-  if (explicit !== undefined && explicit !== '') return explicit
-  const baseUrlHost = parseHostFromUrl(env['BASE_URL'])
+export const resolveBindHostname = (bindHost?: string): string => {
+  const baseUrlHost = resolveCanonicalHost()
   if (baseUrlHost !== undefined) return baseUrlHost
+  if (bindHost !== undefined && bindHost !== '') return bindHost
   const hostnameEnv = env['HOSTNAME']
   if (hostnameEnv !== undefined && hostnameEnv !== '') return hostnameEnv
   return 'localhost'
@@ -126,32 +197,26 @@ const parseHostFromUrl = (rawUrl: string | undefined): string | undefined => {
  * `BASE_URL`/`HOSTNAME` → NOT relaxed (the secure default): secure cookies +
  * CSRF enforced.
  */
-export const isTransportRelaxed = (bindHost?: string): boolean =>
-  isInsecureOptOut() || isLoopbackHost(resolveBindHostname(bindHost))
+export const isTransportRelaxed = (): boolean =>
+  isInsecureOptOut() || isLoopbackHost(resolveBindHostname())
 
 /**
  * SSRF guarding is ALWAYS ON. It relaxes only under the narrow
- * `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` opt-out (or the master
+ * `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` (or `true`) opt-out (or the master
  * `SOVRIUM_ALLOW_INSECURE`). Crucially this is INDEPENDENT of the bind host —
  * a loopback-bound dev server still blocks private outbound targets unless the
  * operator opts in. The E2E harness sets the opt-out in `global-setup.ts` so
  * the webhook/http suites can reach `127.0.0.1:42xx`.
  */
-export const isSsrfRelaxed = (): boolean =>
-  isInsecureOptOut() || isFlagSet(env['SOVRIUM_ALLOW_PRIVATE_OUTBOUND'])
+export const isSsrfRelaxed = (): boolean => isInsecureOptOut() || isPrivateOutboundOptIn()
 
-// The encryption-key surface that used to live here — `isDevKeyAllowed`,
-// `isEncryptionKeyMissing` and `ENCRYPTION_KEY_REQUIRED_MESSAGE` — is gone.
+// There is no encryption-key posture here: no "key missing" predicate and no
+// opt-in to a deterministic built-in key. The key is provisioned per install
+// (`infrastructure/crypto/root-secret.ts`) — env var, else
+// `<dataDir>/encryption-key`, else generate-and-persist — so there is no
+// missing-key state to predicate on and no opt-out to grant.
 //
-// All three encoded one contract: that a deployment could be MISSING an
-// encryption key, that it could opt into a deterministic built-in key instead,
-// and that the right answer to neither being present was to refuse to boot. The
-// key is now provisioned per install (`infrastructure/crypto/root-secret.ts`) —
-// env var, else `<dataDir>/encryption-key`, else generate-and-persist — so there
-// is no missing-key state left to predicate on and no opt-out left to grant.
-//
-// The constant the opt-out selected was public: all of `src/` is mirrored to a
-// public repository and compiled into every shipped binary, which made it a
-// worse outcome than the refusal it was meant to soften. The unwritable-data-dir
-// refusal that replaced it lives in the root-secret module, beside the write it
-// describes...009 and [internal ref].
+// A built-in key would be public: all of `src/` is mirrored to a public
+// repository and compiled into every shipped binary. The one refusal left — an
+// unwritable data directory — lives in the root-secret module, beside the write
+// it describes.

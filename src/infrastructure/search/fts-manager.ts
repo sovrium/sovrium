@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { logInfo } from '@/infrastructure/logging/logger'

@@ -208,11 +208,103 @@ export const generateAppJsonSchema = (): Readonly<Record<string, unknown>> => {
   const schema: Readonly<Record<string, unknown>> = {
     $id: APP_JSON_SCHEMA_ID,
     $schema: APP_JSON_SCHEMA_DIALECT_URI,
-    ...(document.schema as unknown as Record<string, unknown>),
+    ...(document.schema as Record<string, unknown>),
     $defs: document.definitions,
   }
 
   assertWalkable(schema)
 
   return schema
+}
+
+/** One file of the split schema: its path relative to the entry point, and its document. @public */
+export interface SplitSchemaFile {
+  readonly path: string
+  readonly document: Readonly<Record<string, unknown>>
+}
+
+/**
+ * The definitions file every per-key file references, beside them.
+ *
+ * Underscore-prefixed so it sorts apart from the per-key files and can never
+ * collide with one: no top-level config key starts with `_`.
+ */
+const SHARED_DEFINITIONS_FILE = '_defs.json'
+
+/** Every `$ref` in `node` rewritten by `rewrite`; data keywords left untouched. Pure. */
+const rewriteRefs = (node: unknown, rewrite: (ref: string) => string): unknown => {
+  if (Array.isArray(node)) return node.map((item) => rewriteRefs(item, rewrite))
+  if (node === null || typeof node !== 'object') return node
+  return Object.fromEntries(
+    Object.entries(node as Record<string, unknown>).map(([key, value]) => {
+      if (key === '$ref' && typeof value === 'string') return [key, rewrite(value)]
+      // A `$ref` inside an example or an enum is data, not a reference.
+      if (key === 'enum' || key === 'const' || key === 'examples' || key === 'default') {
+        return [key, value]
+      }
+      return [key, rewriteRefs(value, rewrite)]
+    })
+  )
+}
+
+/**
+ * Split the published schema into an entry point and one file per top-level key.
+ *
+ * WHY. A `$ref` partial holds ONE section of a config — `tables.yaml` is the
+ * value of `tables` — and the full schema describes a whole file, so an editor
+ * had no schema to point such a partial at. `<dir>/<name>/tables.json` is
+ * exactly the schema of that value.
+ *
+ * SHAPE, for `name` = `app`:
+ *
+ * - `app.index.json` — the root schema with each property replaced by
+ *   `{ "$ref": "app/<key>.json" }`. Equivalent to the full schema.
+ * - `app/<key>.json` — the schema of that key's value, equivalent to
+ *   `app.json#/properties/<key>`.
+ * - `app/_defs.json` — the shared definitions, ONCE. Per-key files reference it
+ *   by relative path rather than each carrying a copy, which would multiply a
+ *   ~1 MB block by the number of keys.
+ *
+ * No split file declares an `$id`: relative references resolve against the
+ * file's own location on disk, and an absolute `$id` would send them to the
+ * network instead. Each keeps `$schema`, so an editor knows the dialect. Pure.
+ */
+export const splitAppJsonSchema = (
+  schema: Readonly<Record<string, unknown>>,
+  name: string
+): readonly SplitSchemaFile[] => {
+  const { $defs, properties } = schema
+  const root = Object.fromEntries(
+    Object.entries(schema).filter(
+      ([key]) => key !== '$id' && key !== '$defs' && key !== 'properties'
+    )
+  )
+  const keys = Object.keys((properties ?? {}) as Record<string, unknown>)
+  const toSharedDefinitions = (ref: string): string =>
+    ref.startsWith('#/$defs/') ? `${SHARED_DEFINITIONS_FILE}${ref}` : ref
+  const dialect = { $schema: APP_JSON_SCHEMA_DIALECT_URI }
+
+  const index: SplitSchemaFile = {
+    path: `${name}.index.json`,
+    document: {
+      ...root,
+      properties: Object.fromEntries(keys.map((key) => [key, { $ref: `${name}/${key}.json` }])),
+    },
+  }
+  const perKey = keys.map((key): SplitSchemaFile => ({
+    path: `${name}/${key}.json`,
+    document: {
+      ...dialect,
+      ...(rewriteRefs((properties as Record<string, unknown>)[key], toSharedDefinitions) as Record<
+        string,
+        unknown
+      >),
+    },
+  }))
+  const definitions: SplitSchemaFile = {
+    path: `${name}/${SHARED_DEFINITIONS_FILE}`,
+    // `#/$defs/...` inside the definitions resolves within this same file.
+    document: { ...dialect, $defs },
+  }
+  return [index, ...perKey, definitions]
 }

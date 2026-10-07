@@ -6,7 +6,12 @@
  */
 
 import { DEFAULT_QUALITY } from '@/domain/models/app/buckets/image-transform-params'
-import { MIME_BY_IMAGE_FORMAT, runImagePipeline, type ImageOutputFormat } from './bun-image'
+import {
+  IMAGE_TOO_LARGE_CODE,
+  MIME_BY_IMAGE_FORMAT,
+  runImagePipeline,
+  type ImageOutputFormat,
+} from './bun-image'
 import type {
   TransformFormat,
   TransformParams,
@@ -15,17 +20,16 @@ import type {
 /**
  * On-the-fly image transforms for the bucket download route, over `Bun.Image`.
  *
- * ## What changed, and why it is the whole point
+ * ## Why there is no "graceful" fallback
  *
- * This module used to lazily `import('sharp')` and, on ANY failure, return the
- * original bytes with an `undefined` format — described at the time as
- * "graceful by design". In the compiled binary that import ALWAYS failed
- * (a native `.node` addon cannot be read out of `$bunfs`), so the graceful path
- * was the only path: every transform request answered `200` with the stored
- * image, and no assertion on the response envelope could tell the difference.
+ * A native image library loaded with a lazy `import()` cannot work in the
+ * compiled binary (a native `.node` addon cannot be read out of `$bunfs`). A
+ * fallback returning the original bytes on ANY failure would then be the only
+ * path: every transform request would answer `200` with the stored image, and
+ * no assertion on the response envelope could tell the difference.
  *
- * `Bun.Image` removes the reason the fallback existed, and the fallback itself
- * is gone: a transform that cannot be performed is now REPORTED.
+ * `Bun.Image` is part of the runtime, so no such fallback is needed, and there
+ * is none: a transform that cannot be performed is REPORTED.
  */
 
 /** Concrete output formats the pipeline transcodes to (excludes `origin`). */
@@ -50,15 +54,18 @@ export interface ImageTransformSuccess {
  * - `undecodable` — the stored bytes are not an image this pipeline can read
  * - `unsupported-format` — the runtime rejected the requested encoder
  *   (`ERR_IMAGE_FORMAT_UNSUPPORTED`)
+ * - `too-large` — the header declares more pixels than the pipeline decodes;
+ *   refused before decoding, so the file costs nothing but its header read
  * - `failed` — anything else
  *
- * `unsupported-format` survives the AVIF withdrawal deliberately. Every format
- * still on the surface is statically linked in both `Bun.Image` backends, so
- * nothing here PREDICTS an unavailable encoder any more — but the runtime can
+ * `unsupported-format` exists deliberately. Every format on the surface is
+ * statically linked in both `Bun.Image` backends, so nothing here PREDICTS an
+ * unavailable encoder — but the runtime can
  * still raise that code, and mapping it to a 400 an operator can read beats
  * letting it fall through to a 500.
  */
-export type ImageTransformFailureReason = 'undecodable' | 'unsupported-format' | 'failed'
+export type ImageTransformFailureReason =
+  'undecodable' | 'unsupported-format' | 'too-large' | 'failed'
 
 /** A transform that could not be produced, for the route to turn into HTTP. */
 export interface ImageTransformFailure {
@@ -76,11 +83,10 @@ export const mimeForFormat = (format: OutputFormat): string => MIME_BY_IMAGE_FOR
 /**
  * Modern formats offered by `Accept`-header negotiation, best first.
  *
- * AVIF used to head this list, filtered through a runtime encodability check so
- * a machine without an AV1 encoder fell through to WebP. Both are gone with the
- * format itself: WebP is encodable on every `Bun.Image` backend, so the filter
- * could no longer return false for any candidate — a branch no test and no
- * production request could ever take.
+ * There is no AVIF entry and no runtime encodability filter: Linux `Bun.Image`
+ * has no AV1 encoder, and WebP is encodable on every `Bun.Image` backend, so
+ * such a filter could never return false for any candidate — a branch no test
+ * and no production request could ever take.
  *
  * The list stays a list rather than collapsing to a constant because
  * negotiation is genuinely ordered: a second modern format re-enters here, and
@@ -136,6 +142,7 @@ const failureReasonFor = (error: unknown): ImageTransformFailureReason => {
     return 'undecodable'
   }
   if (code === 'ERR_IMAGE_FORMAT_UNSUPPORTED') return 'unsupported-format'
+  if (code === IMAGE_TOO_LARGE_CODE) return 'too-large'
   return 'failed'
 }
 

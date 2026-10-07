@@ -11,8 +11,7 @@
    files produces awkward circular helpers without an HMR benefit, since the
    field components are not used as JSX leaves anywhere else. */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop,
-                  react-perf/jsx-no-new-array-as-prop --
+/* eslint-disable react-perf/jsx-no-new-array-as-prop --
    Field dispatcher: each per-type field component receives fresh `onChange`
    and option arrays per render because the parent form passes them via the
    field def. Lifting these out requires restructuring the form state model,
@@ -24,9 +23,10 @@ import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-typ
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
 import { RecordButton } from '../../runtime/record-button'
 import { CodeFieldBoundary } from './code-field-boundary'
-import { CONTROL_CLASS, LABEL_CLASS } from './field-chrome-classes'
-import { type ConditionRule, type FieldDef, labelOf } from './field-def'
+import { CONTROL_CLASS } from './field-chrome-classes'
+import { type FieldDef, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
+import { LabelledControl } from './field-label'
 import { FileField } from './file-field'
 import { RecordPickerField } from './record-picker-field'
 import { RichTextFieldBoundary } from './rich-text-field-boundary'
@@ -40,7 +40,7 @@ import {
 } from './typed-fields'
 
 // Re-exported so existing importers of `crud-form/fields` keep working.
-export { type ConditionRule, type FieldDef, labelOf }
+export { type FieldDef, labelOf }
 
 interface FieldInputProps {
   readonly name: string
@@ -63,25 +63,26 @@ function TextAreaField({
   invalid,
 }: FieldInputProps & { readonly field: FieldDef; readonly invalid?: boolean }) {
   return (
-    <label
+    <LabelledControl
       key={field.name}
-      className={LABEL_CLASS}
-    >
-      {labelOf(field)}
-      <textarea
-        name={field.name}
-        value={value}
-        onChange={(e) => onChange(field.name, e.target.value)}
-        className={CONTROL_CLASS}
-        {...(field.placeholder && { placeholder: field.placeholder })}
-        {...(field.readOnly && { readOnly: true })}
-        {...(field.disabled && { disabled: true })}
-        {...(field.required && { required: true })}
-        {...(invalid && { 'aria-invalid': 'true' })}
-        {...fieldDescribedBy(field)}
-      />
-      <FieldHelpText field={field} />
-    </label>
+      label={labelOf(field)}
+      help={<FieldHelpText field={field} />}
+      control={(id) => (
+        <textarea
+          id={id}
+          name={field.name}
+          value={value}
+          onChange={(e) => onChange(field.name, e.target.value)}
+          className={CONTROL_CLASS}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.readOnly && { readOnly: true })}
+          {...(field.disabled && { disabled: true })}
+          {...(field.required && { required: true })}
+          {...(invalid && { 'aria-invalid': 'true' })}
+          {...fieldDescribedBy(field)}
+        />
+      )}
+    />
   )
 }
 
@@ -93,37 +94,38 @@ function SelectField({
   invalid,
 }: FieldInputProps & {
   readonly field: FieldDef
-  readonly options: readonly string[]
+  readonly options: NonNullable<FieldDef['options']>
   readonly invalid?: boolean
 }) {
   return (
-    <label
+    <LabelledControl
       key={field.name}
-      className={LABEL_CLASS}
-    >
-      {labelOf(field)}
-      <select
-        name={field.name}
-        value={value}
-        onChange={(e) => onChange(field.name, e.target.value)}
-        className={CONTROL_CLASS}
-        {...(field.disabled && { disabled: true })}
-        {...(field.required && { required: true })}
-        {...(invalid && { 'aria-invalid': 'true' })}
-        {...fieldDescribedBy(field)}
-      >
-        <option value="">Select...</option>
-        {options.map((opt) => (
-          <option
-            key={opt}
-            value={opt}
-          >
-            {opt}
-          </option>
-        ))}
-      </select>
-      <FieldHelpText field={field} />
-    </label>
+      label={labelOf(field)}
+      help={<FieldHelpText field={field} />}
+      control={(id) => (
+        <select
+          id={id}
+          name={field.name}
+          value={value}
+          onChange={(e) => onChange(field.name, e.target.value)}
+          className={CONTROL_CLASS}
+          {...(field.disabled && { disabled: true })}
+          {...(field.required && { required: true })}
+          {...(invalid && { 'aria-invalid': 'true' })}
+          {...fieldDescribedBy(field)}
+        >
+          <option value="">Select...</option>
+          {options.map((opt) => (
+            <option
+              key={opt.value}
+              value={opt.value}
+            >
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      )}
+    />
   )
 }
 
@@ -170,26 +172,27 @@ function TypedInputField({
   readonly invalid?: boolean
 }) {
   return (
-    <label
+    <LabelledControl
       key={field.name}
-      className={LABEL_CLASS}
-    >
-      {labelOf(field)}
-      <input
-        type={inputType}
-        name={field.name}
-        value={value}
-        onChange={(e) => onChange(field.name, e.target.value)}
-        className={CONTROL_CLASS}
-        {...(field.required && { required: true, 'data-required': 'true' })}
-        {...(field.placeholder && { placeholder: field.placeholder })}
-        {...(field.readOnly && { readOnly: true })}
-        {...(field.disabled && { disabled: true })}
-        {...(invalid && { 'aria-invalid': 'true' })}
-        {...fieldDescribedBy(field)}
-      />
-      <FieldHelpText field={field} />
-    </label>
+      label={labelOf(field)}
+      help={<FieldHelpText field={field} />}
+      control={(id) => (
+        <input
+          id={id}
+          type={inputType}
+          name={field.name}
+          value={value}
+          onChange={(e) => onChange(field.name, e.target.value)}
+          className={CONTROL_CLASS}
+          {...(field.required && { required: true, 'data-required': 'true' })}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.readOnly && { readOnly: true })}
+          {...(field.disabled && { disabled: true })}
+          {...(invalid && { 'aria-invalid': 'true' })}
+          {...fieldDescribedBy(field)}
+        />
+      )}
+    />
   )
 }
 
@@ -235,9 +238,8 @@ interface FieldRenderArgs {
   readonly onChange: FieldInputProps['onChange']
   readonly invalid: boolean
   /**
-   * The record the form is bound to, when there is one. A create form has no
-   * record yet, so an automation button renders disabled there — there is
-   * nothing to run it against until the row exists.
+   * The record the form is bound to, when there is one. Without one an
+   * automation button renders disabled — there is nothing to run it against.
    */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
 }

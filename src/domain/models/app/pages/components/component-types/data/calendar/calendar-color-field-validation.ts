@@ -7,7 +7,7 @@
 
 /**
  * A calendar's `colorField` names ONE option: an event takes one colour, from
- * the option its record holds. A `multi-select` holds several, and used to be
+ * the option its record holds. A `multi-select` holds several, and would be
  * painted as the joined value ("YouTube,Blog") from the hashed palette with no
  * word — so it is refused wherever a config is read, naming the field.
  *

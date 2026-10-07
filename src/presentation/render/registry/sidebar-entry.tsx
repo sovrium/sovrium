@@ -10,8 +10,6 @@ import {
   computeSidebarDisclosureListClasses,
   computeSidebarDisclosureRowClasses,
   computeSidebarDisclosureStateClasses,
-  computeSidebarEntryClasses,
-  computeSidebarSubEntryClasses,
   type SidebarRailBreakpoint,
 } from '@/presentation/design/sidebar-default-classes'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
@@ -26,6 +24,7 @@ import {
   renderBadge,
   renderChevronToggle,
   renderToggleRow,
+  sidebarEntryClasses,
   toggleRowPayload,
   type DisclosureState,
 } from './sidebar-entry-parts'
@@ -40,6 +39,8 @@ import type {
 export interface SidebarI18n {
   readonly currentLang: string | undefined
   readonly languages: Languages | undefined
+  /** The author's classes by part (`nav`, `link`, `groupLabel`, `badge`), states folded in. */
+  readonly parts?: Readonly<Record<string, string>>
 }
 
 /** Default toggle names, both carrying the `{label}` a fixed string cannot. */
@@ -134,16 +135,14 @@ export function renderEntry(
       href={item.href}
       data-sidebar-entry=""
       data-active-match={item.activeMatch ?? 'exact'}
-      className={
-        isNested ? computeSidebarSubEntryClasses(isCurrent) : computeSidebarEntryClasses(isCurrent)
-      }
+      className={sidebarEntryClasses(isNested, isCurrent, i18n.parts?.['link'])}
       {...(isCurrent ? { 'aria-current': 'page' as const } : {})}
       {...railTitle(rail, label, authoredTitle)}
     >
       {item.icon !== undefined &&
         renderIcon({ name: item.icon, size: 16, 'aria-hidden': 'true' }, [])}
       <span>{label}</span>
-      {renderBadge((item as SidebarNavItem).badge)}
+      {renderBadge((item as SidebarNavItem).badge, i18n.parts?.['badge'])}
     </a>
   )
 }

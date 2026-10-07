@@ -32,6 +32,17 @@ scheduled post whose date has come goes live on its own. A comment arrives Held 
 under its essay once the editor sets it to Approved. Nobody can open an account; the editor
 comes from `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD`.
 
+When a comment arrives, a language model sorts it — a question, a correction, praise or
+spam — and the desk shows that beside it; it labels only, the editor still decides. The
+model is the one `AI_PROVIDER` names (a local Ollama by default): with no provider set the
+comment keeps no label, and the run says why on the admin console's Runs page.
+
+Under the essays, readers can subscribe to the newsletter; the addresses stay in your own
+`subscribers` table. Optional: each address is also sent to Brevo as a contact, for the
+sending. It is the `form-to-brevo` recipe from the Sovrium library (`sovrium library add
+recipe/form-to-brevo`); set `BREVO_API_KEY` to turn it on — without it the app runs exactly
+the same.
+
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
 application code. Rename the publication in `config/pages/`, replace the essays in `seed/`.
 
@@ -57,6 +68,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

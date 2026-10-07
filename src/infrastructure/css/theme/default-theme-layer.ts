@@ -28,7 +28,7 @@
  *
  *     MOST roles now resolve to the neutral default DIRECTLY, because reading
  *     the matching `--color-*` name back would form a custom-property CYCLE
- * once that name became a registered canonical alias — see the
+ *     once that name became a registered canonical alias — see the
  *     per-role notes in the block itself. Only six roles still read a
  *     `--color-*` key as an intermediate rung: `--sv-focus-ring`
  *     (`--color-ring`), the four `-solid` status roles (`--color-success` /

@@ -308,7 +308,7 @@ export const checkBlocks = (
           },
         ]
 
-  // Layer B counts toward the verdict. [internal ref] names "a type coercion over
+  // Layer B counts toward the verdict. The two-machine `sovrium migrate` design names "a type coercion over
   // populated rows" as the dynamic migrator's failure class, so printing
   // "Safe to migrate." over one would be the under-reporting that decision
   // classes as a defect rather than a limitation.

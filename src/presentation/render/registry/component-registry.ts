@@ -11,24 +11,30 @@ import { commandPaletteComponent } from './command-palette-component'
 import { designComponents } from './design-components'
 import { displayComponents } from './display-components'
 import { favoritesButtonComponent } from './favorites-button-component'
+import { filePreviewComponent } from './file-preview-component'
 import { interactiveComponents } from './interactive-components'
 import { islandComponents } from './island-components'
 import { islandGraphComponent } from './island-graph-component'
+import { mapComponent } from './map-component'
 import { marqueeComponent } from './marquee-component'
 import { matrixComponent } from './matrix-component'
 import { mediaComponents } from './media-components'
 import { navigationComponents } from './navigation-components'
 import { progressComponent } from './progress-component'
+import { ratingComponent } from './rating-component'
 import { recordFieldComponent } from './record-field-component'
 import { reorderableListComponent } from './reorderable-list-component'
+import { signaturePadComponent } from './signature-pad-component'
 import { skeletonComponent } from './skeleton-component'
 import { commentsComponent } from './social-components'
 import { specialComponents } from './special-components'
 import { splitPaneComponent } from './split-pane-component'
+import { stepperComponent } from './stepper-component'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
 import { themeToggleComponent } from './theme-toggle-component'
 import { tocComponent } from './toc-component'
+import { treeComponent } from './tree-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
@@ -87,6 +93,12 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   // marker hydrates the drag-to-resize behaviour in place.
   'split-pane': splitPaneComponent,
   'record-field': recordFieldComponent,
+  stepper: stepperComponent,
+  rating: ratingComponent,
+  'file-preview': filePreviewComponent,
+  'signature-pad': signaturePadComponent,
+  tree: treeComponent,
+  map: mapComponent,
   progress: progressComponent,
   skeleton: skeletonComponent,
   'reorderable-list': reorderableListComponent,

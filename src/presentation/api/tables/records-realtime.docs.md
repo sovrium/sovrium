@@ -2,7 +2,7 @@
 
 > How a data-bound view stays current without a reload — the three refresh strategies, the endpoints behind them, and the message contract a programmatic client reads.
 
-A data source declares a `refreshMode` and the engine does the rest: `poll` re-fetches on an interval, `realtime` opens a WebSocket with a Server-Sent-Events fallback and applies change events as they arrive. External integrations subscribe through the same endpoints.
+A data source declares a `refreshMode` and the engine does the rest: `poll` re-fetches on an interval, `realtime` subscribes to the table's change feed and reads again as change events arrive. External integrations subscribe through the same endpoints.
 
 | Endpoint                                 | What it is                                                |
 | ---------------------------------------- | --------------------------------------------------------- |
@@ -16,13 +16,13 @@ A subscription is always to ONE table. There is no endpoint that subscribes to e
 
 ## Choosing a refresh strategy
 
-`refreshMode` sits on any component's `dataSource` and accepts three values.
+`refreshMode` sits on a component's `dataSource` and accepts three values.
 
-| `refreshMode` | Behaviour                                                         |
-| ------------- | ----------------------------------------------------------------- |
-| `none`        | Fetch once when the page renders. The default                     |
-| `poll`        | Re-fetch on an interval, with no connection to manage             |
-| `realtime`    | Open a WebSocket and apply change events as the server emits them |
+| `refreshMode` | Behaviour                                                    |
+| ------------- | ------------------------------------------------------------ |
+| `none`        | Fetch once when the page renders. The default                |
+| `poll`        | Re-fetch on an interval, with no connection to manage        |
+| `realtime`    | Follow the table's change feed and read again on each change |
 
 ```yaml
 pages:
@@ -53,9 +53,40 @@ dataSource:
 
 `pollIntervalMs` falls back to 30 seconds and accepts 1,000 to 300,000 — a floor that stops a mistyped interval from turning one page into a load test. It is ignored outside `poll` mode rather than refused, so leaving it in place while switching to `realtime` is harmless.
 
+### Which components follow it
+
+The components drawn in the browser follow their table: a `table` bound to its table, a `list` drawn with `listDisplay.itemTemplate`, a `kanban`, a `kpi` and a `chart`. On a change, each reads again exactly what it read on load — a KPI and a chart their aggregate figure, a list, a board and a grid their rows — so a live dashboard keeps the read cost it had.
+
+```yaml
+pages:
+  - name: Inbox
+    path: /inbox
+    components:
+      - type: list
+        dataSource: { table: conversations, refreshMode: realtime }
+        listDisplay:
+          itemTemplate: { title: $record.contact, subtitle: $record.last_message }
+      - type: kpi
+        label: Unread
+        dataSource:
+          table: conversations
+          filter:
+            - { field: unread, operator: eq, value: true }
+          refreshMode: realtime
+        kpiAggregate: { function: count }
+```
+
+In `realtime` mode a list, a board, a KPI and a chart read again when the feed announces a change and once each time the feed reconnects, which covers a change made while it was between streams. They read on a 3-second interval only while the feed is not connected: while it first opens, during a reconnect, or after the browser gives up on it. A `table` in `realtime` mode also reads every 3 seconds while connected. The difference shows on a write made straight to the database, outside the engine, which the feed never announces: a `table` shows it within a few seconds, while a list, a board, a KPI and a chart show it only at the next change on that table or the next reconnect. This keeps a live dashboard inside the limit of 100 table reads a minute per client address, which a 3-second interval on every component would quickly spend.
+
+Rows the server draws cannot follow a change, because no script runs for them: a `container` with a `dataSource`, and a `list` whose rows come from `children`. `sovrium validate` refuses `refreshMode` on them; draw the same rows as a `list` with `listDisplay.itemTemplate` to have them live. A `table` bound to one of its table's views does not refresh on its own, whatever its `refreshMode`: it keeps the view's rows as they were when the page loaded. The other data components — a search-mode list, a gallery, a calendar, a timeline, a map, a matrix, a tree and a graph — do not read `refreshMode` yet.
+
+### One subscription per table
+
+Components that follow the same table on one page share one subscription to it: a KPI, a chart, a board and a list over `deals` cost one connection, not four. Components over two tables cost two. Each signed-in person may hold ten at once (see [Connection budget](#connection-budget)), so what counts is how many tables a page follows in `realtime` mode, times the tabs open on it — not how many components it has.
+
 ## What the stream carries
 
-`refreshMode: realtime` opens a socket to the table's subscribe endpoint. The server pushes every committed change from **any** source, not only from the client that is listening: a single-record write, a batch create, update, delete or restore, an upsert, a restore from the trash, a hosted form submission, an automation step, an MCP tool call, and the child rows a delete cascades to (a cascaded soft delete arrives as a `delete` on the child table, a cascaded set-null as an `update`).
+`refreshMode: realtime` subscribes to the table's subscribe endpoint, over Server-Sent Events. The server pushes every committed change from **any** source, not only from the client that is listening: a single-record write, a batch create, update, delete or restore, an upsert, a restore from the trash, a hosted form submission, an automation step, an MCP tool call, and the child rows a delete cascades to (a cascaded soft delete arrives as a `delete` on the child table, a cascaded set-null as an `update`).
 
 ```json
 { "type": "change", "event": "insert", "record": { "id": "42", "fields": {} } }
@@ -130,4 +161,4 @@ Realtime drives an optimistic flow: the client applies its edit immediately, the
 
 ## Connection budget
 
-Client and server share one frozen set of transport constants: reconnect backoff of 1, 2, 4 and 8 seconds, a 30-second ceiling on reconnect delay, a 30-second heartbeat, **ten record subscriptions per user** and, separately, ten presence streams per user, a five-minute idle timeout, a one-minute presence-stale timeout, fifty presence entries per page, at most 100 row events per table per write before a `resync`, and a 30-second access re-check on every open WebSocket. The per-user connection cap is the one worth planning around: a user with several tabs open on realtime pages reaches it faster than it looks.
+Client and server share one frozen set of transport constants: reconnect backoff of 1, 2, 4 and 8 seconds, a 30-second ceiling on reconnect delay, a 30-second heartbeat, **ten record subscriptions per user** and, separately, ten presence streams per user, a five-minute idle timeout, a one-minute presence-stale timeout, fifty presence entries per page, at most 100 row events per table per write before a `resync`, and a 30-second access re-check on every open WebSocket. The per-user connection cap is the one worth planning around: a page costs one connection per table it follows in `realtime` mode, so a user with several tabs open on realtime pages reaches it faster than it looks.

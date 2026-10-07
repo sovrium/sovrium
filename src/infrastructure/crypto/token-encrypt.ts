@@ -51,7 +51,6 @@ const V2_PREFIX = 'v2:'
 /** Hex characters of sha256(key) kept as the envelope's key fingerprint. */
 const KEY_ID_LEN = 16
 
-// eslint-disable-next-line functional/no-let -- one-shot process-lifetime memo; scrypt is intentionally slow and the root secret is constant across a run
 let cachedKey: Buffer | undefined
 
 /**
@@ -62,7 +61,6 @@ let cachedKey: Buffer | undefined
  */
 const tokenKey = (): Buffer => {
   if (cachedKey !== undefined) return cachedKey
-  // eslint-disable-next-line functional/no-expression-statements -- memo assignment
   cachedKey = deriveSubkey(KEY_SALT, KEY_LEN)
   return cachedKey
 }
@@ -119,7 +117,6 @@ const envelopeBody = (envelope: string): string => {
     const rest = envelope.slice(V2_PREFIX.length)
     const separator = rest.indexOf(':')
     if (separator <= 0) {
-      // eslint-disable-next-line functional/no-throw-statements -- decryption-failure must surface to the caller as a 500-class error
       throw new Error('decryptToken: v2 envelope is missing its key id; the row is corrupt')
     }
     const keyId = rest.slice(0, separator)
@@ -127,7 +124,6 @@ const envelopeBody = (envelope: string): string => {
       // Fail BEFORE attempting the cipher: a mismatched fingerprint is a fact
       // about provenance, and reporting it as a generic auth-tag failure is how
       // this became indistinguishable from corruption in the first place.
-      // eslint-disable-next-line functional/no-throw-statements -- named failure, caught and reported by the caller
       throw new EncryptionKeyMismatchError({
         message:
           'stored value was encrypted with a different encryption key ' +
@@ -137,7 +133,6 @@ const envelopeBody = (envelope: string): string => {
     return rest.slice(separator + 1)
   }
   if (envelope.startsWith(V1_PREFIX)) return envelope.slice(V1_PREFIX.length)
-  // eslint-disable-next-line functional/no-throw-statements -- decryption-failure must surface to the caller as a 500-class error
   throw new Error('decryptToken: missing version prefix; envelope is corrupt or wrong format')
 }
 
@@ -161,12 +156,10 @@ export const decryptToken = (envelope: string): string => {
   const ciphertext = Buffer.from(payload.ciphertext, 'base64')
   const authTag = Buffer.from(payload.authTag, 'base64')
   const decipher = createDecipheriv('aes-256-gcm', tokenKey(), iv)
-  // eslint-disable-next-line functional/no-expression-statements -- node:crypto Decipher API is mutator-style
   decipher.setAuthTag(authTag)
   try {
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
   } catch (cause) {
-    // eslint-disable-next-line functional/no-throw-statements -- translate an anonymous GCM failure into the actionable diagnosis
     throw new EncryptionKeyMismatchError({
       message:
         'stored value could not be decrypted — it was encrypted with a different encryption key ' +

@@ -158,7 +158,6 @@ export const exportDocs = async (input: {
   const files = await renderExport(input.engine)
   const owned = input.force ? await previouslyOwned(dir) : []
 
-  // eslint-disable-next-line functional/no-expression-statements -- the write phase IS the side effect
   await mkdir(dir, { recursive: true })
     .then(() => inBoundedParallel(owned, (name) => rm(join(dir, name), { force: true })))
     .then(() => inBoundedParallel(files, (file) => writeFile(join(dir, file.file), file.content)))

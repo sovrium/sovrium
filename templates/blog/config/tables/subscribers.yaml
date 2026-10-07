@@ -1,0 +1,20 @@
+# The newsletter list, kept in your own database: one row per address, written
+# by the sign-up under the essays (config/forms/newsletter.yaml). Only the
+# editor reads it. With BREVO_API_KEY set, each new address is also sent to
+# Brevo as a contact, for the sending (library/recipe/form-to-brevo.yaml).
+id: 5
+name: subscribers
+fields:
+  - id: 1
+    name: email
+    type: email
+    required: true
+    unique: true
+  - id: 2
+    name: subscribed_at
+    type: created-at
+permissions:
+  read: [admin]
+  create: [admin]
+  update: [admin]
+  delete: [admin]

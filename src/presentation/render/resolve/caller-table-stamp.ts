@@ -13,7 +13,8 @@ import {
   isRecordViewForReader,
   recordViewForReader,
 } from '@/presentation/render/props/record-view-for-reader'
-import { withheldComponent } from './withheld-component'
+import { isViewBoundSource } from '@/presentation/render/props/view-binding-inputs'
+import { isWithheldOverUnreadableTable, withheldComponent } from './withheld-component'
 import type { DataSourceDb } from './data-source-contracts'
 import type { CallerTableView, ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -61,16 +62,24 @@ async function stampGrid(component: Component, ctx: StampContext): Promise<Compo
 }
 
 /**
- * A board, a calendar, a timeline or a chart: the table as its reader may see
- * it, and its own configuration without a dimension on a field she may not
- * read — or withheld, when it cannot be drawn without that field
- * (`record-view-for-reader.ts`).
+ * A board, a calendar, a timeline, a chart or a KPI — or any record component
+ * reading through a view: the table as its reader may see it, and its own
+ * configuration without a dimension on a field she may not read — or
+ * withheld, when it cannot be drawn without that field
+ * (`record-view-for-reader.ts`). Through a view, the view's route decides
+ * what she reads: its grant, not the table's, so a public view admits a
+ * visitor, and a view that refuses her withholds the component.
  */
 async function stampRecordView(component: Component, ctx: StampContext): Promise<Component> {
-  const binding = component.dataSource as { readonly table?: unknown } | undefined
+  const binding = component.dataSource as
+    { readonly table?: unknown; readonly view?: unknown } | undefined
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding?.table)
   if (table === undefined) return component
-  const callerTable = await ctx.read(ctx.app, table.name, ctx.session)
+  const view = typeof binding?.view === 'string' ? binding.view : undefined
+  const callerTable = await ctx.read(ctx.app, table.name, ctx.session, view)
+  if (view !== undefined && callerTable.boundView === undefined) {
+    return withheldComponent(component)
+  }
   const forReader = recordViewForReader(component, table, callerTable)
   if (forReader === 'withheld') return withheldComponent(component)
   return withProps(forReader, { _callerTable: callerTable })
@@ -84,10 +93,10 @@ async function stampOwnTable(component: Component, ctx: StampContext): Promise<C
 }
 
 /**
- * The table a form writes a record into: its `crud` action's table for a form
- * that creates or updates one, or — for a form bound to one record with no
- * action of its own, which the renderer turns into an update form — the table
- * it is bound to. `undefined` for any other form.
+ * The table an edit form writes a record into: its `crud` update action's
+ * table, or — for a form bound to one record with no action of its own, which
+ * the renderer turns into an update form — the table it is bound to.
+ * `undefined` for any other form (a page form never creates a row).
  */
 function recordFormTable(component: Component): unknown {
   const { action, dataSource } = component as {
@@ -100,13 +109,12 @@ function recordFormTable(component: Component): unknown {
   }
   if (action === undefined) return dataSource?.mode === 'single' ? dataSource.table : undefined
   if (action.type !== 'crud') return undefined
-  return action.operation === 'create' || action.operation === 'update' ? action.table : undefined
+  return action.operation === 'update' ? action.table : undefined
 }
 
 /**
- * A form that creates or updates a record: the table it writes into, as its
- * reader may see it. Both draw their controls from that one answer
- * (`buildCreateFieldDefs`, `updateFieldDefsForReader`).
+ * An edit form: the table it writes into, as its reader may see it. Its
+ * controls are drawn from that answer (`updateFieldDefsForReader`).
  */
 async function stampRecordForm(component: Component, ctx: StampContext): Promise<Component> {
   const table = recordFormTable(component)
@@ -143,8 +151,8 @@ async function stampRelatedSections(component: Component, ctx: StampContext): Pr
  * never by a second permission model here. Every surface that names the fields
  * of a table, or offers an input for one, is narrowed to it by the same two
  * questions (`caller-table-inputs.ts`: `readableFieldsOf`, `writableFieldsOf`):
- * a grid's views, permissions, field list and columns, a create or update
- * form's controls, a drawer's related columns, and the dimensions of a board,
+ * a grid's views, permissions, field list and columns, an edit form's
+ * controls, a drawer's related columns, and the dimensions of a board,
  * a calendar, a timeline or a chart.
  *
  * Applied AFTER the read gate, to a component it left bound. A no-op without
@@ -170,6 +178,10 @@ export async function withCallerTableView(
   if (component.type === 'drawer') {
     return stampRelatedSections(await stampOwnTable(component, stampCtx), stampCtx)
   }
-  if (isRecordViewForReader(component)) return stampRecordView(component, stampCtx)
+  const throughView =
+    isWithheldOverUnreadableTable(component) && isViewBoundSource(component.dataSource)
+  if (isRecordViewForReader(component) || throughView) {
+    return stampRecordView(component, stampCtx)
+  }
   return component
 }

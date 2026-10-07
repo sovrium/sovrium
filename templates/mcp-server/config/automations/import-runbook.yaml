@@ -1,0 +1,41 @@
+# Bring a runbook the team already keeps in a GitHub repository into the
+# knowledge base, where an assistant can find it.
+#
+# An admin runs it by hand, naming the repository, the file and the title:
+#
+#   curl -b <admin session> -H "content-type: application/json" \
+#     -d '{"repository":"acme/ops","path":"runbooks/rollback.md","title":"Rolling back"}' \
+#     localhost:3000/api/automations/import-runbook/trigger
+#
+# What the call sends is read at `trigger.data.body`. The file is read through
+# the `github` connection (library/connection/github.yaml), which adds the
+# `GITHUB_TOKEN` to the call, and is filed as a draft: a person reads it and
+# publishes it before any other reader, or their assistant, sees it.
+name: import-runbook
+trigger:
+  type: manual
+  label: Import a runbook from GitHub
+  requiredRole: admin
+  inputSchema:
+    repository: { type: string, description: 'owner/name, for example acme/ops' }
+    path: { type: string, description: 'The file, for example runbooks/rollback.md' }
+    title: { type: string, description: 'The title the document is filed under' }
+actions:
+  # `Accept: …raw` asks GitHub for the file as it is written, not base64 JSON.
+  - name: fetch
+    type: http
+    operator: get
+    props:
+      url: 'https://api.github.com/repos/{{trigger.data.body.repository}}/contents/{{trigger.data.body.path}}'
+      connection: github
+      headers:
+        Accept: application/vnd.github.raw+json
+  - name: file
+    type: record
+    operator: create
+    props:
+      table: documents
+      data:
+        title: '{{trigger.data.body.title}}'
+        body: '{{steps.fetch.response.body}}'
+        status: draft

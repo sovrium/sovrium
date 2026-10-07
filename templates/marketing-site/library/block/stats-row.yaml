@@ -1,0 +1,85 @@
+# sovrium-library: block/stats-row@0.30.0
+name: stats-row
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-4
+        children:
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1] sm:text-4xl'
+            content: '[What these numbers prove]'
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle
+            content: '[Source · date]'
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 grid-cols-2 gap-x-6 gap-y-10 border-t border-border pt-8 lg:grid-cols-4
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-5xl font-medium tracking-tight text-foreground
+                content: '[00]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: '[What figure 1 measures]'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-5xl font-medium tracking-tight text-foreground
+                content: '[00 %]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: '[What figure 2 measures]'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-5xl font-medium tracking-tight text-foreground
+                content: '[0.0×]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: '[What figure 3 measures]'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-5xl font-medium tracking-tight text-foreground
+                content: '[000]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: '[What figure 4 measures]'

@@ -75,11 +75,17 @@ pub fn run() {
     // Linux, a deep link IS an argv entry of that second launch. Argv and deep
     // links are therefore one attack surface, which is why both go through the
     // same parser and the same confirmation dialog.
+    //
+    // The plugin's `deep-link` feature has already handed a lone-argument argv
+    // to the deep-link plugin by the time this runs, and that plugin emits the
+    // event `setup` listens on. So the callback only picks up the link the
+    // plugin skipped — one that arrived beside other arguments — or the same
+    // link would be confirmed twice.
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             windows::show_main(app);
-            if let Some(link) = deeplink::link_in_argv(argv) {
+            if let Some(link) = deeplink::forwarded_link_the_plugin_skipped(argv) {
                 deeplink::handle(app, link);
             }
         }));
@@ -227,19 +233,45 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     tray::init(&handle)?;
 
-    // A deep link can be the reason this process exists, on the platforms that
-    // deliver one through argv rather than through an event.
-    if let Some(link) = deeplink::link_in_argv(std::env::args().skip(1)) {
-        deeplink::handle(&handle, link);
-    }
     {
         use tauri_plugin_deep_link::DeepLinkExt;
+
+        // The OS learns the scheme from the installer: `CFBundleURLTypes` in
+        // the macOS Info.plist, a protocol key written by the Windows
+        // installer, `x-scheme-handler/sovrium` in the Linux `.desktop` file —
+        // all generated from `plugins.deep-link.desktop` in tauri.conf.json.
+        // Registering again at runtime covers the installs that skip that step,
+        // an AppImage most of all. macOS has no runtime registration (the
+        // plugin returns `UnsupportedPlatform`), so it is not asked.
+        #[cfg(any(windows, target_os = "linux"))]
+        {
+            if let Err(error) = app.deep_link().register_all() {
+                log::warn!("the sovrium:// scheme could not be registered at runtime: {error}");
+            }
+        }
+
+        // Links that arrive while the app runs: an Apple event on macOS, a
+        // second launch forwarded by `single-instance` on Windows and Linux.
         let for_links = handle.clone();
         app.deep_link().on_open_url(move |event| {
             for url in event.urls() {
                 deeplink::handle(&for_links, url.to_string());
             }
         });
+
+        // The link that LAUNCHED this process, if one did. The plugin recorded
+        // it before this listener existed, so its event is already gone and
+        // `get_current()` is the only copy; argv covers the shape the plugin
+        // skips. One reader per channel, so no link is confirmed twice.
+        let current = app
+            .deep_link()
+            .get_current()
+            .ok()
+            .flatten()
+            .map(|urls| urls.iter().map(|u| u.to_string()).collect());
+        if let Some(link) = deeplink::cold_start_link(current, std::env::args()) {
+            deeplink::handle(&handle, link);
+        }
     }
 
     // Reopen whatever was open last. A desktop app that forgets which project

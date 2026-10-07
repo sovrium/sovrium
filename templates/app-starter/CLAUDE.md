@@ -1,0 +1,261 @@
+# app-starter
+
+App starter — the skeleton most business apps grow from, built from the library's
+application blocks: every way in (password, emailed link, passkey, two-step, single
+sign-on, invitations), a dashboard with a period selector, settings and profile pages, and
+a list of projects that each open in a side panel and on their own page.
+
+## This app at a glance
+
+- **Tables** (8): projects, tasks, activity, clients, people, workspace_settings, reminders, bookings
+- **Pages** (25): eight sign-in pages, overview (`/`), metrics, worklist, five settings
+  pages, projects, a project page and its edit page, and six `/kit/*` pages showing every
+  other application block in its stock copy
+- **Library blocks** (60) — every application block: under `library/block/`, each starting with a
+  `sovrium-library:` line naming the entry and version it was installed from
+- **Forms** (2): the worklist's "New" dialog and the project page's "Add a task"
+- **Singletons**: auth
+- **Seed data**: `seed/` — one file per table plus `users.yaml` (three sign-in accounts,
+  one per role), dated relative to the day you seed. `sovrium start` does not seed: run
+  `SOVRIUM_SEED_PASSWORD=… sovrium seed app.yaml` first, or every table opens empty
+- **Settings navigation**: `config/pages/_settings-nav.yaml`, pulled into each settings page
+  with `$ref`; each page names its own section as the default of its `section` query
+  parameter, which is how the matching link is marked current
+- **Static assets**: `public/` (served at the site root)
+
+Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`
+and `library/`.
+
+## Working on this app with an AI assistant
+
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The page
+blocks are ordinary config: edit them in place, or run `sovrium library add block/<name>`
+for another one — `sovrium library list` shows them all.
+
+---
+
+A [Sovrium](https://sovrium.com) application — a self-hosted, **configuration-driven**
+platform. The entire app (data model, auth, pages, design, i18n) is declared in one or more
+YAML config files (a single `app.yaml` to start, split via `$ref` as the app grows) and
+served by the `sovrium` runtime. There is no hand-written
+server or UI code to maintain.
+
+## Documentation
+
+The Sovrium manual ships inside the binary. Where you read it depends on whether you can
+run commands.
+
+**With a shell** (Claude Code, Cursor, Codex, a terminal), `sovrium docs` is the manual for
+the version you run, so it can never describe a different one. Start there:
+
+```bash
+sovrium docs                   # The table of contents
+sovrium docs search <words>    # Find the article covering a topic
+sovrium docs <section>/<slug>  # Read it
+sovrium docs config <path>     # Look one option up (e.g. tables[].fields[].type)
+sovrium docs env <NAME>        # Look one environment variable up
+sovrium docs cli <verb>        # Look one command up
+sovrium schema                 # The full JSON Schema of this binary
+```
+
+**Agent skills.** `.claude/skills/` holds the skills written by `sovrium skills` for the
+version in this project: start from `sovrium-app` for any change to the config. After
+upgrading Sovrium, run `sovrium skills` again to refresh them — a file you edited is kept
+unless you pass `--force`. For Codex, Copilot, Gemini CLI or OpenCode, run
+`sovrium skills --target agents` to write them to `.agents/skills/` as well.
+
+**If your client cannot run commands** (for example Claude Desktop connected through
+`sovrium mcp`, whose tools edit the config but serve no documentation), read the published
+copy instead:
+
+- **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
+  page, one titled line each with a short description. Pick a page from there instead of
+  guessing a slug.
+- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
+  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
+  same page as HTML. Always take the `.md`.
+- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
+  3 MB; a single call floods the context window. Use the index, one page at a time.
+- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
+
+That copy describes the latest release, which may not be the one in this project. Compare
+with `sovrium --version`, or with the version the MCP server reports when it connects.
+
+Where sources disagree, the binary wins: `sovrium docs` and `sovrium schema` describe the one
+you are actually running, the website describes the latest release, and pretrained knowledge
+of Sovrium may describe an older one.
+
+## How to work in this project (read first)
+
+- **Edit `app.yaml`, not application code.** Features are added declaratively by editing
+  the config, not by writing TypeScript/React/SQL. Prefer a schema change over new code.
+- **Validate before running:** `sovrium validate app.yaml` checks the config against the
+  schema and reports errors with paths. Always validate after editing.
+- **Start with the minimum, grow as needed.** The schema supports progressive complexity —
+  add tables, pages, auth, and design incrementally.
+- **The authoritative contract is the schema itself:** run `sovrium schema` to print the
+  full JSON Schema (Draft 2020-12) for `app.yaml`. When unsure about a property or field type,
+  consult the schema rather than guessing.
+
+## Commands
+
+```bash
+sovrium start app.yaml         # Run the app (dev server)
+sovrium start app.yaml --watch # Hot-reload on config changes
+sovrium validate app.yaml      # Validate the config against the schema
+sovrium schema                 # Print the full JSON Schema for app.yaml
+sovrium build app.yaml         # Build static output
+sovrium mcp --project .        # Serve this config to your AI client (MCP, stdio)
+```
+
+## Connecting your AI client
+
+`sovrium mcp --project .` serves this project's configuration to Claude Desktop, Claude Code
+or Cursor over stdio. Point your client at it — command `sovrium`, arguments
+`mcp --project <this directory>` — and the assistant editing `app.yaml` can read the config
+as it stands, validate what it just wrote, consult the schema at a given path, and see
+whether a running instance took the last save, instead of guessing from a file it has not
+seen. It starts no server: there is no token to configure and no `auth:` block to add.
+
+Those four tools are read-only unless you set `MCP_CONFIG_WRITE=1`. It is off by default, and
+it is an environment variable rather than a config key on purpose — a config file must not be
+able to authorise its own editing. Set it, name this directory explicitly, and four more
+tools appear: the assistant can list the files your config is made of, read one, replace one,
+and undo its last change.
+
+```json
+{
+  "mcpServers": {
+    "sovrium": {
+      "command": "sovrium",
+      "args": ["mcp", "--project", "/absolute/path/to/this/project"],
+      "env": { "MCP_CONFIG_WRITE": "1" }
+    }
+  }
+}
+```
+
+Writing is bounded rather than trusted. Edits stay inside this directory and touch only
+`.yaml`, `.yml` and `.json` files — never `.env`, `.git/`, `.claude/` or the data directory.
+A file that changed on disk since the assistant read it is refused rather than overwritten,
+and a change that would not decode as a valid config never reaches the disk. Dropping a
+column needs `allowDestructive: true`, which the assistant is never allowed to set for you.
+Every change is snapshotted first, so `undo` always has a way back.
+
+## Reviewing changes in the browser
+
+Validating is not verifying. After a config change, boot the app and drive it:
+
+- `sovrium start app.yaml --watch` serves the app at `http://localhost:3000` (override with
+  `PORT`) and hot-reloads on every save.
+- Drive that running instance with Claude in Chrome — the `mcp__claude-in-chrome__*` tools.
+  They are deferred: load them in one batched `ToolSearch`, call `tabs_context_mcp` first, open
+  a **new** tab with `tabs_create_mcp`, and close what you opened.
+- **Exercise the workflow, not just the page.** Sign in, create a record, submit the form, let
+  the automation fire — then check the **effect** (the row is there, the status changed), never
+  just that something rendered.
+- Because `--watch` hot-reloads, the loop is: edit the config, re-navigate, re-verify. Repeat
+  until the workflow passes.
+- Never trigger `alert()` / `confirm()` / `prompt()` — a JS dialog freezes the extension. If
+  Chrome is not connected, or calls keep failing, say so and stop rather than reporting a
+  change as verified when nothing was driven.
+
+## Scaling the config
+
+Start with a single `app.yaml`. As the app grows, split using `$ref`.
+The rule is **one purpose per file** — if you can't describe a file
+in one short sentence, it's mixing concerns and wants a split.
+
+The canonical layout is **one file per entity for collections, one file
+per singleton for scoped config**. Reach for it as soon as a collection
+has more than one member; don't pre-split a single-table or single-page app.
+
+```
+app.yaml                              # entry point — stays at the project root
+config/design.yaml                    # singleton — all design tokens
+config/auth.yaml                      # singleton — auth config
+config/i18n.yaml                      # singleton — all i18n strings
+config/analytics.yaml                 # singleton — analytics
+config/tables/contacts.yaml           # one file per table
+config/tables/orders.yaml
+config/pages/landing.yaml             # one file per page
+config/pages/dashboard.yaml
+config/components/icon-badge.yaml     # one file per reusable component template
+config/automations/on-new-order.yaml  # one file per automation
+config/forms/contact-us.yaml          # one file per standalone form
+config/buckets/uploads.yaml           # one file per bucket
+config/connections/stripe.yaml        # one file per connection
+config/agents/support-bot.yaml        # one file per AI agent
+config/actions/send-slack.yaml        # one file per reusable action template
+```
+
+In `app.yaml`: `design: { $ref: './config/design.yaml' }`. Collections list
+their entities: `tables: [{ $ref: './config/tables/contacts.yaml' }, …]`.
+Paths resolve relative to the file containing the `$ref`.
+
+**Root keys fall into three shapes** — split accordingly:
+
+- **Collections** (`tables`, `pages`, `forms`, `components`, `connections`,
+  `actions`, `automations`, `agents`, `buckets`, `env`) → one file per entity
+  under `config/<collection>/`.
+- **Singletons** (`auth`, `design`, `analytics`, `languages`, `scripts`) →
+  one file per singleton at `config/<singleton>.yaml`. Never split
+  these by sub-key.
+- **Scalars** (`name`, `version`, `description`) → stay inline in `app.yaml`.
+
+**When to start splitting** — once any collection has 2+ members, move that
+collection to per-entity files in the same authoring pass. Below that
+threshold (a single table, a single page) keep it inline — the indirection
+cost isn't worth it. A single logical entity past ~300 lines is itself a
+signal to split sub-concerns (e.g. a complex table's `fields` into a sidecar),
+but that's a secondary split, not the primary one.
+
+Note: reusable **component templates** are root entities (their own files);
+page-instance components stay inside the page file.
+
+Prefer YAML for readability; switch to a `.ts` config if you want IDE
+autocompletion and compile-time type-checking. Run `sovrium types` to write
+`sovrium.d.ts` and a `tsconfig.json` beside your config — no `package.json`,
+no `node_modules`, no install step — then author `app.ts` like this:
+
+```ts
+import type { AppConfig } from 'sovrium'
+
+export default {
+  name: 'my-app',
+} satisfies AppConfig
+```
+
+The import MUST be `import type`, and the object MUST be checked with
+`satisfies` rather than constructed by a helper function. The runtime does not
+resolve bare-package specifiers, so a value import (the old `defineConfig()`
+shape) type-checks and then fails to boot; `import type` is erased before the
+runtime ever looks. Re-run `sovrium types` after upgrading the binary.
+
+## The `app.yaml` schema
+
+Root properties include: `name`, `description`, `tables`, `auth`, `pages`, `design`,
+`i18n`, `analytics`, `connections`, and `agents`. Highlights:
+
+- **`tables`** — your data model. Each table has `fields`; field `type` spans many
+  categories (text, number, date/time, select, relation, attachment, rich-text, code,
+  formula, AI-compute, …). The runtime generates the database, REST API, and CRUD UI.
+- **Field `id`s** — set one on every field. An omitted id means "position in the list", so
+  inserting a field above another one shifts every id after it, and the migration diff reads
+  that shift as a rename of fields nobody renamed. Keep the ids a field already has; give a
+  new field the next unused number.
+- **`auth`** — authentication (email/password, magic link, OAuth) plus role-based access
+  (`admin`, `member`, `viewer`) and field-level permissions.
+- **`pages`** — composed from many built-in component types (forms, tables, kanban,
+  calendar, charts, rich content, …). Server-rendered.
+- **`design`** — colors, typeScale, spacing, radius, elevation, motion, breakpoints.
+- **`i18n`** — multi-language content (RTL supported).
+
+## Runtime data
+
+On `sovrium start`, runtime artifacts are written under `.sovrium/` (git-ignored):
+the zero-config SQLite database (`database.db`), the server lock file, and local file
+storage. Set `DATABASE_URL` to use PostgreSQL instead. Relocate the whole folder with
+the `SOVRIUM_DATA_DIR` env var. Operator settings live in **environment variables**, not
+in `app.yaml`.

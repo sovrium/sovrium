@@ -35,11 +35,10 @@
  * The submit takes the platform button recipe, which is the SAME call the two
  * neighbouring submits already make — the hydrated CRUD form's
  * (`islands/parts/crud-form/layout.tsx`) and the auth form's
- * (`auth-form-renderer.tsx`). It emitted no class string at all until 2026-09-16,
- * so a form's primary action rendered as bare text on every endpoint-bound form
- * in the admin console (the profile forms, "Send invitation" on the Users
- * console, the link create and re-point forms) while the `button` components
- * beside them were fully dressed. Reaching for the shared recipe rather than
+ * (`auth-form-renderer.tsx`). Without a class string, a form's primary action
+ * renders as bare text on every endpoint-bound form in the admin console (the
+ * profile forms, "Send invitation" on the Users console, the link create and
+ * re-point forms) while the `button` components beside them are fully dressed. Reaching for the shared recipe rather than
  * hand-written utilities is what keeps all three submits identical: a second
  * recipe here would drift from the other two on the next design change.
  *
@@ -67,9 +66,12 @@ import {
   computeFormSwitchFieldClasses,
 } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
+import { formPartOf, type FormPart } from './endpoint-form-parts'
+import { formRuleProps, hasRules, ruleProps } from './endpoint-form-rules'
 import type { ElementProps } from '../html-element-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
+import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 
 /**
  * The custom-endpoint submit target read off the `form` component. Mirrors the
@@ -157,18 +159,20 @@ function renderHelpText(field: FormFieldConfig): ReactElement | undefined {
 }
 
 /**
- * Wrap a field's `<label>` with its help text when it has a description. A
- * field without one is returned exactly as before, so its markup keeps its
- * bytes; one with a description gains a column wrapper holding the label and
- * the sentence under it.
+ * Wrap a field's `<label>` in a column with its help text and, for a field
+ * with a rule, the room the runtime draws a refusal's reason in
+ * (`data-field-block`), outside the label so the reason never joins the
+ * control's accessible name. A field with neither is returned exactly as
+ * before, so its markup keeps its bytes.
  */
 function withHelpText(field: FormFieldConfig, labelled: ReactElement): ReactElement {
   const help = renderHelpText(field)
-  if (help === undefined) return labelled
+  if (help === undefined && !hasRules(field)) return labelled
   return (
     <div
       key={field.field}
       className={computeFormFieldClasses()}
+      {...(hasRules(field) && { 'data-field-block': '' })}
     >
       {labelled}
       {help}
@@ -262,15 +266,16 @@ function renderEndpointSwitchField(field: FormFieldConfig): ReactElement {
 }
 
 /** Render the inner control element for one endpoint field, keyed off its `control`. */
-function renderEndpointControl(field: FormFieldConfig): ReactElement {
+function renderEndpointControl(field: FormFieldConfig, part: FormPart): ReactElement {
   const name = field.field
-  const prefill = { ...describedByProps(field), ...prefillProps(field) }
+  const controlClass = part('input', CONTROL_CLASS)
+  const prefill = { ...describedByProps(field), ...prefillProps(field), ...ruleProps(field) }
   if (field.control === 'select') {
     const options = (field.options ?? []) as readonly EndpointFieldOption[]
     return (
       <select
         name={name}
-        className={CONTROL_CLASS}
+        className={controlClass}
         {...prefill}
       >
         {options.map((option) => (
@@ -288,7 +293,7 @@ function renderEndpointControl(field: FormFieldConfig): ReactElement {
     return (
       <textarea
         name={name}
-        className={CONTROL_CLASS}
+        className={controlClass}
         {...prefill}
       />
     )
@@ -299,14 +304,14 @@ function renderEndpointControl(field: FormFieldConfig): ReactElement {
     <input
       type={field.control ?? 'text'}
       name={name}
-      className={CONTROL_CLASS}
+      className={controlClass}
       {...prefill}
     />
   )
 }
 
 /** Render one endpoint field as a label-wrapped control (accessible name = label). */
-function renderEndpointField(field: FormFieldConfig): ReactElement {
+function renderEndpointField(field: FormFieldConfig, part: FormPart): ReactElement {
   if (field.control === 'switch') return withHelpText(field, renderEndpointSwitchField(field))
   return withHelpText(
     field,
@@ -314,8 +319,10 @@ function renderEndpointField(field: FormFieldConfig): ReactElement {
       key={field.field}
       className={computeFormFieldClasses()}
     >
-      <span className={computeFormFieldLabelClasses()}>{field.label ?? field.field}</span>
-      {renderEndpointControl(field)}
+      <span className={part('label', computeFormFieldLabelClasses())}>
+        {field.label ?? field.field}
+      </span>
+      {renderEndpointControl(field, part)}
     </label>
   )
 }
@@ -350,7 +357,8 @@ function buildEndpointConfig(endpoint: EndpointConfig): SerializedEndpointConfig
  */
 export function renderEndpointForm(
   props: ElementProps,
-  component: Component | undefined
+  component: Component | undefined,
+  designStyles?: ComponentDesignResolution
 ): ReactElement | undefined {
   const componentRecord = (component ?? {}) as Record<string, unknown>
   const endpoint = componentRecord['endpoint'] as EndpointConfig | undefined
@@ -358,7 +366,12 @@ export function renderEndpointForm(
 
   const fields = (componentRecord['fields'] ?? []) as readonly FormFieldConfig[]
   const authorClassName = props.className as string | undefined
-  const mergedClassName = resolveClasses(computeFormClasses(), authorClassName)
+  const mergedClassName = resolveClasses(
+    computeFormClasses(),
+    designStyles?.parts['body'],
+    authorClassName
+  )
+  const part = formPartOf(designStyles)
   const endpointConfigJson = JSON.stringify(buildEndpointConfig(endpoint))
 
   return (
@@ -368,13 +381,14 @@ export function renderEndpointForm(
       className={mergedClassName}
       data-action-type="endpoint"
       data-endpoint-config={endpointConfigJson}
+      {...formRuleProps(fields, designStyles?.parts['error'])}
     >
-      {fields.map((field) => renderEndpointField(field))}
+      {fields.map((field) => renderEndpointField(field, part))}
       <button
         type="submit"
         disabled
         data-awaits-script=""
-        className={computeSubmitClasses(endpoint.submitVariant)}
+        className={part('submit', computeSubmitClasses(endpoint.submitVariant))}
       >
         {endpoint.submitLabel ?? 'Envoyer'}
       </button>

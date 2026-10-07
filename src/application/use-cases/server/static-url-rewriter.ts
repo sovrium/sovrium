@@ -7,7 +7,7 @@
 
 import { Effect, Console } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
-import type { FileSystemLike, PathModuleLike } from './generate-static-helpers'
+import type { FileSystemLike } from './generate-static-helpers'
 
 /**
  * Check if a URL is a GitHub Pages URL
@@ -179,51 +179,3 @@ export const rewriteBasePathInHtml = (
       { concurrency: 'unbounded' }
     )
   }).pipe(Effect.withSpan('server.rewrite-base-path-in-html'))
-
-/**
- * Inject client-side hydration script into HTML files
- */
-export const injectHydrationScript = (
-  generatedFiles: readonly string[],
-  outputDir: string,
-  basePath: string,
-  fsModule: FileSystemLike,
-  pathModule: PathModuleLike
-): Effect.Effect<void, StaticGenerationError, never> =>
-  Effect.gen(function* () {
-    yield* Console.log('💧 Injecting hydration script into HTML files...')
-    const htmlFiles = generatedFiles.filter(
-      (f) => f.endsWith('.html') && !f.startsWith('assets/') && !f.includes('/assets/')
-    )
-
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
-    yield* Effect.forEach(
-      htmlFiles,
-      (file) =>
-        Effect.gen(function* () {
-          const filePath = file.startsWith('/') ? file : pathModule.join(outputDir, file)
-          const content = yield* Effect.tryPromise({
-            try: () => fsModule.readFile(filePath, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to read HTML file for hydration injection: ${file}`,
-                cause: error,
-              }),
-          })
-
-          // Inject hydration script before </body>
-          const hydrationScript = `<script src="${basePath}/assets/client.js" defer=""></script>`
-          const updatedContent = content.replace('</body>', `${hydrationScript}\n</body>`)
-
-          yield* Effect.tryPromise({
-            try: () => fsModule.writeFile(filePath, updatedContent, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to write HTML file with hydration script: ${file}`,
-                cause: error,
-              }),
-          })
-        }),
-      { concurrency: 'unbounded' }
-    )
-  }).pipe(Effect.withSpan('server.inject-hydration-script'))

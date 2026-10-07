@@ -6,20 +6,17 @@
  */
 
 /**
- * Prestyled-by-default class computers for `file-upload` (wave R-E).
+ * Prestyled-by-default class computers for `file-upload`.
  *
- * ## Why it moved here
- * The dropzone recipe used to live in
- * `ui/sections/renderers/element-renderers/recipes/forms-default-classes.ts`,
- * which the island cannot import: `[internal ref]` forbids
- * `presentation-island → presentation-component`. So the SSR skeleton painted
- * the recipe and `islands/file-upload/file-upload-island.tsx` painted a
- * hand-written approximation of it — measured before R-E, the two disagreed on
- * every value that matters (the skeleton drew `p-6 border-2 gap-2` on
- * `bg-subtle`, the island drew `min-h-[120px] px-4 py-2 shadow-sm` on
- * `bg-background`), so a dropzone visibly jumped on hydration. Moving the
- * recipe to `presentation/utils/recipes` — the one directory both sides may
- * import — is the same fix R-D applied to `kpi` and F1 applied to `button`.
+ * ## Why it lives here
+ * The SSR skeleton and the hydrated island must paint the SAME dropzone, and
+ * `[internal ref]` forbids `presentation-island →
+ * presentation-component`, so a recipe in the SSR tree is out of the island's
+ * reach. A hand-written approximation on the island side disagrees on every
+ * value that matters (e.g. `p-6 border-2 gap-2` on `bg-subtle` against
+ * `min-h-[120px] px-4 py-2 shadow-sm` on `bg-background`), so a dropzone
+ * visibly jumps on hydration. This directory is the one both sides may import —
+ * the same placement `kpi` and `button` use.
  *
  * ## Safelist
  * This directory is registered in `RECIPE_DIRS`
@@ -193,12 +190,10 @@ export const computeFileUploadErrorClasses = (): string =>
 /**
  * The prompt inside the drop target. `spec-form.mjs:29`, verbatim.
  *
- * Shared for the same reason the classes are: before R-E the skeleton said
- * "Drop files or browse — Attachments" over "Drag or click to browse" while
- * the island said "Drag and drop files here or browse — Attachments", so the
- * words changed on hydration as well as the box. Neither repeated the field's
- * own label the way both used to: the label sits above the zone, in the field
- * wrapper, and saying it twice is the redundancy [internal ref] D4 cuts.
+ * Shared for the same reason the classes are: two separately written prompts
+ * would change the words on hydration as well as the box. It does not repeat
+ * the field's own label: the label sits above the zone, in the field wrapper,
+ * and saying it twice is the redundancy [internal ref] D4 cuts.
  */
 export const FILE_UPLOAD_DROPZONE_PROMPT = 'Drag and drop, or browse'
 

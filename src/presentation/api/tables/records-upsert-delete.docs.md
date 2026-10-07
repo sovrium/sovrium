@@ -54,6 +54,8 @@ Both irreversible modes are reserved for an admin-equivalent role (see Roles & R
 
 **Every authorization denial on this endpoint answers `404`.** A missing record, an invisible record, and a visible record the caller may not delete are indistinguishable by design.
 
+The bulk form routes refuse as the single-record routes do: a caller without the table's `delete` grant gets `404` from `POST …/records/bulk-delete`, and one without its `update` grant gets `404` from `POST …/records/bulk-update` — never a `403` — and nothing changes.
+
 A delete requires reading the table, as an update does. On a table whose `read` refuses the caller, a delete — by `DELETE`, the delete form, either batch delete route or bulk-delete — answers the `404` of a missing record even where her `delete` grant admits her, and nothing is deleted.
 
 ## Raw values and display values

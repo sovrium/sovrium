@@ -56,7 +56,6 @@ const forwardToBetterAuth = async (
   if (!rewrittenPath) return authInstance.handler(request)
 
   const url = new URL(request.url)
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
   url.pathname = rewrittenPath
   const body = await request.clone().arrayBuffer()
   return authInstance.handler(
@@ -68,7 +67,6 @@ const forwardToBetterAuth = async (
   )
 }
 
-/** Minimal Hono context surface used by the team-API handlers. */
 /**
  * The slice of Hono's `Context` these handlers use.
  *
@@ -86,18 +84,14 @@ type TeamRouteContext = {
 /**
  * Run a team-read program on this request's domain services.
  *
- * The cast is to Hono's `Context`, and it is confined to this one function so
- * no handler carries it. `runDomainPromise` reads exactly one variable off the
- * context — the box `domainContextMiddleware` published — and
- * {@link TeamRouteContext} declares the `get` that reads it; what the cast
- * papers over is Hono's `Context` being a class with a hundred other members
- * these handlers never touch.
+ * `runDomainPromise` reads exactly one variable off the context — the box
+ * `domainContextMiddleware` published — and {@link TeamRouteContext} declares
+ * the `get` that reads it.
  */
 const runTeamRead = <A, E>(
   c: TeamRouteContext,
   program: Effect.Effect<A, E, OrganizationTeamRepository>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see the doc comment: a structural slice of Hono's Context, narrowed on purpose
-): Promise<A> => runDomainPromise(c as any, program)
+): Promise<A> => runDomainPromise(c, program)
 
 /**
  * Re-issue a Better Auth list response with a single-key envelope.

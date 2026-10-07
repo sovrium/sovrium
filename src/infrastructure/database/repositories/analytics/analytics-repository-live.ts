@@ -110,7 +110,6 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       // the JSON as a jsonb OBJECT (not string) — `->>` extraction
       // requires this. See `recordPageView` for full rationale.
       // @effect-diagnostics effect/preferSchemaOverJson:off
-      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: input.eventType,
@@ -150,7 +149,6 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       // plain single-quoted JSON string literal (the `properties`
       // column is `text` on SQLite, so no `::jsonb` cast).
       // @effect-diagnostics effect/preferSchemaOverJson:off
-      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: 'page_view',
@@ -253,7 +251,6 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
-        // eslint-disable-next-line unicorn/no-null -- null represents direct traffic (no referrer)
         domain: row.domain ?? null,
         pageViews: row.pageViews,
         uniqueVisitors: row.uniqueVisitors,
@@ -363,11 +360,8 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
-        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         source: row.source ?? null,
-        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         medium: row.medium ?? null,
-        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         campaign: row.campaign ?? null,
         pageViews: row.pageViews,
         uniqueVisitors: row.uniqueVisitors,

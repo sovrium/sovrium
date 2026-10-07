@@ -35,7 +35,7 @@ export const HttpRequestActionSchema = Schema.Struct({
     ),
     // Accepts a literal HTTP verb OR a template string (`{{…}}` /
     // `$env.…`) so operators can drive the method off trigger data
-    //. Plain free-form strings
+    // Plain free-form strings
     // are rejected at decode time so a typo like `'PSOT'` still fails
     // before a request is dispatched.
     method: Schema.Union([

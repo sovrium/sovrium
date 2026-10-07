@@ -35,13 +35,65 @@ A name that matches no template in `app.components` is refused when the config i
 
 ## Template properties
 
-| Property   | Description                                                                      |
-| ---------- | -------------------------------------------------------------------------------- |
-| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter. |
-| `type`     | The component type the template renders — any type a page can use.               |
-| `props`    | Component properties. Values may contain `$variable` placeholders.               |
-| `content`  | Text content. May contain `$variable` placeholders.                              |
-| `children` | Nested child components, which may themselves carry placeholders.                |
+| Property   | Description                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter.                         |
+| `type`     | The component type the template renders — any type a page can use.                                       |
+| `props`    | Component properties. Values may contain `$variable` placeholders.                                       |
+| `content`  | Text content. May contain `$variable` placeholders.                                                      |
+| `children` | Nested child components, which may themselves carry placeholders — or `$children`, the slot (see below). |
+
+## Slots: a template around the page's own components
+
+A template can leave a place for the components of the page that places it. Write `children: $children` on the node that should hold them — at any depth, or on the template's root — and pass those components as the placement's `children`. This is how an application shell is declared once:
+
+```yaml
+components:
+  - name: app-shell
+    type: flex
+    props: { className: 'min-h-screen flex flex-col lg:flex-row' }
+    children:
+      - type: sidebar
+        groups:
+          - label: Billing
+            items:
+              - { label: Invoices, href: /invoices, icon: file-text }
+              - { label: Clients, href: /clients, icon: users }
+      - type: container
+        element: main
+        props: { className: 'flex-1 min-w-0 px-4 py-8' }
+        children: $children
+
+pages:
+  - name: invoices
+    path: /invoices
+    components:
+      - component: app-shell
+        children:
+          - { type: text, element: h1, content: Invoices }
+          - { type: text, element: p, content: '42 invoices this quarter' }
+  - name: clients
+    path: /clients
+    components:
+      - component: app-shell
+        children:
+          - { type: text, element: h1, content: Clients }
+```
+
+Every placement form takes `children` — `component:` and `$ref:`, with or without `vars`.
+
+| Rule                      | Detail                                                                                                                                                                             |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Whose components they are | The page's. They are read in the page's scope — the page's record, `$t:` keys and visibility rules — and a template placed among them expands like any other placement.            |
+| The template's `vars`     | Reach the template's own nodes only, never the components in the slot.                                                                                                             |
+| No `children`             | A slotted template placed without `children` draws its slot empty.                                                                                                                 |
+| One slot                  | A template declaring two slots is refused.                                                                                                                                         |
+| No slot                   | A placement passing `children` to a template without a slot is refused, rather than its components being dropped.                                                                  |
+| Not through a value       | A placement filling the slot with `vars: { children: … }` is refused: the slot takes a list of components.                                                                         |
+| Not inside a data node    | A slot inside a node that reads rows or repeats (`dataSource`, `contentFrom`, `repeat`, the slot's own node included) is refused: there the page's components would read each row. |
+| Tabs and steppers         | A slot on a `tabs` or `stepper` node takes exactly one component per panel or step, in order; any other count is refused.                                                          |
+
+All of these are refused when the config is validated or the app starts. The library's sidebar shell block (`sovrium library add block/shell-sidebar`) is a slotted template of exactly this shape.
 
 ## Variables
 

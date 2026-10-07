@@ -190,7 +190,7 @@ export const MenuItemSchema = Schema.Struct({
    *
    * It maps to Base UI's `defaultChecked`, never to `checked`, so the row is
    * UNCONTROLLED and its live state lives only in the reader's browser
-   *. Nothing here reads a record or writes one back; an item that
+   * Nothing here reads a record or writes one back; an item that
    * must persist what it toggles carries an `action` as well, exactly as any
    * other item does.
    *
@@ -535,3 +535,25 @@ export type FloatingAlign = Schema.Schema.Type<typeof FloatingAlignSchema>
 export type TimeFormat = Schema.Schema.Type<typeof TimeFormatSchema>
 /** @public */
 export type ProgressVariant = Schema.Schema.Type<typeof ProgressVariantSchema>
+
+// ---------------------------------------------------------------------------
+// Tone schema (reused by table cellStyle and kpi)
+// ---------------------------------------------------------------------------
+
+/**
+ * A semantic colour for a value, named by what it MEANS rather than by a
+ * utility class.
+ *
+ * Each tone is one of the app's colour roles, so it follows the theme in light
+ * and dark. It paints the value AND whatever the engine draws inside it — a
+ * chip, a link, a trend arrow — which a `className` on the outer element cannot
+ * do without an arbitrary descendant selector (`[&_*]:text-error`).
+ */
+export const ToneSchema = Schema.Literals(['success', 'warning', 'error', 'muted']).annotate({
+  title: 'Tone',
+  description:
+    "A semantic colour for the value and everything drawn inside it: 'success', 'warning', 'error' (the theme's status roles) or 'muted' (the secondary text colour).",
+})
+
+/** @public */
+export type Tone = Schema.Schema.Type<typeof ToneSchema>

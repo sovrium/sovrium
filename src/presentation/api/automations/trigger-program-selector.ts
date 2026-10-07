@@ -51,5 +51,5 @@ export function selectTriggerProgram(input: {
         ...shared,
         triggerData: { body, type: 'cron', invokedOnDemand: true },
       })
-    : runManualAutomation({ ...shared, triggerData: { body } })
+    : runManualAutomation({ ...shared, triggerData: { body }, byName: true })
 }

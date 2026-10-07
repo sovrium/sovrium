@@ -34,7 +34,7 @@ import type {
 import type { StorageService } from '@/application/ports/services/storage-service'
 
 /**
- * [internal ref] (slug-management). Validate any explicit
+ * the pages access publishing requirement (slug-management). Validate any explicit
  * `slug` value on a slug-convention table against the slug format regex.
  *
  * Convention: a `slug: single-line-text` field plus a `title:
@@ -71,7 +71,7 @@ function validateSlugFormat(
 }
 
 /**
- * [internal ref] (slug-management). Auto-derive a slug
+ * the pages access publishing requirement (slug-management). Auto-derive a slug
  * from the `title` field when the body omits an explicit slug and the
  * table participates in the slug convention.
  *
@@ -96,7 +96,7 @@ function applySlugAutoDerive(
  *
  * Non-rich-text fields and missing values pass through unchanged.
  *
- * Asserted by [internal ref] (script tags, on* attributes, and
+ * Asserted by a pages CRUD wysiwyg spec (script tags, on* attributes, and
  * javascript: URLs are stripped before persistence).
  *
  * Exported so the update path can run this ONE rule directly. Both write verbs
@@ -105,8 +105,7 @@ function applySlugAutoDerive(
  * update path composes its steps individually in the route handler.
  *
  * Selects columns by declared field TYPE, which is what keeps `long-text` /
- * `single-line-text` prose containing angle brackets byte-identical
- *.
+ * `single-line-text` prose containing angle brackets byte-identical.
  *
  * @public
  */
@@ -166,11 +165,12 @@ export function validateRecordCreation(
 
     // Step 5: Slug-convention validation BEFORE auto-derive so an invalid
     // explicit slug fails fast with FieldFormatError (HTTP 422), without
-    // being overwritten by an auto-derived value.
+    // being overwritten by an auto-derived value (the pages access requirement-
+    // PUBLISHING-002 / a pages publishing spec).
     yield* validateSlugFormat(allowedData)
 
     // Step 6: Auto-derive slug from title when missing
-    //. Pure transform — leaves the body
+    // Pure transform — leaves the body
     // unchanged for non-CMS tables.
     const slugAppliedData = yield* applySlugAutoDerive(allowedData)
 
@@ -299,7 +299,7 @@ export function validateRecordUpdate(
 
     // Step 5: Slug-convention format validation. No auto-derive on update
     // — partial PATCH semantics, the caller controls the new slug
-    // explicitly. ([internal ref].)
+    // explicitly. (the pages access publishing requirement.)
     yield* validateSlugFormat(allowedData)
 
     // Note: No required field validation for updates (partial updates allowed)

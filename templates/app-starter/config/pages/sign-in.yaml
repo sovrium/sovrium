@@ -1,0 +1,7 @@
+name: sign-in
+path: /sign-in
+meta:
+  title: Sign in · App starter
+  description: Sign in to the app.
+components:
+  - component: auth-sign-in

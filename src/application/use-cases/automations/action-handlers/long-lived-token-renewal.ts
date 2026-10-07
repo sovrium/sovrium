@@ -7,9 +7,8 @@
 
 import { Data, Effect } from 'effect'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
 import { isLongLivedRenewalDue } from '@/domain/models/app/connections/long-lived-token-service'
-import { exchangeMetaLongLivedToken } from '@/infrastructure/connections/long-lived-token-exchange'
-import { withRefreshLockEffect } from '@/infrastructure/connections/token-refresh'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { buildRefreshProps } from './client-credentials-token'
 import type { ConnectionDef } from './static-auth-header'
@@ -56,7 +55,7 @@ const storeRenewedToken = (
   connectionId: string,
   scope: RenewalScope,
   renewed: { readonly accessToken: string; readonly expiresAt: Date | undefined }
-): Effect.Effect<void, unknown, ConnectionTokenRepository> =>
+): Effect.Effect<void, unknown, ConnectionTokenRepository | OAuthTokenClient> =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
     const { accessToken, expiresAt } = renewed
@@ -79,15 +78,14 @@ export const renewLongLivedToken = (
   token: RenewableToken,
   connectionId: string,
   scope: RenewalScope
-): Effect.Effect<RenewalOutcome, never, ConnectionTokenRepository> => {
+): Effect.Effect<RenewalOutcome, never, ConnectionTokenRepository | OAuthTokenClient> => {
   const current: RenewalOutcome = { ok: true, token: token.accessToken, fields: token.tokenFields }
   const renew = Effect.gen(function* () {
     const props = buildRefreshProps(conn)
     if (props === undefined) return current
-    const result = yield* Effect.tryPromise({
-      try: () => exchangeMetaLongLivedToken(props, token.accessToken),
-      catch: (cause) => new LongLivedRenewalError({ cause }),
-    })
+    const result = yield* OAuthTokenClient.use((tokens) =>
+      tokens.exchangeLongLivedToken(props, token.accessToken)
+    ).pipe(Effect.mapError((error) => new LongLivedRenewalError({ cause: error.cause })))
     if (!result.ok) {
       logWarning('[connections] long-lived token renewal refused; using the stored token', {
         'sovrium.connection.name': conn.name,
@@ -104,16 +102,18 @@ export const renewLongLivedToken = (
     )
     return { ok: true, token: result.accessToken, fields: token.tokenFields } as const
   })
-  return withRefreshLockEffect(
-    { connectionId, userId: scope.kind === 'user' ? scope.userId : undefined },
-    renew.pipe(
-      Effect.tapCause((cause) =>
-        Effect.sync(() => logError('[connections] long-lived token renewal failed', cause))
+  return OAuthTokenClient.use((tokens) =>
+    tokens.withRefreshLock(
+      { connectionId, userId: scope.kind === 'user' ? scope.userId : undefined },
+      renew.pipe(
+        Effect.tapCause((cause) =>
+          Effect.sync(() => logError('[connections] long-lived token renewal failed', cause))
+        ),
+        // effect-swallow: the stored token is still valid, so a failed renewal falls back to it; the cause is logged just above.
+        Effect.orElseSucceed(() => current)
       ),
-      // effect-swallow: the stored token is still valid, so a failed renewal falls back to it; the cause is logged just above.
-      Effect.orElseSucceed(() => current)
-    ),
-    (cause) => new LongLivedRenewalError({ cause })
+      (cause) => new LongLivedRenewalError({ cause })
+    )
   ).pipe(
     Effect.catchTag('LongLivedRenewalError', () => Effect.succeed(current)),
     Effect.withSpan('automations.renew-long-lived-token')

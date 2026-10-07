@@ -44,17 +44,16 @@ export type HTMLElementConfig = {
  * - Condition: content starts with '<' AND the resolver has not pinned it to
  *   the text branch via `data-content-plain-text`
  *
- * THAT SECOND CONDITION IS LOAD-BEARING. `startsWith('<')` used to be the only
- * gate, and an earlier version of this note said "Risk: Low - content is from
- * server configuration, not user input". That was FALSE for any content
- * carrying a `$record.*` binding: the author writes the literal `'$record.bio'`,
- * which does not start with `<`, and the RECORD then decides at request time
- * which branch this function takes. A stored value beginning with `<` flipped
- * the element into the raw-HTML path — stored XSS against every subsequent
- * visitor, needing no authentication to plant. Saying "Risk: Low" is exactly
- * what stopped the previous reader from checking.
+ * THAT SECOND CONDITION IS LOAD-BEARING. With `startsWith('<')` as the only
+ * gate, "content is from server configuration, not user input" is FALSE for
+ * any content carrying a `$record.*` binding: the author writes the literal
+ * `'$record.bio'`, which does not start with `<`, and the RECORD then decides at
+ * request time which branch this function takes. A stored value beginning with
+ * `<` would flip the element into the raw-HTML path — stored XSS against every
+ * subsequent visitor, needing no authentication to plant. Do not label this
+ * branch low-risk.
  *
- * The verdict is now settled where provenance is still known.
+ * The verdict is settled where provenance is still known.
  * `substituteRecordInContent` (presentation/rendering/data-source-resolver.ts)
  * decides HTML-vs-text from the AUTHOR's template alone: it HTML-escapes record
  * values interpolated into an author HTML template, and sets
@@ -84,14 +83,13 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   // underscore prefix — it has to look like a `data-*` attribute upstream.
   //
   // The underscore-prefixed marker family is handled by `omitInternalMarkers`,
-  // which every renderer that spreads author props onto a DOM element now
-  // calls. This function used to enumerate six marker keys inline, and three
-  // other renderers destructured their own — which is exactly why the leak
-  // survived: a data source bound to a structural type landed here and was
-  // clean, while the same source bound to a `link`, `image`, `audio`,
-  // `iframe`, `list`, `paragraph` or form leaf reached a renderer that spread
-  // props unfiltered, and React answered each one with "React does not
-  // recognize the `_dataSourceBound` prop on a DOM element". Enumerating keys
+  // which every renderer that spreads author props onto a DOM element calls.
+  // Enumerating marker keys inline per renderer lets them leak: a data source
+  // bound to a structural type would land here clean, while the same source
+  // bound to a `link`, `image`, `audio`, `iframe`, `list`, `paragraph` or form
+  // leaf would reach a renderer that spreads props unfiltered, and React would
+  // answer each one with "React does not recognize the `_dataSourceBound` prop
+  // on a DOM element". Enumerating keys
   // per renderer closes one type at a time; the shared prefix test closes the
   // class. See `props/internal-marker-props.ts` for why the strip cannot move
   // upstream — the markers are read by the renderers that own their types.
@@ -115,7 +113,7 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
     return (
       <Element
         {...elementProps}
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR HTML element renderer; one-shot during server render
+        // eslint-disable-next-line sovrium/require-sanitized-html -- author HTML from page config; record values interpolated into it are HTML-escaped upstream by substituteRecordInContent
         dangerouslySetInnerHTML={{ __html: content }}
       />
     )

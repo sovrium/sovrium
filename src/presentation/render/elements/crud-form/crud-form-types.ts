@@ -8,7 +8,10 @@
 import type { Languages } from '@/domain/models/app/languages'
 import type { VisibleWhenCondition } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { FieldType } from '@/domain/models/app/tables/fields'
-import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
+import type {
+  ChoiceOption,
+  TypedColumnConfig,
+} from '@/presentation/design/field-control-attributes'
 
 /**
  * A success-page action button (`reset` or `navigate`). Mirrors the
@@ -68,8 +71,8 @@ export type ResolvedFieldDef = TypedColumnConfig & {
   /** Narrowed to the domain field-type union so every dispatch over it is total. */
   readonly type: FieldType
   readonly required?: boolean
-  /** Choice-field option VALUES, already unwrapped from `status`'s `{ value, color }` objects. */
-  readonly options?: readonly string[]
+  /** A choice field's options: the stored `value` and the `label` the control offers. */
+  readonly options?: readonly ChoiceOption[]
   /**
    * The bound column's declared `format` (`barcode`). Forwarded to the island
    * because it decides whether an untouched empty value may be written at all
@@ -130,7 +133,7 @@ export type ResolvedFieldDef = TypedColumnConfig & {
   //
   // Resolved off the bound `relationship` column so the form can render the
   // SAME searchable picker the grid's cell editor already renders. Before
-  // [internal ref] none of these reached the client and the control degraded to a
+  // The relationship-field `allowCreate`/`maxLinked` design none of these reached the client and the control degraded to a
   // free-text box asking for a raw foreign key.
   /** The table the picker searches. */
   readonly relatedTable?: string

@@ -25,15 +25,11 @@
  *   /api/ai/chat  { message, agent: 'support-assistant' } → 'support-assistant'
  *   /api/agents/support-assistant/chat { message }     → 'support-assistant'
  *
- * HISTORY, because the middle row used to read NULL and the argument below was
- * built on it: the agent-bound branch of `/api/ai/chat` once persisted through
- * a writer with no `agentName` parameter, so naming a declared agent still
- * produced an unattributed row. That is fixed — attribution is now an optional
- * field of the SINGLE writer `persistChatTurnDurably`, and
- * `[internal ref]` pins it in both directions across both transports.
+ * Attribution is an optional field of the SINGLE writer
+ * `persistChatTurnDurably`, and an AI memory spec pins it in both directions
+ * across both transports.
  *
- * The conclusion is unchanged, but it no longer rests on that row. It rests on
- * the FIRST row, which no fix can retire: an agent-less turn is always
+ * The argument below rests on the FIRST row, which no fix can retire: an agent-less turn is always
  * reachable, so an app accumulates NULL-agent conversations continuously
  * regardless of what it declares. An EXCLUSIVE System Agent would make every one of
  * those rows unreachable from the console the moment the operator declared

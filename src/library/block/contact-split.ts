@@ -28,7 +28,7 @@ import type { BlockNode } from '@/library/manifest/block-kit'
 const messageForm = (p: (key: string) => string): BlockNode =>
   endpointForm({
     className: BARE_FORM,
-    url: p('endpoint'),
+    url: `/api/forms/${encodeURIComponent(p('form'))}/submissions`,
     submitLabel: p('submitLabel'),
     successMessage: p('successMessage'),
     errorMessage: 'The message could not be sent. Try again.',
@@ -51,7 +51,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'The form posts `{ "name", "email", "message" }` as JSON to `endpoint` — your own route, or an automation webhook — and shows a toast on success or failure. It writes to no table, so the block installs into any app; to store messages in a table instead, replace `endpoint` with a `dataSource` in the fragment.',
+    'The form posts `{ "name", "email", "message" }` to the submissions route of the app form named by `form` (`/api/forms/<form>/submissions`) and shows a toast on success or failure. Declare that form under `forms:` with `name`, `email` and `message` fields — it decides where a message goes (a table through `submitTo`, an automation through a `form` trigger) and who may send one. Until it exists, a submission answers 404 and the error toast shows.',
     'The columns stack on a phone, details first.',
   ],
   params: [
@@ -60,7 +60,11 @@ export const entry = defineLibraryEntry({
     stringParam('email', 'The contact email address.', '[contact@example.com]'),
     stringParam('phone', 'The contact phone number. Empty to omit the row.', '[+33 0 00 00 00 00]'),
     stringParam('address', 'The postal address. Empty to omit the row.', '[Street, city]'),
-    stringParam('endpoint', 'The URL the form posts the message to.', '/api/contact'),
+    stringParam(
+      'form',
+      'The name of the app form (under `forms:`) that receives the message.',
+      'contact'
+    ),
     stringParam('submitLabel', 'The text of the submit button.', 'Send message'),
     stringParam(
       'successMessage',

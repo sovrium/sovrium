@@ -9,19 +9,14 @@
  * THE `$record.*` substitutor. One implementation, one coercion contract, one
  * grammar — used by every surface that interpolates a record into a template.
  *
- * ─── ONE COERCION, AND WHY IT USED TO BE FOUR ───────────────────────────────
+ * ─── ONE COERCION ───────────────────────────────────────────────────────────
  *
  * A missing field (`undefined`) and an explicit `null` both resolve to the
  * EMPTY STRING; every other value is coerced with `String(value)`.
  *
- * That rule was previously written four times and agreed twice. The page
- * renderer's copy tested `value !== undefined` only, so a nullable column
- * painted the literal text `null` into a heading; the kanban card and this
- * module mapped `null` to `''`; the search island carried a fourth copy that
- * agreed with the renderer. The divergence was tracked in this file's own
- * header as a follow-up for long enough that two islands had grown local
- * work-arounds for it. It is now closed by DELETING the other three: the
- * renderer, the kanban card template and the search island all delegate here.
+ * The rule is written once. The page renderer, the kanban card template and
+ * the search island all delegate here, so none of them can, say, test only
+ * `value !== undefined` and paint the literal text `null` into a heading.
  *
  * `null` renders as nothing because that is what a null column MEANS to a
  * reader. `String(null)` is a JavaScript detail leaking into a document, and a
@@ -303,7 +298,7 @@ export const isRecordFieldRef = (value: unknown): value is string =>
 
 /**
  * One element of a repeated array, projected to what this substituter may
- * legitimately PRINT ([internal ref] CAP-6).
+ * legitimately PRINT.
  *
  * Inside a `repeat`, `$record.<key>` names a key on the ELEMENT rather than on
  * the drawer's record, and the elements of a `json` column are arbitrary: a key

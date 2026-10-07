@@ -108,6 +108,7 @@ type DynamicSignalId =
   | 'source'
   | 'markdown'
   | 'presence'
+  | 'invitation'
   | 'sidebar'
   | 'paramPath'
   | 'appOrigin'
@@ -128,6 +129,9 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
   { id: 'source', trips: (page) => page.source !== undefined },
   { id: 'markdown', trips: (page) => page.markdown !== undefined },
   { id: 'presence', trips: (page) => page.presence === true },
+  // `page.invitation` prints who invited whom from the token in the address,
+  // and withdraws the answer forms once it is answered — never shareable.
+  { id: 'invitation', trips: (page) => page.invitation !== undefined },
   { id: 'sidebar', trips: (page) => page.layout?.sidebar !== undefined },
   { id: 'paramPath', trips: (page) => page.path.includes(':') },
   // G1: `$app.origin` prints the address THIS request arrived on. The page
@@ -179,6 +183,31 @@ const CONTENT_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSign
  */
 const componentTreeHasDataSource = (items: readonly unknown[], placed: PlacedTemplates): boolean =>
   someRenderedNode(items, placed, (node) => node['dataSource'] !== undefined)
+
+/**
+ * The signals that read RECORD data — a table or a system endpoint — rather
+ * than the filesystem, the request, or the session. Together with a
+ * component-level `dataSource` (see {@link readsRecordData}) they mark the
+ * `'dynamic'` pages whose bytes change when someone writes a record.
+ */
+const RECORD_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSignalId>([
+  'collection',
+  'dataSource',
+  'invitation',
+  'sidebar',
+])
+
+/**
+ * Whether the page, as rendered, reads record data: a component (at any
+ * depth, through a template or a breakpoint) binds a `dataSource`, or the page
+ * trips one of the {@link RECORD_BACKED_SIGNALS}. Not a new verdict — the same
+ * signals {@link verdictFor} already reads, asked which family tripped.
+ */
+const readsRecordData = (page: Page, placed: PlacedTemplates): boolean =>
+  componentTreeHasDataSource(page.components ?? [], placed) ||
+  DYNAMIC_PAGE_SIGNALS.some(
+    (signal) => RECORD_BACKED_SIGNALS.has(signal.id) && signal.trips(page, placed)
+  )
 
 /** {@link classifyPageCacheability} over templates already collected. */
 const verdictFor = (page: Page, placed: PlacedTemplates): PageCacheability => {
@@ -259,7 +288,7 @@ function nodeRendersRequestPrefill(node: Node, forms: readonly Form[]): boolean 
 /**
  * Whether any rendered `form` / `dialog` node — inline, inside a placed
  * template, or only in a breakpoint's children — renders request-dependent
- * starting values ([internal ref]: `$query.*`; `$now`). Such a page's form
+ * starting values (a forms spec: `$query.*`; `$now`). Such a page's form
  * renders differently per request, so its HTML is not request-invariant.
  */
 const componentTreeHasRequestPrefillForm = (
@@ -277,12 +306,20 @@ export interface RenderablePathCacheability {
   readonly verdict: PageCacheability
   /** The matched page, or `undefined` for the implicit default homepage. */
   readonly page: Page | undefined
+  /**
+   * Whether the page reads record data (a table or a system endpoint). Always
+   * `false` for a `'static'` or `'content'` verdict; on a `'dynamic'` one it
+   * separates a page whose bytes change when a record is written from one that
+   * varies only with its URL, its request or its session.
+   */
+  readonly readsRecordData: boolean
 }
 
 /** The verdict for a path that resolves to no authored page. */
 const unmatched = (path: string): RenderablePathCacheability => ({
   verdict: path === '/' ? 'static' : 'dynamic',
   page: undefined,
+  readsRecordData: false,
 })
 
 /**
@@ -308,14 +345,15 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
 
   const page = pages[match.index]
   if (!page) return unmatched(path)
-  // [internal ref]: a page whose form starts from `$query.*` or `$now`
+  // [internal ref] / a forms spec: a page whose form starts from `$query.*` or `$now`
   // (its prefill, its fields' defaults, or the host's inline prefill) renders
   // per-request output. The page cache is keyed by path only (no query string)
   // and has no TTL, so serving such a page from cache would leak a prior
   // request's `?param` values, or freeze `$now` — exclude it.
   const placed = placedTemplatesOf(page.components ?? [], app.components ?? [])
+  const readsRecords = readsRecordData(page, placed)
   if (componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)) {
-    return { verdict: 'dynamic', page }
+    return { verdict: 'dynamic', page, readsRecordData: readsRecords }
   }
-  return { verdict: verdictFor(page, placed), page }
+  return { verdict: verdictFor(page, placed), page, readsRecordData: readsRecords }
 }

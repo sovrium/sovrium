@@ -6,12 +6,10 @@
  */
 
 import type { FieldMetaMap } from '../../../hooks/use-inline-editing'
-import type { SavedViewConfigPayload } from '../../../hooks/use-saved-views'
 import type { useDataTableUiState } from '../use-ui-state'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableColumn,
-  DataTableGroupBy,
   DataTablePagination,
   ComponentSearch,
   DataTableSelection,
@@ -21,13 +19,14 @@ import type {
   RowHeight,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 import type { QueryClient } from '@tanstack/react-query'
 
 export interface IslandSetupParams {
   /**
    * The grid reads through one of its table's views (`dataSource.view`): the
-   * records come from the view's route, and nothing is written, saved or
-   * subscribed to — see `SetupContext.isViewBound`.
+   * records come from the view's route, and it subscribes to no live refresh —
+   * see `SetupContext.isViewBound`.
    */
   readonly isViewBound?: boolean
   readonly dataSource: {
@@ -36,6 +35,8 @@ export interface IslandSetupParams {
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
+    /** How many rows the grid shows in all: its page size and pager total stay under it. */
+    readonly limit?: number
     /** Data refresh strategy (`'poll'` enables interval re-fetch). */
     readonly refreshMode?: 'none' | 'poll' | 'realtime'
     /** Poll interval in milliseconds (used when `refreshMode` is `'poll'`). */
@@ -51,8 +52,8 @@ export interface IslandSetupParams {
     /**
      * System read-endpoint binding.
      * When present the grid is read-only: rows come from the endpoint, and
-     * DB-table-only features (preferences, saved views, realtime, inline edit,
-     * crud-success refresh) are skipped. The system source carries its own
+     * DB-table-only features (realtime, inline edit, crud-success refresh) are
+     * skipped. The system source carries its own
      * `bindTo` + `sharedFilter` (the dynamic counterpart to the static `query`).
      */
     readonly system?: DataTableSystemSource
@@ -66,7 +67,8 @@ export interface IslandSetupParams {
   readonly searchSourceId: string | undefined
   readonly tableFields: readonly string[] | undefined
   readonly fieldMeta: FieldMetaMap | undefined
-  readonly groupByConfig: DataTableGroupBy | undefined
+  /** The bound view's grouping — a grid groups only through a view. */
+  readonly groupByConfig: ViewGroupBy | undefined
   /**
    * Declared footer summary. Drives the whole-view `?aggregate=` request that
    * rides the records fetch — the footer used to reduce over the CURRENT PAGE's
@@ -81,20 +83,6 @@ export interface IslandSetupParams {
   readonly showRowNumbers: boolean | undefined
   readonly bordered: boolean
   readonly autoSaveConfig: AutoSaveConfig | undefined
-  /**
-   * Developer-configured views surfaced from `app.tables[i].views[]` (PG-03 /
-   * [internal ref]). These are READ-ONLY: the user can fork them
-   * via `Save as new` but cannot overwrite or delete them. The schema's view
-   * id is a numeric, but we normalise to string here so the cross-source
-   * Views menu can key uniformly.
-   */
-  readonly tableViews?: ReadonlyArray<{
-    readonly id: string
-    readonly name: string
-    readonly filters?: SavedViewConfigPayload['filters']
-    readonly sorts?: SavedViewConfigPayload['sorts']
-    readonly groupBy?: string | null
-  }>
   /**
    * Interpreter-provided commit / dismiss labels, resolved server-side against
    * the app language. Reach the action column's inline select-editor and its
@@ -119,22 +107,16 @@ export interface SetupContext {
   readonly queryClient: QueryClient
   /**
    * A system-source grid reads from an endpoint, not a DB table, so it is
-   * read-only: preferences, saved views, realtime, crud-refresh and inline
-   * editing are all skipped for it.
+   * read-only: realtime, crud-refresh and inline editing are all skipped for it.
    */
   readonly isSystemSource: boolean
   /**
-   * The grid reads through a view: read-only like a system source, but backed
-   * by a DB table, so it still pages, sorts and filters through the records
-   * API — the view's records route. Preferences, saved views and realtime are
-   * skipped: each is keyed on the TABLE, whose grants a visitor on a public
-   * view does not hold.
+   * The grid reads through a view: it pages, sorts and filters through the
+   * view's records route, and writes — for a reader the table lets write — go
+   * to the table's records. Realtime is skipped: the subscription is keyed on
+   * the TABLE, whose grants a visitor on a public view does not hold.
    */
   readonly isViewBound: boolean
-  /**
-   * The bound DB table, or the empty string for a system source. The prefs and
-   * saved-views hooks short-circuit their network reads on an empty key, so no
-   * `/api/tables//*` request is ever issued.
-   */
+  /** The bound DB table, or the empty string for a system source. */
   readonly tableKey: string
 }

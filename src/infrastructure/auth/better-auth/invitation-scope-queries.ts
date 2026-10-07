@@ -85,7 +85,6 @@ export const inheritScopeAssignments = async (params: {
       }))
     if (values.length === 0) return 0
 
-    // eslint-disable-next-line functional/no-expression-statements -- DB insert is a side effect
     await db.insert(userAccess).values(values)
     return values.length
   } catch (error) {

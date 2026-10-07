@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { DOCS_CONTENT_MEASURE_CLASSES } from './docs-frame'
 import type { DocsChromeLabels } from '@/presentation/render/markdown/docs-chrome-labels'
 
 /**
@@ -48,7 +49,7 @@ export function DocsContributionFooter({
   return (
     <div
       data-component="docs-contribution-footer"
-      className="border-border mt-10 border-t pt-6"
+      className={`border-border mt-10 border-t pt-6 ${DOCS_CONTENT_MEASURE_CLASSES}`}
     >
       {(editUrl !== undefined || issueUrl !== undefined) && (
         <div className="flex flex-wrap items-center gap-4">

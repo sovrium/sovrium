@@ -8,11 +8,35 @@
 import { Schema, SchemaGetter } from 'effect'
 
 /**
- * Email (SMTP) environment configuration.
+ * The transports outgoing email can leave through. SMTP is the default and
+ * stays the only one that needs no vendor account; the three others are the
+ * HTTP APIs of Brevo, Resend and Amazon SES (API v2), selected with
+ * `EMAIL_PROVIDER`.
+ */
+export const EMAIL_PROVIDERS = ['smtp', 'brevo', 'resend', 'ses'] as const
+
+/**
+ * Email environment configuration.
  *
- * Env vars: SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME
+ * Env vars: EMAIL_PROVIDER, SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER,
+ * SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME, BREVO_API_KEY, RESEND_API_KEY,
+ * EMAIL_SES_REGION, EMAIL_SES_ACCESS_KEY_ID, EMAIL_SES_SECRET_ACCESS_KEY,
+ * EMAIL_API_URL.
+ *
+ * The sender (`SMTP_FROM`, `SMTP_FROM_NAME`) is shared by every transport, so
+ * switching transport never changes who mail comes from.
  */
 export const EmailEnvSchema = Schema.Struct({
+  emailProvider: Schema.optional(
+    Schema.Literals(EMAIL_PROVIDERS).pipe(
+      Schema.annotate({
+        defaultNote: 'smtp',
+        description:
+          'The transport outgoing email leaves through (EMAIL_PROVIDER): smtp, or the HTTP API of brevo, resend or ses. Any other value refuses to start the server.',
+        examples: ['brevo'],
+      })
+    )
+  ),
   smtpHost: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
@@ -66,22 +90,56 @@ export const EmailEnvSchema = Schema.Struct({
       })
     )
   ),
+  brevoApiKey: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Brevo API key (BREVO_API_KEY), sent in the api-key header. Required when EMAIL_PROVIDER is brevo.',
+      })
+    )
+  ),
+  resendApiKey: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Resend API key (RESEND_API_KEY), sent as a bearer token. Required when EMAIL_PROVIDER is resend.',
+      })
+    )
+  ),
+  sesRegion: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'AWS region of the Amazon SES account (EMAIL_SES_REGION). Required when EMAIL_PROVIDER is ses.',
+        examples: ['eu-west-3'],
+      })
+    )
+  ),
+  sesAccessKeyId: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Access key id of the IAM credentials that sign SES requests (EMAIL_SES_ACCESS_KEY_ID). Required when EMAIL_PROVIDER is ses.',
+      })
+    )
+  ),
+  sesSecretAccessKey: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Secret access key of the IAM credentials that sign SES requests (EMAIL_SES_SECRET_ACCESS_KEY). Required when EMAIL_PROVIDER is ses.',
+      })
+    )
+  ),
+  emailApiUrl: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote:
+          "the provider's own address: https://api.brevo.com/v3, https://api.resend.com, or https://email.<EMAIL_SES_REGION>.amazonaws.com",
+        description:
+          'Base address of the selected HTTP transport (EMAIL_API_URL), for a regional endpoint or a relay in front of the provider. Ignored for smtp.',
+        examples: ['https://email.eu-west-3.amazonaws.com'],
+      })
+    )
+  ),
 })
-
-/**
- * Whether outgoing email is configured for this process.
- *
- * `SMTP_HOST` is the single switch: set means "send", unset means "log and
- * carry on" — there is no localhost fallback transport in the runtime, so the
- * presence of the host IS the configuration.
- *
- * Pure, and it lives HERE rather than beside the transport for a layering
- * reason found in W5b of the layout programme. The predicate has a reader on
- * the HTTP surface — the mounted-app guard that hides a mail-gated public path
- * when no mail can be sent — and reaching `infrastructure/email/` for it would
- * have put `sendEmail` and a live nodemailer transport in a route's import
- * graph to answer a question about an environment variable. A predicate over a
- * string bag is a domain fact; delivering a message is not.
- */
-export const hasSmtpHost = (env: Readonly<Record<string, string | undefined>>): boolean =>
-  Boolean(env['SMTP_HOST'])

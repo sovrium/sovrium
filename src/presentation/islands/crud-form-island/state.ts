@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { recordValueText } from '@/presentation/design/field-type-behavior'
 import { readResponseToken } from '../hooks/use-save-tokens'
-import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/use-table-mutations'
+import { useUpdateRecord, useDeleteRecord } from '../hooks/use-table-mutations'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { clearMarkOf, isMarkedCleared } from '../parts/crud-form/wire-values'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
@@ -28,7 +28,7 @@ function buildInitialValues(
       // `String()` (which would yield "[object Object]") so the file-field
       // island can re-parse the existing attachment in edit mode (FORM-037).
       const recordValue = recordValueText(fromRecord)
-      // Initial values (from URL/external) > record (edit mode) > defaultValue (create mode)
+      // Initial values (from URL/external) > the edited record > the field's default
       const value = fromInitial ?? (recordValue !== '' ? recordValue : fallbackDefault)
       return [f.name, value]
     })
@@ -84,7 +84,10 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     successPage,
     initialValues,
   } = props
-  const [values, setValues] = useState(() => buildInitialValues(fields, record, initialValues))
+  // The values the form was filled with: what a save bar counts changes
+  // against, and what Discard restores.
+  const [filled] = useState(() => buildInitialValues(fields, record, initialValues))
+  const [values, setValues] = useState(filled)
   const [state, setState] = useState<FormState>({ isPending: false })
   // The version the form was filled from, then the one each save produced: a
   // second save from the same form must not conflict with the first one.
@@ -110,7 +113,6 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     values,
     setState,
     resetValues,
-    createRecord: useCreateRecord(table),
     updateRecord: useUpdateRecord(table),
     deleteRecord: useDeleteRecord(table),
     automationName: props.automationName,
@@ -119,5 +121,6 @@ export function useCrudFormState(props: CrudFormIslandProps) {
   }
   const handleFieldChange = (name: string, value: string) =>
     setValues((prev) => withFieldValue(prev, name, value))
-  return { values, state, ctx, handleFieldChange }
+  const discardChanges = () => setValues(filled)
+  return { values, filled, state, ctx, handleFieldChange, discardChanges }
 }

@@ -7,17 +7,26 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { readStoredObjectOwner } from '@/application/use-cases/buckets/bucket-file-programs'
+import {
+  constraintRefusalMessage,
+  constraintsForSign,
+  uploadTypeAllowed,
+  withUploader,
+  type SignRequestBody,
+  type UploadConstraints,
+} from '@/application/use-cases/buckets/signed-upload-constraints'
+import {
+  mintSignedUrl,
+  resolveExpiresIn,
+  resolveSignBucket,
+} from '@/application/use-cases/buckets/signed-url-minting'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { inferMimeFromKey, isInlineSafeImageKey } from '@/domain/kernel/identity/mime-types'
-import {
-  ADMIN_ONLY_WHEN_UNDECLARED,
-  evaluatePermission,
-  permits,
-} from '@/domain/models/app/auth/permission-evaluation'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
-import { signSignedUrl, verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
+import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
+import { canSignBucketUrl } from '@/domain/models/app/buckets/bucket-sign-validation'
+import { verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   payloadTooLarge,
@@ -31,16 +40,6 @@ import type { Bucket } from '@/domain/models/app/buckets'
 import type { SignedUrlClaims } from '@/domain/models/app/buckets/signed-url-service'
 import type { Context } from 'hono'
 
-/** Default signed-URL lifetime in seconds (1 hour). */
-const DEFAULT_EXPIRES_IN = 3600
-
-/** Minimum / maximum allowed `expiresIn` (60s to 7 days). */
-const MIN_EXPIRES_IN = 60
-const MAX_EXPIRES_IN = 604_800
-
-/** Default upload size limit when `maxSize` is not specified (10 MB). */
-const DEFAULT_UPLOAD_MAX_SIZE = 10 * 1024 * 1024
-
 /**
  * Resolve the HMAC secret used to sign storage URL tokens.
  *
@@ -50,24 +49,6 @@ const DEFAULT_UPLOAD_MAX_SIZE = 10 * 1024 * 1024
  */
 function signingSecret(): string {
   return resolveStorageSigningSecret(process.env)
-}
-
-/**
- * Optional upload constraints baked into an upload signed URL: the allowed
- * `contentType` (empty string means "any") and the `maxSize` in bytes. Both
- * are HMAC-bound so a client cannot relax them by editing the query string.
- */
-export interface UploadConstraints {
-  readonly contentType: string
-  readonly maxSize: number
-}
-
-/**
- * The token for one set of claims, signed with the storage secret through the
- * one shared signer (the record enricher mints with it too).
- */
-function computeToken(claims: SignedUrlClaims): string {
-  return signSignedUrl(signingSecret(), claims)
 }
 
 /** Whether `token` is the one minted for these claims (constant-time). */
@@ -86,45 +67,39 @@ interface SignedUrlSpec {
 }
 
 /**
- * Build the absolute signed URL for one path. Derives the origin from the
- * incoming request so the URL round-trips against the same server. Upload
- * URLs carry their HMAC-bound `ct` (content type) and `max` (size limit)
- * constraints in the query string so the PUT handler can enforce them.
+ * Build the absolute signed URL for one path through the shared minter,
+ * deriving the origin from the incoming request so the URL round-trips against
+ * the same server.
  */
 export function buildSignedUrl(spec: SignedUrlSpec): {
   readonly signedUrl: string
   readonly expiresAt: string
 } {
-  const { c, bucket, path, operation, expiresInSeconds, constraints } = spec
-  const expires = Date.now() + expiresInSeconds * 1000
-  const token = computeToken({ bucket, path, operation, expires, constraints })
-  const { origin } = new URL(c.req.url)
-  const params = new URLSearchParams({
-    path,
-    op: operation,
-    expires: String(expires),
-    token,
+  const { c, ...request } = spec
+  return mintSignedUrl(request, {
+    secret: signingSecret(),
+    now: Date.now(),
+    origin: new URL(c.req.url).origin,
   })
-  if (operation === 'upload' && constraints) {
-    params.set('ct', constraints.contentType)
-    params.set('max', String(constraints.maxSize))
-  }
-  return {
-    signedUrl: `${origin}/api/buckets/${bucket}/signed?${params.toString()}`,
-    expiresAt: new Date(expires).toISOString(),
-  }
 }
 
 /**
- * Normalize and validate a per-file `expiresIn`. Returns the value to use, or
- * `undefined` when the request specified an out-of-range value.
+ * Whether the bucket already holds an object at `path`, read from the catalog
+ * without touching the bytes. A signed upload writes a NEW object: replacing
+ * one goes through the upload route, where the object's owner is checked
+ * first. An unreadable catalog answers `false` here — the write that
+ * follows reads the same catalog and surfaces the outage itself.
  */
-export function resolveExpiresIn(raw: unknown): number | undefined {
-  if (raw === undefined || raw === null) return DEFAULT_EXPIRES_IN
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined
-  if (raw < MIN_EXPIRES_IN || raw > MAX_EXPIRES_IN) return undefined
-  return raw
+export async function objectStoredAt(c: Context, path: string, bucket: string): Promise<boolean> {
+  const result = await Effect.runPromise(
+    provideDomain(c, readStoredObjectOwner({ key: path, bucket })).pipe(Effect.result)
+  )
+  return result._tag === 'Success' && result.success.stored
 }
+
+/** The 409 a signed upload aimed at a stored object earns, at signing and at `PUT`. */
+const objectAlreadyStored = (c: Context): Response =>
+  c.json(storageErrorBody('An object is already stored at this path', 'CONFLICT'), 409)
 
 /**
  * Download a stored object via the configured `StorageService`.
@@ -191,6 +166,10 @@ export function createHandleSignedServe(app: App) {
   }
 }
 
+/** The signer an upload URL names (`by`), or `undefined` for an anonymous one. */
+const uploaderOf = (query: Readonly<Record<string, string>>): string | undefined =>
+  query['by'] === undefined || query['by'] === '' ? undefined : query['by']
+
 /** Parameters for a verified signed-upload request. */
 interface SignedUploadParams {
   readonly bucket: string
@@ -199,6 +178,7 @@ interface SignedUploadParams {
   readonly expires: number
   readonly contentType: string
   readonly maxSize: number
+  readonly uploadedBy: string | undefined
 }
 
 /**
@@ -214,6 +194,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
   const expires = Number(query['expires'])
   const contentType = query['ct'] ?? ''
   const maxSize = Number(query['max'])
+  const uploadedBy = uploaderOf(query)
 
   if (!path || !token || !Number.isFinite(expires)) {
     return c.json(storageErrorBody('Invalid signed URL', 'BAD_REQUEST'), 400)
@@ -228,7 +209,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
     path,
     operation: 'upload',
     expires,
-    constraints: { contentType, maxSize },
+    constraints: withUploader({ contentType, maxSize }, uploadedBy),
   }
   if (!tokenVerifies(claims, token)) {
     return c.json(storageErrorBody('Invalid signature', 'FORBIDDEN'), 403)
@@ -237,7 +218,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
     return c.json(storageErrorBody('Signed URL expired', 'FORBIDDEN'), 403)
   }
 
-  return { bucket: bucketName, path, token, expires, contentType, maxSize }
+  return { bucket: bucketName, path, token, expires, contentType, maxSize, uploadedBy }
 }
 
 /**
@@ -245,17 +226,22 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
  * verified upload to storage. Extracted from {@link createHandleSignedUpload}
  * to keep that handler under the per-function complexity threshold.
  *
- * - Wrong `Content-Type` vs. the bound constraint → 400
+ * - Wrong `Content-Type` vs. the bound constraint, or — when the URL bound
+ *   none — a type the bucket's `allowedMimeTypes` refuses → 400
  * - Body larger than the bound `maxSize` → 413
+ * - The bucket already holds an object at the path → 409
  * - Storage write failure → 500
- * - Stored successfully → 200
+ * - Stored successfully → 200, attributed to the person who signed the URL
  */
-async function storeSignedUpload(c: Context, params: SignedUploadParams): Promise<Response> {
-  const { path, contentType, maxSize, bucket } = params
+async function storeSignedUpload(
+  c: Context,
+  bucketConfig: Bucket,
+  params: SignedUploadParams
+): Promise<Response> {
+  const { path, contentType, maxSize, bucket, uploadedBy } = params
   const requestType = c.req.header('content-type')?.split(';')[0]?.trim() ?? ''
 
-  // contentType constraint (empty string means "any type allowed").
-  if (contentType !== '' && requestType !== contentType) {
+  if (!uploadTypeAllowed(bucketConfig, contentType, requestType)) {
     return c.json(storageErrorBody('Content type not allowed', 'BAD_REQUEST'), 400)
   }
 
@@ -264,10 +250,13 @@ async function storeSignedUpload(c: Context, params: SignedUploadParams): Promis
     return payloadTooLarge(c, 'Upload exceeds the maximum allowed size')
   }
 
+  // Signing refused a stored key; the key may have been taken since.
+  if (await objectStoredAt(c, path, bucket)) return objectAlreadyStored(c)
+
   const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
   const upload = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.upload(path, body, mimeType, bucket)
+    return yield* storage.upload(path, body, mimeType, { bucket, uploadedById: uploadedBy })
   })
   const result = await Effect.runPromise(provideDomain(c, upload).pipe(Effect.result))
   if (result._tag === 'Failure') {
@@ -298,14 +287,15 @@ async function storeSignedUpload(c: Context, params: SignedUploadParams): Promis
 export function createHandleSignedUpload(app: App) {
   return async (c: Context) => {
     const bucketName = c.req.param('bucketName')
-    if (!resolveSignBucket(app, bucketName) || bucketName === undefined) {
+    const bucket = resolveSignBucket(app, bucketName)
+    if (!bucket || bucketName === undefined) {
       return notFound(c, 'Bucket not found')
     }
 
     const verified = verifySignedUpload(c, bucketName)
     if (verified instanceof Response) return verified
 
-    return storeSignedUpload(c, verified)
+    return storeSignedUpload(c, bucket, verified)
   }
 }
 
@@ -319,10 +309,8 @@ function stripUuidPrefix(key: string): string {
 }
 
 /**
- * Build a safe Content-Disposition header value. ASCII-only names use the
- * simple `filename=` parameter; names with non-ASCII characters use RFC 5987
- * `filename*=UTF-8''<percent-encoded>` to avoid a TypeError from raw multi-byte
- * characters in header values.
+ * Build the Content-Disposition header value, through the one builder that
+ * escapes an uploaded name for a header (`buildContentDisposition`).
  *
  * SECURITY (Finding #2): only RASTER images (png/jpeg/gif/webp) are served
  * `inline` — they carry no active content. SVG (and any non-raster / active
@@ -333,10 +321,7 @@ function buildSignedContentDisposition(path: string): string {
   const disposition = isInlineSafeImageKey(path) ? 'inline' : 'attachment'
   const segments = stripUuidPrefix(path).split('/')
   const filename = segments.at(-1) ?? path
-  if (/^[\x20-\x7E]*$/.test(filename)) {
-    return `${disposition}; filename="${filename}"`
-  }
-  return `${disposition}; filename*=UTF-8''${encodeURIComponent(filename)}`
+  return buildContentDisposition(filename, disposition)
 }
 
 /** Download `path` via the StorageService and stream it back to the client. */
@@ -365,53 +350,11 @@ async function streamSignedDownload(c: Context, path: string, bucket: string): P
 }
 
 /**
- * Resolve the bucket config for a signed-URL request: a declared bucket, or the
- * built-in private `system` bucket.
- */
-export function resolveSignBucket(app: App, bucketName: string | undefined): Bucket | undefined {
-  const explicit = app.buckets?.find((b) => b.name === bucketName)
-  if (explicit) return explicit
-  return bucketName === SYSTEM_BUCKET_NAME ? { name: SYSTEM_BUCKET_NAME, public: false } : undefined
-}
-
-/**
- * Decide whether a user with `userRole` may perform the signing `operation`
- * on `bucket`. The permission entry is `permissions.sign` for download URLs
- * and `permissions.signUpload` for upload URLs. When the relevant permission
- * is not declared the default is admin-only.
- *
- * An admin-equivalent caller always passes (admin override): the built-in
- * `admin` and the app's top role. Unauthenticated users (`userRole` is
- * `undefined`) only pass when the permission is the literal `'all'`.
- */
-function canSign(
-  bucket: Bucket,
-  operation: 'download' | 'upload',
-  userRole: string | undefined,
-  app: App
-): boolean {
-  const permission =
-    operation === 'upload' ? bucket.permissions?.signUpload : bucket.permissions?.sign
-  // The admin override and the admin-only default both admit every
-  // admin-equivalent caller: the built-in `admin` and the app's top role.
-  const caller =
-    userRole === undefined
-      ? undefined
-      : { role: userRole, adminEquivalent: isAdminEquivalent(userRole, app) }
-  return permits(
-    evaluatePermission(permission, caller, {
-      whenUndeclared: ADMIN_ONLY_WHEN_UNDECLARED,
-      adminOverride: 'admin-outranks-role-list',
-    })
-  )
-}
-
-/**
  * The one sign-permission gate shared by the single and the batch form: the
- * caller must pass {@link canSign} for EVERY operation asked. Returns the
+ * caller must pass {@link canSignBucketUrl} for EVERY operation asked. Returns the
  * refusal to send, or `undefined` when the caller may sign.
  *
- * An anonymous caller has no role — `canSign` admits them only for the
+ * An anonymous caller has no role — `canSignBucketUrl` admits them only for the
  * literal `'all'`, which is why the session check is a FALLBACK for a
  * permission that cannot be satisfied anonymously and not a precondition for
  * consulting permissions at all. Gating first made the `'all'` branch
@@ -428,51 +371,27 @@ export async function refuseUnlessSignable(
 ): Promise<Response | undefined> {
   const session = getSessionContext(c)
   const userRole = session ? await runDomainPromise(c, getUserRole(session.userId)) : undefined
-  if (operations.every((operation) => canSign(bucket, operation, userRole, app))) return undefined
+  if (operations.every((operation) => canSignBucketUrl(bucket, operation, userRole, app)))
+    return undefined
   return session
     ? notFound(c, 'Resource not found')
     : c.json(storageErrorBody('Unauthorized', 'UNAUTHORIZED'), 401)
 }
 
-/** Parsed body of a single-sign request. */
-interface SignRequestBody {
-  readonly path?: unknown
-  readonly operation?: unknown
-  readonly expiresIn?: unknown
-  readonly contentType?: unknown
-  readonly maxSize?: unknown
-}
-
 /**
- * Resolve the upload constraints for a sign request body. Returns the
- * constraints to bake into the upload token, or `undefined` when the request
- * specified an invalid `maxSize`. A missing `maxSize` defaults to 10 MB; a
- * missing `contentType` means "any type" (the empty string).
+ * Download URLs must reference an existing file; upload URLs must not — a
+ * signed upload writes a NEW object. The refusal, or `undefined`.
  */
-function resolveUploadConstraints(body: SignRequestBody): UploadConstraints | undefined {
-  const { contentType, maxSize } = body
-  if (contentType !== undefined && typeof contentType !== 'string') return undefined
-  if (maxSize === undefined || maxSize === null) {
-    return {
-      contentType: typeof contentType === 'string' ? contentType : '',
-      maxSize: DEFAULT_UPLOAD_MAX_SIZE,
-    }
-  }
-  if (typeof maxSize !== 'number' || !Number.isFinite(maxSize) || maxSize <= 0) return undefined
-  return { contentType: typeof contentType === 'string' ? contentType : '', maxSize }
-}
-
-/**
- * Resolve the upload constraints for an upload sign request. Download requests
- * carry no constraints (`undefined`). Returns the literal string `'invalid'`
- * when an upload request specified an out-of-range `maxSize`.
- */
-export function constraintsForSign(
+async function refuseByStoredObject(
+  c: Context,
   operation: 'download' | 'upload',
-  body: SignRequestBody
-): UploadConstraints | undefined | 'invalid' {
-  if (operation !== 'upload') return undefined
-  return resolveUploadConstraints(body) ?? 'invalid'
+  path: string,
+  bucket: string
+): Promise<Response | undefined> {
+  if (operation === 'download') {
+    return (await fileExists(c, path, bucket)) ? undefined : notFound(c, 'File not found')
+  }
+  return (await objectStoredAt(c, path, bucket)) ? objectAlreadyStored(c) : undefined
 }
 
 /**
@@ -482,10 +401,11 @@ export function constraintsForSign(
  */
 async function buildSignResponse(
   c: Context,
-  bucketName: string,
+  bucket: Bucket,
   operation: 'download' | 'upload',
   body: SignRequestBody
 ): Promise<Response> {
+  const bucketName = bucket.name
   const { path } = body
   if (typeof path !== 'string' || path.length === 0) {
     return c.json(storageErrorBody('Missing path', 'BAD_REQUEST'), 400)
@@ -496,16 +416,18 @@ async function buildSignResponse(
     return c.json(storageErrorBody('Invalid expiresIn value', 'BAD_REQUEST'), 400)
   }
 
-  // Upload URLs carry HMAC-bound contentType / maxSize constraints.
-  const constraints = constraintsForSign(operation, body)
-  if (constraints === 'invalid') {
-    return c.json(storageErrorBody('Invalid maxSize value', 'BAD_REQUEST'), 400)
+  // Upload URLs carry HMAC-bound contentType / maxSize constraints, clamped
+  // to the bucket, and the signer the object will be attributed to.
+  const constraints = constraintsForSign(operation, body, {
+    bucket,
+    uploadedBy: getSessionContext(c)?.userId,
+  })
+  if (constraints === 'invalid' || constraints === 'type-not-allowed') {
+    return c.json(storageErrorBody(constraintRefusalMessage(constraints), 'BAD_REQUEST'), 400)
   }
 
-  // Download URLs must reference an existing file; upload URLs need not.
-  if (operation === 'download' && !(await fileExists(c, path, bucketName))) {
-    return notFound(c, 'File not found')
-  }
+  const refusal = await refuseByStoredObject(c, operation, path, bucketName)
+  if (refusal) return refusal
 
   const { signedUrl, expiresAt } = buildSignedUrl({
     c,
@@ -544,6 +466,6 @@ export function createHandleSign(app: App) {
     const refusal = await refuseUnlessSignable(c, app, bucket, [operation])
     if (refusal) return refusal
 
-    return buildSignResponse(c, bucketName, operation, body)
+    return buildSignResponse(c, bucket, operation, body)
   }
 }

@@ -71,7 +71,6 @@ export const createApiIpCeilingMiddleware = (): MiddlewareHandler => {
       await next()
       return
     }
-    // eslint-disable-next-line functional/no-expression-statements -- per-request dedup mark
     counted.add(c.req.raw)
     const { limited, retryAfter } = limiter.consume(getRequestRateLimitKey(c), {
       windowMs: getRateLimitWindowMs(),
@@ -89,7 +88,6 @@ const ceilingOf = (hono: Readonly<Hono>): MiddlewareHandler => {
   const existing = ceilings.get(hono)
   if (existing !== undefined) return existing
   const created = createApiIpCeilingMiddleware()
-  // eslint-disable-next-line functional/no-expression-statements -- per-server memo
   ceilings.set(hono, created)
   return created
 }

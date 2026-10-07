@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One picker is mounted per declaration; these handlers close over that
-   picker's search term and link set, which is the state that re-renders them. */
-
 import { computeFormControlClasses } from '@/presentation/design/form-layout-classes'
 import {
   SEARCH_BY_ID_LABEL,

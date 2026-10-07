@@ -133,7 +133,7 @@ export const formatDocument = (blocks: readonly CliBlock[]): string => {
  * A single `Console.log` rather than one per row: the document is atomic, so a
  * concurrent writer cannot interleave a line into the middle of the banner. The
  * emitted bytes are identical either way — `console.log` appends the newline
- * that the final blank row used to contribute.
+ * a final blank row would otherwise contribute.
  */
 export const renderDocument = (blocks: readonly CliBlock[]): Effect.Effect<void> =>
   Console.log(formatDocument(blocks))
@@ -222,7 +222,7 @@ export const printDocument = (blocks: readonly CliBlock[]): void =>
  * use `Console.error`.
  *
  * **Bun's `console.error` COLOURS its output, and T35 #3 bans ANSI escapes.**
- * Measured on Bun 1.4.1, 2026-09-05:
+ * Measured on Bun 1.4.1:
  *
  * ```
  * script -q /dev/null bun -e 'console.error("x")' | od -c
@@ -256,7 +256,6 @@ export const printDocument = (blocks: readonly CliBlock[]): void =>
  */
 export const renderStderr = (message: string): Effect.Effect<void> =>
   Effect.sync(() => {
-    // eslint-disable-next-line functional/no-expression-statements -- terminal write; the newline `console.error` used to supply
     process.stderr.write(`${message}\n`)
   })
 

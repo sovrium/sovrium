@@ -27,10 +27,10 @@ import { DimensionValueSchema, ladderRecord } from './token-value-schemas'
  *
  * ## The values were ALREADY lengths, and the record now says so
  *
- * The older spacing record accepted any string, and its generator then filtered
- * for `/^[0-9.]+(?:rem|px|em|%)$/` before emitting — so a value that was not a
- * length decoded happily and reached nothing. Measured across every shipped
- * config, template and spec on 2026-09-07: no such value existed. Both
+ * A spacing record that accepted any string and then filtered for
+ * `/^[0-9.]+(?:rem|px|em|%)$/` before emitting would let a value that is not a
+ * length decode happily and reach nothing. Measured across every shipped
+ * config, template and spec: no such value existed. Both
  * production apps hold a rem LENGTH LADDER on a 28px baseline.
  *
  * So the ladder value grammar (`px` or `rem`) is a tightening that refuses

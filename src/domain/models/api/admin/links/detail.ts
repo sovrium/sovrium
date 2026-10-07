@@ -14,7 +14,7 @@
  *
  * Deliberately carries NO metrics. The per-link console surface reads those from
  * the analytics endpoints with `&event_name={slug}`, so there is exactly one
- * aggregation path over the click store ([internal ref] D6).
+ * aggregation path over the click store.
  *
  * Source story: [internal ref]
  */

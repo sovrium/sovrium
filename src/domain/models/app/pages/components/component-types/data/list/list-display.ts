@@ -64,6 +64,21 @@ export const ListItemMetadataSchema = Schema.Struct({
   ),
   /** Format options, e.g. the currency a plain number prints in */
   options: Schema.optional(ListItemMetadataOptionsSchema),
+  /**
+   * Classes on THIS entry only. The `meta` part styles every entry of every
+   * row alike; a row whose first detail must read differently (the overdue
+   * date in the error ink, the rest muted) was reached with a positional
+   * selector (`[&_li>div:last-child>span:first-child]`). The entry is the
+   * author's own config, so it carries its own classes, the way a `text`
+   * component does.
+   */
+  className: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Tailwind classes on this metadata entry in every row, layered over the list's `meta` part — the one detail that must read differently from the others",
+      examples: ['font-medium text-error'],
+    })
+  ),
 }).annotate({
   title: 'List Item Metadata',
   description: 'Metadata field displayed in the list item footer',
@@ -158,6 +173,7 @@ export const ListItemTemplateSchema = Schema.Struct({
  *       - field: price
  *         format: currency
  *   emptyMessage: No products found
+ *   hideWhenEmpty: false
  *   loadMore: infinite
  *   highlight: true
  *   divider: true
@@ -172,6 +188,24 @@ export const ListDisplaySchema = Schema.Struct({
     Schema.String.annotate({
       description: 'Message when no search results match',
       examples: ['No products found', 'No results for your search'],
+    })
+  ),
+  /**
+   * Draw nothing at all when the binding returns no record.
+   *
+   * A notice that should appear only when a record matches — "your account is
+   * not linked to your accounting tool yet" — is a list filtered on that
+   * condition. Without this key an empty list still drew its empty state: the
+   * `emptyMessage`, or an empty bordered box when the message was `''`. So
+   * there was no way to say "show this only if there are rows". With it, an
+   * empty list leaves no message, no box and no visible host, whether the
+   * server draws the list or the browser fetches its rows; a list with rows
+   * draws them as usual. `emptyMessage` is not shown when this is on.
+   */
+  hideWhenEmpty: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'If true, a list whose binding returns no record draws nothing: no empty message, no empty box, no visible container. A list with records draws them as usual (default: false, which shows the empty state).',
     })
   ),
   /** Pagination mode for loading more results */
@@ -201,6 +235,22 @@ export const ListDisplaySchema = Schema.Struct({
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
+  ),
+  /**
+   * How one row lays out its title and its trailing details.
+   *
+   * `inline` (the default) keeps the row on one line: the title truncates to
+   * leave room for the badge and the metadata on the right. `stacked` gives the
+   * title the row's full width — wrapped, never cut — and lays the badge and
+   * the metadata on the line below. A narrow column (a dashboard side panel, a
+   * phone) reads a stacked list; the templates were getting there with five
+   * descendant selectors on every such list.
+   */
+  itemLayout: Schema.optional(
+    Schema.Literals(['inline', 'stacked']).annotate({
+      description:
+        "How each row lays out: 'inline' (default) keeps title, badge and metadata on one line and truncates the title; 'stacked' gives the title the full width, wrapped, with the badge and metadata on the line below.",
+    })
   ),
 }).annotate({
   identifier: 'ListDisplay',

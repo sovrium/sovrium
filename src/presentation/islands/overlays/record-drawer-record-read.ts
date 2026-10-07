@@ -67,7 +67,6 @@ export const toWireValue = (
 ): string | readonly string[] | null => {
   const value = values[field.name] ?? ''
   if (fieldWidgetOf(field.type) === 'file-multiple') return readLinkedIds(value, true)
-  // eslint-disable-next-line unicorn/no-null -- JSON `null` unlinks the column; `undefined` would drop the key from the PATCH and leave the link in place
   return isLinkField(field) && value.trim() === '' ? null : value
 }
 

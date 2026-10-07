@@ -108,16 +108,6 @@ export const PURGED_SYSTEM_TABLES = [
     reason: 'Per-user browsing history — a behavioural trail. Cascades; named.',
   },
   {
-    table: 'user_saved_views',
-    column: 'user_id',
-    reason: 'Per-user saved filters. Cascades; named.',
-  },
-  {
-    table: 'user_table_preferences',
-    column: 'user_id',
-    reason: 'Per-user column layout. Cascades; named.',
-  },
-  {
     table: 'connection_tokens',
     column: 'user_id',
     reason:
@@ -147,8 +137,8 @@ export const PURGED_SYSTEM_TABLES = [
       'metadata row (filename, mime type, storage path) survived erasure orphaned, ' +
       'and `file_storage_bytea.metadata_id` cascades off it — so the BYTES survived ' +
       'too whenever the DB-backed storage provider is in use. Deleting the metadata ' +
-      'row now takes the bytea row with it. See the `file_storage_bytea` entry in ' +
-      'ERASURE_COVERAGE for the external-object-store residual this does NOT reach.',
+      'row takes the bytea row with it; local or S3 bytes go by key after the commit. ' +
+      'Signed-in uploads write the column (a form upload not yet); unattributed files stay.',
   },
 ] as const
 
@@ -242,7 +232,7 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
       'The submitted BODY is itself personal data (people disclose addresses and ' +
       'phone numbers in free-text fields), so the row is removed rather than ' +
       'orphaned. No FK on either dialect. Anonymous submissions (NULL submitter) ' +
-      'belong to nobody and are untouched.',
+      'belong to nobody, bar a draft keyed by the erased address (deleted too).',
   },
   'system.record_comments': {
     verdict: 'delete',
@@ -270,9 +260,9 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     reason:
       'Every AI tool invocation, with `input`/`output` JSONB holding the prompt and ' +
       'the record payloads it read or wrote. No FK: `caller_id` is a bare column ' +
-      "holding the user id under `caller_type = 'user'` and a token tag otherwise, " +
-      'so nothing cascaded and nothing named it. Compound predicate, scoped to ' +
-      "`caller_type = 'user'` so a token tag colliding with a user id is never swept.",
+      "holding the user id under `caller_type` 'oauth' (or the older 'user') and a token " +
+      'tag otherwise, so nothing cascaded and nothing named it. Compound predicate on ' +
+      "`caller_type IN ('oauth', 'user')` so a token tag colliding with a user id is never swept.",
   },
   'auth.account': {
     verdict: 'delete',
@@ -284,9 +274,12 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
   'auth.two_factor': {
     verdict: 'delete',
     columns: ['user_id'],
-    reason:
-      'TOTP secrets and backup codes. Deleted explicitly by `purgeAccount` ' +
-      '(step 7) before the user row.',
+    reason: 'TOTP secrets and backup codes. Deleted explicitly by `purgeAccount` (step 7).',
+  },
+  'auth.passkey': {
+    verdict: 'delete',
+    columns: ['user_id'],
+    reason: 'Passkey public keys. Deleted explicitly by `purgeAccount` (step 7); also cascades.',
   },
   'system._admin_search_index': {
     verdict: 'delete',
@@ -444,10 +437,10 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     reason:
       'DB-resident file bytes. No user column; `metadata_id` cascades off ' +
       '`file_storage_metadata`, which the purge now deletes, so the bytes go with ' +
-      'it. RESIDUAL, named: when `STORAGE_PROVIDER` is local or S3 the bytes live ' +
-      'OUTSIDE the database and a transactional DELETE cannot reach them. Removing ' +
-      'the metadata row makes them unreferenced but not unlinked; reclaiming them ' +
-      'needs an out-of-transaction object-store sweep, tracked separately.',
+      'it. When `STORAGE_PROVIDER` is local or S3 the bytes live OUTSIDE the ' +
+      'database, where a transactional DELETE cannot reach them: the purge reads ' +
+      'the keys before its transaction and deletes those objects after the commit, ' +
+      'logging by key any object the store refuses to delete.',
   },
   'system.boot_ledger': {
     verdict: 'exempt',
@@ -476,15 +469,11 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
  * Whether the GDPR Art. 15 / 20 export offers a category erasure DELETES.
  *
  * `exported` The export payload carries it today.
- *
- * `withheld` Deliberately absent, and correctly so. Credentials are the whole
- *            of this class: a bearer token or a TOTP secret in a JSON download
- *            is a security defect, not a data-subject right — the export
- *            already withholds passwords and OAuth secrets for this reason.
- *
- * `gap`      Erasure deletes it BECAUSE it is the subject's personal data, and
- *            the export does not offer it. The two therefore contradict each
- *            other, and Art. 15 is the side that loses.
+ * `withheld` Deliberately absent: credentials only. A bearer token, a TOTP secret or
+ *            a passkey in a JSON download is a security defect, not a data-subject
+ *            right — as with the passwords and OAuth secrets already withheld.
+ * `gap`      Erasure deletes it AS the subject's personal data, and the export
+ *            does not offer it: the two contradict, and Art. 15 is the side that loses.
  */
 export type ExportStatus = 'exported' | 'withheld' | 'gap'
 
@@ -495,7 +484,7 @@ export type ExportStatus = 'exported' | 'withheld' | 'gap'
  *
  * The honest state today is that the export offers `profile`, `sessions`,
  * `accounts`, `authoredRecords` and `formSubmissions`, while erasure hard-deletes
- * far more — comments, chat transcripts, derived facts, favourites, saved views,
+ * far more — comments, chat transcripts, derived facts, favourites, recent items,
  * row-level grants, the activity feed, uploaded files. Closing that asymmetry
  * means EXPANDING the published export contract in
  * `src/domain/models/api/account/account.ts`, which is a schema-surface decision
@@ -518,6 +507,7 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',
+  'auth.passkey': 'withheld',
   'auth.api_key': 'withheld',
   'auth.oauth_access_token': 'withheld',
   'auth.oauth_refresh_token': 'withheld',
@@ -541,6 +531,4 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.user_access': 'gap',
   'system.user_favorites': 'gap',
   'system.user_recent_items': 'gap',
-  'system.user_saved_views': 'gap',
-  'system.user_table_preferences': 'gap',
 }

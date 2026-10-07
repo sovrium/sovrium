@@ -2,9 +2,18 @@
 # project directly — no integration service between two tools. The project
 # takes the deal's name, its client and its owner, and starts as Planned.
 #
+# A deal can go back and forth — Won, reopened, Won again — so the steps first
+# look for a project already open for the same deal and client. When there is
+# one, the run stops there on purpose and says why in the run history: a
+# `flow` stop with the success status, so an expected "nothing to do" is not
+# reported as a failure.
+#
 # The new project fires the record triggers of the projects table like any
 # other new record, so an automation watching new projects would run next.
 # This app declares none, so the chain stops here.
+#
+# The trigger hands the deal over with its client and its owner read in full,
+# so the steps name their `.id` where a record or an account is expected.
 name: open-project-on-won-deal
 label: Deal won — open the delivery project
 description: When a deal reaches Won, create a Planned project for the same client.
@@ -28,13 +37,48 @@ actions:
             operator: equals
             value: Won
       onFalse: stop
-  - name: openProject
+  - name: existingProject
     type: record
-    operator: create
+    operator: list
     props:
       table: projects
-      data:
-        name: '{{trigger.data.record.name}}'
-        client: '{{trigger.data.record.company}}'
-        owner: '{{trigger.data.record.owner}}'
-        status: Planned
+      filter:
+        logic: and
+        conditions:
+          - field: name
+            operator: equals
+            value: '{{trigger.data.record.name}}'
+          - field: client
+            operator: equals
+            value: '{{trigger.data.record.company.id}}'
+      limit: 1
+  - name: openOnce
+    type: path
+    operator: branch
+    props:
+      mode: first-match
+      paths:
+        - name: alreadyOpen
+          condition:
+            conditions:
+              - field: '{{existingProject.records}}'
+                operator: isNotEmpty
+          actions:
+            - name: keepTheOpenProject
+              type: flow
+              operator: stop
+              props:
+                status: success
+                message: 'A project is already open for {{trigger.data.record.name}}'
+        - name: firstWin
+          actions:
+            - name: openProject
+              type: record
+              operator: create
+              props:
+                table: projects
+                data:
+                  name: '{{trigger.data.record.name}}'
+                  client: '{{trigger.data.record.company.id}}'
+                  owner: '{{trigger.data.record.owner.id}}'
+                  status: Planned

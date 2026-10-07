@@ -6,8 +6,10 @@
  */
 
 /**
- * Codegen: embed the pre-built client/island/script runtime assets into the
- * compiled binary.
+ * Codegen: embed the pre-built runtime assets into the compiled binary — the
+ * client runtime loader (`client-bundle.js`) and its split chunks
+ * (`client-chunks/`), the island entry and chunks, the static client scripts,
+ * and the page search runtime.
  *
  * Run AFTER `scripts/build/build-runtime-assets.ts` has produced `dist/` and BEFORE
  * `bun build --compile`. Emits `src/infrastructure/assets/embedded-runtime-assets.generated.ts`,
@@ -27,8 +29,10 @@ import { printStderr } from '@/infrastructure/logging/cli-output'
 import { listDirSync, walkSync } from '../lib/drift/walk'
 import { fileImportSpecifier, posixRelative } from '../lib/posix-path'
 import {
+  CLIENT_CHUNKS_DIR,
   describeNonCanonicalNodeModules,
   nonCanonicalNodeModulesRefusal,
+  PAGE_SEARCH_RUNTIME_FILE,
 } from '../lib/runtime-assets'
 import { THROWAWAY_RUNTIME_MANIFEST_ENV } from '../lib/throwaway-runtime-manifest'
 
@@ -36,6 +40,7 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
 const ISLAND_DIR = join(DIST_DIR, 'island-chunks')
 const CLIENT_SCRIPTS_DIR = join(DIST_DIR, 'client-scripts')
+const CLIENT_CHUNKS_PATH = join(DIST_DIR, CLIENT_CHUNKS_DIR)
 const OUT_FILE = join(
   PROJECT_ROOT,
   'src',
@@ -69,6 +74,23 @@ if (nonCanonical !== null) {
 
 if (!existsSync(join(DIST_DIR, 'client-bundle.js'))) {
   printStderr('dist/client-bundle.js not found — run scripts/build/build-runtime-assets.ts first')
+  process.exit(1)
+}
+
+// The loader is useless without its chunks: it `import()`s every feature from
+// `./client-chunks/`. A `dist/` holding the loader but no chunks is a build from
+// before the split (or a half-built one), and embedding it would ship a client
+// runtime whose every feature 404s.
+const clientChunkFiles = existsSync(CLIENT_CHUNKS_PATH)
+  ? listDirSync({ root: CLIENT_CHUNKS_PATH, extensions: ['.js'] })
+      .map((abs) => basename(abs))
+      .toSorted()
+  : []
+if (clientChunkFiles.length === 0) {
+  printStderr(
+    `dist/${CLIENT_CHUNKS_DIR}/ is missing or holds no .js chunk — run ` +
+      `scripts/build/build-runtime-assets.ts first`
+  )
   process.exit(1)
 }
 
@@ -107,6 +129,23 @@ const islandEntries = existsSync(ISLAND_DIR)
       .map((rel) => `    ${JSON.stringify(rel)}: ${addImport(`island-chunks/${rel}`)},`)
   : []
 
+// Added LAST so its import variable is appended rather than renumbering every
+// existing one: the manifest's diff stays the one line it adds.
+if (!existsSync(join(DIST_DIR, PAGE_SEARCH_RUNTIME_FILE))) {
+  printStderr(
+    `dist/${PAGE_SEARCH_RUNTIME_FILE} not found — run scripts/build/build-runtime-assets.ts first`
+  )
+  process.exit(1)
+}
+const pageSearchRuntimeVar = addImport(PAGE_SEARCH_RUNTIME_FILE)
+
+// The client runtime's split chunks, keyed by file name WITHOUT the
+// `client-chunks/` prefix (the server prepends it when it routes them). Added
+// after every existing import for the same reason as the page search runtime.
+const clientChunkEntries = clientChunkFiles.map(
+  (f) => `    ${JSON.stringify(f)}: ${addImport(`${CLIENT_CHUNKS_DIR}/${f}`)},`
+)
+
 // Refuse to embed zero-byte assets: served through Bun.file() they collapse to
 // a bodiless 204 that browsers reject as an ES module, killing hydration.
 const emptyAssets = imports
@@ -123,9 +162,10 @@ if (emptyAssets.length > 0) {
 // This manifest is a list of PATHS, and `check-generated-assets-drift.ts` detects
 // drift by byte-comparing a regeneration of it against the committed copy. That
 // makes a CONTENT change visible only when it moves a path. It does for the
-// `[name]-[hash].js` split chunks; it does not for the five fixed-name assets —
-// `client-bundle.js`, the three `client-scripts/*.js`, and `island-entry.js` —
-// whose bytes can change under an identical manifest. And it never sees a stale
+// `[name]-[hash].js` split chunks (islands and `client-chunks/` alike); it does
+// not for the fixed-name assets — `client-bundle.js`, the `client-scripts/*.js`,
+// `island-entry.js` and the page search runtime — whose bytes can change under
+// an identical manifest. And it never sees a stale
 // `dist/` at all: the check regenerates the MANIFEST from `dist/`, never `dist/`
 // from `src/`, so a `dist/` and a manifest that are stale together read as clean.
 //
@@ -150,10 +190,10 @@ const BUNDLE_ONLY_SOURCE_DIRS = [
   //
   // The miss was SILENT by construction, because the list is filtered by
   // `existsSync` two lines down — a dead entry is dropped rather than reported,
-  // so the staleness guard simply stopped watching the three static client
-  // scripts and the build stayed green. Editing `banner-dismiss.js` without
-  // rebuilding the bundle would not have been caught, which is the one case the
-  // guard exists for.
+  // so the staleness guard simply stopped watching the static client scripts
+  // and the build stayed green. Editing one of them without rebuilding the
+  // bundle would not have been caught, which is the one case the guard exists
+  // for.
   //
   // `[internal ref]` carries the SAME path with the CORRECT
   // spelling and a docblock about this exact hazard, and that is the part worth
@@ -210,9 +250,13 @@ const importBlock = imports
   .join('\n')
 
 const body = `
-/** Pre-built client/island/script assets, keyed by served filename. */
+/** Pre-built runtime assets, keyed by served filename. */
 export const RUNTIME_ASSETS = {
   clientBundle: ${clientBundleVar},
+  clientChunks: {
+${clientChunkEntries.join('\n')}
+  },
+  pageSearchRuntime: ${pageSearchRuntimeVar},
   clientScripts: {
 ${clientScriptEntries.join('\n')}
   },
@@ -225,5 +269,7 @@ ${islandEntries.join('\n')}
 Bun.write(OUT_FILE, `${header}\n${importBlock}\n${body}`)
 console.log(
   `embedded-runtime-assets.generated.ts — ${imports.length} files ` +
-    `(1 client bundle, ${clientScriptEntries.length} scripts, ${islandEntries.length} island files)`
+    `(1 client loader, ${clientChunkEntries.length} client chunk(s), 1 page search runtime, ` +
+    `${clientScriptEntries.length} scripts, ` +
+    `${islandEntries.length} island files)`
 )

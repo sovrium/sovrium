@@ -14,8 +14,7 @@ import type { MiddlewareHandler } from 'hono'
 const EXCLUDED_PREFIXES = ['/assets/', '/favicon'] as const
 
 /**
- * Request access log + HTTP-server metrics middleware
- *.
+ * Request access log + HTTP-server metrics middleware.
  *
  * Logs method, path, status, duration, and the request correlation ID for each
  * request at debug level, AND — when metrics export is armed — records the

@@ -86,10 +86,9 @@ export const sessions = authSchema.table(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    // Admin plugin fields
-    impersonatedBy: text('impersonated_by'),
-    // Organization plugin fields
+    impersonatedBy: text('impersonated_by'), // admin plugin
     activeOrganizationId: text('active_organization_id'),
+    signInMethod: text('sign_in_method'), // 'passkey' when a passkey opened it (requireForAdmin)
   },
   (table) => [index('session_userId_idx').on(table.userId)]
 )

@@ -10,13 +10,9 @@ import {
   computeTableRowNumberClasses,
 } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
+import { autoGenerateColumns, autoGenerateColumnsFromFields } from '../auto-columns'
 import { stopClickPropagation } from '../cell-click'
-import {
-  autoGenerateColumns,
-  autoGenerateColumnsFromFields,
-  mapColumnsToColumnDefs,
-  type RowActionHandler,
-} from '../formatting'
+import { mapColumnsToColumnDefs, type RowActionHandler } from '../formatting'
 import type { DataTableColumnDef } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../runtime/types'

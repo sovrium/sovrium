@@ -9,7 +9,7 @@
  * AI Chat function/tool-definition builder.
  *
  * Pure domain helper backing `[internal ref]`
- *. Given the set of tables the acting user may
+ * Given the set of tables the acting user may
  * reason about, it produces the OpenAI-compatible `tools[]` array the chat
  * route advertises to the AI provider so the model can request a tool call.
  *
@@ -29,9 +29,8 @@
  *
  * Tables the caller cannot read are never passed in by the route, so the
  * produced tool list naturally respects table-level RBAC
- *: there is simply no tool for an unauthorized table.
- * Field-level read restrictions narrow each tool's column enums
- *.
+ * there is simply no tool for an unauthorized table.
+ * Field-level read restrictions narrow each tool's column enums.
  *
  * This module is pure (no I/O, no `App` import) so it can be unit-tested in
  * isolation and reused by both the generic and agent-bound chat paths.

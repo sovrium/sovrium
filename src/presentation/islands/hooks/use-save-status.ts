@@ -42,7 +42,6 @@ function useSavedStatusTimer(onDismiss: () => void) {
 
   const scheduleDismiss = useCallback(() => {
     cancelDismiss()
-    // eslint-disable-next-line functional/immutable-data -- Ref holds the auto-dismiss timer
     timerRef.current = setTimeout(onDismiss, SAVED_DISMISS_MS)
   }, [cancelDismiss, onDismiss])
 

@@ -10,7 +10,7 @@ import type { AdminSearchEntityType } from '@/domain/models/api/admin/search/sea
 import type { Effect } from 'effect'
 
 /**
- * Admin Global Search Repository Port — [internal ref].
+ * Admin Global Search Repository Port.
  *
  * Type-safe data access for the admin-only, fully-indexed global search
  * (`GET /api/admin/search?q=`). Backed by the dedicated `_admin_search_index`

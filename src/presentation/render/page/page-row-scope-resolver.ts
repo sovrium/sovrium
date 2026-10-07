@@ -22,19 +22,21 @@
 
 import { resolveTranslation } from '@/domain/models/app/languages/translation-resolver'
 import { resolveFormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
+import { resolveFormRefReaders } from '@/presentation/render/forms/form-ref-readers'
 import { resolveComponentTranslationTokens } from '@/presentation/render/i18n/translation-handler'
 import { foldCodeContentFrom } from '@/presentation/render/resolve/code-content-fold-resolver'
 import { resolveCustomHtmlSources } from '@/presentation/render/resolve/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/render/resolve/data-source-resolver'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
+import { resolveFilePreviews } from '@/presentation/render/resolve/file-preview-resolver'
 import { resolveGraphs } from '@/presentation/render/resolve/graph-resolver'
+import { tablesEnvelopeReaderFor } from '@/presentation/render/resolve/graph-tables-envelope'
 import { resolveMatrixGraphs } from '@/presentation/render/resolve/matrix-graph-resolver'
 import { resolvePageParentRecord } from '@/presentation/render/resolve/page-parent-resolver'
 import {
   applyPageLevelRecordBinding,
   type SystemRecordFetcher,
 } from '@/presentation/render/resolve/page-system-record-binding'
-import { gateRecordForCaller } from '@/presentation/render/resolve/record-read-gate'
 import { resolveSelectOptionSources } from '@/presentation/render/resolve/select-option-source-resolver'
 import {
   indexTemplatesByName,
@@ -57,11 +59,9 @@ import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-obje
 /**
  * Drop every `undefined`-valued key from an options bag.
  *
- * `exactOptionalPropertyTypes` refuses an explicit `undefined` where a property
- * is optional, so every optional argument otherwise needs its own
- * `...(x !== undefined ? { x } : {})` spread at the call site. One helper keeps
- * that mechanical shape out of a function whose complexity budget is spent on
- * real decisions.
+ * `exactOptionalPropertyTypes` refuses an explicit `undefined` for an optional
+ * property; one helper replaces a `...(x !== undefined ? { x } : {})` spread per
+ * argument in a function whose complexity budget is spent on real decisions.
  */
 export function definedOnly<T extends Record<string, unknown>>(bag: T): Partial<T> {
   return Object.fromEntries(
@@ -99,12 +99,12 @@ interface ResolveAndFilterInput {
    */
   readonly detectedLanguage?: string
   /**
-   * [internal ref]: the host page's request query string, threaded into
+   * [internal ref] / a forms spec: the host page's request query string, threaded into
    * `applyPageComponentFilters` so an embedded `formRef`'s `$query` prefill
    * resolves against the host page URL.
    */
   readonly requestQuery?: Readonly<Record<string, string>>
-  /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+  /** The `/:lang/` URL-prefix locale, when present. */
   readonly urlLanguage?: string
   /**
    * P9: server-side reader for a SYSTEM-backed select option source, borrowing
@@ -112,7 +112,7 @@ interface ResolveAndFilterInput {
    */
   readonly fetchSystemRows?: SystemRowsFetcher
   /**
-   * [internal ref]: server-side reader for a page-level `{ system }` record binding,
+   * server-side reader for a page-level `{ system }` record binding,
    * borrowing the caller's credentials. Absent, the binding falls back to the
    * client-side enhancer marker instead of 404ing a render that has no caller.
    */
@@ -202,7 +202,7 @@ const applySpecimenSubjects = (
  *    its own control. It runs BEFORE `resolvePageDataSources` for the same
  *    reason the subject pass does — the markup it mints must be final by the
  *    time anything reads `content`.
- * - [internal ref]'s `code.contentFrom` fold, which turns a system endpoint's rows
+ *  - the facts-not-strings rule's `code.contentFrom` fold, which turns a system endpoint's rows
  *    into ONE code block's content. It runs after the row expansion (a
  *    `contentFrom` nested inside a row template is refused at DECODE, so
  *    nothing here was minted by that pass) and strictly BEFORE
@@ -290,8 +290,9 @@ async function applyRowScopedPasses(
   }
   const folded = await foldCodeContentFrom(withRowFields, input.fetchSystemRows)
   const localize = componentLocalizerFor(page, input)
-  const withMatrices = await resolveMatrixGraphs(folded, input.fetchSystemRecord, localize)
-  return resolveGraphs(withMatrices, input.fetchSystemRecord, localize)
+  const tables = tablesEnvelopeReaderFor(input)
+  const withMatrices = await resolveMatrixGraphs(folded, input.fetchSystemRecord, localize, tables)
+  return resolveGraphs(withMatrices, input.fetchSystemRecord, localize, tables)
 }
 
 /**
@@ -318,39 +319,28 @@ async function filterComponents(
   // The choices are read over the GATED tree: a form inside an overlay this
   // viewer has no trigger for is not on their page, so its choices are not read.
   const gatedComponents = gatePageComponents(request)
-  const formOptions = await resolveFormRefOptionSets(gatedComponents, {
-    app,
-    db,
-    session,
-    cookies,
-  })
-  return applyPageComponentFilters({ ...request, formOptions, gatedComponents })
+  const [formOptions, formReaders] = await Promise.all([
+    resolveFormRefOptionSets(gatedComponents, { app, db, session, cookies }),
+    resolveFormRefReaders(gatedComponents, { app, db, session }),
+  ])
+  return applyPageComponentFilters({ ...request, formOptions, formReaders, gatedComponents })
 }
 
 /**
  * The page-level `dataSource: { mode: single }` record, gated for THIS visitor
- * the way the records API gates it: `'not-found'` for a record that does not
- * exist AND for one the visitor may not read — the table's read permission
- * refuses them, or its row-level rule hides the row — so a page cannot be used
- * to learn which ids exist (S1). A readable record comes back less the columns
- * the visitor may not read, so a `$record.<field>` naming one resolves to
- * nothing. `undefined` when the page declares no such binding.
+ * the way the records API gates it (`resolvePageParentRecord`): `'not-found'`
+ * for a record that does not exist AND for one the visitor may not read, so a
+ * page cannot be used to learn which ids exist (S1). A readable record comes
+ * back less the columns the visitor may not read. `undefined` when the page
+ * declares no such binding.
  */
 async function resolveGatedParentRecord(
   input: ResolveAndFilterInput
 ): Promise<Readonly<Record<string, unknown>> | 'not-found' | undefined> {
   const { rawPage, app, routeParams, session, db } = input
-  const resolution = await resolvePageParentRecord(rawPage, routeParams, db)
+  const resolution = await resolvePageParentRecord(rawPage, routeParams, { app, session, db })
   if (resolution.kind === 'none') return undefined
-  if (resolution.kind === 'not-found') return 'not-found'
-  const gated = await gateRecordForCaller({
-    app,
-    tableName: resolution.table,
-    session,
-    db,
-    record: resolution.record,
-  })
-  return gated ?? 'not-found'
+  return resolution.kind === 'not-found' ? 'not-found' : resolution.record
 }
 
 /**
@@ -375,10 +365,8 @@ export async function resolveAndFilterPage(
 
   // Y-5: Resolve the page-level `dataSource: { mode: 'single' }` (if any)
   // before component filters run so `expandFormRefs` can resolve
-  // `inlinePrefill` tokens like `$parent.id` against the host record. The
-  // resolution is independent of `resolvePageDataSources` because that
-  // function operates on per-component bindings, while inline-create
-  // needs the host page's record visible to all descendant form-refs.
+  // `inlinePrefill` tokens like `$parent.id` against the host record —
+  // independently of `resolvePageDataSources`, which works per component.
   const parentRecord = await resolveGatedParentRecord(input)
   if (parentRecord === 'not-found') return undefined
 
@@ -386,7 +374,7 @@ export async function resolveAndFilterPage(
   // to the collection record so an embedded form’s `$record.*` tokens resolve.
   const hostRecord = parentRecord ?? collectionRecord
 
-  // CAP-2 + [internal ref]: distribute the page-level single record to descendant
+  // CAP-2 + the page-level system-record resolution rule: distribute the page-level single record to descendant
   // `$record.*` — server-side for BOTH arms now. The DB `{ table, mode: single }`
   // binding uses the record resolved above; the `{ system }` detail binding is
   // read here through `fetchSystemRecord`, borrowing the CALLER's identity. A
@@ -402,13 +390,13 @@ export async function resolveAndFilterPage(
 
   const filteredPage = await filterComponents(boundPage, hostRecord, input)
 
-  // [internal ref]: a `specimen` that NAMES its subject
+  // A `specimen` that NAMES its subject
   // has that name replaced by the engine's own catalogue specimen for the type,
   // so from here down a named subject and a written-out one are ONE declaration
   // and every pass below treats them identically. A `$param` naming a segment
   // that is not a drawable type is the page's own 404 — an empty frame would
   // leave a reader believing the type has no specimen rather than no existence.
-  // [internal ref] is the other polarity, chosen by
+  // A pages design primitives spec is the other polarity, chosen by
   // {@link resolveNamedSubjects}.
   const specimens = applySpecimenSubjects(filteredPage, rawPage, routeParams, app)
   if (specimens === undefined) return undefined
@@ -449,5 +437,5 @@ export async function resolveAndFilterPage(
   })
   if (resolved === undefined) return undefined
   if ('unauthorized' in resolved) return { unauthorized: true }
-  return resolveCustomHtmlSources(resolved)
+  return resolveFilePreviews(await resolveCustomHtmlSources(resolved), { app, db })
 }

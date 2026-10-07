@@ -15,7 +15,6 @@ export function isValidTimezone(timezone: string): boolean {
   try {
     // Attempt to create a DateTimeFormat with the timezone
     // This will throw if the timezone is invalid
-    // eslint-disable-next-line functional/no-expression-statements -- Required for validation side-effect
     Intl.DateTimeFormat('en-US', { timeZone: timezone })
     return true
   } catch {

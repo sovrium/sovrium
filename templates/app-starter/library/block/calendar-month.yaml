@@ -1,0 +1,27 @@
+# sovrium-library: block/calendar-month@0.30.0
+name: calendar-month
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Schedule]'
+      - type: calendar
+        dataSource:
+          table: projects
+        dateField: due_date
+        labelField: title
+        defaultView: month
+        maxEventsPerDay: 3

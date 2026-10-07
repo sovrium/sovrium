@@ -35,6 +35,9 @@ export type SpaNavScope = 'mount' | 'app'
 /** The page client script a region may need, at its unprefixed path. */
 const CLIENT_SCRIPT_PATH = '/assets/client.js'
 
+/** The same script under the content-hashed name a prebuilt release emits. */
+const HASHED_CLIENT_SCRIPT = 'script[src*="/assets/client-"]'
+
 /** What a partial answer carries. */
 export interface PartialAnswer {
   readonly html: string
@@ -109,7 +112,6 @@ export async function fetchPartial(
 export function adoptTitle(encoded: string | undefined): void {
   if (encoded === undefined || encoded === '') return
   try {
-    // eslint-disable-next-line functional/immutable-data -- the title IS the mutation
     document.title = decodeURIComponent(encoded)
   } catch {
     // A malformed percent-sequence would throw; a stale title beats a crashed
@@ -123,7 +125,6 @@ export function adoptTitle(encoded: string | undefined): void {
  */
 export function adoptDensity(density: string | undefined): void {
   if (density === undefined || density === '') return
-  // eslint-disable-next-line functional/immutable-data -- the root attribute IS the mutation
   document.documentElement.dataset.density = density
 }
 
@@ -147,13 +148,19 @@ function assetPathPrefix(): string {
  * ship it, and a swap does not re-run the document's own `<script>` tags).
  */
 export function ensureClientScript(): void {
-  if (document.querySelector(`script[src$="${CLIENT_SCRIPT_PATH}"]`)) return
+  // Either name counts: a prebuilt release references the script by its
+  // content-hashed name (`/assets/client-<hash>.js`), and loading the alias on
+  // top would run it twice.
+  if (document.querySelector(`script[src$="${CLIENT_SCRIPT_PATH}"], ${HASHED_CLIENT_SCRIPT}`)) {
+    return
+  }
   const src = toSafeRedirectPath(`${assetPathPrefix()}${CLIENT_SCRIPT_PATH}`)
   if (src === undefined) return
+  // A module script, as the server emits it: the entry is the client runtime's
+  // loader, whose split build imports its chunks and so cannot run classic.
   const script = document.createElement('script')
-  // eslint-disable-next-line functional/immutable-data -- configuring the element we are about to insert
-  script.defer = true
-  // eslint-disable-next-line functional/immutable-data -- a same-origin path, proven by the check above
+  script.type = 'module'
+  script.dataset.sovriumRuntime = 'core'
   script.src = src
   document.body.append(script)
 }

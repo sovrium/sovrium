@@ -10,15 +10,21 @@ import { Layer } from 'effect'
 import {
   McpAuditDatabaseError,
   McpAuditRepository,
+  TOOL_CALL_LEDGER_COLUMNS,
   type McpToolCallAuditEntry,
   type McpToolCallAuditRow,
 } from '@/application/ports/repositories/mcp/mcp-audit-repository'
 import { db } from '@/infrastructure/database'
+import {
+  answeredRows,
+  rawListStatement,
+} from '@/infrastructure/database/repositories/mcp/mcp-internals-repository-live'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw, executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
-import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import { sqliteSystemTableName, systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import type { McpInternalListQuery } from '@/application/ports/repositories/mcp/mcp-internals-repository'
 
 /** Wrap a DB promise, adapting failures to `McpAuditDatabaseError`. */
 const wrap = makeDbWrap((cause) => new McpAuditDatabaseError({ cause }))
@@ -79,7 +85,6 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       // `TypeError: db.execute is not a function` — and because the DISPATCHER
       // swallows an audit failure to keep the live request alive, that threw
       // silently and left the trail empty on the zero-config default engine.
-      // eslint-disable-next-line functional/no-expression-statements -- side-effecting INSERT into the audit log
       await executeRaw(
         db,
         sql`INSERT INTO ${systemTableRef('ai_tool_calls')}
@@ -101,29 +106,32 @@ export const McpAuditRepositoryLive = Layer.succeed(McpAuditRepository, {
       )
     }),
 
-  listToolCalls: (limit: number) =>
-    wrap(() => {
-      // Inline `limit` as a SQL literal (the caller has already type-checked and
-      // clamped it to `[1, 1000]`) so the bun-sql driver does not try to bind
-      // it — `LIMIT $1` round-trips poorly through bun:sql's param-binding
-      // path. `Math.floor` here is belt-and-braces against a non-integer
-      // reaching the literal.
-      const safeLimit = Math.floor(limit)
-
+  listToolCalls: (query: McpInternalListQuery) =>
+    wrap(async () =>
       // The 12-column projection is load-bearing and must stay explicit: it is
       // the only thing that distinguishes this tier-1 read from the generic
       // internals dispatcher, which answers `SELECT *` and — because
       // `ai_tool_calls` declares `denylistFields: []` — would put `session_id`
-      // and `request_id` on the wire. [internal ref] pins that difference.
+      // and `request_id` on the wire. An AI MCP audit spec pins that difference.
+      // The order, `since`, `where` and `after` are the raw-list rules, built by
+      // the same statement builder every internal list uses.
       //
       // `executeRawTyped` selects the dialect's execution method AND normalizes
       // both driver result shapes, which is why no `.rows` unwrap follows.
-      return executeRawTyped<McpToolCallAuditRow>(
-        db,
-        sql`SELECT id, created_at, caller_role, caller_id, caller_type, tool_name, input, output, error_message, error_code, latency_ms, transport
-            FROM ${systemTableRef('ai_tool_calls')}
-            ORDER BY created_at DESC
-            LIMIT ${sql.raw(String(safeLimit))}`
+      // On SQLite the creation time is answered as an ISO instant, as on PostgreSQL.
+      answeredRows(
+        sqliteSystemTableName('ai_tool_calls'),
+        await executeRawTyped<McpToolCallAuditRow>(
+          db,
+          rawListStatement(
+            systemTableRef('ai_tool_calls'),
+            sql.join(
+              TOOL_CALL_LEDGER_COLUMNS.map((column) => sql.identifier(column)),
+              sql`, `
+            ),
+            query
+          )
+        )
       )
-    }),
+    ),
 })

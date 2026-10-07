@@ -1,0 +1,20 @@
+# sovrium-library: recipe/record-to-teams-channel@0.30.0
+name: record-to-teams-channel
+trigger:
+  type: record
+  table: asset_events
+  events:
+    - create
+actions:
+  - name: announce
+    type: connection
+    operator: call
+    props:
+      connection: microsoft-365
+      operation: post-channel-message
+      params:
+        team_id: $env.TEAMS_TEAM_ID
+        channel_id: $env.TEAMS_CHANNEL_ID
+        body:
+          contentType: text
+          content: 'New in asset_events: {{trigger.data.record.event}}'

@@ -9,13 +9,10 @@ import { parse } from 'csv-parse/sync'
 import { Data, Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
+import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { FILE_SOURCE_FETCH_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
-import {
-  validateOutboundUrl,
-  type OutboundUrlReason,
-} from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { guardedFetch, type GuardedFetchRefusalReason } from '@/infrastructure/egress/guarded-fetch'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 /**
@@ -127,16 +124,17 @@ export interface ResolvedSource {
 }
 
 /**
- * Tagged failure raised when an `http(s)://` `source` is rejected by the
- * outbound-URL SSRF guard BEFORE any fetch (loopback / link-local / RFC1918 /
- * unsupported-protocol). The tag lets `handleFileUpload` `Effect.either` this
+ * Tagged failure raised when an `http(s)://` `source`, or a redirect it
+ * answers with, is rejected by the outbound-URL SSRF guard before that address
+ * is requested (loopback / link-local / RFC1918 / unsupported-protocol / a
+ * chain longer than five redirects). The tag lets `handleFileUpload` `Effect.either` this
  * specific failure and map it to an explicit `error` outcome — rather than the
  * old behaviour where a network failure degraded to empty bytes and silently
  * stored a benign-looking empty file. `reason` mirrors the `http.ts` /
  * `webhook.ts` siblings' `invalid_outbound_url_${reason}` message shape.
  */
 export class OutboundUrlBlockedError extends Data.TaggedError('OutboundUrlBlockedError')<{
-  readonly reason: OutboundUrlReason
+  readonly reason: GuardedFetchRefusalReason
 }> {}
 
 const parseDataUri = (source: string): ResolvedSource | undefined => {
@@ -149,54 +147,73 @@ const parseDataUri = (source: string): ResolvedSource | undefined => {
   return mime ? { bytes, detectedMime: mime } : { bytes }
 }
 
+/** The largest source read, in bytes (100 MiB) — the default upload cap. */
+export const FILE_SOURCE_MAX_BYTES = 104_857_600
+
+const NO_BYTES: ResolvedSource = { bytes: new Uint8Array(0) }
+
 /**
- * Fetch an ALREADY-VALIDATED remote source over HTTP(S). The SSRF guard runs
- * in `fetchSource` before this is reached. Network/decode failures of a
- * permitted target are swallowed into an empty result (the handler then
- * surfaces a generic `error` outcome), so the promise never rejects. SSRF
- * blocks are NOT handled here — they short-circuit in `fetchSource` with a
- * tagged `OutboundUrlBlockedError` so they can never degrade to empty bytes.
+ * Fetch a remote source over HTTP(S) through `guardedFetch`, which checks the
+ * URL and every redirect hop against the SSRF guard and reads at most
+ * {@link FILE_SOURCE_MAX_BYTES}. A refusal comes back as `{ blocked }` so it can
+ * never degrade to empty bytes. Network failures, a non-2xx and a source past
+ * the cap are swallowed into an empty result (the handler then surfaces a
+ * generic `error` outcome), so the promise never rejects.
  *
- * The call is bounded by `FILE_SOURCE_FETCH_TIMEOUT_MS`. It was a bare
- * `fetch`, which is unbounded: a permitted-but-unresponsive host could hold
- * this automation run's fiber open forever, and the SSRF guard cannot help
- * because the target is legitimate. The abort surfaces as a rejection, which
- * the existing `catch` already maps onto the same empty result as any other
- * network failure — so the timeout changes how long a stuck run waits, not
- * what a failed one returns.
+ * The call is bounded by `FILE_SOURCE_FETCH_TIMEOUT_MS`, for the headers of
+ * each hop and then for the body: a permitted-but-unresponsive host cannot hold
+ * this automation run's fiber open.
  */
-const fetchRemote = async (source: string): Promise<ResolvedSource> => {
+const fetchRemote = async (
+  source: string,
+  headers: Readonly<Record<string, string>>
+): Promise<ResolvedSource | { readonly blocked: GuardedFetchRefusalReason }> => {
   try {
-    const response = await withFetchTimeout(source, {}, FILE_SOURCE_FETCH_TIMEOUT_MS)
-    if (!response.ok) return { bytes: new Uint8Array(0) }
-    const buf = await response.arrayBuffer()
+    // The declared headers carry the service's key: dropped on a hop to another origin.
+    const sent = await guardedFetch(
+      source,
+      { headers },
+      {
+        timeoutMs: FILE_SOURCE_FETCH_TIMEOUT_MS,
+        maxBodyBytes: FILE_SOURCE_MAX_BYTES,
+        credentialHeaders: Object.keys(headers),
+      }
+    )
+    if (!sent.ok) return { blocked: sent.reason }
+    const { response } = sent
+    if (!response.ok || response.truncated) return NO_BYTES
     const headerMime = response.headers.get('content-type')?.split(';')[0]?.trim()
     return headerMime
-      ? { bytes: new Uint8Array(buf), detectedMime: headerMime }
-      : { bytes: new Uint8Array(buf) }
+      ? { bytes: response.body, detectedMime: headerMime }
+      : { bytes: response.body }
   } catch {
-    return { bytes: new Uint8Array(0) }
+    return NO_BYTES
   }
 }
 
 /**
- * Resolve an `http(s)://` source: reject private/loopback/link-local targets
- * via the always-on outbound-URL SSRF guard (relaxed only under the explicit
- * `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` opt-out) BEFORE fetching, then fetch the
- * permitted URL. A block surfaces as `OutboundUrlBlockedError` on the effect's
- * error channel — never as empty bytes — so the upload handler can map it to an
+ * Resolve an `http(s)://` source: reject private/loopback/link-local targets —
+ * the source and every redirect it answers with — via the always-on outbound-URL
+ * SSRF guard (relaxed only under the explicit `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`
+ * opt-out). A block surfaces as `OutboundUrlBlockedError` on the effect's error
+ * channel — never as empty bytes — so the upload handler can map it to an
  * explicit `error` outcome instead of silently storing an empty file.
  */
 const fetchSource = (
-  source: string
-): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, never> => {
-  const validation = validateOutboundUrl(source)
-  if (!validation.ok) {
-    return Effect.fail(new OutboundUrlBlockedError({ reason: validation.issue.reason }))
-  }
-  // effect-promise: total -- `fetchRemote` wraps its `fetch` in a try/catch returning zero bytes, and a non-2xx returns zero bytes too. The SSRF refusal above IS the typed failure this function reports; a network miss is deliberately not one.
-  return Effect.promise(() => fetchRemote(source))
-}
+  source: string,
+  headers: Readonly<Record<string, string>>
+): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, never> =>
+  // effect-promise: total -- `fetchRemote` wraps `guardedFetch` in a try/catch returning zero bytes, and a non-2xx or oversized source returns zero bytes too. The SSRF refusal it returns IS the typed failure this function reports; a network miss is deliberately not one.
+  Effect.promise(() => fetchRemote(source, headers)).pipe(
+    Effect.filterOrFail(
+      (fetched): fetched is ResolvedSource => !('blocked' in fetched),
+      // The predicate admitted every `ResolvedSource`, so `refused` is the refusal.
+      (refused) =>
+        new OutboundUrlBlockedError({
+          reason: 'blocked' in refused ? refused.blocked : 'invalid-url',
+        })
+    )
+  )
 
 /**
  * True when `source` carries its own bytes (a `data:` URI) or is fetchable over
@@ -210,14 +227,15 @@ export const isSelfContainedSource = (source: string): boolean =>
   source.startsWith('data:') || /^https?:\/\//.test(source)
 
 export const resolveSource = (
-  source: string
+  source: string,
+  headers: Readonly<Record<string, string>> = {}
 ): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, StorageService> => {
   const dataUri = parseDataUri(source)
   if (dataUri) return Effect.succeed(dataUri)
   // The inline data URI is parsed above and opens no span — there is no
   // resource to wait on. The two that fetch bytes do.
   if (/^https?:\/\//.test(source)) {
-    return fetchSource(source).pipe(Effect.withSpan('automations.resolve-source'))
+    return fetchSource(source, headers).pipe(Effect.withSpan('automations.resolve-source'))
   }
   return Effect.gen(function* () {
     const storage = yield* StorageService
@@ -238,20 +256,18 @@ export const resolveSource = (
 const DELIMITER_CANDIDATES: readonly string[] = [',', ';', '\t', '|']
 
 /**
- * Quote a value for CSV output.
+ * Escape a value for CSV output, through the kernel's one CSV cell escaper.
  *
  * The quoting decision is driven by the delimiter ACTUALLY in use, not by a
  * fixed character class: a value containing the active delimiter MUST be quoted
  * or it silently splits into two fields on re-read. The rest of the set is RFC
  * 4180's mandatory minimum (`"`, CR, LF) — nothing else is quoted, so a `;`
- * inside a comma-delimited file stays bare, which is legal and lossless.
+ * inside a comma-delimited file stays bare, which is legal and lossless. A text
+ * value starting with a formula character gains a leading `'`; a number does
+ * not.
  */
-export const csvCell = (value: unknown, delimiter: string = ','): string => {
-  const str = value === undefined || value === null ? '' : String(value)
-  const mustQuote =
-    str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes(delimiter)
-  return mustQuote ? `"${str.replace(/"/g, '""')}"` : str
-}
+export const csvCell = (value: unknown, delimiter: string = ','): string =>
+  escapeCsvCell(value, { delimiter })
 
 /**
  * Decode CSV bytes as UTF-8, falling back to windows-1252 when the document is

@@ -60,7 +60,6 @@ export function resolveDocumentFormat<F extends string>(
       `  Accepted values: ${['md (or markdown)', ...others].join(', ')}.\n\n` +
       `  Omitting --format prints ${omittedPrints}`
   )
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -77,7 +76,6 @@ export function resolveDocumentFormat<F extends string>(
  */
 const writeStdoutFully = (content: string): Promise<void> =>
   new Promise((resolve, reject) => {
-    // eslint-disable-next-line functional/no-expression-statements
     process.stdout.write(content, (error) => (error ? reject(error) : resolve()))
   })
 
@@ -98,7 +96,6 @@ export const writeDocument = async (
   noun: string
 ): Promise<void> => {
   if (outputPath === undefined) return writeStdoutFully(content)
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, content)
   Effect.runSync(Console.log(`${noun} written to ${outputPath}.`))

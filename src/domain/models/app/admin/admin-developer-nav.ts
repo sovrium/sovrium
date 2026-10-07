@@ -7,7 +7,7 @@
 
 /**
  * Pure cross-layer taxonomy for the Native Admin Dashboard's **Developers**
- * sidebar section ([internal ref], Pass 2a item 2.3).
+ * sidebar section (the admin dashboard API docs requirement / MCP-CONNECT, Pass 2a item 2.3).
  *
  * Distinct from the Data nav (`admin-data-nav.ts`, the runtime-data
  * destinations), this section groups the auto-generated integration *docs* —
@@ -15,7 +15,7 @@
  * heading (the Stripe-Dashboard "Developers" pattern). Both pages are AUTHORED
  * preset surfaces (`/_admin/api`, `/_admin/mcp`) rather than data-page keys, so
  * they live in their own nav list rather than the Data nav's `system` section.
- * They were synthesised by the surface builder until [internal ref] published the facts
+ * They were synthesised by the surface builder until the facts-not-strings rule published the facts
  * each was a function of; the nav taxonomy did not change with them.
  *
  * Lives in the `admin` slug — the feature it describes — and is pure data with
@@ -61,7 +61,7 @@ export interface DeveloperNavPage {
  *
  * Do not re-add it "for discoverability". Two rows to one destination is how a
  * nav starts lying about where a thing lives, and
- * `[internal ref]` asserts the absence for exactly that reason.
+ * an admin design system spec asserts the absence for exactly that reason.
  */
 export const DEVELOPER_NAV_PAGES: ReadonlyArray<DeveloperNavPage> = [
   { key: 'api', label: 'API', href: '/_admin/api' },

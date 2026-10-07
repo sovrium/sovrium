@@ -84,9 +84,9 @@ export const resolvePackagePath = (...segments: readonly string[]): string =>
  * THE DEV PATH IS ASSEMBLED FROM SEGMENTS, so it holds no path-shaped literal
  * and no rewriter can see it. It is the THIRD such site for this one directory
  * — `[internal ref]` holds two more — and the only one in `src/`,
- * which `rewrite-path-literals.ts` does not sweep at all on a `src/` wave. W6
- * moved `presentation/scripts/` to `presentation/render/scripts/`, and this line
- * was edited by hand after nine unit tests went red.
+ * which `rewrite-path-literals.ts` does not sweep at all. Moving the scripts
+ * directory therefore means editing this line by hand, and nine unit tests go
+ * red until it is.
  *
  * That redness is the point worth recording: this is the only one of the three
  * sites with a TEST behind it, because `static-assets.ts` serves these files and
@@ -99,7 +99,7 @@ export const clientScriptPath = (filename: string): string =>
     ? resolvePackagePath('dist', 'client-scripts', filename)
     : resolvePackagePath('src', 'presentation', 'render', 'scripts', 'client', filename)
 
-// `examplesPath` / `agentsPath` were removed: the `templates/` and `agents/`
-// directories are now embedded into the binary and accessed via
+// There is no `examplesPath` / `agentsPath`: the `templates/` and `agents/`
+// directories are embedded into the binary and accessed via
 // `@/infrastructure/assets/embedded-static-assets` (works in dev, bundled, and
 // compiled modes alike).

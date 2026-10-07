@@ -1,0 +1,33 @@
+# sovrium-library: block/header-centered@0.30.0
+name: header-centered
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: flex
+    props:
+      className: flex flex-col mx-auto max-w-3xl items-center gap-4 text-center
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2
+        children:
+          - type: container
+            props:
+              className: size-1.5 rounded-sm bg-primary
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Section name]'
+      - type: text
+        element: h1
+        props:
+          className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05]'
+        content: Name the page in a few words
+      - type: text
+        element: p
+        props:
+          className: text-lg text-pretty text-foreground-muted sm:text-xl
+        content: 'One sentence on what the reader will find below, and who it is for.'

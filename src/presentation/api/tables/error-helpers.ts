@@ -30,22 +30,21 @@ const extractErrorDetails = (error: unknown): { name: string; errorString: strin
  * Check if error is an authorization denial or a genuinely absent resource —
  * i.e. one of the two classes S1 collapses to an indistinguishable 404.
  *
- * The driver guard is the load-bearing line. The class formerly called
- * `SessionContextError` was OVERLOADED: application programs constructed it to
- * mean "absent" or "forbidden", while `wrapDatabaseError` constructed it to
- * wrap a raw driver failure. Matching on the class name alone therefore read a
- * dropped table, a lost connection or a datatype mismatch as an authorization
- * denial and answered 404 — telling the caller a record they can plainly see
- * does not exist, and handing the operator a non-alerting 404 while the
- * database is on fire.
+ * The driver guard is the load-bearing line. An error class that application
+ * programs construct to mean "absent" or "forbidden", and that
+ * `wrapDatabaseError` also constructs to wrap a raw driver failure, is
+ * OVERLOADED: matching on the class name alone would read a dropped table, a
+ * lost connection or a datatype mismatch as an authorization denial and answer
+ * 404 — telling the caller a record they can plainly see does not exist, and
+ * handing the operator a non-alerting 404 while the database is on fire.
  *
  * Excluding driver-raised failures FIRST is what makes the remaining checks
  * sound: whatever survives the guard provably never reached the database, so
  * it can only be one of Sovrium's own semantic outcomes.
  *
- * The semantic half of that split has landed: absences and denials arrive as
- * {@link NotFoundError} / `ForbiddenError` and are matched by name, not by
- * prose. `DatabaseError` now means only "a data-layer failure", which is why
+ * Absences and denials arrive as {@link NotFoundError} / `ForbiddenError` and
+ * are matched by name, not by prose. `DatabaseError` means only "a data-layer
+ * failure", which is why
  * the name test below is EXACT — `.includes('DatabaseError')` would also catch
  * `AuthDatabaseError`, `AccountDatabaseError`, `BootstrapDatabaseError` and a
  * dozen other scoped siblings, silently promoting their failures to 404.
@@ -57,8 +56,8 @@ const extractErrorDetails = (error: unknown): { name: string; errorString: strin
  * captures only that channel — a defect rejects the promise and reaches
  * `handleRouteError` instead. The first two are matched by name above; every
  * remaining value is named literally `DatabaseError` and is decided by the
- * final arm. No reachable value is classified by its prose, which is why the
- * message-substring checks that used to sit here were deleted (2026-07-26).
+ * final arm. No reachable value is classified by its prose, which is why there
+ * are no message-substring checks here.
  *
  * That final arm is what preserves the last untyped 404 on this path.
  * `executeRecordUpdateCRUD` throws a bare `Error` when `result.length === 0`,
@@ -67,7 +66,7 @@ const extractErrorDetails = (error: unknown): { name: string; errorString: strin
  * guards carries no predicate but `WHERE id = $1`: Sovrium has no row-level
  * security, and row- and field-level permissions are enforced in the
  * application layer, so an empty result means "no row with that id" and
- * nothing else. `[internal ref]` and `[internal ref]` both rest
+ * nothing else. The API tables records update spec and API errors spec both rest
  * solely on this arm — narrowing it is what the suite catches from here on.
  *
  * ⚠️ `TableNotFoundError` is the one class in the codebase that would genuinely

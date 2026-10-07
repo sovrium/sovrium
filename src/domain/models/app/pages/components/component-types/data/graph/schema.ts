@@ -60,6 +60,7 @@
 
 import { Schema } from 'effect'
 import { SortDirectionSchema } from '../../../data-source'
+import { GraphTablesSourceSchema } from '../../../graph-tables-source'
 
 // ---------------------------------------------------------------------------
 // GraphSystemSourceSchema / GraphDataSourceSchema
@@ -76,7 +77,7 @@ import { SortDirectionSchema } from '../../../data-source'
  * design-system console's Configuration table, and a shared node would name
  * one of the two types in the other's documentation.
  *
- * ─── WHY THERE IS NO DB-TABLE ARM ──────────────────────────────────────────
+ * ─── WHY THE DB-TABLE ARM IS NOT A PLAIN `{ table }` ──────────────────────
  *
  * `chart` offers a union because a chart over DB rows is a well-defined thing
  * — a series is a column. A node-link drawing over DB rows is NOT, and the
@@ -86,7 +87,9 @@ import { SortDirectionSchema } from '../../../data-source'
  * row address a node. Nothing in a `tables[]` declaration says any of that, so
  * the arm would decode and then draw an empty canvas. A union with one
  * unusable arm advertises a capability, passes decode, and fails silently at
- * render.
+ * render. So the table arm is not `{ table }`: it is `GraphTablesSourceSchema`,
+ * in which the author says exactly that — which tables are nodes, and which
+ * link tables or relationship fields are edges.
  *
  * @example
  * ```yaml
@@ -137,18 +140,30 @@ export const GraphSystemSourceSchema = Schema.Struct({
 })
 
 /**
- * Data binding for a `graph` — a graph read endpoint, and nothing else.
+ * Data binding for a `graph` — a graph read endpoint, OR the app's own tables.
  *
- * A `Struct` rather than a `Union` deliberately; see
- * {@link GraphSystemSourceSchema} for why there is no DB-table arm.
+ * The endpoint arm is the original one and is unchanged. The tables arm
+ * ({@link GraphTablesSourceSchema}) answers the question the endpoint arm's
+ * docblock left open — what a table-backed graph MEANS — by having the author
+ * name which tables are nodes and where the edges come from.
  */
-export const GraphDataSourceSchema = Schema.Struct({
-  /** Graph read-endpoint binding (the only binding a graph accepts) */
+export const GraphSystemDataSourceSchema = Schema.Struct({
+  /** Graph read-endpoint binding */
   system: GraphSystemSourceSchema,
 }).annotate({
+  identifier: 'GraphSystemDataSource',
+  title: 'Graph System Data Source',
+  description: 'Graph read-endpoint binding for the node-link drawing',
+})
+
+export const GraphDataSourceSchema = Schema.Union([
+  GraphSystemDataSourceSchema,
+  GraphTablesSourceSchema,
+]).annotate({
   identifier: 'GraphDataSource',
   title: 'Graph Data Source',
-  description: 'Graph read-endpoint binding for the node-link drawing',
+  description:
+    'Where the node-link drawing reads its graph: a read endpoint (`system`), or the app’s own tables (`nodes` and `edges`)',
 })
 
 // ---------------------------------------------------------------------------

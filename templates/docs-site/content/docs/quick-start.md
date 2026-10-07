@@ -39,11 +39,15 @@ sovrium start app.yaml
 ```
 
 ::: callout type="note"
-**The folder is the source of truth.** No file is registered by hand. Delete a
+**The folder is the source of truth.**
+
+No file is registered by hand. Delete a
 file and its route disappears on the next start.
 :::
 
 ::: callout type="warning"
-**Draft pages stay hidden.** A page with `draft: true` is left out of the
+**Draft pages stay hidden.**
+
+A page with `draft: true` is left out of the
 sidebar and the build.
 :::

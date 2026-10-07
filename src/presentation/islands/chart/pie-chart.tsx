@@ -67,6 +67,8 @@ interface PieChartProps {
   readonly donut?: boolean
   /** The chart's declared `legend`; absent draws none, as before. */
   readonly legend?: { readonly position?: LegendPosition; readonly visible?: boolean }
+  /** `dataLabels: false` leaves the category names off the ring; the legend still names them. */
+  readonly dataLabels?: boolean
   /** Operator-set `<svg role="img">` name; falls back to the per-type default. */
   readonly accessibleName?: string
 }
@@ -77,6 +79,8 @@ interface PieChartSvgProps {
   readonly slices: CategoryDatum[]
   readonly donut?: boolean
   readonly accessibleName?: string
+  /** `dataLabels: false` leaves the category names off the ring. */
+  readonly dataLabels?: boolean
 }
 
 /** A slice's paint: its option's declared colour, else its palette slot. */
@@ -94,11 +98,13 @@ function ArcSlice({
   centroid,
   datum,
   fill,
+  label,
 }: {
   readonly d: string
   readonly centroid: readonly [number, number]
   readonly datum: CategoryDatum
   readonly fill: string
+  readonly label: boolean
 }): ReactElement {
   return (
     <g>
@@ -107,16 +113,18 @@ function ArcSlice({
         fill={fill}
         data-arc-key={datum.key}
       />
-      <text
-        x={centroid[0]}
-        y={centroid[1]}
-        fontSize={CHART_TICK_FONT_SIZE}
-        fill={CHART_TICK_FILL}
-        textAnchor="middle"
-        dominantBaseline="central"
-      >
-        {datum.label ?? datum.key}
-      </text>
+      {label && (
+        <text
+          x={centroid[0]}
+          y={centroid[1]}
+          fontSize={CHART_TICK_FONT_SIZE}
+          fill={CHART_TICK_FILL}
+          textAnchor="middle"
+          dominantBaseline="central"
+        >
+          {datum.label ?? datum.key}
+        </text>
+      )}
     </g>
   )
 }
@@ -127,6 +135,7 @@ function PieChartSvg({
   slices,
   donut,
   accessibleName,
+  dataLabels,
 }: PieChartSvgProps): ReactElement {
   const outerRadius = Math.max(0, Math.min(width, height) / 2 - MARGIN)
   const innerRadius = donut ? outerRadius * DONUT_INNER_RADIUS_RATIO : 0
@@ -147,7 +156,6 @@ function PieChartSvg({
         <Pie<CategoryDatum>
           data={slices}
           pieValue={arcValue}
-          // eslint-disable-next-line unicorn/no-null -- d3's pie takes `null` to mean "keep the input order"; `undefined` keeps its default largest-first sort
           pieSortValues={null}
           outerRadius={outerRadius}
           innerRadius={innerRadius}
@@ -160,6 +168,7 @@ function PieChartSvg({
                 centroid={pie.path.centroid(arc)}
                 datum={arc.data}
                 fill={slicePaint(arc.data, index)}
+                label={dataLabels !== false}
               />
             ))
           }
@@ -230,6 +239,7 @@ export function PieChartCanvas({
   donut,
   legend,
   accessibleName,
+  dataLabels,
 }: PieChartProps): ReactElement {
   // `Pie` takes a mutable array, so the series is copied. Memoised because
   // `ParentSize` re-renders on every resize tick and neither the reduction nor
@@ -255,6 +265,7 @@ export function PieChartCanvas({
                   slices={slices}
                   donut={donut}
                   accessibleName={accessibleName}
+                  dataLabels={dataLabels}
                 />
               )
             }}

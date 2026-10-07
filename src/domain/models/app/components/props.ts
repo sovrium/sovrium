@@ -50,6 +50,29 @@ export const ComponentPropValueSchema: Schema.Codec<
 ])
 
 /**
+ * The accepted spelling of a prop key: a JavaScript property name
+ * (`className`, `maxWidth`) or an HTML `data-*` / `aria-*` attribute in
+ * kebab-case (`data-testid`, `aria-label`).
+ */
+const COMPONENT_PROP_KEY_PATTERN =
+  /^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/
+
+const ComponentPropKeySchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Component Prop Key',
+    description:
+      'Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case), pattern `^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$`',
+    examples: ['className', 'size', 'enabled', 'maxWidth', 'data-testid', 'aria-label'],
+  }),
+  Schema.check(
+    Schema.isPattern(COMPONENT_PROP_KEY_PATTERN, {
+      message:
+        'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label), pattern ^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$',
+    })
+  )
+)
+
+/**
  * Component Props (properties for component templates with variable references)
  *
  * Dynamic object supporting:
@@ -75,27 +98,31 @@ export const ComponentPropValueSchema: Schema.Codec<
  *
  */
 export const ComponentPropsSchema = Schema.Record(
-  Schema.String.pipe(
-    Schema.annotate({
-      title: 'Component Prop Key',
-      description:
-        'Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)',
-      examples: ['className', 'size', 'enabled', 'maxWidth', 'data-testid', 'aria-label'],
-    }),
-    Schema.check(
-      Schema.isPattern(/^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/, {
-        message:
-          'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label)',
-      })
-    )
-  ),
+  // Any string in the key position, and the identifier pattern enforced by
+  // `isPropertyNames` below. A pattern on the key schema itself makes Effect 4
+  // SKIP a mistyped key instead of failing on it: under the default decode
+  // options the prop silently vanished (`2xl: big` decoded to nothing), and
+  // under the app pipeline it surfaced as an unknown property with no hint of
+  // the accepted spelling.
+  Schema.String,
   ComponentPropValueSchema
 ).pipe(
   Schema.annotate({
     title: 'Component Props',
     description:
-      'Properties for component templates, supporting variable references. A `className` or `class` value is validated as a Tailwind class list: arbitrary values are allowed, but `url(`, `image-set(`, `attr(`, `expression(` and `@import` are refused inside one.',
+      'Properties for component templates, supporting variable references. Each key is a camelCase property name or a kebab-case `data-*`/`aria-*` attribute; any other key is refused. A `className` or `class` value is validated as a Tailwind class list: arbitrary values are allowed, but `url(`, `image-set(`, `attr(`, `expression(` and `@import` are refused inside one.',
   }),
+  // Prop keys: refused, by name and at their own path, when they miss the
+  // identifier pattern. The JSON Schema rendering is overridden so the
+  // published `propertyNames` keeps the pattern (the default renders the key's
+  // encoded side, which carries no refinement).
+  Schema.check(
+    Schema.isPropertyNames(ComponentPropKeySchema, {
+      toJsonSchema: () => ({
+        propertyNames: { type: 'string', pattern: COMPONENT_PROP_KEY_PATTERN.source },
+      }),
+    })
+  ),
   // A RECORD-level check, not a per-value schema, and the annotation above it
   // deliberately comes FIRST.
   //

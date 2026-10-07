@@ -190,10 +190,8 @@ const dateRangePickerComponent: ComponentRenderer = ({ component, rawProps, elem
         label={props['label'] as string | undefined}
         minHeight="2.25em"
       />
-      {openPanelHtml !== undefined && (
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR markup emission
-        <div dangerouslySetInnerHTML={{ __html: openPanelHtml }} />
-      )}
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value */}
+      {openPanelHtml !== undefined && <div dangerouslySetInnerHTML={{ __html: openPanelHtml }} />}
     </div>
   )
 }

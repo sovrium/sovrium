@@ -12,9 +12,9 @@ import {
   renderedNodesWhere,
 } from '@/domain/models/app/pages/component-tree-has-type'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { recordPassesPredicate, resolveGuardForTable } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
@@ -46,11 +46,13 @@ function boundTableName(
  * whatever comes of it: a missing record and a present one cost the same.
  */
 async function findLiveRecord(
+  c: Context,
   tableName: string,
-  paramField: string,
-  paramValue: string
+  lookup: { readonly paramField: string; readonly paramValue: string }
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const found = await runTableProgram(
+  const { paramField, paramValue } = lookup
+  const found = await runOnRequest(
+    c,
     Effect.gen(function* () {
       const repo = yield* DataSourceRepository
       return yield* repo.fetchSingleRecord(tableName, paramField, paramValue, undefined, {
@@ -140,7 +142,7 @@ async function admitsBoundRecord(
   if (paramValue === undefined) return undefined
   const gate = await readGateOf(c, app, table)
   if (gate === 'refused') return { admitted: false }
-  const row = await findLiveRecord(table.name, paramField, paramValue)
+  const row = await findLiveRecord(c, table.name, { paramField, paramValue })
   const recordId = idOf(row)
   if (row === undefined || recordId === undefined) return { admitted: false }
   if (!passesRowReadRule(table, row, gate.guard)) return { admitted: false }
@@ -166,7 +168,7 @@ async function readGateOf(
   table: Table
 ): Promise<'refused' | { readonly guard: RowLevelGuard }> {
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   const refusal = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
   return refusal === undefined ? { guard } : 'refused'
 }

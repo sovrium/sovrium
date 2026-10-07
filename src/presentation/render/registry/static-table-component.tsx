@@ -28,6 +28,7 @@
  * Tailwind cascade.
  */
 
+import { cn } from '../../design/class-merge'
 import {
   computeStaticTableCellClasses,
   computeStaticTableHeaderRowClasses,
@@ -37,8 +38,35 @@ import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 
+/** How one written column is drawn — `tableColumns[i]`, index-aligned with the headers. */
+interface StaticColumn {
+  readonly align?: 'left' | 'center' | 'right'
+  readonly className?: string
+}
+
+/** The parts a written table draws inside itself, by name. */
+interface StaticTableParts {
+  readonly caption?: string
+  readonly header?: string
+  readonly row?: string
+  readonly cell?: string
+}
+
+const ALIGN_CLASS: Readonly<Record<NonNullable<StaticColumn['align']>, string>> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+}
+
+const alignOf = (column: StaticColumn | undefined): string | undefined =>
+  column?.align === undefined ? undefined : ALIGN_CLASS[column.align]
+
 /** The header row, or nothing when the author declared no `tableHeaders`. */
-const staticHead = (headers: readonly string[]) => {
+const staticHead = (
+  headers: readonly string[],
+  columns: readonly StaticColumn[],
+  parts: StaticTableParts
+) => {
   if (headers.length === 0) return undefined
   const cellClass = computeStaticTableCellClasses({ kind: 'header' })
   return (
@@ -47,7 +75,7 @@ const staticHead = (headers: readonly string[]) => {
         {headers.map((header, i) => (
           <th
             key={i}
-            className={cellClass}
+            className={cn(cellClass, parts.header, alignOf(columns[i]))}
           >
             {header}
           </th>
@@ -58,17 +86,24 @@ const staticHead = (headers: readonly string[]) => {
 }
 
 /** The body rows, or nothing when the author declared no `tableRows`. */
-const staticBody = (rows: ReadonlyArray<readonly string[]>) => {
+const staticBody = (
+  rows: ReadonlyArray<readonly string[]>,
+  columns: readonly StaticColumn[],
+  parts: StaticTableParts
+) => {
   if (rows.length === 0) return undefined
   const cellClass = computeStaticTableCellClasses({ kind: 'data' })
   return (
     <tbody>
       {rows.map((row, ri) => (
-        <tr key={ri}>
+        <tr
+          key={ri}
+          className={parts.row}
+        >
           {row.map((cell, ci) => (
             <td
               key={ci}
-              className={cellClass}
+              className={cn(cellClass, parts.cell, alignOf(columns[ci]), columns[ci]?.className)}
             >
               {cell}
             </td>
@@ -79,16 +114,44 @@ const staticBody = (rows: ReadonlyArray<readonly string[]>) => {
   )
 }
 
+/** The table's `caption` — its accessible name — with the author's `caption` part classes. */
+const STATIC_CAPTION_CLASSES = 'py-2 text-left text-sm text-foreground-muted'
+const staticCaption = (caption: string | undefined, part: string | undefined) =>
+  caption === undefined || caption === '' ? undefined : (
+    <caption className={cn(STATIC_CAPTION_CLASSES, part)}>{caption}</caption>
+  )
+
+/** What a written table declares, each list empty when absent. */
+interface StaticTableContent {
+  readonly headers: readonly string[]
+  readonly rows: ReadonlyArray<readonly string[]>
+  readonly columns: readonly StaticColumn[]
+  readonly caption: string | undefined
+}
+
+const staticTableContent = (component: unknown): StaticTableContent => {
+  const declared = (component ?? {}) as {
+    readonly tableHeaders?: readonly string[]
+    readonly tableRows?: ReadonlyArray<readonly string[]>
+    readonly caption?: string
+    readonly tableColumns?: readonly StaticColumn[]
+  }
+  return {
+    headers: declared.tableHeaders ?? [],
+    rows: declared.tableRows ?? [],
+    columns: declared.tableColumns ?? [],
+    caption: declared.caption,
+  }
+}
+
 /** Render the rows an author wrote in the config as a plain `<table>`. */
-export const staticTableComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
-  const tableComp = component as
-    | {
-        tableHeaders?: readonly string[]
-        tableRows?: ReadonlyArray<readonly string[]>
-      }
-    | undefined
-  const headers = tableComp?.tableHeaders ?? []
-  const rows = tableComp?.tableRows ?? []
+export const staticTableComponent: ComponentRenderer = ({
+  elementPropsWithSpacing,
+  component,
+  designStyles,
+}) => {
+  const { headers, rows, columns, caption } = staticTableContent(component)
+  const parts: StaticTableParts = designStyles?.parts ?? {}
   const {
     'data-testid': dataTestId,
     className: authorClassName,
@@ -104,8 +167,9 @@ export const staticTableComponent: ComponentRenderer = ({ elementPropsWithSpacin
       data-testid={dataTestId as string | undefined}
       className={mergedClassName}
     >
-      {staticHead(headers)}
-      {staticBody(rows)}
+      {staticCaption(caption, parts.caption)}
+      {staticHead(headers, columns, parts)}
+      {staticBody(rows, columns, parts)}
     </table>
   )
 }

@@ -27,6 +27,7 @@ import {
 import { buildAutomationContext, resolveTriggerInValue } from '../resolve-trigger-data'
 import type { AuthoredReferenceValues } from '../authored-references'
 import type { RuntimeActionTemplate, StepContext } from './types'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -34,9 +35,7 @@ import type { App } from '@/domain/models/app'
  * no template by that name is declared.
  */
 export const findTemplate = (app: App, name: string): RuntimeActionTemplate | undefined =>
-  (app.actions as unknown as ReadonlyArray<RuntimeActionTemplate> | undefined)?.find(
-    (t) => t.name === name
-  )
+  (app.actions as ReadonlyArray<RuntimeActionTemplate> | undefined)?.find((t) => t.name === name)
 
 /**
  * Prepare AUTHORED config text — an action's props as written in the app
@@ -61,19 +60,21 @@ export const referenceAuthoredProps = <A>(
  */
 export const renderAuthoredTemplateProps = (
   action: Readonly<Record<string, unknown>>,
-  context: Readonly<Record<string, unknown>>
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): Readonly<Record<string, unknown>> => {
   const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
   return String(action['type'] ?? '') === 'code'
     ? props
-    : (resolveTriggerInValue(props, context) as Record<string, unknown>)
+    : (resolveTriggerInValue(props, context, templates) as Record<string, unknown>)
 }
 
 /** The props of a code action invoked with values: its source is never a template. */
 const fillCodeProps = (
   props: Readonly<Record<string, unknown>>,
   values: AuthoredReferenceValues,
-  context: Readonly<Record<string, unknown>>
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): Readonly<Record<string, unknown>> => {
   const { inputData, ...rest } = props
   const filled = fillAuthoredReferences(rest, { envLookup: values.envLookup })
@@ -81,7 +82,11 @@ const fillCodeProps = (
     ? filled
     : {
         ...filled,
-        inputData: resolveTriggerInValue(referenceAuthoredValues(inputData, values), context),
+        inputData: resolveTriggerInValue(
+          referenceAuthoredValues(inputData, values),
+          context,
+          templates
+        ),
       }
 }
 
@@ -108,8 +113,9 @@ export const fillInvokedTemplateAction = (input: {
   readonly args: Readonly<Record<string, unknown>>
   readonly parameterNames: ReadonlyArray<string>
   readonly envLookup: Readonly<Record<string, string>>
+  readonly templates: TemplateRenderer
 }): Readonly<Record<string, unknown>> => {
-  const { template, args, envLookup } = input
+  const { template, args, envLookup, templates } = input
   const defaults = fillAuthoredReferences(template.variables ?? {}, { envLookup })
   const declared = Object.fromEntries(
     Object.entries(args).filter(([name]) => input.parameterNames.includes(name))
@@ -125,9 +131,11 @@ export const fillInvokedTemplateAction = (input: {
   const props = (template.action['props'] as Record<string, unknown> | undefined) ?? {}
   const filled =
     String(template.action['type'] ?? '') === 'code'
-      ? fillCodeProps(props, values, context)
-      : (resolveTriggerInValue(referenceAuthoredValues(props, values), context) as Readonly<
-          Record<string, unknown>
-        >)
+      ? fillCodeProps(props, values, context, templates)
+      : (resolveTriggerInValue(
+          referenceAuthoredValues(props, values),
+          context,
+          templates
+        ) as Readonly<Record<string, unknown>>)
   return { ...template.action, props: filled }
 }

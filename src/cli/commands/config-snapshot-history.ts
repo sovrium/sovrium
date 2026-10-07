@@ -103,7 +103,6 @@ const pruneToCap = async (dir: string): Promise<void> => {
     .toSorted()
 
   const excess = names.slice(0, Math.max(0, names.length - MAX_SNAPSHOTS))
-  // eslint-disable-next-line functional/no-expression-statements -- delete the pruned directories
   await Promise.all(excess.map((name) => rm(join(dir, name), { recursive: true, force: true })))
 }
 
@@ -134,7 +133,6 @@ export const snapshotConfigGraph = async (
     const name = snapshotName(configHash)
     const target = join(historyDir(), name)
 
-    /* eslint-disable functional/no-expression-statements -- write the snapshot tree to disk */
     await Promise.all(
       files.map(async (file) => {
         // A `$ref` reaching above the config's own directory would otherwise
@@ -155,7 +153,6 @@ export const snapshotConfigGraph = async (
         await cp(resolve(file), destination)
       })
     )
-    /* eslint-enable functional/no-expression-statements */
 
     await pruneToCap(historyDir())
     return name
@@ -247,7 +244,6 @@ export const findRestorableSnapshot = async (
   // Sequential on purpose: the answer is almost always the first candidate, and
   // reading every snapshot in the history to discard nineteen of them would
   // turn a cheap question into twenty directory walks.
-  // eslint-disable-next-line functional/no-loop-statements -- see above; `find` cannot await
   for (const name of names) {
     const directory = join(historyDir(), name)
     const files = await differingFiles(rootDir, directory, await snapshotFiles(directory))
@@ -268,7 +264,6 @@ export const restoreSnapshot = async (
   rootDir: string,
   snapshot: Readonly<RestorableSnapshot>
 ): Promise<void> => {
-  /* eslint-disable functional/no-expression-statements -- writing the restored files IS the operation */
   await Promise.all(
     snapshot.files.map(async (file) => {
       const destination = join(rootDir, file)
@@ -280,7 +275,6 @@ export const restoreSnapshot = async (
       return writeFile(destination, stored, 'utf-8')
     })
   )
-  /* eslint-enable functional/no-expression-statements */
 }
 
 /**

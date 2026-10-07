@@ -69,11 +69,11 @@ export function resolveUploadActionUrl(uploadAction: unknown): string | undefine
 /**
  * Attaches server-resolved icon GEOMETRY to each menu item that names an icon.
  *
- * `menu-island` used to resolve `item.icon` itself, which meant it imported
+ * If `menu-island` resolved `item.icon` itself, it would import
  * `lucide-resolver` — a namespace import read through a computed key, so the
- * bundler retained all ~2,000 icons. Measured 2026-09-03: a 668,323-byte chunk
- * (174,296 gzip) statically imported by `menu-island`, `kpi-island` AND
- * `admin-sidebar-island`, the last of which renders no icons at all.
+ * bundler retains all ~2,000 icons. Measured: a 668,323-byte chunk (174,296
+ * gzip) shared by every island importing it, including ones that render no
+ * icons at all.
  *
  * Resolving here instead moves that cost to the server, where the icon set is
  * already in the binary, and sends the browser only the handful of `[tag, attrs]`
@@ -105,7 +105,8 @@ export function withResolvedMenuItemIcons(menuItems: unknown): unknown {
 export function buildAlertDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
-  component: Component | undefined
+  component: Component | undefined,
+  routeParams?: Readonly<Record<string, string | undefined>>
 ) {
   const comp = (component ?? {}) as Record<string, unknown>
   // Prefer top-level `content` (matches authoring convention in specs) and
@@ -123,12 +124,31 @@ export function buildAlertDialogProps(
     variant: rawProps?.['variant'] ?? 'default',
     // The island ignores an `undefined` action (confirm just closes), so always
     // include the key rather than a conditional spread — keeps complexity low.
-    action: comp['action'] ?? rawProps?.['action'],
+    action: withBoundRecordId(comp['action'] ?? rawProps?.['action'], rawProps, routeParams),
+    // Already substituted (`$record.name`, `$session.email`) by the page pass.
+    confirmText: pickAlertField(comp, rawProps, 'confirmText'),
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
     ...openerProp(component),
   }
+}
+
+/**
+ * A `crud` delete confirmed from a dialog deletes the record the dialog sits
+ * on: the bound record when the dialog is inside one, else the page's `:id`.
+ * Stamped here because the island has neither in hand.
+ */
+function withBoundRecordId(
+  action: unknown,
+  rawProps: Record<string, unknown> | undefined,
+  routeParams: Readonly<Record<string, string | undefined>> | undefined
+): unknown {
+  const crud = action as { readonly type?: unknown; readonly operation?: unknown } | undefined
+  if (crud?.type !== 'crud' || crud.operation !== 'delete') return action
+  const record = rawProps?.['_record'] as { readonly id?: unknown } | undefined
+  const id = record?.id ?? routeParams?.['id']
+  return id === undefined || id === null ? action : { ...crud, recordId: String(id) }
 }
 
 /**
@@ -284,12 +304,11 @@ export function buildDropdownMenuProps(
     // reader needs the control's job. The authored `triggerLabel` survives as
     // the name even once it is no longer the visible text.
     triggerAriaLabel: triggerChildrenHtml === undefined ? undefined : translatedLabel,
-    // [internal ref]: dark popup surface for a near-black primary CTA (schema top-level
+    // Dark popup surface for a near-black primary CTA (schema top-level
     // field, sibling of `triggerLabel`). Threaded into `data-island-props` so the
     // hydrated menu-island paints the inverted popup + inverted item tones
-    //.
     popupVariant: pickCompField<string>(comp, rawProps, 'popupVariant'),
-    // [internal ref]: hover-to-open — a top-level schema
+    // The navbar dropdown capability set: hover-to-open — a top-level schema
     // field (sibling of `triggerLabel`). Threaded into `data-island-props` so the
     // hydrated menu-island opens the popup on pointer hover in addition to click.
     openOnHover: pickCompField<boolean>(comp, rawProps, 'openOnHover'),

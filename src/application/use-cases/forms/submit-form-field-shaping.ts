@@ -16,7 +16,7 @@ import { collectFieldsInSkippedSteps } from '@/domain/models/app/forms/multi-ste
 import type { Form } from '@/domain/models/app/forms'
 
 /**
- * [internal ref]: drop body entries whose owning field is
+ * Drop body entries whose owning field is
  * hidden by `visibleWhen`. Runs against the submitter-supplied body so a
  * hidden field never leaks into the bound-table write OR into the
  * submission ledger, regardless of whether the submitter intentionally
@@ -38,7 +38,7 @@ export const stripHiddenFields = (
 }
 
 /**
- * [internal ref]: drop body entries belonging to a step whose
+ * Drop body entries belonging to a step whose
  * `visibleWhen` evaluates false. The whole step is treated as if it did
  * not exist — its fields are not validated AND their values do not land
  * in the bound table or the submission ledger, even if the submitter
@@ -58,7 +58,7 @@ export const stripSkippedStepFields = (
 }
 
 /**
- * [internal ref]: identify the field identifiers belonging to a single-page
+ * Identify the field identifiers belonging to a single-page
  * `fieldGroups[]` group whose `visibleWhen` evaluates false. The whole group
  * is treated as hidden — its fields are dropped from the persisted record and
  * excluded from required-field validation.
@@ -138,7 +138,7 @@ const resolveDefaultValue = (
  * cannot supply them via the rendered form). Visible fields with a default
  * are only overlaid when the submitter omitted the value entirely.
  *
- * [internal ref]: fields that are hidden by `visibleWhen` (evaluated against
+ * Fields that are hidden by `visibleWhen` (evaluated against
  * the incoming body, NOT against accumulated defaults) are skipped entirely
  * — the field's `defaultValue` MUST NOT leak into the persisted record when
  * the submitter's branch keeps the field hidden. `visibleWhen` wins over
@@ -155,7 +155,7 @@ export const applyFieldDefaults = (
       const identifier = fieldSubmitIdentifier(field)
       if (identifier === undefined) return acc
       if (!('defaultValue' in field) || field.defaultValue === undefined) return acc
-      // [internal ref]: visibleWhen short-circuits the overlay.
+      // visibleWhen short-circuits the overlay.
       if (!isFieldVisible(field, visibilityValues)) return acc
       const isHidden = (field as { readonly hidden?: boolean }).hidden === true
       const submitterSupplied = Object.hasOwn(acc, identifier) && acc[identifier] !== ''

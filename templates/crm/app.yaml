@@ -8,6 +8,19 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a Slack bot token turns on the new-deal post to your sales channel
+# (library/recipe/record-to-slack.yaml), and a HubSpot token copies each contact
+# added from the Contacts page into HubSpot (library/recipe/form-to-hubspot.yaml;
+# a contact here has one name, sent as HubSpot's first name). Without them the
+# app runs as before and those automations simply cannot reach either service.
+env:
+  - key: SLACK_BOT_TOKEN
+    description: Bot token of your Slack app, for the new-deal post to the sales channel.
+    required: false
+  - key: HUBSPOT_ACCESS_TOKEN
+    description: Private app token of your HubSpot account, to copy each contact added here.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -26,6 +39,14 @@ agents:
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/deal-won-notification.yaml
+  - $ref: ./library/recipe/record-to-slack.yaml
+  - $ref: ./library/recipe/form-to-hubspot.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/add-task.yaml
+  - $ref: ./config/forms/add-deal.yaml
+  - $ref: ./config/forms/add-contact.yaml
 
 # Listed in the order of the sidebar: the pipeline is the home page.
 pages:
@@ -40,3 +61,7 @@ pages:
 # floating pill, so it never sits over the last row of a grid.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/slack.yaml
+  - $ref: ./library/connection/hubspot.yaml

@@ -28,10 +28,10 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * Build where condition for activity log queries (with 1-year retention policy).
  *
  * The cutoff comes from the shared `activityLogRetentionCutoff` rather than being
- * recomputed here. This filter used to BE the retention policy — it hid expired
- * rows while nothing deleted them, so the data was retained forever behind a
- * query that claimed otherwise. Now that `purgeExpiredActivityLogs` removes
- * them, the two must agree on one boundary: a filter that ran ahead of the sweep
+ * recomputed here. This filter is not the retention policy — a filter hiding
+ * expired rows while nothing deletes them retains the data forever behind a
+ * query that claims otherwise. `purgeExpiredActivityLogs` removes them, so the
+ * two must agree on one boundary: a filter that ran ahead of the sweep
  * would recreate the same gap, and a sweep that ran ahead of the filter would
  * silently shorten visible history.
  */

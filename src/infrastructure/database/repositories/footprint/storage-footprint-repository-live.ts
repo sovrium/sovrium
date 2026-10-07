@@ -83,7 +83,6 @@ interface TotalBytesRow {
  */
 const unmeasuredTable = (tableName: string): TableSizeRow => ({
   tableName,
-  // eslint-disable-next-line unicorn/no-null -- `null` is the port's "not measured" sentinel, deliberately distinct from a measured `0`
   bytes: null,
   measurement: 'unavailable',
 })
@@ -96,7 +95,6 @@ const unmeasuredTable = (tableName: string): TableSizeRow => ({
  * is both sufficient and the cheapest correct cadence — re-probing on every
  * dashboard request would add a statement to answer a constant.
  */
-// eslint-disable-next-line functional/no-let -- one-shot process-level memo; mirrors the `cached` client memo in drizzle/db-bun.ts
 let dbstatAvailable: boolean | undefined
 
 /**
@@ -110,7 +108,6 @@ let dbstatAvailable: boolean | undefined
  * @internal Test-isolation hook for the module-level memo.
  */
 export const resetDbstatProbeCache = (): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo reset; intentional mutation of the one-shot cache
   dbstatAvailable = undefined
 }
 
@@ -126,7 +123,6 @@ const probeDbstat = async (runner: Readonly<RawSqlRunner>): Promise<boolean> => 
   const available = await executeRawTyped(runner, sql`SELECT 1 AS ok FROM dbstat LIMIT 1`)
     .then(() => true)
     .catch(() => false)
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo write
   dbstatAvailable = available
   return available
 }

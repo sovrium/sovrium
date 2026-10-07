@@ -1,0 +1,17 @@
+name: overview
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Overview · App starter
+  description: How the projects moved over the period.
+window:
+  default: 30d
+  presets:
+    - { id: 7d }
+    - { id: 30d }
+    - { id: 90d }
+components:
+  - $ref: ./_nav.yaml
+  - component: dashboard-overview

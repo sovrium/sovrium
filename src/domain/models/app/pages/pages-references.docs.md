@@ -148,6 +148,12 @@ A segment is all-or-nothing: every token inside it must resolve non-empty, or th
 
 The server drops every optional segment and hydration adds it back. That direction is deliberate: a heading that reads `Welcome` and then grows is legible at every instant, where one that arrives empty and fills in is a layout shift on the first thing a reader looks at.
 
+## An invitation in the address
+
+A page declaring `invitation: {}` looks up the invitation whose token is in its address (`?token=`, or the key `param` names) and exposes it as `$invitation.inviter.name`, `$invitation.inviter.image`, `$invitation.email`, `$invitation.role`, `$invitation.workspace`, `$invitation.expiresAt`, `$invitation.accountExists` and `$invitation.status` (`pending`, `expired`, or `invalid` for a token that matches no outstanding invitation — one already accepted or revoked included). An invalid token empties every other reference, so the page can say the link is not valid without revealing whether it ever was. Unless the invitation is `pending`, the page's `acceptInvitation` and `declineInvitation` forms are left out.
+
+A component's `visibility.condition` may read these too: `{ field: $invitation.status, operator: eq, value: invalid }` draws that part only for a link that matches no invitation, so one page can carry the pending, expired and invalid screens and send only the one that applies.
+
 ## Related reading
 
 - **Data Binding** — the `dataSource` that produces `$record`.

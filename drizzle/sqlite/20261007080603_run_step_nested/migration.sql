@@ -1,0 +1,1 @@
+ALTER TABLE `system_automation_run_steps` ADD `nested` text;

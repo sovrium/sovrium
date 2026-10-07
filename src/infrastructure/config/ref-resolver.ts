@@ -65,7 +65,6 @@ const loadReferencedFile = async (
   const exists = standIn !== undefined || (await file.exists())
 
   if (!exists) {
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Referenced file not found: ${refPath}`)
   }
 
@@ -81,11 +80,9 @@ const loadReferencedFile = async (
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Failed to parse referenced file ${refPath}: ${message}`, { cause: error })
   }
 
-  // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
   throw new Error(`Unsupported file format for $ref: ${refPath}`)
 }
 
@@ -166,7 +163,6 @@ const followRef = async (
   overlay: ConfigGraphOverlay | undefined
 ): Promise<ResolvedNode> => {
   if (visited.has(refPath)) {
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Circular $ref detected: ${refPath}`)
   }
 
@@ -180,7 +176,6 @@ const followRef = async (
   // Inert unless something declared a root: see `parseProjectDirJail`.
   const escape = findProjectJailEscape(refPath)
   if (escape) {
-    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(
       `$ref resolves outside the project directory: ${escape.escaped}\n` +
         `The project directory is ${escape.root}, and the whole config graph must stay inside it.`

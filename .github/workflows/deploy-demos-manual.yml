@@ -22,6 +22,9 @@ on:
         description: 'Release version to deploy to the demos (e.g. 0.15.2 — no leading v)'
         required: true
 
+# Nothing at the top level; the one job states its own block.
+permissions: {}
+
 jobs:
   deploy-demos:
     name: Deploy demo fleet (manual)
@@ -30,30 +33,59 @@ jobs:
       contents: read
     steps:
       - name: Checkout sovrium repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Verify demo fleet SSH key is configured
+      - name: Verify demo fleet SSH key and host key are configured
         env:
           DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
           if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
             echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
             exit 1
           fi
+          # Fail CLOSED without a pinned host key (see release.yml deploy-demos).
+          if [ -z "${DEMO_FLEET_KNOWN_HOSTS}" ]; then
+            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the demo host key is not pinned, so this job refuses to connect. Add the host's known_hosts line(s) as that secret."
+            exit 1
+          fi
+
+      # The dispatch input reaches a REMOTE shell, so it travels through `env:`
+      # (never an expression inside `run:`) and must be a release version.
+      - name: Validate the requested version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::'${VERSION}' is not a release version (expected e.g. 0.15.2, no leading v)"
+            exit 1
+          fi
 
       - name: Configure SSH
+        env:
+          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEMO_FLEET_SSH_KEY }}" > ~/.ssh/demo_fleet
+          chmod 700 ~/.ssh
+          printf '%s\n' "${DEMO_FLEET_SSH_KEY}" > ~/.ssh/demo_fleet
           chmod 600 ~/.ssh/demo_fleet
-          # TODO: pin the host key instead of TOFU keyscan.
-          ssh-keyscan -H 163.172.175.246 >> ~/.ssh/known_hosts 2>/dev/null
+          printf '%s\n' "${DEMO_FLEET_KNOWN_HOSTS}" > ~/.ssh/demo_fleet_known_hosts
+          chmod 600 ~/.ssh/demo_fleet_known_hosts
 
       - name: Upgrade fleet
+        env:
+          VERSION: ${{ inputs.version }}
+          # A repository variable, so moving off root is a settings change once
+          # the host has an unprivileged deploy user (see release.yml).
+          DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
         run: |
           # Runs the HOST-RESIDENT copy of upgrade-fleet.sh — see the header
           # comment above for why this can't stream from the checkout.
-          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 "
+          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
+            "${DEMO_USER}@163.172.175.246" "
             set -e
             test -x /root/upgrade-fleet.sh || {
               echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
@@ -61,5 +93,5 @@ jobs:
               echo 'See: docs/development/demo-fleet/operations.md'
               exit 1
             }
-            VERSION=${{ inputs.version }} bash /root/upgrade-fleet.sh
+            VERSION='${VERSION}' bash /root/upgrade-fleet.sh
           "

@@ -284,7 +284,7 @@ function GlobalStyles({
         rel="stylesheet"
         href={cssHref ?? '/assets/output.css'}
       />
-      {/* eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <style> element; never re-renders client-side */}
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-generated direction CSS */}
       <style dangerouslySetInnerHTML={{ __html: directionStyles }} />
     </>
   )

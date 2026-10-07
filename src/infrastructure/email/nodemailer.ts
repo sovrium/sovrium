@@ -87,7 +87,6 @@ function resolveSmtpTimeout(envVar: string): number {
  * synchronous send. Each bound is env-overridable (`SMTP_CONNECTION_TIMEOUT`,
  * `SMTP_GREETING_TIMEOUT`, `SMTP_SOCKET_TIMEOUT`, all in ms) with a 10s default.
  */
-/* eslint-disable functional/prefer-immutable-types -- nodemailer transporter is inherently mutable */
 export function createTransporter(
   config: Readonly<EmailConfig>
 ): Transporter<SMTPTransport.SentMessageInfo> {
@@ -101,7 +100,6 @@ export function createTransporter(
     socketTimeout: resolveSmtpTimeout('SMTP_SOCKET_TIMEOUT'),
   })
 }
-/* eslint-enable functional/prefer-immutable-types */
 
 /**
  * Pre-configured transporter using environment variables
@@ -121,14 +119,11 @@ export function createTransporter(
  * }
  * ```
  */
-// eslint-disable-next-line functional/no-let -- lazy singleton cache for email config
 let _config: EmailConfig | undefined
-// eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- lazy singleton cache for transporter
 let _transporter: Transporter<SMTPTransport.SentMessageInfo> | undefined
 
 function getLazyConfig(): EmailConfig | undefined {
   if (!_config) {
-    // eslint-disable-next-line functional/no-expression-statements -- lazy initialization
     _config = getEmailConfig()
   }
   return _config
@@ -139,12 +134,10 @@ function getLazyConfig(): EmailConfig | undefined {
  * (`SMTP_HOST` unset). Callers MUST handle the `undefined` case — when email is
  * disabled no transport is created and no connection is attempted.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- nodemailer Transporter is mutable by library design
 export function getTransporter(): Transporter<SMTPTransport.SentMessageInfo> | undefined {
   const config = getLazyConfig()
   if (!config) return undefined
   if (!_transporter) {
-    // eslint-disable-next-line functional/no-expression-statements -- lazy initialization
     _transporter = createTransporter(config)
   }
   return _transporter

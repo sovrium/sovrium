@@ -32,6 +32,8 @@ The server mounts one JSON-RPC endpoint at `/mcp`.
 
 Sign in as the user whose role the client should inherit and mint an API key. The key acts as **that user**, resolved live on every call — so access control follows the person, not the credential. Want a read-only client? Give the key's owner the `viewer` role; demote them later and the same key narrows with them.
 
+Mint the key from a dedicated account created for the client, holding the lowest role that does the job — not from your own account, and never from an admin. The AI client reads record content that anyone with write access may have written, including text crafted to steer it; whatever that text talks it into, it can only do what the key's owner can do.
+
 ## Point the client at it
 
 Add an entry to your client's `mcpServers` configuration. The key goes in an **`x-api-key`** header — not `Authorization: Bearer`, which is verified as an OAuth access token, so an API key placed there is rejected with `401`:

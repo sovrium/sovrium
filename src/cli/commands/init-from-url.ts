@@ -24,7 +24,7 @@
  *
  * - **Plain `http`** — the document becomes the whole application, so an
  *   on-path attacker who can rewrite it chooses what the project is. The one
- *   relaxation is `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`, the existing "I accept an
+ *   relaxation is `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` (or `true`), the existing "I accept an
  *   unguarded, non-public outbound target" switch, which is also what makes a
  *   loopback fixture reachable at all.
  * - **A remote `.ts` config** — a TypeScript config is a PROGRAM. Fetching one
@@ -52,6 +52,10 @@ import {
   validateOutboundUrl,
 } from '@/infrastructure/egress/validate-outbound-url'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import {
+  isPrivateOutboundOptIn,
+  validatePostureFlags,
+} from '@/infrastructure/process/security-posture'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /** Deadline for the fetch. A config document is a few KB over HTTPS. */
@@ -70,7 +74,6 @@ export const PROVENANCE_FILENAME = '.sovrium-template.json'
 
 const fail = (message: string): never => {
   printStderr(`Error: ${message}`)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -86,7 +89,7 @@ const fail = (message: string): never => {
  * is on the path, not by its author.
  */
 const allowsPlainHttp = (hostname: string): boolean =>
-  process.env.SOVRIUM_ALLOW_PRIVATE_OUTBOUND === '1' && isPrivateOutboundHost(hostname)
+  isPrivateOutboundOptIn() && isPrivateOutboundHost(hostname)
 
 /** A published document resolved into the bytes and name it will be written as. */
 export interface ForkedConfig {
@@ -173,7 +176,6 @@ const pullCapped = async (
   // STOP HERE — before appending, and before asking for another chunk. The
   // chunk that crosses the line is the last one read.
   if (total > MAX_CONFIG_BYTES) {
-    // eslint-disable-next-line functional/no-expression-statements -- releasing the socket is the whole point of stopping here; there is no value to thread
     await reader.cancel().catch(() => undefined)
     return { text, overflowed: true }
   }
@@ -294,6 +296,11 @@ export const fetchForkedConfig = async (
   rawUrl: string,
   filename: string
 ): Promise<ForkedConfig> => {
+  // The same refusal the server boot gives: `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=0`
+  // reads as "off" to an operator, and is not silently taken either way.
+  const postureRefusal = validatePostureFlags()
+  if (postureRefusal !== undefined) return fail(postureRefusal)
+
   if (process.env.SOVRIUM_DISABLE_NETWORK === '1') {
     return fail(
       `--from-url requires network access, and SOVRIUM_DISABLE_NETWORK is set — nothing was created.`

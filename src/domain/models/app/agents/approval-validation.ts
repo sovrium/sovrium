@@ -18,17 +18,17 @@
  * type-guard inference.
  *
  * Rules enforced:
- * - [internal ref]: declaring `agents` requires `auth` to be
+ *  - declaring `agents` requires `auth` to be
  *    configured (agents depend on auth for RBAC).
- * - [internal ref]: agent `name` must be unique across all agents.
- * - [internal ref]: agent `role` must reference an `auth.roles` entry
+ *  - agent `name` must be unique across all agents.
+ *  - agent `role` must reference an `auth.roles` entry
  *    (or a built-in role).
- * - [internal ref]: `mode: 'selective'` requires a `required` list.
- * - [internal ref]: `required` must be a subset of `tools.actions`.
- * - [internal ref]: `escalation.to` must reference an `auth.roles`
+ *  - `mode: 'selective'` requires a `required` list.
+ *  - `required` must be a subset of `tools.actions`.
+ *  - `escalation.to` must reference an `auth.roles`
  *    entry.
- * - [internal ref]: `escalation.after` must be less than `timeout`.
- * - [internal ref]: every `tools.tables` entry must reference a table
+ *  - `escalation.after` must be less than `timeout`.
+ *  - every `tools.tables` entry must reference a table
  *    declared in `app.tables[]`.
  */
 
@@ -71,7 +71,7 @@ interface LooseAppForApproval {
 }
 
 /**
- * [internal ref]: agents depend on `auth` for RBAC (every agent
+ * Agents depend on `auth` for RBAC (every agent
  * operates under an auth role and approval decisions are role-gated). A
  * schema that declares `agents` but omits `auth` is therefore invalid.
  */
@@ -83,7 +83,7 @@ const validateAgentsRequireAuth = (app: LooseAppForApproval): string | undefined
 }
 
 /**
- * [internal ref]: every agent `name` must be unique across the schema —
+ * Every agent `name` must be unique across the schema —
  * the name is the agent's API identifier and a duplicate would make the
  * `/api/agents/:name` surface ambiguous.
  */
@@ -97,7 +97,7 @@ const validateAgentNamesUnique = (agents: ReadonlyArray<LooseAgent>): string | u
 }
 
 /**
- * [internal ref]: every agent `role` must reference a role declared in
+ * Every agent `role` must reference a role declared in
  * `auth.roles` (or a built-in role). An agent operating under an orphan role
  * could never be RBAC-gated, so the schema is rejected at decode time.
  */
@@ -135,7 +135,7 @@ const collectTableNames = (app: LooseAppForApproval): ReadonlySet<string> =>
   )
 
 /**
- * [internal ref]: every `tools.tables` entry must reference a table
+ * Every `tools.tables` entry must reference a table
  * declared in `app.tables[]`. An agent scoped to a phantom table could never
  * pass its allowlist gate, so the schema is rejected at decode time.
  */

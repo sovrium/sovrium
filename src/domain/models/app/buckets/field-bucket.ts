@@ -43,10 +43,8 @@ export const BUCKET_BOUND_FIELD_TYPES: ReadonlySet<string> = new Set([
  *   a form knows which form it is serving and can reasonably adopt the app's
  *   only bucket.
  *
- * `[internal ref]` declares a bucket AND leaves the column
+ * a buckets signed URLs spec declares a bucket AND leaves the column
  * unbound precisely so an attempt to unify the two fallbacks fails.
- *
- *.
  */
 export const resolveFieldBucket = (
   app: Readonly<App>,

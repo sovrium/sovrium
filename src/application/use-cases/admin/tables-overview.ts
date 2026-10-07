@@ -46,7 +46,7 @@ import type {
  *
  * The repository answers every method with one query per configured table at a
  * bounded fan-out (`concurrency: 2`), which caps a SINGLE request's pool usage.
- * That per-request budget is defeated by any concurrency at all: the 2026-07-25
+ * That per-request budget is defeated by any concurrency at all: a
  * production 504 incident logged three admin roll-ups within
  * 8 ms, so N overlapping requests multiply the budget by N and every query
  * queues behind the pool until the whole set lands together on the 30 s
@@ -114,7 +114,6 @@ function buildByTable(
       name: t.displayName,
       rowCount: agg?.rowCount ?? 0,
       softDeletedCount: agg?.softDeletedCount ?? 0,
-      // eslint-disable-next-line unicorn/no-null -- response contract requires `null`
       lastWriteAt: agg?.lastWriteAt ?? null,
       writesInPeriod: perTableWrites[i] ?? 0,
     }
@@ -123,17 +122,19 @@ function buildByTable(
 
 /**
  * The contiguous per-bucket windows of the now-relative series grid: bucket `i`
- * spans `[windowStart + i·bucketMs, windowStart + (i+1)·bucketMs)`. The
- * repository counts writes within each window; the bucket-start timestamp is
- * the series point's label.
+ * spans `[windowStart + i·bucketMs, windowStart + (i+1)·bucketMs)`, except the
+ * last, which is the current one and stays open-ended (`end: undefined`) — see
+ * `buildTablesOverview`. The repository counts writes within each window; the
+ * bucket-start timestamp is the series point's label.
  */
 function buildBucketWindows(
   windowStart: Readonly<Date>,
   spec: PeriodSpec
-): ReadonlyArray<{ readonly start: Date; readonly end: Date }> {
+): ReadonlyArray<{ readonly start: Date; readonly end: Date | undefined }> {
   return Array.from({ length: spec.bucketCount }, (_unused, i) => {
     const start = new Date(windowStart.getTime() + i * spec.bucketMs)
-    return { start, end: new Date(start.getTime() + spec.bucketMs) }
+    const isCurrent = i === spec.bucketCount - 1
+    return { start, end: isCurrent ? undefined : new Date(start.getTime() + spec.bucketMs) }
   })
 }
 
@@ -160,12 +161,14 @@ export const buildTablesOverview = (
     // Per-table aggregates (rowCount, softDeletedCount, lastWriteAt).
     const aggregates = yield* repo.aggregateTables(dbNames)
 
-    // Period window for the per-table `writesInPeriod` count.
+    // Period window for the per-table `writesInPeriod` count. The period is the
+    // current one, so it has no upper bound: `updated_at` is stamped by the
+    // DATABASE clock, and an end taken from this process's clock drops a write
+    // made a moment ago whenever the database runs ahead of it.
     const spec = resolvePeriodSpec(input.period)
-    const windowEnd = input.now
-    const windowStart = new Date(windowEnd.getTime() - spec.bucketCount * spec.bucketMs)
+    const windowStart = new Date(input.now.getTime() - spec.bucketCount * spec.bucketMs)
 
-    const perTableWrites = yield* repo.countWritesPerTable(dbNames, windowStart, windowEnd)
+    const perTableWrites = yield* repo.countWritesPerTable(dbNames, windowStart, undefined)
     const byTable = buildByTable(sortedTables, aggregates, perTableWrites)
 
     // Series: SUM of writes across all tables per bucket. The spec invariant

@@ -164,7 +164,7 @@ export const OAuth2PropsSchema = Schema.Struct({
    * seeder's default behavior is to upsert a sentinel-shaped token with
    * `expiresAt = now + 1h` so that encryption-at-rest specs have a row
    * to assert against without driving a real OAuth round-trip. The
-   * deepened token-refresh specs ([internal ref]..083)
+   * deepened token-refresh specs
    * need the OPPOSITE: a non-sentinel token with `expiresAt < now()`
    * so the very next automation trigger sees an expired token and
    * fires a refresh request. `_test.seedExpired: true` flips the

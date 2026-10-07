@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fitsParamType } from '@/domain/models/app/connections'
+import {
+  fillBodyPlaceholders,
+  isJsonMediaType,
+} from '@/domain/models/app/connections/operation-body-service'
 import type { ConnectionOperation, OperationParam } from '@/domain/models/app/connections'
 
 /**
@@ -20,12 +25,51 @@ import type { ConnectionOperation, OperationParam } from '@/domain/models/app/co
  * parameter — the load-time check could not see it.
  */
 
+/**
+ * One payload of a body sent as written, placeholders filled: its content
+ * type, and either its text or the file whose bytes it carries (a storage key,
+ * a `data:` URI or an `https://` URL, read by the caller).
+ */
+export type WrittenBodyPiece = { readonly contentType: string } & (
+  | { readonly text: string; readonly file?: undefined }
+  | { readonly file: string; readonly text?: undefined }
+)
+
+/** A `raw` or `multipart-related` body, filled but with its files not yet read. */
+export type WrittenBodyPlan =
+  | { readonly kind: 'raw'; readonly piece: WrittenBodyPiece }
+  | { readonly kind: 'multipart-related'; readonly parts: readonly WrittenBodyPiece[] }
+
+/** A field of a `json`, `form` or `multipart` body: a value, or a file still to be read. */
+export type BodyField =
+  | { readonly kind: 'value'; readonly name: string; readonly value: unknown }
+  | {
+      readonly kind: 'file'
+      readonly name: string
+      readonly file: unknown
+      readonly encoding?: 'base64' | undefined
+    }
+
+/** A `json`, `form` or `multipart` body carrying a `file` parameter, its files not yet read. */
+export interface FieldBodyPlan {
+  readonly kind: 'json' | 'form' | 'multipart'
+  readonly fields: readonly BodyField[]
+}
+
 /** A request ready for `fetch`, before authentication headers are merged. */
 export interface OperationRequest {
   readonly url: string
   readonly method: string
   readonly headers: Readonly<Record<string, string>>
-  readonly body?: string | FormData | undefined
+  readonly body?: string | FormData | Uint8Array<ArrayBuffer> | undefined
+  /**
+   * A body sent as written, still to be completed by the caller: its files are
+   * read (an effect this pure builder cannot run) and it is then assembled
+   * into `body` and its Content-Type header.
+   */
+  readonly writtenBody?: WrittenBodyPlan | undefined
+  /** A field body with a `file` parameter, encoded by the caller once its files are read. */
+  readonly fieldBody?: FieldBodyPlan | undefined
 }
 
 export type BuildResult =
@@ -45,15 +89,6 @@ const coerceScalar = (value: unknown, type: string): unknown => {
   return value
 }
 
-const fitsType = (value: unknown, type: string): boolean => {
-  if (type === 'string') return typeof value === 'string'
-  if (type === 'number') return typeof value === 'number' && Number.isFinite(value)
-  if (type === 'integer') return typeof value === 'number' && Number.isInteger(value)
-  if (type === 'boolean') return typeof value === 'boolean'
-  if (type === 'array') return Array.isArray(value)
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 type Coerced =
   { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: string }
 
@@ -64,7 +99,7 @@ const coerceArray = (name: string, param: OperationParam, raw: unknown): Coerced
   const itemType = param.items?.type
   if (itemType === undefined) return { ok: true, value: items }
   const coerced = items.map((item) => coerceScalar(item, itemType))
-  return coerced.every((item) => fitsType(item, itemType))
+  return coerced.every((item) => fitsParamType(item, itemType, 'runtime'))
     ? { ok: true, value: coerced }
     : { ok: false, error: `parameter '${name}' expects items of type ${itemType}` }
 }
@@ -74,7 +109,7 @@ const coerceParam = (name: string, param: OperationParam, raw: unknown): Coerced
   if (param.type === 'array') return coerceArray(name, param, raw)
   const value =
     param.type === 'string' && typeof raw === 'number' ? String(raw) : coerceScalar(raw, param.type)
-  return fitsType(value, param.type)
+  return fitsParamType(value, param.type, 'runtime')
     ? { ok: true, value }
     : { ok: false, error: `parameter '${name}' expects ${param.type}` }
 }
@@ -149,7 +184,11 @@ export const withQueryParam = (url: string, name: string, value: string): string
   return parsed.toString()
 }
 
-const encodeBody = (
+/**
+ * Encode a field body. In a `multipart` body a `Blob` value — a `file`
+ * parameter, read — is appended as a file part, carrying its own name and type.
+ */
+export const encodeBody = (
   kind: 'json' | 'form' | 'multipart',
   fields: ReadonlyArray<readonly [string, unknown]>
 ): { readonly body: string | FormData; readonly contentType?: string } => {
@@ -168,11 +207,82 @@ const encodeBody = (
   if (kind === 'multipart') {
     const form = new FormData()
     fields.forEach(([name, value]) =>
-      (Array.isArray(value) ? value : [value]).forEach((item) => form.append(name, asText(item)))
+      (Array.isArray(value) ? value : [value]).forEach((item) =>
+        item instanceof Blob ? form.append(name, item) : form.append(name, asText(item))
+      )
     )
     return { body: form }
   }
   return { body: JSON.stringify(Object.fromEntries(fields)), contentType: 'application/json' }
+}
+
+/** A request carrying an encoded field body, its Content-Type set when the encoding names one. */
+export const withEncodedBody = (
+  request: OperationRequest,
+  encoded: ReturnType<typeof encodeBody>
+): OperationRequest => ({
+  url: request.url,
+  method: request.method,
+  headers:
+    encoded.contentType === undefined
+      ? request.headers
+      : { ...request.headers, 'Content-Type': encoded.contentType },
+  body: encoded.body,
+})
+
+type WrittenBody = Extract<ConnectionOperation['body'], { readonly kind: string }>
+type WrittenSource = {
+  readonly contentType: string
+  readonly content?: string
+  readonly file?: string
+}
+
+/** One body or part with its placeholders filled from the call's body values. */
+const fillPiece = (
+  source: WrittenSource,
+  values: Readonly<Record<string, unknown>>
+): WrittenBodyPiece => {
+  const contentType = fillBodyPlaceholders(source.contentType, values, false)
+  return source.file !== undefined
+    ? { contentType, file: fillBodyPlaceholders(source.file, values, false) }
+    : {
+        contentType,
+        text: fillBodyPlaceholders(source.content ?? '', values, isJsonMediaType(contentType)),
+      }
+}
+
+/** The plan of a body sent as written: the `in: body` values fill its placeholders. */
+const writtenBodyPlan = (
+  body: WrittenBody,
+  values: Readonly<Record<string, unknown>>
+): WrittenBodyPlan =>
+  body.kind === 'raw'
+    ? { kind: 'raw', piece: fillPiece(body, values) }
+    : { kind: 'multipart-related', parts: body.parts.map((part) => fillPiece(part, values)) }
+
+/**
+ * The plan of a field body carrying a `file` parameter, or `undefined` when it
+ * carries none. Its files are read by the caller (an effect this builder
+ * cannot run), which then encodes the body.
+ */
+const fileFieldBody = (
+  operation: ConnectionOperation,
+  values: ReadonlyArray<readonly [string, OperationParam, unknown]>,
+  bodyFields: ReadonlyArray<readonly [string, unknown]>
+): FieldBodyPlan | undefined => {
+  const fileParams = new Map(
+    values
+      .filter(([, param]) => param.in === 'body' && param.type === 'file')
+      .map(([name, param]) => [name, param] as const)
+  )
+  if (fileParams.size === 0 || typeof operation.body === 'object') return undefined
+  const fields = bodyFields.map(([name, value]): BodyField => {
+    const param = fileParams.get(name)
+    return param === undefined
+      ? { kind: 'value', name, value }
+      : { kind: 'file', name, file: value, encoding: param.encoding }
+  })
+  return { kind: operation.body ?? 'json', fields }
 }
 
 /**
@@ -203,21 +313,19 @@ export const buildOperationRequest = (input: {
     byPlace('header').map(([name, value]) => [name, asText(value)])
   )
   const bodyFields = byPlace('body')
-  if (bodyFields.length === 0) {
-    return { ok: true, request: { url, method: operation.method, headers: headerParams } }
+  const head: OperationRequest = { url, method: operation.method, headers: headerParams }
+  // A body sent as written: the `in: body` values fill its placeholders and
+  // are not sent as fields. Its files are read by the caller.
+  if (typeof operation.body === 'object') {
+    const writtenBody = writtenBodyPlan(operation.body, Object.fromEntries(bodyFields))
+    return { ok: true, request: { ...head, writtenBody } }
   }
-  const encoded = encodeBody(operation.body ?? 'json', bodyFields)
+  if (bodyFields.length === 0) return { ok: true, request: head }
+  const fieldBody = fileFieldBody(operation, resolved.values, bodyFields)
+  if (fieldBody !== undefined) return { ok: true, request: { ...head, fieldBody } }
   return {
     ok: true,
-    request: {
-      url,
-      method: operation.method,
-      headers:
-        encoded.contentType === undefined
-          ? headerParams
-          : { ...headerParams, 'Content-Type': encoded.contentType },
-      body: encoded.body,
-    },
+    request: withEncodedBody(head, encodeBody(operation.body ?? 'json', bodyFields)),
   }
 }
 

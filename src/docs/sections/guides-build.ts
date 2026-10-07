@@ -58,7 +58,7 @@ export const section = defineSection({
       slug: 'templates-examples',
       title: 'Templates & Examples',
       description:
-        'The nineteen example configurations shipped with Sovrium, and the sovrium init templates that scaffold them.',
+        'Every example configuration shipped with Sovrium, and the sovrium init templates that scaffold them.',
       keywords: [
         'sovrium',
         'templates',
@@ -72,6 +72,8 @@ export const section = defineSection({
         'docs-site',
         'api-only',
         'mcp-server',
+        'app-starter',
+        'marketing-site',
         'crm',
         'projects',
         'helpdesk',

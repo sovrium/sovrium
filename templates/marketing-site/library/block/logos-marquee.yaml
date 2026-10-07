@@ -1,0 +1,100 @@
+# sovrium-library: block/logos-marquee@0.30.0
+name: logos-marquee
+type: container
+element: section
+props:
+  className: border-y border-border px-5 py-6 sm:px-8 lg:px-16
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8
+    children:
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-subtle flex-none whitespace-nowrap text-md text-foreground-muted
+        content: '[Used by]'
+      - type: container
+        props:
+          className: min-w-0 flex-1
+        children:
+          - type: marquee
+            marqueeDirection: left
+            marqueeSpeed: 40
+            marqueeGap: 1rem
+            pauseOnHover: true
+            marqueeFade: true
+            pauseControl: true
+            children:
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 1
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 2
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 3
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 4
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 5
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 6
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 7
+              - type: container
+                props:
+                  className: flex h-10 min-w-32 items-center justify-center rounded-md border border-border bg-background-inset px-4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 8

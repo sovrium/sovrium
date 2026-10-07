@@ -69,6 +69,12 @@ Read that as a timeline. The agent decides to send an email and the request goes
 
 **`after` must be less than `timeout`.** An escalation scheduled at or past the expiry never fires — the request dies before anyone is asked. Leave enough room after the escalation for the escalated-to role to actually respond: an escalation at 600 with a timeout at 660 is technically valid and practically useless.
 
+### Who sees and decides a request
+
+A pending request carries the action the agent queued — the table, the record and the values it is about to write — so it follows the trigger grant. Listing, reading, approving and rejecting are open to the callers the agent's `permissions.trigger` admits and to admins; everyone else, signed in or not, gets the `404` an undeclared agent gets, before the request id is even looked up. A caller outside the grant cannot tell a real request from a made-up one.
+
+Inside the grant, deciding needs one thing more: the approver's role level must be at least the agent's `role`. A viewer allowed to trigger a member-role agent sees its requests but is refused the decision with `404`. A decision always needs a session, even on an agent whose grant is `all`: an anonymous caller is answered `401` there.
+
 ## Choosing a mode
 
 | Mode        | Right when                                                                   |

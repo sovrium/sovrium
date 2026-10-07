@@ -197,7 +197,7 @@ export const computeKanbanColumnHeaderClasses = (): string => KANBAN_COLUMN_HEAD
  * the property is never inherited: the parent's `text-xs` cannot reach a
  * heading, and only a utility ON the heading outranks the base layer.
  *
- * Measured live on 2026-09-09 with the class absent: `[data-column] h3`
+ * Measured live with the class absent: `[data-column] h3`
  * computed `font-size: 20px; font-weight: 600` — nearly twice the canvas'
  * 11px/500 — while every neighbour in the same row rendered correctly. It is
  * invisible to typecheck, to lint and to a source read; only a browser shows
@@ -221,7 +221,7 @@ export const KANBAN_COLUMN_TITLE_CLASSES = 'min-w-0 truncate text-xs font-medium
 // the word beside it and read as a bullet rather than as a status accent.
 //
 // `h-2 w-2` rather than `size-2`: both spell 8px, but only the pair is in the
-// committed candidate corpus (measured 2026-09-09) and the compiler is
+// committed candidate corpus and the compiler is
 // SCAN-FREE, so `size-2` would emit no rule until the corpus is regenerated —
 // collapsing the dot to 0x0 and failing the `toBeVisible()` in
 // `data-kanban/colored-select-group-by.spec.ts`. The pair costs nothing and

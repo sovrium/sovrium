@@ -30,9 +30,7 @@ export function ThemeColorSchemeScript({
 }): ReactElement | undefined {
   if (!needsColorSchemeScript(page, design, components)) return undefined
   return (
-    <script
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only no-FOUC head script; never re-renders client-side
-      dangerouslySetInnerHTML={{ __html: buildColorSchemeScript(design?.colorScheme) }}
-    />
+    // eslint-disable-next-line sovrium/require-sanitized-html -- engine script; its only config value is narrowed to dark, light or system
+    <script dangerouslySetInnerHTML={{ __html: buildColorSchemeScript(design?.colorScheme) }} />
   )
 }

@@ -37,7 +37,7 @@ import type { Page } from './page'
  *
  * Three sites that must stay in lock-step — change any one independently and
  * the search index drifts from the emitted HTML (re-introducing the
- * [internal ref] access-leak regression). Centralizing here
+ * the pages public search requirement access-leak regression). Centralizing here
  * encodes the invariant once.
  *
  * @param pages - The `app.pages` array (typically `validatedApp.pages`).

@@ -6,8 +6,7 @@
  */
 
 /**
- * Fire-and-forget Sentry-protocol error reporter
- *.
+ * Fire-and-forget Sentry-protocol error reporter.
  *
  * Captured errors are serialized into a Sentry envelope and POSTed to the DSN's
  * envelope endpoint with a 3 s timeout. Reporting NEVER throws and never blocks
@@ -112,18 +111,14 @@ const deliveryFailureSeen = new Map<string, number>()
  * from `activateTelemetry` during boot (before any request can error).
  */
 export const initErrorReporter = (meta: EventMeta): void => {
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- set-once reporter meta
   metaState.set('meta', meta)
 }
 
 /** Register process-level crash handlers exactly once (DSN-gated by the caller). */
 export const registerProcessErrorHandlers = (): void => {
   if (handlerState.get('registered')) return
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- set-once guard
   handlerState.set('registered', true)
-  // eslint-disable-next-line functional/no-expression-statements -- register process crash handler
   process.on('uncaughtException', reportAndExit)
-  // eslint-disable-next-line functional/no-expression-statements -- register process rejection handler
   process.on('unhandledRejection', reportAndExit)
 }
 
@@ -174,7 +169,6 @@ export const reportTransaction = (input: ReportTransactionInput): void => {
 
     const meta = resolveMeta(errorReporting.environment)
     const transaction = buildTransaction({ ...input, meta })
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget transaction POST
     void emitEnvelope(errorReporting.dsn, meta.release, 'transaction', transaction)
   } catch {
     // Never throw — telemetry must not affect the observed request.
@@ -189,14 +183,14 @@ const isMuted = (now: number): boolean => now < (muteState.get('until') ?? 0)
  * Collapse the SAME error object surfacing at two boundaries (`.onError` plus
  * the `logError`-with-cause path) into one report.
  *
- * The guard is TIME-SCOPED, not permanent. It used to be a bare `WeakSet`, so
- * the first sighting of an object blacklisted it for the rest of the process
- * lifetime. That is fine for a freshly-thrown `Error` — a new object per
- * request — but catastrophic for a long-lived SINGLETON: `hono/timeout` builds
- * its exception once at module-import time, so the first API timeout muted
- * every subsequent one forever. The 2026-07-25 incident consequently showed a
- * single reported occurrence for a burst of ~6 real timeouts, and the recurrence
- * was invisible.
+ * The guard is TIME-SCOPED, not permanent. A bare `WeakSet` would blacklist an
+ * object for the rest of the process lifetime on its first sighting. That is
+ * fine for a freshly-thrown `Error` — a new object per request — but
+ * catastrophic for a long-lived SINGLETON: `hono/timeout` builds its exception
+ * once at module-import time, so the first API timeout would mute every
+ * subsequent one forever. In a production incident that showed as a single
+ * reported occurrence for a burst of ~6 real timeouts, with the recurrence
+ * invisible.
  *
  * Reusing `DEDUP_WINDOW_MS` keeps both guards on one clock: identity handles
  * the exact double-boundary case, the fingerprint window handles distinct
@@ -206,7 +200,6 @@ const isDuplicateObject = (error: unknown, now: number): boolean => {
   if (typeof error !== 'object' || error === null) return false
   const last = reportedObjects.get(error)
   if (last !== undefined && now - last < DEDUP_WINDOW_MS) return true
-  // eslint-disable-next-line functional/no-expression-statements -- double-report guard
   reportedObjects.set(error, now)
   return false
 }
@@ -215,14 +208,12 @@ const isDuplicateFingerprint = (error: unknown, now: number): boolean => {
   const fp = fingerprint(error)
   const last = fingerprintSeen.get(fp)
   if (last !== undefined && now - last < DEDUP_WINDOW_MS) return true
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- dedup window
   fingerprintSeen.set(fp, now)
   return false
 }
 
 const allowByRate = (now: number): boolean => {
   if (reportBudget.isExceeded(REPORT_BUDGET_KEY, REPORT_BUDGET, now)) return false
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiter's mutable store
   reportBudget.record(REPORT_BUDGET_KEY, REPORT_BUDGET, now)
   return true
 }
@@ -288,10 +279,10 @@ const defaultSendDeps: EnvelopeSendDeps = {
  * for the advised `Retry-After` window (default 60 s), and WARNS on any other
  * non-2xx.
  *
- * That warning is the whole point of the second branch. This function used to
- * inspect `response.status` for 429 and nothing else, so a 400 (a payload the
+ * That warning is the whole point of the second branch. Inspecting
+ * `response.status` for 429 and nothing else would let a 400 (a payload the
  * receiver's schema rejects), a 401 (a stale key) or a 413 (an envelope over the
- * size cap) discarded the event with no signal on any surface. Combined with the
+ * size cap) discard the event with no signal on any surface. Combined with the
  * empty-backend ambiguity — no data looks the same as no traffic — that is how
  * error reporting can be broken for weeks while every gate stays green. The
  * response body carries the receiver's own validation error, which is the single
@@ -318,7 +309,6 @@ export const sendEnvelope = async (
     })
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get('retry-after')) || 60
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- 429 backoff
       muteState.set('until', deps.now() + retryAfter * 1000)
       return
     }
@@ -345,7 +335,6 @@ const warnDeliveryRefused = async (
   const now = deps.now()
   const last = deliveryFailureSeen.get(key)
   if (last !== undefined && now - last < DEDUP_WINDOW_MS) return
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- dedup window
   deliveryFailureSeen.set(key, now)
 
   const excerpt = await readBodyExcerpt(response)
@@ -367,7 +356,6 @@ const readBodyExcerpt = async (response: Response): Promise<string> => {
 
 /** Report a fatal error, wait up to 2 s for delivery, then exit non-zero. */
 const reportAndExit = (error: unknown): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- crash path: best-effort report, then terminate
   void Promise.race([
     reportException(error),
     new Promise<void>((resolve) => setTimeout(resolve, FLUSH_CAP_MS)),

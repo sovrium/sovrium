@@ -45,8 +45,13 @@ interface DrawerParts {
 
 /** The frame's parts, or `undefined` when the markup is not a drawer frame. */
 const findParts = (root: Element): DrawerParts | undefined => {
-  const trigger = root.querySelector<HTMLButtonElement>(':scope > [data-sidebar-drawer-trigger]')
   const panel = root.querySelector<HTMLDialogElement>(':scope > [data-sidebar-drawer-panel]')
+  // A docs frame may lift its trigger into the page header; it still names the panel.
+  const trigger =
+    root.querySelector<HTMLButtonElement>(':scope > [data-sidebar-drawer-trigger]') ??
+    document.querySelector<HTMLButtonElement>(
+      `[data-sidebar-drawer-trigger][aria-controls="${panel?.id ?? ''}"]`
+    )
   const body = root.querySelector<HTMLElement>(':scope > [data-sidebar-drawer-body]')
   if (trigger === null || panel === null || body === null) return undefined
   return { root, trigger, panel, body }
@@ -66,7 +71,6 @@ const isOpen = (parts: DrawerParts): boolean =>
 const moveChildren = (from: Element, to: Element): void => {
   Array.from(from.childNodes).forEach((node) => {
     try {
-      // eslint-disable-next-line unicorn/no-null -- the DOM signature: a `null` reference child means "at the end"
       to.moveBefore(node, null)
     } catch {
       to.append(node)

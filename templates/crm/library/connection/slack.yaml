@@ -1,0 +1,66 @@
+# sovrium-library: connection/slack@0.30.0
+name: slack
+type: bearer
+label: Slack
+description: 'Slack Web API, authenticated with a bot token'
+props:
+  token: $env.SLACK_BOT_TOKEN
+baseUrl: https://slack.com/api
+operations:
+  - name: post-message
+    method: POST
+    path: /chat.postMessage
+    summary: 'Post a message to a channel, a private group or a direct message'
+    params:
+      channel:
+        in: body
+        type: string
+        required: true
+        description: Channel id or name
+      text:
+        in: body
+        type: string
+        description: Message text (mrkdwn)
+      thread_ts:
+        in: body
+        type: string
+        description: 'Timestamp of the parent message, to reply in its thread'
+  - name: update-message
+    method: POST
+    path: /chat.update
+    summary: Replace the text of a message the bot posted
+    params:
+      channel:
+        in: body
+        type: string
+        required: true
+        description: Channel id
+      ts:
+        in: body
+        type: string
+        required: true
+        description: Timestamp of the message to update
+      text:
+        in: body
+        type: string
+        description: New message text
+  - name: list-channels
+    method: GET
+    path: /conversations.list
+    summary: List the channels of the workspace
+    params:
+      types:
+        in: query
+        type: string
+        description: 'Comma-separated: public_channel, private_channel, mpim, im'
+      exclude_archived:
+        in: query
+        type: boolean
+      limit:
+        in: query
+        type: integer
+        description: At most 1000 per page
+      cursor:
+        in: query
+        type: string
+        description: Cursor of the next page

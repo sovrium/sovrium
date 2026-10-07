@@ -14,7 +14,7 @@
  * `ui/sections/rendering/component-registry/`, and that placeholder has to
  * resolve an author `className` against its own defaults the SAME way, or the
  * page paints one layout and then snaps to another when the island mounts
- *. `presentation-component` cannot import
+ * `presentation-component` cannot import
  * `presentation-island`, so a shared merge instance can only live in
  * `presentation-util` — and a SECOND `extendTailwindMerge` instance would be a
  * second source of truth for which classes conflict, which is exactly the bug

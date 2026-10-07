@@ -1,0 +1,96 @@
+# sovrium-library: connection/github@0.30.0
+name: github
+type: bearer
+label: GitHub
+description: 'GitHub REST API, authenticated with a personal access token'
+props:
+  token: $env.GITHUB_TOKEN
+baseUrl: https://api.github.com
+operations:
+  - name: create-issue
+    method: POST
+    path: '/repos/{owner}/{repo}/issues'
+    summary: Open an issue in a repository
+    params:
+      owner: &owner
+        in: path
+        type: string
+        required: true
+      repo: &repo
+        in: path
+        type: string
+        required: true
+      title:
+        in: body
+        type: string
+        required: true
+      body:
+        in: body
+        type: string
+      labels:
+        in: body
+        type: array
+        items:
+          type: string
+      assignees:
+        in: body
+        type: array
+        items:
+          type: string
+  - name: list-issues
+    method: GET
+    path: '/repos/{owner}/{repo}/issues'
+    summary: List the issues of a repository
+    params:
+      owner: *owner
+      repo: *repo
+      state:
+        in: query
+        type: string
+        enum:
+          - open
+          - closed
+          - all
+      labels:
+        in: query
+        type: string
+        description: Comma-separated label names
+      per_page:
+        in: query
+        type: integer
+    pagination:
+      style: link
+  - name: create-issue-comment
+    method: POST
+    path: '/repos/{owner}/{repo}/issues/{issue_number}/comments'
+    summary: Comment on an issue or a pull request
+    params:
+      owner: *owner
+      repo: *repo
+      issue_number:
+        in: path
+        type: integer
+        required: true
+      body:
+        in: body
+        type: string
+        required: true
+  - name: list-pull-requests
+    method: GET
+    path: '/repos/{owner}/{repo}/pulls'
+    summary: List the pull requests of a repository
+    params:
+      owner: *owner
+      repo: *repo
+      state:
+        in: query
+        type: string
+        enum:
+          - open
+          - closed
+          - all
+      per_page:
+        in: query
+        type: integer
+    pagination:
+      style: link

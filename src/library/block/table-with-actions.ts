@@ -56,7 +56,7 @@ const actionsTable = (p: (key: string) => string): Readonly<Record<string, unkno
         confirm: 'Delete {count} records? This cannot be undone.',
       },
     ],
-    toolbar: { search: true, columnToggle: true, export: true },
+    toolbar: { search: true, export: true },
     pagination: { pageSize: 25 },
     emptyMessage: p('emptyMessage'),
   }

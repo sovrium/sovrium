@@ -6,8 +6,7 @@
  */
 
 /**
- * Application use-cases for the AI chat dynamic-record SQL paths
- *.
+ * Application use-cases for the AI chat dynamic-record SQL paths.
  *
  * Thin pass-throughs over the `DynamicRecordRepository` port — the presentation
  * chat routes (`chat-query.ts` / `chat-mutation.ts`) consume them via

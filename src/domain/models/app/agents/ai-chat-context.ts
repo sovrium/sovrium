@@ -16,15 +16,15 @@
  *
  * Drives `[internal ref]`:
  *
- * - [internal ref]: table names + field names + field types.
- * - [internal ref]: per-field access level (read / read-write).
- * - [internal ref]: tables the user cannot read are omitted.
- * - [internal ref]: triggerable (manual-trigger) automations only.
- * - [internal ref]: optional `pageContext` table scope.
- * - [internal ref]: no raw record data (records queried on demand).
- * - [internal ref]: no credentials / tokens / env vars.
- * - [internal ref]: single-/multi-select option values.
- * - [internal ref]: regenerated per request (this is a pure
+ *  - table names + field names + field types.
+ *  - per-field access level (read / read-write).
+ *  - tables the user cannot read are omitted.
+ *  - triggerable (manual-trigger) automations only.
+ *  - optional `pageContext` table scope.
+ *  - no raw record data (records queried on demand).
+ *  - no credentials / tokens / env vars.
+ *  - single-/multi-select option values.
+ *  - regenerated per request (this is a pure
  *    function — the caller invokes it fresh on every turn, so the context
  *    can never be a stale cache).
  *
@@ -78,8 +78,7 @@ export interface ContextAutomation {
 
 /**
  * Optional page scope. When the chat surface is embedded in a page component
- * that declares `allowedTables`, only those tables are described to the AI
- *.
+ * that declares `allowedTables`, only those tables are described to the AI.
  */
 export interface ContextPageScope {
   readonly page?: string
@@ -168,8 +167,7 @@ const isTableVisible = (
 /**
  * An automation is "triggerable" from chat only when it has a `manual`
  * trigger. Cron / record / webhook / form triggers fire automatically and
- * cannot be invoked by the user mid-conversation, so they are excluded
- *.
+ * cannot be invoked by the user mid-conversation, so they are excluded.
  */
 const isTriggerable = (automation: ContextAutomation): boolean =>
   automation.trigger.type === 'manual'
@@ -186,7 +184,7 @@ const renderAutomation = (automation: ContextAutomation): string => {
  * Returns a plain string suitable for delivery as the `system` message. The
  * block only ever describes *schema* (table/field/automation metadata) — it
  * deliberately contains no record values, credentials, tokens, or env vars,
- * so [internal ref] hold by construction.
+ * so an AI chat context spec hold by construction.
  */
 export const buildAiChatContext = (input: AiChatContextInput): string => {
   const { appName, userRole, tables, automations, pageContext, auth } = input

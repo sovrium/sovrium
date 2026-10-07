@@ -96,7 +96,7 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordTablesRateLimitRequest(method, path, callerKey) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordTablesRateLimitRequest(method, path, callerKey)
 
       await next()
     })
@@ -117,7 +117,7 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordTablesRateLimitRequest(method, path, callerKey) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordTablesRateLimitRequest(method, path, callerKey)
 
       await next()
     })
@@ -140,7 +140,7 @@ export const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordActivityRateLimitRequest(method, path, ip)
 
       await next()
     })
@@ -154,7 +154,7 @@ export const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
         return rateLimitedResponse(c, retryAfter)
       }
 
-      recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+      recordActivityRateLimitRequest(method, path, ip)
 
       await next()
     })

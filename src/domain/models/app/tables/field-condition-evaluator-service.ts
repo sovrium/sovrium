@@ -17,7 +17,7 @@
  * must be rejected. This module is the pure, server-side evaluator that the
  * record-update route consults before applying a mutation.
  *
- * @see [internal ref] — field conditions change behavior based on value
+ *  — field conditions change behavior based on value
  */
 
 /** A behavioral condition on a single-select field. */

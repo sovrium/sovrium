@@ -185,7 +185,7 @@ function renderButtonGroup({
     ...rest
   } = omitInternalMarkers(elementProps) as Record<string, unknown>
   const cn = className as string | undefined
-  // [internal ref] (prestyled-by-default): the button-group container ships a
+  // The prestyled-islands rule (prestyled-by-default): the button-group container ships a
   // surface chrome (rounded + subtle shadow) from
   // `computeButtonGroupClasses` AHEAD of the segmented-control rhythm
   // (`-space-x-px isolate`) so the bare `{ type: 'button-group' }`

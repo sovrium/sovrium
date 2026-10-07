@@ -20,11 +20,11 @@
  * the property we could not read on line one — not a stack frame inviting them
  * to debug our code instead of their config.
  *
- * The fault branch in `start.ts` used to read `Console.error('Failed to start
- * server:', error)`, handing the object to Bun's pretty printer for a
- * source-context window. That form is gone: the printer colours its output on a
- * TTY, which T35 #3 bans. The branch now formats through `formatRuntimeError`
- * and keeps the stack, which is the half this distinction turns on.
+ * The fault branch in `start.ts` does not hand the error object to Bun's pretty
+ * printer for a source-context window: the printer colours its output on a
+ * TTY, which the terminal-output rules ban. The branch formats through
+ * `formatRuntimeError` and keeps the stack, which is the half this distinction
+ * turns on.
  *
  * Only this shape prints as prose. Everything else keeps its stack.
  */

@@ -13,7 +13,7 @@
  *
  * ─── WHY A `description` IS ADMITTED HERE AND A HEADING IS NOT ────
  *
- * [internal ref] refuses a field that embeds a choice belonging to the console. A tool
+ * the facts-not-strings rule refuses a field that embeds a choice belonging to the console. A tool
  * `description` is the sharpest boundary case in the whole payload — it is an
  * English sentence — and it is admitted, for a reason that is checkable rather
  * than aesthetic: it is **not the console's sentence**. `listMcpTools` builds it
@@ -48,18 +48,32 @@
  */
 
 import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
- * Which config entity a tool derives from.
+ * Which family a tool belongs to.
  *
  * A discriminant, not a label. It is what the `category` query param filters on
  * and what a config gate would compare against; the words a reader sees are the
  * console's and live in its own config.
+ *
+ * Three families derive from config (`table`, `action`, `automation`). The
+ * fourth, `admin`, does not: the admin read tools are compiled from the app's
+ * name alone and mirror the admin API's reads for an admin credential. Because
+ * they are not config exposure, the endpoint answers them only when asked for
+ * with `?category=admin`; the unfiltered listing, its `total` and the
+ * per-category counts `/api/admin/instance` publishes stay config-derived, so a
+ * config exposing nothing still answers an empty array and a zero.
  */
-export const mcpToolCategorySchema = Schema.Literals(['table', 'action', 'automation']).annotate({
+export const mcpToolCategorySchema = Schema.Literals([
+  'table',
+  'action',
+  'automation',
+  'admin',
+]).annotate({
   identifier: 'McpToolCategory',
   description:
-    "Which config entity the tool derives from: a table, an action template, or a manual automation. A discriminant — the heading a reader sees is the console's own copy.",
+    "Which family the tool belongs to: a table, an action template or a manual automation — the three a config exposes — or `admin`, the read tools mirroring the admin API that an admin credential is offered. `admin` rows are listed only when that category is requested. A discriminant — the heading a reader sees is the console's own copy.",
 })
 
 /** @public */
@@ -104,7 +118,7 @@ export type McpToolListing = typeof mcpToolListingSchema.Type
 export const mcpToolsResponseSchema = Schema.Struct({
   tools: Schema.Array(mcpToolListingSchema).annotate({
     description:
-      'The exposed tools, in catalogue order (tables, then actions, then automations). Empty when the config exposes none — which is the DEFAULT posture, since nothing is exposed without an explicit `aiAccess`.',
+      'The exposed tools, in catalogue order (tables, then actions, then automations). Empty when the config exposes none — which is the DEFAULT posture, since nothing is exposed without an explicit `aiAccess`. The admin read tools appear only under `?category=admin`.',
   }),
   total: Schema.Finite.annotate({
     description:
@@ -114,3 +128,18 @@ export const mcpToolsResponseSchema = Schema.Struct({
 
 /** @public */
 export type McpToolsResponse = typeof mcpToolsResponseSchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/mcp/tools`.
+ *
+ * `category` is the closed {@link mcpToolCategorySchema}: an unknown value is
+ * refused (400 `INVALID_CATEGORY`) because a typo answered with an empty list
+ * would read as "this instance exposes nothing". `admin` rows are listed only
+ * when that category is asked for.
+ */
+export const mcpToolsQuerySchema = Schema.Struct({
+  category: optionalField(mcpToolCategorySchema),
+}).annotate({ identifier: 'McpToolsQuery' })
+
+/** @public */
+export type McpToolsQuery = typeof mcpToolsQuerySchema.Type

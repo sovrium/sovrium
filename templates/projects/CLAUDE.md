@@ -9,8 +9,11 @@ waits on; and the calendar shows the month's deadlines beside your own tasks.
 
 - **Tables** (2): projects, tasks
 - **Pages** (5): dashboard (`/`), board, timeline, calendar, sign-in
-- **Automations** (1): notify-assignee-on-blocked
-- **Singletons**: auth, design
+- **Automations** (3): notify-assignee-on-blocked; chase-blocked-tasks (a manual trigger,
+  pressed from the dashboard, with a one-day delay); and record-to-teams-channel — a library
+  recipe (`library/recipe/`, with its `library/connection/microsoft-365.yaml`) posting each
+  new project to a Teams channel once the Microsoft variables are set
+- **Singletons**: auth, design, env
 - **Seed data**: `seed/` — five sign-in accounts, six projects and eighteen tasks, dated
   relative to the day you seed
 - **Static assets**: `public/` (served at the site root)

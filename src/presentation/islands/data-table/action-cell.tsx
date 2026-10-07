@@ -29,8 +29,6 @@
  * (the grid re-query) compose unchanged.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React event-handler pattern (per-row onClick + confirm-swap toggle closing over the row record); these are presentational cells re-rendered only on row/confirm-state changes, not a hot path. Mirrors the same exemption in formatting.tsx. */
-
 import { useState, type ReactElement } from 'react'
 import {
   computeTableActionButtonClasses,
@@ -39,6 +37,8 @@ import {
   computeTablePanelControlClasses,
 } from '@/presentation/design/table-default-classes'
 import { ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
+import { InlineAccountAction } from './account-action-controls'
+import { isInlineAccountAction } from './account-action-kind'
 import { useArmedConfirm } from './armed-confirm'
 import type { TableRecord } from '../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -244,6 +244,16 @@ function ActionTriggerButton({
   readonly onActionClick?: ActionClickHandler
   readonly onArm: () => void
 }): ReactElement {
+  // A role or a passkey name is chosen in the row itself, beside its button.
+  if (isInlineAccountAction(action)) {
+    return (
+      <InlineAccountAction
+        action={action}
+        record={record}
+        onActionClick={onActionClick}
+      />
+    )
+  }
   const armed = action.editSelect !== undefined || action.confirm !== undefined
   const tone = triggerTone(action.variant)
   return (

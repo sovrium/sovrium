@@ -42,7 +42,9 @@ Your docs are now served at `http://localhost:3000`, with this page at
 `/docs/installation`.
 
 ::: callout type="note"
-**One binary.** The CLI is a single file with no runtime to install. The
+**One binary.**
+
+The CLI is a single file with no runtime to install. The
 container image carries the same binary.
 :::
 
@@ -55,7 +57,9 @@ sovrium validate app.yaml
 A clean run prints `Valid configuration: docs-site`.
 
 ::: callout type="tip"
-**Validate before you commit.** `sovrium validate` checks every page and the
+**Validate before you commit.**
+
+`sovrium validate` checks every page and the
 design file without starting the server, so a typo fails in a second rather
 than on the live site.
 :::

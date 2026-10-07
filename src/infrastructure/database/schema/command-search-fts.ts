@@ -7,7 +7,7 @@
 
 /**
  * Boot-time reconciliation of the per-table command-palette full-text indexes
- *.
+ * (the pages command search hardening requirement, [internal ref]).
  *
  * The SQL shapes live in `command-search-fts-ddl.ts`; this module owns WHEN they
  * are applied and how an existing, differently-shaped index is brought forward.
@@ -34,11 +34,9 @@
  * stepped over.
  */
 
-/* eslint-disable functional/no-expression-statements -- Executing DDL IS the side effect this module exists to perform: every `await exec(tx, …)` below is a statement issued for its effect on the database and has no value to bind. Per-line disables would outnumber the code. */
-
 import { SQL } from 'bun'
 import { Data, Effect } from 'effect'
-import { escapeLikeMetacharacters, escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
+import { escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   searchableTextColumns,
@@ -151,7 +149,6 @@ export const dropCommandSearchFtsObjects = (tx: TransactionLike): Effect.Effect<
            WHERE schemaname = current_schema()
              AND indexname LIKE '${PG_FTS_INDEX_PREFIX_LIKE}%' ESCAPE '\\'`
         )) as readonly { readonly indexname?: unknown }[]
-        // eslint-disable-next-line functional/no-loop-statements -- sequential DDL
         for (const row of pgIndexes) {
           await exec(tx, `DROP INDEX IF EXISTS "${String(row.indexname).replace(/"/g, '""')}"`)
         }
@@ -168,7 +165,6 @@ export const dropCommandSearchFtsObjects = (tx: TransactionLike): Effect.Effect<
         ...rows.filter((row) => row.type === 'trigger'),
         ...rows.filter((row) => row.type === 'table'),
       ]
-      // eslint-disable-next-line functional/no-loop-statements -- sequential DDL; the trigger/table order above is load-bearing
       for (const row of ordered) {
         const keyword = row.type === 'trigger' ? 'TRIGGER' : 'TABLE'
         await exec(tx, `DROP ${keyword} IF EXISTS "${String(row.name).replace(/"/g, '""')}"`)
@@ -215,7 +211,8 @@ const sqliteIdIsRowid = async (tx: TransactionLike, physicalTable: string): Prom
 /** The SQL of one of an existing mirror's triggers, or `''` when it has none. */
 const sqliteTriggerSql = async (tx: TransactionLike, trigger: string): Promise<string> => {
   const rows = (await tx.unsafe(
-    `SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '${escapeSqlString(trigger)}'`
+    `SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = $1`,
+    [trigger]
   )) as readonly { readonly sql?: unknown }[]
   return rows.length > 0 ? String(rows[0]?.sql ?? '') : ''
 }
@@ -243,7 +240,6 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
   // ALTER for an FTS5 table, so it is rebuilt. `existing.length > 0` keeps the
   // drop off the first-creation path, where there is nothing to drop.
   if (existing.length > 0) {
-    // eslint-disable-next-line functional/no-loop-statements -- DDL order is load-bearing: triggers must go before the table they reference
     for (const statement of sqliteFtsDropStatements(target.queriedRelation)) {
       await exec(tx, statement)
     }
@@ -252,7 +248,6 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
   const input = { ...target, idIsRowid: await sqliteIdIsRowid(tx, target.physicalTable) }
   // Rows written before the triggers existed are invisible to them, so the
   // mirror is seeded from the table itself.
-  // eslint-disable-next-line functional/no-loop-statements -- DDL order is load-bearing: the tables must exist before their triggers, and the seed after both
   for (const statement of [...sqliteFtsStatements(input), ...sqliteFtsBackfillStatements(input)]) {
     await exec(tx, statement)
   }
@@ -269,9 +264,7 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
  * list is a DROP list. The relation name is already constrained to
  * `^[a-z][a-z0-9_]*$`, so {@link escapeLikeMetacharacters} is defence in depth
  * — but a DROP list is exactly where defence in depth is worth its keystrokes.
- *
- * Order is load-bearing: LIKE-escape FIRST, then `escapeSqlString` for the SQL
- * literal. Reversed, the backslashes this adds would themselves be quoted.
+ * Both values are bound; the LIKE escape still applies to a bound pattern.
  */
 const pgObsoleteIndexNames = async (
   tx: TransactionLike,
@@ -281,8 +274,9 @@ const pgObsoleteIndexNames = async (
   const keep = pgFtsIndexName(target.queriedRelation, target.columns)
   const rows = (await tx.unsafe(
     `SELECT indexname FROM pg_indexes
-     WHERE tablename = '${escapeSqlString(target.physicalTable)}'
-       AND indexname LIKE '${escapeSqlString(prefix)}%' ESCAPE '\\'`
+     WHERE tablename = $1
+       AND indexname LIKE $2 ESCAPE '\\'`,
+    [target.physicalTable, `${prefix}%`]
   )) as readonly { readonly indexname?: unknown }[]
   return rows.map((row) => String(row.indexname)).filter((name) => name !== keep)
 }
@@ -296,7 +290,6 @@ const pgObsoleteIndexNames = async (
  * would be a real cost on a large table, and the digest is what avoids it.
  */
 const reconcilePostgresTarget = async (tx: TransactionLike, target: FtsTarget): Promise<void> => {
-  // eslint-disable-next-line functional/no-loop-statements -- sequential DDL on the single reserved connection
   for (const name of await pgObsoleteIndexNames(tx, target)) {
     await exec(tx, `DROP INDEX IF EXISTS "${name}"`)
   }
@@ -358,7 +351,6 @@ const reconcileAll = async (
   targets: readonly FtsTarget[],
   dialect: 'postgres' | 'sqlite'
 ): Promise<void> => {
-  // eslint-disable-next-line functional/no-loop-statements -- sequential DDL on the single reserved connection; a fan-out here cannot exceed it anyway
   for (const target of targets) {
     try {
       await (dialect === 'sqlite'

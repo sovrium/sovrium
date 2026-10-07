@@ -41,7 +41,7 @@ import type { Context, Hono } from 'hono'
 
 /**
  * Minimum length of the TRIMMED query before the endpoint will run the scan
- *.
+ * (the pages command search hardening requirement, [internal ref]).
  *
  * A single character is the worst input this endpoint accepts: `%a%` selects a
  * large fraction of every text column on every table, the database materializes
@@ -92,10 +92,10 @@ const CACHE_HEADERS = { 'Cache-Control': CACHE_CONTROL, Vary: 'Cookie' } as cons
  *    endpoint to anonymous readers. Records are simply out of scope;
  *  - a signed-in caller         → rows scoped by the composed read plan.
  *
- * The endpoint used to scan EVERY table's text columns for EVERY caller and
- * return the matched value as the result `label` — so anonymously it was a read
- * primitive over the whole database: a query of `@gmail.com` surfaced values out
- * of `read: ['admin']` tables, soft-deleted rows included.
+ * Scanning EVERY table's text columns for EVERY caller and returning the
+ * matched value as the result `label` would make the endpoint, anonymously, a
+ * read primitive over the whole database: a query of `@gmail.com` would surface
+ * values out of `read: ['admin']` tables, soft-deleted rows included.
  */
 const resolveRecordScope = async (c: Context, app: App): Promise<RecordSearchScope> => {
   if (!app.auth) return { kind: 'unrestricted' }

@@ -7,17 +7,23 @@ and asks an assistant for drafts. Readers never sign in; nobody can open an acco
 
 ## This app at a glance
 
-- **Tables** (4): authors, tags, posts (Draft → Scheduled → Published), comments (Held until
-  approved; a row-level rule shows readers the Approved ones only)
+- **Tables** (5): authors, tags, posts (Draft → Scheduled → Published), comments (Held until
+  approved; a row-level rule shows readers the Approved ones only), subscribers (the
+  newsletter list, admin only)
 - **Pages** (10): essays (`/`), essay (`/blog/:slug`, one page per published post, feed at
   `/feed.xml`), not-found (`/404`), and the desk — posts, post edit, comments, tags, authors,
   assistant, sign-in
-- **Forms** (2): comment (public, honeypot; arrives Held), new-post (the desk's dialog)
-- **Automations** (3): schedule-on-date (a draft given a date is Scheduled),
+- **Forms** (3): comment (public, honeypot; arrives Held), new-post (the desk's dialog),
+  newsletter (public; the library sign-up block on `/` posts to it)
+- **Automations** (5): schedule-on-date (a draft given a date is Scheduled),
   publish-scheduled (every hour, a scheduled post whose date has come is Published),
-  stamp-new-comment (a new comment is dated when it arrives)
+  stamp-new-comment (a new comment is dated when it arrives), triage-comment (a form trigger
+  and an `ai` classify step labelling each new comment for the desk), and form-to-brevo — a
+  library recipe (`library/recipe/`, with its `library/connection/brevo.yaml`) sending each
+  newsletter address to Brevo once `BREVO_API_KEY` is set
 - **AI agents** (1): blog-editor (every write waits for the editor's approval)
-- **Singletons**: design (roomy public pages, cozy desk), auth (sign-up closed)
+- **Library block**: `library/block/newsletter-inline.yaml`, the sign-up under the essays
+- **Singletons**: design (roomy public pages, cozy desk), auth (sign-up closed), env
 - **Seed**: `seed/` — seven posts with covers from `seed/assets/`, three authors, six tags,
   two comments, and the editor's account
 

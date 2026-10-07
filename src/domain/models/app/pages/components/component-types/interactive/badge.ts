@@ -20,8 +20,8 @@ export const BadgeTypeLiteral = Schema.Literal('badge')
  *
  * Distinct from `badgeVariant` (visual style: default/secondary/destructive/outline).
  * `variant: 'status'` enables status-indicator rendering: a colored dot plus a
- * text label, with an optional pulsing animation. This merges the formerly
- * separate `status-indicator` component into badge per the merged user-story.
+ * text label, with an optional pulsing animation. A status indicator is a badge
+ * mode, not a component of its own.
  */
 export const BadgeModeSchema = Schema.Literals(['status', 'contrast']).annotate({
   title: 'Badge Mode',

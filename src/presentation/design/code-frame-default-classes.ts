@@ -26,7 +26,7 @@
  *
  * - The frame is a `<figure>` and is entirely SSR — a crawler, a reader with
  *   scripts blocked, and the SSR-built public search index all see the command
- * and its output.
+ *   and its output.
  * - NOTHING in the frame may carry an inline `style` attribute: the canonical
  *   `sanitizeRichTextHTML` allowlist (security rule S2) keeps `class` on
  *   pre/code/span but DROPS `style`, so inline-styled chrome would be silently
@@ -50,7 +50,7 @@ const FRAME_SHELL = [
  * Compute the className for the code-frame `<figure>`. `overflow-hidden` keeps
  * the header bar and the code surface inside the rounded corner; the single
  * border makes command + output read as ONE artifact rather than two stacked
- * blocks ([internal ref] asserts both live inside one frame).
+ * blocks (a pages content spec asserts both live inside one frame).
  */
 export const computeCodeFrameShellClasses = (): string => FRAME_SHELL
 
@@ -98,7 +98,6 @@ const OUTPUT_SURFACE = [
  * runs, the output is only the confirmation that it worked. The two stay
  * distinguishable via `[data-code-command]` / `[data-code-output]` so the copy
  * payload can exclude the output — a clipboard polluted with printed output
- * would have the reader run `Created hello-world.yaml` as a second command
- *.
+ * would have the reader run `Created hello-world.yaml` as a second command.
  */
 export const computeCodeOutputClasses = (): string => OUTPUT_SURFACE

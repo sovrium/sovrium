@@ -10,6 +10,7 @@ import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
   ForeignKeyViolationError,
   DatabaseError,
+  StaleWriteError,
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -109,6 +110,17 @@ export interface LookupReadHop {
 }
 
 /**
+ * One many-to-many field's junction rows to add or remove for a record: the
+ * related table, the related ids, and whether the related table declares the
+ * reciprocal field (whose mirror rows move with them).
+ */
+export interface RecordLinkWrite {
+  readonly relatedTable: string
+  readonly relatedIds: readonly (string | number)[]
+  readonly hasReciprocal: boolean
+}
+
+/**
  * Aggregation query configuration
  */
 export interface AggregateQuery {
@@ -133,6 +145,37 @@ export interface AggregationResult {
   /** A number, a date as its ISO string, or `null` over no values. */
   readonly max?: Record<string, number | string | null>
 }
+
+/** A calendar bucket a date field can be grouped by. */
+export type GroupInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
+
+/** One grouping level: a field, optionally bucketed by calendar interval. */
+export interface GroupLevel {
+  readonly field: string
+  readonly interval?: GroupInterval
+}
+
+/** One group as the database answered it (see `computeGroupedAggregations`). */
+export interface GroupedAggregationRow {
+  /** One raw driver value per level, outermost first. */
+  readonly values: readonly unknown[]
+  readonly count: number
+  readonly aggregations: AggregationResult
+  /** Per averaged field, how many of the group's records carried a value. */
+  readonly valued: Readonly<Record<string, number>>
+}
+
+/** How groups are ordered: as the list's sort first meets them, or by value. */
+export type GroupOrder =
+  | {
+      readonly kind: 'first-seen'
+      readonly sort?: string
+      readonly app?: {
+        readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
+      }
+      readonly primaryKey?: { readonly type?: string; readonly fields?: readonly string[] }
+    }
+  | { readonly kind: 'by-value' }
 
 /**
  * Table Repository port for CRUD operations
@@ -232,15 +275,31 @@ export class TableRepository extends Context.Service<
       includeDeleted?: boolean
     ) => Effect.Effect<Record<string, unknown> | null, DatabaseError>
 
+    /**
+     * Insert a record and the many-to-many `links` it names, in ONE transaction:
+     * when any link is refused, the record is not kept either.
+     */
     readonly createRecord: (
       session: Readonly<UserSession>,
       tableName: string,
-      fields: Readonly<Record<string, unknown>>
+      fields: Readonly<Record<string, unknown>>,
+      links?: readonly RecordLinkWrite[]
     ) => Effect.Effect<
       Record<string, unknown>,
       DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
     >
 
+    /**
+     * Update a record, add its many-to-many `links` and remove its `unlinks`,
+     * in ONE transaction: when any part fails, none of it is kept.
+     *
+     * With no `fields` only the links change, answering the stored row or `{}`.
+     * `expectedUpdatedAt` is the optimistic-lock token the caller last read,
+     * compared with the stored `updated_at` (to the ms) inside the write, so two
+     * edits from one read cannot both apply: the loser fails with
+     * {@link StaleWriteError}; no token, no `updated_at` or a bad token skips it.
+     * `auditContext` names the surface the change was made through (a form edit).
+     */
     readonly updateRecord: (
       session: Readonly<UserSession>,
       tableName: string,
@@ -248,8 +307,12 @@ export class TableRepository extends Context.Service<
       params: {
         readonly fields: Readonly<Record<string, unknown>>
         readonly app?: App
+        readonly links?: readonly RecordLinkWrite[]
+        readonly unlinks?: readonly RecordLinkWrite[]
+        readonly expectedUpdatedAt?: string
+        readonly auditContext?: Readonly<Record<string, string>>
       }
-    ) => Effect.Effect<Record<string, unknown>, DatabaseError>
+    ) => Effect.Effect<Record<string, unknown>, DatabaseError | StaleWriteError>
 
     readonly deleteRecord: (
       session: Readonly<UserSession>,
@@ -287,37 +350,25 @@ export class TableRepository extends Context.Service<
     }) => Effect.Effect<AggregationResult, DatabaseError>
 
     /**
-     * [internal ref]: write the junction rows for a record's `many-to-many` fields.
-     * Each link writes the source→related row and, when `hasReciprocal`, the
-     * mirror row so the reciprocal side sees the link. Idempotent.
+     * Group the matching records in the database: one `GROUP BY` per prefix of
+     * `levels`, answering one array per depth with one row per group. The rows
+     * read are bounded by the number of groups, never by the table. With
+     * `maxGroups`, a depth reads at most one group past it, so the caller can
+     * refuse a grouping wider than the cap without reading it whole.
      */
-    readonly linkManyToMany: (input: {
-      readonly sourceTable: string
-      readonly sourceId: string | number
-      readonly links: readonly {
-        readonly relatedTable: string
-        readonly relatedIds: readonly (string | number)[]
-        readonly hasReciprocal: boolean
-      }[]
-    }) => Effect.Effect<void, DatabaseError>
+    readonly computeGroupedAggregations: (config: {
+      readonly tableName: string
+      readonly filter?: QueryFilter
+      readonly lookupMasks?: readonly LookupReadMask[]
+      readonly includeDeleted?: boolean
+      readonly levels: readonly GroupLevel[]
+      readonly aggregate: AggregateQuery
+      readonly order: GroupOrder
+      readonly maxGroups?: number
+    }) => Effect.Effect<readonly (readonly GroupedAggregationRow[])[], DatabaseError>
 
     /**
-     * Remove named junction rows of a record's `many-to-many` fields — the
-     * inverse of {@link linkManyToMany}, mirror row included. A pair that is
-     * not linked is a no-op. Used when a field is cleared.
-     */
-    readonly unlinkManyToMany: (input: {
-      readonly sourceTable: string
-      readonly sourceId: string | number
-      readonly links: readonly {
-        readonly relatedTable: string
-        readonly relatedIds: readonly (string | number)[]
-        readonly hasReciprocal: boolean
-      }[]
-    }) => Effect.Effect<void, DatabaseError>
-
-    /**
-     * [internal ref]: resolve `many-to-many` field values from junction tables for a
+     * Resolve `many-to-many` field values from junction tables for a
      * set of source records. Returns `recordId -> fieldName -> relatedIds`.
      */
     readonly readManyToMany: (input: {

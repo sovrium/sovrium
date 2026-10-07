@@ -44,7 +44,6 @@ export const parseEntityMutationBody = (body: unknown): EntityMutationInput | un
   const entityId = typeof record['entityId'] === 'string' ? record['entityId'] : undefined
   if (entityType === undefined || entityId === undefined) return undefined
   if (entityType !== 'record' && entityType !== 'page') return undefined
-  // eslint-disable-next-line unicorn/no-null -- nullable DB column requires SQL NULL
   const tableName = typeof record['tableName'] === 'string' ? record['tableName'] : null
   return { entityType, entityId, tableName }
 }

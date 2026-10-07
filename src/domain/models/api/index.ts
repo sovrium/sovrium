@@ -22,6 +22,7 @@
  * - connections: Connection authorization and per-user roster endpoints
  * - health: Health check endpoint
  * - realtime: WebSocket/SSE real-time subscription endpoints
+ * - scim: SCIM 2.0 provisioning endpoints
  * - tables: Table, record, comment, view, search, webhook endpoints
  */
 
@@ -54,6 +55,9 @@ export * from './health'
 
 // Real-time subscription schemas
 export * from './realtime'
+
+// SCIM 2.0 provisioning schemas
+export * from './scim'
 
 // Table, record, comment, view, search, and webhook schemas
 export * from './tables'

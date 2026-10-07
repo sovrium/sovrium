@@ -16,6 +16,7 @@ import {
 } from '@/infrastructure/auth/better-auth/mcp-resource-identity'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { isHeldForPasskey } from '@/presentation/api/mcp/admin-passkey-proof'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { JWTPayload } from 'jose'
@@ -41,7 +42,6 @@ import type { JWTPayload } from 'jose'
  */
 
 /** JSON-RPC 2.0 §5 null id, for a response whose request id is unknown. */
-// eslint-disable-next-line unicorn/no-null -- the JSON-RPC wire format specifies null here, not undefined; an omitted id is a different message
 const JSONRPC_NULL_ID = null
 
 /**
@@ -67,11 +67,14 @@ const MCP_ADMIN_TIER: McpCallerRole = 'admin'
 
 /**
  * Is this caller on the MCP `admin` tier — the tier every admin-equivalent
- * account role maps to ({@link mapUserRoleToMcpRole})? The admin-only tools
- * (internals, audit list, config) ask this, never the raw account role.
+ * account role maps to ({@link mapUserRoleToMcpRole}) — and admitted to the
+ * admin plane? The admin-only tools (admin reads, internals, audit list,
+ * config) ask this, never the raw account role, so a caller held for a passkey
+ * ({@link McpCaller.heldForPasskey}) is refused them all at this one point.
  */
-export const isAdminTierCaller = (caller: Readonly<Pick<McpCaller, 'role'>>): boolean =>
-  caller.role === MCP_ADMIN_TIER
+export const isAdminTierCaller = (
+  caller: Readonly<Pick<McpCaller, 'role' | 'heldForPasskey'>>
+): boolean => caller.role === MCP_ADMIN_TIER && caller.heldForPasskey !== true
 
 export interface McpCaller {
   readonly role: McpCallerRole
@@ -84,6 +87,13 @@ export interface McpCaller {
    * the records API sees them. Absent on the fail-closed fallback caller.
    */
   readonly accountRole?: string
+  /**
+   * `true` when the caller is on the admin tier but the app requires a passkey
+   * of its administrators and this credential does not prove one (see
+   * `isHeldForPasskey`). It withholds the admin-only tools only: `role` and
+   * `accountRole` are untouched, so the table tools keep every grant.
+   */
+  readonly heldForPasskey?: boolean
 }
 
 /**
@@ -138,7 +148,7 @@ export type McpAuthOutcome =
  * a self-contained token.
  */
 export const authenticateMcpRequest = async (
-  c: Readonly<Context>,
+  c: Context,
   authInstance: McpAuthInstance | undefined,
   app: AdminRoleResolvable
 ): Promise<McpAuthOutcome> => {
@@ -147,7 +157,6 @@ export const authenticateMcpRequest = async (
     return authenticateWithApiKey(c, authInstance, app)
   }
 
-  // eslint-disable-next-line functional/no-let -- the verified claims are handed to an inner callback by the upstream handler; there is no return channel for them
   let verifiedClaims: Readonly<JWTPayload> | undefined
   // Resolved from the module cache, not from disk: `createHonoApp` awaits
   // `server-runtime` at BOOT for every auth-enabled app, and `@better-auth/mcp`
@@ -163,7 +172,6 @@ export const authenticateMcpRequest = async (
     // once the token has verified. It returns a sentinel rather than the real
     // MCP response so the dispatcher stays entirely outside the auth gate.
     (_request, accessTokenClaims) => {
-      // eslint-disable-next-line functional/no-expression-statements -- capturing the callback's argument is the only way out of it
       verifiedClaims = accessTokenClaims
       return new Response(undefined, { status: 204 })
     }
@@ -205,7 +213,7 @@ export const authenticateMcpRequest = async (
  * to MCP clients.
  */
 const authenticateWithApiKey = async (
-  c: Readonly<Context>,
+  c: Context,
   authInstance: McpAuthInstance | undefined,
   app: AdminRoleResolvable
 ): Promise<McpAuthOutcome> => {
@@ -218,14 +226,10 @@ const authenticateWithApiKey = async (
     const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
     if (!session) return { ok: false, response: buildUnauthenticatedResponse() }
     const user = session.user as { readonly id: string; readonly role?: string }
-    return {
-      ok: true,
-      caller: {
-        role: mapUserRoleToMcpRole(user.role, app),
-        userId: user.id,
-        accountRole: user.role,
-      },
-    }
+    const role = mapUserRoleToMcpRole(user.role, app)
+    // A key never proves a passkey: it records no sign-in session of its own.
+    const heldForPasskey = role === MCP_ADMIN_TIER && (await isHeldForPasskey(c, app, undefined))
+    return { ok: true, caller: { role, userId: user.id, accountRole: user.role, heldForPasskey } }
   } catch {
     return { ok: false, response: buildUnauthenticatedResponse() }
   }
@@ -246,7 +250,7 @@ const authenticateWithApiKey = async (
  * `remoteVerify.force` is set. It is supplied anyway so that turning `force`
  * off is a one-line change rather than a debugging session.
  */
-const buildResourceServerOptions = (c: Readonly<Context>) => {
+const buildResourceServerOptions = (c: Context) => {
   const origin = resolveRequestOrigin(c)
   const { clientId, clientSecret } = mcpResourceServerCredentials()
   return {
@@ -279,7 +283,7 @@ const buildResourceServerOptions = (c: Readonly<Context>) => {
  * default role for a freshly-registered user and matches `buildGetSession`.
  */
 const bridgeClaimsToCaller = async (
-  c: Readonly<Context>,
+  c: Context,
   claims: Readonly<JWTPayload>,
   app: AdminRoleResolvable
 ): Promise<McpCaller | undefined> => {
@@ -308,11 +312,10 @@ const bridgeClaimsToCaller = async (
   const row = await runDomainPromise(c as Context, lookup)
   // No user row for this subject: reject. Do NOT fall back to a role.
   if (row === undefined) return undefined
-  return {
-    role: mapUserRoleToMcpRole(row.role ?? undefined, app),
-    userId: subject,
-    accountRole: row.role ?? undefined,
-  }
+  const role = mapUserRoleToMcpRole(row.role ?? undefined, app)
+  const sid = typeof claims['sid'] === 'string' ? claims['sid'] : undefined
+  const heldForPasskey = role === MCP_ADMIN_TIER && (await isHeldForPasskey(c, app, sid))
+  return { role, userId: subject, accountRole: row.role ?? undefined, heldForPasskey }
 }
 
 /**
@@ -337,7 +340,7 @@ const buildUnauthenticatedResponse = (): Response =>
  * if the header is missing / malformed. Exposed so the dispatcher can pass the
  * value through to the SDK's `authInfo.token` without duplicating the regex.
  */
-export const readBearerToken = (c: Readonly<Context>): string | undefined => {
+export const readBearerToken = (c: Context): string | undefined => {
   const authHeader = c.req.header('Authorization') ?? ''
   const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
   return bearerMatch?.[1]
@@ -372,7 +375,7 @@ const mapUserRoleToMcpRole = (
  * value points at port 0. The request URL is what the client actually
  * addressed.
  */
-const resolveRequestOrigin = (c: Readonly<Context>): string => {
+const resolveRequestOrigin = (c: Context): string => {
   try {
     const url = new URL(c.req.url)
     return `${url.protocol}//${url.host}`

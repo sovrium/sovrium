@@ -32,6 +32,16 @@ env:
     required: false
     default: team@example.com
     secret: false
+  # Optional: a LinkedIn app turns on posting a piece to LinkedIn when it is
+  # marked Published (library/recipe/record-to-linkedin-post.yaml). Without it
+  # the app runs as before and that one automation cannot reach LinkedIn.
+  - key: LINKEDIN_CLIENT_ID
+    description: Client id of your LinkedIn app, for the LinkedIn connection.
+    required: false
+    secret: false
+  - key: LINKEDIN_CLIENT_SECRET
+    description: Client secret of your LinkedIn app, for the LinkedIn connection.
+    required: false
 
 tables:
   - $ref: ./config/tables/campaigns.yaml
@@ -46,6 +56,8 @@ automations:
   - $ref: ./config/automations/own-new-piece.yaml
   - $ref: ./config/automations/approve-for-scheduling.yaml
   - $ref: ./config/automations/monday-digest.yaml
+  - $ref: ./config/automations/mint-tracked-link.yaml
+  - $ref: ./library/recipe/record-to-linkedin-post.yaml
 
 # Listed in the order of the sidebar, then sign-in.
 pages:
@@ -58,3 +70,8 @@ pages:
 # floating pill, so it never sits over the calendar.
 badge:
   placement: footer
+
+# The LinkedIn account the posts go out from, installed from the Sovrium
+# library. Its credentials come from the environment, never this file.
+connections:
+  - $ref: ./library/connection/linkedin.yaml

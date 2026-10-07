@@ -18,9 +18,7 @@ import type { App } from '.'
  * that cannot answer without a provider, which is what puts it on this list
  * rather than merely near it.
  *
- * A set of one, deliberately. `schema-ai-agent` — the agentic schema editor —
- * was the second member until the config-authoring editors were deleted with
- * the rest of the config-editing plane. The set stays a set because the
+ * A set of one, deliberately. It is a set because the
  * question it answers is "does ANY component here need a model", and the next
  * such component should join a list rather than replace a comparison.
  */
@@ -38,11 +36,11 @@ const AI_COMPONENT_TYPES: ReadonlySet<string> = new Set(['ai-chat'])
  * Two callers today, and they need the same answer for the same reason:
  *
  * - the `⚠ AI disabled — AI_PROVIDER not set` startup warning, which must not
- * describe a capability the app never declared;
+ *   describe a capability the app never declared;
  * - the `ECO_AI_PROVIDER_PRECEDENCE=local-only` boot gate, which must refuse a
  *   boot only when THIS app would be broken by an unreachable Ollama —
  *   precedence is a host-wide env var, so a plain marketing site sharing the
- * host must still start.
+ *   host must still start.
  *
  * Returns `true` when ANY of the following hold:
  * - a table declares an `ai-*` compute field (`ai-summary`, `ai-tag`, …);

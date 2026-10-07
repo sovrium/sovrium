@@ -5,17 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TSValidationError } from '@/infrastructure/automations/typescript-validator/errors'
+import type { TSValidationError } from '@/application/ports/services/typescript-validator'
 import type { Cause } from 'effect'
 
 /**
  * The code-action type-check, as a step any command can run.
  *
  * WHAT THIS CLOSES. `sovrium start` refuses a config whose `code` action body
- * does not type-check; `sovrium validate` and `sovrium build` used to accept the
- * same file — `validate` printing `Valid configuration` and `build` emitting a
- * complete site for a deployment that dies at boot with `TSValidationError`.
- * That is the deploy gate green on something that cannot start, which is the one
+ * does not type-check; without this step `sovrium validate` and `sovrium build`
+ * would accept the same file — `validate` printing `Valid configuration` and
+ * `build` emitting a complete site for a deployment that dies at boot with
+ * `TSValidationError`. That is the deploy gate green on something that cannot start, which is the one
  * failure mode a deploy gate exists to prevent.
  *
  * WHY THIS GATE AND NOT THE OTHERS. `startServer` runs eleven checks after
@@ -85,7 +85,7 @@ export const validateCodeActionBodies = async (app: unknown): Promise<readonly s
  * nothing.
  *
  * The `TypeScript validation` opening is load-bearing beyond readability:
- * [internal ref] matches boot's refusal on
+ * An automation action code ts spec matches boot's refusal on
  * `/TSValidationError|TypeScript validation/`, and this string is what that
  * refusal now carries once it is re-raised as a plain config rejection.
  *
@@ -114,15 +114,13 @@ const isTSValidationError = (value: unknown): value is TSValidationError =>
  * and there is no issue to open — it is a typo in the caller's config, and it
  * prints as the refusal it is.
  *
- * EFFECT 4 REMOVED THE WRAPPER THIS USED TO UNPACK. Under v3 the rejection was
- * a `FiberFailure` holding its `Cause` under `Runtime.FiberFailureCauseId`, and
- * this function had a second branch to dig it out. v4 deletes `FiberFailure`,
- * `FiberFailureCauseId` and `isFiberFailure` outright and rejects with the
- * SQUASHED error value instead — measured across a typed failure, a defect, and
- * arbitrarily nested `Effect.gen`. So the branch is deleted rather than
- * translated, and the direct check now carries every case.
+ * THERE IS NO `FiberFailure` TO UNPACK. Effect 4 has no `FiberFailure`,
+ * `FiberFailureCauseId` or `isFiberFailure` (Effect 3 wrapped the rejection's
+ * `Cause` that way) and rejects with the SQUASHED error value instead —
+ * measured across a typed failure, a defect, and arbitrarily nested
+ * `Effect.gen`. So the direct check carries every case.
  *
- * That deletion is not cosmetic. A branch calling a removed function does not
+ * Do not add such a branch back: a branch calling a missing function does not
  * quietly stop matching, it THROWS — and this guard sits in `start()`'s catch
  * block, on the path of every boot failure, so a `TypeError` raised here
  * destroys the `Sovrium failed to start: …` report for unrelated faults too.

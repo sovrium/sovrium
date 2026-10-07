@@ -12,6 +12,7 @@ import {
   computeSidebarDrawerTriggerClasses,
   type SidebarRailBreakpoint,
 } from '@/presentation/design/sidebar-default-classes'
+import { cn } from '../../design/class-merge'
 import { resolveLucideIcon } from '../elements/lucide-resolver'
 
 /**
@@ -32,6 +33,8 @@ interface SidebarDrawerFrameProps {
   readonly label: string
   /** The navigation itself — rendered once, inline, and lifted into the panel on open. */
   readonly children: ReactNode
+  /** The author's classes for the menu button, after its recipe (the docs `menuButton` part). */
+  readonly triggerClassName?: string
 }
 
 /**
@@ -73,6 +76,7 @@ export function SidebarDrawerFrame({
   below,
   label,
   children,
+  triggerClassName,
 }: SidebarDrawerFrameProps): ReactElement {
   // `useId` spells a string that is not a valid CSS identifier in every React
   // version; the id only has to be unique and stable, so it keeps the safe part.
@@ -93,7 +97,7 @@ export function SidebarDrawerFrame({
         aria-haspopup="dialog"
         aria-expanded="false"
         aria-controls={id}
-        className={computeSidebarDrawerTriggerClasses(below)}
+        className={cn(computeSidebarDrawerTriggerClasses(below), triggerClassName)}
       >
         {MenuIcon !== undefined && (
           <MenuIcon

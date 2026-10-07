@@ -1,0 +1,14 @@
+name: pricing
+path: /pricing
+meta:
+  title: $t:meta.pricing.title
+  description: $t:meta.pricing.description
+components:
+  - component: navbar-simple
+  - component: header-with-links
+  - component: pricing-three-tier
+  - component: pricing-toggle
+  - component: pricing-comparison
+  - component: faq-accordion
+  - component: faq-two-column
+  - component: footer-simple

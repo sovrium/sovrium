@@ -7,14 +7,14 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { ToggleMenuItem } from './menu-toggle-item'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
   computeMenuTriggerClasses,
   computeMenubarContainerClasses,
-} from './overlay-default-classes'
+} from './menu-default-classes'
+import { ToggleMenuItem } from './menu-toggle-item'
 import type { ReactElement } from 'react'
 
 interface MenuItem {

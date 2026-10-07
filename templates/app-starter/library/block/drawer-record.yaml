@@ -1,0 +1,71 @@
+# sovrium-library: block/drawer-record@0.30.0
+name: drawer-record
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: 'Projects'
+      - type: table
+        dataSource:
+          table: projects
+        columns:
+          - field: title
+            label: 'Name'
+            editable: false
+          - field: status
+            label: 'Status'
+            editable: false
+        onRowClick:
+          action: openDrawer
+          component: drawer-record-detail
+        phoneLayout: rows
+        emptyMessage: No record yet. Create one to see it here.
+      - type: drawer
+        id: drawer-record-detail
+        props:
+          title: $record.title
+        drawerSide: right
+        drawerSize: md
+        dataSource:
+          table: projects
+        canEdit: true
+        recordFields:
+          - name: title
+            type: single-line-text
+            label: 'Name'
+          - name: status
+            type: status
+            label: 'Status'
+        related:
+          - label: 'Tasks'
+            table: tasks
+            field: project
+            limit: 3
+            emptyMessage: Nothing linked yet.
+        navigation:
+          siblings: true
+          fullPage: /projects/$record.id
+        actions:
+          - label: Delete
+            variant: destructive
+            action:
+              type: crud
+              operation: delete
+              table: projects
+            confirm:
+              title: Delete $record.title?
+              message: The record and what links only to it are deleted. This cannot be undone.
+              confirmLabel: Delete

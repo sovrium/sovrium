@@ -20,16 +20,14 @@
  * drawn only for a caller the SSR host found allowed to create in the table.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- a row's click / key handlers close over that row; the list is capped at the entry's `limit` and rendered only while the drawer is open. Mirrors the exemption in record-drawer-content.tsx. */
-
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type KeyboardEvent, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
-import { buildSortParam } from '../hooks/use-records-query'
 import { dispatch } from '../runtime/event-bus'
 import { nullable } from '../runtime/query-client'
 import { readDisplayText } from '../runtime/record-display-label'
+import { buildSortParam } from '../runtime/records-api'
 import { ReadOnlyValue } from './record-drawer-read-only-value'
 import { RelatedCreateForm } from './record-drawer-related-create'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'

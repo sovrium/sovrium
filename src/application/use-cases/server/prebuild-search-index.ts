@@ -10,6 +10,7 @@ import { generateSearchIndex } from '@/application/use-cases/server/generate-sea
 import { generateStatic } from '@/application/use-cases/server/generate-static'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
+import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import type { CSSCompiler as CSSCompilerService } from '@/application/ports/services/css-compiler'
 import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
 import type { ServerFactory as ServerFactoryService } from '@/application/ports/services/server-factory'
@@ -37,25 +38,29 @@ class SearchIndexTempDirError extends Data.TaggedError('SearchIndexTempDirError'
 }> {}
 
 /** The four services a static render needs — exactly `createStaticBuildLayer`'s members. */
-type StaticBuildServices =
-  ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
+/** What a static build reads from its context; `createStaticBuildLayer` provides all of it. */
+export type StaticBuildServices =
+  | ServerFactoryService
+  | PageRendererService
+  | CSSCompilerService
+  | StaticSiteGeneratorService
+  | ContentDirReader
 
 /**
  * Materialize the public-pages search artifacts into `publicDir`, so the
  * running server can serve `/sovrium-search/index.json` and
  * `/sovrium-search/runtime.js` through the ordinary static-asset route.
  *
- * WHY THIS IS A USE-CASE AND NOT A DRIVER. It used to live in `src/index.ts`
- * as an async function that provided its own `createStaticBuildLayer`, and the
- * CLI called it by hand before `start()`. That made the index a property of
- * the *CLI invocation* rather than of the *server*: every other caller of
- * `startServer` — the `--watch` reload, and the in-process E2E fixture —
- * booted a server that answered 404 for the two search paths, with no signal
- * that anything was missing. Expressed as an Effect with its requirements
- * UNPROVIDED, it becomes a step of the boot sequence that every caller runs,
- * and the four services it needs are already members of `createAppLayer`
- * (they are exactly `createStaticBuildLayer`'s members, which are a strict
- * subset) — so no caller had to widen what it provides.
+ * WHY THIS IS A USE-CASE AND NOT A DRIVER. A driver the CLI calls by hand
+ * before `start()` would make the index a property of the *CLI invocation*
+ * rather than of the *server*: every other caller of `startServer` — the
+ * `--watch` reload, and the in-process E2E fixture — would boot a server that
+ * answers 404 for the two search paths, with no signal that anything was
+ * missing. Expressed as an Effect with its requirements UNPROVIDED, it is a
+ * step of the boot sequence that every caller runs, and the four services it
+ * needs are already members of `createAppLayer` (they are exactly
+ * `createStaticBuildLayer`'s members, which are a strict subset) — so no
+ * caller has to widen what it provides.
  *
  * The index is a BUILD ARTIFACT, not a lazily-computed response. Nothing
  * regenerates it per request; it is written once, before the listener is
@@ -132,12 +137,11 @@ const buildInto = (
   publicDir: string
 ): Effect.Effect<boolean, PrebuildSearchIndexError, StaticBuildServices> =>
   Effect.gen(function* () {
-    // Hydration and the sitemap/robots/manifest passes are all disabled: the
+    // The sitemap/robots/manifest passes are all disabled: the
     // indexer reads HTML and nothing else, and everything else would be
     // copy-wasted into a directory removed moments later.
     yield* generateStatic(rawApp, {
       outputDir: tempStaticDir,
-      hydration: false,
       generateSitemap: false,
       generateRobotsTxt: false,
       // This pass exists only to materialize HTML into a temp dir. Emitting

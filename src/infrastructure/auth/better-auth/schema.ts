@@ -42,6 +42,7 @@ import type {
 
 export * from './schema-tables'
 export * from './schema-oauth-resource-tables'
+export * from './schema-passkey-tables'
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert

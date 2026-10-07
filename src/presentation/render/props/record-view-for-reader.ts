@@ -29,7 +29,7 @@
  * component is returned as written.
  */
 
-import { readableFieldsOf } from './caller-table-inputs'
+import { readableFieldsForComponent } from './caller-table-inputs'
 import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
@@ -173,7 +173,7 @@ export function recordViewForReader(
 ): RecordViewForReader {
   const narrow = FOR_READER[component.type]
   if (narrow === undefined || callerTable === undefined) return component
-  const readable = new Set(readableFieldsOf(table, callerTable))
+  const readable = new Set(readableFieldsForComponent(table, component, callerTable))
   const declared = new Set(table.fields.map((f) => f.name))
   const isHidden: IsHidden = (field) =>
     typeof field === 'string' && declared.has(field) && !readable.has(field)

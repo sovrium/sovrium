@@ -6,6 +6,7 @@
  */
 
 import { Context, Data, type Effect } from 'effect'
+import type { McpInternalListQuery } from './mcp-internals-repository'
 
 /** Database error for the MCP tool-call audit trail. */
 export class McpAuditDatabaseError extends Data.TaggedError('McpAuditDatabaseError')<{
@@ -46,8 +47,29 @@ export interface McpToolCallAuditEntry {
  * here. `ai_tool_calls` declares `denylistFields: []`, so the generic internals
  * dispatcher — which answers `SELECT *` — would put both on the wire. This
  * narrower shape is the only thing that distinguishes the two paths, and
- * [internal ref] pins the difference.
+ * an AI MCP audit spec pins the difference.
  */
+/**
+ * The ledger list's projection, in answer order: exactly the keys of
+ * {@link McpToolCallAuditRow}. It is also the `where` allow-list of the ledger
+ * list tool, so a filter can name only a column the tool answers — an equality
+ * on a withheld column would be an oracle for it.
+ */
+export const TOOL_CALL_LEDGER_COLUMNS = [
+  'id',
+  'created_at',
+  'caller_role',
+  'caller_id',
+  'caller_type',
+  'tool_name',
+  'input',
+  'output',
+  'error_message',
+  'error_code',
+  'latency_ms',
+  'transport',
+] as const satisfies ReadonlyArray<keyof McpToolCallAuditRow>
+
 export interface McpToolCallAuditRow {
   readonly id: string
   readonly created_at: string
@@ -90,14 +112,17 @@ export class McpAuditRepository extends Context.Service<
     ) => Effect.Effect<void, McpAuditDatabaseError>
 
     /**
-     * The most recent calls, newest first.
+     * One page of calls, newest first by `created_at` (then `id` descending),
+     * filtered by `since` and the `where` equalities, continuing after the
+     * `after` row — the raw-list rules every internal list follows.
      *
-     * `limit` is clamped by the CALLER to `[1, 1000]` before it arrives — the
-     * clamp is part of the tool's argument validation, and re-clamping here
-     * would put the range in two places that could disagree.
+     * The query is validated by the CALLER before it arrives: `limit` clamped
+     * to `[1, 1000]`, every `where` column one of
+     * {@link TOOL_CALL_LEDGER_COLUMNS} and every value one its column can hold.
+     * Re-validating here would put the rules in two places that could disagree.
      */
     readonly listToolCalls: (
-      limit: number
+      query: McpInternalListQuery
     ) => Effect.Effect<ReadonlyArray<McpToolCallAuditRow>, McpAuditDatabaseError>
   }
 >()('McpAuditRepository') {}

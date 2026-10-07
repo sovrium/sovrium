@@ -44,7 +44,6 @@ export async function fetchUserDirectoryPage(
     credentials: 'include',
   })
   if (!res.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- The search hook reports a failed load distinctly from an empty one.
     throw new Error(`Failed to load the user directory: ${res.status}`)
   }
   const body = (await res.json()) as { users?: readonly DirectoryEntry[] }

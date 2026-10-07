@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { Automation } from '@/domain/models/app/automations/automation'
 import type { Effect } from 'effect'
 
 /**
@@ -33,8 +34,8 @@ export class AutomationRepository extends Context.Service<
     readonly list: Effect.Effect<readonly Record<string, unknown>[], AutomationDatabaseError>
     readonly create: (definition: {
       readonly name: string
-      readonly trigger: Record<string, unknown>
-      readonly actions: readonly Record<string, unknown>[]
+      readonly trigger: Automation['trigger']
+      readonly actions: Automation['actions']
       readonly enabled?: boolean
     }) => Effect.Effect<Record<string, unknown>, AutomationDatabaseError>
     readonly update: (

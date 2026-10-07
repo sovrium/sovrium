@@ -249,10 +249,12 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
     ...(list.filters === undefined ? [] : [list.filters]),
   ]
   const value = `"sovrium_mask_related"."${list.relatedField}"`
+  // sql-literal: identifier -- `relatedField` passed validateColumnName above
   const aggregated = sql.raw(stringAggExpression(value, ', ', displayOrder(value)))
   // A trashed linked row contributes nothing, as in the lookup's own view
   // expression (`lookup-expressions.ts`); neither does an empty item, which the
   // display never shows.
+  // sql-literal: identifier -- `relatedField` passed validateColumnName above
   const live = sql`"sovrium_mask_related"."deleted_at" IS NULL AND ${sql.raw(nonEmpty(value))}`
   if (list.kind === 'reverse') {
     const column = list.column ?? ''

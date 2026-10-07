@@ -60,8 +60,7 @@ const withTranslatedProps = <T extends ComponentDispatchConfig>(context: T): T =
 })
 
 /**
- * The design-system console's `open` state cell for a menu, or `undefined`
- *.
+ * The design-system console's `open` state cell for a menu, or `undefined`.
  *
  * A Base UI menu cannot be reached inline — `Menu.Portal` is not optional, and
  * `usePopoverPortalContext` throws without it — so the popup body was factored
@@ -156,8 +155,8 @@ export const islandOverlayComponents: Partial<
   },
 
   'alert-dialog': (context) => {
-    const { rawProps, elementProps, component } = withTranslatedProps(context)
-    const dialogProps = buildAlertDialogProps(rawProps, elementProps, component)
+    const { rawProps, elementProps, component, routeParams } = withTranslatedProps(context)
+    const dialogProps = buildAlertDialogProps(rawProps, elementProps, component, routeParams)
     const propsJson = JSON.stringify(dialogProps)
 
     return (
@@ -260,10 +259,9 @@ export const islandOverlayComponents: Partial<
 
   // ONE component type, TWO islands, chosen by SHAPE.
   //
-  // `record-drawer` was retired into `drawer`: it was a drawer bound to one
-  // record, and its `dataSource` / `recordFields` / `actions` / `role` keys are
-  // now keys on `drawer`. The two ISLANDS stayed, because they are genuinely
-  // different programs — one renders authored children, the other fetches a
+  // A drawer bound to one record is a `drawer` with `dataSource` /
+  // `recordFields` / `actions` / `role` keys, not a type of its own. There are
+  // still two ISLANDS, because they are genuinely different programs — one renders authored children, the other fetches a
   // record and derives a form — and folding them would put the record-fetching
   // code on every page carrying a plain drawer.
   //
@@ -314,7 +312,7 @@ export const islandOverlayComponents: Partial<
       languages,
       renderedChildren,
     })
-    // [internal ref]: the pre-hydration SSR trigger carries the
+    // The pre-hydration SSR trigger carries the
     // authored `props.className` (when present) so a styled CTA does not flash
     // from an unstyled placeholder to the styled trigger on hydration.
     const authoredClassName = elementProps['className'] as string | undefined
@@ -328,7 +326,7 @@ export const islandOverlayComponents: Partial<
         data-specimen-open={depicted ? 'true' : undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        {/* [internal ref]: the label trigger carries a chevron in
+        {/* The label trigger carries a chevron in
             the SSR placeholder too (identical to the hydrated menu-island) so
             the affordance is stable across hydration — no new indicator flashes
             in. A `dropdown-menu` always has a `triggerLabel`. */}
@@ -360,7 +358,7 @@ export const islandOverlayComponents: Partial<
           ) : (
             <span
               className={MENU_TRIGGER_CONTENT_CLASSES}
-              // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves the composed SSR trigger on initial paint
+              // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
               dangerouslySetInnerHTML={{ __html: props.triggerChildrenHtml }}
             />
           )}
@@ -369,7 +367,7 @@ export const islandOverlayComponents: Partial<
         {openMenuHtml !== undefined && (
           // Markup from the island's own `MenuPopupBody`, produced server-side
           // from decoded config — see `presentation/rendering/open-specimen-markup.ts`.
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR markup emission
+          // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
           <div dangerouslySetInnerHTML={{ __html: openMenuHtml }} />
         )}
       </div>

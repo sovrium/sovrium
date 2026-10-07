@@ -42,6 +42,8 @@ To manage the value yourself instead, add `SOVRIUM_ENCRYPTION_KEY` to `/etc/sovr
 
 `TRUSTED_PROXY_HOPS=1` is what tells Sovrium that Caddy is the only thing in front of it, so the client address Caddy forwards is believed and rate limits apply per visitor. Omit it and every request looks like it came from Caddy, putting all your visitors in one shared rate-limit budget. If you later add a CDN in front of Caddy, raise it to `2` — and no higher than the number of proxies you actually run.
 
+`BASE_URL` must be the `https://` address Caddy serves, even though the binary itself listens on `localhost:3000`. Sovrium decides its security posture from `BASE_URL`, not from the address it listens on: a `localhost` `BASE_URL` would make it treat the deployment as local, turning off the cross-site request (CSRF) origin check and dropping the `Secure` attribute from session cookies for every visitor who comes in through Caddy.
+
 Then define the unit:
 
 ```ini

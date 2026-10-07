@@ -21,7 +21,7 @@ import { Schema } from 'effect'
  * @example "https://example.com/image.jpg"
  * @example "http://api.example.com/endpoint"
  *
- * @see [internal ref] - [internal ref]
+ * @see [internal ref] - a pages definitions spec
  */
 export const HttpUrlSchema = Schema.String.pipe(
   Schema.check(
@@ -51,7 +51,7 @@ export type HttpUrl = Schema.Schema.Type<typeof HttpUrlSchema>
  * so a single page declaration can produce a per-record social-sharing URL
  * (`'$record.cover_image'` or `'https://cdn.example.com/$record.cover_image'`)
  * without forcing the schema author to inline a literal URL — see
- * [internal ref] (B-4 dynamic-seo-for-collections).
+ * the pages collection pages requirement (B-4 dynamic-seo-for-collections).
  *
  * Decode-time validation only checks the string shape (literal URL OR
  * presence of `$record.`); the resolver is responsible for ensuring the

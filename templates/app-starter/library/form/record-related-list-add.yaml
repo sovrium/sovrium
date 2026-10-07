@@ -1,0 +1,19 @@
+# sovrium-library: block/record-related-list@0.30.0
+id: 2
+name: record-related-list-add
+title: Add a task
+submitTo:
+  table: tasks
+fields:
+  - kind: table-field
+    column: title
+    label: Title
+  - kind: table-field
+    column: project
+    hidden: true
+display:
+  submitLabel: Add task
+onSuccess:
+  type: toast
+  message: Added.
+  variant: success

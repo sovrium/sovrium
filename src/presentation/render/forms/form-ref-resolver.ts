@@ -31,13 +31,13 @@
 
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
-import {
-  INLINE_CRUD_PREFILL_KEY,
-  type ResolvedInlineCrudPrefill,
-} from '@/presentation/render/elements/crud-form/crud-form-inline-prefill'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
 import { resolveDocumentLang, resolveText } from './form-field-resolver'
+import { applyNodeFormParts } from './form-part-classes'
 import { type FormPrefillContext } from './form-prefill-resolver'
+import { embedHeaderOptions, formForEmbedHeader } from './form-ref-header'
+import { formForReader, type FormRefReaders } from './form-ref-readers'
+import { buildWrapperProps } from './form-ref-wrapper'
 import { renderEmbeddedFormBody, resolveFormStartingValues } from './form-renderer'
 import {
   isInlinePrefill,
@@ -90,49 +90,6 @@ function asFormRefComponent(component: Component): FormRefComponent | undefined 
 }
 
 /**
- * Compose the wrapper `<div>`'s `className` from the host component's
- * `props.className` and an optional `embedded-form--<variant>` token.
- *
- * The base `embedded-form` class is always present so application stylesheets
- * can target the wrapper unconditionally; the per-variant suffix lets authors
- * style `props.variant: 'compact'` differently from `props.variant: 'wide'`.
- */
-function composeWrapperClass(variant: unknown, className: unknown): string {
-  const base = 'embedded-form'
-  const variantClass = typeof variant === 'string' ? `embedded-form--${variant}` : undefined
-  const passthrough = typeof className === 'string' && className.length > 0 ? className : undefined
-  return [base, variantClass, passthrough]
-    .filter((token): token is string => typeof token === 'string' && token.length > 0)
-    .join(' ')
-}
-
-/**
- * Build the synthesized prop bag for the `customHTML` wrapper. Carries
- * pass-through cosmetic attributes (`id`, `data-testid`) and synthesised
- * data hooks (`data-form-ref`, optional `data-variant`).
- *
- * Returned as `Record<string, unknown>` and cast at the call site because
- * the `customHTML` schema does not declare `data-*` attributes — they pass
- * through React's `<div {...props}>` at render time without schema noise.
- */
-function buildWrapperProps(
-  formRef: string,
-  originalProps: Record<string, unknown> | undefined
-): Record<string, unknown> {
-  const variant = originalProps?.['variant']
-  const className = originalProps?.['className']
-  const id = originalProps?.['id']
-  const testId = originalProps?.['data-testid']
-  return {
-    ...(typeof id === 'string' ? { id } : {}),
-    className: composeWrapperClass(variant, className),
-    'data-form-ref': formRef,
-    ...(typeof variant === 'string' ? { 'data-variant': variant } : {}),
-    ...(typeof testId === 'string' ? { 'data-testid': testId } : {}),
-  }
-}
-
-/**
  * Optional context threaded through `expandFormRefs` so `inlinePrefill`
  * tokens can resolve against the host page's `$parent` record.
  *
@@ -158,7 +115,7 @@ export interface FormRefExpansionContext {
    */
   readonly activeLang?: string | undefined
   /**
-   * [internal ref]: the host page's request query string. Threaded so an
+   * [internal ref] / a forms spec: the host page's request query string. Threaded so an
    * embedded form's form-level `prefill: { field: '$query.<name>' }` resolves
    * against the host page URL, matching the standalone `/forms/:name` route.
    * When omitted, `$query.*` prefill entries drop out (field renders empty),
@@ -171,6 +128,50 @@ export interface FormRefExpansionContext {
    * missing from it offers no table-backed choices.
    */
   readonly formOptions?: FormRefOptionSets | undefined
+  /**
+   * The table each embedded form writes to, as this reader may see it, read
+   * before this synchronous pass (`resolveFormRefReaders`), keyed by form name.
+   * A field on a column she may not read is left out of the drawn form.
+   */
+  readonly formReaders?: FormRefReaders | undefined
+  /**
+   * The forms this page embeds more than once (`repeatedFormNames`). Each embed
+   * of one of them draws its controls under ids scoped to its place in the
+   * page, so a label names its own embed's control and not the first one's.
+   */
+  readonly repeatedForms?: ReadonlySet<string> | undefined
+  /** This node's place in the page, the scope its repeated embeds' ids take. */
+  readonly scopePath?: string | undefined
+}
+
+/** The attributes that hold control ids, or lists of them, in an embed's markup. */
+const ID_REFERENCE_ATTRIBUTE = /\b(id|for|aria-labelledby|aria-describedby)="([^"]*)"/g
+
+/**
+ * The embed's markup with every control id (`field-…`) — and every reference
+ * to one — prefixed by `scope`, when the page embeds `formName` more than once.
+ * The same markup back otherwise, so a form placed once keeps its plain ids.
+ */
+function scopeControlIds(html: string, formName: string, ctx: FormRefExpansionContext): string {
+  if (ctx.repeatedForms?.has(formName) !== true) return html
+  const scope = `embed-${ctx.scopePath ?? '0'}`
+  return html.replace(ID_REFERENCE_ATTRIBUTE, (_match, attribute: string, value: string) => {
+    const scoped = value
+      .split(' ')
+      .map((token) => (token.startsWith('field-') ? `${scope}-${token}` : token))
+      .join(' ')
+    return `${attribute}="${scoped}"`
+  })
+}
+
+/** The referenced form as this page's reader may see it, or `undefined` when undeclared. */
+function findFormForReader(
+  name: string,
+  app: App,
+  ctx: FormRefExpansionContext
+): Readonly<Form> | undefined {
+  const form = app.forms?.find((f) => f.name === name)
+  return form === undefined ? undefined : formForReader(form, app, ctx.formReaders?.[name])
 }
 
 /**
@@ -305,42 +306,43 @@ function expandFormRefComponent(
 ): Component {
   const formRefInfo = asFormRefComponent(component)
   if (formRefInfo === undefined) return component
-  const form = app.forms?.find((f) => f.name === formRefInfo.formRef)
+  const form = findFormForReader(formRefInfo.formRef, app, ctx)
   if (form === undefined) return component
 
-  // The form's own defaults + `$query` prefill provide EDITABLE
-  // initial values; the inline prefill (Y-5) wins on the keys it names and, when
-  // locked, renders exactly those keys as hidden inputs.
+  // Defaults + `$query` prefill are EDITABLE starting values; the inline prefill
+  // wins on the keys it names and, when locked, renders them as hidden inputs.
   const titleAs = readHeadingLevel(formRefInfo.originalProps)
 
-  const formBodyHtml = renderEmbeddedFormBody(
-    app,
-    applySubmitLabelOverride(form, formRefInfo.originalProps),
-    resolveEmbedPrefill(app, form, formRefInfo.inlinePrefill, ctx),
-    ctx.activeLang,
-    { titleAs, ...optionSetsFor(form, ctx) }
+  const formBodyHtml = scopeControlIds(
+    renderEmbeddedFormBody(
+      app,
+      formForEmbedHeader(applySubmitLabelOverride(form, formRefInfo.originalProps), component),
+      resolveEmbedPrefill(app, form, formRefInfo.inlinePrefill, ctx),
+      ctx.activeLang,
+      { titleAs, ...embedHeaderOptions(component), ...optionSetsFor(form, ctx) }
+    ),
+    form.name,
+    ctx
   )
-  // The embedded-form markup is server-generated, fully-trusted HTML — it
-  // is produced by `renderEmbeddedFormBody` from the validated `forms[]`
-  // schema, never from user input. It is emitted on the synthesized
-  // component's `trustedContent` field (NOT `content`) so the `customHTML`
-  // renderer skips the rich-text allowlist sanitiser. That sanitiser drops
-  // every interactive element (`<form>`, `<input>`, `<button>`, `<select>`,
-  // `<label>`) — running it here would strip the form to bare label text.
-  // `trustedContent` is safe from injection: this component is synthesized
-  // at render time, AFTER schema decode, so a schema author can never
-  // supply the field (the decoded `customHTML` schema only exposes
-  // `content` / `htmlSrc`).
+  // The embedded-form markup is server-generated, fully-trusted HTML, drawn by
+  // `renderEmbeddedFormBody` from the validated `forms[]` schema, never from
+  // user input. It rides `trustedContent` (NOT `content`) so the `customHTML`
+  // renderer skips the rich-text allowlist sanitiser, which drops every
+  // interactive element (`<form>`, `<input>`, `<button>`, `<select>`, `<label>`).
+  // `trustedContent` is safe from injection: this component is synthesized at
+  // render time, AFTER schema decode, so a schema author can never supply it.
   //
-  // `authoredType` keeps the element NAMED as the author wrote it: the page
-  // declared a `form`, and the rewrite to `customHTML` is a rendering detail
-  // nothing reading the page should see.
+  // `authoredType` keeps the element NAMED as the author wrote it, and the
+  // node's `classes` ride along: their `root` part styles the wrapper, and the
+  // inner parts are already written onto the markup.
+  const { classes } = component as { readonly classes?: unknown }
   return {
     type: 'customHTML',
     props: buildWrapperProps(formRefInfo.formRef, formRefInfo.originalProps),
-    trustedContent: formBodyHtml,
+    trustedContent: applyNodeFormParts(formBodyHtml, app.design, component),
     authoredType: 'form',
-  } as unknown as Component
+    ...(classes === undefined ? {} : { classes }),
+  } as Component
 }
 
 /**
@@ -360,7 +362,11 @@ export function expandFormRefs(
   ctx: FormRefExpansionContext = {}
 ): Page['components'] {
   if (!components) return components
-  return components.flatMap((item) => {
+  return components.flatMap((item, index) => {
+    const here: FormRefExpansionContext = {
+      ...ctx,
+      scopePath: ctx.scopePath === undefined ? String(index) : `${ctx.scopePath}-${index}`,
+    }
     // A child may be plain text (a bare string) — nothing to expand there.
     if (typeof item !== 'object' || item === null) return [item]
     if ('component' in item || '$ref' in item) return [item]
@@ -375,51 +381,9 @@ export function expandFormRefs(
     if (isFormRefEmbedding(component) && isComponentHiddenForSession(component, ctx.session, app)) {
       return []
     }
-    const expanded = expandDialogFormRef(
-      expandFormRefComponent(stampInlineCrudPrefill(component, app, ctx), app, ctx),
-      app,
-      ctx
-    )
-    return [expandNestedFormRefs(expanded, app, ctx)]
+    const expanded = expandDialogFormRef(expandFormRefComponent(component, app, here), app, here)
+    return [expandNestedFormRefs(expanded, app, here)]
   })
-}
-
-/** The table an in-place form writes to: its `dataSource`, else its `crud` action's. */
-function readDataSourceTable(component: Component): string | undefined {
-  const node = component as {
-    readonly dataSource?: { readonly table?: unknown }
-    readonly action?: { readonly table?: unknown }
-  }
-  const table = node.dataSource?.table ?? node.action?.table
-  return typeof table === 'string' ? table : undefined
-}
-
-/**
- * Resolve the `inlinePrefill` of a form declared IN PLACE (its own `dataSource`,
- * `fields` and `crud` create action) against the host page, exactly as a
- * `formRef` embed's is resolved, and stamp it for the crud-form renderer — which
- * draws the form later and never sees the host record. A `formRef` embed, or a
- * form without `inlinePrefill`, is returned unchanged.
- */
-function stampInlineCrudPrefill(
-  component: Component,
-  app: App,
-  ctx: FormRefExpansionContext
-): Component {
-  if (component.type !== 'form') return component
-  const node = component as { readonly formRef?: unknown; readonly inlinePrefill?: unknown }
-  if (typeof node.formRef === 'string' || !isInlinePrefill(node.inlinePrefill)) return component
-  const stamped: ResolvedInlineCrudPrefill = {
-    values: resolveRecordPrefillMap(node.inlinePrefill, ctx.parentRecord, {
-      session: ctx.session,
-      columns: prefillColumnsOf(app.tables, readDataSourceTable(component)),
-    }),
-    lock: node.inlinePrefill.lockPrefill === true,
-  }
-  return {
-    ...(component as Record<string, unknown>),
-    [INLINE_CRUD_PREFILL_KEY]: stamped,
-  } as Component
 }
 
 /**
@@ -506,7 +470,7 @@ function expandDialogFormRef(
   if (component.type !== 'dialog') return component
   const ref = (component as { readonly formRef?: unknown }).formRef
   if (typeof ref !== 'string') return component
-  const form = app.forms?.find((f) => f.name === ref)
+  const form = findFormForReader(ref, app, ctx)
   if (form === undefined) return component
 
   const inlinePrefillRaw = (component as { readonly inlinePrefill?: unknown }).inlinePrefill
@@ -520,22 +484,26 @@ function expandDialogFormRef(
   // submit button; on a dialog it reads as the
   // TRIGGER's label, so repurposing it for the modal's submit button would
   // silently relabel existing dialogs.
-  const formBodyHtml = renderEmbeddedFormBody(
-    app,
-    form,
-    resolveEmbedPrefill(app, form, inlinePrefill, ctx),
-    ctx.activeLang,
-    {
-      titleAs,
-      omitTitle: true,
-      // The dialog draws a Cancel beside the form's submit, in the page language.
-      cancelLabel: resolveInterpreterString(
-        'dialog.cancel',
-        resolveDocumentLang(app.languages, ctx.activeLang),
-        app.languages
-      ),
-      ...optionSetsFor(form, ctx),
-    }
+  const formBodyHtml = scopeControlIds(
+    renderEmbeddedFormBody(
+      app,
+      form,
+      resolveEmbedPrefill(app, form, inlinePrefill, ctx),
+      ctx.activeLang,
+      {
+        titleAs,
+        omitTitle: true,
+        // The dialog draws a Cancel beside the form's submit, in the page language.
+        cancelLabel: resolveInterpreterString(
+          'dialog.cancel',
+          resolveDocumentLang(app.languages, ctx.activeLang),
+          app.languages
+        ),
+        ...optionSetsFor(form, ctx),
+      }
+    ),
+    form.name,
+    ctx
   )
   return {
     ...(component as Record<string, unknown>),

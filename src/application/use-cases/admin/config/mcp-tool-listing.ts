@@ -16,11 +16,11 @@
  *
  *  - its tool NAMES are a faithful mirror of `compileMcpTools`, so an operator
  *    reading the console and an AI reading `tools/list` see one set of
- * identifiers — the property `[internal ref]` asserts by naming
+ *    identifiers — the property an admin config MCP tools spec asserts by naming
  *    the exact `{appName}_{entity}_{operation}` strings rather than counting;
  *  - its DESCRIPTIONS come from the shared builders in
  *    `domain/models/shared/ai-access` that the wire-format compiler also calls,
- * which is precisely why [internal ref] admits `description` into the payload
+ *    which is precisely why the facts-not-strings rule admits `description` into the payload
  *    despite it being an English sentence: it is not the console's sentence.
  *
  * It also lives in the domain layer, where the wire compiler does not — the
@@ -32,9 +32,23 @@
  * "Automations" exist nowhere but on the console page and stay in its config.
  */
 
+import { listAdminReadTools } from '@/application/use-cases/admin/admin-read-registry'
 import { listMcpTools } from '@/domain/models/app/admin/admin-mcp-tool-listing'
-import type { McpToolCategory, McpToolsResponse } from '@/domain/models/api/admin/mcp'
+import type {
+  McpToolCategory,
+  McpToolListing,
+  McpToolsResponse,
+} from '@/domain/models/api/admin/mcp'
 import type { App } from '@/domain/models/app'
+
+/** What the listing needs to know about the running MCP server. */
+export interface McpToolsListingOptions {
+  /**
+   * `MCP_EXPOSE_INTERNALS`. With it off the server offers no admin read tool,
+   * and the listing never shows a tool the server would not offer.
+   */
+  readonly exposeInternals: boolean
+}
 
 /**
  * The listing, narrowed when a category is given.
@@ -43,11 +57,23 @@ import type { App } from '@/domain/models/app'
  * catalogue: that is the figure a consumer paging or gating on this response
  * needs, and a `total` ignoring the filter would tell a narrowed caller there
  * are more rows to fetch than exist.
+ *
+ * The `admin` category is answered ONLY when asked for. The admin read tools
+ * are compiled from the app's name on every instance, so they are not config
+ * exposure: the default listing and its `total` stay config-derived, and a
+ * config exposing nothing still answers an empty array and a zero.
  */
 export function buildMcpToolsResponse(
   app: App,
-  category: McpToolCategory | undefined
+  category: McpToolCategory | undefined,
+  options: McpToolsListingOptions
 ): McpToolsResponse {
+  if (category === 'admin') {
+    const tools: ReadonlyArray<McpToolListing> = options.exposeInternals
+      ? listAdminReadTools(app.name).map((tool) => ({ ...tool, category: 'admin' as const }))
+      : []
+    return { tools, total: tools.length }
+  }
   const tools = listMcpTools(app).filter(
     (tool) => category === undefined || tool.category === category
   )

@@ -13,6 +13,7 @@ import {
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import type { TableRecord } from '../runtime/types'
+import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
 /**
  * Client-side aggregation + formatting for the KPI component.
@@ -25,9 +26,17 @@ import type { TableRecord } from '../runtime/types'
 /** The numeric aggregate functions a KPI can apply (shared with charts). */
 export type KpiAggregateFunction = AggregateFunction
 
+/** One side of a ratio: the conditions a record of the data source must also meet. */
+export interface KpiRatioSide {
+  readonly filter: readonly DataFilter[]
+}
+
 export interface KpiAggregateConfig {
-  readonly function: KpiAggregateFunction
+  /** A numeric function, or `ratio` — two counts the aggregate read answers. */
+  readonly function: KpiAggregateFunction | 'ratio'
   readonly field?: string
+  readonly numerator?: KpiRatioSide
+  readonly denominator?: KpiRatioSide
 }
 
 export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact' | 'bytes'
@@ -46,7 +55,8 @@ export interface KpiFormatConfig {
 export function aggregateKpi(records: readonly TableRecord[], config: KpiAggregateConfig): number {
   if (config.function === 'count') return records.length
 
-  if (!config.field) return 0
+  // A ratio is answered by the aggregate read only (`useKpiAggregate`).
+  if (!config.field || config.function === 'ratio') return 0
 
   const { field } = config
   const values = records.map((record) => Number(record[field])).filter((n) => Number.isFinite(n))

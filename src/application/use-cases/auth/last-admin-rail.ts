@@ -55,7 +55,6 @@ export type RailedWrite<A> =
   | { readonly _tag: 'Written'; readonly previous: A }
 
 /** An account with no readable ban columns is restored as not banned. */
-// eslint-disable-next-line unicorn/no-null -- the ban reason column is cleared with `null`
 const NOT_BANNED: UserBanState = { banned: false, banReason: null }
 
 /**

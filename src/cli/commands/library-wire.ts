@@ -22,13 +22,17 @@
  *
  * ─── WHEN IT DOES NOT GUESS ─────────────────────────────────────────────────
  *
- * A target key whose value is written on its own line — a flow sequence
- * (`components: []`), a `$ref` to another file, an anchor or an alias — is not
- * a block sequence a line can be appended to. Appending there would corrupt the
+ * A target key whose value is written on its own line — a non-empty flow
+ * sequence (`components: [a, b]`), a `$ref` to another file, an anchor or an
+ * alias — is not a block sequence a line can be appended to. Appending there would corrupt the
  * document, so the plan says `unwirable` and the caller prints the line for the
  * operator to place by hand. The same answer is given for anything this reader
  * cannot place with certainty: a key declared twice, CRLF line endings, or a
  * root written as one flow mapping.
+ *
+ * The one inline value it does rewrite is the EMPTY flow sequence: `key: []`
+ * holds nothing to lose, so the `[]` is dropped (a trailing comment is kept) and
+ * the item goes on the line below, exactly as under a bare `key:`.
  */
 
 /** The outcome of planning one insertion into a YAML root. */
@@ -53,7 +57,6 @@ export const provenanceHeader = (id: string, version: string): string =>
  * never part of a value.
  */
 export const renderYamlFragment = (header: string, value: unknown): string => {
-  // eslint-disable-next-line unicorn/no-null -- the stringify signature takes null as its replacer
   const body = Bun.YAML.stringify(value, null, 2)
     .split('\n')
     .map((line) => line.trimEnd())
@@ -63,7 +66,6 @@ export const renderYamlFragment = (header: string, value: unknown): string => {
 
 /** A TypeScript fragment: the provenance comment, then a default export. */
 export const renderTsFragment = (header: string, binding: string, value: unknown): string =>
-  // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
   `// ${header}\n\nconst ${binding} = ${JSON.stringify(value, null, 2)}\n\nexport default ${binding}\n`
 
 /** `hero-home` → `heroHome`: the binding a TypeScript fragment exports. */
@@ -97,6 +99,10 @@ const inlineValue = (keyLine: string): string =>
     .slice(keyLine.indexOf(':') + 1)
     .replace(/\s#.*$/, '')
     .trim()
+
+/** `key: []  # note` → `key:  # note`: the empty flow sequence removed, the comment kept. */
+const dropEmptyFlowSequence = (keyLine: string): string =>
+  keyLine.replace(/:\s*\[\s*\]/, ':').trimEnd()
 
 /** Index of the first line after `from` that is neither blank nor a comment. */
 const nextContentIndex = (lines: readonly string[], from: number): number =>
@@ -179,7 +185,14 @@ export const planYamlWire = (rootText: string, key: string, refPath: string): Ya
   if (count > 1) return { kind: 'unwirable', reason: `\`${key}\` is declared more than once` }
   if (index === -1) return appendKey(rootText, key, refLine(2, refPath))
 
-  const inline = inlineValue(lines[index] ?? '')
+  const keyLine = lines[index] ?? ''
+  const inline = inlineValue(keyLine)
+  if (/^\[\s*\]$/.test(inline))
+    return insertAt(
+      lines.map((line, at) => (at === index ? dropEmptyFlowSequence(line) : line)),
+      index,
+      refLine(2, refPath)
+    )
   return inline === ''
     ? planUnderKey(lines, index, refPath)
     : {

@@ -47,6 +47,8 @@ export interface DataTableColumnMeta {
   readonly frozen?: boolean
   /** Conditional cell styling rules evaluated per row. */
   readonly cellStyle?: readonly CellStyleCondition[]
+  /** `truncate` — the cell holds one line, cut at the column's width. */
+  readonly truncate?: boolean
   /** The bound record field. Absent on display columns (selection, actions). */
   readonly field?: string
   /** Opts the column into inline double-click editing. */

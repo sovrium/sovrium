@@ -56,7 +56,7 @@ interface DeclaredLine {
  *
  * The vocabulary is `prefer` / `never` because a page stamps the value VERBATIM
  * into `data-design-imagery-verdict`, which is what the shipped attribute
- * already carries (`[internal ref]` asserts both literals).
+ * already carries (an admin design system spec asserts both literals).
  *
  * It was DUPLICATED, knowingly, from an identical `isRefusal` in the Brand page
  * BUILDER, which this projection could not import from. That builder is gone —

@@ -17,24 +17,23 @@ import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-ani
  * token classes UNCONDITIONALLY; the old literal-color fallback branches
  * (`bg-blue-600`, `border-gray-200`, …) are dead and have been removed.
  *
- * ## Why this layer is now nearly empty
+ * ## Why this layer is nearly empty
  *
- * It used to carry a rule for every component name the platform knew — `.card`,
- * `.badge`, `.btn` and its variants, `.toast`, `.nav`, `.sidebar`, `.modal-*`,
- * `.alert-*`, `.data-table th`. Every one of them has been retired, for one of
- * two reasons:
+ * It carries no rule per component name — no `.card`, `.badge`, `.btn` and its
+ * variants, `.toast`, `.nav`, `.sidebar`, `.modal-*`, `.alert-*` or
+ * `.data-table th`. Such a rule is useless for one of two reasons:
  *
- *  - **Nothing wore the class.** `.toast`, `.nav`, `.sidebar`, `.modal-*`,
- *    `.alert-*`, `.data-table th` and `.container-page` had no emitter at all.
+ *  - **Nothing wears the class.** `.toast`, `.nav`, `.sidebar`, `.modal-*`,
+ *    `.alert-*`, `.data-table th` and `.container-page` have no emitter at all.
  *    The real toast is `[data-toast]`, the real nav and alerts are their own
- *    recipes. The rules only ever matched fixtures that invented the names.
- *  - **A recipe already painted it.** `.card`, `.badge` and the `.btn-*` family
- *    are `@apply` rules in `@layer components`, and the recipes covering the
- *    same elements land in `@layer utilities`, which WINS in Tailwind v4. The
- *    rules were being painted over, and two of them had drifted into being
- *    wrong (`.card` cast a shadow where a card casts none; `.badge` was a pill
- *    where a badge is barely rounded) — invisible precisely because they never
- *    reached the screen.
+ *    recipes. A rule for those names only matches fixtures that invent them.
+ *  - **A recipe already paints it.** `.card`, `.badge` and the `.btn-*` family
+ *    as `@apply` rules would sit in `@layer components`, while the recipes
+ *    covering the same elements land in `@layer utilities`, which WINS in
+ *    Tailwind v4. Such rules are painted over and drift into being wrong
+ *    unnoticed (a `.card` shadow where a card casts none; a pill `.badge` where
+ *    a badge is barely rounded) — invisible precisely because they never reach
+ *    the screen.
  *
  * The CLASSES in that second group are still emitted onto the DOM and must stay
  * there: `style-processor.ts` writes them from `COMPONENT_TYPE_CLASS_MAP`, and
@@ -278,7 +277,7 @@ const SINGLE_LINE_CONTROL_SELECTOR = [
 ].join(', ')
 
 /**
- * The bare-ELEMENT rule. Unlike every class rule that used to sit beside it,
+ * The bare-ELEMENT rule. Unlike a component class rule,
  * this one has no recipe to be overpainted by: it is what a plain `<input>`
  * looks like when nobody styled it, which is exactly the case a component
  * recipe never reaches.
@@ -293,10 +292,8 @@ ${buildFormShellRules()}`
 /**
  * Generate the `@layer components` block.
  *
- * Deliberately small — see the module header for what was retired and why.
- * It no longer takes the `design`: the only key it ever read was
- * `radius.full`, for the `.badge` pill that has been retired, and every
- * remaining rule is design-independent.
+ * Deliberately small — see the module header for why there are no component
+ * class rules. It takes no `design`: every rule here is design-independent.
  *
  * @returns CSS @layer components rule as string
  */

@@ -36,7 +36,10 @@
 import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
 import { compile, type Polyfills } from 'tailwindcss'
-import { designComponentClassCandidates } from '@/domain/models/app/design/components'
+import {
+  componentClassesCandidates,
+  designComponentClassCandidates,
+} from '@/domain/models/app/design/components'
 import {
   BUILTIN_CSS_CANDIDATES,
   TAILWIND_INDEX_CSS,
@@ -175,11 +178,14 @@ const collectClassStrings = (node: unknown): readonly string[] => {
  * `states` entries additionally need their variant prefix applied before they
  * are offered to the engine — the prefixed form, not the bare one. Both are
  * handled by `designComponentClassCandidates`, which lives beside the state
- * vocabulary in the domain so the harvest and the renderer cannot drift.
+ * vocabulary in the domain so the harvest and the renderer cannot drift. The
+ * per-instance `classes` keys (a node's own, a markdown page's) have the same
+ * shape and the same blind spot, so `componentClassesCandidates` walks them.
  */
 const collectAppCandidates = (app?: App): readonly string[] => [
   ...collectClassStrings(app),
   ...designComponentClassCandidates(app?.design?.components),
+  ...componentClassesCandidates(app),
 ]
 
 /**

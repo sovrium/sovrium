@@ -1,0 +1,228 @@
+# sovrium-library: block/settings-security@0.30.0
+name: settings-security
+type: container
+element: section
+props:
+  className: flex w-full max-w-180 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-1
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: Security
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: 'How you prove it is you, and where you are signed in.'
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Passkeys
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: 'Sign in with your fingerprint, face or device PIN instead of a password.'
+          - type: form
+            action:
+              type: auth
+              method: registerPasskey
+              submitLabel: Add a passkey
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: container
+            props:
+              className: min-w-0 p-2
+            children:
+              - type: table
+                props:
+                  aria-label: Passkeys
+                dataSource:
+                  auth: passkeys
+                columns:
+                  - field: name
+                    label: Name
+                  - field: deviceType
+                    label: Type
+                  - field: createdAt
+                    label: Added
+                    format: short-date
+                  - type: actions
+                    actions:
+                      - label: Remove
+                        variant: ghost
+                        action:
+                          type: auth
+                          method: removePasskey
+                          target: $record.id
+                        confirm:
+                          title: Remove this passkey?
+                          message: You can no longer sign in with $record.name.
+                          confirmLabel: Remove passkey
+                emptyMessage: No passkey yet. Add one to sign in without a password.
+    visibility:
+      declares: auth.passkeys
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Two-step verification
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Ask for a code from your phone after your password.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Authenticator app
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: 'Confirm your password, then scan the code with the app.'
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: form
+                    action:
+                      type: auth
+                      method: enableTwoFactor
+                      submitLabel: Turn on two-step
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Turn it off
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: Your account goes back to password only.
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: form
+                    action:
+                      type: auth
+                      method: disableTwoFactor
+                      submitLabel: Turn off two-step
+    visibility:
+      declares: auth.twoFactor
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Signed-in devices
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Where your account is signed in right now. Sign a device out if you do not recognise it.
+          - type: form
+            action:
+              type: auth
+              method: revokeOtherSessions
+              submitLabel: Sign out everywhere else
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: container
+            props:
+              className: min-w-0 p-2
+            children:
+              - type: table
+                props:
+                  aria-label: Signed-in devices
+                dataSource:
+                  auth: sessions
+                columns:
+                  - field: device
+                    label: Device
+                  - field: ipAddress
+                    label: Address
+                  - field: lastActiveAt
+                    label: Last active
+                    format: relative-date
+                  - type: actions
+                    actions:
+                      - label: Sign out
+                        variant: ghost
+                        action:
+                          type: auth
+                          method: revokeSession
+                          target: $record.id
+                        visibleWhen:
+                          field: current
+                          eq: false

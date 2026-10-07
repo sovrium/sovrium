@@ -22,17 +22,20 @@
  *     `display: none` node still ships it in the bytes.
  *
  * Visibility config is read off `component.visibility` OR
- * `component.props.visibility`. BOTH positions are read because the schema
- * spreads `visibilityFields` at the component ROOT (`component-types/modules/
- * visibility.ts`) while the long-standing runtime convention put it under
- * `props` — a declaration in the position the schema documents was silently
- * inert until this was widened. The declarative shape lives in the schema layer
- * and is duck-typed here so the renderer stays decoupled from the Effect Schema
- * definitions.
+ * `component.props.visibility`. The SESSION half — `when`, `roles`, the
+ * `$user.*` `condition`, a session-derived `capability` — is the domain's
+ * (`component-session-visibility-service.ts`), so the page a caller is shown
+ * and the page buttons that caller may press are judged by one rule. The
+ * request-context halves (`query`, `runtime`, `declares`, granted powers on a
+ * mount) are judged here.
  */
 
-import { splitGroupReferences } from '@/domain/models/app/auth/groups/group-reference'
-import { isAdminEquivalent, isAdminTier } from '@/domain/models/app/auth/roles'
+import {
+  sessionGatesAdmit,
+  sessionHoldsCapability,
+  visibilityOf,
+  type SessionVisibility,
+} from '@/domain/models/app/pages/component-session-visibility-service'
 import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
@@ -47,19 +50,10 @@ import type {
 import type { PageCapability } from '@/domain/models/app/pages/requires'
 
 /**
- * Visibility config shape as stored in component props
+ * Visibility config shape as stored on a component: the session half the
+ * domain judges, plus the request-context halves this module judges.
  */
-interface VisibilityCondition {
-  readonly field: string
-  readonly operator: 'eq' | 'neq'
-  readonly value: string
-}
-
-interface VisibilityConfig {
-  readonly when?: 'authenticated' | 'unauthenticated'
-  readonly roles?: readonly string[]
-  readonly condition?: VisibilityCondition
-  readonly capability?: CallerCapability
+interface VisibilityConfig extends SessionVisibility {
   /** Rendered only when the HOST app declares this capability. */
   readonly declares?: PageCapability
   /** Rendered only when the HOST app does NOT declare this capability. */
@@ -76,109 +70,14 @@ interface VisibilityConfig {
    * Rendered only when a declared `page.query` property resolves to a value
    * satisfying the operators — the URL-STATE gate. `name` addresses a
    * `page.query` property rather than a record field, which is why it is not a
-   * {@link VisibilityCondition}.
+   * `$user.*` condition.
    */
   readonly query?: { readonly name: string } & Readonly<Record<string, unknown>>
 }
 
-/**
- * Evaluates a field-based condition against the current session.
- *
- * Supports $user.* field references (e.g., $user.role, $user.plan).
- * Returns true if the condition is satisfied.
- */
-function evaluateCondition(
-  condition: VisibilityCondition,
-  session: SessionInfo | undefined
-): boolean {
-  const { field, operator, value } = condition
-
-  // Resolve field value from session ($user.* references only)
-  const fieldValue =
-    field.startsWith('$user.') && session !== undefined
-      ? (session as unknown as Record<string, string | undefined>)[field.slice('$user.'.length)]
-      : undefined
-
-  if (operator === 'eq') return fieldValue === value
-  if (operator === 'neq') return fieldValue !== value
-  return false
-}
-
-/**
- * Checks if the session satisfies the role requirements of a visibility config.
- *
- * Page `access` (`isSessionAuthorized` in `page-access-check.ts`) matches its
- * entries the same way, for the first two rules:
- *   - a plain entry matches the session role or any `effectiveRoles` overlay;
- *   - a `group:<name>` entry matches a member of that group.
- *
- * The admin rule is where the two DIFFER, deliberately. Page `access` lets an
- * admin-equivalent session (`session.isUnrestricted`, which the auth context
- * computes as `isAdminEquivalent(role, app)`) through EVERY role list. Here the
- * same predicate applies only to a gate that NAMES `admin`: it admits the
- * app's admin-equivalent role — the resolved top role when the app declares
- * one above the built-in admin — in addition to the literal `admin` role the
- * first rule already matches. A block gated `roles: [auditor]` is for
- * auditors, and an administrator reaches it only by holding that role. A
- * component composing `roles` with `capability` relies on exactly that (the
- * two are AND-ed, and the administrator holds the capability but not the
- * role).
- */
-function isRoleVisible(
-  visibility: VisibilityConfig,
-  session: SessionInfo | undefined,
-  app: App
-): boolean {
-  if (!visibility.roles || visibility.roles.length === 0) return true
-  if (session === undefined) return false
-  const { roles, groups } = splitGroupReferences(visibility.roles)
-  if (holdsListedRole(roles, session, app)) return true
-  const userGroups = session.groups ?? []
-  return groups.some((group) => userGroups.includes(group))
-}
-
-/** True when the session role, an overlay role, or the admin bypass matches `roles`. */
-function holdsListedRole(roles: readonly string[], session: SessionInfo, app: App): boolean {
-  if (roles.includes(session.role)) return true
-  if ((session.effectiveRoles ?? []).some((role) => roles.includes(role))) return true
-  return roles.includes('admin') && isAdminEquivalent(session.role, app)
-}
-
-/**
- * True when the `when` / `roles` half of a visibility config admits the session.
- */
-function isSessionGateMet(
-  visibility: VisibilityConfig,
-  session: SessionInfo | undefined,
-  app: App
-): boolean {
-  const isAuthenticated = session !== undefined
-  if (visibility.when === 'authenticated' && !isAuthenticated) return false
-  if (visibility.when === 'unauthenticated' && isAuthenticated) return false
-  return isRoleVisible(visibility, session, app)
-}
-
-/**
- * Extracts visibility config from a component node.
- *
- * Reads `props.visibility` FIRST, then the component ROOT. Both positions are
- * legal: the schema spreads `visibilityFields` at the root, while the
- * long-standing runtime convention nested it under `props`. Reading only one
- * made a declaration written in the OTHER position silently inert — a gate that
- * validates and does nothing, which is the worst failure mode an access control
- * has. `props` wins a (nonsensical) tie so the historical position keeps its
- * behaviour exactly.
- */
-function extractVisibility(node: unknown): VisibilityConfig | undefined {
-  if (typeof node !== 'object' || node === null) return undefined
-  const obj = node as { readonly props?: Record<string, unknown>; readonly visibility?: unknown }
-  const fromProps = obj.props?.visibility
-  if (typeof fromProps === 'object' && fromProps !== null) return fromProps as VisibilityConfig
-  if (typeof obj.visibility === 'object' && obj.visibility !== null) {
-    return obj.visibility as VisibilityConfig
-  }
-  return undefined
-}
+/** The node's `visibility` block — see {@link visibilityOf} for the two positions read. */
+const extractVisibility = (node: unknown): VisibilityConfig | undefined =>
+  visibilityOf<VisibilityConfig>(node)
 
 /**
  * True when a node's `condition` / `when` / `roles` gates admit the session.
@@ -195,11 +94,7 @@ function isNodeVisibleForSession(
   if (typeof node !== 'object' || node === null) return true
   if (isComponentReferenceNode(node as Page['components'][number])) return true
   const visibility = extractVisibility(node)
-  if (visibility === undefined) return true
-  if (visibility.condition !== undefined && !evaluateCondition(visibility.condition, session)) {
-    return false
-  }
-  return isSessionGateMet(visibility, session, app)
+  return visibility === undefined || sessionGatesAdmit(visibility, session, app)
 }
 
 /**
@@ -409,9 +304,7 @@ export function applyOverlayTriggerGate(
  */
 function holdsCapability(ctx: GateContext, capability: CallerCapability): boolean {
   if (ctx.granted !== undefined) return ctx.granted.has(capability)
-  if (ctx.session === undefined) return false
-  if (capability === 'admin-console') return isAdminTier(ctx.session.role, ctx.app)
-  return isAdminEquivalent(ctx.session.role, ctx.app)
+  return sessionHoldsCapability(capability, ctx.session, ctx.app)
 }
 
 /**

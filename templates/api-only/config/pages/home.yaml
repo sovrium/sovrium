@@ -119,7 +119,8 @@ components:
                     content: Projects and tasks behind a REST API, generated from one config file. Every call carries a key; members read and write, viewers read.
 
               # 1 · Run it. The code blocks keep one dark theme in both schemes;
-              # the wrapper paints their file bar in the same ground.
+              # each block paints its own ground, and its caption part paints
+              # the file bar above it to match.
               - type: container
                 props:
                   className: flex flex-col gap-2
@@ -130,12 +131,15 @@ components:
                       className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
                     content: 1 · Run it
                   - type: container
-                    props:
-                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
                     children:
                       - type: code
                         props:
                           language: bash
+                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                        classes:
+                          parts:
+                            frame: border-[#30363d]
+                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
                         filename: terminal
                         content: |-
                           sovrium start app.yaml
@@ -153,12 +157,15 @@ components:
                       className: font-sans text-[14px] font-semibold leading-[1.35] tracking-normal
                     content: 2 · Call it
                   - type: container
-                    props:
-                      className: '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]'
                     children:
                       - type: code
                         props:
                           language: bash
+                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                        classes:
+                          parts:
+                            frame: border-[#30363d]
+                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
                         filename: terminal
                         content: |-
                           curl -H "x-api-key: $TASK_API_KEY" \
@@ -197,13 +204,25 @@ components:
                     content: 3 · What it serves
                   - type: container
                     props:
-                      className: 'overflow-x-auto rounded-lg max-md:hidden border border-border bg-background-raised [&_table]:w-full [&_table]:border-collapse [&_table]:text-[13px] [&_th]:h-auto [&_th]:border-b [&_th]:border-border [&_th]:bg-background-subtle [&_th]:px-3 [&_th]:py-[7px] [&_th]:text-left [&_th]:text-[12px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-foreground-subtle [&_td]:h-9 [&_td]:text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-[5px] [&_td]:whitespace-nowrap [&_tr:last-child_td]:border-b-0 [&_td:first-child]:font-medium [&_td:nth-child(2)]:text-foreground-muted [&_td:nth-child(3)]:font-mono'
+                      className: overflow-x-auto rounded-lg max-md:hidden border border-border bg-background-raised
                     children:
                       - type: table
                         caption: The tables the API serves, with their endpoints
                         props:
-                          className: '!table !w-full !rounded-none !border-0 !bg-transparent [&_caption]:sr-only'
+                          className: '!table !w-full border-collapse !rounded-none !border-0 !bg-transparent text-[13px]'
+                        # The caption names the table for a screen reader; the
+                        # heading above already names it on screen.
+                        classes:
+                          parts:
+                            caption: sr-only
+                            header: h-auto border-b border-border bg-background-subtle px-3 py-[7px] text-left text-[12px] leading-[var(--text-xs--line-height)] font-medium whitespace-nowrap text-foreground-subtle
+                            row: last:*:border-b-0
+                            cell: h-9 text-[13px] leading-[var(--text-sm--line-height)] border-b border-border px-3 py-[5px] whitespace-nowrap
                         tableHeaders: [Table, Fields, Endpoint]
+                        tableColumns:
+                          - className: font-medium
+                          - className: text-foreground-muted
+                          - className: font-mono
                         tableRows:
                           - [
                               projects,
@@ -303,7 +322,10 @@ components:
                         element: span
                         props:
                           format: markdown
-                          className: '[&_p]:text-[13px] [&_code]:font-mono [&_code]:text-[1em]'
+                        classes:
+                          parts:
+                            paragraph: text-[13px]
+                            inlineCode: font-mono text-[1em]
                         content: API key on `x-api-key`
                   - type: container
                     props:

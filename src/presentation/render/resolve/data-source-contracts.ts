@@ -20,7 +20,7 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
-import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
+import type { ReadTableAsCaller, SignFileUrl } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type {
   ComponentReference,
@@ -28,6 +28,7 @@ import type {
 } from '@/domain/models/app/components/reference'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { InvitationFacts } from '@/domain/models/app/pages/invitation-vars-service'
 
 export const SINGLE_RECORD_NOT_FOUND = Symbol('SINGLE_RECORD_NOT_FOUND')
 export const UNAUTHORIZED = Symbol('UNAUTHORIZED')
@@ -127,6 +128,16 @@ export interface DataSourceDb {
    * narrowed to its reader.
    */
   readonly readTableAsCaller?: ReadTableAsCaller
+
+  /** Optional — the request's download-address signer (`file-preview`). Absent, no preview is drawn. */
+  readonly signFileUrl?: SignFileUrl
+
+  /**
+   * Optional — the invitation an invitation token names, for a
+   * `page.invitation` page. `undefined` for a token that matches nothing (or an
+   * accepted or revoked invitation). Absent, every token reads as invalid.
+   */
+  readonly readInvitation?: (token: string) => Promise<InvitationFacts | undefined>
 }
 
 /** Injects a _dataSourceError prop into a component's props. */
@@ -160,12 +171,10 @@ export function validateDataSourceFields(
  * record — re-exported from the ONE implementation in
  * `@/domain/utils/substitute-record-vars`.
  *
- * This module used to carry its own copy, and the copy disagreed with the
- * shared helper on exactly one input: it tested `value !== undefined` only, so
- * an explicit `null` painted the literal text `null` into whatever it was
- * substituted into. That divergence is closed — see the shared module's header
- * for the coercion contract and the `|` fallback chain, both of which every
- * caller of this name now gets.
+ * No local copy: a copy testing `value !== undefined` only would paint an
+ * explicit `null` as the literal text `null` into whatever it was substituted
+ * into. See the shared module's header for the coercion contract and the `|`
+ * fallback chain, both of which every caller of this name gets.
  */
 export { substituteRecordVars }
 

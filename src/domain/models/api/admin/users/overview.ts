@@ -8,11 +8,11 @@
 /**
  * API contract for `GET /api/admin/users/overview`.
  *
- * Second overview-shape endpoint after `[internal ref]` (story #1)
+ * Second overview-shape endpoint after the admin automations overview requirement (story #1)
  * and the first to **consume** the shared period preset (CC-2) without re-declaring
  * it. Generalizes [internal ref] D5 (`series` rollup with fixed buckets) by re-using the
  * same `{ interval, points: [{ timestamp, ... }] }` envelope and adding domain-
- * specific per-point metrics (`signups`, `sessions_started`) plus a by-role
+ * specific per-point metrics (`signups`, `sessions_started`) plus a per-role
  * aggregate breakdown that the automations overview did not need.
  *
  * Source story: [internal ref]
@@ -85,31 +85,27 @@ const seriesPointSchema = Schema.Struct({
 }).annotate({ identifier: 'UsersOverviewSeriesPoint' })
 
 /**
- * Per-role count breakdown — exhaustive over the three installed Sovrium roles.
+ * One row of the per-role breakdown: a role the app can assign, and how many
+ * accounts hold it.
  *
- * `admin + operator + member` equals `totals.users` per the
- * single-role-per-user invariant (every user holds exactly one role). The
- * three roles are listed as REQUIRED integer fields rather than a `Record<role,
- * number>` so OpenAPI consumers see the full shape, response validation
- * catches a missing role count as a 500, and dashboard tiles can render the
- * by-role pie chart without conditional branches per role.
- *
- * If a fifth role is added in a future feature, this schema gets a
- * non-breaking additive field alongside the existing four.
+ * The row set is the app's assignable vocabulary — exactly the names
+ * `GET /api/admin/roles` answers (built-in, admin-tier and declared) — in the
+ * same order, every role present with `count: 0` when nobody holds it. So the
+ * list has the same length for every period and data state, and a console
+ * binds it with the same `name` key as the roles endpoint. An array of rows
+ * rather than an object keyed by role name: the order is stated, OpenAPI
+ * describes it without an open `additionalProperties`, and a role name never
+ * becomes a JSON key.
  */
-const byRoleSchema = Schema.Struct({
-  admin: Schema.Int.annotate({ description: 'Users holding the `admin` role.' }).pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(0))
-  ),
-  operator: Schema.Int.annotate({ description: 'Users holding the `operator` role.' }).pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(0))
-  ),
-  member: Schema.Int.annotate({ description: 'Users holding the `member` role.' }).pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(0))
-  ),
-}).annotate({
-  description: 'Per-role count breakdown. The sum across all three roles equals `totals.users`.',
-})
+const roleCountSchema = Schema.Struct({
+  name: Schema.String.annotate({
+    description:
+      'A role this app can assign: a built-in (`admin`, `member`, `viewer`), an admin-tier name (`admin-editor`, `admin-viewer`, `operator`), or one declared in `auth.roles`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  count: Schema.Int.annotate({
+    description: 'Accounts whose role is this name. Zero when nobody holds it.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'UsersOverviewRoleCount' })
 
 /**
  * Response shape of `GET /api/admin/users/overview`.
@@ -121,8 +117,10 @@ const byRoleSchema = Schema.Struct({
  *   24-hour aggregate of distinct session activity, regardless of the
  *   requested `period` (the dashboard footer always shows "today" no matter
  *   which tile filter is active). `new_in_period` scales with `?period` and
- *   equals the sum of `series.points[].signups`. `by_role` is the exhaustive
- *   per-role breakdown across the three installed roles.
+ *   equals the sum of `series.points[].signups`. `roles` counts the accounts
+ *   per assignable role, `without_role` the accounts no role recognises, and
+ *   `invited` the accounts of invitations nobody has accepted (outside
+ *   `users`).
  *
  * - `series` — the bucketed rollup. `interval` mirrors the period mapping
  * (`1h` for 24h period; `1d` for 7d/30d) — locked by [internal ref] D5 in story
@@ -141,7 +139,7 @@ export const usersOverviewResponseSchema = Schema.Struct({
   totals: Schema.Struct({
     users: Schema.Int.annotate({
       description:
-        'Total live users in the auth.user table (excluding soft-deleted rows). Equals `by_role.admin + by_role.operator + by_role.member` per the single-role-per-user invariant.',
+        'Live accounts (excluding soft-deleted rows and accounts an unaccepted invitation provisioned). Equals the sum of `roles[].count` plus `without_role`: every account is counted exactly once.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     active_24h: Schema.Int.annotate({
       description:
@@ -151,7 +149,18 @@ export const usersOverviewResponseSchema = Schema.Struct({
       description:
         'Users created within the requested period (24h / 7d / 30d). Equals the sum of `series.points[].signups` for the same period.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
-    by_role: byRoleSchema,
+    roles: Schema.Array(roleCountSchema).annotate({
+      description:
+        'Accounts per role the app can assign, one row per role, sorted by name as `GET /api/admin/roles` sorts its rows. Every assignable role is listed, with a count of 0 when nobody holds it. Invited accounts are not counted here.',
+    }),
+    without_role: Schema.Int.annotate({
+      description:
+        'Accounts whose stored role is empty or is not a role this app can assign — for example a role removed from the configuration. Such an account is granted nothing. Invited accounts are not counted here.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    invited: Schema.Int.annotate({
+      description:
+        'Accounts provisioned by an invitation nobody has accepted yet, expired or not. They cannot sign in, so they are counted here and nowhere else: not in `users`, `roles`, `without_role`, `new_in_period` or the series.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   }).annotate({ description: 'Period-aware aggregate counters surfaced as dashboard tiles.' }),
   series: Schema.Struct({
     interval: seriesIntervalSchema,
@@ -172,3 +181,5 @@ export const usersOverviewResponseSchema = Schema.Struct({
 export type UsersOverviewResponse = typeof usersOverviewResponseSchema.Type
 /** @public */
 export type UsersOverviewSeriesPoint = typeof seriesPointSchema.Type
+/** @public */
+export type UsersOverviewRoleCount = typeof roleCountSchema.Type

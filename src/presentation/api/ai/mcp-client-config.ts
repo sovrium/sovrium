@@ -6,14 +6,13 @@
  */
 
 /**
- * MCP Client configuration parsing (X-2 / [internal ref]).
+ * MCP Client configuration parsing (X-2 / the AI MCP client requirement).
  *
  * Reads MCP_CLIENT_SERVERS and the per-server `MCP_AUTH_TYPE_{N}`,
  * `MCP_AUTH_TOKEN_{N}`, `MCP_AUTH_HEADER_{N}` env vars into a typed structure
  * that route handlers can consume without re-parsing. Tokens are kept inside
  * this module's return value so the network layer can authenticate, but
- * status / tools handlers MUST NOT echo the token back in HTTP responses
- *.
+ * status / tools handlers MUST NOT echo the token back in HTTP responses.
  *
  * The catalog of tools exposed by the platform when MCP_CLIENT_SERVERS is
  * configured is a static, conservative inventory: in real deployments the

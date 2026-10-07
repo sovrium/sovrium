@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { App } from '@/domain/models/app'
-
 /** `app.components` — the templates a `$ref` / `component` reference names. */
 export type Templates = readonly unknown[]
 
@@ -85,11 +83,17 @@ function collectPlacedTemplates(
         acc
       )
     }
-    if (acc.has(name)) return acc
+    // The page components a placement passes into its template's `$children`
+    // slot are drawn on the page like any other — walked whatever the template.
+    const withSlotted = renderedChildLists(node).reduce(
+      (inner, list) => collectPlacedTemplates(list, templates, inner),
+      acc
+    )
+    if (withSlotted.has(name)) return withSlotted
     const template = findTemplate(templates, name)
-    if (template === null || typeof template !== 'object') return acc
+    if (template === null || typeof template !== 'object') return withSlotted
     const body = template as TreeNode
-    return collectPlacedTemplates([body], templates, new Map([...acc, [name, body]]))
+    return collectPlacedTemplates([body], templates, new Map([...withSlotted, [name, body]]))
   }, found)
 }
 
@@ -102,15 +106,16 @@ export const placedTemplatesOf = (
 
 /**
  * Whether any node drawn from `items` itself — through its `children` and each
- * `responsive.<bp>.children`, stopping at a reference — satisfies `trips`.
- * References are covered by walking each placed template body separately.
+ * `responsive.<bp>.children` — satisfies `trips`. A reference is not itself a
+ * drawn node: its template body is covered by walking each placed template
+ * separately, and only its `children` — the page components it passes into the
+ * template's `$children` slot — are descended here.
  */
 function someNodeIn(items: readonly unknown[], trips: (node: TreeNode) => boolean): boolean {
   return items.some((item) => {
     if (item === null || typeof item !== 'object') return false
     const node = item as TreeNode
-    if (referencedTemplateName(node) !== undefined) return false
-    if (trips(node)) return true
+    if (referencedTemplateName(node) === undefined && trips(node)) return true
     return renderedChildLists(node).some((list) => someNodeIn(list, trips))
   })
 }
@@ -123,9 +128,8 @@ function nodesIn(
   return items.flatMap((item) => {
     if (item === null || typeof item !== 'object') return []
     const node = item as TreeNode
-    if (referencedTemplateName(node) !== undefined) return []
     const nested = renderedChildLists(node).flatMap((list) => nodesIn(list, keeps))
-    return keeps(node) ? [node, ...nested] : nested
+    return referencedTemplateName(node) === undefined && keeps(node) ? [node, ...nested] : nested
   })
 }
 
@@ -151,6 +155,16 @@ export const someRenderedNode = (
 ): boolean => someNodeIn(items, trips) || someNodeIn(placed, trips)
 
 /**
+ * What the component-tree search reads off an app: its templates and each
+ * page's components. The walk treats every node as an untyped tree, so the
+ * decoded `App` and the authored (encoded) config both satisfy it.
+ */
+export type ComponentTreeSource = {
+  readonly components?: Templates
+  readonly pages?: ReadonlyArray<{ readonly components?: readonly unknown[] }>
+}
+
+/**
  * `componentTreeHasMatch` — the shared component-tree search behind every
  * "does this app place a component of kind X anywhere?" predicate
  * (`hasPageSearchComponent`, `appRequiresAi`).
@@ -158,6 +172,7 @@ export const someRenderedNode = (
  * It asks its question of the page AS RENDERED, through the same reach the
  * page-cache verdict uses (`page-cacheability.ts`): each page's components,
  * every container's `children`, every breakpoint's `responsive.<bp>.children`,
+ * the page components a reference passes into its template's `$children` slot,
  * and the template each `$ref` / `component` reference places, at any depth,
  * each template read once (which is also the cycle guard). A private walk used
  * to stand here that knew `children` and references but not breakpoints, so an
@@ -173,11 +188,14 @@ export const someRenderedNode = (
  * `subscribers`. `componentTreeHasType` builds the name-matching predicate for
  * the callers that still want one.
  *
- * @param app - Validated application schema.
+ * @param app - The app's pages and templates, decoded or as authored.
  * @param matches - Predicate over a component node; ANY match answers `true`.
  * @returns `true` when at least one matching component is drawn on some page.
  */
-export const componentTreeHasMatch = (app: App, matches: ComponentMatcher): boolean => {
+export const componentTreeHasMatch = (
+  app: ComponentTreeSource,
+  matches: ComponentMatcher
+): boolean => {
   const templates: Templates = app.components ?? []
   return (app.pages ?? []).some((page) => {
     const items = page.components ?? []
@@ -196,7 +214,10 @@ export const componentTreeHasMatch = (app: App, matches: ComponentMatcher): bool
  * @param types - The `type` literals to look for; ANY match answers `true`.
  * @returns `true` when at least one component of one of `types` is reachable.
  */
-export const componentTreeHasType = (app: App, types: ReadonlySet<string>): boolean =>
+export const componentTreeHasType = (
+  app: ComponentTreeSource,
+  types: ReadonlySet<string>
+): boolean =>
   componentTreeHasMatch(
     app,
     (node) => typeof node['type'] === 'string' && types.has(node['type'] as string)

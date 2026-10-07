@@ -85,10 +85,9 @@ export function substituteThemeTokens(value: unknown, design?: Design): unknown 
  * `$easing.smooth` far more often than `$easings.smooth`, and refusing the
  * natural one would only teach them that the syntax is unreliable.
  *
- * The three used to be reserved keys INSIDE the animation map, and this
- * function used to dig them out of `animations.easing`. They are siblings of
- * `animations` now, so that path resolves nothing at all — a token would have
- * silently rendered as its own literal.
+ * The three are siblings of `animations`, not reserved keys INSIDE the
+ * animation map, so digging them out of `animations.easing` would resolve
+ * nothing at all — a token would silently render as its own literal.
  */
 const MOTION_CATEGORY_MEMBERS: Readonly<Record<string, 'durations' | 'easings' | 'keyframes'>> = {
   duration: 'durations',

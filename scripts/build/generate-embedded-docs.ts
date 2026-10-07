@@ -51,6 +51,7 @@ import { SECTIONS } from '@/docs/sections'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { REPO_ROOT, walkSync } from '../lib/drift/walk'
 import { generatedModuleHeader, renderFileImports } from '../lib/embedded-file-module'
+import { INTERNAL_ID } from '../lib/internal-reference'
 import { posixRelative } from '../lib/posix-path'
 import { parseUserStorySections, type AcceptanceCriterionRow } from '../lib/user-story-criteria'
 
@@ -157,6 +158,142 @@ export interface BehaviourCensus {
   readonly fixmeOmitted: number
   /** `stories:` ids naming no `## US-` heading. Reported, never guessed at. */
   readonly unresolved: readonly string[]
+  /** Distinct cells (titles and criteria) whose internal ids were stripped. */
+  readonly stripped: readonly StrippedCell[]
+  /** Stripped cells that may not ship — the generator fails on any. */
+  readonly rejected: readonly (StrippedCell & { readonly problem: string })[]
+}
+
+/** One cell the render-time strip changed. */
+export interface StrippedCell {
+  readonly story: string
+  readonly original: string
+  readonly stripped: string
+}
+
+// ---------------------------------------------------------------------------
+// Internal ids, stripped at render time
+// ---------------------------------------------------------------------------
+
+/**
+ * An acceptance criterion is written for a reader INSIDE the repository, and
+ * some cite the spec or story that asserts them: "(control for …-010)",
+ * "see US-… for auto-save behaviour", "per …-006". In the manual those point at
+ * trees the binary does not carry, so they are removed as the cell is rendered.
+ * The user-story corpus keeps them; it is where they mean something.
+ *
+ * The id grammar is {@link INTERNAL_ID}, the same one the release canary refuses
+ * in public prose. The scaffolding around an id goes with it, in three passes,
+ * narrowest first:
+ *
+ *   1. Inside a parenthetical, the CLAUSE holding the id — clauses split on
+ *      `;`, ` — ` and `, ` outside code spans — and the whole parenthetical
+ *      when every clause held one. "(S1 anti-enumeration preserved — control
+ *      for X)" keeps "(S1 anti-enumeration preserved)".
+ *   2. A trailing "per X" / "see X" lead, with the id.
+ *   3. Any SENTENCE still holding an id. "Superseded by X, which asserts …"
+ *      reads as nothing once X is gone, so the whole sentence leaves.
+ *
+ * Then {@link strippedCellProblem} judges the result, and the generator FAILS
+ * the build on any cell it rejects: an emptied criterion, a dangling "see",
+ * an empty pair of parentheses, or an id the passes could not place. A cell
+ * that cannot be cleaned mechanically is reworded at its source, never
+ * published half-stripped.
+ */
+const ID_TOKEN = String.raw`\`?(?:${INTERNAL_ID.source})(?:(?:\.\.|,\s?)[0-9]{3})*\`?`
+
+const hasInternalId = (text: string): boolean => INTERNAL_ID.test(text)
+
+/**
+ * Split `text` at `separators` that sit outside a code span, keeping each
+ * separator with the segment it precedes, so `join('')` restores the input.
+ */
+const splitOutsideCode = (text: string, separator: RegExp): readonly string[] => {
+  const parts: string[] = []
+  let current = ''
+  let inCode = false
+  let index = 0
+  while (index < text.length) {
+    const char = text[index] ?? ''
+    if (char === '`') inCode = !inCode
+    const match = inCode ? null : separator.exec(text.slice(index))
+    if (match !== null && match.index === 0 && current !== '') {
+      parts.push(current)
+      current = match[0]
+      index += match[0].length
+      continue
+    }
+    current += char
+    index += 1
+  }
+  if (current !== '') parts.push(current)
+  return parts
+}
+
+const CLAUSE_SEPARATOR = /^(?:;\s*|\s+—\s+|,\s+)/
+
+/** Pass 1: the id-bearing clauses of every parenthetical. */
+const stripParentheticals = (cell: string): string =>
+  cell.replace(/\s*\(([^()]*)\)/g, (whole: string, inner: string) => {
+    if (!hasInternalId(inner)) return whole
+    const kept = splitOutsideCode(inner, CLAUSE_SEPARATOR).filter(
+      (clause) => !hasInternalId(clause)
+    )
+    if (kept.length === 0) return ''
+    const text = kept.join('').replace(CLAUSE_SEPARATOR, '')
+    return `${whole.match(/^\s*/)?.[0] ?? ''}(${text})`
+  })
+
+/** Pass 2: a "per X" / "see X" lead hanging off the end of a clause. */
+const stripLeads = (cell: string): string =>
+  cell.replace(new RegExp(String.raw`\s+(?:per|see|cf\.?)\s+${ID_TOKEN}(?=[.;,]|$)`, 'g'), '')
+
+/** Pass 3's unit: a cell split into sentences, outside code spans. */
+const sentences = (cell: string): readonly string[] => {
+  const pieces = splitOutsideCode(cell, /^\s+(?=[A-Z*`])/)
+  const out: string[] = []
+  let pending = ''
+  for (const piece of pieces) {
+    pending += piece
+    if (/[.!?]$/.test(pending.trimEnd())) {
+      out.push(pending)
+      pending = ''
+    }
+  }
+  if (pending !== '') out.push(pending)
+  return out
+}
+
+const tidy = (cell: string): string =>
+  cell
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([.,;:)])/g, '$1')
+    .replace(/\(\s+/g, '(')
+    .replace(/[\s,;:—]+$/, '')
+    .trim()
+
+/** Remove every internal id, and the scaffolding around it, from one cell. */
+export const stripInternalIds = (cell: string): string => {
+  if (!hasInternalId(cell)) return cell
+  const leadsGone = stripLeads(stripParentheticals(cell))
+  const kept = sentences(leadsGone).filter((sentence) => !hasInternalId(sentence))
+  return tidy(kept.join(''))
+}
+
+const DANGLING_END =
+  /\b(?:see|per|cf|by|for|is|are|was|via|of|the|a|an|and|or|to|with|which|complementing)$/i
+
+/**
+ * Why a stripped cell may not ship, or `null` when it reads clean. Exported for
+ * the test that holds every cell the corpus actually strips.
+ */
+export const strippedCellProblem = (original: string, stripped: string): string | null => {
+  if (stripped === original) return null
+  if (stripped.trim() === '') return 'nothing is left once its ids are removed'
+  if (hasInternalId(stripped)) return 'an id survived the strip'
+  if (/\(\s*\)/.test(stripped)) return 'an empty pair of parentheses is left'
+  if (DANGLING_END.test(stripped.replace(/[.!?]$/, ''))) return 'it ends on a dangling word'
+  return null
 }
 
 /**
@@ -198,8 +335,10 @@ export const buildBehaviour = (
           : [
               {
                 id,
-                title: story.title,
-                criteria: story.criteria.filter((row) => row.complete).map((row) => row.criterion),
+                title: stripInternalIds(story.title),
+                criteria: story.criteria
+                  .filter((row) => row.complete)
+                  .map((row) => stripInternalIds(row.criterion)),
               },
             ]
       }),
@@ -219,6 +358,28 @@ export const buildBehaviour = (
     return story === undefined ? [] : [story]
   })
 
+  // Judged per DISTINCT cell over the stories the manual cites, from the corpus
+  // rather than from the payload, so a cell cited by two articles is one cell.
+  const strippedByKey = new Map(
+    [...new Set(cited)].flatMap((id) => {
+      const story = index.get(id)
+      if (story === undefined) return []
+      const cells = [
+        story.title,
+        ...story.criteria.filter((row) => row.complete).map((row) => row.criterion),
+      ]
+      return cells.flatMap((original) => {
+        const after = stripInternalIds(original)
+        return after === original
+          ? []
+          : [[`${id}\u0000${original}`, { story: id, original, stripped: after }] as const]
+      })
+    })
+  )
+  const stripped = [...strippedByKey.values()].toSorted(
+    (a, b) => a.story.localeCompare(b.story) || a.original.localeCompare(b.original)
+  )
+
   return {
     articles,
     census: {
@@ -234,6 +395,11 @@ export const buildBehaviour = (
         0
       ),
       unresolved: [...new Set(cited.filter((id) => !index.has(id)))].toSorted(),
+      stripped,
+      rejected: stripped.flatMap((cell) => {
+        const problem = strippedCellProblem(cell.original, cell.stripped)
+        return problem === null ? [] : [{ ...cell, problem }]
+      }),
     },
   }
 }
@@ -294,6 +460,21 @@ if (import.meta.main) {
   const paths = collectDocFiles(REPO_ROOT)
   const { articles, census } = buildBehaviour(REPO_ROOT)
 
+  // Judged BEFORE anything is written: a rejected cell must not leave a
+  // half-stripped payload on disk for the next build to embed.
+  if (census.rejected.length > 0) {
+    printFailure({
+      headline: `${census.rejected.length} acceptance criteri(on/a) would not read as a sentence once their internal ids are stripped.`,
+      detail: census.rejected.map(
+        (cell) =>
+          `${cell.story}: ${cell.problem}\n    before: ${cell.original}\n    after:  ${cell.stripped}`
+      ),
+      guidance:
+        'Reword the cell in its user story so the sentence stands without the id — the manual never ships a half-stripped criterion.',
+    })
+    process.exit(1)
+  }
+
   writeFileSync(DOCS_OUT, renderDocsModule(paths))
   writeFileSync(BEHAVIOUR_OUT, renderBehaviourModule(articles))
 
@@ -315,6 +496,10 @@ if (import.meta.main) {
       (census.unresolved.length > 0
         ? `\n  UNRESOLVED stories: ${census.unresolved.join(', ')}`
         : '')
+  )
+  console.log(
+    `  ${census.stripped.length} criteri(on/a) had internal ids stripped at render time, ` +
+      `${census.rejected.length} rejected`
   )
   const unresolvedCount = census.unresolved.length
   if (unresolvedCount > 0) {

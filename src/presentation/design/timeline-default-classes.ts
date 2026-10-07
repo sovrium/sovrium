@@ -76,10 +76,10 @@
  * config can express, so a link is drawn as the band between the two records'
  * anchor points and nothing finer is invented.
  *
- * The RESIZE HANDLES remain absent, and remain a capability rather than a
- * restyle: a draggable handle has to commit a new end date back through the
- * records API, which is a write path, an optimistic update and a permission
- * gate — none of which a class computer can supply.
+ * The RESIZE HANDLES are a capability rather than a restyle: they are drawn
+ * by the island (`islands/timeline/timeline-resize.tsx`) with the write path,
+ * the optimistic update and the permission gate a class computer cannot
+ * supply, as transparent grips over each bar end.
  *
  * Canvas oracle: `spec-data.mjs:266-300` (`gantt`).
  */
@@ -107,7 +107,7 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 // reaches `--sv-border` directly through `generateAuthorSvBridge`
 // (`COLOR_TO_SV_TOKEN.border === 'border'`). Both spellings resolve to the same
 // value in zero-config AND under an author override, which is what keeps
-// `[internal ref]` — asserting the author's `#cccccc`
+// Asserting the author's `#cccccc`
 // lands on this element's border — green across the swap.
 const TIMELINE_SHELL = [
   'w-full p-4',
@@ -169,8 +169,8 @@ export const computeTimelineLaneClasses = (): string => TIMELINE_LANE
 // ──────────────────────────────────────────────────────────────────────────────
 
 // Canvas: an 18px `well` band carrying a 9px / weight 500 / uppercase title
-// tracked at 0.04em, in `prose`. What shipped was `text-sm font-semibold` on
-// the raised surface — a heading, competing with the record labels below it.
+// tracked at 0.04em, in `prose` — not `text-sm font-semibold` on the raised
+// surface, which reads as a heading competing with the record labels below it.
 //
 // The 18px band height is built from the type ladder rather than asserted:
 // `text-2xs` is 10/14, so `py-0.5` (2px + 2px) sums to exactly 18. There is no
@@ -178,8 +178,8 @@ export const computeTimelineLaneClasses = (): string => TIMELINE_LANE
 // deriving the height from leading + padding is both the emitted route and the
 // one that survives a user's font-size preference.
 //
-// `px-2` is carried over from the `p-2` of the box that was removed: a label
-// flush against the edge of a filled band is the one thing worse than the box.
+// `px-2` keeps the label off the band's edge: a label flush against the edge of
+// a filled band would be worse than a boxed title.
 //
 // The 0.04em tracking is `--letter-spacing-caps`, which the theme layer emits
 // at exactly the canvas value. Spelled through `v()` rather than as

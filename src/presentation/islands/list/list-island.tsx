@@ -17,8 +17,8 @@ import {
 } from '../parts/list-item-rows'
 import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding } from '../runtime/data-binding'
-import { isRateLimitedRead, RateLimitedNotice } from '../runtime/read-failure'
 import { useListRowClick } from './list-row-click'
+import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { ReactElement } from 'react'
 
@@ -57,6 +57,8 @@ interface ListIslandProps extends ListRowInputs {
    * arrival and the button would appear to do nothing.
    */
   readonly maxItems?: number
+  /** `listDisplay.hideWhenEmpty`: draw nothing — no skeleton, no empty message — until a row exists. */
+  readonly hideWhenEmpty?: boolean
   /**
    * The loading, failure and rate-limit chrome in the page language
    * (`list.loading`, `list.loadFailed`, `rateLimit.*`), sent only where it
@@ -77,11 +79,12 @@ function renderRows(input: {
   readonly inputs: ListRowInputs
 }): ReactElement | undefined {
   const { records, emptyMessage, itemTemplate, inputs } = input
-  if (records.length === 0 && emptyMessage) return <>{renderEmptyList(emptyMessage)}</>
+  if (records.length === 0 && emptyMessage) return renderEmptyList(emptyMessage, inputs.ariaLabel)
   if (itemTemplate === undefined) return undefined
   return (
     <ul
-      className={computeListShellClasses()}
+      aria-label={inputs.ariaLabel}
+      className={inputs.listClasses ?? computeListShellClasses()}
       onClick={inputs.onItemEvent}
       onKeyDown={inputs.onItemEvent}
     >
@@ -90,76 +93,11 @@ function renderRows(input: {
   )
 }
 
-/** Missing-binding fallback — neither `table` nor `system` configured. */
-function ListMissing(): ReactElement {
-  return (
-    <div className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3">
-      List is missing required <code>dataSource</code> configuration.
-    </div>
-  )
-}
-
-/**
- * Loading skeleton — VISIBLE pulse rows so the host has a non-zero box while the
- * fetch is in flight. Rows are `<div>` (not `<li>`) so `#id li` stays zero until
- * the real itemTemplate items render.
- *
- * The container carries the SHELL chrome the loaded `<ul>` will carry, so the
- * bordered surface is already drawn while the fetch is in flight and the box
- * does not appear from nothing when the records land.
- */
-function ListLoading({
-  strings,
-}: {
-  readonly strings: ListIslandProps['uiStrings']
-}): ReactElement {
-  return (
-    <div
-      role="status"
-      aria-label={strings?.['list.loading'] ?? 'Loading list...'}
-      className={`${computeListShellClasses()} space-y-2 p-2`}
-    >
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={`list-loading-row-${String(i)}`}
-          className="bg-background-subtle h-6 w-full animate-pulse rounded"
-        />
-      ))}
-    </div>
-  )
-}
-
-/** A rate-limited read offers a Retry; any other failure says what went wrong. */
-function ListError({
-  error,
-  onRetry,
-  strings,
-}: {
-  readonly error: unknown
-  readonly onRetry: () => void
-  readonly strings: ListIslandProps['uiStrings']
-}): ReactElement {
-  if (isRateLimitedRead(error))
-    return (
-      <RateLimitedNotice
-        onRetry={onRetry}
-        strings={strings}
-      />
-    )
-  const template = strings?.['list.loadFailed'] ?? 'Failed to load list items: {error}'
-  return (
-    <p
-      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
-      role="alert"
-    >
-      {template.replace('{error}', () => (error instanceof Error ? error.message : String(error)))}
-    </p>
-  )
-}
-
 /**
  * What the list shows INSTEAD of its rows — a missing binding, the fetch in
- * flight, or its failure — or `undefined` once there are rows to draw.
+ * flight, or its failure — or `undefined` once there are rows to draw. A list
+ * that hides when empty shows nothing (`null`) while it has no row to draw,
+ * loading included, unless the read failed.
  */
 function renderListStatus(input: {
   readonly dataSource: ListRecordsDataSource | undefined
@@ -167,9 +105,13 @@ function renderListStatus(input: {
   readonly isError: boolean
   readonly error: unknown
   readonly onRetry: () => void
-  readonly strings: ListIslandProps['uiStrings']
-}): ReactElement | undefined {
+  readonly strings: ListStrings
+  readonly hideWhenEmpty: boolean | undefined
+  readonly drawnCount: number
+}): ReactElement | null | undefined {
   if (!hasDataBinding(input.dataSource)) return <ListMissing />
+  const empty = input.isLoading || input.drawnCount === 0
+  if (input.hideWhenEmpty === true && empty && !input.isError) return null
   if (input.isLoading) return <ListLoading strings={input.strings} />
   if (!input.isError) return undefined
   return (
@@ -206,10 +148,11 @@ export default function ListIsland({
   loadMore,
   emptyMessage,
   maxItems,
+  hideWhenEmpty,
   onRowClick,
   uiStrings,
   ...rowInputs
-}: ListIslandProps): ReactElement {
+}: ListIslandProps): ReactElement | null {
   const {
     records,
     isLoading,
@@ -220,9 +163,8 @@ export default function ListIsland({
     loadMore: fetchMore,
     retry,
   } = useListRecords(dataSource)
-  // The declared cap, applied to what is DRAWN. The fetch is left alone: a page
-  // is a transport concern and the cap is a display one, and conflating them
-  // would make the last visible row depend on the page boundary.
+  // The declared cap, applied to what is DRAWN: a page is a transport concern
+  // and the cap a display one, so the last visible row ignores page boundaries.
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
   const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table)
 
@@ -233,6 +175,8 @@ export default function ListIsland({
     error,
     onRetry: retry,
     strings: uiStrings,
+    hideWhenEmpty,
+    drawnCount: drawn.length,
   })
   if (status !== undefined) return status
 

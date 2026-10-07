@@ -22,6 +22,14 @@ design:
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a Pipedrive token turns each demo request into a lead in your
+# Pipedrive (library/recipe/form-to-pipedrive-lead.yaml). Without it the app
+# runs as before: every request is still kept in the admin.
+env:
+  - key: PIPEDRIVE_API_TOKEN
+    description: API token of your Pipedrive account, to turn each demo request into a lead.
+    required: false
+
 tables:
   - $ref: ./config/tables/demo-requests.yaml
 
@@ -39,3 +47,11 @@ pages:
 # The page's own footer carries the "Built with Sovrium" line, on the same row
 # as the product's name, so the engine's badge is switched off.
 badge: false
+
+# Each demo request also becomes a Pipedrive lead, through the library recipe
+# and its connection; both stay idle until PIPEDRIVE_API_TOKEN is set.
+automations:
+  - $ref: ./library/recipe/form-to-pipedrive-lead.yaml
+
+connections:
+  - $ref: ./library/connection/pipedrive.yaml

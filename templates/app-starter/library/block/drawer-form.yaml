@@ -1,0 +1,25 @@
+# sovrium-library: block/drawer-form@0.30.0
+name: drawer-form
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: button
+    props:
+      id: drawer-form-open
+      label: '[New reminder]'
+      interactions:
+        click:
+          modal: drawer-form-drawer
+  - type: drawer
+    props:
+      id: drawer-form-drawer
+      title: '[New reminder]'
+    drawerSide: right
+    drawerSize: md
+    children:
+      - type: form
+        formRef: drawer-form
+        props:
+          headingLevel: h3

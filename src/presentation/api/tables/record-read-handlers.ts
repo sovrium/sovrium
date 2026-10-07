@@ -25,17 +25,15 @@ import {
   viewFilterConditions,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
-import { runEffect } from '@/presentation/api/runtime'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { handleRouteError } from './error-handlers'
+import { respondWith, runHandlerEffect } from '@/presentation/api/runtime/run-effect'
 import { validateAggregateParam, validateGroupByParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { buildSearchFilter, readSearchTerm } from './list-records-search'
 import { validatePaginationParams } from './pagination-validation'
 import { parseListRecordsParams } from './param-parsers'
-import { resolveGuardForTable, type RowLevelGuardContext } from './row-level-guard'
+import { guardForTable, type RowLevelGuardContext } from './row-level-guard'
 import {
   buildListFilter,
   mergeFilters,
@@ -139,7 +137,7 @@ type ViewConfig = {
  * A view's `filters` as the list's filter structure. Shared with the view
  * records route through `view-read-service`, so `?view=` and
  * `/views/:v/records` narrow to the same rows — an `or`-rooted view filter
- * included, which a hand-written normaliser here used to drop.
+ * included, which a hand-written normaliser here would drop.
  */
 function viewFilterStructure(rawFilters: unknown): FilterStructure {
   const conditions = viewFilterConditions(rawFilters)
@@ -154,7 +152,7 @@ function viewFilterStructure(rawFilters: unknown): FilterStructure {
  *   or when the table has no views configured (view is silently ignored).
  * - `{ error: false, view: { filter, sort } }` when the view is found.
  * - `{ error: true, response }` with HTTP 404 when a view name is given but
- * not found in the table (spec [internal ref]), or names a view
+ *   not found in the table, or names a view
  *   the caller may not open — answered exactly as a view that does not exist.
  *
  * A view is opened here as on its own records route: its grant when it
@@ -284,28 +282,39 @@ export async function handleListRecords(c: Context, app: App) {
 
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(guardForTable(session, { userRole, userGroups }, table, app), (guard) =>
+      listAfterGuard({ c, app, table, guard })
+    )
+  )
+}
 
+/** The list, once the caller's row-level guard is known. */
+function listAfterGuard(input: {
+  readonly c: Context
+  readonly app: App
+  readonly table: Table | undefined
+  readonly guard: RowLevelGuardContext | undefined
+}) {
+  const { c, app, table, guard } = input
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
   const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
-  if (gateError) return gateError
+  if (gateError) return Effect.succeed(gateError)
 
   const prepared = prepareListRequest({ c, app, tableName, userRole, userGroups, table, guard })
-  if (prepared.type === 'response') return prepared.response
+  if (prepared.type === 'response') return Effect.succeed(prepared.response)
 
   const { finalFilter, effectiveSort, params } = prepared
 
   const validationError = validateListRecordsParams({
-    c,
-    app,
-    tableName,
-    userRole,
-    userGroups,
+    ...{ c, app, tableName, userRole, userGroups },
     timezone: params.timezone,
     sort: effectiveSort,
     aggregate: params.aggregate,
     groupBy: params.groupBy,
   })
-  if (validationError) return validationError
+  if (validationError) return Effect.succeed(validationError)
 
   // The route's own declaration that IT did the filtering, read by the grid by
   // KEY PRESENCE (`use-island-setup.ts` → `serverFiltered`). Composed here
@@ -314,24 +323,17 @@ export async function handleListRecords(c: Context, app: App) {
   // second, drift-prone copy of a fact the presentation layer owns. Attaching
   // it to the LIST program only is also what keeps the trash branch silent: the
   // omission is structural, not a conditional somebody can forget to keep.
-  // eslint-disable-next-line unicorn/no-null -- the API envelope canonically distinguishes an explicit `null` ("no term applied") from an ABSENT key ("this branch does not search"); `undefined` erases that distinction on the wire, since JSON.stringify drops the key
   const appliedQuery = readSearchTerm(c) ?? null
 
-  return runEffect(
+  return respondWith(
     c,
-    provideTableLive(
-      createListRecordsProgram({
-        session,
-        tableName,
-        app,
-        userRole,
-        userGroups,
-        filter: finalFilter,
-        ...params,
-        sort: effectiveSort,
-        origin: new URL(c.req.url).origin,
-      })
-    ).pipe(Effect.map((response) => ({ ...response, appliedQuery }))),
+    createListRecordsProgram({
+      ...{ session, tableName, app, userRole, userGroups },
+      filter: finalFilter,
+      ...params,
+      sort: effectiveSort,
+      origin: new URL(c.req.url).origin,
+    }).pipe(Effect.map((response) => ({ ...response, appliedQuery }))),
     listRecordsResponseSchema
   )
 }
@@ -351,17 +353,32 @@ export async function handleListTrash(c: Context, app: App) {
   // `deletedBy`. Its two siblings (`handleListRecords`, `handleGetRecord`) both
   // resolve it; the omission here was the whole of the gap. Deleting a record
   // does not widen who may read it.
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(guardForTable(session, { userRole, userGroups }, table, app), (guard) =>
+      trashAfterGuard({ c, app, table, guard })
+    )
+  )
+}
 
+/** The trash list, once the caller's row-level guard is known. */
+function trashAfterGuard(input: {
+  readonly c: Context
+  readonly app: App
+  readonly table: Table | undefined
+  readonly guard: RowLevelGuardContext | undefined
+}) {
+  const { c, app, table, guard } = input
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
   // Parse filter parameter
   const filter = parseFilter(c, app, tableName, { userRole, userGroups })
   if (filter.error) {
-    return (
+    return Effect.succeed(
       filter.response ??
-      c.json(
-        { success: false, message: 'Invalid filterByFormula syntax', code: 'VALIDATION_ERROR' },
-        400
-      )
+        c.json(
+          { success: false, message: 'Invalid filterByFormula syntax', code: 'VALIDATION_ERROR' },
+          400
+        )
     )
   }
 
@@ -370,7 +387,9 @@ export async function handleListTrash(c: Context, app: App) {
     // Zero rows, WITHOUT the `appliedQuery` key the list branch carries: the
     // trash branch ignores `?q=` entirely, so announcing a search contract it
     // does not honour would mislead the grid.
-    return c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
+    return Effect.succeed(
+      c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
+    )
   }
 
   // Parse query parameters (sort, limit, offset)
@@ -381,27 +400,18 @@ export async function handleListTrash(c: Context, app: App) {
   // and reaches the caller as a 500. Guarded in both branches, after their
   // respective read gates, for one contract on one envelope.
   const paginationError = validatePaginationParams(c)
-  if (paginationError) return paginationError
+  if (paginationError) return Effect.succeed(paginationError)
 
   // Validate sort permission (the filter was checked by `parseFilter` above)
   const sortError = validateSortPermission({ sort, app, tableName, userRole, userGroups, c })
-  if (sortError) return sortError
+  if (sortError) return Effect.succeed(sortError)
 
-  return runEffect(
+  return respondWith(
     c,
-    provideTableLive(
-      createListTrashProgram({
-        session,
-        tableName,
-        app,
-        userRole,
-        userGroups,
-        filter: scopedFilter,
-        sort,
-        limit,
-        offset,
-      })
-    ),
+    createListTrashProgram({
+      ...{ session, tableName, app, userRole, userGroups },
+      ...{ filter: scopedFilter, sort, limit, offset },
+    }),
     listRecordsResponseSchema
   )
 }
@@ -437,34 +447,24 @@ export async function handleGetRecord(c: Context, app: App) {
   if (timezoneError) return timezoneError
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
-
-  const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
-  if (gateError) return gateError
-
-  try {
-    return await runEffect(
-      c,
-      provideTableLive(
+  return runHandlerEffect(
+    c,
+    Effect.flatMap(guardForTable(session, { userRole, userGroups }, table, app), (guard) => {
+      const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
+      if (gateError) return Effect.succeed(gateError)
+      return respondWith(
+        c,
         createGetRecordProgram({
-          session,
-          tableName,
-          app,
-          userRole,
-          recordId,
-          includeDeleted,
-          userGroups,
+          ...{ session, tableName, app, userRole, recordId, includeDeleted, userGroups },
           format: formatParam === 'display' ? 'display' : undefined,
           timezone,
           origin: new URL(c.req.url).origin,
           admits: readRuleAdmits(guard, table),
-        })
-      ),
-      getRecordResponseSchema
-    )
-  } catch (error) {
-    return handleRouteError(c, error)
-  }
+        }),
+        getRecordResponseSchema
+      )
+    })
+  )
 }
 
 // retrigger

@@ -89,7 +89,7 @@ export const recordComments = systemTable(
     index('record_comments_status_idx').on(table.status),
 
     // Composite index for the `autoApprove.previouslyApproved` rung
-    //: "does this guest email already have an
+    // "does this guest email already have an
     // approved comment on THIS table?". All three columns are equality-matched
     // by the probe, so the index answers it directly; without it the lookup is
     // a sequential scan over every comment in the app, on a table that grows

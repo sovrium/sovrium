@@ -27,10 +27,9 @@ import type { Table } from '@/domain/models/app/tables'
  * emitting these verbatim on SQLite crashes schema-init with
  * `SQLiteError: near "ALTER": syntax error`.
  *
- * This used to add that SQLite's `ALTER TABLE` "supports only RENAME / ADD
- * COLUMN / RENAME COLUMN / DROP COLUMN". That list is now version-dependent —
- * 3.53.2 also accepts `ALTER COLUMN … SET/DROP NOT NULL`, which 3.51.0 rejects
- * (measured 2026-09-20) — and the engine does not use the difference anyway. The
+ * SQLite's own `ALTER TABLE` vocabulary is not the reason, and is not listed
+ * here: it is version-dependent — 3.53.2 accepts `ALTER COLUMN … SET/DROP NOT
+ * NULL`, which 3.51.0 rejects — and the engine does not use the difference. The
  * constraint vocabulary above is what is PostgreSQL-only here, and it is
  * unconditional; see `generateColumnReshapeStatements` in
  * `./migration-statements` for the column-reshape side and why it stays on the

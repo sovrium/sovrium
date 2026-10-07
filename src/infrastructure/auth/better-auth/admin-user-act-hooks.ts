@@ -102,7 +102,6 @@ const bannedBeforeUnban = new WeakSet<object>()
  * no longer tell — by then the columns read "not banned" either way.
  */
 export async function applyAdminUserActBeforeHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   deps?: AdminUserActDeps
 ) {
@@ -111,7 +110,6 @@ export async function applyAdminUserActBeforeHooks(
   const key = requestKey(ctx)
   if (userId === undefined || key === undefined) return
   if ((await banReader(deps)(userId)) !== true) return
-  // eslint-disable-next-line functional/no-expression-statements -- request-scoped hand-over from the before hook to the after hook of the same dispatch
   bannedBeforeUnban.add(key)
 }
 
@@ -122,10 +120,8 @@ export async function applyAdminUserActBeforeHooks(
 const returnedBanExpiry = (returned: unknown): string | null => {
   const value = (returned as { readonly user?: { readonly banExpires?: unknown } } | undefined)
     ?.user?.banExpires
-  // eslint-disable-next-line unicorn/no-null -- a ban without an end is `null` on the trail
   if (value === undefined || value === null) return null
   const date = new Date(value as string | number | Date)
-  // eslint-disable-next-line unicorn/no-null -- an unreadable end is recorded as none rather than as a false instant
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
@@ -156,7 +152,6 @@ const returnedBanExpiry = (returned: unknown): string | null => {
  * logout. It does not wait for a readable admin id either — the recording
  * needs one, the revocation does not.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 const revokeSessionsAfterPasswordSet = (ctx: AuthMiddlewareCtx, userId: string) =>
   ctx.context.internalAdapter.deleteUserSessions(userId)
 
@@ -168,11 +163,7 @@ const revokeSessionsAfterPasswordSet = (ctx: AuthMiddlewareCtx, userId: string) 
  * refusal to the after hooks as an `APIError` in `returned`, so "a value came
  * back" is not success.
  */
-export async function applyAdminUserActAfterHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
-  ctx: AuthMiddlewareCtx,
-  deps?: AdminUserActDeps
-) {
+export async function applyAdminUserActAfterHooks(ctx: AuthMiddlewareCtx, deps?: AdminUserActDeps) {
   const { path } = ctx
   if (!RECORDED_PATHS.has(path)) return
   const { returned, session } = ctx.context

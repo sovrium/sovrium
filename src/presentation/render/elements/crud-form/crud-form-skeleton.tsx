@@ -23,19 +23,18 @@ import {
   withAdornment,
 } from './crud-form-typed-input'
 import type { FieldType } from '@/domain/models/app/tables/fields'
-import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
+import type {
+  ChoiceOption,
+  TypedColumnConfig,
+} from '@/presentation/design/field-control-attributes'
 
 export type SkeletonFieldDef = TypedColumnConfig & {
   readonly name: string
   /** Narrowed to the domain field-type union so the render dispatch is total. */
   readonly type: FieldType
   readonly required?: boolean
-  /**
-   * Option VALUES for choice fields. Already normalized to strings by the
-   * field resolver — a `status` field declares its options as
-   * `{ value, color }` objects, which would render as `[object Object]`.
-   */
-  readonly options?: readonly string[]
+  /** A choice field's options: the stored `value` and the `label` the control offers. */
+  readonly options?: readonly ChoiceOption[]
   readonly displayLabel?: string
   /** Persistent guidance under the control, linked by `aria-describedby`. */
   readonly description?: string
@@ -118,10 +117,10 @@ function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
         <option value="">Select...</option>
         {options.map((opt) => (
           <option
-            key={opt}
-            value={opt}
+            key={opt.value}
+            value={opt.value}
           >
-            {opt}
+            {opt.label}
           </option>
         ))}
       </select>
@@ -150,7 +149,7 @@ function renderFileSkeleton(field: SkeletonFieldDef, multiple: boolean): ReactEl
  * Edit-mode file-upload skeleton: renders the native file input plus the
  * existing attachment filename(s) so the current attachment is visible on the
  * server-rendered page before the file-field island hydrates
- *. The island re-derives the same list from the seeded
+ * The island re-derives the same list from the seeded
  * record value and takes over interactivity (preview / remove) after mount.
  */
 function renderUpdateFileSkeleton(
@@ -299,7 +298,6 @@ function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: str
       <div
         className="min-h-[6em] rounded border p-3"
         aria-hidden="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR rich-text skeleton; one-shot during server render
         dangerouslySetInnerHTML={{ __html: sanitized }}
       />
       <input

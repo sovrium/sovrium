@@ -53,6 +53,12 @@ Because detection is by extension rather than by sniffing, every example in this
 
 **Tabs are the classic YAML failure.** Indentation must be spaces. A tab produces a parse error with a details line pointing at the offending position, which is the one YAML error that does not read as a schema problem.
 
+## Which file a problem is in
+
+A file that parses but does not validate is reported problem by problem, every one in a single run, each listed under the file it lives in. For a config split with `$ref`, that heading is the partial's path from the root config's directory — `config/pages/home.yaml` — so the report tells you which file to open even when the problem's path, a position in the assembled config, names none. A config passed inline through `APP_SCHEMA` has no file, and its problems are listed without a heading.
+
+For editor completion inside such a partial, `sovrium schema --output schemas/app.json` writes one schema per top-level key beside the full one: a partial holding the `tables` array can point at `schemas/app/tables.json`.
+
 ## Where a command looks
 
 Configuration comes from the first source that answers.

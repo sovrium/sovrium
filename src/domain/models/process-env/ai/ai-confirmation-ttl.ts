@@ -7,7 +7,7 @@
 
 /**
  * `AI_CONFIRMATION_TTL_MS` env var — how long a stashed AI-chat mutation
- * confirmation stays committable ([internal ref], decision 4).
+ * confirmation stays committable (the captured-identity rule for AI confirmations, decision 4).
  *
  * A destructive chat mutation (every delete; a bulk update of 2+ rows) is
  * proposed rather than executed: the executor stashes the parsed intent
@@ -26,7 +26,7 @@
  *
  * Operator infrastructure: it lives in the environment only, never in the app
  * schema. An operational safety bound is not an application-behaviour choice
- * ([internal ref] operator/app split; [internal ref] rejected `ai.confirmationTtl` for this
+ * (the env-configured MCP server design operator/app split; the captured-identity rule for AI confirmations rejected `ai.confirmationTtl` for this
  * reason).
  */
 

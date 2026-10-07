@@ -50,7 +50,7 @@ components:
               - { value: Engineering, label: Engineering }
       - type: list
         props:
-          className: rounded-lg border border-border bg-background-raised [&_li]:px-3 [&_li]:flex-wrap [&_li]:gap-y-0.5 [&_li>div:first-child]:basis-full [&_li>div:first-child]:min-w-0 [&_[data-list-title]]:whitespace-normal
+          className: rounded-lg border border-border bg-background-raised
         dataSource:
           table: posts
           bindTo: news-filter
@@ -60,17 +60,21 @@ components:
           sort:
             - { field: published_at, direction: desc }
         listDisplay:
+          itemLayout: stacked
           emptyMessage: No announcement matches. Clear the filter to see them all.
           itemTemplate:
             title: $record.title
             badge: $record.topic
             metadata:
               - { field: published_label, format: text }
+        classes:
+          parts:
+            item: px-3 gap-y-0.5
   - type: container
     element: section
     props:
       aria-label: Announcements
-      className: flex flex-col gap-3 px-5 pt-5 pb-8 md:ml-[57px] lg:ml-[232px] [&>li]:list-none
+      className: flex flex-col gap-3 px-5 pt-5 pb-8 md:ml-[57px] lg:ml-[232px] list-none
     dataSource:
       table: posts
       filter:

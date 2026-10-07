@@ -29,21 +29,19 @@ import {
   AutomationRepository,
   type AutomationDatabaseError,
 } from '@/application/ports/repositories/automations/automation-repository'
+import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
-import { runOnAutomationServices } from '@/infrastructure/automations/runtime-layer'
 import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { autoPauseOnFailures } from './auto-pause-on-failures'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
 import { loadPausedAutomationNames } from './paused-automation-names'
-import { buildEnvLookup } from './resolve-env-vars'
-import { buildAutomationContext, type TriggerData } from './resolve-trigger-data'
 import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
-import { buildRecordEventChannel } from './run/record-event-channel'
 import { finaliseRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
 import {
   acquireSlot,
@@ -54,6 +52,7 @@ import {
   unregisterCancellation,
 } from './run/scheduler'
 import { unlessStarterGone } from './run/starter-standing'
+import { buildStepContext } from './run/step-context'
 import {
   cryptoRandomId,
   toResolvedRetry,
@@ -61,9 +60,8 @@ import {
   type RunAccumulator,
   type RunAutomationResult,
   type RunRequirements,
-  type StepContext,
 } from './run/types'
-import type { AutomationContext } from './action-handlers/shared'
+import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
@@ -167,8 +165,7 @@ const resolveWebhookAutomation = (
  * Expand `$ref` actions against `app.actions[]` BEFORE the run loop —
  * the dispatch registry never sees the synthetic ref shape, only the
  * template's underlying record/http/email action with `$varName`
- * placeholders already substituted from `$vars`
- *.
+ * placeholders already substituted from `$vars`.
  */
 const expandAutomationActions = (
   app: App,
@@ -206,8 +203,8 @@ export const resolveAutomationId = (
     const created = yield* repo
       .create({
         name,
-        trigger: automation.trigger as unknown as Record<string, unknown>,
-        actions: automation.actions as unknown as readonly Record<string, unknown>[],
+        trigger: automation.trigger,
+        actions: automation.actions,
         enabled: automation.enabled ?? true,
       })
       .pipe(Effect.mapError(seedFailed))
@@ -220,83 +217,6 @@ export const resolveAutomationId = (
     }
     return created['id']
   }).pipe(Effect.withSpan('automations.resolve-automation-id'))
-
-/**
- * The identity a step's handlers see: the automation, its caller (if any), the
- * persisted run id, and whether the caller started it by hand — the marker that
- * makes record actions write as them.
- */
-const toAutomationContext = (input: {
-  readonly name: string
-  readonly automationId: string
-  readonly userId: string | undefined
-  readonly runId?: string
-  readonly startedByHand?: boolean
-}): AutomationContext => ({
-  name: input.name,
-  id: input.automationId,
-  ...(input.userId !== undefined ? { userId: input.userId } : {}),
-  ...(input.runId !== undefined ? { runId: input.runId } : {}),
-  // Kept even without a caller: a hand-started run whose caller is gone (an
-  // account erased while the run waited on an approval) must write nothing,
-  // never fall back to writing as the system.
-  ...(input.startedByHand === true ? { startedByHand: true as const } : {}),
-})
-
-/**
- * Build a `StepContext` for the run loop.
- */
-const buildStepContext = (input: {
-  readonly name: string
-  readonly automationId: string
-  readonly app: App
-  readonly automation: NonNullable<App['automations']>[number]
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  readonly triggerData: TriggerData
-  readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
-  readonly userId: string | undefined
-  readonly startedByHand?: boolean
-  readonly propsFinal?: boolean
-  readonly callDepth?: number
-  readonly recordEventDepth?: number
-  readonly visitedAutomations?: ReadonlySet<string>
-  /**
-   * The persisted `system.automation_runs.id` for this run. Threaded into the
-   * per-step `AutomationContext` so the `approval/request` handler can FK its
-   * pending row to the run it pauses. Resolved by the scheduler
-   * AFTER the queued row lands, so the orchestrator builds the context once the
-   * runId is known.
-   */
-  readonly runId?: string
-  /** See `StepContext.runProgram` — captured from the running fiber. */
-  readonly runProgram: StepContext['runProgram']
-}): StepContext => {
-  const { name, automationId, app, automation, processEnv, triggerData, handlers } = input
-  const recordEventDepth = input.recordEventDepth ?? 0
-  const automationContext = toAutomationContext({ ...input, name, automationId })
-  return {
-    app,
-    runProgram: input.runProgram,
-    envLookup: buildEnvLookup(app.env, processEnv),
-    processEnv,
-    handlers,
-    templateContext: buildAutomationContext(triggerData),
-    automation: automationContext,
-    triggerData: triggerData as Readonly<Record<string, unknown>>,
-    automationRetry: toResolvedRetry(automation.retry),
-    callDepth: input.callDepth ?? 0,
-    visitedAutomations: new Set([...(input.visitedAutomations ?? []), name]),
-    recordEventDepth,
-    recordEvents: buildRecordEventChannel({
-      app,
-      processEnv,
-      automation: automationContext,
-      recordEventDepth,
-      runProgram: input.runProgram,
-    }),
-    ...(input.propsFinal === true ? { propsFinal: true as const } : {}),
-  }
-}
 
 /** Project a {@link RunAccumulator} into the public {@link RunAutomationResult}. */
 const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomationResult => ({
@@ -455,13 +375,13 @@ const runAdmitted = (
     const runTimeoutMs = resolveRunTimeoutMs(automation, processEnv)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
     // The step context is built AFTER the scheduler persists the queued run row
-    // so the resolved `runId` reaches each handler's `AutomationContext` —
-    // needed by the `approval/request` handler to link its pending row to the
-    // run it pauses.
+    // so the resolved `runId` reaches each handler's `AutomationContext` — the
+    // `approval/request` handler links its pending row to the run it pauses.
     // Captured from THIS fiber, so anything the invokers dispatch across the
     // sandbox's Promise boundary runs on the services this run already holds.
-    const runProgram = runOnAutomationServices(yield* Effect.context<RunRequirements>())
-    const ctx = buildStepContext({ ...input, runId, runProgram })
+    const services = yield* Effect.context<RunRequirements>()
+    const runProgram = (yield* AutomationFiberBridge).promiseRunner(services)
+    const ctx = buildStepContext({ ...input, runId, runProgram, templates: yield* TemplateEngine })
     const steps = runActionsWithTimeout(rawActions, ctx, {
       timeoutMs: runTimeoutMs,
       skipActionNames,
@@ -516,7 +436,7 @@ const boundAutomationInvoker = buildAutomationInvoker({
  * - a run that TIMED OUT dispatches the operator alert only. It is still NOT
  *   cascaded to the user handlers (the #97 timeout contract: a timeout is an
  *   operator concern, not a routine failure a workflow should react to) — but
- *   the operator must hear of it, which the alert gate used to deny.
+ *   the operator must hear of it, so the alert gate lets it through.
  *
  * Extracted from `executeAutomationRun` to keep that generator below the
  * per-function line cap.

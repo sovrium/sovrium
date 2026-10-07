@@ -6,7 +6,7 @@
  */
 
 /**
- * Record-API `_aiCompute` projection ([internal ref] Phase 2, design §3 Option C).
+ * Record-API `_aiCompute` projection (the real-AI-provider rule for AI-compute fields, design §3 Option C).
  *
  * The read surface for the observable refinement signal: a top-level
  * `_aiCompute: { <field>: { status, error? } }` block on a record response,
@@ -20,12 +20,13 @@
 
 import { Effect } from 'effect'
 import {
-  readAiComputeStatusesForRecords,
+  AiComputeStatusRepository,
   type AiComputeFieldStatus,
-} from '@/infrastructure/database/ai-compute-status-repository'
+} from '@/application/ports/repositories/ai/ai-compute-status-repository'
+import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { AiComputeStoreError } from './refine-field'
 import type { App } from '@/domain/models/app'
+import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import type { AiComputeKind } from '@/domain/models/app/tables/ai-compute-baseline'
 
 const AI_COMPUTE_KINDS: ReadonlySet<string> = new Set<AiComputeKind>([
@@ -58,12 +59,12 @@ const toProjectionEntry = (
 })
 
 const toProjection = (
-  forRecord: Readonly<Record<string, AiComputeFieldStatus>> | undefined
+  forRecord: Readonly<Record<string, AiComputeFieldStatus>> | undefined,
+  isReadable: (field: string) => boolean
 ): Readonly<AiComputeProjection> | undefined => {
-  if (!forRecord || Object.keys(forRecord).length === 0) return undefined
-  return Object.fromEntries(
-    Object.entries(forRecord).map(([field, status]) => [field, toProjectionEntry(status)])
-  )
+  const readable = Object.entries(forRecord ?? {}).filter(([field]) => isReadable(field))
+  if (readable.length === 0) return undefined
+  return Object.fromEntries(readable.map(([field, status]) => [field, toProjectionEntry(status)]))
 }
 
 /**
@@ -78,6 +79,12 @@ const toProjection = (
  * The read itself is a single `WHERE record_id IN (…)` — the repository has
  * always accepted a batch, it was simply only ever called with one id.
  *
+ * NARROWED TO THE READER: a status entry names its field and may carry the
+ * provider's error text, so an entry survives only for a field `caller` may
+ * read — the same predicate that strips the field's value from the record. A
+ * reader who cannot see a field cannot see whether, or why, its refinement
+ * failed either.
+ *
  * The returned Effect never fails — and now actually does not. The status read
  * used to run under `Effect.promise`, so the `never` was a claim rather than a
  * fact: a rejecting read became a defect and took down the whole record-list
@@ -88,15 +95,14 @@ const toProjection = (
 export const buildAiComputeProjections = (
   app: App,
   tableName: string,
-  recordIds: readonly (string | number)[]
-): Effect.Effect<ReadonlyMap<string, AiComputeProjection>, never> =>
+  recordIds: readonly (string | number)[],
+  caller: PermissionCaller
+): Effect.Effect<ReadonlyMap<string, AiComputeProjection>, never, AiComputeStatusRepository> =>
   Effect.gen(function* () {
     if (recordIds.length === 0) return new Map()
     if (!tableHasAiComputeFields(app, tableName)) return new Map()
-    const statuses = yield* Effect.tryPromise({
-      try: () => readAiComputeStatusesForRecords(app.name, tableName, recordIds),
-      catch: (cause) => new AiComputeStoreError({ step: 'read-status', cause }),
-    }).pipe(
+    const store = yield* AiComputeStatusRepository
+    const statuses = yield* store.readStatusesForRecords(app.name, tableName, recordIds).pipe(
       Effect.tapCause((cause) =>
         Effect.sync(() => {
           logError('[ai-compute] status projection read failed', cause, { tableName })
@@ -105,11 +111,15 @@ export const buildAiComputeProjections = (
       // effect-swallow: see the tap above — the cause is logged first. This is a
       // decoration on a record list, so losing it degrades the response to the
       // pre-worker state rather than failing a read the user did ask for.
-      Effect.orElseSucceed(() => new Map<string, Record<string, AiComputeFieldStatus>>())
+      Effect.orElseSucceed(
+        (): ReadonlyMap<string, Readonly<Record<string, AiComputeFieldStatus>>> => new Map()
+      )
     )
+    const isReadable = (field: string): boolean =>
+      isFieldReadableByCaller(app, tableName, caller, field)
     return new Map(
       [...statuses.entries()].flatMap(([recordId, forRecord]) => {
-        const projection = toProjection(forRecord)
+        const projection = toProjection(forRecord, isReadable)
         return projection ? [[recordId, projection] as const] : []
       })
     )

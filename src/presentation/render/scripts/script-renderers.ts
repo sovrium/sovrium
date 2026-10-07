@@ -6,6 +6,7 @@
  */
 
 import React, { type ReactElement } from 'react'
+import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 
 /**
  * Render a script tag with optional attributes
@@ -73,6 +74,7 @@ export function renderInlineScriptTag({
 
   return React.createElement('script', {
     key: reactKey,
+    // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
     dangerouslySetInnerHTML: { __html: scriptContent },
   })
 }
@@ -82,7 +84,8 @@ export function renderInlineScriptTag({
  * Merges with existing window property if it already exists
  *
  * SECURITY: Safe use of dangerouslySetInnerHTML
- * - Content: Build-time generated configuration data (JSON.stringify)
+ * - Content: configuration data, JSON-encoded by serializeJsonForScript so a
+ *   `</script>` inside a value cannot close the tag
  * - Source: Validated schema from app/page configuration
  * - Risk: None - no user input, server-controlled data only
  * - Purpose: Expose configuration for client-side JavaScript access
@@ -105,8 +108,9 @@ export function renderWindowConfig({
 }): Readonly<ReactElement> {
   return React.createElement('script', {
     key: reactKey,
+    // eslint-disable-next-line sovrium/require-sanitized-html -- engine wrapper around config JSON encoded by serializeJsonForScript
     dangerouslySetInnerHTML: {
-      __html: `window.${windowKey} = Object.assign({}, window.${windowKey} || {}, ${JSON.stringify(data)});`,
+      __html: `window.${windowKey} = Object.assign({}, window.${windowKey} || {}, ${serializeJsonForScript(data)});`,
     },
   })
 }

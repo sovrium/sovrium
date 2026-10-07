@@ -64,7 +64,7 @@ function resolveStatusDotColor(value: unknown): StatusDotColor {
 const BADGE_VARIANTS = new Set<BadgeVariant>(['default', 'secondary', 'destructive', 'outline'])
 
 /**
- * Build the merged className for a `badge` ([internal ref], prestyled-by-default).
+ * Build the merged className for a `badge` (the prestyled-islands rule, prestyled-by-default).
  *
  * Defaults come from {@link computeBadgeClasses} — a Tailwind recipe with
  * inline OKLCH var-fallbacks so a schema author who writes the bare
@@ -95,7 +95,7 @@ const ALERT_VARIANTS = new Set<AlertVariant>([
 ])
 
 /**
- * Build the merged className for an `alert` ([internal ref], prestyled-by-default).
+ * Build the merged className for an `alert` (the prestyled-islands rule, prestyled-by-default).
  *
  * Defaults come from {@link computeAlertClasses} — a Tailwind recipe with
  * inline OKLCH var-fallbacks so a schema author who writes the bare
@@ -132,7 +132,7 @@ const BUTTON_VARIANTS = new Set<ButtonVariant>([
 const BUTTON_SIZES = new Set<ButtonSize>(['sm', 'md', 'lg'])
 
 /**
- * Build the merged className for a button ([internal ref], prestyled-by-default).
+ * Build the merged className for a button (the prestyled-islands rule, prestyled-by-default).
  *
  * Defaults come from {@link computeButtonDefaultClasses} — a rich Tailwind
  * recipe with inline OKLCH var-fallbacks so a schema author who writes the
@@ -162,10 +162,8 @@ function buildButtonClassName(
   return mergePrestyle(defaults, authorClassName, replaceDefaults)
 }
 
-// Renderer body for the `form` component type, in both of its modes. Threads
-// the active page language (`currentLang`) + app `languages` to `renderForm` so
-// an embedded auth form resolves `$t:key` submit/field-label references
-// server-side.
+// Renderer body for the `form` component type, in both of its modes: the page
+// language reaches an auth form's `$t:` labels, `designStyles` a form's parts.
 const renderFormFromDispatch: ComponentRenderer = (cfg) =>
   Renderers.renderForm({
     props: cfg.elementProps,
@@ -177,6 +175,7 @@ const renderFormFromDispatch: ComponentRenderer = (cfg) =>
     lang: cfg.currentLang,
     languages: cfg.languages,
     landingPath: cfg.landingPath,
+    designStyles: cfg.designStyles,
   })
 
 /**
@@ -204,7 +203,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c, lang)
       const loading = c['loading'] as boolean | undefined
       const disabled = propsWithSchemaFallbacks['disabled'] === true
-      // [internal ref]: a button's visual state determines whether the prestyled
+      // A button's visual state determines whether the prestyled
       // hover-lift / motion classes apply. Disabled and loading reads as inactive.
       const buttonState: ButtonState = loading ? 'loading' : disabled ? 'disabled' : 'default'
       const mergedClassName = buildButtonClassName(
@@ -581,8 +580,8 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       return Renderers.renderCustomHTML(elementProps, content)
     },
 
-    'language-switcher': ({ elementProps, languages, currentLang }) =>
-      Renderers.renderLanguageSwitcher(elementProps, languages, currentLang),
+    'language-switcher': ({ elementProps, languages, currentLang, designStyles }) =>
+      Renderers.renderLanguageSwitcher(elementProps, languages, currentLang, designStyles),
 
     // `search-input` / page-scoped `search-input` — the static SSR search shells. Both read
     // top-level schema fields (siblings of `props`); extracted to a sibling

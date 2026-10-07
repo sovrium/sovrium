@@ -164,7 +164,7 @@ export const healthCheckResponseSchema = Schema.Union([
 ])
 
 /**
- * TypeScript type inferred from Zod schema
+ * TypeScript type inferred from the Effect Schema
  *
  * Use this type for type-safe health check responses in application code.
  */

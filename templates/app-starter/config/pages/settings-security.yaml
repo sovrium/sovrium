@@ -1,0 +1,21 @@
+name: settings-security
+path: /settings/security
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Security · App starter
+  description: Passkeys, two-step and devices.
+# Marks this page's link in the settings sections.
+query:
+  section:
+    default: security
+    enum: [security]
+components:
+  - $ref: ./_nav.yaml
+  - type: flex
+    props:
+      className: mx-auto flex w-full max-w-360 flex-col md:flex-row md:gap-4
+    children:
+      - $ref: ./_settings-nav.yaml
+      - component: settings-security

@@ -191,7 +191,6 @@ const createdBetween = (from: Readonly<Date>, to: Readonly<Date>) =>
 
 /** `1` for each row matching `condition`, summed — portable across both engines. */
 // drizzle's `SQL` is a class carrying its own methods; `Readonly<SQL>` drops them.
-// eslint-disable-next-line functional/prefer-immutable-types -- third-party mutable type
 const countWhere = (condition: ReturnType<typeof and>) =>
   sql<unknown>`sum(case when ${condition} then 1 else 0 end)`
 

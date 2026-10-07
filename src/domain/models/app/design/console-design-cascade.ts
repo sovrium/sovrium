@@ -14,7 +14,7 @@
  * Sovrium branded default applies wherever the operator configured nothing."*
  * Until this module the ruling had no runtime: the console rendered from a
  * preset declaring no theme, so an operator's tokens reached its chrome not at
- * all..
+ * all.
  *
  * ─── WHERE THE "SOVRIUM DEFAULT WHERE NOT CONFIGURED" HALF COMES FROM ──────
  *
@@ -82,7 +82,7 @@ import type { Design } from '@/domain/models/app/design'
  * `logo`, `imagery`, `principles`, `voice` and `zones` are deliberately NOT
  * here. The charter four are the operator's WORDS and marks, which the console
  * documents rather than wears; `zones` is a route map the console's own routes
- * do not answer to. That exclusion is [internal ref]'s call and is preserved verbatim
+ * do not answer to. That exclusion is the console design-cascade rule's call and is preserved verbatim
  * across the flattening — this change moved keys, it did not re-open which ones
  * cascade.
  */
@@ -124,11 +124,9 @@ const cascadingSubset = (design: Design | undefined): Partial<Design> =>
  * compile-cache entry and its `immutable` URL — byte-identical to what they
  * were before the cascade existed.
  *
- * The tokens are written ONCE. This function used to write them to both of the
- * positions the token block had, because the two halves of the pipeline read
- * different ones — the class recipes one, the design-system surfaces the
- * other. There is one position now, so the dual write is gone and with it the
- * class of bug where the two could disagree.
+ * The tokens are written ONCE, into the one position both halves of the
+ * pipeline — the class recipes and the design-system surfaces — read, so the
+ * two cannot disagree.
  *
  * @param presetApp - the embedded console preset (mount-relative, unthemed).
  * @param operatorApp - the operator's decoded config.
@@ -206,5 +204,5 @@ export const buildDesignSystemScopeApp = (operatorApp: App): App => {
     // (which would mount a search island in a document that has no records).
     badge: false,
     palette: { enabled: false },
-  } as unknown as App
+  } as App
 }

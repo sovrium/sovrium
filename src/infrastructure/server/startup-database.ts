@@ -57,7 +57,7 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  * Regenerating is not free — every JWT already issued against the old key stops
  * verifying — so it is never done quietly. The alternative was worse: without
  * this, a changed auth secret leaves every signing request answering 500 with a
- * cause visible only in the server log..
+ * cause visible only in the server log.
  */
 const jwksRekeyWarningPhases = (count: number): readonly StartupPhase[] =>
   count > 0
@@ -76,8 +76,7 @@ const jwksRekeyWarningPhases = (count: number): readonly StartupPhase[] =>
  *
  * Warn, never refuse: the affected users have to re-authorize, but taking a whole
  * deployment down over a subset of them would be a far larger outage than the one
- * being reported. Silent is the only genuinely wrong answer — see
- * [internal ref].
+ * being reported. Silent is the only genuinely wrong answer.
  */
 const foreignKeyIdWarningPhases = (count: number): readonly StartupPhase[] =>
   count > 0
@@ -85,7 +84,7 @@ const foreignKeyIdWarningPhases = (count: number): readonly StartupPhase[] =>
         {
           // The noun stays plural at every count. It reads slightly oddly at
           // one, and that is the deliberate trade: `stored connection tokens` is
-          // the phrase both [internal ref] and its regression sibling
+          // the phrase both a connection keyid spec and its regression sibling
           // match on, and a count-dependent noun would make the warning
           // undetectable exactly when a single user is affected.
           label:
@@ -179,12 +178,10 @@ export const runDatabaseStartup = (
     //
     // And it is the one step in this chain a render-and-exit command skips.
     // `sovrium build` emits a site and starts nothing, so it has no boot to
-    // record. The sharper half of that story is closed elsewhere: the static
-    // render pass used to boot a server per language through `createServer`,
-    // and each one wrote a row beside the real boot's, hashing a
-    // token-substituted document nobody wrote. It binds nothing now
-    // (`render-app.ts`), so there is no render boot left to exclude here.
-    // [internal ref].
+    // record. The static render pass boots no server either (`render-app.ts`),
+    // so there is no render boot to exclude here — one that went through
+    // `createServer` would write a row beside the real boot's, hashing a
+    // token-substituted document nobody wrote.
     Effect.flatMap(() =>
       options.ephemeral === true
         ? Effect.void
@@ -200,7 +197,7 @@ export const runDatabaseStartup = (
     // seconds-to-minutes on large datasets, and the port is open throughout.
     //
     // Drop the derived admin global-search index so the next lazy rebuild
-    // repopulates it under the CURRENT indexing rules ([internal ref] R3). Narrowing
+    // repopulates it under the CURRENT indexing rules. Narrowing
     // the indexer alone is prospective-only: `rebuildIndex` never deletes, so
     // rows it stops emitting — soft-deleted submissions, rows past the per-source
     // LIMIT, hard-deleted ones — would keep their old body forever.
@@ -304,7 +301,7 @@ export const runDatabaseStartup = (
  *
  * - Attachment-URL backfill: repairs `default`-bound attachment URLs
  *   accumulated before an upgrade. Table scans — seconds on large datasets.
- * - RAG embedding startup ([internal ref] filtering preserved): embeds
+ * - RAG embedding startup (an AI RAG cross spec filtering preserved): embeds
  *   agent knowledge tables and installs change listeners. Network-bound
  *   against the AI provider — the slowest boot step by far when agents exist.
  *

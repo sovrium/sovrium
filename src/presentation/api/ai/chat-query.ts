@@ -13,18 +13,17 @@
  *
  *  - enforces table-level read RBAC — a role lacking `read` on the target
  *    table yields a `forbidden` outcome the route maps to HTTP 403
- *;
+ *    (an AI chat query spec);
  *  - caps the result set at `AI_CHAT_MAX_QUERY_ROWS` (default 100) so a query
- *    never streams an unbounded payload back to the caller
- *;
+ *    never streams an unbounded payload back to the caller;
  *  - executes the read as parameterised SQL via `db.execute` — values are
  *    never string-interpolated, so a SQL-injection-shaped message can do no
- * harm;
+ *    harm;
  *  - formats a human-readable summary reply and an `actions[]` entry of
- * `type: 'query'` carrying the table + description;
+ *    `type: 'query'` carrying the table + description;
  *  - never echoes a field whose name looks sensitive (`ssn`, `password`, …)
  *    so field-level RBAC is honoured even when the schema declares no explicit
- * field permissions.
+ *    field permissions.
  *
  * The same lazy, side-effecting `db.execute` discipline as `chat-mutation.ts`
  * is used — the chat surface stays free of the full `TableRepository`/RLS
@@ -82,8 +81,7 @@ export interface RunQueryInput {
 }
 
 /**
- * Default ceiling for query result rows when `AI_CHAT_MAX_QUERY_ROWS` is unset
- *.
+ * Default ceiling for query result rows when `AI_CHAT_MAX_QUERY_ROWS` is unset.
  */
 const DEFAULT_MAX_QUERY_ROWS = 100
 
@@ -254,7 +252,7 @@ export const runQuery = async (input: RunQueryInput): Promise<QueryOutcome> => {
   if (table === undefined) {
     return { status: 'forbidden', message: `Unknown table "${input.intent.table}".` }
   }
-  // Table-level read RBAC, over the records
+  // Table-level read RBAC (an AI chat query spec), over the records
   // route's effective roles for this table; then the rows the records read
   // gate lets the caller read.
   const scope = passesChatTableGate(input.app, input.tables, table, input.reader)

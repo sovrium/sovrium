@@ -8,12 +8,11 @@
 /**
  * Cross-config TABLE-NAME validation.
  *
- * `component-field-references.ts` ended the "checked under a `table`, silent
- * under a `kpi`" asymmetry at the array boundary — whether a FIELD name was
- * cross-checked used to depend on which component happened to name it. The
- * same asymmetry survived one level up, on the table name itself, and there it
- * was worse: a misspelled field still binds to a real table and draws a blank
- * cell, while a misspelled TABLE binds to nothing and a `kpi` renders a tile
+ * `component-field-references.ts` keeps a FIELD name cross-checked whichever
+ * component names it ("checked under a `table`, silent under a `kpi`" is the
+ * asymmetry it rules out). This module rules out the same asymmetry one level
+ * up, on the table name itself, where it would be worse: a misspelled field
+ * still binds to a real table and draws a blank cell, while a misspelled TABLE binds to nothing and a `kpi` renders a tile
  * reading `0` — a number a dashboard is supposed to show. Nothing at runtime
  * tells "no orders yet" apart from "this tile has been pointed at `ordrs`
  * since the day it was written".

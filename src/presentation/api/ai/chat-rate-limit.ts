@@ -9,7 +9,7 @@
  * Per-user AI chat rate limiter (in-memory sliding window).
  *
  * Drives `[internal ref]`
- * ([internal ref] — Chat Rate Limiting).
+ * (the AI chat rate limiting requirement — Chat Rate Limiting).
  *
  * A burst of rapid `POST /api/ai/chat` calls from a single user must
  * eventually produce HTTP 429. Built on the shared

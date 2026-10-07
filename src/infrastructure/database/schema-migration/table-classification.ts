@@ -13,9 +13,8 @@
  * `<name>_base` behind a `<name>` VIEW, and a many-to-many relationship keeps its
  * links in a junction table `<source>_<related>`. None of those physical names
  * appears in `app.tables`, so a comparison against config names alone classifies
- * every one of them as a leftover — which is how every full migration used to
- * drop, then re-create EMPTY, every view-backed table and every junction table
- * in the app.
+ * every one of them as a leftover — so a full migration would drop, then
+ * re-create EMPTY, every view-backed table and every junction table in the app.
  *
  * Pure: the caller reads the live table list and decides what to do with the
  * obsolete set (count its rows, refuse, drop).

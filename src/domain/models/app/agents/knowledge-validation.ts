@@ -6,16 +6,15 @@
  */
 
 /**
- * Cross-validation for agent table-knowledge configuration
- *.
+ * Cross-validation for agent table-knowledge configuration.
  *
  * `AgentKnowledgeSchema` validates one knowledge entry in isolation; these
  * rules need the whole `app` because they cross-reference `app.tables`:
- * - [internal ref]: every `knowledge.tables.table` must reference a
+ *  - every `knowledge.tables[].table` must reference a
  *    declared table, and every `fields[]` entry must be a real column.
- * - [internal ref]: only text-like field types (single-line-text,
+ *  - only text-like field types (single-line-text,
  *    long-text, rich-text, markdown) may be embedded as knowledge.
- * - [internal ref]: an agent may only embed a table its auth role
+ *  - an agent may only embed a table its auth role
  *    can read, whatever that role is. The rule holds for every role rather than
  *    only for `viewer`, because a denial the author cannot observe is the worse
  *    failure: the alternative is an agent that answers "I don't know" about its
@@ -86,11 +85,11 @@ const validateKnowledgeField = (
   fieldTypes: ReadonlyMap<string, string>
 ): string | undefined => {
   const fieldType = fieldTypes.get(field)
-  // [internal ref]: unknown field.
+  // Unknown field.
   if (fieldType === undefined) {
     return `Agent '${agentName}' knowledge references field '${field}' which does not exist on table '${table}'.`
   }
-  // [internal ref]: non-text field type.
+  // non-text field type.
   if (!TEXT_LIKE_FIELD_TYPES.has(fieldType)) {
     return `Agent '${agentName}' knowledge field '${table}.${field}' has field type '${fieldType}' which is not a valid text-like knowledge source. Only single-line-text, long-text, rich-text, and markdown fields can be embedded.`
   }
@@ -109,13 +108,13 @@ const validateAgentKnowledge = (
   (agent.knowledge?.tables ?? [])
     .flatMap((entry): ReadonlyArray<string> => {
       const meta = tableMap.get(entry.table)
-      // [internal ref]: unknown table.
+      // Unknown table.
       if (meta === undefined) {
         return [
           `Agent '${agent.name}' knowledge references table '${entry.table}' which does not exist (table not found).`,
         ]
       }
-      // [internal ref]: the agent's auth role must be able to read
+      // The agent's auth role must be able to read
       // the table it embeds — every role, not only `viewer`. An absent
       // `permissions.read` denies only `viewer`.
       const rbacError = validateKnowledgeTablePermission(agent, entry.table, meta.read, app)
@@ -130,14 +129,13 @@ const validateAgentKnowledge = (
 
 /**
  * Validate that `agent` may read `table` for knowledge embedding
- *. Returns an error string on violation, or
+ * Returns an error string on violation, or
  * `undefined` when access is permitted.
  *
- * The check applies to EVERY agent role. It used to open
- * `if (agent.role !== 'viewer') return undefined`, so a config naming a table
- * its agent could not read decoded cleanly and the entry was dropped later,
- * quietly, by `filterAgentKnowledgeTables` — no error, no log, no trace in the
- * config. Refusing the config here instead means `sovrium validate` catches it
+ * The check applies to EVERY agent role, not only `viewer`. Otherwise a config
+ * naming a table its agent cannot read would decode cleanly and the entry would
+ * be dropped later, quietly, by `filterAgentKnowledgeTables` — no error, no
+ * log, no trace in the config. Refusing the config here instead means `sovrium validate` catches it
  * without booting, and the message names both the agent and the table so the
  * author can act on it.
  *

@@ -12,9 +12,8 @@
  * optionally collapsed to display strings), the same read WITHOUT any filtering
  * for internal callers, and the soft-deleted listing. The trash listing sits
  * here rather than beside the live listing because it is a different question —
- * it joins `deleted_by_user` and pages in memory, and it shares none of the
- * pushdown / aggregation / grouping machinery `list-records-program.ts` exists
- * to reconcile.
+ * it joins `deleted_by_user` and pages in memory, and shares none of the
+ * pushdown / aggregation / grouping machinery `list-records-program.ts` owns.
  *
  * ## This module owns the single-record ADDRESS rule
  * {@link refuseWhenNoSingleIdAddress} is exported rather than private, and it is
@@ -61,6 +60,7 @@ import {
 import { transformRecord } from './record-transformer'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
@@ -319,7 +319,7 @@ const toGetRecordResponse = (parts: {
  * reader sees it: the fields they may read, transformed and flattened to the
  * top level as well as under `fields`, their many-to-many links (narrowed to
  * the linked rows they may read, without the lookups through a link they may
- * not read — [internal ref]), the `_display` labels and the timestamps. The
+ * not read — the many-to-many junction-write rule), the `_display` labels and the timestamps. The
  * rows are expected to have been judged already — their row-level rule and
  * their lookups through a key column.
  *
@@ -336,7 +336,7 @@ export const shapeRecordsForReader = (
 ): Effect.Effect<
   readonly GetRecordResponse[],
   DatabaseError,
-  TableRepository | AuthRepository | DataSourceRepository
+  TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > =>
   Effect.gen(function* () {
     if (records.length === 0) return []
@@ -359,9 +359,9 @@ export const shapeRecordsForReader = (
     const narrowed = yield* omitHiddenRecordLookups(app, tableName, linked, reader)
     const enriched = narrowed.map(({ fields }) => fields as TransformedRecord['fields'])
 
-    // [internal ref] Phase 2: the gated top-level `_aiCompute` block — omitted for
+    // The gated top-level `_aiCompute` block — omitted for
     // non-AI tables (no read) and for records with no status rows yet.
-    const aiCompute = yield* buildAiComputeProjections(app, tableName, ids)
+    const aiCompute = yield* buildAiComputeProjections(app, tableName, ids, reader)
     const labelled = yield* enrichRecordsWithRelatedLabels(
       app,
       tableName,
@@ -390,7 +390,7 @@ export function createGetRecordProgram(
 ): Effect.Effect<
   GetRecordResponse,
   DatabaseError | NotFoundError | ValidationError,
-  TableRepository | AuthRepository | DataSourceRepository
+  TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
     yield* refuseWhenNoSingleIdAddress(config.app, config.tableName)

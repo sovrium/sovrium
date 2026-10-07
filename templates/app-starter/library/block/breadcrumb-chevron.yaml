@@ -1,0 +1,17 @@
+# sovrium-library: block/breadcrumb-chevron@0.30.0
+name: breadcrumb-chevron
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: breadcrumb
+    separator: ›
+    breadcrumbItems:
+      - label: Home
+        href: /
+        icon: house
+      - label: Clients
+        href: /clients
+      - label: Atelier Nord
+        href: /clients/atelier-nord
+      - label: INV-0142

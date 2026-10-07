@@ -61,6 +61,8 @@ export interface PersistedStep {
   readonly logs: unknown
   /** What the step recorded reading as it ran (`StepRead[]`, raw), or `null`. */
   readonly reads: unknown
+  /** The paths or items a path or loop step ran, with their steps (raw), or `null`. */
+  readonly nested: unknown
 }
 
 /**
@@ -122,6 +124,8 @@ export interface CreateStepInput {
   readonly logs?: unknown
   /** What the step recorded reading as it ran (`StepRead[]`). */
   readonly reads?: unknown
+  /** The paths or items a path or loop step ran, with their steps. */
+  readonly nested?: unknown
 }
 
 /**

@@ -57,7 +57,7 @@ type CatalogueEntry = NonNullable<SovriumDesignExtension['catalogue']>[number]
  *
  * The type is interpolated so the sentence is distinct per type BY
  * CONSTRUCTION. Two gaps sharing one sentence would trip
- * `[internal ref]` — correctly: a reader meeting the same line on two
+ * correctly: a reader meeting the same line on two
  * entries learns that something is missing and not which.
  */
 const uncatalogued = (type: string): CatalogSpecimen => ({

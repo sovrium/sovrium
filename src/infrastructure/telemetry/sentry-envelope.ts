@@ -6,7 +6,7 @@
  */
 
 /**
- * Sentry-protocol envelope builders ([internal ref]
+ * Sentry-protocol envelope builders (the infrastructure observability error reporting requirement
  * / -PERFORMANCE).
  *
  * A minimal, hand-rolled Sentry-envelope serializer — NOT the `@sentry/node`
@@ -181,8 +181,8 @@ const REDACTED_VALUE = '[REDACTED]'
  *
  * This is not hypothetical: `admin-invitation-routes.ts` reads
  * `c.req.query('token')`, and both OAuth callbacks (`connections/index.ts`,
- * `admin/connections-actions.ts`) read `?code=`. A 500 on any of those used to
- * persist a LIVE credential into the error store, which is durable, widely
+ * `admin/connections-actions.ts`) read `?code=`. Unscrubbed, a 500 on any of
+ * those would persist a LIVE credential into the error store, which is durable, widely
  * readable, and outlives the credential's own rotation.
  *
  * Names are kept deliberately: a name carries no secret, and knowing that a

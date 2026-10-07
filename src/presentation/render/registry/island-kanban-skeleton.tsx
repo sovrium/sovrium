@@ -35,7 +35,7 @@ import type { ReactElement } from 'react'
 /**
  * ONE skeleton column well — the shell both kanban skeletons repeat.
  *
- * [internal ref]: painted via the shared helper so the SSR skeleton paints the same
+ * Painted via the shared helper so the SSR skeleton paints the same
  * chrome as the hydrated island. The `w-72 shrink-0` width sizing stays raw —
  * width is a layout concern owned by the consumer. The header bar rides on
  * `bg-background-inset` rather than `bg-background-subtle`: the well is now

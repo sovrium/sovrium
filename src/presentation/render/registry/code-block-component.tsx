@@ -68,7 +68,6 @@
  */
 
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
-import { resolveDefaultCodeFrame } from '@/domain/models/app/pages/code-frame-defaults'
 import { codeLineNumbers } from '@/domain/models/app/pages/code-line-numbers'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { CodeCopyButton, CodeCopyStatus } from '@/presentation/render/elements/code-copy-controls'
@@ -76,21 +75,12 @@ import {
   readCodeHighlight,
   type CodeHighlight,
 } from '@/presentation/render/resolve/code-highlight-resolver'
-import {
-  computeCodeFrameHeaderClasses,
-  computeCodeFrameShellClasses,
-  computeCodeOutputClasses,
-} from '../../design/code-frame-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { renderFramedBlock, resolveCodeFrame } from './code-block-frame'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement, ReactNode } from 'react'
 
-/** Chrome drawn around the block. Mirrors `CodeFrameSchema`. */
-type CodeFrame = 'none' | 'file' | 'terminal'
-
-/** Default terminal marker when the author does not name one. */
-const DEFAULT_TERMINAL_LABEL = 'terminal'
 /** Default copy-button label (also its stable accessible name). */
 const DEFAULT_COPY_LABEL = 'Copy'
 /** Default post-copy confirmation label. */
@@ -99,7 +89,7 @@ const DEFAULT_COPIED_LABEL = 'Copied'
 /**
  * Resting place for the copy control on an UNFRAMED block (`codeFrame: 'none'`),
  * which has no header to hold it. Positioned via CLASSES (never an inline
- * `style`): the canonical sanitiser drops `style`, and [internal ref]
+ * `style`): the canonical sanitiser drops `style`, and a pages content spec
  * asserts zero `[style]` attributes anywhere inside a frame.
  */
 const BARE_COPY_SLOT_CLASSES = 'absolute top-2 right-2 flex items-center'
@@ -114,56 +104,6 @@ function topLevelString(
   const raw = component[key]
   if (typeof raw !== 'string' || raw.length === 0) return undefined
   return resolveTranslationPattern(raw, lang ?? languages?.default ?? '', languages)
-}
-
-/** The frame drawn plus the header text that goes with it. */
-interface ResolvedFrame {
-  readonly frame: CodeFrame
-  readonly filename: string | undefined
-  readonly terminalLabel: string
-}
-
-/**
- * Which frame is drawn, first match winning. An explicit `codeFrame` always wins
- * — a snippet may carry a `filename` purely for its accessible name yet render
- * unframed via `codeFrame: 'none'` — and a block that named nothing falls
- * through to the LANGUAGE-derived default, so every block on the page wears the
- * same chrome.
- */
-function resolveFrameKind(
-  explicit: unknown,
-  filename: string | undefined,
-  output: string | undefined,
-  derived: CodeFrame
-): CodeFrame {
-  if (explicit === 'none' || explicit === 'file' || explicit === 'terminal') return explicit
-  if (filename !== undefined) return 'file'
-  if (output !== undefined) return 'terminal'
-  return derived
-}
-
-/**
- * Resolve the frame drawn AND the header text that goes with it. A `file` frame
- * with no authored `filename` takes the language-derived name rather than
- * rendering an empty header bar, which reads as a rendering bug.
- */
-function resolveCodeFrame(input: {
-  readonly component: Record<string, unknown>
-  readonly filename: string | undefined
-  readonly output: string | undefined
-  readonly terminalLabel: string | undefined
-  readonly language: string | undefined
-}): ResolvedFrame {
-  const { component, filename, output, terminalLabel, language } = input
-  const fallback = resolveDefaultCodeFrame(language)
-  const terminal = terminalLabel ?? DEFAULT_TERMINAL_LABEL
-  const frame = resolveFrameKind(component['codeFrame'], filename, output, fallback.frame)
-  const derivedFilename = fallback.frame === 'file' ? fallback.label : undefined
-  return {
-    frame,
-    filename: frame === 'file' ? (filename ?? derivedFilename) : filename,
-    terminalLabel: terminal,
-  }
 }
 
 /** Inputs shared by both `<pre>` branches. */
@@ -209,7 +149,7 @@ interface CodePreInput {
  * `pre[data-copy-target] → querySelector('code') → textContent`. A gutter
  * inside the `<code>` would be copied WITH the snippet and pasted into the
  * reader's editor as a leading column of digits — the filename failure of
- * [internal ref], one element down. Outside it, exclusion is structural:
+ * a pages content spec, one element down. Outside it, exclusion is structural:
  * nothing has to remember to strip the numbers, because they were never in the
  * element that gets read.
  *
@@ -260,7 +200,7 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
         data-component-type={componentType}
         data-code-command="true"
         data-copy-target="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; markup is pre-highlighted + canonically sanitised
+        // eslint-disable-next-line sovrium/require-sanitized-html -- syntax-highlighter output, which HTML-escapes the code text
         dangerouslySetInnerHTML={{ __html: highlight.innerHtml }}
       />
     )
@@ -284,7 +224,7 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
       {renderLineGutter(gutter)}
       <span
         data-code-lines="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; markup is pre-highlighted + canonically sanitised
+        // eslint-disable-next-line sovrium/require-sanitized-html -- syntax-highlighter output, which HTML-escapes the code text
         dangerouslySetInnerHTML={{ __html: highlight.innerHtml }}
       />
     </pre>
@@ -358,81 +298,6 @@ function renderBareScope(codePre: ReactElement, copyControl: ReactNode): ReactEl
 }
 
 /**
- * Header row: the filename caption, or the terminal marker — and, on the right,
- * the copy control. The control lives HERE rather than over the code because on
- * a narrow viewport a floating button covers the first line's trailing tokens,
- * which are exactly the ones the reader is trying to read.
- *
- * `>_` marks a shell session with no icon dependency. NO `$` prompt glyph: it
- * would be swept up by the copy button and by a manual selection, and the reader
- * would paste `$ curl …` and get "command not found: $".
- */
-function renderFrameHeader(
-  frame: Exclude<CodeFrame, 'none'>,
-  filename: string,
-  terminalLabel: string,
-  copyControl: ReactNode
-): ReactElement {
-  const isFile = frame === 'file'
-  return (
-    <figcaption
-      data-code-filename={isFile ? 'true' : undefined}
-      data-code-terminal={isFile ? undefined : 'true'}
-      className={computeCodeFrameHeaderClasses()}
-    >
-      <span>{isFile ? filename : `>_ ${terminalLabel}`}</span>
-      {copyControl}
-    </figcaption>
-  )
-}
-
-/** Inputs for the framed (`file` / `terminal`) composition. */
-interface FrameInput {
-  readonly frame: Exclude<CodeFrame, 'none'>
-  readonly filename: string | undefined
-  readonly terminalLabel: string
-  readonly output: string | undefined
-  readonly codePre: ReactElement
-  readonly copyControl: ReactNode
-}
-
-/**
- * The framed composition: ONE `<figure>` holding the header, the command, and —
- * when the author supplied one — the command's output as a SECOND `<pre>`. The
- * figure's accessible name is the filename (or the terminal marker), so a
- * screen-reader user hears which file they are in before hearing its contents
- *.
- *
- * The `<figure>` IS the copy scope: the button sits in the header, above the
- * code, so the scope has to enclose both. That puts the output `<pre>` inside
- * the scope for the first time — which is why the delegated handler resolves the
- * payload through `[data-copy-target]` rather than through the scope's first
- * `<pre>`.
- */
-function renderFramedBlock(input: FrameInput): ReactElement {
-  const { frame, filename, terminalLabel, output, codePre, copyControl } = input
-  return (
-    <figure
-      data-code-frame={frame}
-      data-code-copy-scope="true"
-      aria-label={frame === 'file' ? filename : terminalLabel}
-      className={computeCodeFrameShellClasses()}
-    >
-      {renderFrameHeader(frame, filename ?? '', terminalLabel, copyControl)}
-      {codePre}
-      {output !== undefined && (
-        <pre
-          data-code-output="true"
-          className={computeCodeOutputClasses()}
-        >
-          {output}
-        </pre>
-      )}
-    </figure>
-  )
-}
-
-/**
  * `code` component renderer. Emits either a bare (unframed) block — byte-for-byte
  * today's structure, so the committed design-system baselines are untouched — or
  * a `<figure>` frame with a filename / terminal header and an optional output
@@ -445,6 +310,7 @@ export const codeBlockComponent: ComponentRenderer = ({
   component,
   currentLang,
   languages,
+  designStyles,
 }) => {
   const c = (component ?? {}) as Record<string, unknown>
   const language = elementProps['language'] as string | undefined
@@ -506,5 +372,6 @@ export const codeBlockComponent: ComponentRenderer = ({
       </>
     )
   if (frame === 'none') return renderBareScope(codePre, copyControl)
-  return renderFramedBlock({ frame, filename, terminalLabel, output, codePre, copyControl })
+  const parts = designStyles?.parts
+  return renderFramedBlock({ frame, filename, terminalLabel, output, codePre, copyControl, parts })
 }

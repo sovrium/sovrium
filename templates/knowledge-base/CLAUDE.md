@@ -8,9 +8,10 @@ read, and an assistant that answers from the handbook.
 
 ## This app at a glance
 
-- **Pages** (5): kb (`/kb/:path*`, one route per article under `content/kb/`, `/kb` itself is
+- **Pages** (6): kb (`/kb/:path*`, one route per article under `content/kb/`, `/kb` itself is
   `start.md`), kb-managers (`/kb/managers/:path*`, managers and the admin only), assistant,
-  home (`/`), sign-in
+  home (`/`), sign-in, not-found (`/404`, the library block
+  `library/block/not-found-with-links.yaml` pointed at the handbook)
 - **Agents** (1): handbook-assistant (reads the five articles everyone may read)
 - **Markdown content**: `content/kb/` — the handbook, one folder per section; each article's
   frontmatter carries `title`, `category`, `order` and `updated`. `content/kb-managers/` —

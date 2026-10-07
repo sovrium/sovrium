@@ -9,7 +9,10 @@ and edits all four tables.
 
 - **Tables** (4): companies, contacts, deals, tasks
 - **Pages** (6): pipeline (`/`), contacts, companies, tasks, assistant, sign-in
-- **Automations** (1): deal-won-notification
+- **Automations** (3): deal-won-notification, and two library recipes (`library/recipe/`, each
+  with its connection in `library/connection/`): record-to-slack posts each new deal to a
+  Slack channel once `SLACK_BOT_TOKEN` is set, form-to-hubspot copies each contact added
+  through the add-contact form into HubSpot once `HUBSPOT_ACCESS_TOKEN` is set
 - **AI agents** (1): records-assistant
 - **Singletons**: auth, design
 - **Seed data**: `seed/` — two sign-in accounts, eight companies, ten contacts, thirteen

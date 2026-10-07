@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every field type a table column can declare (50), by category, in the words of the schema. The options each type takes are in the article named under its category, or one at a time with `sovrium docs config tables[].fields[]`.
+Every field type a table column can declare (51), by category, in the words of the schema. The options each type takes are in the article named under its category, or one at a time with `sovrium docs config tables[].fields[]`.
 
 ## Contents
 
@@ -88,6 +88,7 @@ Read: `sovrium docs fields/attachment-fields`
 | --- | --- |
 | `barcode` | Stores barcode values with various format support. Used for product identification and inventory. |
 | `multiple-attachments` | Stores multiple file attachments. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
+| `signature` | Stores one signature — image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit. |
 | `single-attachment` | Stores a single file attachment. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
 
 ## User fields

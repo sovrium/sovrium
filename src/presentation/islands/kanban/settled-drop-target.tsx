@@ -69,10 +69,9 @@ export function SettledDropTarget({ overIdRef }: { readonly overIdRef: DropTarge
   const overId = over?.id
 
   useLayoutEffect(() => {
-    // eslint-disable-next-line functional/immutable-data, no-param-reassign -- a ref cell is the sanctioned mutable slot, and publishing into it is this component's entire job
+    // eslint-disable-next-line no-param-reassign -- a ref cell is the sanctioned mutable slot, and publishing into it is this component's entire job
     overIdRef.current = overId
   }, [overId, overIdRef])
 
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   return null
 }

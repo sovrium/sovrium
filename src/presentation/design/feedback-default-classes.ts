@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computer for the feedback-cluster components
- *: `badge` (default + status mode), `alert`, `skeleton`, and
+ * `badge` (default + status mode), `alert`, `skeleton`, and
  * `progress`. Schema authors who write the bare `{ type: 'badge', content:
  * 'New' }`, `{ type: 'alert', alertVariant: 'success', content: 'Saved' }`,
  * `{ type: 'skeleton' }`, or `{ type: 'progress', progressValue: 75 }` get a
@@ -351,8 +351,8 @@ export const computeProgressLabelClasses = (): string =>
  * `tailwind-merge`, so an author's `size-5` / `size-8` drops it outright and
  * the mark follows. It exists because a `<div>` with no box at all is a block
  * — page-wide and exactly 0px tall — which is what a bare
- * `{ type: 'spinner' }` used to render, and why `[internal ref]`
- * carries a comment saying it has to pass `h-8 w-8` to see anything. 16px is
+ * `{ type: 'spinner' }` would render without it (a theme animations spec
+ * passes `h-8 w-8` for that reason). 16px is
  * the size the product draws its icons at.
  *
  * `inline-block` rather than `inline-flex` on purpose. An empty positional

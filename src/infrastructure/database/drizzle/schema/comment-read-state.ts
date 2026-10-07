@@ -9,7 +9,7 @@ import { text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { systemSchema } from './migration-audit'
 
 /**
- * Per-user comment read-state ([internal ref], opt-in `comments.readTracking`).
+ * Per-user comment read-state (the per-user comment read-state design, opt-in `comments.readTracking`).
  *
  * A high-watermark row per `(user_id, table_id, record_id)`: `last_read_at`
  * records the moment the user last marked that record's comments read. The

@@ -26,7 +26,7 @@ import type { Context } from 'hono'
  * `connections/index.ts` stays under the 400-line `max-lines` budget.
  *
  * Returns `{ users: Array<{ userId, status, expiresAt }> }` — token
- * plaintext is intentionally omitted because [internal ref] explicitly asserts `accessToken`/`refreshToken` MUST
+ * plaintext is intentionally omitted because an automation connection spec explicitly asserts `accessToken`/`refreshToken` MUST
  * NOT appear in the response.
  *
  * Authorization model:
@@ -90,19 +90,19 @@ const deriveAdminStatus = (expiresAt: Date | undefined): 'connected' | 'expired'
  * routes, so an admin row in `connection_tokens` for a user-scope
  * connection is by definition an auth-only artifact (typically created
  * by the test seeder before role promotion). Closes
- * [internal ref]'s "admin's auth-only row should NOT
+ * an automation connection spec's "admin's auth-only row should NOT
  * appear" assertion.
  *
- * ONE query, whatever the roster's length. This previously resolved each
- * row's role with its own `getUserRole` round-trip and fired them all at
- * once through a raw `Promise.all`, so listing a connection's users was a
- * pooled fan-out as wide as the listing — ten connected users is the entire
- * ten-connection pool, which is the mechanism of the 2026-07-25 production
- * 504.
+ * ONE query, whatever the roster's length. Resolving each row's role with its
+ * own `getUserRole` round-trip, fired at once through a raw `Promise.all`,
+ * would make listing a connection's users a pooled fan-out as wide as the
+ * listing — ten connected users is the entire ten-connection pool, which is
+ * the mechanism of a production 504
+ *.
  *
- * Bounding that loop would have been the lesser fix. Every branch of it was
- * asking the SAME table for the SAME column keyed only by id, so the width
- * was never necessary work — it was one query written N times.
+ * Bounding that loop would be the lesser fix. Every branch of it would ask the
+ * SAME table for the SAME column keyed only by id, so the width is not
+ * necessary work — it is one query written N times.
  */
 const dropAdminUsers = async <T extends { readonly userId: string }>(
   c: Context,
@@ -174,7 +174,6 @@ export async function handleListUsers(c: Context, app: App) {
   const users = memberEntries.map((entry) => ({
     userId: entry.userId,
     status: deriveAdminStatus(entry.expiresAt),
-    // eslint-disable-next-line unicorn/no-null -- contract field; null when no expiry recorded
     expiresAt: entry.expiresAt?.toISOString() ?? null,
   }))
   return c.json({ users }, 200)

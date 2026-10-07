@@ -7,14 +7,19 @@ grouped by event, and check people in at the door.
 
 ## This app at a glance
 
-- **Tables** (2): events (seats taken and waitlist are counted from the registrations by an
-  automation, and seats left is computed from them), registrations
+- **Tables** (3): events (seats taken and waitlist are counted from the registrations by an
+  automation, and seats left is computed from them), registrations, calendar_events (filled
+  from the shared Google calendar by the library recipe, admin-only)
 - **Forms** (3): register (rendered on `/register`), join-waitlist (rendered on `/waitlist/<event>`),
   new-event (opened in a dialog on the Overview)
 - **Pages** (9): calendar (`/calendar`, the Overview), registrations, home (`/`, public),
   register, waitlist, thanks, thanks-event (`/thanks/<event>`), on-the-waitlist, sign-in
-- **Automations** (2): confirm-registration, recount-seats
-- **Singletons**: auth, design, env
+- **Automations** (5): confirm-registration, recount-seats, track-registration (an
+  `analytics.track` event per registration), and announce-event — a post to a Discord channel
+  as an event opens, through the library connection `library/connection/discord.yaml`, once
+  `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID` are set, and the library recipe
+  `library/recipe/google-calendar-events-to-table.yaml`, hourly, once a Google account is connected
+- **Singletons**: auth, design, env, analytics (first-party, the organizers' pages excluded)
 - **Seed data**: `seed/` — two sign-in accounts, seven events and their registrations, dated
   relative to the day you seed
 - **Static assets**: `public/` (served at the site root)

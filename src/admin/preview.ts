@@ -51,9 +51,8 @@
 // Type-only import of the config type, like every other file in this tree: the
 // binary loads a config with module specifiers left unresolved, so a value
 // import would typecheck and then die at boot. `./app` is relative and stays
-// inside `src/admin/`, which is the other half of the rule — held since the
-// move by the `admin-config` element type in `[internal ref]`,
-// where `check-admin-config-only.ts` used to hold it.
+// inside `src/admin/`, which is the other half of the rule — held by the
+// `admin-config` element type in `[internal ref]`.
 
 import app from './app'
 import type { AppEncoded as AppConfig } from '@/domain/models/app'

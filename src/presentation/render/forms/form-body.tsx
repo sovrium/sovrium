@@ -16,13 +16,14 @@ import { type ReactNode } from 'react'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/app/forms/field-groups-flow'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeFormGroupClasses,
   computeFormGroupLabelClasses,
-  computeFormLayoutClasses,
+  computeFormHelpTextClasses,
+  computeHostedFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
+import { buildFormAttributes } from './form-attributes'
 import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
 import {
   resolveAllFields,
@@ -31,9 +32,13 @@ import {
   stepDescriptionsHtml,
 } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
+import { HoneypotInput } from './form-honeypot'
+import { FlatFormActions } from './form-layout-keys'
+import { bodyLinkOverrides, type FormBodyLink } from './form-link-answers'
 import { FormBodyMultiStep, type FormBodyShared } from './form-renderer-multi-step'
 import { FormBodyOneQuestion } from './form-renderer-one-question'
 import { FormRuntimeMount } from './form-runtime'
+import { SaveForLater } from './form-save-for-later'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
@@ -80,40 +85,6 @@ function markEditablePrefill(
 }
 
 /**
- * Build the `<form>` element attribute set.
- *
- * Comments preserved from the prior inline declaration:
- * When `lockPrefill: true`, the host page tags the form with
- * `data-inline-prefill` so the submission handler can revalidate the
- * parent record on POST. The tag also serves as the source-of-truth
- * flag for the test suite — it distinguishes inline-create submissions
- * from standalone form submits even when the locked column is also
- * present in the body. Cast is necessary because TS narrows conditional
- * spreads to optional keys (`{ 'data-embed'?: string | undefined }`)
- * which doesn't widen to Record<string, string>.
- *
- * The runtime intercepts submit and runs its own constraint-validation
- * pass via `checkValidity()` on each input, so the browser's native
- * pre-submit validation popup must be suppressed (otherwise it fires
- * BEFORE our submit listener and we never see the event). Embedded
- * forms keep native validation on — the host page may not have a
- * runtime mounted, and we still want the popup as a baseline UX.
- */
-function buildFormAttributes(
-  form: Readonly<Form>,
-  embed: boolean,
-  lockPrefill: boolean
-): Readonly<Record<string, string>> {
-  return {
-    method: 'POST',
-    action: `/api/forms/${form.name}/submissions`,
-    'data-form-name': form.name,
-    ...(embed ? { 'data-embed': 'true' } : {}),
-    ...(lockPrefill ? { 'data-inline-prefill': 'locked' } : {}),
-  } as Readonly<Record<string, string>>
-}
-
-/**
  * Build the shared layout props for a form body. Resolves all `$t:` text
  * (title / description / submit label / fields) for the active language and
  * assembles the form's HTML attribute set.
@@ -122,22 +93,28 @@ function buildFormBodyShared({
   app,
   form,
   embed,
+  embedded,
   prefillContext,
   activeLang,
   titleAs,
   optionSets,
+  link,
 }: {
   readonly app: App
   readonly form: Form
   readonly embed: boolean
+  readonly embedded: boolean
   readonly prefillContext: EmbeddedFormPrefillContext | undefined
   readonly activeLang: string | undefined
   readonly titleAs: 'h1' | 'h2' | 'h3' | undefined
   readonly optionSets: FormOptionSets | undefined
+  readonly link: FormBodyLink | undefined
 }): FormBodyShared {
   const { languages } = app
   const lockPrefill = prefillContext?.lockPrefill === true
   const prefillMap = prefillContext?.prefill ?? {}
+  const lang = resolveDocumentLang(languages, activeLang)
+  const { action, offer } = bodyLinkOverrides(form, { embed, embedded, link, lang, languages })
   return {
     title: resolveText(form.title, languages, form.name, activeLang),
     descriptionHtml: renderInlineMarkdown(resolveText(form.description, languages, '', activeLang)),
@@ -164,9 +141,11 @@ function buildFormBodyShared({
     prefillMap,
     lockPrefill,
     titleAs: titleAs ?? 'h1',
-    formAttributes: buildFormAttributes(form, embed, lockPrefill),
+    formAttributes: buildFormAttributes(form, { embed, embedded, lockPrefill, action }),
+    ...offer,
     ...(form.fieldGroups ? { fieldGroups: form.fieldGroups } : {}),
-    // [internal ref]: defaults are `honeypot: true` when antiSpam is absent.
+    layoutKeys: { labelPlacement: form.labelPlacement, stickyActions: form.stickyActions },
+    // Defaults are `honeypot: true` when antiSpam is absent.
     ...(effectiveAntiSpam(form).honeypot ? { antiSpamHoneypot: true } : {}),
   }
 }
@@ -192,7 +171,7 @@ interface FormBodyProps {
    * host page owns post-submit behavior there). The page `formRef` expansion
    * (`renderEmbeddedFormBody`) overrides this to `true` so an embedded form
    * gets the SAME interactive runtime as a standalone form — it intercepts
-   * the submit and honors `onSuccess.redirect` (GAP-H3 / [internal ref]).
+   * the submit and honors `onSuccess.redirect` (GAP-H3 / a forms spec).
    */
   readonly mountRuntime?: boolean
   readonly prefillContext?: EmbeddedFormPrefillContext
@@ -216,6 +195,8 @@ interface FormBodyProps {
   readonly omitTitle?: boolean
   /** A Cancel beside the submit, labelled — drawn by a dialog hosting the form. */
   readonly cancelLabel?: string
+  /** A private link's page: where the form posts, and whether it is an edit. */
+  readonly link?: FormBodyLink
 }
 
 /**
@@ -244,10 +225,21 @@ export function FormBody({
   optionSets,
   omitTitle,
   cancelLabel,
+  link,
 }: FormBodyProps) {
   const shouldMountRuntime = mountRuntime ?? !embed
   const commonProps: FormBodyShared = {
-    ...buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs, optionSets }),
+    ...buildFormBodyShared({
+      app,
+      form,
+      embed,
+      embedded,
+      prefillContext,
+      activeLang,
+      titleAs,
+      optionSets,
+      link,
+    }),
     ...hostOverrides(omitTitle, cancelLabel),
     embedded,
   }
@@ -272,7 +264,7 @@ export function FormBody({
             post-submit behavior.
           - page `formRef` expansion (renderEmbeddedFormBody) → mounts
             (mountRuntime=true) so the embedded form intercepts submit and
-            honors `onSuccess.redirect` (GAP-H3 / [internal ref]). Exactly one
+            honors `onSuccess.redirect` (GAP-H3 / a forms spec). Exactly one
             embedded form runs per page, so there is no double-binding. */}
       {shouldMountRuntime && (
         <FormRuntimeMount
@@ -310,7 +302,7 @@ function renderFlatFormFields({
     return <>{resolvedFields.map(renderField)}</>
   }
   // Initial render has no submitted values, so conditional groups evaluate
-  // against an empty map ([internal ref]: conditional sections hidden first).
+  // against an empty map (a forms spec: conditional sections hidden first).
   const visibleGroups = fieldGroups.filter((group) => isGroupVisible(group, {}))
   const groupedNames = new Set<string>(visibleGroups.flatMap((g) => Array.from(g.fields)))
   const ungrouped = resolvedFields.filter((f) => !groupedNames.has(f.name))
@@ -322,6 +314,9 @@ function renderFlatFormFields({
           className={`form-group ${computeFormGroupClasses()}`}
         >
           <h2 className={`form-group-label ${computeFormGroupLabelClasses()}`}>{group.label}</h2>
+          {group.description !== undefined && (
+            <p className={computeFormHelpTextClasses()}>{group.description}</p>
+          )}
           {group.fields
             .map((name) => resolvedFields.find((f) => f.name === name))
             .filter((f): f is FormBodyShared['resolvedFields'][number] => f !== undefined)
@@ -330,86 +325,6 @@ function renderFlatFormFields({
       ))}
       {ungrouped.map(renderField)}
     </>
-  )
-}
-
-/**
- * [internal ref]: When `antiSpam.honeypot: true`, render a conventionally-
- * named hidden input (`_hp`) with all four invisibility markers — humans
- * cannot tab into it, see it, or have their password manager auto-fill it,
- * but a naive bot that fills every input will trigger the server-side
- * detection (`submit-form-honeypot.ts`).
- */
-// The honeypot markup is emitted as a raw, fully-static HTML string (no
-// interpolation of any value, untrusted or otherwise) for two reasons:
-//
-// 1. [internal ref] asserts the SSR HTML contains the *lowercase* standard DOM
-//     attribute `autocomplete="off"` (case-sensitive: `/autocomplete="off"/`),
-//     and real password managers also key on the lowercase attribute. Under
-//     this app's React 19 `renderToString` path, the recognized `autoComplete`
-//     JSX prop is emitted verbatim as camelCase `autoComplete="off"` — it is
-//     NOT lowercased the way `tabIndex` → `tabindex` is — so a plain JSX prop
-//     cannot satisfy the assertion.
-//  2. Passing a lowercase `autocomplete` JSX prop (e.g. via a spread) makes
-//     React reject it as an unrecognized DOM property and log
-//     `Invalid DOM property \`autocomplete\`. Did you mean \`autoComplete\`?`
-//     on every SSR render — terminal noise with no benefit.
-//
-// Injecting the constant markup verbatim sidesteps both: React never validates
-// the attribute, and the exact lowercase `autocomplete="off"` reaches the HTML.
-//
-// Both constants live at module level so React allocates nothing fresh per SSR
-// pass (react-perf/jsx-no-new-object-as-prop) — the `__html` payload and the
-// wrapper style are stable across renders.
-const HONEYPOT_INNER_HTML = {
-  __html:
-    '<input type="text" name="_hp" tabindex="-1" aria-hidden="true" autocomplete="off" style="display:none" />',
-} as const
-
-// Wrapper uses `display: contents` so it adds no box of its own — the honeypot's
-// own `display:none` keeps the field invisible/untabbable for humans while a
-// naive bot that fills every input still trips `_hp` (submit-form-honeypot.ts).
-const HONEYPOT_WRAPPER_STYLE = { display: 'contents' } as const
-
-function HoneypotInput() {
-  return (
-    <span
-      style={HONEYPOT_WRAPPER_STYLE}
-      dangerouslySetInnerHTML={HONEYPOT_INNER_HTML}
-    />
-  )
-}
-
-/**
- * The actions row of a form a dialog hosts: Cancel, then the submit, on one
- * line at the row's end. Cancel is `type="button"` so it never posts the form;
- * it carries `data-dialog-cancel`, which the dialog island closes on.
- */
-function FormDialogActions({
-  cancelLabel,
-  submitLabel,
-}: {
-  readonly cancelLabel: string
-  readonly submitLabel: string
-}) {
-  return (
-    <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-      <button
-        type="button"
-        data-component-type="button"
-        data-dialog-cancel=""
-        className={computeButtonDefaultClasses({ variant: 'secondary' })}
-      >
-        {cancelLabel}
-      </button>
-      <button
-        type="submit"
-        data-component-type="button"
-        className={computeButtonDefaultClasses()}
-      >
-        {submitLabel}
-      </button>
-    </div>
   )
 }
 
@@ -426,17 +341,20 @@ function FormBodyFlat({
   titleAs = 'h1',
   embedded = false,
   cancelLabel,
+  saveForLater,
+  layoutKeys,
+  formAttributes: { 'data-form-name': formName = '' },
 }: FormBodyShared) {
   const TitleTag = titleAs
   // Embedded/dialog bodies have no `.form-page` shell, so the standalone
   // `.form-page`-scoped `-mt-3` never reaches them — add a positive top margin
   // so the description reads clearly below the title (not cramped). Standalone
   // forms left-align the submit (`sm:self-start`); embedded/dialog forms
-  // end-align it — `ml-auto` is a cross-axis auto margin in the form's flex
-  // COLUMN, so it disables the default stretch and pushes the (auto-width)
-  // button to the right edge (a no-op on mobile where `w-full` fills the row).
+  // end-align it with `self-end` in the form's flex COLUMN (moot on mobile, where
+  // `w-full` fills the row) — not an auto margin, so a grid `body` part lets a
+  // `col-span-full` submit fill its row.
   const descriptionClass = embedded ? 'form-description mt-2' : 'form-description'
-  const submitAlign = embedded ? 'ml-auto' : 'sm:self-start'
+  const submitAlign = embedded ? 'self-end' : 'sm:self-start'
   return (
     <>
       {title !== '' && <TitleTag className="form-title">{title}</TitleTag>}
@@ -445,23 +363,21 @@ function FormBodyFlat({
         className={descriptionClass}
       />
       <form
-        className={computeFormLayoutClasses()}
+        className={computeHostedFormLayoutClasses(layoutKeys?.labelPlacement)}
         {...formAttributes}
       >
         {antiSpamHoneypot && <HoneypotInput />}
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
-        {cancelLabel === undefined ? (
-          <button
-            type="submit"
-            data-component-type="button"
-            className={`${computeButtonDefaultClasses()} mt-2 w-full sm:w-auto ${submitAlign}`}
-          >
-            {submitLabel}
-          </button>
-        ) : (
-          <FormDialogActions
-            cancelLabel={cancelLabel}
-            submitLabel={submitLabel}
+        <FlatFormActions
+          layoutKeys={layoutKeys}
+          submitLabel={submitLabel}
+          submitAlign={submitAlign}
+          cancelLabel={cancelLabel}
+        />
+        {saveForLater !== undefined && (
+          <SaveForLater
+            formName={formName}
+            labels={saveForLater}
           />
         )}
       </form>

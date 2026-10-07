@@ -16,6 +16,7 @@ import { isBanInForce } from '@/domain/models/app/auth/ban-standing-service'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
+  authSessionsTable,
   authAccountsTable,
   authTeamsTable,
   authTeamMembersTable,
@@ -54,13 +55,8 @@ const directoryLabel = (row: { readonly name: string | null; readonly email: str
 const wrap = makeDbWrap((error) => new AuthDatabaseError({ cause: error }))
 
 /**
- * Auth Repository Implementation
- *
- * Provides database operations for auth-related user management.
- * Methods operate on the Better Auth `user` and `session` tables via Drizzle
- * ORM. The table objects are resolved per-dialect (`authUsersTable()` /
- * `authSessionsTable()`) so a query targets `auth.user` on PostgreSQL and the
- * flat `auth_user` on SQLite (which has no schemas).
+ * Auth Repository Implementation: the Better Auth `user` and `session` tables,
+ * resolved per dialect — `auth.user` on PostgreSQL, the flat `auth_user` on SQLite.
  */
 export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   verifyUserEmail: (userId: string) =>
@@ -237,19 +233,23 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return !isBanInForce(row.banned, row.banExpires)
     }),
 
+  // `rows[0]` is `undefined` for an absent row and `{ role: null }` for a NULL
+  // role: the two answers the port keeps apart, without a second read.
   findUserRole: (userId: string) =>
-    Effect.gen(function* () {
-      const rows = yield* wrap(() => {
-        const users = authUsersTable()
-        return db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
-      })
-      const row = rows[0]
-      // An ABSENT row and a NULL role are different answers — see the port's
-      // doc comment. `rows[0]` is already `undefined` for the former and
-      // `{ role: null }` for the latter, so the projection carries the
-      // distinction without a second read.
-      return row
-    }),
+    wrap(() => {
+      const users = authUsersTable()
+      return db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+    }).pipe(Effect.map((rows) => rows[0])),
+
+  findSessionSignInMethod: (sessionId: string) =>
+    wrap(() => {
+      const sessions = authSessionsTable()
+      return db
+        .select({ signInMethod: sessions.signInMethod })
+        .from(sessions)
+        .where(eq(sessions.id, sessionId))
+        .limit(1)
+    }).pipe(Effect.map((rows) => rows[0]?.signInMethod ?? undefined)),
 
   banUser: (userId: string, reason?: string) =>
     wrap(() => {
@@ -265,7 +265,6 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       const users = authUsersTable()
       // Drizzle requires an explicit `null` to issue `SET ban_reason = NULL`;
       // `undefined` would omit the column and leave the stale reason behind.
-      // eslint-disable-next-line unicorn/no-null
       return db.update(users).set({ banned: false, banReason: null }).where(eq(users.id, userId))
     }).pipe(Effect.asVoid),
 
@@ -282,8 +281,7 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       const row = rows[0]
       return row === undefined
         ? undefined
-        : // eslint-disable-next-line unicorn/no-null -- the port reports an empty `ban_reason` as `null`, the value it is written back as
-          { banned: row.banned === true, banReason: row.banReason ?? null }
+        : { banned: row.banned === true, banReason: row.banReason ?? null }
     }),
 
   restoreUserBanState: (userId: string, state) =>

@@ -77,6 +77,7 @@ export const mcp = defineSection({
       documents: [AiAccessConfigSchema, ToolAnnotationsSchema],
       stories: [
         'US-AI-MCP-SERVER-ACTIONS',
+        'US-AI-MCP-SERVER-ADMIN-READS',
         'US-AI-MCP-SERVER-ANNOTATIONS',
         'US-AI-MCP-SERVER-AUTOMATIONS',
         'US-AI-MCP-SERVER-FIELD-PERMISSIONS',

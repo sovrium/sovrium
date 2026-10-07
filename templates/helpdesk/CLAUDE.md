@@ -9,9 +9,14 @@ it is resolved.
 
 - **Tables** (3): tickets, ticket_replies (the conversation of a ticket), ratings
 - **Forms** (2): contact-support (rendered on `/`), rate-answer (rendered on `/rate`)
-- **Pages** (7): triage (`/triage`, the Queue), tickets, reports (admin), home (`/`, public),
-  thanks, rate (public), sign-in
-- **Automations** (2): when-a-ticket-arrives, when-resolved
+- **Pages** (8): triage (`/triage`, the Queue), tickets, ticket (`/tickets/:id`, with the
+  internal notes), reports (admin), home (`/`, public), thanks, rate (public), sign-in
+- **Automations** (5): when-a-ticket-arrives, when-resolved, collect-ticket-notes (a comment
+  trigger filling a digest), morning-notes-digest (a weekday cron releasing it), and
+  record-to-linear-issue — a library recipe (`library/recipe/`, with its
+  `library/connection/linear.yaml`) filing each bug report in Linear once `LINEAR_API_KEY`
+  and `LINEAR_TEAM_ID` are set
+- **Library block**: `library/block/record-comments.yaml`, the notes thread on the ticket page
 - **Singletons**: auth, design, env
 - **Seed data**: `seed/` — two sign-in accounts, fourteen tickets, three conversations and
   three ratings, dated relative to the day you seed

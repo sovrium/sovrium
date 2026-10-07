@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { partitionDuplicatesForSkip } from './parser'
 import type { ColumnMapping, DuplicateStrategy, ImportResult, ValidImportRecord } from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -66,16 +67,20 @@ export function buildRecordsFromCsv(params: BuildRecordsFromCsvParams): BuildRec
   )
 }
 
-/** Build the CSV blob URL for an error report (one row per failed line). */
+/**
+ * Build the CSV blob URL for an error report (one row per failed line).
+ *
+ * The failed line is the imported file's own text, so it goes through the one
+ * CSV cell escaper like every other CSV this app writes: a line starting with
+ * `=`, `+`, `-` or `@` must open as text in a spreadsheet, not run as a formula.
+ */
 export function buildErrorReportUrl(
   errorRows: readonly { line: string; reason: string }[]
 ): string | undefined {
   if (errorRows.length === 0) return undefined
   const csv = [
     'Original Data,error',
-    ...errorRows.map(
-      ({ line, reason }) => `"${line.replace(/"/g, '""')}","${reason.replace(/"/g, '""')}"`
-    ),
+    ...errorRows.map(({ line, reason }) => `${escapeCsvCell(line)},${escapeCsvCell(reason)}`),
   ].join('\n')
   return URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
 }

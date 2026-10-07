@@ -45,20 +45,20 @@ import type { Scope } from 'effect'
  * One consequence is load-bearing and easy to undo by accident: **the job
  * registry is per-layer, not module-level.** Four callers arm this scheduler
  * (`register-cron-automations`, `register-agent-schedules`,
- * `register-account-purge`, `register-activity-log-retention`) and each used to
+ * `register-account-purge`, `register-activity-log-retention`), and none may
  * `Effect.provide(CronSchedulerLive)` for itself. Layers memoise per BUILD, so
- * four provides would now be four registries — and four scopes, each closing
+ * four provides would be four registries — and four scopes, each closing
  * when its own registration program returned, interrupting the jobs it had just
  * armed. They all run on the server's domain context instead: one build, one
  * registry, one scope.
  *
- * ## The 32-bit timer ceiling is Effect's problem now
+ * ## The 32-bit timer ceiling is Effect's problem
  *
  * A monthly cron (`0 6 1 * *`) armed early in the month is ~26 days out, past
  * the 2^31-1 ms ceiling a raw `setTimeout` can hold — Bun silently clamps such
- * a delay to 1 ms, which used to turn a far-future fire into a ~1000/sec
- * busy-loop that starved the event loop. This adapter no longer carries a
- * workaround for that, because Effect's `Clock` already does it: `sleepMillis`
+ * a delay to 1 ms, which turns a far-future fire into a ~1000/sec busy-loop
+ * that starves the event loop. This adapter carries no workaround for that,
+ * because Effect's `Clock` already does it: `sleepMillis`
  * clamps to `2 ** 31 - 1` and chains a continuation for the remainder
  * (`internal/effect.ts`), so an arbitrarily long `Effect.sleep` resolves once,
  * at the right time.
@@ -260,7 +260,7 @@ const listJobsImpl = (
  * The live scheduler, scoped to the layer that builds it.
  *
  * `Layer.effect` IS the scoped constructor in Effect 4 — there is no
- * `Layer.scoped` (it was removed; `rg 'declare const scoped' node_modules/effect/dist/Layer.d.ts`
+ * `Layer.scoped` (`rg 'declare const scoped' node_modules/effect/dist/Layer.d.ts`
  * returns nothing). `Layer.effectContext` runs the construction effect under
  * `Scope.provide(effect, scope)` with the layer's own memo scope, and the
  * resulting `Layer<I, E, Exclude<R, Scope>>` strips the requirement — so

@@ -1,0 +1,41 @@
+# The Add task dialog, shared by every page whose bar carries the button,
+# opens this form. A new task starts in To do.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 1
+name: add-task
+title: Add task
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: tasks
+display:
+  submitLabel: Add task
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /board
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: title
+    label: Title
+  - kind: table-field
+    column: project
+    label: Project
+  - kind: table-field
+    column: assignee
+    label: Assignee
+  - kind: table-field
+    column: start_date
+    label: Start date
+  - kind: table-field
+    column: due_date
+    label: Due date
+  - kind: table-field
+    column: priority
+    label: Priority

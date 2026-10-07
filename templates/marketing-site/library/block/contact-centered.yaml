@@ -1,0 +1,58 @@
+# sovrium-library: block/contact-centered@0.30.0
+name: contact-centered
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: flex
+    props:
+      className: flex flex-col mx-auto max-w-xl gap-6
+    children:
+      - type: flex
+        props:
+          className: flex flex-col mx-auto max-w-2xl items-center gap-4 text-center
+        children:
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: Contact
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: One line on who reads this.
+      - type: form
+        props:
+          className: mt-4
+        classes:
+          parts:
+            submit: h-10 px-4
+        endpoint:
+          url: /api/forms/contact/submissions
+          method: POST
+          submitLabel: Send message
+          onSuccess:
+            type: toast
+            variant: success
+            message: Message sent. We will reply soon.
+          onError:
+            type: toast
+            variant: destructive
+            message: The message could not be sent. Try again.
+        fields:
+          - field: name
+            control: text
+            label: Name
+          - field: email
+            control: email
+            label: Email
+          - field: message
+            control: textarea
+            label: Message
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-subtle
+        content: '[Consent line, linked to the privacy policy]'

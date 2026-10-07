@@ -1,0 +1,86 @@
+# The "Check blockers tomorrow" button on the dashboard. A manual trigger:
+# nothing starts it but a person pressing it, typically after a stand-up where
+# the team agreed to clear its blockers.
+#
+# 1. It notes which tasks are Blocked right now. Each assignee was already
+#    emailed when their task turned Blocked (notify-assignee-on-blocked.yaml).
+# 2. The run waits a day — a delay step keeps it paused in the run history,
+#    not in anyone's calendar.
+# 3. It reads the board again and compares the two lists by task. Only the
+#    tasks Blocked on both days count, so a task blocked this morning does not
+#    raise an alarm about yesterday's promise.
+# 4. If any remain, the team lead gets one email saying how many.
+#
+# The button runs it in the background, so the person pressing it is not kept
+# waiting a day for an answer. Replace lead@example.com with your lead's
+# address.
+name: chase-blocked-tasks
+label: Check blockers tomorrow — tell the lead what is still blocked
+description: Note today's Blocked tasks, wait a day, then email the team lead how many are still blocked.
+enabled: true
+trigger:
+  type: manual
+  label: Check blockers tomorrow
+  requiredRole: member
+actions:
+  - name: blockedToday
+    type: record
+    operator: list
+    props:
+      table: tasks
+      filter:
+        conditions:
+          - { field: status, operator: equals, value: Blocked }
+      limit: 100
+  # Nothing blocked, nothing to check: the run ends as a success.
+  - name: onlyWhenBlocked
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{blockedToday.records}}'
+            operator: isNotEmpty
+      onFalse: stop
+  - name: waitADay
+    type: delay
+    operator: wait
+    props:
+      duration: 1d
+  - name: blockedTomorrow
+    type: record
+    operator: list
+    props:
+      table: tasks
+      filter:
+        conditions:
+          - { field: status, operator: equals, value: Blocked }
+      limit: 100
+  # `unchanged` holds the tasks found in both lists: still Blocked a day later.
+  - name: stillBlocked
+    type: data
+    operator: compare
+    props:
+      left: '{{blockedToday.records}}'
+      right: '{{blockedTomorrow.records}}'
+      key: id
+  - name: onlyWhenStillBlocked
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{stillBlocked.result.unchanged}}'
+            operator: isNotEmpty
+      onFalse: stop
+  - name: tellTheLead
+    type: email
+    operator: send
+    props:
+      to: lead@example.com
+      subject: '{{count stillBlocked.result.unchanged}} tasks still blocked since yesterday'
+      body: |
+        <p>{{count stillBlocked.result.unchanged}} of the
+        {{count blockedToday.records}} tasks that were Blocked yesterday are
+        still Blocked today.</p>
+        <p>Open the board and filter on Blocked to clear them with the team.</p>

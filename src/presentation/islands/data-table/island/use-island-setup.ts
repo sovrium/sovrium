@@ -16,7 +16,6 @@ import { useInlineSaveWiring } from './setup/use-inline-save-wiring'
 import { useRecordsQuery } from './setup/use-records-query'
 import { useRefreshWiring } from './setup/use-refresh-wiring'
 import { useSystemQueryParams } from './setup/use-system-query-params'
-import { useViewsSurface } from './setup/use-views-surface'
 import { useDataTableUiState } from './use-ui-state'
 import type { IslandSetupParams, SetupContext } from './setup/setup-params'
 
@@ -60,7 +59,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     autoSave: params.autoSaveConfig,
   })
 
-  const gridRecords = useGridRecords(ctx, records)
+  const gridRecords = useGridRecords(ctx, layout, records)
   const allColumns = buildGridColumns(ctx, layout, gridRecords, refresh)
   const grid = useGridInstance(ctx, layout, gridRecords, {
     allColumns,
@@ -72,7 +71,6 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
 
   const actions = useGridActions(ctx, layout, grid, refresh)
   const inlineSave = useInlineSaveWiring(ctx, inlineEditing, gridRecords)
-  const views = useViewsSurface(ctx, layout)
 
   return buildIslandSetupResult({
     ctx,
@@ -86,6 +84,5 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     actions,
     inlineEditing,
     inlineSave,
-    views,
   })
 }

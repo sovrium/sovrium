@@ -17,16 +17,27 @@ import {
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
-const CARD_MENU: Readonly<Record<string, unknown>> = {
+/** A menu row that goes somewhere — the only kind a menu row can carry out on its own. */
+const goTo = (
+  label: string,
+  iconName: string,
+  path: string
+): Readonly<Record<string, unknown>> => ({
+  label,
+  icon: iconName,
+  action: { type: 'navigate', path },
+})
+
+const cardMenu = (p: (key: string) => string): Readonly<Record<string, unknown>> => ({
   type: 'dropdown-menu',
   triggerLabel: 'Card actions',
   menuItems: [
-    { label: 'Edit', icon: 'pencil' },
-    { label: 'Share', icon: 'share-2' },
+    goTo('Edit', 'pencil', p('editHref')),
+    goTo('Share', 'share-2', p('shareHref')),
     { separator: true },
-    { label: 'Archive', icon: 'archive' },
+    goTo('Archive', 'archive', p('archiveHref')),
   ],
-}
+})
 
 /** A card whose heading names what it holds, with a menu for what can be done to it. */
 export const entry = defineLibraryEntry({
@@ -40,11 +51,19 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'Replace the dashed slot with the card content. The menu items carry no action yet: give each an `action` in the installed fragment.',
+    'Replace the dashed slot with the card content.',
+    'Each menu row opens a page: the edit form, the sharing settings, and an archive page that asks before it archives. A menu row carries out `navigate` (and signing out) itself; an action that changes a record lives on the page it opens, behind its own confirmation.',
   ],
   params: [
     stringParam('title', 'The name the card is about.', 'Atelier Nord'),
     stringParam('subtitle', 'One line under the name.', 'Client since March 2024'),
+    stringParam('editHref', 'The page the Edit row opens.', '/clients/atelier-nord/edit'),
+    stringParam('shareHref', 'The page the Share row opens.', '/clients/atelier-nord/share'),
+    stringParam(
+      'archiveHref',
+      'The page the Archive row opens; it confirms before archiving.',
+      '/clients/atelier-nord/archive'
+    ),
   ],
   env: [],
   requires: [],
@@ -77,7 +96,7 @@ export const entry = defineLibraryEntry({
                   ],
                   'items-center gap-3'
                 ),
-                CARD_MENU,
+                cardMenu(p),
               ],
               'items-center justify-between gap-4 border-b border-border px-5 py-4'
             ),

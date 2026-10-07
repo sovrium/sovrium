@@ -1,0 +1,9 @@
+name: article
+path: /article
+meta:
+  title: 'Article · [Product]'
+  description: '[A single article, set for reading.]'
+components:
+  - component: navbar-simple
+  - component: content-prose
+  - component: footer-simple

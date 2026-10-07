@@ -112,5 +112,17 @@
     "description": "Orrin OS: pipeline, projects, tickets, team and time off, one client list.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "company-os", "erp"]
+  },
+  "app-starter": {
+    "name": "App starter",
+    "description": "A business-app skeleton: every sign-in way, dashboards, settings, records.",
+    "category": "starter",
+    "topics": ["sovrium", "template", "self-hosted", "starter", "auth", "dashboard"]
+  },
+  "marketing-site": {
+    "name": "Marketing site",
+    "description": "A marketing website built from every marketing block of the library.",
+    "category": "website",
+    "topics": ["sovrium", "template", "self-hosted", "website", "marketing"]
   }
 }

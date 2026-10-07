@@ -22,7 +22,7 @@
  *
  * Pure SSR component — no interactivity, no island required.
  *
- * Visual tone ([internal ref], prestyled-by-default) comes from
+ * Visual tone (the prestyled-islands rule, prestyled-by-default) comes from
  * {@link computeSkeletonClasses} — a Tailwind recipe with inline OKLCH
  * var-fallbacks so a schema author who writes the bare `{ type: 'skeleton' }`
  * gets a complete, opinionated placeholder (bg-subtle fill, variant-aware
@@ -83,7 +83,6 @@ export const skeletonComponent: ComponentRenderer = ({ component, rawProps, elem
       data-animate={f.animate ? 'true' : 'false'}
       aria-hidden="true"
       className={className}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call sizing in a stateless SSR renderer; rendered once on the server
       style={{ width: f.width, height: f.height }}
     />
   )

@@ -172,7 +172,6 @@ const postgresViewMatches = async (
 ): Promise<boolean> => {
   const probe = probeStatementOf(view.sql)
   if (probe === undefined) return false
-  // eslint-disable-next-line functional/no-expression-statements -- DDL on the probe's own session: the temporary view is the comparison's other side
   await tx.unsafe(probe)
   try {
     // Both names are quoted (S3), and the probe is addressed in `pg_temp`
@@ -190,7 +189,6 @@ const postgresViewMatches = async (
       row.installed === row.generated
     )
   } finally {
-    // eslint-disable-next-line functional/no-expression-statements -- teardown of the probe, so the next view's probe can take the name
     await tx.unsafe(`DROP VIEW IF EXISTS pg_temp.${PROBE_VIEW}`)
   }
 }

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { para } from '@/library/manifest/app-block-kit'
 import {
   asComponent,
   BARE_FORM,
@@ -35,7 +36,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'The form posts `{ "email": "…" }` as JSON to `endpoint` and shows a toast on success or failure. It writes to no table, so the block installs into any app.',
+    'The form posts `{ "email": "…" }` to the submissions route of the app form named by `form` (`/api/forms/<form>/submissions`) and shows a toast on success or failure. Declare that form under `forms:` with an `email` field — it decides where an address goes (a table through `submitTo`, a mailing tool through a `form` trigger or a library recipe) and who may sign up. Until it exists, a sign-up answers 404 and the error toast shows.',
     'The field and the button sit side by side from the small breakpoint up and stack on a phone.',
   ],
   params: [
@@ -45,7 +46,11 @@ export const entry = defineLibraryEntry({
       'What arrives and how often.',
       'What arrives, how often, and that one click unsubscribes.'
     ),
-    stringParam('endpoint', 'The URL the form posts the email address to.', '/api/newsletter'),
+    stringParam(
+      'form',
+      'The name of the app form (under `forms:`) that receives the address.',
+      'newsletter'
+    ),
     stringParam('submitLabel', 'The text of the submit button.', 'Subscribe'),
     stringParam(
       'successMessage',
@@ -69,17 +74,17 @@ export const entry = defineLibraryEntry({
           card(
             [
               stack(
-                [h3(p('headline')), small(p('subheadline'), 'text-md text-foreground-muted')],
+                [h3(p('headline')), para(p('subheadline'), 'text-md text-foreground-muted')],
                 'max-w-md gap-2'
               ),
               stack(
                 [
                   endpointForm({
-                    url: p('endpoint'),
+                    url: `/api/forms/${encodeURIComponent(p('form'))}/submissions`,
                     submitLabel: p('submitLabel'),
                     successMessage: p('successMessage'),
                     errorMessage: 'The address could not be saved. Try again.',
-                    className: `${BARE_FORM} sm:flex-row sm:items-end [&>*:first-child]:flex-1`,
+                    className: `${BARE_FORM} sm:flex-row sm:items-end *:first:flex-1`,
                     fields: [
                       {
                         field: 'email',

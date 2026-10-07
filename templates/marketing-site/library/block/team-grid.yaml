@@ -1,0 +1,229 @@
+# sovrium-library: block/team-grid@0.30.0
+name: team-grid
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col max-w-2xl gap-4
+        children:
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: '[Who we are]'
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: One sentence on how the team works with clients.
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 1
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 3
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 4
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 5
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 6
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 7
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-square
+                  role: img
+                  aria-label: Portrait of team member 8
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: portrait
+              - type: text
+                element: p
+                props:
+                  className: mt-2 text-md font-semibold text-foreground
+                content: '[Full name]'
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Role]'

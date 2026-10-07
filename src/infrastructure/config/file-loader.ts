@@ -61,7 +61,6 @@ const readRoot = async (
   const exists = standIn !== undefined || (await file.exists())
 
   if (!exists) {
-    // eslint-disable-next-line functional/no-throw-statements
     throw new Error(`File not found: ${filePath}`)
   }
 
@@ -73,7 +72,6 @@ const readRoot = async (
 
   if (format === 'unsupported') {
     const extension = getFileExtension(filePath)
-    // eslint-disable-next-line functional/no-throw-statements
     throw new Error(`Unsupported file format: .${extension}. Supported: .json, .yaml, .yml, .ts`)
   }
 
@@ -123,7 +121,6 @@ export const loadSchemaGraphFromFile = async (
     // that believed it was judging a candidate would otherwise be handed the
     // config already on disk and told it decodes.
     if (options.readFile !== undefined) {
-      // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
       throw new Error(
         'A TypeScript config cannot be overlaid: its partials are module imports, not `$ref` ' +
           'files. Edit the `.ts` config directly.'

@@ -104,7 +104,6 @@ const SINGLE_ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
 /**
  * Boolean field types whose stored value must be coerced to a JS boolean in
  * API responses.
- *
  * SQLite has no native boolean type — a `checkbox`/`boolean` column maps to
  * `INTEGER` and reads back as `0`/`1`. PostgreSQL returns a real `boolean`.
  * Coercing here makes the records-API response dialect-independent: callers
@@ -149,6 +148,7 @@ const JSON_DESERIALIZED_FIELD_TYPES: ReadonlySet<string> = new Set([
   'json',
   'array',
   'multiple-attachments',
+  'signature',
 ])
 
 /**

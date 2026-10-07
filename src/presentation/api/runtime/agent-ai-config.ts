@@ -26,8 +26,8 @@ import type { Agent } from '@/domain/models/app/agents/agent'
 
 /**
  * Resolve the effective request `model`:
- * 1. the agent's `model` override;
- * 2. the `AI_MODEL` env var;
+ *  1. the agent's `model` override;
+ *  2. the `AI_MODEL` env var;
  *  3. `'mock-model'` — so a model always reaches the wire.
  */
 export const resolveAgentModel = (agent: Agent): string =>
@@ -35,8 +35,8 @@ export const resolveAgentModel = (agent: Agent): string =>
 
 /**
  * Resolve the effective request temperature using the shared precedence:
- * 1. the agent's `temperature` override;
- * 2. the `AI_TEMPERATURE` env var;
+ *  1. the agent's `temperature` override;
+ *  2. the `AI_TEMPERATURE` env var;
  *  3. `fallback` — the caller's own default policy when neither is set.
  *
  * Callers that want "send a temperature only when configured" pass

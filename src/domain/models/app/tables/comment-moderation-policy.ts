@@ -44,8 +44,8 @@ export type CommentModerationStatus = 'pending' | 'approved'
 export interface CommentModerationConfig {
   /**
    * The tri-state literal (see [[ModerationModeSchema]] at
-   * `src/domain/models/app/tables/comments.ts`). A `boolean` shape was also
-   * accepted -- `true` ≡ `'manual'`, `false` ≡ `'auto'` -- and was removed.
+   * `src/domain/models/app/tables/comments.ts`). There is no `boolean` shape:
+   * write `'manual'` or `'auto'`.
    */
   readonly moderation?: 'auto' | 'manual' | 'auth-required'
   readonly autoApprove?: {

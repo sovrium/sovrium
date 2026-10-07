@@ -22,7 +22,7 @@ import { Data } from 'effect'
  *
  * `LINK_RESERVED_SLUG` — the admin API serves `/api/admin/links/{overview,series}`,
  * so a link minted there would resolve publicly and be permanently invisible.
- * `LINK_IS_CONFIG_DECLARED` — `app.links` claims it; edit the file ([internal ref] D2).
+ * `LINK_IS_CONFIG_DECLARED` — `app.links[]` claims it; edit the file.
  * `LINK_SLUG_TAKEN` — a live row already holds it.
  *
  * These are the exact three members of the wire enum in

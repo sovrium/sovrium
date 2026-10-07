@@ -1,0 +1,69 @@
+# One ticket on its own page, reached from "Open full page" in the ticket
+# drawer: what the requester wrote, and the team's internal notes under it.
+# Notes are the table's comment thread — type @ to mention a colleague — and
+# each new note is collected for the next morning's notes digest
+# (config/automations/collect-ticket-notes.yaml).
+name: ticket
+path: /tickets/:id
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Ticket · Tallyline Support
+  description: One ticket, with what the requester wrote and the team's internal notes.
+dataSource:
+  table: tickets
+  mode: single
+  param: id
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: link
+                props:
+                  href: /tickets
+                  className: text-sm text-muted-foreground hover:text-foreground
+                content: All tickets
+              - type: text
+                element: span
+                props:
+                  className: text-sm text-muted-foreground
+                  aria-hidden: 'true'
+                content: /
+              - type: text
+                element: h1
+                props:
+                  className: min-w-0 truncate text-[15px] font-semibold text-foreground
+                content: '#$record.id · $record.subject'
+          - type: container
+            props:
+              className: mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              - type: container
+                element: section
+                props:
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-background p-4 sm:p-5
+                  aria-label: What the requester wrote
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-muted-foreground
+                    content: $record.requester_name · $record.requester_email
+                  - type: text
+                    element: p
+                    props:
+                      className: whitespace-pre-line text-sm text-foreground
+                    content: $record.details
+              - component: record-comments

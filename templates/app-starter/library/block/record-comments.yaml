@@ -1,0 +1,20 @@
+# sovrium-library: block/record-comments@0.30.0
+name: record-comments
+type: container
+element: section
+props:
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+  aria-label: Comments
+children:
+  - type: text
+    element: h2
+    props:
+      className: text-md font-semibold text-foreground
+    content: Comments
+  - type: comments
+    sort: newest
+    limit: 20
+    paginationStyle: loadMore
+    emptyText: No comment yet. Start the conversation.
+    props:
+      placeholder: Write a comment…

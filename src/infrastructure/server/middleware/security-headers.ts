@@ -103,31 +103,24 @@ const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options']
  *    everyone else), and `'self'` still refuses every origin an attacker could
  *    control without already controlling this app.
  *
- *    This example named `/_admin/design-system/preview/:section` until
- *    2026-09-17. Those routes were deleted in `36c9914678`, which left the
- *    looser direction documented by a route that no longer existed — a reader
- *    checking whether the mechanism had ever been used would have found
- *    nothing, and concluded the wrong thing about which of the two directions
- *    is load-bearing.
+ *    Keep this example pointing at a route that exists: a reader checking
+ *    whether the looser direction is ever used would otherwise find nothing,
+ *    and conclude the wrong thing about which of the two directions is
+ *    load-bearing.
  *
  * A route that says nothing keeps the platform default —
  * `frame-ancestors 'none'` + `X-Frame-Options: DENY` — so the safe answer
  * remains the one you get by not thinking about it.
  */
 export const securityHeaders: MiddlewareHandler = async (c, next) => {
-  // eslint-disable-next-line functional/no-let
   let routeHeaders: ReadonlyArray<readonly [string, string]> = []
-  // eslint-disable-next-line functional/no-let
   let routeGrants: string | undefined = undefined
-  // eslint-disable-next-line functional/no-expression-statements
   await structuralSecureHeaders(c, async () => {
     await next()
-    // eslint-disable-next-line functional/no-expression-statements
     routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {
       const value = c.res.headers.get(name)
       return value === null ? [] : [[name, value] as const]
     })
-    // eslint-disable-next-line functional/no-expression-statements
     routeGrants = c.res.headers.get('Permissions-Policy') ?? undefined
   })
 

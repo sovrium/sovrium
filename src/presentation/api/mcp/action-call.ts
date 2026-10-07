@@ -50,6 +50,7 @@
  */
 
 import { Effect } from 'effect'
+import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
 import { defaultActionHandlers } from '@/application/use-cases/automations/action-handlers'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
 import { fillInvokedTemplateAction } from '@/application/use-cases/automations/run/prop-substitution'
@@ -163,7 +164,8 @@ const declaredParameterNames = (template: ActionTemplate): ReadonlyArray<string>
 const synthesizeAutomation = (
   app: App,
   template: ActionTemplate,
-  args: Readonly<Record<string, unknown>>
+  args: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): NonNullable<App['automations']>[number] => {
   const filledAction = fillInvokedTemplateAction({
     // The decoded template, read as the run loop reads `app.actions[]`.
@@ -171,6 +173,7 @@ const synthesizeAutomation = (
     args,
     parameterNames: declaredParameterNames(template),
     envLookup: buildEnvLookup(app.env, process.env),
+    templates,
   })
   const synthName = `mcp-action:${template.name}`
   return {
@@ -249,8 +252,8 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
     return toolFailure(-32_602, `Missing required parameter '${missing}'`)
   }
 
-  const automation = synthesizeAutomation(app, template, envelope.args)
   const program = Effect.gen(function* () {
+    const automation = synthesizeAutomation(app, template, envelope.args, yield* TemplateEngine)
     const automationId = yield* resolveAutomationId(automation.name, automation)
     return yield* executeAutomationRun({
       name: automation.name,

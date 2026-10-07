@@ -11,12 +11,12 @@ import { escapeReservedFieldNames } from './formula-utils'
 /**
  * SQLite arm of the formula translator.
  *
- * Formula SQL used to be rendered by `translateFormulaToPostgres` at every
- * call site, with no SQLite counterpart and no dialect branch — so a formula
- * whose functions the validator accepts (`domain/validators/formula-keywords.ts`
- * is deliberately dialect-agnostic) was emitted verbatim into SQLite DDL.
+ * Without a SQLite arm, formula SQL rendered by `translateFormulaToPostgres`
+ * would reach SQLite DDL verbatim — a formula whose functions the validator
+ * accepts (`domain/validators/formula-keywords.ts` is deliberately
+ * dialect-agnostic) is not necessarily valid SQLite.
  *
- * That failed in the worst possible shape. SQLite resolves function names
+ * That fails in the worst possible shape. SQLite resolves function names
  * LAZILY, at statement time, so `CREATE VIEW … GREATEST(0, x - y) …` is accepted
  * without complaint and the table looks healthy. Every later operation on the
  * view-backed table then dies with `no such function: GREATEST` — including
@@ -52,7 +52,7 @@ const SQLITE_SCALAR_EQUIVALENTS: Readonly<Record<string, string>> = {
 /**
  * Whitelisted formula functions that `bun:sqlite` does NOT provide.
  *
- * MEASURED against `bun:sqlite` (2026-07-26) rather than inferred, because the
+ * MEASURED against `bun:sqlite` rather than inferred, because the
  * intuitive guesses are wrong in both directions: Bun ships SQLite's math
  * extension, so `power`, `sqrt`, `ceil`, `floor`, `mod`, `exp`, `ln`, `log`,
  * `sign` and `trunc` all resolve and must NOT be listed here; while `repeat`
@@ -132,7 +132,6 @@ const rejectUnsupportedSqliteFunctions = (formula: string): void => {
   const unsupported = findUnsupportedFunctions(formula)
   if (unsupported.length === 0) return
   const names = unsupported.join(', ')
-  // eslint-disable-next-line functional/no-throw-statements -- explicit degradation boundary: emitting this formula would produce DDL that only fails at write time
   throw new UnsupportedInSqliteError({
     feature: `formula-function:${unsupported.join('+')}`,
     message:

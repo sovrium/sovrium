@@ -11,6 +11,7 @@ import {
   UsersOverviewRepository,
   UsersOverviewDatabaseError,
 } from '@/application/ports/repositories/tables/users-overview-repository'
+import { listPendingInvitations } from '@/infrastructure/auth/better-auth/invitation-queries'
 import { db } from '@/infrastructure/database'
 import { authSessionsTable, authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
@@ -22,7 +23,7 @@ const wrap = makeDbWrap((error) => new UsersOverviewDatabaseError({ cause: error
 /**
  * Users Overview Repository Implementation
  *
- * Three dialect-aware raw reads over the Better Auth `user` / `session` tables.
+ * Four dialect-aware raw reads over the Better Auth `user` / `session` tables.
  * The dialect-correct table objects are resolved at call time (the helpers
  * memoize the dialect lookup) — the auth `user` table is `auth.user` on Postgres
  * and `auth_user` on SQLite, so capturing the dialect-correct object per call is
@@ -30,7 +31,7 @@ const wrap = makeDbWrap((error) => new UsersOverviewDatabaseError({ cause: error
  */
 export const UsersOverviewRepositoryLive = Layer.succeed(UsersOverviewRepository, {
   listUserRows: wrap(async () => {
-    // One full scan of auth.user.role + created_at. The auth.user table is
+    // One full scan of auth.user id + role + created_at. The auth.user table is
     // small (operators in the hundreds, not millions) so a per-row scan is
     // cheaper than three separate GROUP BY queries and keeps the
     // dialect-agnostic call site simple.
@@ -42,12 +43,22 @@ export const UsersOverviewRepositoryLive = Layer.succeed(UsersOverviewRepository
     // discrepancy would silently equal the agent count.
     const usersTable = authUsersTable()
     return (await db
-      .select({ role: usersTable.role, createdAt: usersTable.createdAt })
+      .select({ id: usersTable.id, role: usersTable.role, createdAt: usersTable.createdAt })
       .from(usersTable)
       .where(notAnAgentAccount(usersTable.email))) as ReadonlyArray<{
+      id: string
       role: string | null
       createdAt: Date | string | number
     }>
+  }),
+
+  // Delegates to the invitation query module rather than re-spelling the
+  // SELECT: the identifier prefix and the two `value` encodings an invitation
+  // row can carry are one contract, decoded in one place. An accepted
+  // invitation's row is deleted, so every row read here is unaccepted.
+  listPendingInviteeIds: wrap(async () => {
+    const pending = await listPendingInvitations()
+    return [...new Set(pending.map((invitation) => invitation.userId))]
   }),
 
   countActiveUsersSince: (since) =>

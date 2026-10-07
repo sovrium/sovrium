@@ -105,7 +105,7 @@ function itemSelfNeedsIslands(item: Component): boolean {
  * triggers the same script injection as page-direct authoring — the walker also
  * handles child recursion, replacing the former hand-rolled `itemNeedsIslands`.
  *
- * A page with `presence: true` (Wave-6) always needs the runtime so the
+ * A page with `presence: true` always needs the runtime so the
  * page-level `presence-indicator` island can hydrate, even when the page has
  * no other island components.
  */

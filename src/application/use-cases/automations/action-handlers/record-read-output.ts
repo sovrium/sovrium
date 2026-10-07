@@ -23,6 +23,7 @@ import { shapeRecordsForReader } from '@/application/use-cases/tables/read-recor
 import { buildGuestSession, buildSystemSession } from '../build-guest-session'
 import { runLinkReader, type RunReadAccess } from './record-caller-gate'
 import type { ActionOutcome, AutomationContext } from './shared'
+import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
@@ -102,7 +103,7 @@ const selectFields = (
  * (the whole array), so `{{getUser.record.email}}` works for the single-row
  * case AND `{{listActive.records}}` for the set case.
  *
- * Sharing it is what makes the [internal ref] operator split invisible downstream: a
+ * Sharing it is what makes the `record.read` split operator split invisible downstream: a
  * config migrating a filtered `read` to a `list` keeps every template it had.
  * Do not give `list` its own envelope.
  */
@@ -116,7 +117,11 @@ export const buildReadOutput = (
     /** A `record/list`'s `fields`: the fields each record keeps. */
     readonly fields?: readonly string[]
   }
-): Effect.Effect<ActionOutcome, never, TableRepository | AuthRepository | DataSourceRepository> =>
+): Effect.Effect<
+  ActionOutcome,
+  never,
+  TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
+> =>
   Effect.gen(function* () {
     const { app, tableName, fields } = context
     const reader = yield* readerOfRun(context.access, context.automation)

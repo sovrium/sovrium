@@ -26,7 +26,7 @@ const CHART_SKELETON_HEIGHTS = ['h-[40%]', 'h-[55%]', 'h-[70%]', 'h-[60%]', 'h-[
 function extractChartProps(elementProps: Record<string, unknown>): Record<string, unknown> {
   return {
     // Accessible name for the rendered `<svg role="img">`
-    //: forwarded so the
+    // Forwarded so the
     // island can override the generic per-`chartType` default (e.g. "Area
     // chart") with a meaningful operator-set name, exactly as a `table`
     // labels its `role="grid"` via `props['aria-label']`. Omitted → the
@@ -40,14 +40,17 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
     legend: elementProps.legend,
     tooltip: elementProps.tooltip,
     chartAggregate: elementProps.chartAggregate,
+    dataLabels: elementProps.dataLabels,
     // What `app.tables` says about the fields the chart names: the grouping
     // field's options (order, labels, colours) and the plotted field's
     // currency. Absent when the chart names no such field.
     categoryOptions: elementProps.categoryOptions,
     valueCurrency: elementProps.valueCurrency,
+    // Read the figures from one aggregate read rather than a page of records.
+    aggregateRead: elementProps.aggregateRead,
     emptyMessage: elementProps.emptyMessage,
     // Optional NAMED empty-state region config
-    //: forwarded so the
+    // Forwarded so the
     // island's zero-rows branch renders an accessible `role="region"` landmark
     // (name + title) instead of the unnamed default empty placeholder. Omitted →
     // the plain unnamed `ChartEmpty` is preserved (purely additive).
@@ -79,16 +82,16 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
       className={hostClassName(elementProps)}
     >
       {/* Loading skeleton — preserved as Suspense fallback.
-       * [internal ref]: shell chrome (border + radius + raised surface + the canvas'
+       * Shell chrome (border + radius + raised surface + the canvas'
        * 10px/12px inset) painted via the CHART recipe, so the var-fallback
        * paints the surface even when the theme layer is absent — and so the
        * placeholder is the same card the hydrated island renders. It carries
        * its own `w-full`, so none is added here.
        *
-       * This used to spend `data-default-classes.ts`'s same-named
-       * `computeChartShellClasses`, which paints the design-system reference
-       * app's chart SIMULACRUM (`p-4` on `sv-bg`) and is pinned by that file's
-       * test — a different surface that happened to share a name. */}
+       * Not `data-default-classes.ts`'s same-named `computeChartShellClasses`,
+       * which paints the design-system reference app's chart SIMULACRUM (`p-4`
+       * on `sv-bg`) and is pinned by that file's test — a different surface
+       * that happens to share a name. */}
       <div
         className={computeChartShellClasses()}
         aria-label="Loading chart..."

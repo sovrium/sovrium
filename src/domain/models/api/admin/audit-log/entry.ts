@@ -115,8 +115,8 @@ export const auditLogListResponseSchema = Schema.Struct({
 export type AuditLogListResponse = typeof auditLogListResponseSchema.Type
 
 /**
- * Query shape for `GET /api/admin/audit-log` cursor-paginated reads.
- * Added in [internal ref] merge to satisfy Lane B's `store.ts` query API.
+ * Query shape for `GET /api/admin/audit-log` cursor-paginated reads, matching
+ * the audit-log `store.ts` query API.
  */
 export const auditLogQuerySchema = Schema.Struct({
   actorId: optionalField(Schema.String),

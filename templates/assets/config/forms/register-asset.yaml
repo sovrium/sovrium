@@ -1,0 +1,49 @@
+# The Register asset dialog opens this form. A new asset starts In storage.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 1
+name: register-asset
+title: Register asset
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: assets
+display:
+  submitLabel: Register asset
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: asset_tag
+    label: Asset tag
+  - kind: table-field
+    column: name
+    label: Asset
+  - kind: table-field
+    column: category
+    label: Category
+  - kind: table-field
+    column: location
+    label: Location
+  - kind: table-field
+    column: serial
+    label: Serial
+  - kind: table-field
+    column: barcode
+    label: Barcode
+  - kind: table-field
+    column: purchased_on
+    label: Purchased
+  - kind: table-field
+    column: value
+    label: Value
+  - kind: table-field
+    column: warranty_end
+    label: Warranty ends

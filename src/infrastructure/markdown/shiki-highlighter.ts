@@ -6,12 +6,12 @@
  */
 
 /**
- * Shiki SSR syntax highlighter ([internal ref], cluster 2).
+ * Shiki SSR syntax highlighter (the pages layout markdown pages requirement, cluster 2).
  *
  * Splices class-based, token-coloured `<pre><code>` markup into the placeholder
  * fences emitted by the domain markdown renderer (`<pre><code … data-md-code="N">`).
  *
- * **Sanitisation invariant (critical — [internal ref]):** the canonical
+ * **Sanitisation invariant (critical — a pages markdown spec):** the canonical
  * `sanitizeRichTextHTML` allowlist drops the `style` attribute. Shiki's default
  * output paints token colors via inline `style="color:#xxx"`; if those survived
  * to the sanitiser, every token would render uncoloured (or, worse, an attempt
@@ -56,8 +56,8 @@ import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 
 /**
  * Default Shiki theme used when `app.design.codeBlock.theme` is unset. Matches
- * the test fixture default (`'github-dark'`) so [internal ref] and
- * [internal ref] hold without explicit configuration.
+ * the test fixture default (`'github-dark'`) so a pages markdown spec and
+ * a pages markdown spec hold without explicit configuration.
  */
 const DEFAULT_THEME = 'github-dark'
 
@@ -128,7 +128,6 @@ interface ShikiOptions {
  * rule is disabled on the type declarations below rather than at every call
  * site.
  */
-/* eslint-disable functional/prefer-immutable-types -- hast nodes are mutated by Shiki's transformer pipeline by design */
 interface ShikiTransformerLike {
   readonly name?: string
   readonly pre?: (this: ShikiContextLike, hast: HastElement) => HastElement | void
@@ -144,7 +143,6 @@ interface HastElement {
   readonly tagName: string
   properties?: Record<string, unknown>
 }
-/* eslint-enable functional/prefer-immutable-types */
 
 /**
  * Resolve (and lazily build) a Shiki `codeToHtml` bound to the given theme.
@@ -162,7 +160,6 @@ const getShikiForTheme = (theme: string): Promise<ShikiCodeToHtml> => {
     const shiki = (await import('shiki')) as { codeToHtml: ShikiCodeToHtml }
     return shiki.codeToHtml
   })()
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- module-level cache, mutation here is the cache update; thread-safety not a concern (single-threaded JS)
   HIGHLIGHTER_CACHE.set(theme, building)
   return building
 }
@@ -243,7 +240,6 @@ const styleToDarkColorClass = (style: string): string | undefined => {
  * each highlight call reuses the same shapes (no per-call allocation cost
  * inside the hot path).
  */
-/* eslint-disable functional/immutable-data, functional/no-expression-statements -- hast node mutation is the documented Shiki transformer API; these closures ARE side-effect-only */
 const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
   name: 'sovrium-class-based',
   pre(hast) {
@@ -274,7 +270,6 @@ const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
     }
   },
 }
-/* eslint-enable functional/immutable-data, functional/no-expression-statements */
 
 /**
  * Render a single fenced code-block to highlighted HTML. Returns an
@@ -379,14 +374,14 @@ export const highlightCodeBlocks = async (
  * the exact same highlighter engine + `CLASS_BASED_TRANSFORMER` as the markdown
  * fence path (`highlightCodeBlocks`).
  *
- * The standalone `code` COMPONENT pre-highlight pass ([internal ref]..033)
+ * The standalone `code` COMPONENT pre-highlight pass
  * carries each block's `lang`+source in a self-contained SSR placeholder rather
  * than the side `codeBlocks` array the markdown renderer produces, so it splices
  * per-block instead of by index — but the token contract is identical: no inline
  * `style`, `tok-XXXXXX` colour classes, and the `shiki <themeName>` class on the
  * `<pre>`. An unknown grammar degrades to a plain escaped `<pre><code>` via the
- * shared `highlightOne` fallback (mirrors [internal ref] /
- * [internal ref]). `getShikiForTheme` is cached per theme, so calling
+ * shared `highlightOne` fallback (mirrors a pages content spec /
+ * a pages markdown spec). `getShikiForTheme` is cached per theme, so calling
  * this once per block on a page costs a single engine build.
  */
 export const highlightCodeToHtml = async (

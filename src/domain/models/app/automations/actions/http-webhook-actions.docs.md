@@ -48,7 +48,11 @@ Omit it and `post`, `put` and `patch` still send `application/json` for a JSON-s
 
 A 2xx response succeeds the step; any other status fails it, with the status folded into a stable error category that a retry policy can match on. The status and body land on the step output either way, so a step that must tolerate a 404 can be marked `continueOnError` and branched on the response status.
 
-Response bodies are captured up to 64 KiB. Past that the body is cut at the cap and the output's `truncated` flag is set; the key is absent otherwise, so a step can tell a clipped payload from an endpoint that genuinely returned nothing.
+Response bodies are read up to 64 KiB, and the rest is never downloaded: past the cap the body is cut there and the output's `truncated` flag is set; the key is absent otherwise, so a step can tell a clipped payload from an endpoint that genuinely returned nothing. An answer that never ends therefore costs 64 KiB, not the run.
+
+### Private addresses and redirects
+
+The `url` may not point at a private, loopback or link-local address, and neither may any redirect it answers with. Every hop is checked before it is requested, whatever way the address is written (`[::ffff:127.0.0.1]` is `127.0.0.1`); up to five redirects are followed, over `http` as well as `https`, and a refused hop fails the step with `invalid_outbound_url_<reason>`. A redirect to another host does not carry the request's `Authorization` header. The same rules apply to `webhook/send`. Host names are not resolved before the check, so restrict the server's outbound traffic at the firewall when it shares a network with internal services; `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` lifts the address rule for development.
 
 ```yaml
 - name: createContact

@@ -54,8 +54,6 @@ import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
-/* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for absent values across all admin endpoints (matches public schema + audit envelope contract); preserved verbatim from the former route helpers */
-
 // ─── Pure form-item helpers ─────────────────────────────────────────────────
 
 /** Resolve the public-schema `accessLevel` value for a form. */
@@ -233,7 +231,7 @@ export interface FormsListInput {
 /**
  * Outcome of a list/detail build. `Ok` carries the response-schema-validated
  * body; `ValidationFailed` signals the assembled body failed the response gate
- * (the route maps this to a 500 + logs the Zod error, exactly as before).
+ * (the route maps this to a 500 + logs the schema decode error, exactly as before).
  */
 export type FormsBuildOutcome<B> =
   | { readonly _tag: 'Ok'; readonly body: B }
@@ -550,5 +548,3 @@ export const BuildSubmissionsBulk = (
     }
     return { _tag: 'Ok', body: { items: parsed.data.items } } as const
   }).pipe(Effect.withSpan('admin.build-submissions-bulk'))
-
-/* eslint-enable unicorn/no-null */

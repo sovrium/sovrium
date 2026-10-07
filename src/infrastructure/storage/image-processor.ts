@@ -8,13 +8,12 @@
 /**
  * Single-step image operations, expressed over the shared `Bun.Image` seam.
  *
- * These used to lazily `import('sharp')` because its native addon cannot load
- * from a compiled binary's virtual filesystem. `Bun.Image` is part of the
- * runtime, so there is no module to defer and nothing to fail at load time —
- * see `./bun-image.ts` for why that mattered.
+ * `Bun.Image` is part of the runtime, so there is no module to defer and
+ * nothing to fail at load time — unlike a native image addon, which cannot load
+ * from a compiled binary's virtual filesystem (see `./bun-image.ts`).
  *
  * Every function here REJECTS on an undecodable input rather than returning it
- * unchanged. `cropImage` is gone: the pipeline has no crop primitive.
+ * unchanged. There is no `cropImage`: the pipeline has no crop primitive.
  */
 
 import { runImagePipeline } from './bun-image'

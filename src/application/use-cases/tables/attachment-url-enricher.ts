@@ -15,7 +15,7 @@ import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from '.
 import type { App } from '@/domain/models/app'
 
 /**
- * B-01 / [internal ref]: Decorate attachment column values on a transformed record
+ * B-01 / the attachment-bucket binding rule: Decorate attachment column values on a transformed record
  * with a downloadable URL, bound to the bucket DECLARED on the column.
  *
  * - Private buckets: add `signedUrl` (absolute, HMAC-bound to
@@ -44,7 +44,7 @@ import type { App } from '@/domain/models/app'
  *   2. An object with no string `key` is left untouched — enrichment is always
  *      a spread-merge, never a replace. This is what keeps a
  *      `storeMetadata: true` value (`{ filename, mimeType, size, url }`, no
- * `key`) intact for `[internal ref]`.
+ *      `key`) intact for a tables attachment upload spec.
  */
 
 /** Default signed-URL lifetime in seconds (mirrors signed-urls.ts). */
@@ -89,7 +89,7 @@ const isAttachmentObject = (
  *
  * `'attachment'` is a test-only alias (absent from `KNOWN_FIELD_TYPES`) kept
  * because `uploadInlineAttachmentContent` is its only writer and
- * `[internal ref]` is its only guard —.
+ * a buckets signed URLs spec is its only guard —.
  */
 const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'attachment',
@@ -116,7 +116,7 @@ interface ColumnContext {
 /**
  * Build the public download URL (no token, no expiry) for a stored key.
  * Absolute (origin-prefixed) when `origin` is non-empty so callers can fetch
- * the result directly — required by [internal ref].
+ * the result directly — required by a buckets signed URLs spec.
  */
 const buildPublicUrl = (key: string, ctx: ColumnContext): string => {
   const path = `/api/buckets/${ctx.bucket}/files/${key}`

@@ -14,6 +14,9 @@ access:
   require: all
 submitTo:
   table: demo_requests
+  # Placed on the home page with `formRef`, an embedded form keeps no copy in
+  # the admin's submissions list unless it asks for one.
+  storeSubmission: true
 antiSpam:
   honeypot: true
 display:

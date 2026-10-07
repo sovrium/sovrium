@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". */
-
 /**
  * A `datetime` column read as a wall-clock reading in its declared `timeZone`,
  * and written back as an ISO instant.

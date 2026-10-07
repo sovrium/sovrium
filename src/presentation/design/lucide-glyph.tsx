@@ -19,16 +19,14 @@ import type { ReactElement } from 'react'
  * `import * as LucideIcons from 'lucide-react'` plus a `[name]` index. A
  * namespace import read through a computed key is unshakeable BY CONSTRUCTION:
  * no bundler can prove which of the ~2,000 icons the index will reach, so all of
- * them are retained. Measured 2026-09-03 against the real `buildRuntimeAssets`:
- * that pulled a **668,323-byte** shared chunk (174,296 gzip) into the island
- * graph, statically imported by `kpi-island`, `menu-island` AND
- * `admin-sidebar-island` — the last of which passes no icons at all and paid the
- * full 668 KB for nothing.
+ * them are retained. Measured against the real `buildRuntimeAssets`: importing
+ * it from islands pulls a **668,323-byte** shared chunk (174,296 gzip) into the
+ * island graph — paid in full even by an island that passes no icons at all.
  *
- * It was invisible to `Island Payload Budget`, which measures only the EAGER
- * closure, and lucide sat one `import()` boundary beyond it.
+ * `Island Payload Budget` would not catch it: it measures only the EAGER
+ * closure, and lucide sits one `import()` boundary beyond it.
  *
- * WHAT REPLACES IT
+ * WHAT ISLANDS USE INSTEAD
  * ----------------
  * `Icon` is lucide's own generic renderer: it takes the icon GEOMETRY
  * (`iconNode`, a plain `[tag, attrs][]` array) as a prop and emits the `<svg>`.
@@ -137,7 +135,6 @@ export function LucideGlyph({
   ...rest
 }: LucideGlyphProps): ReactElement | null {
   if (!isLucideIconNode(iconNode) || iconNode.length === 0) {
-    // eslint-disable-next-line unicorn/no-null -- React renders null, not undefined
     return null
   }
   // `Icon` prepends `lucide`; adding `lucide-<name>` reproduces the two-class

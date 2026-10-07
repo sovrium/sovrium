@@ -8,7 +8,7 @@
 /**
  * Shared period preset for admin overview endpoints (CC-2).
  *
- * Locked by `[internal ref]` (story #1) per the Phase-0 read-API
+ * Locked by the admin automations overview requirement (story #1) per the Phase-0 read-API
  * authoring plan §5.2. Subsequent overview endpoints — users, tables, buckets —
  * MUST import this schema rather than re-declaring the enum, so the period UX
  * stays consistent across the admin dashboard.
@@ -51,7 +51,7 @@ export type PeriodPreset = typeof periodPresetSchema.Type
  * - `24h` period → `1h` buckets (24 points)
  * - `7d`/`30d` period → `1d` buckets (7 / 30 points)
  *
- * Exported as a Zod enum so consumer schemas (`bucketsOverviewResponseSchema`,
+ * Exported as a schema enum so consumer schemas (`bucketsOverviewResponseSchema`,
  * sibling overview shapes) reference a single canonical type rather than
  * redeclaring the literal union per file.
  */

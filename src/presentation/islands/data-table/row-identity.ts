@@ -23,3 +23,13 @@ import type { DataTableRow } from './island/table-features'
  * `getRowId` is configured — is only the fallback for a record without one.
  */
 export const rowIdOf = (row: DataTableRow): string => String(row.original.id ?? row.id)
+
+/**
+ * The ids of the rows drawn beside `row` — its table body's, in screen order,
+ * so after the grid's own sort, filter and paging. `[]` without an element.
+ */
+export const siblingRowIds = (row: Element | undefined): readonly string[] =>
+  Array.from(
+    row?.closest('tbody')?.querySelectorAll('tr[data-row-id]') ?? [],
+    (tr) => tr.getAttribute('data-row-id') ?? ''
+  ).filter((id) => id !== '')

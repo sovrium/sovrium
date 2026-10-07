@@ -13,24 +13,24 @@
  * ----------------------
  * Each of those four handlers translates its use-case's error union with a
  * hand-written `if (_tag === …)` ladder ending in a catch-all. That shape is
- * fine for the union's own members — but it is exactly what turned a database
- * outage into a 404: the use-cases used to `mapError(() => AutomationRunNotFound)`
- * over their repository calls, so "the store did not answer" and "there is no
- * such run" arrived at the ladder as the same tag and left as the same response.
- * The caller was told a run they can plainly see does not exist, and the
- * operator got a non-alerting 404 with the database on fire — the failure mode
- * `NotFoundError` was introduced to end (`domain/errors/index.ts`).
+ * fine for the union's own members — but it can turn a database outage into a
+ * 404: if the use-cases `mapError(() => AutomationRunNotFound)` over their
+ * repository calls, "the store did not answer" and "there is no such run"
+ * arrive at the ladder as the same tag and leave as the same response. The
+ * caller is told a run they can plainly see does not exist, and the operator
+ * gets a non-alerting 404 with the database on fire — the failure mode
+ * `NotFoundError` exists to end (`domain/errors/index.ts`).
  *
- * The repository errors now propagate instead, which means every ladder has a
+ * The repository errors propagate instead, which means every ladder has a
  * member it must NOT treat as a verdict about existence. This module is the
  * PREDICATE for that branch, in one place, so the four ladders cannot drift on
  * which tags belong to it.
  *
- * The RENDERING half used to live here too, as a second copy of the sanitized
- * envelope. It is now `toErrorResponse` (`@/presentation/api/utils/run-effect`),
- * which is the same builder every other route reaches for — a ladder ends
- * `return toErrorResponse(c, error)`. Keeping a private copy beside the
- * predicate is exactly how the API grew three error dialects in the first place.
+ * The RENDERING half does not live here: it is `toErrorResponse`
+ * (`@/presentation/api/utils/run-effect`), the same builder every other route
+ * reaches for — a ladder ends `return toErrorResponse(c, error)`. A private
+ * copy of the sanitized envelope beside the predicate is exactly how an API
+ * grows several error dialects.
  */
 
 /**

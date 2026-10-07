@@ -92,7 +92,7 @@ export async function executeBulkAction(
   // non-crud action is a no-op.
   if (!('type' in action.action) || action.action.type !== 'crud') return
 
-  const crudAction = action.action as unknown as BulkCrudAction
+  const crudAction = action.action as BulkCrudAction
   const endpoint = buildBulkEndpoint(crudAction.table, crudAction.operation)
   if (!endpoint) return
 

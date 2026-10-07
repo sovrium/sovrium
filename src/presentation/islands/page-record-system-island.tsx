@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
-import { useRecordQuery, type RecordDataSource } from './hooks/use-records-query'
+import { useRecordQuery, type RecordDataSource } from './hooks/use-record-query'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 
 interface PageRecordSystemIslandProps {
@@ -67,7 +67,7 @@ function distributeRecord(record: Readonly<Record<string, unknown>>): void {
       toDisplayValue(record[field])
     )
     if (next !== text.nodeValue) {
-      // eslint-disable-next-line functional/immutable-data, no-param-reassign -- DOM token distribution is the contract here
+      // eslint-disable-next-line no-param-reassign -- DOM token distribution is the contract here
       text.nodeValue = next
     }
   })
@@ -93,6 +93,5 @@ export default function PageRecordSystemIsland({
     if (data) distributeRecord(data)
   }, [data])
 
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   return null
 }

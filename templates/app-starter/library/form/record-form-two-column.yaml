@@ -1,0 +1,28 @@
+# sovrium-library: block/record-form-two-column@0.30.0
+id: 5
+name: record-form-two-column
+title: '[New client]'
+submitTo:
+  table: clients
+fields:
+  - kind: table-field
+    column: name
+    label: '[Name]'
+  - kind: table-field
+    column: email
+    label: '[Email]'
+    placeholder: name@example.com
+  - kind: table-field
+    column: phone
+    label: '[Phone]'
+  - kind: table-field
+    column: website
+    label: '[Website]'
+    placeholder: https://
+  - kind: table-field
+    column: notes
+    label: '[Notes]'
+onSuccess:
+  type: toast
+  message: Record created.
+  variant: success

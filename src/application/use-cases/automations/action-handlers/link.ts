@@ -47,7 +47,7 @@
  * is why the origin is taken from the `ServerOrigin` port — the origin the
  * instance actually bound — rather than assembled from `PORT`.
  *
- * Wave: [internal ref].
+ * Wave: the links automation link action requirement.
  */
 
 import { Effect } from 'effect'
@@ -95,7 +95,6 @@ const nullableString = (
   if (!(key in props)) return undefined
   const value = props[key]
   if (typeof value === 'string') return value
-  // eslint-disable-next-line unicorn/no-null -- `null` IS the instruction: it is what clears the column, and `undefined` would mean the opposite
   return value === null ? null : undefined
 }
 
@@ -140,7 +139,6 @@ const utmPatch = (props: Readonly<Record<string, unknown>>): LinkUtmPatch | unde
   if (typeof raw !== 'object' || raw === null) return undefined
   const block = raw as Record<string, unknown>
   const entries = UTM_FIELDS.filter(([, key]) => key in block).map(
-    // eslint-disable-next-line unicorn/no-null -- anything that is not a string reads as a removal, which is what makes `null` the documented way to clear one
     ([, key]) => [key, typeof block[key] === 'string' ? (block[key] as string) : null] as const
   )
   return entries.length === 0 ? undefined : (Object.fromEntries(entries) as LinkUtmPatch)
@@ -210,7 +208,6 @@ export const handleLinkCreate: ActionHandler = (action, app) =>
         tags: stringArray(props, 'tags'),
         notes: nullableString(props, 'notes'),
         ...(utm === undefined ? {} : { utm }),
-        // eslint-disable-next-line unicorn/no-null -- the port's column is nullable and a workflow has no author to record
         createdBy: null,
       })
     )

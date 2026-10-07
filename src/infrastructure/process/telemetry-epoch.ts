@@ -27,7 +27,6 @@
  * likewise in-memory.
  */
 
-// eslint-disable-next-line functional/no-let -- the boot epoch is captured once at module load and re-captured only by the boot reset
 let epoch: string = new Date().toISOString()
 
 /** ISO 8601 timestamp all since-boot counters are measured from. */
@@ -43,6 +42,5 @@ export const readTelemetryEpoch = (): string => epoch
  * every rate the next spec reads span two servers.
  */
 export const resetTelemetryEpochAtBoot = (): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- re-stamping the epoch is the point
   epoch = new Date().toISOString()
 }

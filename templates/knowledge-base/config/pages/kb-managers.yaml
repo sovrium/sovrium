@@ -22,10 +22,7 @@ contentDir:
       managers: For managers
 
 markdown:
-  layout: docs
-  toc:
-    maxDepth: 2
-    position: sidebar
+  $ref: ./_reading-frame.yaml
 
 components:
   - $ref: ./_kb-header.yaml

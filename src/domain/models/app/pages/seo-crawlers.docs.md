@@ -7,7 +7,7 @@ A search engine, a feed reader and an AI assistant each read an app through a sm
 | Address                       | Served when                             | Contents                                                                  |
 | ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
 | `/sitemap.xml`                | Always                                  | One `<url>` per indexable page and public record, or an index past 5 000  |
-| `/robots.txt`                 | Always                                  | A crawl policy and the absolute address of the sitemap                    |
+| `/robots.txt`                 | Always                                  | A crawl policy, AI crawlers included, and the sitemap's absolute address  |
 | `/feed.xml`                   | A public collection page declares `rss` | An RSS 2.0 feed of that collection's newest records                       |
 | `<article>.md`                | Every content-directory article         | The article's Markdown, frontmatter removed                               |
 | `/llms.txt`, `/llms-full.txt` | The app has a content-directory page    | An index and a concatenation for AI assistants — see **Publish llms.txt** |
@@ -48,17 +48,34 @@ Past 5 000 URLs, `/sitemap.xml` becomes a `<sitemapindex>` naming `/sitemap-1.xm
 ## `/robots.txt`
 
 ```text
+User-agent: OAI-SearchBot
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+User-agent: Meta-WebIndexer
+Allow: /
+
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Meta-ExternalAgent
+User-agent: CCBot
+User-agent: Bytespider
+Disallow: /
+
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
 Allow: /
 Disallow: /_preview
+
 Sitemap: https://example.com/sitemap.xml
 ```
 
-Every crawler is allowed everywhere, with one `Disallow` line per page whose path starts with `/_`, followed by the absolute sitemap address.
+The file has three groups, then the absolute sitemap address. AI crawlers split into two kinds and each kind has its own group: crawlers that fetch a page to answer a question in real time, with a link back (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Meta-WebIndexer`), are allowed everywhere; crawlers and tokens that collect text to train a model (`GPTBot`, `ClaudeBot`, `Google-Extended`, `Applebot-Extended`, `Meta-ExternalAgent`, `CCBot`, `Bytespider`) are asked to stay away. Every other crawler, search engines included, reads the `*` group: allowed everywhere, with one `Disallow` line per page whose path starts with `/_`, and a `Content-Signal` line stating the same preference — search and AI answers yes, training no — for crawlers that read it.
 
 **A `noindex` page is deliberately not Disallowed.** A page refused in `robots.txt` is never fetched, so a crawler would never see its `noindex` tag — and a URL it already knows from a link could stay in the index, shown without a description. Leaving the page crawlable is what lets the tag take effect, so marking a page `noindex` is enough to keep it out of search results.
 
-**Sovrium has no per-crawler policy.** The file names one user agent, `*`, and there is no option to write another. That matters for AI crawlers, which identify themselves with their own tokens and split into two kinds: crawlers that fetch a page to answer a question in real time (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) and crawlers that collect text to train a model (`GPTBot`, `ClaudeBot`, `CCBot`, `Bytespider`, plus the `Google-Extended` and `Applebot-Extended` tokens, which control training use without a separate crawler). Every one of them reads `User-agent: *` today, so a Sovrium app allows all of them. A request for a particular policy is not honoured by every crawler either way: `robots.txt` is a request, not an access control.
+**The policy is the same for every app**, and there is no option to change it. `robots.txt` is a request, not an access control: well-behaved crawlers honour it, and `Content-Signal` is advisory. A user-initiated fetch — an assistant opening a page because a person asked it to — is not governed by `robots.txt` at all.
 
 ## `/feed.xml`
 

@@ -11,7 +11,8 @@
  * Walks a page's component tree once and identifies any drawer whose `id` is
  * referenced by a sibling component's `onRowClick.action === 'openDrawer'`
  * (the "quick-edit drawer" pattern), or a board's `card.onClick` or a
- * gallery's `galleryCard.onClick` of that shape. Each referenced drawer is
+ * gallery's `galleryCard.onClick` of that shape, or a board's drop hook
+ * (`drag.onDrop[].action`). Each referenced drawer is
  * tagged with a render-time-only `_openDrawerDispatchedById: <id>` prop. The
  * drawer's island-props builder reads this flag and emits `defaultOpen: false`
  * to the hydrated island so the drawer remains hidden on page load and opens
@@ -41,14 +42,14 @@ function isOpenDrawerAction(value: unknown): value is OpenDrawerOnRowClick {
 }
 
 /**
- * The drawer ids a drawer's `related.onRowClick` opens ([internal ref]
+ * The drawer ids a drawer's `related[].onRowClick` opens (the pages overlays requirement
  * CAP-8). Collected apart from the grid references: a drawer reached ONLY this
  * way is secondary on its page, and must not self-open on the page's
  * `?record=` deep link (see {@link tagDrawerIfDispatched}).
  */
 function collectRelatedRowTargets(component: Component | string): readonly string[] {
   if (typeof component === 'string') return []
-  const { type, related, children } = component as unknown as Record<string, unknown>
+  const { type, related, children } = component as Record<string, unknown>
   const own =
     type === 'drawer' && Array.isArray(related)
       ? related.flatMap((entry: unknown) => {
@@ -73,17 +74,33 @@ function cardClickTarget(card: unknown): readonly string[] {
   return isOpenDrawerAction(onClick) ? [onClick.component] : []
 }
 
+/**
+ * The drawers a board's drop hooks open (`drag.onDrop[].action: openDrawer`):
+ * opened on the moved card once its move is saved, so they start closed like
+ * the drawer a card click opens.
+ */
+function dropHookTargets(drag: unknown): readonly string[] {
+  const onDrop = (drag as Record<string, unknown> | null | undefined)?.['onDrop']
+  if (!Array.isArray(onDrop)) return []
+  return onDrop.flatMap((hook: unknown) => {
+    const action = (hook as Record<string, unknown> | null)?.['action']
+    return isOpenDrawerAction(action) ? [action.component] : []
+  })
+}
+
 /** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openDrawer', component }` (or a board's `card.onClick`, a gallery's `galleryCard.onClick`) in the subtree rooted at `component`. */
 function collectIdsFromComponent(component: Component | string): readonly string[] {
   if (typeof component === 'string') return []
-  const { onRowClick, card, galleryCard, children } = component as unknown as Record<
-    string,
-    unknown
-  >
+  const { onRowClick, onSelect, onPinClick, card, galleryCard, drag, children } =
+    component as Record<string, unknown>
+  // A tree's selection and a map's pin open a drawer with the same verb.
   const selfId = [
-    ...(isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []),
+    ...[onRowClick, onSelect, onPinClick].flatMap((click) =>
+      isOpenDrawerAction(click) ? [click.component] : []
+    ),
     ...cardClickTarget(card),
     ...cardClickTarget(galleryCard),
+    ...dropHookTargets(drag),
   ]
   if (!Array.isArray(children)) return selfId
   const childIds = (children as readonly (Component | string)[]).flatMap(collectIdsFromComponent)
@@ -111,7 +128,7 @@ interface DispatchTargets {
  * a contact drawer on a company's id shows the wrong record.
  */
 function tagDrawerIfDispatched(component: Component, targets: DispatchTargets): Component {
-  const { type, id, props } = component as unknown as Record<string, unknown>
+  const { type, id, props } = component as Record<string, unknown>
   if (type !== 'drawer' || typeof id !== 'string') return component
   const fromGrid = targets.grid.has(id)
   const fromRelatedRow = targets.relatedRow.has(id)
@@ -131,7 +148,7 @@ function tagDrawerIfDispatched(component: Component, targets: DispatchTargets): 
 function mapTree(components: readonly Component[], targets: DispatchTargets): Component[] {
   return components.map((component) => {
     const tagged = tagDrawerIfDispatched(component, targets)
-    const { children } = tagged as unknown as Record<string, unknown>
+    const { children } = tagged as Record<string, unknown>
     if (!Array.isArray(children)) return tagged
     const mappedChildren = mapTree(children as readonly Component[], targets)
     return { ...tagged, children: mappedChildren } as Component

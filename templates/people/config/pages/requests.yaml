@@ -57,6 +57,7 @@ components:
               # Bound to the `request_queue` view: pending first, then by date,
               # and read-only — a decision is a button, not a cell edit.
               - type: table
+                readOnly: true
                 props:
                   id: request-queue
                 dataSource:
@@ -122,6 +123,7 @@ components:
                   className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                 content: Approval runs waiting on you
               - type: table
+                readOnly: true
                 props:
                   id: approval-runs
                 dataSource:

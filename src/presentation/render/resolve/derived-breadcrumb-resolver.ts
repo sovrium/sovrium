@@ -20,7 +20,7 @@ import type { Page } from '@/domain/models/app/pages'
  * no change at all — a derived trail reaches it as an enumerated one, which is
  * also why the two forms cannot drift apart in markup or accessibility.
  *
- * `derive`, `labels`, `home` and `unlinked` are stripped on the way out, so nothing downstream can
+ * `derive`, `labels`, `home`, `unlinked` and `currentLabel` are stripped on the way out, so nothing downstream can
  * act on a binding that has already been consumed.
  *
  * The walk is structural rather than typed against the component union: the
@@ -67,11 +67,20 @@ function transform(value: unknown, requestPath: string, basePath: string): unkno
   )
   if (value['type'] !== 'breadcrumb' || value['derive'] !== 'path') return mapped
 
-  const { derive: _derive, labels: _labels, home: _home, unlinked: _unlinked, ...rest } = mapped
+  const {
+    derive: _derive,
+    labels: _labels,
+    home: _home,
+    unlinked: _unlinked,
+    currentLabel: _currentLabel,
+    ...rest
+  } = mapped
+  const currentLabel = readCurrentLabel(value['currentLabel'])
   return {
     ...rest,
     breadcrumbItems: buildDerivedCrumbs(requestPath, readLabels(value['labels']), {
       ...(readHome(value['home']) !== undefined ? { home: readHome(value['home'])! } : {}),
+      ...(currentLabel !== undefined ? { currentLabel } : {}),
       basePath,
       unlinked: readUnlinked(value['unlinked']),
     }),
@@ -88,6 +97,17 @@ function readHome(value: unknown): { readonly label: string } | undefined {
   if (!isRecord(value)) return undefined
   const { label } = value
   return typeof label === 'string' && label.length > 0 ? { label } : undefined
+}
+
+/**
+ * The last crumb's name, already record-substituted by the page binding pass.
+ * A token still unresolved (no record bound, an unknown field) is not a name:
+ * the trail keeps the URL segment rather than print `$record.…`.
+ */
+function readCurrentLabel(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' && !value.includes('$record.')
+    ? value
+    : undefined
 }
 
 function readUnlinked(value: unknown): readonly string[] {

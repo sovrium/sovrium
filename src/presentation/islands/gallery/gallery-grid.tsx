@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import { computeGalleryGridClasses } from '@/presentation/design/gallery-default-classes'
 import { GalleryCardView } from './gallery-card'
+import { GalleryClassesContext } from './gallery-classes-context'
 import { buildGridClasses, resolveActiveColumns } from './grid-class-builder'
 import type { TableRecord } from '../runtime/types'
 import type {
@@ -22,6 +23,8 @@ interface GalleryGridProps {
   readonly table?: string
   readonly gridColumns: GalleryGridColumns | undefined
   readonly layout?: 'grid' | 'masonry'
+  /** `featured: first` leads the grid with a two-column first card (md up). */
+  readonly featured?: 'none' | 'first'
 }
 
 /**
@@ -51,6 +54,7 @@ export function GalleryGrid({
   table,
   gridColumns,
   layout,
+  featured,
 }: GalleryGridProps): ReactElement {
   const [viewportWidth, setViewportWidth] = useState<number>(() => getViewportWidth())
 
@@ -63,6 +67,7 @@ export function GalleryGrid({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  const pieces = useContext(GalleryClassesContext)
   const resolvedLayout = layout ?? 'grid'
   const activeColumns = resolveActiveColumns(gridColumns, viewportWidth)
   const responsiveClasses = buildGridClasses(gridColumns)
@@ -74,8 +79,8 @@ export function GalleryGrid({
   // cannot know which of them a given `gridColumns` config resolved to.
   const layoutClasses =
     resolvedLayout === 'masonry'
-      ? computeGalleryGridClasses({ layout: 'masonry' })
-      : `${computeGalleryGridClasses()} ${responsiveClasses}`
+      ? (pieces?.masonry ?? computeGalleryGridClasses({ layout: 'masonry' }))
+      : `${pieces?.grid ?? computeGalleryGridClasses()} ${responsiveClasses}`
   // The active column count describes the gallery, so it is written on the
   // element that NAMES it — the island host, or the wrapper a data-table's view
   // switcher draws — which already carries the declared layout from the server.
@@ -91,12 +96,13 @@ export function GalleryGrid({
       ref={ref}
       className={layoutClasses}
     >
-      {records.map((record) => (
+      {records.map((record, index) => (
         <GalleryCardView
           key={String(record['id'] ?? Math.random())}
           record={record}
           card={card}
           table={table}
+          featured={featured === 'first' && index === 0 && resolvedLayout === 'grid'}
         />
       ))}
     </div>

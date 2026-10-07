@@ -7,7 +7,7 @@
 
 /**
  * MCP admin-internals tool generator + dispatcher
- *.
+ * (the AI MCP server internals requirement, M-14).
  *
  * Replaces the M-13 single-tool stub (`compileInternalAuditTool` in
  * `mcp-audit.ts`) with a registry-driven generator that walks the entire
@@ -42,12 +42,13 @@
  * module, because the handler there projects 12 named columns while the
  * generic `_list` below answers `SELECT *` — and `ai_tool_calls` declares
  * `denylistFields: []`, so `session_id` and `request_id` would survive to the
- * wire. `[internal ref]` pins the difference.
+ * wire. An AI MCP audit spec pins the difference.
  *
- * Until 2026-08-27 this said the special-casing stops the audit-write path
- * "infinite-looping into itself". No such loop exists or ever did: dispatch
- * here happens outside `auditedToolsCallDispatch`, so this module writes no
- * audit row at all. The constraint is data exposure, not recursion.
+ * The special-casing does not stop an audit-write loop — there is no such
+ * loop. The constraint is data exposure, not recursion. Calls to the tools this
+ * module handles ARE recorded in the tool-call ledger: `routes.ts` wraps this
+ * dispatcher in `auditedToolsCallDispatch`. The audit-list tool alone stays
+ * out, so reading the trail does not grow it.
  *
  * Schema source-of-truth: `src/domain/models/app/tables/internal-tables.ts`
  * (`InternalTableRegistry` + per-entry `denylistFields`).
@@ -55,12 +56,20 @@
 
 import { Effect } from 'effect'
 import { McpInternalsRepository } from '@/application/ports/repositories/mcp/mcp-internals-repository'
+import { adminReadToolName } from '@/domain/models/app/admin/admin-mcp-read-tools'
 import {
   InternalTableRegistry,
   type InternalTableEntry,
 } from '@/domain/models/app/tables/internal-tables'
+import { logError } from '@/infrastructure/logging/logger'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { isAdminTierCaller } from '@/presentation/api/mcp/auth'
+import {
+  isRefusedValue,
+  LIST_TOOL_PROPERTIES,
+  parseInternalListArguments,
+  WHERE_VALUE_REFUSAL,
+} from './internal-list-arguments'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller } from '@/presentation/api/mcp/auth'
@@ -74,7 +83,8 @@ import type { CompiledTool } from '@/presentation/api/mcp/tool-compiler'
  * Compile the full set of admin-internal MCP tools by walking
  * `InternalTableRegistry`. Each registry entry produces TWO tools:
  *
- *   - `{appName}_{schema}_{table}_list` — list rows with optional `limit`.
+ *   - `{appName}_{schema}_{table}_list` — list rows newest first, with optional
+ *     `limit`, `since`, `where` and `after` (see `internal-list-arguments.ts`).
  *   - `{appName}_{schema}_{table}_read` — fetch a single row by primary key.
  *
  * Returns an empty array when `exposeInternals` is false — `MCP_EXPOSE_INTERNALS=false`
@@ -97,21 +107,41 @@ export const compileInternalTools = (input: {
   return InternalTableRegistry.flatMap((entry) => buildToolsForEntry(input.appName, entry))
 }
 
+/**
+ * The admin read tool that answers the same data better — shaped, redacted,
+ * cursored and audited — keyed by registry table. A raw list names it in its
+ * description so an assistant reaches for it first.
+ */
+const PREFERRED_ADMIN_READS: Readonly<Record<string, string>> = {
+  'system.automation_runs': 'automation_runs_list',
+  'system.automation_run_steps': 'automation_run_read',
+}
+
+const listToolDescription = (appName: string, entry: InternalTableEntry): string => {
+  const preferred = PREFERRED_ADMIN_READS[`${entry.schema}.${entry.name}`]
+  const preference =
+    preferred === undefined
+      ? ''
+      : ` Prefer ${adminReadToolName(appName, preferred)}: it answers this data as the admin API does, redacted and audited.`
+  return (
+    `List rows from ${entry.schema}.${entry.name} (admin-only, read-only), newest first. ` +
+    `${entry.description}${preference}`
+  )
+}
+
 const buildToolsForEntry = (
   appName: string,
   entry: InternalTableEntry
 ): ReadonlyArray<CompiledTool> => {
   const baseName = `${appName}_${entry.schema}_${entry.name}`
+  const listName = `${baseName}_list`
   return [
     {
-      name: `${baseName}_list`,
-      description: `List rows from ${entry.schema}.${entry.name} (admin-only, read-only). ${entry.description}`,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          limit: { type: 'integer', minimum: 1, maximum: 1000 },
-        },
-      },
+      name: listName,
+      description: listToolDescription(appName, entry),
+      // The ledger's own list tool is answered by its dedicated handler in
+      // `audit.ts`, which reads the same four arguments under the same rules.
+      inputSchema: { type: 'object', properties: LIST_TOOL_PROPERTIES },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -203,18 +233,19 @@ export const resolveInternalTool = (
 /**
  * Handle a `tools/call` invocation against an admin-internal tool.
  *
- * Admin-only — gate enforced upstream by `tools/list` filtering AND by an
- * explicit role check here so a non-admin who hand-crafts the tool name
- * gets a -32603 error instead of a 200 response with sensitive data.
+ * Admin-only, and only while `MCP_EXPOSE_INTERNALS` is on. Both are enforced
+ * HERE, at call time, and not merely by `tools/list`: the tool names are
+ * derivable from the app name and the registry, so hiding a tool protects
+ * nothing — a hand-crafted call by name is refused with the SAME -32603
+ * whichever gate it fails, so the caller cannot tell the switch from its role.
  *
  * The audit-list tool (`_system_ai_tool_calls_list`) is intentionally NOT
  * routed here — `mcp-routes.ts` special-cases it and delegates to
  * `handleAuditListCall` in `mcp-audit.ts`, whose explicit 12-column projection
  * withholds `session_id` and `request_id`. The `SELECT *` below would expose
  * both, since `ai_tool_calls` declares `denylistFields: []`. That is the
- * reason for the ordering — not the "no audit row is written for an
- * audit-read" property claimed here until 2026-08-27, which holds on this
- * path too and so distinguishes nothing.
+ * reason for the ordering, not bookkeeping. This path, unlike that one, is
+ * recorded in the tool-call ledger by its caller in `routes.ts`.
  *
  * Errors during the SELECT collapse to a structured -32603 error with
  * the underlying message redacted to `Internal query failed` so we never
@@ -226,9 +257,11 @@ export const handleInternalToolCall = async (input: {
   readonly caller: McpCaller
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
+  /** `MCP_EXPOSE_INTERNALS` — off refuses every internal tool, admins included. */
+  readonly exposeInternals: boolean
   readonly domainContext: DomainContext
 }): Promise<McpToolResult> => {
-  if (!isAdminTierCaller(input.caller)) {
+  if (!input.exposeInternals || !isAdminTierCaller(input.caller)) {
     return toolFailure(
       -32_603,
       `Internal tool ${input.resolved.entry.schema}.${input.resolved.entry.name} is admin-only`
@@ -241,32 +274,46 @@ export const handleInternalToolCall = async (input: {
   return executeInternalRead(input)
 }
 
+/** Run one repository read, mapping any failure to the redacted -32603. */
+const readInternals = async <A>(
+  input: { readonly resolved: ResolvedInternalTool; readonly domainContext: DomainContext },
+  read: (repository: McpInternalsRepository['Service']) => Effect.Effect<A, unknown>
+): Promise<A> => {
+  const { entry } = input.resolved
+  try {
+    return await runOnDomain(
+      input.domainContext,
+      Effect.gen(function* () {
+        return yield* read(yield* McpInternalsRepository)
+      })
+    )
+  } catch (error) {
+    // A value the catalogue check let through and the database refused is
+    // still the caller's mistake: invalid params, in the one constant message.
+    if (isRefusedValue(error)) return toolFailure(-32_602, WHERE_VALUE_REFUSAL)
+    // The caller gets a redacted message; the cause is kept server-side.
+    logError(`[mcp-internals] list ${entry.schema}.${entry.name} failed`, error)
+    return toolFailure(-32_603, 'Internal query failed')
+  }
+}
+
 const executeInternalList = async (input: {
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
   readonly domainContext: DomainContext
 }): Promise<McpToolResult> => {
-  const limitArg = input.args['limit']
-  const limit = typeof limitArg === 'number' && limitArg > 0 ? Math.min(limitArg, 1000) : 50
-  const safeLimit = Math.floor(limit)
+  const { entry } = input.resolved
+  // The table's columns come off the engine's catalogue first: `where` and the
+  // time column are validated against them, so no name a client typed reaches
+  // SQL unless the table really has it and the denylist allows it.
+  const columns = await readInternals(input, (repository) => repository.listColumns(entry))
+  // `toolFailure` throws the JSON-RPC error, so the refusal is raised OUTSIDE
+  // `readInternals`, whose catch would otherwise turn it into -32603.
+  const parsed = parseInternalListArguments(input.args, columns, entry.denylistFields)
+  if (parsed._tag === 'Invalid') return toolFailure(-32_602, parsed.message)
 
-  try {
-    // The dialect-aware table reference and the unordered `SELECT` now live in
-    // `McpInternalsRepository`, which takes the registry ENTRY rather than a
-    // name so the `auth` / `system` namespacing decision cannot be made at a
-    // call site. The clamp stays here: it is this tool's argument validation.
-    const rows = await runOnDomain(
-      input.domainContext,
-      Effect.gen(function* () {
-        const repository = yield* McpInternalsRepository
-        return yield* repository.listRows(input.resolved.entry, safeLimit)
-      })
-    )
-    const stripped = rows.map((row) => stripDenylistedColumns(row, input.resolved.entry))
-    return toolSuccess(stripped)
-  } catch {
-    return toolFailure(-32_603, 'Internal query failed')
-  }
+  const rows = await readInternals(input, (repository) => repository.listRows(entry, parsed.query))
+  return toolSuccess(rows.map((row) => stripDenylistedColumns(row, entry)))
 }
 
 const executeInternalRead = async (input: {
@@ -296,7 +343,12 @@ const executeInternalRead = async (input: {
     }
     const stripped = stripDenylistedColumns(row, input.resolved.entry)
     return toolSuccess(stripped)
-  } catch {
+  } catch (error) {
+    // The caller gets a redacted message; the cause is kept server-side.
+    logError(
+      `[mcp-internals] read ${input.resolved.entry.schema}.${input.resolved.entry.name} failed`,
+      error
+    )
     return toolFailure(-32_603, 'Internal query failed')
   }
 }

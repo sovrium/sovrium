@@ -44,7 +44,6 @@ export function renderImage(props: ElementProps): ReactElement {
  * Includes default dimensions to ensure visibility even when image fails to load
  */
 export function renderAvatar(props: ElementProps): ReactElement {
-  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR avatar render helper; merges per-call style overrides with default min/max dimensions
   const style = {
     ...((props.style as Record<string, unknown> | undefined) || {}),
     minWidth: '48px',

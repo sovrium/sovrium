@@ -12,6 +12,7 @@ import { FormAnalyticsSchema } from './analytics'
 import { AntiSpamSchema } from './anti-spam'
 import { FormAvailabilitySchema } from './availability'
 import { FormDisplaySchema } from './display'
+import { FormEditAfterSubmitSchema } from './edit-after-submit'
 import { FormFieldGroupSchema } from './field-groups'
 import { FormFieldSchema } from './fields'
 import { FormNameSchema } from './name'
@@ -19,6 +20,7 @@ import { FormOnErrorSchema } from './on-error'
 import { FormOnSuccessSchema } from './on-success'
 import { FormPathSchema } from './path'
 import { PrefillSchema } from './prefill'
+import { FormSaveAndResumeSchema } from './save-and-resume'
 import { FormStepSchema } from './steps'
 import { SubmitToSchema } from './submit-to'
 
@@ -104,13 +106,33 @@ export const FormSchema = Schema.Struct({
       })
       .pipe(Schema.check(Schema.isMinLength(1)))
   ),
+  /**
+   * Where each field's label sits — the same key, with the same meaning, as on
+   * a page `form`: `top` (default) or `side`, stacked again below `md`.
+   */
+  labelPlacement: Schema.optional(
+    Schema.Literals(['top', 'side']).annotate({
+      description:
+        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field — stacked again below the md breakpoint). The same key as on a page form.",
+    })
+  ),
+  /**
+   * Keep the submit bar in view while a long form scrolls — the same key, with
+   * the same meaning, as on a page `form`.
+   */
+  stickyActions: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Pin the submit bar to the bottom of the viewport while the form scrolls, with the count of changed fields and a Discard button; leaving with changes asks first (default: false). The same key as on a page form.',
+    })
+  ),
   /** Display / cosmetic options. */
   display: Schema.optional(FormDisplaySchema),
   /** Access control (public / authenticated / role-restricted). */
   access: Schema.optional(FormAccessSchema),
   /** Availability window and submission cap. */
   availability: Schema.optional(FormAvailabilitySchema),
-  /** Anti-spam controls (honeypot, rate limit, CAPTCHA stub). */
+  /** Anti-spam controls (honeypot, rate limit). */
   antiSpam: Schema.optional(AntiSpamSchema),
   /** Per-form analytics opt-out (default: enabled). */
   analytics: Schema.optional(FormAnalyticsSchema),
@@ -120,10 +142,14 @@ export const FormSchema = Schema.Struct({
   onSuccess: Schema.optional(FormOnSuccessSchema),
   /** On-error behavior. */
   onError: Schema.optional(FormOnErrorSchema),
+  /** Partial save behind a token, resumed from a link sent by email. */
+  saveAndResume: Schema.optional(FormSaveAndResumeSchema),
+  /** Time-limited submitter edit link after a successful submission. */
+  editAfterSubmit: Schema.optional(FormEditAfterSubmitSchema),
 }).pipe(
   Schema.check(
     Schema.makeFilter((form) => {
-      // [internal ref] / S1: per-field `defaultValue` referencing `$user.*` on a
+      // A forms spec / S1: per-field `defaultValue` referencing `$user.*` on a
       // public form is a configuration mistake — the value would always resolve
       // empty for anonymous visitors (the resolver drops unresolvable $user
       // references) and could leak session state in mixed contexts. Surface
@@ -131,7 +157,7 @@ export const FormSchema = Schema.Struct({
       // offending field so the developer can fix it before boot.
       //
       // Top-level `forms[].prefill: { field: '$user.email' }` on public forms
-      // is INTENTIONALLY tolerated ([internal ref]
+      // is INTENTIONALLY tolerated (a forms spec + [internal ref]
       // document the runtime "drop silently when no session" semantic). Only
       // the inline per-field `defaultValue` form is rejected here.
       const isPublic = form.access?.require === undefined || isOpenToEveryone(form.access.require)

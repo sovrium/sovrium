@@ -79,7 +79,7 @@ const SidebarDataSourceSchema = Schema.Struct({
    * on a component, so it has no `type` to be named by and the component walks
    * never reached it at all (`collectComponents` yields only typed nodes). It is
    * reported where the author wrote it —
-   * `pages[2].layout.sidebar[0].dataSource.table`. [internal ref].
+   * `pages[2].layout.sidebar[0].dataSource.table`.
    */
   table: Schema.String.pipe(
     Schema.annotate({

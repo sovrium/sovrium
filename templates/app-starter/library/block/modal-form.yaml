@@ -1,0 +1,20 @@
+# sovrium-library: block/modal-form@0.30.0
+name: modal-form
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: button
+    props:
+      id: modal-form-open
+      label: '[Invite a member]'
+      interactions:
+        click:
+          modal: modal-form-dialog
+  - type: dialog
+    props:
+      id: modal-form-dialog
+      title: '[Invite a member]'
+      description: They receive an email with a link to join. The link expires after seven days.
+    formRef: modal-form

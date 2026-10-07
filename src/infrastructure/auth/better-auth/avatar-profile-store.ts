@@ -58,17 +58,14 @@ type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 export function createAvatarProfileStore(auth: AuthInstance | undefined): AvatarProfileStore {
   return {
     readImage: async (userId) => {
-      // eslint-disable-next-line unicorn/no-null -- `null` is this column's own "no avatar" value, and the port's declared contract
       if (!auth) return null
       const { internalAdapter } = await auth.$context
       const user = await internalAdapter.findUserById(userId)
-      // eslint-disable-next-line unicorn/no-null -- `null` is this column's own "no avatar" value, and the port's declared contract
       return user?.image ?? null
     },
     writeImage: async (userId, image) => {
       if (!auth) return
       const { internalAdapter } = await auth.$context
-      // eslint-disable-next-line functional/no-expression-statements -- persistence side effect
       await internalAdapter.updateUser(userId, { image })
     },
   }

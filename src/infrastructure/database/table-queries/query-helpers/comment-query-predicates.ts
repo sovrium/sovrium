@@ -46,8 +46,7 @@ export function activeCommentsByRecordId(tableId: string, recordId: string) {
 
 /**
  * A prior APPROVED, non-deleted comment from the same guest on the same table
- * — the precondition behind `autoApprove.previouslyApproved`
- *.
+ * — the precondition behind `autoApprove.previouslyApproved`.
  *
  * Keyed on `guest_email` + `table_id`. Per-table matches the granularity of the
  * config that gates it (`comments.autoApprove` is declared per table), so an

@@ -134,7 +134,7 @@ export const MetaSchema = Schema.Struct({
   // Internationalization for metadata
   i18n: Schema.optional(
     Schema.Record(
-      LanguageCodeSchema,
+      Schema.String,
       Schema.Struct({
         title: Schema.optional(
           Schema.String.pipe(Schema.check(Schema.isMaxLength(60))).annotate({
@@ -147,9 +147,23 @@ export const MetaSchema = Schema.Struct({
           })
         ),
       })
-    ).annotate({
-      description: 'Localized metadata translations per language',
-    })
+    ).pipe(
+      Schema.annotate({
+        description: 'Localized metadata translations per language',
+      }),
+      // Keys: any string in the key position, and the pattern enforced by
+      // `isPropertyNames`, so a mistyped key is refused by name at its own path
+      // with the pattern it must match. A pattern on the key schema itself makes
+      // Effect 4 skip the entry, and the config report then named it an unknown
+      // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+      Schema.check(
+        Schema.isPropertyNames(LanguageCodeSchema, {
+          toJsonSchema: () => ({
+            propertyNames: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' },
+          }),
+        })
+      )
+    )
   ),
 }).annotate({
   title: 'Page Metadata',

@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- the Speech*Error tagged classes are mutable by Data.TaggedError design */
 import { Effect } from 'effect'
 import {
   SpeechProviderError,
@@ -75,6 +74,7 @@ export const postTranscription = (input: {
         input.url,
         {
           method: 'POST',
+          redirect: 'follow',
           headers:
             input.apiKey !== undefined ? { Authorization: `Bearer ${input.apiKey}` } : undefined,
           body: input.form,
@@ -83,7 +83,6 @@ export const postTranscription = (input: {
       )
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new SpeechProviderError({
           statusCode: response.status,
           message: `speech endpoint returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,

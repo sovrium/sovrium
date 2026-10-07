@@ -6,8 +6,7 @@
  */
 
 /**
- * Server-mode 301 redirect for `contentDir.index` slugged URLs
- *.
+ * Server-mode 301 redirect for `contentDir.index` slugged URLs.
  *
  * When a collection declares `index: '<slug>'`, the index article is the single
  * canonical URL at the collection BASE PATH (`/docs/:slug` → `/docs`). This

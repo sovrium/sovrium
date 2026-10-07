@@ -17,6 +17,50 @@ curl -X POST https://app.example.com/api/account/avatar \
 
 The URL lands on the user's `image`, which is what the user directory projects and what an account export reports.
 
+## A "change my picture" control on a page
+
+No component of its own is needed: three ordinary components make the whole control. An `avatar` reads the caller's picture from `$session.image`, falling back to their initials. A `file-upload` posts the chosen file to `POST /api/account/avatar` as soon as it is picked, under the `file` field the endpoint expects. A `button` with a `fetch` action sends `DELETE` to the same address. Both name the region holding the avatar in `refetch`, so the picture changes in place without a reload.
+
+```yaml
+pages:
+  - name: account
+    path: /account
+    access: authenticated
+    components:
+      - type: container
+        props: { id: account-picture }
+        children:
+          - { type: avatar, src: $session.image, label: $session.name, size: lg }
+      - type: file-upload
+        accept: image/png,image/jpeg,image/webp
+        maxFileSize: 5242880
+        uploadAction: /api/account/avatar
+        props: { label: Change picture }
+        onSuccess:
+          type: toast
+          variant: success
+          message: Picture updated
+          refetch: account-picture
+        onError:
+          type: toast
+          variant: destructive
+          message: The picture could not be uploaded
+      - type: button
+        variant: ghost
+        content: Remove picture
+        action:
+          type: fetch
+          url: /api/account/avatar
+          method: DELETE
+          onSuccess:
+            type: toast
+            variant: success
+            message: Picture removed
+            refetch: account-picture
+```
+
+`accept` and `maxFileSize` mirror what the endpoint accepts, so a wrong file is refused before it is sent; the endpoint checks again either way. The page needs a signed-in visitor, since the picture is always the caller's own.
+
 ## Where the picture is stored
 
 Nothing has to be declared. An app with no buckets at all still accepts a profile picture: the engine keeps one of its own under the same `avatars` name the minted URL carries, and serves it back from there. Profile pictures are a feature the binary provides, so they cannot depend on the host app having configured storage on their behalf.

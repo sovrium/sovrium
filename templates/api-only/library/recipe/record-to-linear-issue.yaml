@@ -1,0 +1,21 @@
+# sovrium-library: recipe/record-to-linear-issue@0.30.0
+name: record-to-linear-issue
+trigger:
+  type: record
+  table: tasks
+  events:
+    - create
+actions:
+  - name: issue
+    type: connection
+    operator: call
+    props:
+      connection: linear
+      operation: graphql
+      params:
+        query: 'mutation IssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }'
+        variables:
+          input:
+            teamId: $env.LINEAR_TEAM_ID
+            title: '{{trigger.data.record.title}}'
+            description: '{{trigger.data.record.description}}'

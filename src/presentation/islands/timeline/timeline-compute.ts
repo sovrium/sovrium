@@ -190,6 +190,10 @@ export function computeTimelineBounds(items: readonly TimelineItem[]): TimelineB
   return min === max ? { min, max: max + 86_400_000 } : { min, max }
 }
 
+/** How many days the plotted window spans — the axis' scale for a drag. */
+export const computeTimelineSpanDays = (bounds: TimelineBounds): number =>
+  (bounds.max - bounds.min) / 86_400_000
+
 /** The zoom levels the time axis can be ruled at, coarsest last. */
 export type TimelineZoom = NonNullable<TimelineConfig['defaultZoom']>
 

@@ -25,9 +25,9 @@
  *
  * SEVERITY. Every finding is FATAL: a config is either understood or refused,
  * never quietly repaired and never silently stripped. There is no `warn` class
- * — a rewriting pre-pass used to absorb legacy spellings and report them as
- * deprecations, and it was removed with the spellings themselves, because a
- * product should not carry translation layers between its own releases.
+ * and no rewriting pre-pass that absorbs legacy spellings as deprecations,
+ * because a product should not carry translation layers between its own
+ * releases.
  *
  * IMPORT-LIGHT BY CONTRACT. `validate.ts` lazily imports this module
  * specifically to keep the compiled-binary `validate` path domain-only —
@@ -35,12 +35,18 @@
  * show. Everything imported here is pure TypeScript; keep it that way.
  */
 
+import { basename, dirname, relative, sep } from 'node:path'
 import { Result, Schema } from 'effect'
 import { validateComputedFieldForeignKeys } from '@/application/use-cases/tables/validate-computed-field-foreign-keys'
 import { reportPrototypePollutingKeys } from '@/domain/kernel/config-parsing/prototype-key-guard'
 import { AppSchema } from '@/domain/models/app'
 import {
-  collectDecodeFindings,
+  formatMessageReport,
+  formatProblemReport,
+  problemCountLine,
+} from '@/domain/models/app/app-config-report-service'
+import {
+  collectDecodeProblems,
   formatDecodeReport,
   messageLinesAsConfigFindings,
   toConfigFindings,
@@ -48,6 +54,7 @@ import {
 import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
 import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
+import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spacing-service'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { collectUnprefixedEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
@@ -61,7 +68,9 @@ import {
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import { validateDrawerRelatedReferences } from '@/domain/models/app/pages/components/component-types/overlays/drawer-related-validation'
 import { validateRelativeDateFilters } from '@/domain/models/app/pages/components/relative-date-filter'
+import { validateDataSourceRefreshModes } from '@/domain/models/app/pages/data-source-refresh-validation'
 import { validateDataSourceViewReferences } from '@/domain/models/app/pages/data-source-view-validation'
+import { validateGraphTablesSources } from '@/domain/models/app/pages/graph-tables-source-validation'
 import { validateTableNameReferences } from '@/domain/models/app/pages/table-name-references'
 import {
   authoredTableIds,
@@ -82,8 +91,14 @@ import type { ConfigFinding } from '@/domain/models/app/app-excess-property-repo
  * @public
  */
 export interface DecodeAppConfigOptions {
-  /** `$ref` source map, so an unrecognised property can name the partial it came from. */
+  /** `$ref` source map, so a problem can name the partial it came from. */
   readonly refSources?: ReadonlyMap<string, string>
+  /**
+   * The root config file, when the config was read from one. The report heads
+   * the root's problems with its name and names each partial by its path from
+   * the root's directory.
+   */
+  readonly configFile?: string
 }
 
 /**
@@ -135,7 +150,20 @@ export type DecodeAppConfigResult =
        * refused.
        */
       readonly findings: readonly ConfigFinding[]
+      /**
+       * The SAME refusal as the report a person reads: a count line, then every
+       * problem grouped under the file it lives in, capped at the prose ceiling.
+       * What `validate`, `start` and `build` print, so the three cannot differ.
+       */
+      readonly report: readonly string[]
     }
+
+/** A refusal on all three channels. */
+interface Refusal {
+  readonly errors: readonly string[]
+  readonly findings: readonly ConfigFinding[]
+  readonly report: readonly string[]
+}
 
 const EMPTY_REF_SOURCES: ReadonlyMap<string, string> = new Map<string, string>()
 
@@ -189,26 +217,50 @@ const dedupeMessageBlocks = (message: string): readonly string[] =>
  */
 const describeDecodeError = (
   error: Readonly<Schema.SchemaError>,
-  refSources: ReadonlyMap<string, string>
-): { readonly errors: readonly string[]; readonly findings: readonly ConfigFinding[] } => {
-  const decodeFindings = collectDecodeFindings(error.issue)
-  const reportLines = formatDecodeReport(decodeFindings, refSources)
-  // The two channels are derived from ONE walk, so they cannot describe
-  // different mistakes. When the reporter has nothing to say the prose falls
-  // back to the decoder's own message, and the structured half falls back with
-  // it rather than going silent — an empty `findings` on a refused config would
-  // read to a program as "refused for no reason".
-  return reportLines.length > 0
-    ? { errors: reportLines, findings: toConfigFindings(decodeFindings, refSources) }
-    : refusalFromMessages(dedupeMessageBlocks(error.message))
+  parsed: unknown,
+  refSources: ReadonlyMap<string, string>,
+  configFile: string | undefined
+): Refusal => {
+  const problems = collectDecodeProblems(error.issue, parsed)
+  // The channels are derived from ONE walk, so they cannot describe different
+  // mistakes. When the walk has nothing to say the prose falls back to the
+  // decoder's own message, and the structured half falls back with it rather
+  // than going silent — an empty `findings` on a refused config would read to a
+  // program as "refused for no reason".
+  if (problems.length === 0) return refusalFromDecoderMessage(dedupeMessageBlocks(error.message))
+  return {
+    errors: formatDecodeReport(problems, refSources),
+    findings: toConfigFindings(problems, refSources),
+    report: formatProblemReport(problems, {
+      root: configFile === undefined ? undefined : basename(configFile),
+      refSources,
+      label: (sourcePath) =>
+        configFile === undefined
+          ? basename(sourcePath)
+          : relative(dirname(configFile), sourcePath).split(sep).join('/'),
+    }),
+  }
 }
 
-/** A refusal this pipeline can name but not locate, on both channels. */
-const refusalFromMessages = (
-  errors: readonly string[]
-): { readonly errors: readonly string[]; readonly findings: readonly ConfigFinding[] } => ({
+/** A refusal this pipeline can name but not locate, on every channel. */
+const refusalFromMessages = (errors: readonly string[]): Refusal => ({
   errors,
   findings: messageLinesAsConfigFindings(errors),
+  report: formatMessageReport(errors),
+})
+
+/**
+ * The decoder's own message lines as a refusal: each unindented line opens a
+ * problem, and its indented `at` line stays under it.
+ */
+const refusalFromDecoderMessage = (lines: readonly string[]): Refusal => ({
+  errors: lines,
+  findings: messageLinesAsConfigFindings(lines),
+  report: [
+    problemCountLine(lines.filter((line) => !/^\s/.test(line)).length),
+    '',
+    ...lines.map((line) => `  ${line}`),
+  ],
 })
 
 /**
@@ -218,25 +270,18 @@ const refusalFromMessages = (
  * synchronous by design: its callers are a CLI command, a build function and an
  * automation action, none of which want an Effect just to read a config.
  *
- * WHAT USED TO BE HERE. A second check, `validateTriggerConfigs`, held nine
- * hand-maintained per-trigger allow-lists whose own JSDoc asked to be kept in
- * sync with the schemas by hand. It existed only because the decoder stripped
- * unknown properties silently, so a typo on a trigger had to be caught before
- * the decode or not at all. With `onExcessProperty: 'error'` the decoder
- * catches the same key AND names its path — read off the AST, so it cannot
- * drift — which is strictly the better message from a source that maintains
- * itself. The one thing lost is verbosity: the allow-lists reported every
- * unknown key on a trigger, while Effect decodes with `errors: 'first'` and
- * names one per run. Equivalent as a gate; the author fixes several typos one
- * run at a time.
+ * NO PER-TRIGGER ALLOW-LISTS. There is no hand-maintained list of allowed keys
+ * per trigger to keep in sync with the schemas. With `onExcessProperty: 'error'`
+ * the decoder catches an unknown trigger key AND names its path — read off the
+ * AST, so it cannot drift — and with `errors: 'all'` it names every unknown key
+ * in one run.
  *
  * WHY THE THREE FIELD-REFERENCE SWEEPS RUN HERE AND NOT ONLY IN THE CLI.
- * They used to sit in `sovrium validate`'s `runPostDecodeChecks`, which made
- * `validate` STRICTER THAN BOOT on three authoring rules — the last place the
- * published promise "validate and start run the same validation" was not
- * literally true. The argument for keeping them out was that they are
- * "pre-flight authoring checks, not a new way for a running app to refuse to
- * start". What that framing missed is that a running app which cannot resolve
+ * Running them only in `sovrium validate`'s `runPostDecodeChecks` would make
+ * `validate` STRICTER THAN BOOT on three authoring rules, breaking the
+ * published promise "validate and start run the same validation". One could
+ * call them "pre-flight authoring checks, not a new way for a running app to
+ * refuse to start", but a running app which cannot resolve
  * the field it was told to render does not degrade gracefully — it ships the
  * mistake as a surface that LOOKS deliberate. `views: ['kanban']` with no
  * `kanbanGroupBy` renders a dead tab; a `rowColorField` naming a field that does
@@ -253,9 +298,8 @@ const refusalFromMessages = (
  * names nothing resolves to nothing, so drift there loses coverage rather than
  * inventing a refusal.
  *
- * THE UNKNOWN-FIELD-TYPE SWEEP DELIBERATELY DID NOT COME WITH THEM. It stays in
- * `validate.ts` — see `runPostDecodeChecks` there for the reason, which is not
- * the one its comment used to give.
+ * THE UNKNOWN-FIELD-TYPE SWEEP DELIBERATELY DOES NOT RUN HERE. It stays in
+ * `validate.ts` — see `runPostDecodeChecks` there for the reason.
  */
 const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[] => {
   return [
@@ -266,14 +310,13 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // does not resolve is skipped there, so until this ran the deferral pointed
     // at a rule that only ever visited a `table`. See `table-name-references.ts`.
     ...validateTableNameReferences(normalized),
-    // A `dataSource.view`, against the views its table declares — and refused
-    // wherever no view can be read (a system source, any non-`table`
-    // component). See `data-source-view-validation.ts`.
+    // `dataSource.view` and `refreshMode` where they cannot apply; graph/matrix table sources.
     ...validateDataSourceViewReferences(normalized),
+    ...validateDataSourceRefreshModes(normalized),
+    ...validateGraphTablesSources(normalized),
     ...validateComponentFieldReferences(normalized),
     ...validateRowColorFields(normalized),
-    // A calendar's colour names one option; a multi-select is refused. See
-    // `calendar-color-field-validation.ts`.
+    // A calendar's colour names one option, never a multi-select (its module).
     ...validateCalendarColorFields(normalized),
     // A drawer's `related` sections, against the tables they name and the
     // drawer's own table. Here for the same reason as the sweeps above: each
@@ -289,8 +332,7 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // A filter value that claims to be a relative date must be one of the
     // grammar's tokens. See `relative-date-filter.ts`.
     ...validateRelativeDateFilters(normalized),
-    // A record automation whose own write re-fires its own trigger: visible in
-    // the config, so refused here. See `record-loop-validation.ts`.
+    // A record automation re-firing its own trigger is refused (`record-loop-validation.ts`).
     ...validateRecordEventLoops(normalized),
     // An approval `timeout` must decide approve or reject: `escalate`, or no
     // `onTimeout` at all, is a deadline the engine could never keep. See
@@ -327,7 +369,7 @@ export const decodeAppConfigObject = (
   parsed: unknown,
   options: DecodeAppConfigOptions = {}
 ): DecodeAppConfigResult => {
-  const { refSources = EMPTY_REF_SOURCES } = options
+  const { refSources = EMPTY_REF_SOURCES, configFile } = options
 
   // BEFORE the decode, because the decode is where the evidence disappears. A
   // `__proto__` key at a `Schema.Struct` position is refused by name below; at
@@ -369,12 +411,18 @@ export const decodeAppConfigObject = (
   // untrusted body: the prose half would then echo somebody else's document into
   // the operator's terminal. `init --from-url` is that case and reads the
   // stripped `findings` instead.
+  //
+  // `errors: 'all'` so one run reports every mistake rather than the first the
+  // decoder met. The cost is union residue — every member the decoder tried
+  // reports its own complaints — and `collectDecodeProblems` keeps only the
+  // member the author meant at each union, so one mistake is still one problem.
   const decoded = Schema.decodeUnknownResult(AppSchema, {
     onExcessProperty: 'error',
     reportInput: true,
+    errors: 'all',
   })(parsed)
   if (Result.isFailure(decoded)) {
-    return { valid: false, ...describeDecodeError(decoded.failure, refSources) }
+    return { valid: false, ...describeDecodeError(decoded.failure, parsed, refSources, configFile) }
   }
 
   const semanticErrors = runSemanticChecks(decoded.success, parsed)
@@ -388,15 +436,14 @@ export const decodeAppConfigObject = (
     name: typeof name === 'string' ? name : 'unnamed',
     app: decoded.success,
     raw: parsed,
-    // Same reason as the field-id notice below: after the decode every table has
-    // an id, and only the document as written says which ones the author chose.
+    // After the decode every table has an id; only the document says which ones were written.
     authoredTableIds: authoredTableIds(parsed, decoded.success.tables),
     notices: [
       ...collectSupersededDesignNotices(decoded.success),
-      // Reads `parsed`, not `decoded`: by the time AppSchema has run, every
-      // field carries an id and the distinction has been erased. This is the
-      // one notice that can only be derived from the document as written.
+      // These two read `parsed`, not `decoded`: after AppSchema every field has an
+      // id, and only the document as written shows what the author spelled.
       ...collectImplicitFieldIdNotices(parsed),
+      ...collectProseSpacingNotices(parsed),
       ...collectUnprefixedEngineKeyNotices(decoded.success.languages),
     ],
   }

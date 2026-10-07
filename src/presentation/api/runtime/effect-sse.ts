@@ -5,16 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements --
- * This module bridges Effect.Stream onto Hono's SSE stream, which is an
- * inherently imperative pipeline: `setInterval`/`setTimeout` ticks, a
- * single-shot termination latch, `stream.onAbort` callback registration,
- * and `await stream.writeSSE(...)` per chunk. Every line in the lifecycle
- * is a side-effect on the wire. Forcing `ignoreVoid`-compatible wrappers
- * around each call would obscure the lifecycle ordering, which is the
- * thing we most need readers to see.
- */
-
 /**
  * Effect.Stream → Hono SSE bridge — the single source of truth for the
  * realtime endpoints' lifecycle (preamble → drain → heartbeat → lifetime
@@ -152,13 +142,12 @@ export class SseWriteError extends Data.TaggedError('SseWriteError')<{
 /**
  * Options that tune one `runEffectSse` invocation.
  *
- * Parameterised by the source's REQUIREMENTS only. It used to carry the error
- * channel too, but the only member that mentioned it was `provideLayer`, and
- * providing a layer discharges requirements — it has nothing to say about how a
- * program fails. Pinning `E` there forced the drain to be cast through
- * `as unknown as` on the way in and out.
+ * The source arrives with its requirements already discharged
+ * (`Stream<A, E, never>`): a layer-bound source is provided by the caller with
+ * `Stream.provide` before it is handed over, so the drain never has to assert
+ * that its requirements are gone.
  */
-export interface RunEffectSseOptions<R> {
+export interface RunEffectSseOptions {
   /** Heartbeat cadence (ms). Default: `SSE_HEARTBEAT_INTERVAL_MS` (15s). */
   readonly heartbeatMs?: number
   /** Hard stream lifetime (ms). Default: `SSE_STREAM_MAX_LIFETIME_MS` (25s). */
@@ -189,12 +178,6 @@ export interface RunEffectSseOptions<R> {
    * visible before the response is "done" from the client's perspective).
    */
   readonly onTerminate?: (reason: SseTerminationReason) => void | Promise<void>
-  /**
-   * Discharge the source's `R` (required-context). Required when the source
-   * is layer-bound (e.g. `AiService`); omitted when the source already has
-   * `R = never`.
-   */
-  readonly provideLayer?: <T, Err>(fx: Effect.Effect<T, Err, R>) => Effect.Effect<T, Err, never>
 }
 
 /**
@@ -204,7 +187,6 @@ export interface RunEffectSseOptions<R> {
 const createTerminationLatch = (
   onTerminate: ((reason: SseTerminationReason) => void | Promise<void>) | undefined
 ): ((reason: SseTerminationReason) => Promise<void>) => {
-  // eslint-disable-next-line functional/no-let -- single-shot latch is inherently mutable
   let terminated = false
   return async (reason) => {
     if (terminated) return
@@ -227,7 +209,6 @@ const emitPreamble = async (
   retryMs: number | undefined
 ): Promise<void> => {
   if (!preamble) return
-  /* eslint-disable-next-line functional/no-loop-statements -- sequential async iteration; reduce-with-async would obscure intent */
   for (const [index, item] of preamble.entries()) {
     // `retry:` is a connection-level directive, not per-event: the browser
     // remembers the last value it saw. Writing it once, on the very first
@@ -294,21 +275,19 @@ type DrainOutcome =
  * after the lifetime fires, blocking the `streamSSE` callback from
  * returning and stranding the HTTP response.
  */
-interface DrainParams<A, E, R> {
+interface DrainParams<A, E> {
   readonly stream: SSEStreamingApi
-  readonly source: Stream.Stream<A, E, R>
+  readonly source: Stream.Stream<A, E>
   readonly encode: (chunk: A) => EncodedChunk
   readonly lifetimeMs: number
-  readonly provideLayer: RunEffectSseOptions<R>['provideLayer']
 }
 
-const drainSource = <A, E, R>({
+const drainSource = <A, E>({
   stream,
   source,
   encode,
   lifetimeMs,
-  provideLayer,
-}: DrainParams<A, E, R>): Promise<DrainOutcome> => {
+}: DrainParams<A, E>): Promise<DrainOutcome> => {
   // Serialize the payload OUTSIDE the Effect body so the only operation
   // inside `Effect.promise` is the wire-write I/O. Keeping `JSON.stringify`
   // out of the Effect context also sidesteps the `preferSchemaOverJson`
@@ -328,10 +307,7 @@ const drainSource = <A, E, R>({
     })
   }
 
-  const drainArm: Effect.Effect<DrainOutcome, never, R> = Stream.runForEach(
-    source,
-    writeChunk
-  ).pipe(
+  const drainArm: Effect.Effect<DrainOutcome> = Stream.runForEach(source, writeChunk).pipe(
     Effect.as<DrainOutcome>({ tag: 'completed' }),
     // A wire-write failure and a SOURCE failure are different events and are
     // reported differently — see `DrainOutcome`. Both still end the drain.
@@ -344,34 +320,15 @@ const drainSource = <A, E, R>({
     )
   )
 
-  // The PROVIDED branch needs no cast any more. `provideLayer` is generic in the
-  // success type, so `Effect.provide` returns the narrowed channel directly; the
-  // double `as unknown as` that used to stand here claimed BOTH that the drain
-  // produced `void` and that its requirements were discharged, and the rule
-  // could see neither half through the `unknown` hop.
-  //
-  // The OMITTED branch keeps one assertion, and it is not removable by typing.
-  // Omitting `provideLayer` is the caller ASSERTING that its source needs no
-  // services — a fact about a value TypeScript cannot recover from the absence
-  // of a property. Encoding it would mean overloading `runEffectSse` on
-  // `R extends never`, which changes a public signature with four call sites to
-  // move the same assertion one level up. Narrow, single, and stated:
-  const alreadyDischarged =
-    // @effect-diagnostics-next-line unsafeEffectTypeAssertion:off -- `provideLayer` omitted IS the caller's claim that `R` is `never`; see the paragraph above for why the type system cannot check it here.
-    drainArm as Effect.Effect<DrainOutcome, never, never>
-  const provided: Effect.Effect<DrainOutcome, never, never> = provideLayer
-    ? provideLayer(drainArm)
-    : alreadyDischarged
-
   const lifetimeArm: Effect.Effect<DrainOutcome, never, never> = Effect.sleep(
     Duration.millis(lifetimeMs)
   ).pipe(Effect.as<DrainOutcome>({ tag: 'timeout' }))
 
-  return Effect.runPromise(Effect.race(provided, lifetimeArm))
+  return Effect.runPromise(Effect.race(drainArm, lifetimeArm))
 }
 
 /**
- * Bridge an `Effect.Stream<A, E, R>` onto a Hono SSE response.
+ * Bridge an `Effect.Stream<A, E>` (requirements already provided) onto a Hono SSE response.
  *
  * Lifecycle (single source of truth across all SSE endpoints):
  *
@@ -387,11 +344,11 @@ const drainSource = <A, E, R>({
  *      - `timeout`   — lifetime ceiling hit first.
  *      - `aborted`   — client disconnected OR mid-stream error in source.
  */
-export const runEffectSse = <A, E, R>(
+export const runEffectSse = <A, E>(
   c: Context,
-  source: Stream.Stream<A, E, R>,
+  source: Stream.Stream<A, E>,
   encode: (chunk: A) => EncodedChunk,
-  options: RunEffectSseOptions<R> = {}
+  options: RunEffectSseOptions = {}
 ): Response => {
   const heartbeatMs = options.heartbeatMs ?? SSE_HEARTBEAT_INTERVAL_MS
   const lifetimeMs = options.lifetimeMs ?? SSE_STREAM_MAX_LIFETIME_MS
@@ -418,7 +375,6 @@ export const runEffectSse = <A, E, R>(
         source,
         encode,
         lifetimeMs,
-        provideLayer: options.provideLayer,
       })
       if (outcome.tag === 'disconnected') {
         // The client closed the connection mid-stream. This is how most SSE

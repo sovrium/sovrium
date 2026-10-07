@@ -24,7 +24,6 @@ export const DELETE_ACCOUNT_TOKEN_PREFIX = 'delete-account-'
  * outlive the account it names. Both the prefix and the id are bound
  * parameters — the id is never spliced into the pattern.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- drizzle's `SQL` is the upstream mutable shape `executeRaw` and the dialects take; `Readonly<SQL>` is not assignable to it. Nothing mutates it.
 export const deleteOutstandingAccountDeletionTokens = (userId: string): SQL =>
   sql`DELETE FROM ${authTableRef('verification')}
       WHERE identifier LIKE ${`${DELETE_ACCOUNT_TOKEN_PREFIX}%`} AND value = ${userId}`

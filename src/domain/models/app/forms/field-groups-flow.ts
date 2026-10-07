@@ -11,8 +11,7 @@
  * A field group renders a labeled section header above its listed fields.
  * When a group declares a `visibleWhen` rule that evaluates false, the
  * entire group (label + every field listed under it) is hidden at render
- * time AND its fields are excluded from required-field validation on submit
- *.
+ * time AND its fields are excluded from required-field validation on submit.
  *
  * Local `FormGroupShape` is declared here (rather than importing
  * `FormFieldGroup` from `app/forms`) to keep `domain-model-shared` free of

@@ -7,8 +7,8 @@
 
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import {
   passesTableRoleGate,
   passesUnguardedTableGate,
@@ -54,7 +54,6 @@ function evaluateDeletePredicates(
   if (!passesTableRoleGate(table, 'delete', guard)) {
     return FORBIDDEN_DELETE_RESPONSE(c)
   }
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property on RowLevelPermissions, not a Drizzle query.
   if (rlp.delete?.when && !recordPassesPredicate(rlp, 'delete', fetchedRecord, guard.current)) {
     return NOT_FOUND_RESPONSE(c)
   }
@@ -86,7 +85,7 @@ export async function checkDeleteGate(input: DeleteGateInput): Promise<Response 
     return NOT_FOUND_RESPONSE(c)
   }
 
-  const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
+  const fetched = await runOnRequest(c, rawGetRecordProgram(session, tableName, recordId))
   if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)
   if (!table) return NOT_FOUND_RESPONSE(c)
 

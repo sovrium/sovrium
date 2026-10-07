@@ -1,0 +1,66 @@
+# sovrium-library: block/hero-with-screenshot@0.30.0
+name: hero-with-screenshot
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24 pb-0!
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col items-center gap-6 text-center
+        children:
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: container
+                props:
+                  className: size-1.5 rounded-sm bg-primary
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: $t:hero.eyebrow
+          - type: text
+            element: h1
+            props:
+              className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05] max-w-4xl'
+            content: $t:hero.title
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-2xl
+            content: $t:hero.lead
+          - type: flex
+            props:
+              className: flex flex-col gap-3 sm:flex-row sm:items-center w-full sm:w-auto sm:justify-center
+            children:
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-12 px-5 text-md'
+                content: $t:cta.primary
+              - type: link
+                props:
+                  href: /about
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-12 px-5 text-md'
+                content: $t:cta.secondary
+          - type: container
+            props:
+              className: mt-10 w-full rounded-t-xl border border-b-0 border-border bg-background-raised p-2
+            children:
+              - type: container
+                props:
+                  className: flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-video rounded-b-none
+                  role: img
+                  aria-label: $t:hero.screenshotLabel
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: $t:hero.screenshotPlaceholder

@@ -64,12 +64,10 @@ components:
               # A post's state is an outlined chip with a dot: green once
               # published, amber while it waits for its date or for approval.
               - type: table
-                props:
-                  className: >-
-                    [&_td[data-field=state]>span]:inline-flex [&_td[data-field=state]>span]:items-center [&_td[data-field=state]>span]:gap-1.5
-                    [&_td[data-field=state]>span]:rounded-full [&_td[data-field=state]>span]:border [&_td[data-field=state]>span]:border-border
-                    [&_td[data-field=state]>span]:px-2 [&_td[data-field=state]>span]:py-0.5 [&_td[data-field=state]>span]:text-xs
-                    [&_td[data-field=state]>span]:before:size-1.5 [&_td[data-field=state]>span]:before:rounded-full [&_td[data-field=state]>span]:before:bg-foreground-subtle [&_td[data-field=state]>span]:before:content-['']
+                readOnly: true
+                classes:
+                  parts:
+                    chip: gap-1.5 rounded-full border-border px-2 py-0.5 text-xs font-normal text-foreground
                 dataSource:
                   table: posts
                   bindTo: posts-filter
@@ -81,13 +79,11 @@ components:
                   - { field: title, label: Title, sortable: true }
                   - field: state
                     label: Status
+                    badgeForm: outline-dot
                     cellStyle:
-                      - { when: { eq: Published }, className: '[&>span]:before:!bg-success' }
-                      - { when: { eq: Scheduled }, className: '[&>span]:before:!bg-warning' }
-                      - {
-                          when: { eq: Awaiting approval },
-                          className: '[&>span]:before:!bg-warning',
-                        }
+                      - { when: { eq: Published }, tone: success }
+                      - { when: { eq: Scheduled }, tone: warning }
+                      - { when: { eq: Awaiting approval }, tone: warning }
                   - { field: author, label: Author }
                   - { field: publish_at, label: Published, format: short-date, sortable: true }
                   - { field: updated_at, label: Updated, format: relative-date }

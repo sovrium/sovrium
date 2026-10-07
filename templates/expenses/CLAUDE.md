@@ -7,11 +7,13 @@ repaid.
 
 ## This app at a glance
 
-- **Tables** (1): expenses
+- **Tables** (2): expenses, bank_transactions (filled by the Qonto recipe)
 - **Forms** (1): add-expense (opened from the Add expense button)
 - **Pages** (5): my-expenses (`/`), review (admin), reimburse (admin), home (the sign-in
   landing), sign-in
-- **Automations** (2): approve-expense, mark-reimbursed
+- **Automations** (3): approve-expense, mark-reimbursed, and qonto-transactions-to-table — a
+  library recipe (`library/recipe/`, with `library/connection/qonto.yaml`) that pulls the
+  business account's transactions each morning once the Qonto keys are set
 - **Singletons**: auth, design
 - **Seed data**: `seed/` — four sign-in accounts and seventeen claims with their receipts
   (`seed/assets/`), dated relative to the day you seed

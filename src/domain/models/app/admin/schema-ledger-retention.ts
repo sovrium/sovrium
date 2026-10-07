@@ -6,7 +6,7 @@
  */
 
 /**
- * Schema-version retention resolver ([internal ref] / Phase 4 — API-1).
+ * Schema-version retention resolver (the single app-version history across transports / Phase 4 — API-1).
  *
  * `resolvePruneSet` is the **pure** core of the schema-prune feature: given a
  * list of ledger rows and a `keep` argument, it computes which versions stay
@@ -26,7 +26,7 @@
  * total: given any legal input it returns a deterministic answer with
  * `toKeep ∩ toPrune === ∅` and `toKeep ∪ toPrune === input`.
  *
- * Self-contained checksums ([internal ref], Point B) make the prune safe:
+ * Self-contained checksums (the single app-version history across transports, Point B) make the prune safe:
  * removing an interior row never corrupts the integrity of a retained row.
  */
 

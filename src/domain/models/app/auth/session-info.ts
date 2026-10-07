@@ -32,7 +32,7 @@ export interface SessionInfo {
   readonly email?: string
   /**
    * Display name from Better Auth (mirror of `session.user.name`). Used by
-   * the SSR guest-comment renderer (PG-02 [internal ref]) to
+   * the SSR guest-comment renderer (PG-02 a pages public comments spec) to
    * prefill the visible name input when the visitor is already
    * authenticated. Optional for backward compatibility — pages that only
    * use the existing fields keep working unchanged.
@@ -77,4 +77,10 @@ export interface SessionInfo {
    * [internal ref].
    */
   readonly effectiveRoles?: readonly string[]
+  /**
+   * How the session was opened — `passkey` when a passkey signed it in, absent
+   * otherwise. Read by the admin plane when `auth.passkeys.requireForAdmin`
+   * holds an admin's password session at the door.
+   */
+  readonly signInMethod?: string
 }

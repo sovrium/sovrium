@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { CssLengthSchema } from '../../../../../css-length'
 import { FormNameSchema } from '../../../../../forms/name'
 import {
   FetchResponseEnvelopeSchema,
@@ -20,31 +21,35 @@ import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
 import { responsiveFields } from '../../modules/responsive'
 import { visibilityFields } from '../../modules/visibility'
-import { FormFieldConfigSchema, FormFieldGroupSchema } from './schema'
+import { FormFieldConfigSchema } from './schema'
+import { FormSectionsSchema } from './sections'
 
 /**
- * The one form literal, in both of its modes.
+ * The page `form` literal — the form that WORKS ON DATA ALREADY IN THE APP.
  *
- * A `form` is STATIC when it declares no `dataSource`: it collects the fields
- * declared on it and submits them to a `formRef` or an `endpoint`. It is
- * TABLE-BOUND when it declares one: the same fields resolve against that
- * table's columns and the submit writes a record back through the records API.
- * `dataSource` is what decides, and nothing else about the component changes.
+ * It does exactly four things: edit the record a page shows (`dataSource` with
+ * `mode: single` and a `crud` update action), post its fields to an endpoint of
+ * the author's own (`endpoint`), draw the sign-in and sign-up forms (an `auth`
+ * action), and place a top-level form on the page (`formRef`).
+ *
+ * ─── IT NEVER CREATES A TABLE ROW ON ITS OWN ───────────────────────────────
+ *
+ * A form that TAKES SOMETHING IN — a new record, with a multi-step layout,
+ * conditional fields, file uploads, a success page, field groups — is a
+ * top-level `forms[]` entry, and `formRef` is the only bridge that puts one on
+ * an app page. A second copy of each of those capabilities behind
+ * `action: { type: crud, operation: create }` would drift from the first, so
+ * each exists once, in `forms[]`. The keys the page form lost are refused at load with
+ * a message naming their `forms[]` home (`removed-keys.ts`), and a `crud`
+ * create action on a `form` is refused by `form-create-path-validation.ts`.
  *
  * ─── THERE WAS A SECOND LITERAL, AND IT DECLARED NOTHING OF ITS OWN ────────
  *
  * `data-form` was registered beside this one and built from the SAME
- * `formFields` object — not a similar one, the same reference — and dispatched
- * to the same `renderFormFromDispatch` in the registry. So the two spellings
- * differed in exactly one respect: which of them an author had last seen. That
- * is the drift a second name buys, and the reason the catalogue reshape retires
- * a duplicate rather than aliasing it (`retired-types.ts` carries the row that
- * tells an author where it went).
- *
- * The mode distinction the second name was reaching for is real and is still
- * here; it just lives on `dataSource`, where a reader can see it on the config
- * in front of them rather than having to know which of two type names implies
- * it.
+ * `formFields` object and dispatched to the same renderer, so the two
+ * spellings differed only in which of them an author had last seen — the
+ * drift a second name buys. `retired-types.ts` carries the row that tells an
+ * author where it went.
  */
 export const FormTypeLiteral = Schema.Literal('form')
 
@@ -75,15 +80,13 @@ const InlinePrefillValueSchema = Schema.Union([
 })
 
 /**
- * Inline-prefill configuration attached to a page-form component — either a
- * `formRef` embed of a top-level form, or a form declared in place with its
- * own `dataSource` and a `crud` create action.
+ * Inline-prefill configuration attached to a `formRef` embed of a top-level
+ * form.
  *
- * Used by the inline-relationship-create flow (Y-5): the host page exposes
- * a single record via `page.dataSource: { mode: 'single' }`, and the
- * embedded form auto-prefills the relationship column (e.g.
- * `project_id: '$parent.id'`) so the submitter never has to pick the parent
- * manually.
+ * Used by the inline-relationship-create flow: the host page exposes a single
+ * record via `page.dataSource: { mode: 'single' }`, and the embedded form
+ * auto-prefills the relationship column (e.g. `project_id: '$parent.id'`) so
+ * the submitter never has to pick the parent manually.
  *
  * - `prefill` — column-name → value/token map applied to the rendered form
  * - `lockPrefill` (default: false) — when true, the prefilled fields render
@@ -91,13 +94,14 @@ const InlinePrefillValueSchema = Schema.Union([
  *   the parent's existence on submit; when false, the prefill becomes the
  *   field's initial value but the submitter can override it.
  *
+ * A page form declared in place (no `formRef`) cannot carry it: such a form
+ * no longer creates records, and an edit form already starts from the record
+ * it edits. `form-create-path-validation.ts` refuses it there.
+ *
  * The schema is intentionally permissive at this tier: the server-side
- * resolver in `form-ref-resolver` validates that the referenced parent
- * field exists on the host page's bound record and that the form's
- * `submitTo.table` actually has columns matching the prefill keys.
- * Validating those at schema load time would require crossing the
- * `pages` ↔ `forms` ↔ `tables` boundary, which is deferred to a follow-up
- * cross-validation pass once the inline-create feature stabilises.
+ * resolver in `form-ref-resolver` validates that the referenced parent field
+ * exists on the host page's bound record and that the form's
+ * `submitTo.table` has columns matching the prefill keys.
  */
 export const InlinePrefillSchema = Schema.Struct({
   prefill: Schema.Record(Schema.String, InlinePrefillValueSchema).annotate({
@@ -114,7 +118,7 @@ export const InlinePrefillSchema = Schema.Struct({
   identifier: 'InlinePrefill',
   title: 'Inline Prefill',
   description:
-    'Auto-prefill relationship/scalar fields on an embedded form using values from the host page record.',
+    'Prefill fields of a form placed with `formRef` from the host page record — typically the parent link (`$parent.id`) of a record added from inside that record. Only on a `formRef` embed.',
 })
 
 /**
@@ -262,60 +266,27 @@ export const formFields = {
    */
   dataSource: Schema.optional(DataSourceSchema),
   /**
-   * Multi-step wizard configuration for inline form components.
-   *
-   * Splits the form fields into sequential steps rendered with Next / Back
-   * navigation. Fields listed in a step's `fields` array are shown for that
-   * step only. `visibleWhen` conditions may reference fields from any step —
-   * all values are retained globally so cross-step conditions evaluate correctly.
-   *
-   * Mutually exclusive with `formRef`.
-   */
-  wizard: Schema.optional(
-    Schema.Struct({
-      steps: Schema.NonEmptyArray(
-        Schema.Struct({
-          label: Schema.String.annotate({
-            description: 'Step label shown in the progress indicator',
-          }),
-          fields: Schema.NonEmptyArray(
-            Schema.String.annotate({ description: 'One field name, as the form declares it' })
-          ).annotate({
-            description: 'Field names assigned to this step',
-          }),
-        }).annotate({
-          description: 'One step of the wizard: its label, and the fields it collects',
-        })
-      ).annotate({ description: 'Ordered list of wizard steps' }),
-    }).annotate({
-      description:
-        'Multi-step wizard configuration. Splits form fields into sequential steps with Next/Back navigation.',
-    })
-  ),
-  /**
    * Reference a top-level form by name. When set, the component renders the
    * referenced form inline; fields/steps/onSuccess flow from `app.forms[]`.
    *
    * Mutually exclusive with the inline form definition: when `formRef` is
-   * set, `dataSource`, `fields`, and `fieldGroups` must NOT also be set
-   * on the same component (cross-validated at the `AppSchema` level).
+   * set, `dataSource` and `fields` must NOT also be set on the same component
+   * (cross-validated at the `AppSchema` level).
    */
   formRef: Schema.optional(
     FormNameSchema.annotate({
       description:
-        'Reference a top-level form by name (app.forms[].name). Renders that form inline.',
+        'Place a top-level form (app.forms[].name) on this page. The only way to let someone add a record from inside an app page: the page form never creates a table row on its own.',
     })
   ),
   /**
-   * Inline-prefill configuration for forms placed on a record page (Y-5).
+   * Inline-prefill configuration for a `formRef` embed placed on a record page.
    *
-   * Applies to both page-form shapes — a `formRef` embed and a form declared
-   * in place with its own `dataSource` + `crud` create action — on a host
-   * page that exposes a `dataSource: { mode: 'single' }` record, whether the
-   * form sits directly on the page, in a tab panel or in a dialog. When set,
+   * On a host page that exposes a `dataSource: { mode: 'single' }` record —
+   * whether the form sits directly on the page, in a tab panel or in a dialog —
    * prefill tokens like `'$parent.id'` resolve against the host record at
-   * render time so the submitter never has to pick the parent record
-   * manually.
+   * render time so the submitter never has to pick the parent record manually.
+   * Refused on a form declared in place (one without `formRef`).
    *
    * `lockPrefill: true` further hides the prefilled fields and triggers
    * server-side parent revalidation on submit (404 → 422 mapping).
@@ -333,20 +304,69 @@ export const formFields = {
     Schema.Array(FormFieldConfigSchema).pipe(
       Schema.annotate({
         description:
-          'Per-field configuration for form component (labels, placeholders, visibility)',
+          'Per-field configuration for the form: labels, help text, placeholders, defaults, read-only, disabled and hidden fields, and the control or choices of an endpoint form.',
       }),
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  fieldGroups: Schema.optional(
-    Schema.Array(FormFieldGroupSchema).pipe(
-      Schema.annotate({ description: 'Groups form fields under labeled section dividers' }),
-      Schema.check(Schema.isMinLength(1))
-    )
-  ),
   layout: Schema.optional(
-    Schema.Literals(['single-column', 'two-column', 'custom']).annotate({
-      description: 'Form layout mode: single-column | two-column | custom',
+    Schema.Literals(['single-column', 'two-column', 'main-aside', 'custom']).annotate({
+      description:
+        "Form layout mode: single-column | two-column | main-aside | custom. 'main-aside' sets the fields whose region is 'aside' — and the submit button — in a narrow column beside the others from the lg breakpoint up, and stacks everything on one column below it.",
+    })
+  ),
+  /**
+   * The width of a `main-aside` form's narrow column. The main column takes
+   * the rest. Ignored by the other layouts.
+   */
+  asideWidth: Schema.optional(
+    CssLengthSchema.annotate({
+      description:
+        'Width of the aside column of a main-aside form, in px or rem (default 20rem). The main column takes the rest. Ignored by the other layouts.',
+      examples: ['340px', '20rem'],
+    })
+  ),
+  /**
+   * Whether the form draws its own title and description above its fields.
+   * A form placed under a page heading that already says what it is for —
+   * a referenced form whose title repeats the page's — turns it off.
+   */
+  showHeader: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Whether the form draws its own title and description above its fields (default: true). Turn it off when the page's own heading already says what the form is for.",
+    })
+  ),
+  /**
+   * Titled groups of fields — layout only. See {@link FormSectionsSchema} for
+   * why a section never hides, steps or conditions its fields.
+   */
+  sections: Schema.optional(FormSectionsSchema),
+  /**
+   * Where each field's label sits. `top` (the default) stacks it above the
+   * control; `side` puts the label and its help text on the left and the
+   * control on the right, one row per field — the settings-page shape, where
+   * a reader scans the labels down one column. Below the `md` breakpoint a
+   * `side` form stacks like a `top` one, since there is no room for two
+   * columns. Orthogonal to `layout`, which arranges the fields rather than
+   * their labels.
+   */
+  labelPlacement: Schema.optional(
+    Schema.Literals(['top', 'side']).annotate({
+      description:
+        "Where each field's label sits: top (default, above the control) or side (label and help on the left, control on the right, one row per field — stacked again below the md breakpoint).",
+    })
+  ),
+  /**
+   * Keep the save bar in view while the form scrolls, and say how many fields
+   * have changed. For long edit forms: the bar reads "3 unsaved changes ·
+   * Discard · Save", Save is enabled only once something changed, and leaving
+   * the page with unsaved changes asks first.
+   */
+  stickyActions: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Pin the save bar to the bottom of the viewport while the form scrolls, with the count of unsaved changes and a Discard button; Save enables only once a field changed, and leaving with unsaved changes asks first (default: false).',
     })
   ),
 } as const

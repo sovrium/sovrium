@@ -6,7 +6,8 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- beside `command-search.ts`, whose page half reads this corpus: one module per search surface, not a phase
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
+import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import {
   articleDocument,
   declaredPageDocuments,
@@ -16,7 +17,6 @@ import {
   type PageSearchHit,
 } from '@/domain/models/app/pages/page-search-corpus-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
@@ -42,34 +42,35 @@ const declaredDocumentsFor = (app: App): readonly PageSearchDocument[] => {
   return built
 }
 
-const readArticleDocuments = async (app: App): Promise<readonly PageSearchDocument[]> => {
-  // FAN-OUT WIDTH: config-bounded by the `contentDir` pages, and every branch is
-  // a directory read, not a pooled database connection — the same reasoning as
-  // the palette's content scan this replaces.
-  // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- filesystem fan-out, no pooled connection; see the note above.
-  const perPage = await Promise.all(
-    (app.pages ?? [])
-      .filter((page) => page.contentDir !== undefined && typeof page.path === 'string')
-      .map(async (page) => {
-        const bodies = await readContentDirBodies(page.contentDir!, page.path)
-        return bodies.map(({ entry, body }) => articleDocument(app, page, entry, body))
-      })
-  )
-  return perPage.flat()
-}
-
-class ContentDirScanError extends Data.TaggedError('ContentDirScanError')<{
-  readonly cause: unknown
-}> {}
-
 /**
  * Every article, or none when a content directory cannot be read — a search
  * missing its articles is degraded, a search that 500s is no search at all.
+ *
+ * FAN-OUT WIDTH: config-bounded by the `contentDir` pages, and every branch is a
+ * directory read, not a pooled database connection.
  */
-const articleDocuments = (app: App): Effect.Effect<readonly PageSearchDocument[], never> =>
-  Effect.tryPromise({
-    try: () => readArticleDocuments(app),
-    catch: (cause) => new ContentDirScanError({ cause }),
+const articleDocuments = (
+  app: App
+): Effect.Effect<readonly PageSearchDocument[], never, ContentDirReader> =>
+  Effect.gen(function* () {
+    const reader = yield* ContentDirReader
+    const pages = (app.pages ?? []).filter(
+      (page) => page.contentDir !== undefined && typeof page.path === 'string'
+    )
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- filesystem fan-out bounded by the config's `contentDir` pages, no pooled connection; see the doc comment.
+    const perPage = yield* Effect.forEach(
+      pages,
+      (page) =>
+        reader
+          .readBodies(page.contentDir!, page.path)
+          .pipe(
+            Effect.map((bodies) =>
+              bodies.map(({ entry, body }) => articleDocument(app, page, entry, body))
+            )
+          ),
+      { concurrency: 'unbounded' }
+    )
+    return perPage.flat()
   }).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() => {
@@ -85,7 +86,7 @@ const articleDocuments = (app: App): Effect.Effect<readonly PageSearchDocument[]
 export const loadReadablePageDocuments = (
   app: App,
   session: SessionInfo | undefined
-): Effect.Effect<readonly PageSearchDocument[], never> =>
+): Effect.Effect<readonly PageSearchDocument[], never, ContentDirReader> =>
   Effect.gen(function* () {
     const articles = yield* articleDocuments(app)
     return documentsReadableBy([...declaredDocumentsFor(app), ...articles], app, session)
@@ -99,7 +100,7 @@ export const SearchReadablePages = (
   app: App,
   query: string,
   session: SessionInfo | undefined
-): Effect.Effect<readonly PageSearchHit[], never> =>
+): Effect.Effect<readonly PageSearchHit[], never, ContentDirReader> =>
   Effect.gen(function* () {
     const documents = yield* loadReadablePageDocuments(app, session)
     return searchPageDocuments(documents, query, { matchText: () => true, titleFirst: true })

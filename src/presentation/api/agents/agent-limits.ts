@@ -14,16 +14,13 @@
  * runtime accounting:
  *
  *  - {@link resolveAgentLimits}    — merge declared limits with defaults.
- *  - {@link checkActionRateLimit}  — sliding-window action counter
- *.
+ *  - {@link checkActionRateLimit}  — sliding-window action counter.
  *  - {@link acquireConcurrencySlot}/{@link releaseConcurrencySlot}
- *                                    — in-flight task counter
- *.
- *  - {@link isTokenBudgetExhausted} — per-day token budget gate
- *.
+ *                                    — in-flight task counter.
+ *  - {@link isTokenBudgetExhausted} — per-day token budget gate.
  *  - {@link recordTokenUsage}/{@link getAgentUsage}
  *                                    — daily token accounting that resets at
- * midnight UTC.
+ *                                      midnight UTC.
  *
  * State is process-local — suitable for the single-process E2E topology.
  * Only the action counter is a sliding window, and it composes the shared
@@ -86,7 +83,6 @@ export const checkActionRateLimit = (
   const config = { windowMs: ACTION_WINDOW_MS, maxRequests: maxActionsPerMinute }
   if (actionLimiter.isExceeded(agentName, config)) return { queued: true }
 
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiter's mutable store
   actionLimiter.record(agentName, config)
   return { queued: false }
 }
@@ -102,7 +98,6 @@ const concurrentTasks = new Map<string, number>()
 export const acquireConcurrencySlot = (agentName: string, maxConcurrentTasks: number): boolean => {
   const inFlight = concurrentTasks.get(agentName) ?? 0
   if (inFlight >= maxConcurrentTasks) return false
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton counter
   concurrentTasks.set(agentName, inFlight + 1)
   return true
 }
@@ -110,7 +105,6 @@ export const acquireConcurrencySlot = (agentName: string, maxConcurrentTasks: nu
 /** Release a previously-acquired concurrency slot. */
 export const releaseConcurrencySlot = (agentName: string): void => {
   const inFlight = concurrentTasks.get(agentName) ?? 0
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton counter
   concurrentTasks.set(agentName, Math.max(0, inFlight - 1))
 }
 
@@ -163,7 +157,6 @@ export const recordTokenUsage = (agentName: string, tokens: number): void => {
   const day = currentUtcDay()
   const entry = tokenUsage.get(agentName)
   const base = entry !== undefined && entry.day === day ? entry.tokens : 0
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutable singleton store; the value is a fresh immutable object
   tokenUsage.set(agentName, { day, tokens: base + tokens })
 }
 

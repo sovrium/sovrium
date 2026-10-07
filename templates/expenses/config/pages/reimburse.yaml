@@ -42,21 +42,19 @@ components:
               - type: table
                 props:
                   id: to-repay
-                  # A stored receipt name carries a unique prefix; the
-                  # cell shows its start and the link opens the file. The
-                  # category (fourth column) is a neutral outlined word.
-                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle [&_td:nth-child(4)_span]:!bg-transparent [&_td:nth-child(4)_span]:!text-foreground-muted [&_td:nth-child(4)_span]:!border-border'
                 dataSource:
                   table: expenses
                   view: to_repay
-                  filter:
-                    - { field: status, operator: eq, value: Approved }
                 columns:
                   - { field: filer, label: Filed by }
                   - { field: description, label: Description }
                   - { field: expense_date, label: Date, format: short-date }
-                  - { field: category, label: Category }
-                  - { field: receipt, label: Receipt }
+                  # A neutral outlined word: the option colours are kept for the
+                  # spend chart on Review.
+                  - { field: category, label: Category, badgeForm: outline }
+                  # A stored receipt name carries a unique prefix: the cell
+                  # shows its start on one line and the link opens the file.
+                  - { field: receipt, label: Receipt, truncate: true }
                   - { field: amount, label: Amount, format: currency }
                   - type: actions
                     actions:

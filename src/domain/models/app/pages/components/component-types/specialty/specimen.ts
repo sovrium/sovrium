@@ -106,7 +106,7 @@ import { visibilityFields } from '../modules/visibility'
  * appearing beside an unrelated string.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 007, 013 … 016
+ * Specs: the pages design primitives specs … 016
  */
 export const SpecimenTypeLiteral = Schema.Literal('specimen')
 
@@ -289,16 +289,16 @@ const SpecimenSubjectSchema = Schema.Struct({
  *
  * ─── IT IS A FRAME, NOT A SECOND HOST ─────────────────────────────────────
  *
- * The console's `/preview/...` routes were retired in 2026-09-03 precisely
- * because a second host for the same content is a second place for the scheme,
- * the rail and the specimen bounds to disagree. That ruling is not reversed
- * here and this field must not be used to reverse it: what it declares is the
+ * The console has no user-navigable `/preview/...` routes, because a second
+ * host for the same content is a second place for the scheme, the rail and the
+ * specimen bounds to disagree. This field must not be used to create one: what
+ * it declares is the
  * INSIDE of a frame, not a destination. The framed document is reachable only
  * as an `<iframe>` source, is linked from nothing, carries no rail, no chrome
  * and no navigation, and is embeddable only by its own origin.
  *
  * The scheme is the one axis that genuinely spans the boundary, and it is the
- * class of defect `[internal ref]` exists for. The framed document
+ * class of defect an admin design system spec exists for. The framed document
  * therefore resolves light/dark from the SAME two inputs in the SAME precedence
  * the hosting document does — an explicit `?scheme=` beats a stored preference,
  * a stored preference wins when nothing is asked for — so the two cannot

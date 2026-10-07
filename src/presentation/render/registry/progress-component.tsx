@@ -6,8 +6,7 @@
  */
 
 /**
- * SSR renderer for the `progress` page component
- *.
+ * SSR renderer for the `progress` page component.
  *
  * Renders an accessible progress indicator with `role="progressbar"` and
  * the `aria-valuenow` / `aria-valuemin` / `aria-valuemax` attributes screen
@@ -104,7 +103,7 @@ function resolveProgressFields(
  * The `steps` schema field, as the rail reads it.
  *
  * Authored as plain strings — a step in a sequence is its NAME and nothing
- * else, which is the whole difference from the wizard's steps, where a label
+ * else, which is the whole difference from a form's steps, where a label
  * accompanies the fields the step collects.
  */
 function resolveSteps(declared: unknown): readonly StepRailStep[] {
@@ -141,7 +140,6 @@ function renderCircle(f: ProgressFields): ReactElement {
       data-component-type={f.componentType}
       data-progress-variant="circle"
       className="relative inline-flex items-center justify-center"
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call sizing in a stateless SSR renderer; rendered once on the server
       style={{ width: diameter, height: diameter }}
     >
       <svg
@@ -194,12 +192,10 @@ function renderLinear(f: ProgressFields): ReactElement {
         data-component="progress"
         data-progress-variant="linear"
         className={computeProgressTrackClasses()}
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call sizing in a stateless SSR renderer; rendered once on the server
         style={{ height }}
       >
         <div
           className={computeProgressBarClasses()}
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call fill width in a stateless SSR renderer; rendered once on the server
           style={{ width: `${f.percent}%` }}
         />
       </div>
@@ -209,11 +205,11 @@ function renderLinear(f: ProgressFields): ReactElement {
 }
 
 /**
- * Render the step-rail variant — the SAME rail the form wizard draws.
+ * Render the step-rail variant.
  *
- * The markup is deliberately not this component's own: `StepRail` is shared
- * with `wizard-form.tsx`, so a fix to one reaches both and a screen reader
- * hears one vocabulary for one idea.
+ * The markup is deliberately not this component's own: it is the shared
+ * `StepRail` design recipe, so a screen reader hears one vocabulary for one
+ * idea.
  *
  * `role="progressbar"` is deliberately ABSENT here, where the other two
  * variants carry it. That role makes its children presentational, which would

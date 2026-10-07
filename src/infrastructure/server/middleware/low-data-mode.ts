@@ -64,15 +64,13 @@ export const HEAVY_ISLANDS: readonly string[] = ['chart', 'calendar']
 const OPT_OUT_PATH = '/__sovrium/eco/low-data-opt-out'
 
 /** Build the cookie value indexed by name from the raw request header. */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 function readLowDataCookie(c: Context): 'on' | 'off' | undefined {
-  const cookies = getCookie(c as unknown as Parameters<typeof getCookie>[0])
+  const cookies = getCookie(c as Parameters<typeof getCookie>[0])
   const raw = cookies[LOW_DATA_COOKIE_NAME]
   return raw === 'on' || raw === 'off' ? raw : undefined
 }
 
 /** Extract low-data signals from the active request. */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 function collectSignals(c: Context): LowDataSignals {
   return {
     saveData: c.req.header('save-data'),
@@ -172,7 +170,6 @@ function injectFullVariantSentinel(html: string): string {
   return `${html}${FULL_VARIANT_SENTINEL}`
 }
 
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is mutable by library design
 async function handleLowDataResponse(c: Context, next: Next): Promise<void> {
   await next()
 
@@ -210,9 +207,7 @@ async function handleLowDataResponse(c: Context, next: Next): Promise<void> {
   // body invalidates the prior Content-Length so we drop the header and
   // let Hono recompute on serialisation.
   const headers = new Headers(c.res.headers)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Headers.delete is the Fetch API Headers method, not a Drizzle query builder
   headers.delete('content-length')
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- mutation IS the middleware's job (Hono Context contract)
   c.res = new Response(transformed, {
     status: c.res.status,
     headers,

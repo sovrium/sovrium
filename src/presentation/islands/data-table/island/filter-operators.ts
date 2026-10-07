@@ -14,9 +14,9 @@
  * `equals`, `notEquals`, `contains`, `doesNotContain`, `startsWith`,
  * `endsWith`, `greaterThan`, `lessThan`, `greaterThanOrEqual`,
  * `lessThanOrEqual`, `isBefore`, `isAfter`, `isAnyOf`, `isNoneOf`, `between`.
- * That is the spelling the saved-view wire schema names, the spelling
- * `closed-vocabulary.ts` gives a developer writing `views[].filters`, and now
- * the spelling the builder emits from the moment the user picks an operator.
+ * That is the spelling the wire schema names, the spelling
+ * `closed-vocabulary.ts` gives a developer writing `views[].filters`, and the
+ * spelling the builder emits from the moment the user picks an operator.
  *
  * The spaced English form (`is`, `greater than`, `starts with`) survives ONLY
  * as a human LABEL — the `<option>` text content. It is never an operator
@@ -189,9 +189,8 @@ export function isSelectValueField(fieldType: string | undefined): boolean {
  * Alternate operator spellings a filter row can carry when it did NOT come
  * from the builder, folded onto the canonical vocabulary before dispatch.
  *
- * This is INPUT TOLERANCE at one edge, not a second vocabulary. A saved view's
- * `filters[]` is author-supplied JSON: an API caller, a shared-link payload or
- * a spec may write `'is'`, or the hyphenated domain form `'is-any-of'`,
+ * This is INPUT TOLERANCE at one edge, not a second vocabulary. A filter row's
+ * operator can be author-supplied JSON: an API caller or a spec may write `'is'`, or the hyphenated domain form `'is-any-of'`,
  * straight into the wire payload, and those rows reach `evaluatePredicate`
  * verbatim through `toFilterRows`. Every entry maps an alias ONTO the
  * canonical form — the direction the canonical decision already points — so no
@@ -342,7 +341,7 @@ function classifyMultiValueOperator(operator: string): 'any' | 'none' | undefine
 
 /**
  * Evaluate the multi-value `isAnyOf` / `isNoneOf` operators
- * (PG-03 saved-view semantics).
+ * (comma-separated value semantics).
  *
  * Values arrive as a comma-separated string because the FilterRow shape
  * carries `value: string`; shared-view ingestion stringifies the API's

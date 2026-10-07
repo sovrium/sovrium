@@ -62,9 +62,8 @@ export const PROTECTED_SYSTEM_TABLES = new Set([
   'system.webhook_deliveries',
   // Storage tables (in system schema). Both are created by Drizzle migrations.
   // The bytea-adapter writes binary content to system.file_storage_bytea with
-  // metadata in system.file_storage_metadata; there is no longer a runtime-
-  // created public-schema table (the legacy `_sovrium_files` was renamed and
-  // moved to system.* per the internal-table naming convention).
+  // metadata in system.file_storage_metadata; there is no runtime-created
+  // public-schema table, per the internal-table naming convention (system.*).
   'system.file_storage_metadata',
   'system.file_storage_bytea',
   // AI tables (in system schema)
@@ -86,7 +85,7 @@ export const PROTECTED_SYSTEM_TABLES = new Set([
   // guard, the boot-time `dropObsoleteTables` sees `audit_log` as a
   // public-schema table not declared in `app.tables[]` and drops it on
   // every server start — silently turning every audit emit into a
-  // best-effort no-op and breaking the [internal ref]
+  // best-effort no-op and breaking the API account delete specs
   // assertions that read the table directly.
   //
   // On SQLite the mirror also names the table `audit_log` (no prefix —

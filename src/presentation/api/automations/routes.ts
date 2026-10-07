@@ -11,7 +11,6 @@ import {
   type PersistedRun,
   type PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
-import { dispatchAutomationOnce } from '@/application/use-cases/automations/dispatch-automation-trigger'
 import { findPendingApprovalId } from '@/application/use-cases/automations/list-automation-approvals'
 import {
   replayAutomationRun,
@@ -21,6 +20,7 @@ import {
   type RunAutomationError,
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
+import { runPagePressedAutomation } from '@/application/use-cases/automations/run-page-pressed-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { redactTriggerDataHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
 import { runDetailSchema } from '@/domain/models/api/automations/automations'
@@ -36,15 +36,20 @@ import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { handleListApprovals } from './approvals-handlers'
+import { automationsListedTo } from './automation-listing-reach'
+import { admitPageAction, type PageSessionResolver } from './page-action-gate'
 import { listedRuns } from './run-list-body'
+import { publishedNestedSteps } from './run-nested-steps'
 import { judgedRunOf, runDetailAsSeenByCaller, runsAsSeenByCaller } from './run-step-output-reach'
 import {
   chainRunControlRoutes,
+  gateActionableRun,
   gateReadableRun,
   gateRunAccess,
   replayTriggerData,
 } from './runs-handlers'
 import { selectTriggerProgram } from './trigger-program-selector'
+import { redactTriggerSecrets } from './trigger-secret-redaction'
 import { handleWebhookRequest } from './webhook-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -55,7 +60,7 @@ import type { Context, Hono } from 'hono'
  * 'failed'` to align with `system.automation_runs.status` and surfaces the
  * run identifier as `id` (matches the runs API).
  *
- * [internal ref]: surfaces only the **last action's output** as `output`, mirroring
+ * Surfaces only the **last action's output** as `output`, mirroring
  * n8n's "When Last Node Finishes" mode. The previous per-action `actions` map
  * is no longer exposed — per-action visibility lives at
  * `GET /api/automations/runs/:id` instead. `output` is omitted when no action
@@ -68,15 +73,12 @@ import type { Context, Hono } from 'hono'
 const triggerResultBody = (result: RunAutomationResult) => {
   // `'completed-with-errors'` is surfaced verbatim so callers can distinguish
   // a degraded happy path (some action failed but `continueOnError` allowed
-  // the run to complete — [internal ref]) from both a clean
+  // the run to complete — an automation retry spec) from both a clean
   // completion and a hard failure. `'success'` maps to `'completed'` for
   // API alignment with `system.automation_runs.status`; the engine-internal
   // failure/exhausted/timed-out variants collapse to `'failed'` here so the
   // public trigger response stays small — callers needing the richer label
   // can read it from `GET /api/automations/:name/runs`.
-  // `'success'` maps to `'completed'`; `completed-with-errors` / `skipped` /
-  // `cancelled` / `waiting-approval` ([internal ref] pause) surface verbatim; the
-  // engine-internal failure/exhausted/timed-out variants collapse to `'failed'`.
   return {
     success: true,
     id: result.runId,
@@ -98,15 +100,10 @@ const toPublicTriggerStatus = (s: RunAutomationResult['status']): string =>
   PUBLIC_TRIGGER_STATUS[s] ?? 'failed'
 
 /**
- * Handle GET /api/automations
- *
- * List all configured automations. Used by admin UI / external integrations
- * to discover what triggers an app exposes. Auth secrets in trigger config
- * (`auth.token`, `auth.key`, `auth.secret`, `auth.password`) are NOT included
- * in the response — they are either resolved at runtime via `$env.X`
- * indirection (and so already absent from the schema) or stored as literals
- * which must be redacted here before being serialised
- *.
+ * Handle GET /api/automations — the automations the caller may act on
+ * ({@link automationsListedTo}). Every secret field of a trigger
+ * (`auth.*`, `verification.verifyToken`, a top-level `secret`) is replaced by
+ * `[redacted]` before it is serialised — see {@link redactTriggerSecrets}.
  */
 /**
  * For a `cron`-typed trigger, derive a `{ nextRunAt }` overlay (ISO 8601)
@@ -144,29 +141,16 @@ const computeCronNextRunOverlay = (
   return { timezone: tz, nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
 }
 
-function handleListAutomations(c: Context, app: App) {
-  const automations = (app.automations ?? []).map((automation) => {
+async function handleListAutomations(c: Context, app: App) {
+  const userId = getSessionContext(c)?.userId
+  const role = userId === undefined ? undefined : await runDomainPromise(c, getUserRole(userId))
+  const automations = automationsListedTo(app, role).map((automation) => {
     const trigger = automation.trigger as Record<string, unknown>
-    const auth = trigger['auth'] as Record<string, unknown> | undefined
-    const redactedAuth =
-      auth === undefined
-        ? undefined
-        : {
-            ...auth,
-            // Redact secret fields irrespective of whether they are `$env.X`
-            // references or literal strings — the public listing should
-            // never leak literal credentials.
-            ...(auth['token'] !== undefined ? { token: '[redacted]' } : {}),
-            ...(auth['key'] !== undefined ? { key: '[redacted]' } : {}),
-            ...(auth['secret'] !== undefined ? { secret: '[redacted]' } : {}),
-            ...(auth['password'] !== undefined ? { password: '[redacted]' } : {}),
-            ...(auth['username'] !== undefined ? { username: '[redacted]' } : {}),
-          }
-    const cronOverlay = computeCronNextRunOverlay(trigger)
-    const redactedTrigger: Record<string, unknown> =
-      redactedAuth === undefined
-        ? { ...trigger, ...cronOverlay }
-        : { ...trigger, auth: redactedAuth, ...cronOverlay }
+    // Every secret field is replaced, `$env.X` reference or literal alike.
+    const redactedTrigger = {
+      ...redactTriggerSecrets(trigger),
+      ...computeCronNextRunOverlay(trigger),
+    }
     return {
       name: automation.name,
       enabled: automation.enabled ?? true,
@@ -321,7 +305,7 @@ async function handleListRuns(c: Context, app: App) {
   const readableBy = access.value.kind === 'scoped' ? access.value.scope : undefined
 
   // Steps are fetched per-run so `attempt` reflects retry history
-  // ([internal ref] reads `run.attempt`). The N+1 cost is acceptable
+  // (an API automation runs spec reads `run.attempt`). The N+1 cost is acceptable
   // for the runs API (typically paginated to ≤50 rows); a JOIN-based reader
   // could replace this if the cost becomes material.
   const program = Effect.gen(function* () {
@@ -372,16 +356,9 @@ const resolveTriggerType = (app: App, automationName: string): string =>
   app.automations?.find((a) => a.name === automationName)?.trigger.type ?? 'webhook'
 
 /**
- * Build the runDetailSchema body from the DB-backed run + step rows. `null`
- * literals match `runDetailSchema`'s `.nullable()` declarations (triggerData,
- * completedAt, durationMs, error, step.output) so the response complies with
- * the public schema. `type: ''` on steps reflects that step-row persistence
- * doesn't carry the action's `type` yet — the in-memory fallback fills it in.
- */
-/**
  * Pull per-attempt history off the last failing step's `output.attempts`
  * (populated by `dispatchWithRetry` when an action's retry budget is in
- * play — [internal ref]). Returns an empty array when no step
+ * play — an automation retry spec). Returns an empty array when no step
  * has attempt records (most non-retrying runs).
  */
 const extractAttempts = (
@@ -399,7 +376,7 @@ const extractAttempts = (
   return out.attempts as ReadonlyArray<Readonly<Record<string, unknown>>>
 }
 
-/* eslint-disable unicorn/no-null -- runDetailSchema declares these fields nullable; null is the contracted shape */
+/** The runDetailSchema body of a run row and its step rows (`type: ''`: rows do not keep it). */
 const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly PersistedStep[]) => ({
   id: run.id,
   automationName: run.automationName,
@@ -424,10 +401,9 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
     output: step.output ?? null,
     error: step.error,
     ...(Array.isArray(step.logs) ? { logs: step.logs } : {}),
+    ...publishedNestedSteps(step.nested, step),
   })),
 })
-
-/* eslint-enable unicorn/no-null */
 
 /**
  * Effect program that loads the run + its steps from the DB-backed
@@ -475,7 +451,6 @@ async function handleGetRunDetail(c: Context, app: App) {
       detail: buildDbRunDetailBody(app, run, steps),
       judged: judgedRunOf(run, steps),
     })
-    // eslint-disable-next-line unicorn/no-null -- runDetailSchema declares approvalId nullable
     const body = { ...detail, approvalId: approvalId ?? null }
     return c.json(decodeOrThrow(runDetailSchema)(body), 200)
   }
@@ -483,26 +458,21 @@ async function handleGetRunDetail(c: Context, app: App) {
 }
 
 /**
- * Handle POST /api/automations/:name/form-action
+ * Handle POST /api/automations/:name/form-action — a page press.
  *
- * Page-form automation entry point. Unlike the manual trigger, this endpoint
- * does NOT enforce `trigger.type === 'manual'` or any role requirement — it is
- * designed for anonymous page-form submissions that have `action.type === 'automation'`.
- *
- * Uses `dispatchAutomationOnce` directly (same path as form-submission and
- * record-event triggers) so seed errors are absorbed without rolling back the
- * caller's request.
+ * Admits only a page-bound `manual` automation, under the page's `access` rule
+ * and the trigger's declared `requiredRole` (`page-action-gate.ts`); every
+ * refusal answers exactly as an unknown name does. Runs through
+ * `runPagePressedAutomation`, which refuses a paused or switched-off automation
+ * the same way and records a signed-in presser as the run's starter.
  */
-async function handleFormAction(c: Context, app: App) {
+async function handleFormAction(c: Context, app: App, getSession?: PageSessionResolver) {
   const name = c.req.param('name')
   if (name === undefined) {
     return c.json({ success: false, message: 'Automation name required' }, 400)
   }
-
-  const automation = app.automations?.find((a) => a.name === name)
-  if (automation === undefined) {
-    return notFound(c, 'Automation not found')
-  }
+  const admitted = await admitPageAction(c, app, name, getSession)
+  if (admitted === undefined) return notFound(c, 'Automation not found')
 
   const body = (await c.req.json().catch(() => ({}))) as { inputData?: Record<string, unknown> }
   const inputData = body.inputData ?? {}
@@ -512,21 +482,20 @@ async function handleFormAction(c: Context, app: App) {
   // declared `inputSchema` values, so actions that read `{{trigger.input.X}}`
   // (the manual-trigger convention) resolve identically to a direct manual call.
   const triggerData = { body: inputData, input: inputData }
-  const session = getSessionContext(c)
-
-  const program = dispatchAutomationOnce({
-    automation,
+  // A paused or switched-off automation is refused like an unknown name; a
+  // signed-in presser (the session the gate judged) is recorded as the starter.
+  const program = runPagePressedAutomation({
+    ...admitted,
     app,
     processEnv: process.env,
     triggerData,
-    userId: session?.userId,
   })
-
-  const result = await runRequestEffect(c, provideDomain(c, program))
-  if (result === undefined) {
+  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
+  if (result._tag === 'Failure') return notFound(c, 'Automation not found')
+  if (result.success === undefined) {
     return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
   }
-  return c.json(triggerResultBody(result), 200)
+  return c.json(triggerResultBody(result.success), 200)
 }
 
 /**
@@ -554,7 +523,7 @@ function replayErrorResponse(c: Context, error: ReplayAutomationRunError) {
  *
  * Replay a previously-failed run. The replay creates a NEW run that skips
  * every action that already executed in the original (success or failure)
- * and runs only the previously-skipped tail. [internal ref].
+ * and runs only the previously-skipped tail.
  *
  * The request body is optional. When omitted (or `{}`), the replay reuses
  * the original run's `triggerData`. A body of `{ triggerData: {...} }`
@@ -567,8 +536,8 @@ async function handleReplayRun(c: Context, app: App) {
   if (name === undefined || id === undefined) {
     return c.json({ success: false, message: 'Automation name and run id required' }, 400)
   }
-  // Replaying a run is never wider than reading it.
-  const gate = await gateReadableRun(c, app, id)
+  // Replaying a run is acting on it: an admin, or its starter who may still start it.
+  const gate = await gateActionableRun(c, app, id)
   if (!gate.ok) return gate.response
 
   // Body is optional — empty / non-JSON bodies degrade to undefined. New
@@ -597,7 +566,7 @@ async function handleReplayRun(c: Context, app: App) {
  * Chain automation routes onto a Hono app: list/trigger/form-action, the runs
  * read surface (`/runs`, `/runs/:id`, `/:name/runs`), the run-control endpoints
  * (`/runs/:id/{replay,cancel}`), and the run-scoped approval-resolution
- * endpoints (`/runs/:runId/approvals/:approvalId/{approve,reject}`, [internal ref]).
+ * endpoints (`/runs/:runId/approvals/:approvalId/{approve,reject}`, the approval-pause design).
  *
  * The webhook route is mounted for every supported HTTP method so the handler
  * can return 405 + the configured `allowed` list — Hono's
@@ -628,14 +597,18 @@ const withSession =
     return handler(c, app)
   }
 
-export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
+export function chainAutomationRoutes<T extends Hono>(
+  honoApp: T,
+  app: App,
+  getSession?: PageSessionResolver
+): T {
   const withCore = honoApp
     .get('/api/automations', (c) => handleListAutomations(c, app))
     .on(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], '/api/automations/:name/webhook', (c) =>
       handleWebhookRequest(c, app)
     )
     .post('/api/automations/:name/trigger', (c) => handleManualTrigger(c, app))
-    .post('/api/automations/:name/form-action', (c) => handleFormAction(c, app))
+    .post('/api/automations/:name/form-action', (c) => handleFormAction(c, app, getSession))
     // Before every `/:name` route: `approvals` is not an automation name.
     .get('/api/automations/approvals', (c) => handleListApprovals(c, app))
     .get('/api/automations/runs', withSession(handleListRuns, app))

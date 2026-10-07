@@ -64,13 +64,14 @@ onSuccess:
 
 ## Template variables
 
-Success copy and redirect targets can quote the submission that just happened. Three variables are substituted at submit time, in the title, the message and the URL alike.
+Success copy and redirect targets can quote the submission that just happened. Four variables are substituted at submit time, in the title, the message and the URL alike.
 
-| Variable           | Resolves to                                                                   |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `$submission.id`   | The ledger row id; empty when the form opts out of the ledger                 |
-| `$record.id`       | The bound-table row id; empty when the form has no bound table                |
-| `$record.<column>` | A column of the inserted row — but only one the submitter themselves supplied |
+| Variable           | Resolves to                                                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `$submission.id`   | The ledger row id; empty when no ledger row was written — the form opts out of the ledger, or the submission came through a `formRef` embed on an app page without `storeSubmission: true`             |
+| `$record.id`       | The bound-table row id; empty when the form has no bound table                                                                                                                                         |
+| `$record.<column>` | A column of the inserted row — but only one the submitter themselves supplied                                                                                                                          |
+| `$form.<field>`    | What the visitor entered in that field of the form, standalone fields included, so a form that stores nothing in a table can still thank the visitor by name; empty for a field the form does not have |
 
 ```yaml
 onSuccess:
@@ -79,7 +80,7 @@ onSuccess:
   delaySeconds: 0
 ```
 
-A value substituted into a URL is percent-encoded, so an email address survives the query string intact. The restriction on `$record.<column>` is deliberate: a server-computed or privileged column is never exposed through a redirect URL, however convenient the shortcut would be.
+A value substituted into a URL is percent-encoded, so an email address survives the query string intact. In a title or a message every value is printed as text: markup a visitor typed is shown, never run. The restriction on `$record.<column>` is deliberate: a server-computed or privileged column is never exposed through a redirect URL, however convenient the shortcut would be.
 
 ### An unresolved variable becomes empty, never the token
 

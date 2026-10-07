@@ -19,8 +19,7 @@ import { users } from '../../../auth/better-auth/schema'
  * History
  *   - Migration 0000: table created in the `public` schema with columns
  *     `id / action / actor_id / metadata / created_at`. No FK on actor_id.
- *   - Migration 0003: table DROPPED — the audit-log backend was retired in
- *     favour of an in-memory Phase-0 store (`src/infrastructure/audit-log/
+ *   - Migration 0003: table DROPPED, replaced by an in-memory store (`src/infrastructure/audit-log/
  *     in-memory-store.ts`) until the canonical event store could be designed.
  *   - Phase 8 Cycle 1a: table restored with the richer
  *     `AuditLogEntry` shape (actor block, resource block, severity, result)
@@ -41,7 +40,7 @@ import { users } from '../../../auth/better-auth/schema'
  *   reads — placing it in `public` matches its public visibility.
  *
  * Why FK + ON DELETE SET NULL on actor_id
- * [internal ref] ("audit entry outlives the erased row") requires
+ *   an API account delete spec ("audit entry outlives the erased row") requires
  *   the entry to survive a hard-delete of the actor while shedding the
  *   identifier (GDPR Art. 17 — actor identity is erased but the immutable
  *   event log keeps the action). `system` actors carry actor_id NULL by

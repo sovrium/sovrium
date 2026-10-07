@@ -199,7 +199,6 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
   }
   if (resolved === '' && element.tagName === 'SELECT') return
   const control = element as ValueControl
-  // eslint-disable-next-line functional/immutable-data -- prefilling the control IS the mutation
   control.value = resolved
 }
 
@@ -211,7 +210,6 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
 function fillSessionChecked(element: HTMLElement, resolved: string): void {
   const on = resolved === 'true'
   const control = element as HTMLInputElement
-  // eslint-disable-next-line functional/immutable-data -- setting the switch IS the mutation
   control.checked = on
   control.setAttribute('aria-checked', on ? 'true' : 'false')
 }

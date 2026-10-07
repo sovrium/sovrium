@@ -159,10 +159,6 @@ const table: TypePageBody = {
       label: 'dense',
       children: [grid('design-system-table-dense', { rowHeight: 'short' })],
     },
-    {
-      label: 'grouped',
-      children: [grid('design-system-table-grouped', { groupBy: { field: 'status' } })],
-    },
   ],
   options: [
     {
@@ -309,7 +305,6 @@ const table: TypePageBody = {
           children: [
             grid('tbl-col-visible', {
               columns: [...COLUMNS, { field: 'amount', label: 'Amount', visible: false }],
-              toolbar: { columnToggle: true },
             }),
           ],
         },
@@ -461,24 +456,8 @@ const table: TypePageBody = {
           children: [grid('tbl-tb-filter', { toolbar: { filters: true, sort: true } })],
         },
         {
-          label: 'toolbar: { groupBy: true, columnToggle: true }',
-          children: [grid('tbl-tb-group', { toolbar: { groupBy: true, columnToggle: true } })],
-        },
-        {
-          label: 'toolbar: { export: true, refresh: true, density: true }',
-          children: [
-            grid('tbl-tb-rest', { toolbar: { export: true, refresh: true, density: true } }),
-          ],
-        },
-        {
-          label: 'toolbar: { views: true, viewSwitcher: true }',
-          children: [
-            grid('tbl-tb-views', {
-              toolbar: { views: true, viewSwitcher: true },
-              views: ['grid', 'kanban'],
-              kanbanGroupBy: { field: 'status' },
-            }),
-          ],
+          label: 'toolbar: { export: true, refresh: true }',
+          children: [grid('tbl-tb-rest', { toolbar: { export: true, refresh: true } })],
         },
         {
           label: '+ New record · Import',
@@ -490,46 +469,6 @@ const table: TypePageBody = {
               ],
               'flex items-center gap-2'
             ),
-          ],
-        },
-      ],
-    },
-    {
-      id: 'grouping',
-      title: 'Grouping',
-      configKey: 'table.groupBy',
-      drawings: [
-        {
-          label: "groupBy: { field: 'status' }",
-          children: [grid('tbl-grp-one', { groupBy: { field: 'status' } })],
-        },
-        {
-          label: "groupBy: { field: 'status', thenBy: [{ field: 'priority' }] }",
-          children: [
-            grid('tbl-grp-two', {
-              groupBy: { field: 'status', thenBy: [{ field: 'priority' }] },
-            }),
-          ],
-        },
-        {
-          label: 'collapsed: true',
-          children: [grid('tbl-grp-collapsed', { groupBy: { field: 'status', collapsed: true } })],
-        },
-        {
-          label: "direction: 'desc'",
-          children: [grid('tbl-grp-desc', { groupBy: { field: 'status', direction: 'desc' } })],
-        },
-        {
-          label: 'with summaries',
-          children: [
-            grid('tbl-grp-summary', {
-              columns: [
-                ...COLUMNS,
-                { field: 'amount', label: 'Amount', format: 'currency', align: 'right' },
-              ],
-              groupBy: { field: 'status' },
-              summary: [{ field: 'amount', function: 'sum', label: 'Total' }],
-            }),
           ],
         },
       ],
@@ -582,53 +521,6 @@ const table: TypePageBody = {
               content:
                 'pagination:\n  position: bottom\n  pageSize: 25\n  pageSizeOptions: [10, 25, 50]\n  serverSide: true',
             } as PageComponent,
-          ],
-        },
-      ],
-    },
-    {
-      id: 'views',
-      title: 'Views',
-      configKey: 'table.views[] | viewLabels | kanbanGroupBy | dateField',
-      drawings: [
-        {
-          label: "views: ['grid', 'kanban'] · kanbanGroupBy",
-          children: [
-            grid('tbl-view-kanban', {
-              views: ['grid', 'kanban'],
-              kanbanGroupBy: { field: 'status' },
-              toolbar: { viewSwitcher: true },
-            }),
-          ],
-        },
-        {
-          label: "views: ['grid', 'calendar'] · dateField",
-          children: [
-            grid('tbl-view-calendar', {
-              views: ['grid', 'calendar'],
-              dateField: 'startsAt',
-              toolbar: { viewSwitcher: true },
-            }),
-          ],
-        },
-        {
-          label: "views: ['grid', 'gallery']",
-          children: [
-            grid('tbl-view-gallery', {
-              views: ['grid', 'gallery'],
-              toolbar: { viewSwitcher: true },
-            }),
-          ],
-        },
-        {
-          label: 'viewLabels: { … }',
-          children: [
-            grid('tbl-view-labels', {
-              views: ['grid', 'kanban'],
-              kanbanGroupBy: { field: 'status' },
-              viewLabels: { grid: 'List', kanban: 'Pipeline' },
-              toolbar: { viewSwitcher: true },
-            }),
           ],
         },
       ],

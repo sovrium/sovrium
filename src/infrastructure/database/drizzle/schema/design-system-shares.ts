@@ -15,7 +15,7 @@ import { systemSchema } from './migration-audit'
  *
  * One row is one mint. Its existence is what makes `GET /s/design-system/{token}`
  * resolve for an anonymous reader, and clearing `revoked_at IS NULL` is what
- * stops it. This is the `/l/{slug}` shape [internal ref] D1 authorised — a platform
+ * stops it. This is the `/l/{slug}` shape the links-are-records design authorised — a platform
  * route with a database lookup — so nothing about the configuration document
  * changes when an operator publishes or unpublishes.
  *

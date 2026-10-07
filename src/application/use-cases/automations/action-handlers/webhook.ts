@@ -8,8 +8,7 @@
 import { createHmac } from 'node:crypto'
 import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { guardedFetch } from '@/infrastructure/egress/guarded-fetch'
 import { resolveConnectionHeaders } from './auth-headers'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes, serializeActionBody, stringProp } from './shared'
@@ -31,7 +30,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * `props.connection` resolves to the same auth header per the connection
  * type (apiKey/basic/bearer build static headers; oauth2 resolves the
  * triggering user's stored token via `ConnectionTokenRepository`). This
- * is what [internal ref] verifies on the wire: webhook
+ * is what an automation connection spec verifies on the wire: webhook
  * actions inject credentials identically to HTTP actions.
  *
  * The handler intentionally does NOT classify upstream failure codes
@@ -173,23 +172,16 @@ const sendWebhook = async (
   headers: Readonly<Record<string, string>>,
   body: string | undefined
 ): Promise<ActionOutcome> => {
-  // SSRF guard: same threat model as `http/*` action — a misconfigured
-  // webhook destination must not reach internal infrastructure.
-  const validation = validateOutboundUrl(url)
-  if (!validation.ok) {
-    return { status: 'failure', error: `invalid_outbound_url_${validation.issue.reason}` }
-  }
-
+  // SSRF guard on the URL and on every redirect hop: same threat model as the
+  // `http/*` action. The answer's body is not read — only its status counts.
   try {
-    const response = await withFetchTimeout(
+    const sent = await guardedFetch(
       url,
-      {
-        method,
-        headers,
-        ...(body !== undefined ? { body } : {}),
-      },
-      HTTP_REQUEST_TIMEOUT_MS
+      { method, headers, ...(body !== undefined ? { body } : {}) },
+      { timeoutMs: HTTP_REQUEST_TIMEOUT_MS, maxBodyBytes: 0 }
     )
+    if (!sent.ok) return { status: 'failure', error: sent.message }
+    const { response } = sent
     if (!response.ok) {
       return {
         status: 'failure',

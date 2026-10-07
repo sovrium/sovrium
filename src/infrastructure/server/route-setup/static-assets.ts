@@ -6,7 +6,6 @@
  */
 
 import { realpath } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
@@ -14,18 +13,16 @@ import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
-import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
-import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import {
-  readEmbeddedBrandMark,
-  readEmbeddedSample,
-  type EmbeddedAsset,
-} from '@/infrastructure/assets/embedded-static-assets'
-import { diskChunkReader, embeddedChunkReader } from '@/infrastructure/assets/island-chunk-readers'
-import {
-  computeIslandPreloadManifest,
-  type IslandPreloadManifest,
-} from '@/infrastructure/assets/island-preload-manifest'
+  clientScriptSource,
+  HASHED_TOP_LEVEL_ENTRIES,
+  readClientEntry,
+  readScript,
+  resolveClientScriptPaths,
+  serveHashedTopLevelEntry,
+  servesPrebuiltEntries,
+} from '@/infrastructure/assets/client-entries'
+import { hashedEntryPattern, stableEntryResponse } from '@/infrastructure/assets/client-entry-hash'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import {
   consoleCssHash,
@@ -34,28 +31,18 @@ import {
   VERSIONED_CSS_FILE_PATTERN,
 } from '@/infrastructure/css/versioned-css-path'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
-import { isDevCacheDisabled, isProduction as isProductionEnv } from '@/infrastructure/process/env'
-import {
-  clientScriptPath,
-  isBundled,
-  isCompiled,
-  resolvePackagePath,
-} from '@/infrastructure/process/package-paths'
 import { adminMountsFor, scopedAppForMount } from '../admin-mounts'
-import { islandDirName, sweepStaleIslandDirs } from './island-dir-sweep'
+import {
+  ENTRY_CACHE_CONTROL,
+  assetCacheControl,
+  getCacheControlHeader,
+  isProduction,
+} from './asset-cache-control'
+import { setupClientChunkRoutes } from './client-chunk-routes'
+import { setupBrandMarkRoute, setupDesignSystemSampleRoute } from './embedded-asset-routes'
+import { setupIslandRoutes } from './island-assets'
+import { PUBLIC_DIR_SECRET_BLOCKLIST } from './public-dir-blocklist'
 import type { App } from '@/domain/models/app'
-
-const isProduction = isProductionEnv()
-
-/**
- * Build Cache-Control header value for static assets.
- *
- * Production: 1-hour public cache for performance.
- * Development: no caching so asset changes are immediately visible.
- */
-export function getCacheControlHeader(): string {
-  return isProduction ? 'public, max-age=3600' : 'no-store, no-cache, must-revalidate'
-}
 
 /**
  * Resolve WHICH app a versioned stylesheet request is asking for.
@@ -64,14 +51,11 @@ export function getCacheControlHeader(): string {
  * `/_admin` console (a separate embedded config). Each links its own hash, so
  * the hash is the request's statement of which stylesheet it wants.
  *
- * That USED to be described here as the reason a tenant theme stopped at the
- * tenant's pages. It is not, and has not been since the operator's `design`
- * began cascading onto the console chrome: the two stylesheets now
- * carry the SAME operator tokens, and differ because the console's is compiled
- * from the console's own pages, its own single-zone map, its own preset
- * classes, and the scoped design-system layer no operator page carries. So the
- * hash still selects genuinely different content — it just no longer selects
- * between "themed" and "unthemed".
+ * Both stylesheets carry the SAME operator tokens — the operator's `design`
+ * cascades onto the console chrome — and differ because the console's is
+ * compiled from its own pages, its own single-zone map, its own preset classes,
+ * and the scoped design-system layer no operator page carries. The hash selects
+ * genuinely different content, not "themed" against "unthemed".
  *
  * Anything else — an unknown hash, or HTML cached from a previous deploy —
  * falls back to the operator app. That fallback is load-bearing: resolving by
@@ -158,7 +142,8 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
 }
 
 /**
- * Create handler for serving JavaScript file
+ * Create handler for serving a stable-named JavaScript file (served `no-cache`
+ * with an `ETag` — see {@link ENTRY_CACHE_CONTROL}).
  *
  * @param scriptName - Display name for error logging
  * @param scriptPath - File path to JavaScript file
@@ -170,14 +155,11 @@ export function createJavaScriptHandler(
 ) {
   return async (c: Readonly<Context>) => {
     try {
-      const path = typeof scriptPath === 'function' ? await scriptPath() : scriptPath
-      const file = Bun.file(path)
-      const content = await file.text()
-
-      return c.text(content, 200, {
-        'Content-Type': 'application/javascript',
-        'Cache-Control': getCacheControlHeader(),
-      })
+      return stableEntryResponse(
+        c.req.raw,
+        await readScript(scriptPath),
+        ENTRY_CACHE_CONTROL.stable
+      )
     } catch (error) {
       logError('[assets] failed to load script', error, { script: scriptName })
       return c.text(`/* ${scriptName} failed to load */`, 500, {
@@ -220,81 +202,9 @@ export function setupAnalyticsScriptRoute(honoApp: Readonly<Hono>, app: App): Re
 }
 
 /**
- * Wrap an asset `build` step in promise-memoization that is bypassed in dev.
- *
- * Prebuilt-asset modes (compiled binary, npm bundle) and normal dev runs share
- * the same cache. Only a live-edit dev run (`isDevCacheDisabled()`) re-runs
- * `build` on every call so source edits appear without a restart. The
- * `!isCompiled && !isBundled` guard keeps prebuilt assets memoized even when the
- * dev-cache flag is set, since there is no source to rebuild from in those modes.
- *
- * Both bundle providers below (`getClientBundle`, `buildIslands`) share this
- * exact dev-bypass/memo idiom; centralizing it keeps the dev-cache condition in
- * one place and removes the per-provider mutable `cachedPromise`.
- */
-const memoizeUnlessDev = <T>(build: () => Promise<T>): (() => Promise<T>) => {
-  // eslint-disable-next-line functional/no-let
-  let cachedPromise: Promise<T> | undefined
-  return (): Promise<T> => {
-    if (!isCompiled && !isBundled && isDevCacheDisabled()) return build()
-    return (cachedPromise ??= build())
-  }
-}
-
-/**
- * Creates a lazy-cached client bundle provider.
- *
- * In development: builds src/presentation/islands/client.ts at runtime via Bun.build()
- * In bundled mode (npm package): reads pre-built dist/client-bundle.js
- *
- * The result is cached via promise memoization (bypassed on dev live-edit runs).
- */
-const getClientBundle = (() => {
-  const build = async (): Promise<string> => {
-    // In the compiled binary, serve the embedded pre-built client bundle.
-    if (isCompiled) {
-      const assets = await getRuntimeAssets()
-      return Bun.file(assets.clientBundle).text()
-    }
-
-    // In bundled mode, serve the pre-built client bundle from dist/
-    if (isBundled) {
-      return Bun.file(resolvePackagePath('dist', 'client-bundle.js')).text()
-    }
-
-    // In development, build from source at runtime
-    const entrypoint = resolvePackagePath('src', 'presentation', 'islands', 'client.ts')
-    const result = await Bun.build({
-      entrypoints: [entrypoint],
-      target: 'browser',
-      minify: isProduction,
-      format: 'esm',
-    })
-
-    if (!result.success) {
-      const errors = result.logs.map((log) => log.message).join('\n')
-      // eslint-disable-next-line functional/no-throw-statements
-      throw new Error(`Client bundle build failed:\n${errors}`)
-    }
-
-    const output = result.outputs[0]
-    if (!output) {
-      // eslint-disable-next-line functional/no-throw-statements
-      throw new Error('Client bundle build produced no output')
-    }
-
-    return output.text()
-  }
-
-  return memoizeUnlessDev(build)
-})()
-
-/**
  * Setup client runtime bundle route
  *
- * Serves the bundled client-side runtime at /assets/client.js
- * The bundle is built from src/presentation/islands/client.ts using Bun.build()
- * and cached in memory.
+ * Serves the loader entry at /assets/client.js; {@link setupClientChunkRoutes} serves its chunks.
  *
  * @param honoApp - Hono application instance
  * @returns Hono app with client bundle route configured
@@ -302,11 +212,7 @@ const getClientBundle = (() => {
 export function setupClientBundleRoute(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp.get('/assets/client.js', async (c) => {
     try {
-      const bundle = await getClientBundle()
-      return c.text(bundle, 200, {
-        'Content-Type': 'application/javascript',
-        'Cache-Control': getCacheControlHeader(),
-      })
+      return stableEntryResponse(c.req.raw, await readClientEntry(), ENTRY_CACHE_CONTROL.stable)
     } catch (error) {
       logError('[assets] failed to build client bundle', error)
       return c.text('/* client bundle build failed */', 500, {
@@ -324,24 +230,11 @@ export function setupClientBundleRoute(honoApp: Readonly<Hono>): Readonly<Hono> 
  * @param honoApp - Hono application instance
  * @returns Hono app with JavaScript routes configured
  */
-/**
- * Resolve a client-script source: the embedded copy in the compiled binary,
- * else the on-disk path (dist/ when bundled, src/ in dev).
- */
-const clientScriptSource = (name: string): string | (() => Promise<string>) =>
-  isCompiled
-    ? () => getRuntimeAssets().then((a) => a.clientScripts[name] as string)
-    : clientScriptPath(name)
-
 export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp
     .get(
       '/assets/language-switcher.js',
       createJavaScriptHandler('language-switcher.js', clientScriptSource('language-switcher.js'))
-    )
-    .get(
-      '/assets/banner-dismiss.js',
-      createJavaScriptHandler('banner-dismiss.js', clientScriptSource('banner-dismiss.js'))
     )
     .get(
       '/assets/scroll-animation.js',
@@ -350,27 +243,36 @@ export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
 }
 
 /**
- * Pattern matching the well-known secret / dev-artifact file shapes that must
- * never be served by the public-directory route, even if the operator
- * accidentally placed them under publicDir. Matched against the URL path
- * (case-insensitive). Returns 404 (NOT 403) on match — per S1 anti-enumeration,
- * an attacker probing for `.env.production` must NOT learn whether the file
- * exists from a 403-vs-404 distinction.
+ * Mount the hashed top-level entry routes (prebuilt modes only).
  *
- * Covered shapes (each as a separate alternation):
- *  - `.env` / `.env.local` / `.env.production` / `.env.<anything>` at any depth
- *  - `.git/**` (any git internals)
- *  - `node_modules/**` (package manager directory)
- *  - `.sovrium/**` (runtime data dir — SQLite db, lock file, local uploads)
- *  - `CLAUDE.md` (LLM operator instructions — may contain secrets / IPs)
- *  - `*.key` / `*.pem` (SSH / TLS private material)
- *  - `*.sql` / `*.sqlite` / `*.sqlite-journal` (database dumps + SQLite files)
- *
- * The leading group `(?:^|\/)` anchors each pattern to a path-segment boundary
- * so `legitimate-app.key.png` is NOT mistaken for a private key.
+ * The current names are registered as LITERAL routes as well as through the
+ * pattern: static generation (`sovrium build`) only writes literal routes, and
+ * a static site whose pages reference `/assets/client-<hash>.js` must contain
+ * that file.
  */
-const PUBLIC_DIR_SECRET_BLOCKLIST =
-  /(?:^|\/)(?:\.env(?:\..+)?|\.git\/.*|node_modules\/.*|\.sovrium\/.*|CLAUDE\.md|[^/]+\.(?:key|pem|sql|sqlite(?:-journal)?))$/i
+export async function setupHashedEntryRoutes(honoApp: Readonly<Hono>): Promise<Readonly<Hono>> {
+  if (!servesPrebuiltEntries) return honoApp
+  const paths = Object.values(await resolveClientScriptPaths())
+  const withCurrent = paths.reduce<Readonly<Hono>>(
+    (app, path) =>
+      app.get(
+        path,
+        async (c) =>
+          (await serveHashedTopLevelEntry(
+            c.req.raw,
+            path.slice('/assets/'.length),
+            ENTRY_CACHE_CONTROL
+          )) ?? c.notFound()
+      ),
+    honoApp
+  )
+  return withCurrent.get(
+    `/assets/:file{${hashedEntryPattern(Object.keys(HASHED_TOP_LEVEL_ENTRIES))}}`,
+    async (c) =>
+      (await serveHashedTopLevelEntry(c.req.raw, c.req.param('file'), ENTRY_CACHE_CONTROL)) ??
+      c.notFound()
+  )
+}
 
 /**
  * Setup public directory file serving for development
@@ -459,328 +361,8 @@ export async function setupPublicDirRoute(
   })
 }
 
-// ---------------------------------------------------------------------------
-// Island bundle (React islands with code splitting)
-// ---------------------------------------------------------------------------
-
 /**
- * Directory where island build outputs are stored.
- *
- * Development: a PER-PROCESS tmpdir, built at runtime via Bun.build
- * Bundled:     dist/island-chunks (pre-built during npm publish)
- *
- * The dev path is keyed by pid because several Sovrium servers routinely run at
- * once — Playwright boots one per worker — and `Bun.build` writes each output by
- * truncating the target file and then rewriting it. That is not atomic. With a
- * single shared directory, content-hashed names make every process write the
- * same bytes to the same path, so the builds look interchangeable; but a GET
- * landing between another process's truncate and its rewrite still serves a
- * half-written module. The browser then throws a SyntaxError, no island mounts,
- * and a page built only from islands renders as an empty skeleton with nothing
- * in the server log to show for it (`/assets/` is excluded from the logger).
- * Under `isDevCacheDisabled()` the exposure is at its worst: `memoizeUnlessDev`
- * stops memoizing, so all 126 outputs are rewritten on EVERY request rather than
- * once per process.
- *
- * Giving each process its own directory removes the sharing outright, rather
- * than merely narrowing the window as renaming a temporary file into place
- * would. Nothing reads these files across processes: the server that builds
- * them is the one that serves them.
- *
- * These directories outlive the process that made them, so `island-dir-sweep`
- * reclaims abandoned ones — it owns the naming for exactly that reason.
- */
-const ISLAND_OUT_DIR = isBundled
-  ? resolvePackagePath('dist', 'island-chunks')
-  : join(tmpdir(), islandDirName(process.pid))
-
-/** The on-disk path of one `Bun.build` artifact. */
-const artifactPath = (artifact: { readonly path: string }): string => artifact.path
-
-/**
- * Island bundle build result
- */
-export interface IslandBuildResult {
-  /** Relative path of the entry file (e.g., "island-client-a7f3b2.js" or "island-entry.js") */
-  readonly entryFile: string
-  /**
-   * Island type -> the chunk paths a page mounting it must already have when the
-   * entry evaluates, so the document can declare them as `modulepreload`.
-   *
-   * An empty map is a valid answer (nothing resolved, or nothing left after
-   * subtracting the entry's own closure) and degrades to the pre-2026-09-02
-   * behaviour. See `@/infrastructure/assets/island-preload-manifest`.
-   */
-  readonly preloads: IslandPreloadManifest
-}
-
-/**
- * Provides the island client bundle.
- *
- * In development: builds from source at runtime via Bun.build with code splitting.
- * In bundled mode: returns the pre-built entry from dist/island-chunks/island-entry.js.
- *
- * Result is memoized for the process lifetime (bypassed on dev live-edit runs;
- * see `memoizeUnlessDev`).
- */
-export const buildIslands = (() => {
-  // eslint-disable-next-line functional/no-let
-  let sweepStarted = false
-
-  const build = async (): Promise<IslandBuildResult> => {
-    // Compiled binary (embedded) and bundled mode (dist/) both ship a
-    // pre-built island entry under the stable name `island-entry.js`.
-    // Neither builds into tmpdir, so neither has anything to sweep — the
-    // early return keeps the sweep out of those paths entirely.
-    if (isCompiled || isBundled) {
-      logDebug('[ISLANDS] Using pre-built island entry')
-      const reader = isCompiled ? await embeddedChunkReader() : diskChunkReader(ISLAND_OUT_DIR)
-      const preloads = await computeIslandPreloadManifest(reader, 'island-entry.js')
-      return { entryFile: 'island-entry.js', preloads }
-    }
-
-    // Reclaim the build directories of servers that have since exited. Started
-    // at most once per process — under `isDevCacheDisabled()` this function runs
-    // on EVERY request — and deliberately not awaited: it is housekeeping, so it
-    // must never delay the first response, and `sweepStaleIslandDirs` never
-    // throws, so it can never keep a server from starting.
-    if (!sweepStarted) {
-      // eslint-disable-next-line functional/no-expression-statements
-      sweepStarted = true
-      // eslint-disable-next-line functional/no-expression-statements
-      void sweepStaleIslandDirs()
-        .then((removed) => {
-          if (removed.length > 0) {
-            logDebug(`[ISLANDS] Reclaimed ${removed.length} abandoned build dir(s)`)
-          }
-        })
-        .catch((error: unknown) => logDebug(`[ISLANDS] Sweep skipped: ${String(error)}`))
-    }
-
-    // In development, build from source at runtime
-    const entrypoint = resolvePackagePath('src', 'presentation', 'islands', 'island-client.tsx')
-
-    const result = await Bun.build({
-      entrypoints: [entrypoint],
-      outdir: ISLAND_OUT_DIR,
-      target: 'browser',
-      format: 'esm',
-      splitting: true,
-      minify: isProduction,
-      // Force a single @codemirror/@lezer instance across the island bundle;
-      // duplicate copies otherwise crash the CodeMirror editor on mount.
-      plugins: [codemirrorDedupePlugin],
-      naming: {
-        entry: '[name]-[hash].js',
-        chunk: 'chunks/[name]-[hash].js',
-      },
-    })
-
-    if (!result.success) {
-      const errors = result.logs.map((log) => log.message).join('\n')
-      // eslint-disable-next-line functional/no-throw-statements
-      throw new Error(`Island bundle build failed:\n${errors}`)
-    }
-
-    const entry = result.outputs.find((o) => o.kind === 'entry-point')
-    if (!entry) {
-      // eslint-disable-next-line functional/no-throw-statements
-      throw new Error('Island bundle build produced no entry-point output')
-    }
-
-    // Extract relative filename from absolute path
-    const entryFile = entry.path.replace(ISLAND_OUT_DIR + '/', '')
-    logDebug(`[ISLANDS] Built entry: ${entryFile} (${result.outputs.length} outputs)`)
-
-    // Scope the manifest to THIS build's outputs. The directory is shared by
-    // every build this process makes, so listing it would resolve each island
-    // to two chunks from the second rebuild onward — see `toEmittedChunkPaths`.
-    const reader = diskChunkReader(ISLAND_OUT_DIR, result.outputs.map(artifactPath))
-
-    return { entryFile, preloads: await computeIslandPreloadManifest(reader, entryFile) }
-  }
-
-  return memoizeUnlessDev(build)
-})()
-
-/**
- * Setup island bundle routes
- *
- * Serves the island entry point and chunk files at /assets/islands/*
- * Chunks are produced by Bun.build splitting and loaded on demand.
- *
- * @param honoApp - Hono application instance
- * @returns Hono app with island routes configured
- */
-/**
- * Inert JS stub for zero-length chunk files: a Response over a zero-length
- * Bun.file collapses to a bodiless 204, which browsers reject as an ES module
- * (aborting island-entry.js evaluation and all hydration with it).
- */
-function emptyChunkStub(): Response {
-  return new Response('/* empty island chunk */', {
-    headers: {
-      'Content-Type': 'application/javascript',
-      'Cache-Control': getCacheControlHeader(),
-    },
-  })
-}
-
-/** Content-hashed chunk names (`accordion-island-1a2b3c4d.js`) — safe to pin. */
-const CONTENT_HASHED_ASSET = /-[a-z0-9]{8}\.js$/
-const isContentHashed = (name: string): boolean => CONTENT_HASHED_ASSET.test(name)
-
-/**
- * `immutable` only for content-hashed names (the name changes when the content
- * does). Stable names like `island-entry.js` change content across releases
- * under a fixed URL, so they get the short cache — else a returning visitor can
- * pin an outdated entry that references chunks 404ing in the new deploy.
- */
-function assetCacheControl(name: string): string {
-  return isProduction && isContentHashed(name)
-    ? 'public, max-age=31536000, immutable'
-    : getCacheControlHeader()
-}
-
-export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
-  return honoApp.get('/assets/islands/*', async (c) => {
-    try {
-      const relativePath = c.req.path.replace('/assets/islands/', '')
-
-      // Compiled binary: serve the embedded chunk by name.
-      if (isCompiled) {
-        const assets = await getRuntimeAssets()
-        const embeddedPath = assets.islands[relativePath]
-        if (embeddedPath === undefined) return c.notFound()
-        const embedded = Bun.file(embeddedPath)
-        if (embedded.size === 0) return emptyChunkStub()
-        return new Response(embedded, {
-          headers: {
-            'Content-Type': 'application/javascript',
-            'Cache-Control': assetCacheControl(relativePath),
-          },
-        })
-      }
-
-      const filePath = join(ISLAND_OUT_DIR, relativePath)
-      const file = Bun.file(filePath)
-
-      if (await file.exists()) {
-        if (file.size === 0) return emptyChunkStub()
-        return new Response(file, {
-          headers: {
-            'Content-Type': 'application/javascript',
-            'Cache-Control': assetCacheControl(relativePath),
-          },
-        })
-      }
-
-      return c.notFound()
-    } catch (error) {
-      logError('[ISLANDS] Failed to serve island chunk', error)
-      return c.text('/* island chunk not found */', 404, {
-        'Content-Type': 'application/javascript',
-      })
-    }
-  })
-}
-
-/** Route prefix the design-system console's media specimens link. */
-const DESIGN_SYSTEM_SAMPLE_PREFIX = '/assets/design-system/'
-
-/**
- * Build a `GET`/`HEAD` route serving one embedded asset family off `prefix`.
- *
- * THE LOOKUP KEY IS THE WHOLE REMAINDER of the path, never its last segment,
- * and the family's reader is a property read on a frozen map. Together those
- * two facts are what make this fail CLOSED: there is no path join anywhere in
- * the handler, so a nested or traversing spelling (`../../.env`,
- * `nested/sample-still.avif`) is an ordinary miss answering 404 rather than a
- * read that has to be defended against. A key the family does not hold is the
- * same miss, which is how files deliberately left out of a family — the
- * live-text brand marks, say — stay unreachable rather than merely unused.
- *
- * `GET` and `HEAD`, because a reader weighing an asset should not have to
- * download it to learn its size; `Content-Length` is explicit so the HEAD
- * answer carries it with no body to derive it from.
- *
- * Shared by both families rather than written twice, so the two cannot drift
- * apart on the property that matters — an asset route that started answering
- * 500 on an unknown key, or resolving one, would be a security regression in
- * whichever copy was edited second.
- */
-const embeddedAssetRoute =
-  (prefix: string, read: (key: string) => Promise<EmbeddedAsset | undefined>) =>
-  (honoApp: Readonly<Hono>): Readonly<Hono> =>
-    honoApp.on(['GET', 'HEAD'], `${prefix}*`, async (c) => {
-      const asset = await read(c.req.path.slice(prefix.length))
-      if (asset === undefined) return c.notFound()
-      return new Response(asset.bytes, {
-        headers: {
-          'Content-Type': asset.contentType,
-          'Content-Length': String(asset.bytes.byteLength),
-          'Cache-Control': getCacheControlHeader(),
-        },
-      })
-    })
-
-/**
- * Serve the design-system console's sample media at `/assets/design-system/*`.
- *
- * The console's `audio`, `video` and `image` specimens draw a real file rather
- * than an empty transport or a `data:` rectangle, and these are the three
- * bytes-on-the-wire that make that true. They are embedded in the binary, so
- * this route answers identically from a checkout and from a compiled
- * executable — see `readEmbeddedSample`.
- *
- * MOUNTED AT THE ROOT, NOT UNDER `/_admin`, and that is load-bearing rather
- * than incidental: the admin mount serves PAGE routes only, so a console page
- * reaches every asset — its own stylesheet included — by absolute root path.
- * A sample served under the mount would 404 for exactly the reader it exists
- * for.
- *
- * Fail-closed lookup and the GET/HEAD contract come from
- * {@link embeddedAssetRoute}, which both asset families share.
- */
-export const setupDesignSystemSampleRoute = embeddedAssetRoute(
-  DESIGN_SYSTEM_SAMPLE_PREFIX,
-  readEmbeddedSample
-)
-
-/** Route prefix the console's own brand mark is served from. */
-const BRAND_MARK_PREFIX = '/assets/brand/'
-
-/**
- * Serve Sovrium's own brand marks at `/assets/brand/<unit>/<file>`.
- *
- * WHY THE ENGINE HAS TO SERVE THESE AT ALL. `design.logo` resolves its `src`
- * against the HOSTING app's `public/` directory, and the operator console is
- * mounted inside somebody else's app — so a config path to a Sovrium asset
- * resolves into Acme's `public/` and 404s in every real deployment. The `icon`
- * component-type renders lucide nodes only, and this mark is not one. Embedding
- * the bytes is what lets the console look like itself on a machine with no
- * network, no CDN, and no cooperation from the app hosting it.
- *
- * MOUNTED AT THE ROOT, NOT UNDER `/_admin`, for the same load-bearing reason
- * {@link setupDesignSystemSampleRoute} is: the admin mount serves PAGE routes
- * only, so a console page reaches every asset by absolute root path, and a mark
- * served under the mount would 404 for exactly the page it exists for. The
- * console's sign-in card therefore names the absolute path deliberately, where
- * every other link on that page is mount-relative.
- *
- * The shared lookup key is the WHOLE remainder of the path — here `<unit>/<file>`,
- * because all four business units hold marks of the same filename and the
- * directory is what distinguishes them. Names outside the family miss like any
- * other, the live-text `mark-light.svg` among them: it is excluded on purpose,
- * since an `<img>`-loaded SVG reaches no webfont and would draw the mark in a
- * fallback typeface.
- */
-export const setupBrandMarkRoute = embeddedAssetRoute(BRAND_MARK_PREFIX, readEmbeddedBrandMark)
-
-/**
- * Setup static asset routes (CSS, JavaScript, islands, and optional public directory)
- *
- * Mounts CSS, JavaScript, island, and optionally public directory asset routes.
+ * Mount the static asset routes: CSS, JavaScript, islands, and optionally a public directory.
  *
  * The page-search index (`/sovrium-search/*`) is served from the data
  * directory the boot wrote it into (`searchIndexDir`), mounted BEFORE the
@@ -798,15 +380,12 @@ export async function setupStaticAssets(
   app: App,
   publicDir?: string
 ): Promise<Readonly<Hono>> {
+  const withHashed = await setupHashedEntryRoutes(
+    setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app)))
+  )
+  const withEntries = await setupClientChunkRoutes(withHashed, assetCacheControl)
   const withAssets = setupBrandMarkRoute(
-    setupDesignSystemSampleRoute(
-      setupIslandRoutes(
-        setupAnalyticsScriptRoute(
-          setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app))),
-          app
-        )
-      )
-    )
+    setupDesignSystemSampleRoute(setupIslandRoutes(setupAnalyticsScriptRoute(withEntries, app)))
   )
   // `setupPublicDirRoute` is async because it realpath()s the directory once
   // at mount time (security hardening — see its docstring). If the directory

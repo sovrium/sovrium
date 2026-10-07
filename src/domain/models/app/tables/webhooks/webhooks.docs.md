@@ -18,6 +18,8 @@ webhooks:
 
 `url` must be an absolute `http` or `https` URL; anything else is refused when the configuration is decoded rather than at the first delivery.
 
+A delivery is not sent to a private, loopback or link-local address, and neither is any redirect the receiver answers with: each hop is checked before it is requested and up to five are followed, so a receiver that later answers `302` to an internal address gets a failed delivery whose logged error names the refusal (`invalid_outbound_url_<reason>`). Up to 64 KiB of the receiver's answer is kept in the delivery log.
+
 ## Authentication
 
 `auth` secures the outgoing request. Secrets, keys and tokens accept an `$env.` reference, which is how a credential stays out of the configuration file.

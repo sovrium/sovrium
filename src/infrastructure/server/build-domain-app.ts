@@ -66,8 +66,8 @@ export const buildHonoAppFromConfig = (
  * ALREADY declares. Reusing it rather than minting a class is the honest call:
  * this is a failure of `createServer` to create a server, which is precisely
  * what that error means, and a second tag would give callers two arms they would
- * handle identically. A global `Error` is what this used to raise, and Effect
- * Diagnostics is right to refuse it — an untagged failure is one no `catchTag`
+ * handle identically. It is never a global `Error`, which Effect Diagnostics
+ * rightly refuses — an untagged failure is one no `catchTag`
  * can ever name.
  *
  * The cause is rendered through `formatRuntimeError` rather than `String(cause)`.

@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { componentTreeHasMatch } from './component-tree-has-type'
-import type { App } from '@/domain/models/app'
+import { componentTreeHasMatch, type ComponentTreeSource } from './component-tree-has-type'
 
 /**
  * A `search-input` whose scope is the PAGE — the only shape that needs an index.
@@ -20,5 +19,5 @@ import type { App } from '@/domain/models/app'
 const isPageScopedSearch = (node: Readonly<Record<string, unknown>>): boolean =>
   node['type'] === 'search-input' && node['scope'] === 'page'
 
-export const hasPageSearchComponent = (app: App): boolean =>
+export const hasPageSearchComponent = (app: ComponentTreeSource): boolean =>
   componentTreeHasMatch(app, isPageScopedSearch)

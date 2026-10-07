@@ -42,8 +42,8 @@
  * Nor toward a page an anonymous visitor may not read. Resolving the PATTERN is
  * not enough: a redirect toward a role-gated page, where an undeclared path
  * 404s, discloses that the page exists — a bit the direct request deliberately
- * hides, since the canonical path 404s too (S1, `[internal ref]` /
- * `[internal ref]`). Every redirect therefore gates on
+ * hides, since the canonical path 404s too (S1, a pages path spec /
+ * a languages spec). Every redirect therefore gates on
  * `resolvesToPublicDeclaredPage`.
  *
  * The one guard that keeps the ungated `resolvesToDeclaredPage` is the
@@ -52,8 +52,8 @@
  * gated `/docs/` page toward a path they never declared.
  *
  * Both predicates are pure domain functions, NOT the renderer: the renderer
- * runs the shared-view anti-enumeration gate and WRITES to the page cache, so
- * using it as a routing predicate would give a probe side effects.
+ * observes the session and WRITES to the page cache, so using it as a routing
+ * predicate would give a probe side effects.
  *
  * ## Termination is provable
  *
@@ -77,8 +77,8 @@
  *    later would never see a single-segment path either.
  *
  * SERVER MODE ONLY, by construction: these are live Hono routes. `sovrium build`
- * emits no redirects at all, so a statically-built site keeps the pre-[internal ref]
- * behaviour.
+ * emits no redirects at all, so a statically-built site does not normalise
+ * trailing slashes.
  */
 
 import { requestSearch } from '@/domain/kernel/url/request-search'
@@ -148,7 +148,7 @@ const isReservedPath = (reservedPrefixes: readonly string[], path: string): bool
  * of failure of the whole feature. `validateLanguageSubdirectory` also returns
  * `'en'` for `/en/docs/`, so dropping it would exempt EVERY prefixed path and
  * make trailing-slash normalization a no-op for its own motivating case. Keeping
- * it too broad in the other direction is equally fatal: `[internal ref]`
+ * it too broad in the other direction is equally fatal: a languages spec
  * ships a 301 from `/en` TO `/en/`, so stripping `/en/` would bounce the browser
  * between the two forever.
  */
@@ -202,13 +202,13 @@ const resolvesViaLanguageFallback = (
 }
 
 /**
- * Trailing-slash normalization ([internal ref]..030).
+ * Trailing-slash normalization.
  *
  * Guards run cheapest-and-most-exempting first; the great majority of real
  * traffic exits at guard 2 without touching the page list.
  */
 function handleTrailingSlash(app: App, reservedPrefixes: readonly string[]) {
-  return async (c: Readonly<Context>, next: () => Promise<void>) => {
+  return async (c: Context, next: () => Promise<void>) => {
     const { path } = c.req
     if (path === '/' || !path.endsWith('/')) return next()
     if (isReservedPath(reservedPrefixes, path)) return next()
@@ -242,14 +242,14 @@ function handleTrailingSlash(app: App, reservedPrefixes: readonly string[]) {
 }
 
 /**
- * Unprefixed-path language fallback ([internal ref]..049).
+ * Unprefixed-path language fallback.
  *
  * Fires ONLY from a would-be-404 and only when the prefixed target actually
  * resolves, so no existing 404 exit and no locale-agnostic page changes
  * behaviour.
  */
 function handleLanguageFallback(app: App, reservedPrefixes: readonly string[]) {
-  return async (c: Readonly<Context>, next: () => Promise<void>) => {
+  return async (c: Context, next: () => Promise<void>) => {
     const { path } = c.req
     // `/` has its own negotiated redirect in `setupHomepageRoute`.
     if (path === '/') return next()

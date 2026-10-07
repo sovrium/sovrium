@@ -14,8 +14,7 @@
  * `src/infrastructure/scheduling/` registers `app.automations` and the GDPR
  * erasure sweep, and had never contained the string "agent". A scheduled agent
  * was a promise the binary did not keep — and the readback made it look kept,
- * because `nextRunAt` is present whether or not anything is scheduled
- *.
+ * because `nextRunAt` is present whether or not anything is scheduled.
  *
  * ## Why the fire is IN-PROCESS
  *
@@ -24,8 +23,7 @@
  * POST to the route. That is not merely tidier: a loopback caller would arrive
  * with no session and be refused by the agent's own `permissions.trigger` gate,
  * so an agent declaring `trigger: ['admin']` would silently never run. A cron
- * fire is not an external caller and is deliberately not subject to that grant
- *.
+ * fire is not an external caller and is deliberately not subject to that grant.
  *
  * ## Why this module lives under `infrastructure/server/` and not `scheduling/`
  *
@@ -36,13 +34,12 @@
  * root. Putting the wiring where the boundary allows it beats widening the
  * boundary for one caller.
  *
- * ## Why the fire arrives as a PARAMETER (W5b)
+ * ## Why the fire arrives as a PARAMETER
  *
- * This module used to `import { fireAgentSchedule } from
- * '@/presentation/api/agents/agent-schedule-runner'`, and it was the last
- * infrastructure file in the tree reaching presentation outside the pinned
- * roots. The plan was to retire that by extracting a use-case. Re-measured in
- * W5b, that extraction is still not available: `agent-schedule-runner.ts`
+ * Importing `fireAgentSchedule` from
+ * `'@/presentation/api/agents/agent-schedule-runner'` here would make this an
+ * infrastructure file reaching presentation outside the pinned roots.
+ * Extracting a use-case is not available either: `agent-schedule-runner.ts`
  * imports SIX relative siblings — the activity log, the AI call, the limit
  * ledger, the approval mirror, the approval presenter and the in-memory
  * approval store — every one of which lives in `presentation/api/agents/`.
@@ -52,8 +49,8 @@
  *
  * What IS available is the inversion. The fire is a parameter, supplied by
  * `compose-hono-app.ts` — the one infrastructure file pinned to name
- * presentation. This module is now layer-clean, and it gained a test seam it
- * did not have: a fake fire proves the registration walk without an AI
+ * presentation. This keeps the module layer-clean, and gives it a test seam:
+ * a fake fire proves the registration walk without an AI
  * provider, an approval store or a token ledger.
  */
 

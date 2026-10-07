@@ -6,8 +6,7 @@
  */
 
 /**
- * `POST /api/analytics/click` — a click on an outbound anchor in a rendered page
- *.
+ * `POST /api/analytics/click` — a click on an outbound anchor in a rendered page.
  *
  * A SIBLING of `handleCollect`, not an overload of it. The deployed
  * `/assets/analytics.js` speaks a terse one-letter page-view contract, and
@@ -37,7 +36,8 @@ import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
-import type { Context } from 'hono'
+import type { AnalyticsClickPayload } from '@/domain/models/api/analytics/analytics'
+import type { ValidatedContext } from '@/presentation/api/runtime/effect-validator'
 
 /** The slice of the analytics route config this handler reads. */
 export interface ClickHandlerConfig {
@@ -47,20 +47,17 @@ export interface ClickHandlerConfig {
 }
 
 /** Record one outbound click, or decline to, and answer 204 either way. */
-export function handleClick(c: Context, config: ClickHandlerConfig): Response {
-  const body = c.req.valid('json' as never) as {
-    readonly href: string
-    readonly hostname: string
-    readonly pagePath: string
-  }
+export function handleClick(
+  c: ValidatedContext<'json', AnalyticsClickPayload>,
+  config: ClickHandlerConfig
+): Response {
+  const body = c.req.valid('json')
 
-  // eslint-disable-next-line unicorn/no-null -- Hono's empty-body idiom; see analytics.ts
   const noContent = (): Response => c.body(null, 204)
 
   if (matchesAnyGlobPattern(config.excludedPaths, body.pagePath)) return noContent()
   if (config.respectDoNotTrack === true && c.req.header('DNT') === '1') return noContent()
 
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget by design: the beacon must never delay or fail a navigation. Same idiom as handleCollect.
   void Effect.runPromise(
     provideDomain(
       c,

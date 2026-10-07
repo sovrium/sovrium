@@ -93,7 +93,8 @@ const routes: readonly RouteSpec[] = [
     method: 'get',
     pathTemplate: '/api/agents/{agentSlug}/approvals',
     summary: 'List agent approvals',
-    description: 'Lists approval requests for the agent, optionally filtered by status.',
+    description:
+      "Lists approval requests for the agent, optionally filtered by status. Open to the callers the agent's trigger grant admits and to admins.",
     operationIdBase: 'listAgentApprovals',
     parameters: effectParameters(
       Schema.Struct({
@@ -115,7 +116,8 @@ const routes: readonly RouteSpec[] = [
     method: 'get',
     pathTemplate: '/api/agents/{agentSlug}/approvals/{id}',
     summary: 'Get an agent approval',
-    description: 'Returns a single approval request.',
+    description:
+      "Returns a single approval request. Open to the callers the agent's trigger grant admits and to admins.",
     operationIdBase: 'getAgentApproval',
     parameters: effectParameters(
       Schema.Struct({ id: Schema.String.annotate({ description: 'Approval identifier' }) }),
@@ -132,7 +134,8 @@ const routes: readonly RouteSpec[] = [
     method: 'post',
     pathTemplate: '/api/agents/{agentSlug}/approvals/{id}/approve',
     summary: 'Approve an agent approval',
-    description: 'Approves a pending approval request and executes the deferred action.',
+    description:
+      "Approves a pending approval request and executes the deferred action. Open to the callers the agent's trigger grant admits and to admins, whose role level is at least the agent's; anyone else is answered as for an unknown agent, before the approval is looked up.",
     operationIdBase: 'approveAgentApproval',
     parameters: effectParameters(
       Schema.Struct({ id: Schema.String.annotate({ description: 'Approval identifier' }) }),
@@ -140,9 +143,10 @@ const routes: readonly RouteSpec[] = [
     ),
     responses: {
       200: effectJsonResponse(serializedApprovalSchema, 'Approval approved'),
-      401: errorResponse('Not authenticated'),
-      403: errorResponse('Approver role insufficient'),
-      404: errorResponse('Agent or approval not found'),
+      401: errorResponse('Not authenticated, on an agent whose trigger grant is open to everyone'),
+      404: errorResponse(
+        'Agent or approval not found, the caller is outside the trigger grant, or the caller role level is below the agent role'
+      ),
       409: effectJsonResponse(
         Schema.Struct({ error: Schema.String, status: approvalStatusSchema }),
         'Approval already decided'
@@ -153,7 +157,8 @@ const routes: readonly RouteSpec[] = [
     method: 'post',
     pathTemplate: '/api/agents/{agentSlug}/approvals/{id}/reject',
     summary: 'Reject an agent approval',
-    description: 'Rejects a pending approval request.',
+    description:
+      "Rejects a pending approval request. Open to the callers the agent's trigger grant admits and to admins, whose role level is at least the agent's; anyone else is answered as for an unknown agent, before the approval is looked up.",
     operationIdBase: 'rejectAgentApproval',
     parameters: effectParameters(
       Schema.Struct({ id: Schema.String.annotate({ description: 'Approval identifier' }) }),
@@ -161,9 +166,10 @@ const routes: readonly RouteSpec[] = [
     ),
     responses: {
       200: effectJsonResponse(serializedApprovalSchema, 'Approval rejected'),
-      401: errorResponse('Not authenticated'),
-      403: errorResponse('Approver role insufficient'),
-      404: errorResponse('Agent or approval not found'),
+      401: errorResponse('Not authenticated, on an agent whose trigger grant is open to everyone'),
+      404: errorResponse(
+        'Agent or approval not found, the caller is outside the trigger grant, or the caller role level is below the agent role'
+      ),
       409: effectJsonResponse(
         Schema.Struct({ error: Schema.String, status: approvalStatusSchema }),
         'Approval already decided'

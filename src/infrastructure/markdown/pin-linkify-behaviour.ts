@@ -45,7 +45,6 @@ const PATH_TAIL = /\)(\{1,\d+\})\|\\\/\)\?$/
 const splitPath = (path: string): readonly [alternatives: string, quantifier: string] => {
   const tail = PATH_TAIL.exec(path)
   if (!path.startsWith(PATH_HEAD) || tail === null) {
-    // eslint-disable-next-line functional/no-throw-statements -- configuration-time invariant: a reshaped upstream fragment must fail loudly, never link differently
     throw new Error('linkify-it path fragment changed shape; re-check pinLinkifyBehaviour rule 7')
   }
   return [path.slice(PATH_HEAD.length, tail.index), tail[1] ?? '']
@@ -101,7 +100,6 @@ const splitPath = (path: string): readonly [alternatives: string, quantifier: st
  * One rule is added on top of both versions: 7. text glued after a NESTED
  * balanced `)` stays outside the link — see {@link NESTED_PAIR_GUARD}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- `MarkdownIt` is the library's own mutable class; configuring it is the point
 export const pinLinkifyBehaviour = (md: MarkdownIt): void => {
   const { linkify } = md
   const { re } = linkify
@@ -112,7 +110,6 @@ export const pinLinkifyBehaviour = (md: MarkdownIt): void => {
     'i'
   )
 
-  /* eslint-disable functional/immutable-data, functional/no-expression-statements -- linkify-it's REBuilder is its documented regex-fragment extension point, and `md.linkify` is this renderer's own instance; one-time configuration, never shared */
   re.get_path_terminator = () =>
     new RegExp(`${re.src_ZCc}|${re.get_text_separators().source}|[()[\\]{}.,"'?!\\-;]`)
   re.get_fuzzy_url_host_port = () =>
@@ -141,5 +138,4 @@ export const pinLinkifyBehaviour = (md: MarkdownIt): void => {
     const links = exactMatch(text) ?? []
     return hostFragment.test(text) ? links : links.filter((link) => link.schema !== '')
   }
-  /* eslint-enable functional/immutable-data, functional/no-expression-statements */
 }

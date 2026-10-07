@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { para } from '@/library/manifest/app-block-kit'
 import {
   asComponent,
   BARE_FORM,
@@ -35,8 +36,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'The form posts `{ "email": "…" }` as JSON to `endpoint` — your own route, or an automation webhook — and shows a toast on success or failure. It writes to no table, so the block installs into any app.',
-    'To store sign-ups in a table instead, replace `endpoint` in the fragment with a `dataSource` naming the table and its email field.',
+    'The form posts `{ "email": "…" }` to the submissions route of the app form named by `form` (`/api/forms/<form>/submissions`) and shows a toast on success or failure. Declare that form under `forms:` with an `email` field — it decides where an address goes (a table through `submitTo`, a mailing tool through a `form` trigger or a library recipe) and who may sign up. Until it exists, a sign-up answers 404 and the error toast shows.',
   ],
   params: [
     stringParam('headline', 'The heading.', 'Get [the thing] by email'),
@@ -45,7 +45,11 @@ export const entry = defineLibraryEntry({
       'One sentence on cadence and content.',
       'One sentence on cadence and content. Nothing else.'
     ),
-    stringParam('endpoint', 'The URL the form posts the email address to.', '/api/newsletter'),
+    stringParam(
+      'form',
+      'The name of the app form (under `forms:`) that receives the address.',
+      'newsletter'
+    ),
     stringParam('submitLabel', 'The text of the submit button.', 'Subscribe'),
     stringParam(
       'successMessage',
@@ -71,14 +75,14 @@ export const entry = defineLibraryEntry({
               [
                 icon('mail', 'text-foreground', 26),
                 h2(p('headline'), 'sm:text-4xl'),
-                small(p('subheadline'), 'max-w-md text-md text-foreground-muted'),
+                para(p('subheadline'), 'max-w-md text-md text-foreground-muted'),
                 {
                   type: 'container',
                   props: { className: 'mt-2 w-full max-w-sm text-left' },
                   children: [
                     endpointForm({
                       className: BARE_FORM,
-                      url: p('endpoint'),
+                      url: `/api/forms/${encodeURIComponent(p('form'))}/submissions`,
                       submitLabel: p('submitLabel'),
                       successMessage: p('successMessage'),
                       errorMessage: 'The address could not be saved. Try again.',

@@ -163,7 +163,7 @@ export type Action =
       readonly operator: 'read'
     } & Props<{
         readonly table: string
-        // Primary key only. `filter` was removed from `read` by [internal ref] —
+        // Primary key only. `read` takes no `filter` —
         // a condition-based read is `operator: 'list'`.
         readonly id: string
       }>)

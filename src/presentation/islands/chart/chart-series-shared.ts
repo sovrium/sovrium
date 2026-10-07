@@ -68,6 +68,23 @@ export interface ChartSeriesConfig {
   readonly fillOpacity?: number
 }
 
+/**
+ * The series that styles an aggregated chart: its one declared `series` entry,
+ * else a single series painted `chartAggregate.color`, else none (the palette's
+ * first colour). `field` is a placeholder the styled aggregate overrides.
+ */
+export function aggregateStylingSeries(
+  series: readonly ChartSeriesConfig[] | undefined,
+  color: string | undefined,
+  chartType?: string
+): readonly ChartSeriesConfig[] | undefined {
+  if (series !== undefined && series.length > 0) return series
+  if (color !== undefined) return [{ field: '', color }]
+  // An area has no one-mark-per-category canvas: it is always drawn as one
+  // filled series, in the palette's first colour when none is named.
+  return chartType === 'area' ? [{ field: '' }] : undefined
+}
+
 /** Legend placement relative to the chart canvas. */
 export type LegendPosition = 'top' | 'bottom' | 'left' | 'right' | 'none'
 

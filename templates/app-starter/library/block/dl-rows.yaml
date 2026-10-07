@@ -1,0 +1,39 @@
+# sovrium-library: block/dl-rows@0.30.0
+name: dl-rows
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: card
+    props:
+      className: max-w-3xl p-0
+    children:
+      - type: container
+        props:
+          className: border-b border-border p-6
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-xl font-semibold text-foreground
+            content: Client details
+          - type: text
+            element: p
+            props:
+              className: mt-1 text-sm text-foreground-subtle
+            content: Shown to members of Finance and Operations.
+      - type: description-list
+        layout: rows
+        props:
+          className: px-6
+        items:
+          - term: '[Legal name]'
+            field: legal_name
+          - term: '[Contact]'
+            field: contact_email
+          - term: '[Billing address]'
+            field: billing_address
+          - term: '[Payment terms]'
+            field: payment_terms
+          - term: '[VAT number]'
+            field: vat_number

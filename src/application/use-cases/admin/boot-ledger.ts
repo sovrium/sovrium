@@ -43,7 +43,6 @@ import type {
 } from '@/domain/models/api/admin/releases/ledger'
 
 /** An absent optional string, in the shape the wire contract declares for it. */
-// eslint-disable-next-line unicorn/no-null -- the contract is `Schema.NullOr`; `undefined` would drop the key and break a `$record.` binding that expects it present.
 const orNull = (value: string | undefined): string | null => value ?? null
 
 /** The scalars every row publishes, shared by both reads. */
@@ -103,13 +102,10 @@ export const listBootLedger = (
       total: releases.length,
       // The beginning of what this ledger can still answer for — which is not
       // necessarily the instance's first boot, once pruning has run.
-      // eslint-disable-next-line unicorn/no-null -- `Schema.NullOr`; `undefined` would drop the key the console binds.
       since: oldest?.bootedAt ?? null,
       engineMigrations: releases.reduce((sum, release) => sum + release.engineMigrationCount, 0),
       schemaChanges: releases.reduce((sum, release) => sum + release.schemaChangeCount, 0),
-      // eslint-disable-next-line unicorn/no-null -- `Schema.NullOr`, as above.
       currentVersion: newest?.version ?? null,
-      // eslint-disable-next-line unicorn/no-null -- `Schema.NullOr`, as above.
       currentHash: newest?.configHash ?? null,
       // Per-request, because it timestamps the READ rather than any boot.
       generatedAt: new Date().toISOString(),
@@ -162,7 +158,6 @@ export const readBootLedgerEntry = (
 
     return {
       ...scalarsOf(entry, newest?.id === entry.id),
-      // eslint-disable-next-line unicorn/no-null -- `Schema.NullOr`; null is "there was no previous boot", which is not the same as an absent key.
       previousBootedAt: predecessor?.bootedAt.toISOString() ?? null,
       engineMigrations: entry.engineMigrations,
       schemaChanges: entry.derivedDdl,

@@ -403,7 +403,11 @@ const CATALOG_COLUMNS = [
 ]
 
 /**
- * The row action column — the one write the DIRECTORY offers.
+ * The row action columns — `Open`, and the one write the DIRECTORY offers.
+ *
+ * A capability removes a whole column, never one item, so Delete — an
+ * editor-only write — sits in {@link CATALOG_WRITE_ACTIONS} and the read-only
+ * tier keeps `Open`, a read every console tier follows.
  *
  * ─── WHY ONLY DELETE HERE, AND WHY THE GATE IS `source` ────────────────────
  *
@@ -418,9 +422,8 @@ const CATALOG_COLUMNS = [
  * — painting a control the backend refuses is a defect, not a
  * cosmetic issue, and the refusal is the same whatever the link's state.
  *
- * Both confirm labels are EXPLICIT. The confirm-gate runtime defaults its two
- * buttons to French, which would put "Annuler" in an otherwise English console —
- * a platform gap this config works around rather than inherits.
+ * Both confirm labels are EXPLICIT: the confirm-gate runtime defaults them to
+ * French — a platform gap this config works around rather than inherits.
  */
 const CATALOG_ACTIONS = {
   type: 'actions',
@@ -431,36 +434,32 @@ const CATALOG_ACTIONS = {
       //
       // ─── WHY NOT `onRowClick`, WHICH IS WHAT SHIPPED FIRST ───────────────
       //
-      // A row click and a row-action column CANNOT COEXIST. The row's handler
-      // fires first, so every action button in the column becomes a navigation:
-      // measured, clicking Delete here landed on `/links/ab-test` with no
-      // confirm ever armed, and the identical shape on the `/users` directory
-      // turned Ban, Lift ban and Change role into navigations too — taking five
-      // previously green specs red.
+      // A row click and a row-action column CANNOT COEXIST: the row's handler
+      // fires first, so every action button becomes a navigation (measured:
+      // Delete landed on `/links/ab-test` with no confirm armed, and the same
+      // shape on `/users` turned Ban and Change role into navigations).
       //
-      // An action item is the fix AND the better affordance. A row click is
-      // reachable by pointer only; this is a button in the tab order with an
-      // accessible name. It is also what the reference draws: a per-row
-      // control, never a row that silently navigates.
-      // `mode: 'navigate'` on a FETCH action, not a top-level `type: 'navigate'`.
-      // The action dispatcher emits data attributes for `automation` / `auth` /
-      // `crud` / `fetch` only, so a bare `navigate` renders a button that does
-      // nothing at all — measured here first, and the same trap the Invite
-      // affordance on `/users` already carries a note about. The url is
-      // MOUNT-RELATIVE, like every other intra-app path in this config.
+      // An action item is the fix AND the better affordance: a button in the
+      // tab order with an accessible name, as the reference draws it.
+      // `mode: 'navigate'` on a FETCH action, not a top-level `type: 'navigate'`:
+      // the dispatcher emits data attributes for `automation` / `auth` / `crud` /
+      // `fetch` only, so a bare `navigate` renders a button that does nothing
+      // (the Invite trap on `/users`). The url is MOUNT-RELATIVE.
       label: 'Open',
       action: { type: 'fetch', mode: 'navigate', url: '/links/$record.slug' },
     },
+  ],
+} as const
+
+const CATALOG_WRITE_ACTIONS = {
+  type: 'actions',
+  label: '',
+  capability: 'edit-operations',
+  actions: [
     {
-      // The danger weight, and it is the SAME gesture the detail page already
-      // draws that way (`manageBlock`'s Delete carries `variant: 'destructive'`
-      // as a standalone `button`). One object, one consequence, one colour —
-      // a row action that recedes where the page-level control reddens would
-      // teach an operator that the two do different things.
-      //
-      // It is the only item in this column that names a weight. `Open` is a
-      // drill-down and stays neutral; a column where both items shout has no
-      // emphasis left to spend.
+      // The danger weight, as on the detail page's Delete: one object, one
+      // consequence, one colour. The only row action here naming a weight —
+      // `Open` stays neutral, and a row where both shout has no emphasis left.
       label: 'Delete',
       variant: 'destructive',
       visibleWhen: { field: 'source', eq: 'db' },
@@ -520,7 +519,7 @@ const catalogGrid = (): PageComponent =>
     dataSource: {
       system: { endpoint: LINKS_ENDPOINT, rowsKey: 'items', idKey: 'slug', totalKey: 'total' },
     },
-    columns: [...CATALOG_COLUMNS, CATALOG_ACTIONS],
+    columns: [...CATALOG_COLUMNS, CATALOG_ACTIONS, CATALOG_WRITE_ACTIONS],
     search: { enabled: true, placeholder: 'Search links' },
     toolbar: { search: true, sort: true },
     emptyMessage: 'No links yet',
@@ -588,6 +587,7 @@ const newLinkSection = (): PageComponent =>
   ({
     type: 'container',
     element: 'section',
+    visibility: { capability: 'edit-operations' },
     props: {
       'aria-label': '$t:admin.links.create.region',
       className: 'flex flex-col gap-3',
@@ -950,7 +950,7 @@ const manageSection = (): PageComponent =>
   ({
     type: 'container',
     element: 'section',
-    visibility: { record: { field: 'source', eq: 'db' } },
+    visibility: { record: { field: 'source', eq: 'db' }, capability: 'edit-operations' },
     props: {
       'aria-label': '$t:admin.links.manage.region',
       className: 'border-border flex flex-col gap-4 rounded-lg border p-4',

@@ -8,7 +8,7 @@ Interactive components are the ones a reader acts on: buttons that fire actions,
 components:
   - type: button
     label: Save
-    action: { type: crud, operation: create, onSuccess: { type: navigate, url: /done } }
+    action: { type: crud, operation: create, onSuccess: { type: navigate, navigate: /done } }
   - type: link
     content: Learn more
     props: { href: /docs, target: _blank }

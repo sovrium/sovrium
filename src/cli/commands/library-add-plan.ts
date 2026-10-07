@@ -43,7 +43,9 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { isPathWithin } from '@/domain/models/process-env/desktop'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { planBlockForms } from './library-add-forms'
 import { planOperationFragment } from './library-add-operations'
+import { missingTablesMessage } from './library-add-tables'
 import { bindingName, provenanceHeader, renderTsFragment, renderYamlFragment } from './library-wire'
 import { loadConfigGraph } from './mcp-config-graph'
 import { lazyImportSchema } from './utils'
@@ -110,6 +112,7 @@ const ITEM_NOUN: Readonly<Record<LibraryTargetKey, string>> = {
   components: 'component',
   connections: 'connection',
   automations: 'automation',
+  forms: 'form',
 }
 
 const KEBAB = /^[a-z][a-z0-9-]*$/
@@ -117,12 +120,10 @@ const KEBAB = /^[a-z][a-z0-9-]*$/
 /** Stop with a refusal on stderr and exit 1. */
 export const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
 export const out = (lines: readonly string[]): void => {
-  // eslint-disable-next-line functional/no-expression-statements
   process.stdout.write(`${lines.join('\n')}\n`)
 }
 
@@ -394,69 +395,35 @@ const planOne = async (
   }
 }
 
-/** The tables the config defines, each with the names of its fields. */
-const definedTables = (parsed: unknown): ReadonlyMap<string, ReadonlySet<string>> => {
-  const tables = (parsed as Readonly<Record<string, unknown>> | undefined)?.['tables']
-  return new Map(
-    Array.isArray(tables)
-      ? tables.flatMap((table: unknown) => {
-          const { name, fields } = (table ?? {}) as {
-            readonly name?: unknown
-            readonly fields?: unknown
-          }
-          if (typeof name !== 'string') return []
-          const fieldNames = Array.isArray(fields)
-            ? fields.flatMap((field: unknown) => {
-                const fieldName = (field as { readonly name?: unknown } | null)?.name
-                return typeof fieldName === 'string' ? [fieldName] : []
-              })
-            : []
-          return [[name, new Set(fieldNames)] as const]
-        })
-      : []
-  )
-}
-
-/**
- * Why the entry cannot install — a table, or a field of one, that the config
- * does not define — or `undefined`. Checked before anything is written. An
- * entry binds to the operator's OWN table and never creates one, so
- * the refusal names the table, every field it reads with its type, and the
- * `--set` that points the entry at a table the operator already has.
- */
-const missingTablesMessage = (
+/** The forms a block ships beside its component, or a refusal — see `library-add-forms.ts`. */
+const planForms = async (
   context: InstallContext,
-  entryId: string,
-  params: Readonly<Record<string, LibraryParamValue | undefined>>
-): string | undefined => {
-  const defined = definedTables(context.parsed)
-  const expected = context.request.catalogue.expectedTables(context.request.entry, params)
-  const problems = expected.flatMap((table) => {
-    const fields = defined.get(table.table)
-    const missing =
-      fields === undefined ? table.fields : table.fields.filter((field) => !fields.has(field.name))
-    return missing.length === 0 ? [] : [{ table, fields, missing }]
+  entry: LibraryEntry,
+  target: InstallTarget
+): Promise<readonly PlannedInstall[]> => {
+  const planned = await planBlockForms({
+    catalogue: context.request.catalogue,
+    version: context.request.version,
+    format: context.format,
+    configPath: context.configPath,
+    takenNames: definedNames(context.parsed, 'forms'),
+    parsed: context.parsed,
+    entry,
+    target,
   })
-  const [first] = problems
-  if (first === undefined) return undefined
-  const configName = basename(context.configPath)
-  const fieldList = first.missing.map((field) => `${field.name} (${field.type})`).join(', ')
-  return (
-    (first.fields === undefined
-      ? `Error: ${entryId} reads the table "${first.table.table}", which ${configName} does not define.\n\n` +
-        `  It expects these fields: ${fieldList}.\n` +
-        `  Point it at one of your tables with --set ${first.table.param}=<table>, or add the table first.`
-      : `Error: ${entryId} reads ${fieldList} from the table "${first.table.table}", which ${configName} defines without ${first.missing.length === 1 ? 'that field' : 'those fields'}.\n\n` +
-        `  Add the missing field${first.missing.length === 1 ? '' : 's'} to "${first.table.table}", or point the entry at other fields with --set.`) +
-    '\n  Nothing was written.'
-  )
+  return typeof planned === 'string' ? refuse(planned) : planned
 }
 
 export const planInstalls = async (context: InstallContext): Promise<readonly PlannedInstall[]> => {
   const { request } = context
   const primaryId = request.catalogue.libraryEntryId(request.entry)
   const params = resolveParams(primaryId, request.entry, request.sets)
-  const tablesProblem = missingTablesMessage(context, primaryId, params)
+  const tablesProblem = missingTablesMessage({
+    parsed: context.parsed,
+    configPath: context.configPath,
+    entryId: primaryId,
+    expected: request.catalogue.expectedTables(request.entry, params),
+  })
   if (tablesProblem !== undefined) return refuse(tablesProblem)
   const name = request.as ?? request.entry.slug
   if (!KEBAB.test(name))
@@ -465,6 +432,8 @@ export const planInstalls = async (context: InstallContext): Promise<readonly Pl
     )
 
   const requirements = requirementsOf(context, request.entry, new Set([primaryId]))
+  const primary = { name, params }
+  // A block's forms are planned before it, so the primary install stays last.
   const planned = await Promise.all([
     ...requirements.map(async (required) =>
       planOne(context, required, {
@@ -473,7 +442,10 @@ export const planInstalls = async (context: InstallContext): Promise<readonly Pl
         requiredBy: primaryId,
       })
     ),
-    planOne(context, request.entry, { name, params }),
+    planForms(context, request.entry, primary),
+    planOne(context, request.entry, primary),
   ])
-  return planned.filter((install): install is PlannedInstall => install !== undefined)
+  return planned
+    .flatMap((install) => (Array.isArray(install) ? install : [install]))
+    .filter((install): install is PlannedInstall => install !== undefined)
 }

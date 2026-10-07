@@ -12,16 +12,14 @@
  * chat-completion body with Bearer auth, a 10s timeout, and a `.catch` that
  * degrades any transport failure to `undefined`.
  *
- * The agent-bound CHAT path used to share it. It no longer does — it goes
- * through the `AiService` port, which is what let it gain the tool-execution
- * loop, populated `actions[]`, and provider-aware endpoint selection. The old
- * rationale here claimed the raw fetch was necessary because "the port
- * abstracts the per-agent `model` / `temperature` overrides away"; that was
- * simply false — `ChatInput` carries `model`, `temperature`, `maxTokens` and
+ * The agent-bound CHAT path does not use it — it goes through the `AiService`
+ * port, which gives it the tool-execution loop, populated `actions[]`, and
+ * provider-aware endpoint selection. The port does not hide per-agent
+ * overrides: `ChatInput` carries `model`, `temperature`, `maxTokens` and
  * `tools`, and forwards each onto whichever wire format the provider speaks.
  *
- * Do NOT try to fix that by asking operators to add `/v1` to the base URL.
- * Measured against a real Ollama on 2026-08-25 — there is NO value of
+ * Do NOT try to fix this module's path by asking operators to add `/v1` to the
+ * base URL. Measured against a real Ollama — there is NO value of
  * `OLLAMA_BASE_URL` that satisfies every consumer, because three of them append
  * different paths to the same variable:
  *
@@ -33,11 +31,10 @@
  *
  * Whichever way an operator sets it, something silently breaks — and in the
  * `/v1` case `/api/health` starts reporting `ollamaReachable: false` while chat
- * appears to work. That measurement is why the agent CHAT path was moved onto
- * the port rather than having its URL patched, and it is why `agent-chat.ts`
- * got SHORTER (283 -> 195 lines) in the process: the port already knows that
- * Ollama means native `/api/chat` and a cloud provider means
- * `/chat/completions`. Re-proposing the URL patch re-opens all three rows.
+ * appears to work. That measurement is why the agent CHAT path runs on the port
+ * rather than on a patched URL: the port already knows that Ollama means native
+ * `/api/chat` and a cloud provider means `/chat/completions`. Re-proposing the
+ * URL patch re-opens all three rows.
  *
  * So do NOT read this module as an endorsement of raw fetch for new work. It
  * hard-codes the OpenAI-compatible `/chat/completions` path, which 404s against

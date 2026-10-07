@@ -16,6 +16,12 @@ A matrix reads two collections that address each other by id, so its binding nam
 
 Nodes become the axes; edges become the cells. Because the read runs as the visitor, they only ever see the part of the graph they could have read themselves — and a matrix on a page they may not read draws nothing rather than someone else's data.
 
+### Reading from the app's tables
+
+Instead of `system`, a matrix can read its graph from the app's own tables. `nodes` lists the tables (each optionally narrowed by one of its views) whose rows become nodes, each entry giving the `kind` its rows carry and the `labelField` that names them. `edges` lists where the edges come from: a link table with one row per edge (`table`, `fromField`, `toField`, and optionally `kindField`, `opsField` and `flagField` for the cells), or a relationship field already on a node table, written `from: <table>.<field>`. Every name is checked against `app.tables` when the config is read, so a typo is an error rather than an empty grid. The rows are read as the visitor, like any other record read.
+
+Each node's id is its row id qualified by its table (`people:100`) unless the entry names an `idField` unique across the graph, and every edge end resolves through that same id, so a link-table edge and a relationship-field edge meet the same nodes. A link table's `opsField` value reaches the edge as `ops` and its `flagField` as `flag`, so the cell reads them with `cell.opsField: ops` and `cell.flag.field: flag`. A table the visitor may not read yields no row and no column, and a link table she may not read fills no cell. A view narrows its entry with its own filters; a view whose filters hold an `or` group, `startsWith` or `endsWith` cannot be read here, and the matrix then shows its unavailable notice rather than rows the view would have kept out.
+
 ## The two axes
 
 `rows` and `columns` take the same four keys, so learning one teaches you the other. `kinds` admits node kinds onto the axis, as the endpoint spells them — omit it and every node is admitted. `groupBy` bands the axis into labelled groups, drawn on both axes. `sortBy` orders it, with nodes lacking the field keeping their source order after those that have it, and `sortDirection` is `asc` by default.

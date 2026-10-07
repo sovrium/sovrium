@@ -87,11 +87,10 @@ export function toolSuccess(data: unknown): McpToolResult {
  * a thrown `ProtocolError` from a low-level `Server` request handler is the
  * only way to produce the latter. Sovrium's RBAC and field-permission denials
  * are asserted as protocol errors by the spec suite
- * (`[internal ref]` → -32603, `[internal ref]` → -32602), so the
+ * (an AI MCP RBAC spec → -32603, AN AI MCP RBAC SPEC → -32602), so the
  * distinction is load-bearing and not stylistic.
  */
 export function toolFailure(code: number, message: string): never {
-  // eslint-disable-next-line functional/no-throw-statements -- the SDK surfaces a JSON-RPC protocol error only via a thrown ProtocolError
   throw new ProtocolError(code, message)
 }
 

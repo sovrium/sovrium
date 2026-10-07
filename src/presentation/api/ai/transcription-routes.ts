@@ -241,9 +241,7 @@ const handleTranscription = async (
 }
 
 /** Chain `POST /api/ai/transcriptions` onto the app. Always registered. */
-export function chainAiTranscriptionRoutes<T extends Hono>(honoApp: T, app?: App): T {
+export function chainAiTranscriptionRoutes(honoApp: Hono, app?: App): Hono {
   const anonLimit = createAiAnonRateLimit()
-  return honoApp.post('/api/ai/transcriptions', (c) =>
-    handleTranscription(c as unknown as Context, app, anonLimit)
-  ) as unknown as T
+  return honoApp.post('/api/ai/transcriptions', (c) => handleTranscription(c, app, anonLimit))
 }

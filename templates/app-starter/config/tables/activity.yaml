@@ -1,0 +1,10 @@
+# A plain log the dashboards read: who did what, and when.
+id: 3
+name: activity
+fields:
+  - { id: 1, name: actor, type: single-line-text }
+  - { id: 2, name: summary, type: single-line-text }
+  - { id: 3, name: happened_at, type: datetime }
+permissions:
+  read: authenticated
+  create: authenticated

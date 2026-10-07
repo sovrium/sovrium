@@ -23,7 +23,7 @@ import {
   computeTabDescriptionClasses,
   computeTabIndicatorClasses,
   computeTabLabelClasses,
-} from './disclosure-default-classes'
+} from './tabs-default-classes'
 import type { ReactElement } from 'react'
 
 export interface TabItem {

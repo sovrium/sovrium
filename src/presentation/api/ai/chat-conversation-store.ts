@@ -9,7 +9,7 @@
  * In-memory per-session conversation store for the generic `/api/ai/chat`
  * endpoint.
  *
- * Drives [internal ref]: a chat turn that reuses an earlier
+ * Drives an AI chat cross spec: a chat turn that reuses an earlier
  * `sessionId` must carry the prior user/assistant messages forward so the AI
  * provider sees the full conversation context (not just the latest message).
  *
@@ -59,6 +59,5 @@ export const appendConversationTurn = (
     { role: 'assistant', content: assistantReply },
   ]
   const trimmed = next.length > MAX_TURNS * 2 ? next.slice(next.length - MAX_TURNS * 2) : next
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- module-local mutable Map, mirrors webhook-rate-limit.ts pattern
   conversations.set(sessionId, trimmed)
 }

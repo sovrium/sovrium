@@ -45,9 +45,10 @@ components:
               # Rejected money is never counted as spend.
               - type: grid
                 props:
-                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
                 children:
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Waiting on you
                     dataSource:
                       table: expenses
@@ -56,6 +57,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Approved, to repay
                     dataSource:
                       table: expenses
@@ -64,6 +66,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Spent this quarter
                     dataSource:
                       table: expenses
@@ -72,6 +75,7 @@ components:
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
                   - type: kpi
+                    size: { mobile: sm, md: md }
                     label: Rejected
                     dataSource:
                       table: expenses
@@ -103,10 +107,11 @@ components:
                         content: Largest first · rejected claims left out
                       - type: chart
                         chartType: donut
+                        # The slice labels collide on the small slices; the
+                        # legend beside the ring names every category.
+                        dataLabels: false
                         props:
-                          # The slice labels collide on the small slices; the
-                          # legend beside the ring names every category.
-                          className: h-[220px] [&_svg_text]:hidden
+                          className: h-[220px]
                         dataSource:
                           table: expenses
                           filter:
@@ -141,9 +146,7 @@ components:
                       - type: chart
                         chartType: bar
                         props:
-                          # A date grouping has no option colours, so the bars
-                          # are painted in the accent here.
-                          className: h-[220px] [&_svg_rect]:fill-primary
+                          className: h-[220px]
                         dataSource:
                           table: expenses
                           filter:
@@ -157,6 +160,9 @@ components:
                           field: amount
                           groupBy: expense_date
                           interval: month
+                          # A date grouping has no option colours, so the bars
+                          # are painted in the accent here.
+                          color: primary
                         yAxis:
                           field: amount
                           format: currency
@@ -184,23 +190,21 @@ components:
               # approved claims going out in the next transfer. Read-only — a
               # decision is a button, not a cell edit.
               - type: table
+                readOnly: true
                 props:
                   id: review-queue
-                  # A stored receipt name carries a unique prefix; the
-                  # cell shows its start and the link opens the file.
-                  className: '[&_td_a]:inline-block [&_td_a]:max-w-[132px] [&_td_a]:truncate [&_td_a]:align-middle'
                 dataSource:
                   table: expenses
                   view: review_queue
                   bindTo: review-filter
                   sharedFilter: {}
-                  filter:
-                    - { field: status, operator: in, value: [Pending, Approved] }
                 columns:
                   - { field: filer, label: Filed by }
                   - { field: description, label: Description }
                   - { field: expense_date, label: Date, format: short-date }
-                  - { field: receipt, label: Receipt }
+                  # A stored receipt name carries a unique prefix: the cell
+                  # shows its start on one line and the link opens the file.
+                  - { field: receipt, label: Receipt, truncate: true }
                   - { field: status, label: Status }
                   - { field: amount, label: Amount, format: currency }
                   - type: actions
@@ -246,6 +250,7 @@ components:
                   className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                 content: Approval runs waiting on you
               - type: table
+                readOnly: true
                 props:
                   id: approval-runs
                 dataSource:

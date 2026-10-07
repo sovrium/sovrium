@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- Handlebars instance is
-   inherently mutable: registerHelper(name, fn) imperatively mutates the
-   internal helper map. Parameter types must accept the mutable instance. */
-
 /**
  * The Handlebars helper REGISTRATION TABLE.
  *

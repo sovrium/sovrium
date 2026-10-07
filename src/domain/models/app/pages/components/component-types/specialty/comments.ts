@@ -21,7 +21,7 @@ import { visibilityFields } from '../modules/visibility'
  * `props.table` overrides the collection's table.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 029
+ * Specs: the pages comments specs
  */
 export const CommentsTypeLiteral = Schema.Literal('comments')
 
@@ -44,7 +44,7 @@ const SortOrderSchema = Schema.Literals(['newest', 'oldest']).annotate({
 /**
  * Which comments surface to draw: the full thread, or the inline total.
  *
- * `count` absorbs what used to be the separate `commentCount` component type.
+ * `count` is the inline comment total; there is no separate count component type.
  */
 const CommentsDisplaySchema = Schema.Literals(['thread', 'count']).annotate({
   description:
@@ -97,7 +97,7 @@ export const commentsFields = {
    *
    * `thread` is the full section — the list, its pagination and its composer.
    * `count` is the lightweight companion: one inline span holding a formatted
-   * total, the shape that used to be its own `commentCount` component type.
+   * total.
    *
    * They are one type because they are one feature read at two sizes, and they
    * already shared every binding key that matters (`table`, `recordId`,

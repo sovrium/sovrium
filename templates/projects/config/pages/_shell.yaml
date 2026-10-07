@@ -36,7 +36,16 @@ children:
     props:
       # Row metrics tuned to a four-entry navigation: 32px rows, 13.5px labels,
       # and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_[data-component-type=badge]]:bg-transparent [&_[data-component-type=badge]]:px-0 [&_[data-component-type=badge]]:font-mono [&_[data-component-type=badge]]:text-[11.5px]
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1
+    # Each key names a part the sidebar draws (its rows, group heading and
+    # count), so the look survives a change to the engine's markup.
+    classes:
+      parts:
+        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-foreground-muted
+        badge: bg-transparent px-0 font-mono text-[11.5px]
+      states:
+        current:
+          link: bg-primary-subtle font-medium text-primary-subtle-foreground
     groups:
       - landmark: Workspace
         items:

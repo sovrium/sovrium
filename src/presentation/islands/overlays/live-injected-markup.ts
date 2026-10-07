@@ -77,7 +77,6 @@ export function runInjectedScripts(root: HTMLElement): void {
       const live = document.createElement('script')
       Array.from(inert.attributes).forEach((attr) => live.setAttribute(attr.name, attr.value))
       live.setAttribute(LIVE_SCRIPT_MARK, '')
-      // eslint-disable-next-line functional/immutable-data -- a fresh, unattached element; setting its source is how it is built
       live.textContent = inert.textContent
       inert.replaceWith(live)
     })
@@ -123,7 +122,6 @@ export function mountNestedIslands(root: HTMLElement, onMounted?: () => void): (
     onMounted?.()
   })
   return () => {
-    // eslint-disable-next-line functional/immutable-data -- a one-shot flag the pending mount above reads
     state.disposed = true
     void client.then(({ unmountIslandsWithin }) => unmountIslandsWithin(root))
   }
@@ -170,13 +168,11 @@ export function useLiveInjectedMarkup(
 ): RefObject<HTMLDivElement | null> {
   const ref = useRef<HTMLDivElement | null>(null)
   const onInjectedRef = useRef(onInjected)
-  // eslint-disable-next-line functional/immutable-data -- a ref's `.current` is React's own mutable cell, which is what it is for
   onInjectedRef.current = onInjected
 
   useEffect(() => {
     const root = ref.current
     if (!root) return
-    // eslint-disable-next-line functional/immutable-data -- placing the host-rendered markup IS this effect; React must not own these children
     root.innerHTML = html
     runInjectedScripts(root)
     guardIslandForms(root)

@@ -19,8 +19,7 @@
  * `src/presentation/api/routes/agents/approval-*.ts`, which shares the same
  * table).
  *
- * The `run_id` column links the pending row to the paused run ([internal ref] /
- * [internal ref]) — the resolution endpoint locates the run via that link
+ * The `run_id` column links the pending row to the paused run — the resolution endpoint locates the run via that link
  * and resumes it by re-running the actions AFTER `step_index`. `run_id` is
  * threaded through the handler's `AutomationContext.runId`; when the scheduler
  * could not persist a run row it stays null (the request is still recorded).
@@ -35,7 +34,7 @@
  * `lastOutput` and the manual-trigger response surfaces as
  * `body.output` (a webhook's default answer carries none of it).
  *
- * Wave: [internal ref].
+ * Wave: the automations actions approval requirement.
  */
 
 import { Effect } from 'effect'

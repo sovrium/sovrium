@@ -5,14 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-object-as-prop --
- * This file is a collection of stateless SSR render-helper functions, not
- * React components. Each helper is invoked once per element during a single
- * server render pass (and inside loops where per-iteration object props are
- * unavoidable). There are no client-side re-renders to memoize against, so
- * the inline-prop perf rule does not apply.
- */
-
 import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { type Design } from '@/domain/models/app/design'
@@ -25,6 +17,7 @@ import {
   buildAlertVariantStyles,
 } from './html-element-helpers'
 import type { ElementProps } from '.'
+import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 
 /**
  * Renders language switcher component
@@ -43,7 +36,8 @@ import type { ElementProps } from '.'
 export function renderLanguageSwitcher(
   props: ElementProps,
   languages?: Languages,
-  currentLang?: string
+  currentLang?: string,
+  designStyles?: ComponentDesignResolution
 ): ReactElement {
   if (!languages) {
     // DEVELOPMENT WARNING: Keep console.warn for development debugging
@@ -81,6 +75,10 @@ export function renderLanguageSwitcher(
     ...attributes
   } = omitInternalMarkers(props)
 
+  const linkPart = {
+    className: designStyles?.parts['link'],
+    floor: designStyles?.partFloors['link'],
+  }
   // Languages already validated at server startup (start-server.ts)
   return (
     <LanguageSwitcher
@@ -89,6 +87,7 @@ export function renderLanguageSwitcher(
       showFlags={showFlags}
       currentLang={currentLang}
       attributes={attributes}
+      linkPart={linkPart}
     />
   )
 }
@@ -227,6 +226,7 @@ export function renderList(
       <li
         key={index}
         style={{ animation: animationValue }}
+        // eslint-disable-next-line sovrium/require-sanitized-html -- the inner HTML of each <li> of a sanitizeRichTextHTML output
         dangerouslySetInnerHTML={{ __html: innerHtml }}
       />
     )

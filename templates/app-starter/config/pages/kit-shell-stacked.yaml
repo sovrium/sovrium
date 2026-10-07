@@ -1,0 +1,11 @@
+name: kit-shell-stacked
+path: /kit/shell-stacked
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Stacked shell · App starter'
+  description: 'An application frame with a top bar.'
+components:
+  - $ref: ./_nav.yaml
+  - component: shell-stacked

@@ -9,12 +9,11 @@ import { createHash } from 'node:crypto'
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
-import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import {
-  requestExchangedToken,
+  OAuthTokenClient,
   type TokenExchangeRequest,
-} from '@/infrastructure/connections/token-exchange-request'
-import { withRefreshLockEffect } from '@/infrastructure/connections/token-refresh'
+} from '@/application/ports/services/oauth-token-client'
+import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveEnvInString } from '../resolve-env-vars'
 import type { ConnectionDef } from './static-auth-header'
@@ -99,12 +98,12 @@ const requestAndStore = (
   conn: ConnectionDef,
   config: TokenExchangeConfig,
   connectionId: string
-): Effect.Effect<TokenExchangeOutcome, never, ConnectionTokenRepository> =>
+): Effect.Effect<TokenExchangeOutcome, never, ConnectionTokenRepository | OAuthTokenClient> =>
   Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () => requestExchangedToken(config.request),
-      catch: (cause) => new TokenExchangeTransportError({ cause }),
-    }).pipe(
+    const result = yield* OAuthTokenClient.use((tokens) =>
+      tokens.requestExchangedToken(config.request)
+    ).pipe(
+      Effect.mapError((error) => new TokenExchangeTransportError({ cause: error.cause })),
       Effect.catchTag('TokenExchangeTransportError', () =>
         Effect.succeed({ ok: false as const, error: 'token_request_failed' })
       )
@@ -174,7 +173,11 @@ const findConnectionId = (
 export const resolveTokenExchangeHeader = (
   conn: ConnectionDef,
   envLookup: Readonly<Record<string, string>>
-): Effect.Effect<TokenExchangeOutcome, never, ConnectionRepository | ConnectionTokenRepository> =>
+): Effect.Effect<
+  TokenExchangeOutcome,
+  never,
+  ConnectionRepository | ConnectionTokenRepository | OAuthTokenClient | SentinelTokens
+> =>
   Effect.gen(function* () {
     const connectionId = yield* findConnectionId(conn.name)
     if (typeof connectionId !== 'string') return connectionId
@@ -187,16 +190,19 @@ export const resolveTokenExchangeHeader = (
       // effect-swallow: an unreadable row is not an outage here — a new token can be obtained without anyone's help, which the branch below does.
       Effect.orElseSucceed(() => undefined)
     )
+    const { isSentinelAccessToken } = yield* SentinelTokens
     const valid =
       stored !== undefined &&
       stored.grantFingerprint === fingerprint(config.request) &&
       !isSentinelAccessToken(stored.accessToken) &&
       (stored.expiresAt === undefined || stored.expiresAt.getTime() - Date.now() >= EXPIRY_SKEW_MS)
     if (valid) return toHeader(config, stored.accessToken)
-    return yield* withRefreshLockEffect(
-      { connectionId, userId: undefined },
-      requestAndStore(conn, config, connectionId),
-      (cause) => new TokenExchangeTransportError({ cause })
+    return yield* OAuthTokenClient.use((tokens) =>
+      tokens.withRefreshLock(
+        { connectionId, userId: undefined },
+        requestAndStore(conn, config, connectionId),
+        (cause) => new TokenExchangeTransportError({ cause })
+      )
     ).pipe(
       Effect.catchTag('TokenExchangeTransportError', () =>
         Effect.succeed({

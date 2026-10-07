@@ -23,6 +23,7 @@ import {
   runSqliteSchemaTransaction,
   sqliteTransactionLike,
 } from '../sql/dialect-ddl'
+import { postgresTransactionLike } from '../sql/sql-execution'
 import { sqliteCheckClausesCurrent } from '../table-operations/sqlite-check-drift'
 import { sqliteLegacyDateValuesQuery } from '../table-operations/sqlite-date-normalisation'
 import { storedFormulaEngineCurrent, type StoredChecksumRow } from './formula-engine-recompute'
@@ -52,12 +53,12 @@ import type { DatabaseDialectConfig } from '@/domain/models/process-env/database
 /**
  * The unit of migration work run inside a transaction, supplied by the caller.
  *
- * The failure is named rather than erased. This used to be a UNION of an
- * infallible and an `unknown`-failing effect, which no call site could infer
- * through, so both call sites below re-asserted it as `Effect<void, never,
- * never>` — claiming migration steps cannot fail, when failing is exactly what
- * they do when a statement is rejected. `runPromiseWith` accepts any error
- * channel, so the assertion bought nothing and hid the one fact worth stating.
+ * The failure is named rather than erased. A UNION of an infallible and an
+ * `unknown`-failing effect defeats inference at every call site and invites
+ * re-asserting it as `Effect<void, never, never>` — claiming migration steps
+ * cannot fail, when failing is exactly what they do when a statement is
+ * rejected. `runPromiseWith` accepts any error channel, so such an assertion
+ * would buy nothing and hide the one fact worth stating.
  */
 export type RunMigrationSteps = (
   tx: TransactionLike,
@@ -323,11 +324,9 @@ const openQuickConnection = (config: DatabaseDialectConfig): QuickConnection => 
      ) as "exists"`,
     // One connection: the probe's temporary views live in their session.
     staleViewDefinition: (tables) =>
-      pgDb.begin((tx) =>
-        findStaleViewDefinition({ unsafe: (sql: string) => tx.unsafe(sql) }, tables, 'postgres')
-      ),
+      pgDb.begin((tx) => findStaleViewDefinition(postgresTransactionLike(tx), tables, 'postgres')),
     liveColumnTypes: () => readPostgresColumnTypes(pgDb),
-    tx: { unsafe: (sql: string) => pgDb.unsafe(sql) },
+    tx: postgresTransactionLike(pgDb),
     close: () => pgDb.close(),
   }
 }
@@ -386,7 +385,7 @@ const checksumMatches = async (
  * `<tableName>` fail with `no such table`. Forcing a full migration in
  * that case lets `executeMigrationSteps` recreate them.
  *
- * for the original failure mode.
+ * See a migration checksum view drift spec for the original failure mode.
  */
 const resolveSkip = async (
   quick: Readonly<QuickConnection>,
@@ -419,7 +418,7 @@ const resolveSkip = async (
 
   // Defensive: every auto-generated lookup/rollup/count view must still be in
   // the catalog. If any are missing, force a full migration so they get
-  // recreated. (Belt-and-suspenders against the original [internal ref]
+  // recreated. (Belt-and-suspenders against the original a view drift spec
   // failure mode, plus future regressions or manual SQL tampering.)
   const expectedAutoViewNames = tables
     .filter((table) => shouldUseView(table))
@@ -437,7 +436,7 @@ const resolveSkip = async (
   //     opened by `openQuickConnection` purely for this fast-path check — a
   //     dedicated `new SQL(...)` on Postgres, a dedicated `bun:sqlite` handle
   //     on SQLite. They cannot take a slot from the Drizzle pool that serves
-  //     requests, which is the exact mechanism of the 2026-07-25 incident
+  //     requests, which is the exact mechanism of a production pool-exhaustion incident
   //     (see the QUERY BUDGET note in
   //     `repositories/tables/tables-overview-repository-live.ts`).
   //  2. **Not a request path.** `checkShouldSkipMigration` has exactly one
@@ -608,7 +607,6 @@ export const checkShouldSkipMigration = (
         logDebug('[schema] checksum table not found — full migration')
         return false
       } finally {
-        /* eslint-disable-next-line functional/no-expression-statements */
         await quick.close()
       }
     },

@@ -6,8 +6,7 @@
  */
 
 /**
- * API contract for the admin invitation-lifecycle surface
- *:
+ * API contract for the admin invitation-lifecycle surface:
  *
  *   - `GET    /api/admin/invitations`             — list what is outstanding
  *   - `POST   /api/admin/invitations/:id/resend`  — send it again
@@ -277,7 +276,7 @@ export const adminInvitationsListResponseSchema = Schema.Struct({
  *    never asked about and orphan the rendered one.
  *
  * Whether the resend REUSES or ROTATES the underlying token is left open by
- * [internal ref] and is invisible here by construction — which is the right place for
+ * the invitation-lifecycle capability decision and is invisible here by construction — which is the right place for
  * that seam. Either way the invariant the operator depends on holds: exactly one
  * live invitation per address, and the link most recently e-mailed works.
  */

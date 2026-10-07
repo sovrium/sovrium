@@ -77,7 +77,6 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
             key={i}
             type="button"
             className={computeTableToolbarButtonClasses()}
-            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row click handler closes over loop-variable `action`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
             onClick={() => {
               if (action.confirm) {
                 setConfirmAction(action)
@@ -95,7 +94,6 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           <button
             type="button"
             className={computeTableToolbarPrimaryButtonClasses()}
-            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- two-statement handler closing over current confirmAction; React Compiler will memoize once enabled in Bun.
             onClick={() => {
               onExecute(confirmAction)
               setConfirmAction(undefined)
@@ -106,7 +104,6 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           <button
             type="button"
             className={computeTableToolbarButtonClasses()}
-            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement handler; React Compiler will memoize once enabled in Bun.
             onClick={() => setConfirmAction(undefined)}
           >
             Cancel

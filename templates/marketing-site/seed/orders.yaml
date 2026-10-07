@@ -1,0 +1,5 @@
+# A few orders for the live figures on the home page.
+records:
+  - { key: o1, fields: { reference: A-1001, amount: 120 } }
+  - { key: o2, fields: { reference: A-1002, amount: 340 } }
+  - { key: o3, fields: { reference: A-1003, amount: 95 } }

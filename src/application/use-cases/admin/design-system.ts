@@ -33,10 +33,10 @@
  * vanish without trace either. Two buckets carry the difference:
  *
  *  - **`inert`** — declared, validated, and then discarded by the renderer
- * ([internal ref]: all three of `fonts.*.lineHeight`, `.size` and `.weights`
+ *    (the single `design` key design: all three of `fonts.*.lineHeight`, `.size` and `.weights`
  *    reach nothing at all). Each entry
  *    carries the REASON, so the author can stop maintaining it. These three are
- * now SUPERSEDED by `design.typeScale` and are still reported
+ *    now SUPERSEDED by `design.typeScale` and are still reported
  *    here, because supersession does not make a declaration take effect — the
  *    author needs to see that Sovrium received the value and did nothing with
  *    it, which is the fact that lets them stop maintaining it.
@@ -207,11 +207,10 @@ const atPath = (
 /**
  * One string-valued LADDER of `design.motion`.
  *
- * These used to be reserved keys INSIDE the animation map, read as
- * `animations.duration` / `animations.easing`. They are siblings of
- * `animations` now, so reading the old path returns nothing at all — the
- * export would have reported an app with a full duration ladder as having
- * none, and said so in a document whose whole purpose is to be believed.
+ * These are siblings of `animations`, not reserved keys inside the animation
+ * map, so reading `animations.duration` / `animations.easing` returns nothing
+ * at all — the export would report an app with a full duration ladder as
+ * having none, in a document whose whole purpose is to be believed.
  *
  * The defensiveness stays. This runs over a decoded config, but the document
  * is also built for configs read through looser paths, and a value of the
@@ -480,7 +479,7 @@ const projectEasing = (design: Design | undefined) => {
  *
  * Foundations draws `{ ...INHERITED, ...declared }`, and an export reporting
  * only the subset the config names would document a different system than the
- * console does — the failure `[internal ref]` already argues for
+ * console does — the failure an admin design system spec already argues for
  * breakpoints, where inheritance is precisely what an author cannot learn from
  * their own config.
  *

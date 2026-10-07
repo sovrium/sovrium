@@ -266,7 +266,6 @@ export const runTelemetryProbes = async (
   targets: readonly ProbeTarget[],
   deps: ProbeDeps
 ): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- await the concurrent probe fan-out
   await Promise.all(targets.map((target) => probeOne(target, deps)))
 }
 
@@ -281,7 +280,6 @@ export const probeTelemetryEndpoints = (options: {
   try {
     const targets = buildProbeTargets(getTelemetryConfig(), process.env)
     if (targets.length === 0) return
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget: boot must not wait on egress
     void runTelemetryProbes(targets, { fetchImpl: fetch, log: options.log }).catch(() => undefined)
   } catch {
     // A probe that cannot even be built must not be the thing that stops a boot.

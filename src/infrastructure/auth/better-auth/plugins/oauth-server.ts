@@ -42,7 +42,7 @@ import type { Auth } from '@/domain/models/app/auth'
  * `/api/auth/*` routes return 404 and there is no identity to authorize.
  *
  * Note: Sovrium does NOT expose plugin options in the app schema yet. All
- * tunables stay env-var driven (operator concern, split rule):
+ * tunables stay env-var driven (operator concern, per the env-configured MCP server design split rule):
  * token lifetimes via Sovrium env vars when implementation lands; the schema
  * may grow `app.auth.oauthServer.{...}` fields in a future pass once the
  * route wiring is complete and we know which knobs schema authors actually
@@ -119,9 +119,9 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       // `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true` — Claude Desktop,
       // Cursor and ChatGPT Dev Mode all register before any browser session
       // exists. Env var and not schema: operator posture, not app-author intent
-      // (the [internal ref] split).
+      // (the env-configured MCP server design split).
       //
-      // Specs: [internal ref] (refused by default), -021 (the env var
+      // Specs: an auth OAuth server spec (refused by default), -021 (the env var
       // re-opens it).
       // ──────────────────────────────────────────────────────────────────────
       allowDynamicClientRegistration: true,
@@ -132,7 +132,7 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       //
       // These are operator concerns; surfacing them in schema would be noise
       // for app authors. If/when an operator needs to tune them, they will
-      // be elevated to env vars ([internal ref] env-var-vs-schema split).
+      // be elevated to env vars (the env-configured MCP server design env-var-vs-schema split).
       // ──────────────────────────────────────────────────────────────────────
       accessTokenExpiresIn: 3600, // 1 hour
       refreshTokenExpiresIn: 30 * 24 * 3600, // 30 days
@@ -153,12 +153,12 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       loginPage: '/login',
       consentPage: '/oauth/consent',
 
-      // No `silenceWarnings` here: the option no longer exists, and the
-      // startup warning it used to suppress is gone with it. It fired because
-      // Better Auth mounts under `/api/auth` rather than the root, so the
-      // authorization-server metadata document lives at
-      // `/api/auth/.well-known/oauth-authorization-server`. That was always a
-      // false positive — `setupOauthProtectedResourceRoute` and the plugin's
+      // No `silenceWarnings` here: the plugin has no such option and emits no
+      // startup warning to silence. A warning that the metadata path is
+      // non-standard would be a false positive anyway: Better Auth mounts under
+      // `/api/auth` rather than the root, so the authorization-server metadata
+      // document lives at `/api/auth/.well-known/oauth-authorization-server`,
+      // and `setupOauthProtectedResourceRoute` and the plugin's
       // own metadata endpoint serve the document at the correct path, which
       // the OAuth specs assert.
     }),

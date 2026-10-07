@@ -87,7 +87,7 @@ type ExistingColumns = ReadonlyMap<
  * about what ran. Here it is literally true.
  *
  * Postgres is untouched: it already refuses at driver level with
- * `invalid input syntax`, which `[internal ref]` pins. The objective
+ * `invalid input syntax`, which a migration modify type spec pins. The objective
  * is parity of OUTCOME, not parity of message.
  *
  * A boot that changes no field type plans zero probes and issues zero queries,
@@ -191,13 +191,13 @@ const reconcileTableStructure = (params: {
       // expressible as an ALTER (e.g. a CHECK/UNIQUE constraint added or
       // removed) — recreate to reconcile. The recreate is idempotent
       // (temp-scoped constraint names, canonical names restored) so it never
-      // collides with the live catalog ([internal ref] fix #2).
+      // collides with the live catalog (the idempotent schema re-initialisation rule fix #2).
       yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
       return
     }
     // The change has no DDL consequence — either the definition is
-    // byte-identical to the previous run (a genuine no-op, [internal ref] fix #1) or
+    // byte-identical to the previous run (a genuine no-op, the idempotent schema re-initialisation rule fix #1) or
     // only a display-only property moved (e.g. a currency `thousandsSeparator`,
     // which never leaves `formatCurrencyValue`). Do NOT recreate: recreating a
     // structurally-unchanged table needlessly drops+rebuilds it — on Postgres
@@ -380,9 +380,8 @@ const tableExistsAsTable = (
  * The view takes the config name, so that name must not hold a TABLE by now.
  * The plain → view-backed transition moves a populated `<name>` to
  * `<name>_base` by rename in Step 5.5 (`reconcileViewTopology`); if a table is
- * still standing here, something upstream did not run, and dropping it — which
- * is what this step used to do, with `DROP TABLE IF EXISTS <name>` — would
- * delete the rows. It refuses instead.
+ * still standing here, something upstream did not run, and dropping it with
+ * `DROP TABLE IF EXISTS <name>` would delete the rows. It refuses instead.
  */
 export const createLookupViewsEffect = (
   tx: TransactionLike,
@@ -470,11 +469,9 @@ const addReadOnlyTriggers = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const readOnlyTriggerSQL = generateReadOnlyViewTrigger(viewId)
-    /* eslint-disable functional/no-loop-statements */
     for (const triggerSQL of readOnlyTriggerSQL) {
       yield* executeSQL(tx, triggerSQL)
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /**
@@ -518,7 +515,6 @@ export const createTableViewsEffect = (
     // JSON config views with numeric IDs are left out — those are handled at the
     // API layer via ?view= param (unquoted numeric identifiers are invalid SQL).
     // Process each view sequentially (views may depend on each other)
-    /* eslint-disable functional/no-loop-statements */
     for (const view of sqlBackedViews(table)) {
       // Convert view.id to string (ViewId can be number or string)
       const viewIdStr = String(view.id)
@@ -545,7 +541,6 @@ export const createTableViewsEffect = (
         yield* maybeRefreshMaterializedView(tx, view, viewIdStr)
       }
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /**

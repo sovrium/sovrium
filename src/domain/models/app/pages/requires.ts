@@ -47,6 +47,14 @@ export const PAGE_CAPABILITIES = [
   'auth.apiKeys',
   'auth.twoFactor',
   'auth.groups',
+  // The sign-in ways and sign-up, so a library block draws only the
+  // alternatives the app configured: a strategy the app does not offer is
+  // absent from the page, never a dead button
+  'auth.passkeys',
+  'auth.magicLink',
+  'auth.oauth',
+  'auth.sso',
+  'auth.signUp',
   'tables',
   'forms',
   'links',

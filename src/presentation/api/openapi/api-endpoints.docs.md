@@ -102,22 +102,6 @@ The five webhook routes are for admins. Any other signed-in caller gets the same
 
 Unlike the `view` parameter on the records list, this endpoint applies the view's **full** configuration, including its field selection and grouping.
 
-### Saved per user
-
-Views declared in the config belong to the app. These two families belong to the signed-in caller, and every route is scoped to that one person.
-
-| Method   | Path                                        | Description                         |
-| -------- | ------------------------------------------- | ----------------------------------- |
-| `GET`    | `/api/tables/{tableId}/user-views`          | List the caller's own saved views   |
-| `POST`   | `/api/tables/{tableId}/user-views`          | Save a view                         |
-| `PATCH`  | `/api/tables/{tableId}/user-views/{viewId}` | Update one                          |
-| `PUT`    | `/api/tables/{tableId}/user-views/{viewId}` | Alias for `PATCH`                   |
-| `DELETE` | `/api/tables/{tableId}/user-views/{viewId}` | Delete one                          |
-| `GET`    | `/api/tables/{tableId}/user-preferences`    | Read the caller's table preferences |
-| `PATCH`  | `/api/tables/{tableId}/user-preferences`    | Upsert them                         |
-| `PUT`    | `/api/tables/{tableId}/user-preferences`    | Alias for `PATCH`, the same upsert  |
-| `DELETE` | `/api/tables/{tableId}/user-preferences`    | Clear them                          |
-
 ## Activity
 
 | Method | Path                         | Description           |
@@ -143,11 +127,12 @@ Views declared in the config belong to the app. These two families belong to the
 
 Authentication is mounted at `/api/auth/*` — email and password, social sign-in, sessions, password reset, email verification, two-factor, magic links, email one-time codes, organizations and admin user management.
 
+A signed-in user updates their own profile with `POST /api/auth/update-user` — their display name, or `image: null` to clear their avatar. A body carrying `role` is refused with `400` and changes nothing: roles change only through the admin routes below.
+
 A few routes are served directly rather than by the auth library:
 
 | Method  | Path                                     | Description                       |
 | ------- | ---------------------------------------- | --------------------------------- |
-| `PATCH` | `/api/auth/user/update`                  | Update the current user's profile |
 | `POST`  | `/api/auth/session/refresh`              | Refresh the active session        |
 | `PATCH` | `/api/auth/admin/users/{id}`             | Change a user's role (admin only) |
 | `GET`   | `/api/auth/organization/list-teams`      | List teams in an organization     |

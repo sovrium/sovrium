@@ -17,8 +17,8 @@ const STANDARD_SHADOWS = ['sm', 'md', 'lg', 'xl', '2xl', 'inner', 'none'] as con
  * Shadow mapping for component types.
  *
  * `Record<string, …>` rather than a keyed union, so a stale entry is dead
- * weight rather than a type error — which is how `modal: ['xl']` outlived its
- * type. It was removed with the type; `dialog` draws its own elevation through
+ * weight rather than a type error, so check entries against the live type
+ * list. There is no `modal` entry: `dialog` draws its own elevation through
  * the overlay recipes rather than through this map, and `dropdown` is the one
  * remaining key no schema literal spells (the type is `dropdown-menu`).
  */

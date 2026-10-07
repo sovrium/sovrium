@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useRef } from 'react'
-import { writeColumnWidthsToCache } from '../../hooks/use-table-preferences'
 import { canonicalizeOperator, evaluatePredicate } from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -14,10 +12,10 @@ import type { TableRecord } from '../../runtime/types'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableColumn,
-  DataTableGroupBy,
   ComponentSearch,
   DataTableToolbar,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 
 /**
  * The `?groupBy=` value for one grid: every grouping level, outermost first.
@@ -27,7 +25,7 @@ import type {
  * answers disagree about the view they describe. A one-level grid produces the
  * bare field name it always sent.
  */
-export function buildGroupByParam(groupBy: DataTableGroupBy | undefined): string | undefined {
+export function buildGroupByParam(groupBy: ViewGroupBy | undefined): string | undefined {
   if (!groupBy) return undefined
   return [groupBy.field, ...(groupBy.thenBy ?? []).map((level) => level.field)].join(',')
 }
@@ -303,55 +301,4 @@ export function applyClientFilters(
     if (conjunction === 'OR') return activeFilters.some((f) => matches(row, f))
     return activeFilters.every((f) => matches(row, f))
   })
-}
-
-/**
- * Persist resized column widths.
- *
- * TanStack Table emits a `columnSizing` change on every pointer move during
- * a drag. We persist in two tiers:
- *
- * 1. **Synchronous localStorage** (every change) — so the very next
- *    `page.reload()` already sees the new width in the read-through cache,
- * even if the server PATCH hasn't fired yet ([internal ref] reads
- *    `boundingBox()` immediately after `mouse.up()` then reloads).
- * 2. **Debounced server PATCH** (100ms after last change) — collapses a
- *    single drag into a single network call instead of dozens, while still
- *    firing well before realistic cross-device sync windows.
- *
- * Extracted from `useDataTableIslandSetup` to keep that hook's statement
- * count below the size-limits cap.
- */
-export function useColumnSizingPersistence(
-  tableName: string,
-  columnSizing: Record<string, number>,
-  updatePreferences: (patch: { readonly columnWidths: Record<string, number> }) => void
-) {
-  const lastSyncedRef = useRef<string>(JSON.stringify(columnSizing))
-  // Shared timer ref across renders — so a re-render that observes the SAME
-  // columnSizing doesn't cancel the pending PATCH from the previous change.
-  // Using a single ref instead of effect-scoped cleanup avoids the
-  // "every re-render kills the timer" footgun.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Timeout type varies between Node/Bun/browser
-  const timerRef = useRef<any>(undefined)
-  useEffect(() => {
-    const serialized = JSON.stringify(columnSizing)
-    if (serialized === lastSyncedRef.current) return
-    // Don't write an empty object on first paint (no user interaction yet).
-    if (Object.keys(columnSizing).length === 0) return
-    // eslint-disable-next-line functional/immutable-data -- React ref mutation is the canonical pattern for last-value tracking
-    lastSyncedRef.current = serialized
-    // Tier 1: synchronous localStorage write (zero latency) — guarantees the
-    // very next `page.reload()` sees the new width via `initialData`.
-    writeColumnWidthsToCache(tableName, columnSizing)
-    // Tier 2: debounced server PATCH (100ms after last change) — collapses
-    // a single drag into a single network call. The shared `timerRef` is
-    // cleared explicitly when a NEW change arrives, never on re-renders
-    // that observe the same value.
-    if (timerRef.current) clearTimeout(timerRef.current)
-    // eslint-disable-next-line functional/immutable-data -- React ref mutation is the canonical pattern for shared timers
-    timerRef.current = setTimeout(() => {
-      updatePreferences({ columnWidths: columnSizing })
-    }, 100)
-  }, [tableName, columnSizing, updatePreferences])
 }

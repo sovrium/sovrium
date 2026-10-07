@@ -25,9 +25,28 @@ trigger:
 
 Using `condition` alone on an `update` event fires on every edit to a matching row, which is rarely what a notification wants.
 
+On an `update`, the `condition` can also read the row as it was **before** the change, at `{{trigger.data.previousRecord.<field>}}`. That lets a condition name a transition rather than a state — "now `paid`, and not `paid` before" starts one run when the order is paid, and none for a later edit of the paid order:
+
+```yaml
+trigger:
+  type: record
+  table: orders
+  events: [update]
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.status}}'
+        operator: equals
+        value: paid
+      - field: '{{trigger.data.previousRecord.status}}'
+        operator: notEquals
+        value: paid
+```
+
+A `create` or `delete` has no previous row, so there `{{trigger.data.previousRecord.<field>}}` reads as an empty value: `notEquals paid` holds and `equals draft` does not.
+
 ### Writes by other automations
 
-A record an automation writes starts the record automations of its table, exactly as the same write through the records API does — a lead created by a webhook recipe starts the automation that watches new leads. The single-record `create`, `update`, `upsert` and `delete` steps dispatch; the batch operators do not.
+A record an automation writes starts the record automations of its table, exactly as the same write through the records API does — a lead created by a webhook recipe starts the automation that watches new leads. The single-record `create`, `update`, `upsert` and `delete` steps dispatch; the batch operators do not. It does not matter where the step sits: a write made inside a branch path, inside a loop (one run per record), or by a code step through `context.actions.record.*` starts them too, under the same loop rules and depth limit as a top-level write.
 
 A loop the configuration shows is refused at validation: an automation whose own `update` step writes a field its trigger's `watchFields` watch — or its own table at all, when the trigger declares no `watchFields` and so watches every field — and one whose `create` step writes into the table whose new records start it. The trigger's own `condition` is read first: when an `equals` or `notEquals` comparison on `{{trigger.data.record.<field>}}` in an `and` group can never hold for the value the step writes into that field — the trigger fires while `status` equals Review and the step writes Scheduled — the write cannot start another run, and it is accepted. A written value that could satisfy the condition again, the same value or one read at run time, is still refused. Two automations whose writes start each other — each one's step writes the other's table, on a field the other watches or on any field when it declares no `watchFields`, and neither trigger has a `condition` — are refused the same way, naming both automations and both tables. A cycle that hangs on a trigger `condition`, or runs through more than two automations, is decided at run time: it stops after four automation writes: a step whose write would start a record automation one level deeper fails without writing, and its run says why in run history; a write that changes no field any automation watches starts nothing and is never refused.
 
@@ -41,7 +60,9 @@ The row is at **`{{trigger.data.record.*}}`**, also reachable as `{{trigger.reco
 | `{{trigger.data.previousRecord.*}}` | `update` only | The row before the change     |
 | `{{trigger.data.records}}`          | batch writes  | The full set of affected rows |
 
-`previousRecord` is what makes "notify when the status _left_ `draft`" expressible without storing state between runs.
+`previousRecord` is what makes "notify when the status _left_ `draft`" expressible without storing state between runs. It is readable everywhere `record` is: in a step's props, in a `filter` step's condition, and in the trigger's own `condition`. A `create` run carries no `previousRecord` at all, and a step reading it gets an empty value rather than a stale row.
+
+Both rows are shaped the same way. A single `user` field holds the user, so `{{trigger.data.record.assignee.email}}` and `{{trigger.data.previousRecord.assignee.email}}` read the address of the person assigned after and before the change. A single many-to-one `relationship` field holds the related row, so `{{trigger.data.previousRecord.customer.name}}` reads a column of the customer the record pointed to before the change. Read on its own, either field is the id it stores, wherever the reference appears: in a step's text, in a `filter` or a trigger `condition`, as a whole `inputData` value a code step receives, and in the props of a step inside a `path` branch or a `loop`. So `contact: '{{trigger.data.record.contact}}'` in a `record/create` links the new row to the same contact at any depth. A field holding several users or several related records is left as its list of ids, in both rows.
 
 ## Comment trigger
 

@@ -8,6 +8,8 @@
 import { splitGroupReferences } from '@/domain/models/app/auth/groups/group-reference'
 import {
   classifyPermissionRung,
+  holdsDefaultGrant,
+  isSignedOutVisitorRole,
   matchesRoleList,
   toPermissionValue,
 } from '@/domain/models/app/auth/permission-evaluation'
@@ -155,7 +157,6 @@ function mergePermissions(
     comment: mergePermission(override?.comment, comment, parentPermissions.comment),
     create: mergePermission(override?.create, create, parentPermissions.create),
     update: mergePermission(override?.update, update, parentPermissions.update),
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
     delete: mergePermission(override?.delete, deletePerms, parentPermissions.delete),
     fields: fields ?? parentPermissions.fields,
   }
@@ -166,10 +167,13 @@ function mergePermissions(
  * and `'authenticated'` (any signed-in caller). Neither names a role, so both
  * admit every role — viewer included. `hasReadPermission` has always honoured
  * them; the write evaluators below honour them through this predicate.
+ *
+ * The one caller `'authenticated'` does NOT admit is a signed-out visitor's
+ * synthetic principal: she carries a placeholder session, never a sign-in.
  */
-function isOpenPermissionLiteral(permission: unknown): boolean {
+function isOpenPermissionLiteral(permission: unknown, userRole: string): boolean {
   const rung = classifyPermissionRung(toPermissionValue(permission))
-  return rung === 'everyone' || rung === 'any-session'
+  return rung === 'everyone' || (rung === 'any-session' && !isSignedOutVisitorRole(userRole))
 }
 
 /**
@@ -209,10 +213,10 @@ function omittedOperationIsOpen(effectivePermissions: unknown): boolean {
  * entry of the form `group:<name>` names a MEMBERSHIP, so it must be matched
  * against the caller's groups and never against the role string. A plain
  * `.includes` answers such an entry only when the caller literally holds the
- * string `'group:<name>'` as a role — which is what a `*ForRoles` fold used to
- * hand it, and why the same grant was honoured on four operations and inert on
- * the fifth. Splitting role from membership once, here, removes the divergence
- * rather than replicating the accident.
+ * string `'group:<name>'` as a role — which is what a `*ForRoles` fold over the
+ * raw list would hand it, honouring a grant on some operations and leaving it
+ * inert on others. Splitting role from membership once, here, keeps every
+ * operation on the same answer.
  */
 function grantAdmits(
   grant: readonly string[],
@@ -302,7 +306,7 @@ export function hasCreatePermission(
 
   // A table declaring `create: 'all'` opens create to every role, viewer
   // included — the literals are honoured on writes exactly as on reads.
-  if (isOpenPermissionLiteral(createPermission)) return true
+  if (isOpenPermissionLiteral(createPermission, userRole)) return true
 
   // A declared allowlist is authoritative, and it is consulted BEFORE the
   // viewer default — the order `update` has always had. Naming a role in an
@@ -313,11 +317,12 @@ export function hasCreatePermission(
     return grantAdmits(createPermission, userRole, groups)
   }
 
-  // Nothing declared for this role: the viewer default still denies. This
-  // branch MOVED rather than disappeared — removing it would drop a table with
-  // no `permissions` key through to `omittedOperationIsOpen`, which is `true`,
-  // silently granting every viewer create access product-wide.
-  if (userRole === 'viewer') return false
+  // Nothing declared for this role: the default is closed to every role that
+  // does not hold it — `viewer`, a caller whose stored role grants nothing, a
+  // signed-out visitor. Removing this would drop a table with no `permissions`
+  // key through to `omittedOperationIsOpen`, which is `true`, silently granting
+  // each of them create access product-wide.
+  if (!holdsDefaultGrant(userRole)) return false
 
   return omittedOperationIsOpen(effectivePerms)
 }
@@ -334,7 +339,6 @@ function hasAdminScopedDeleteOverride(
     | undefined
 ): boolean {
   const adminOverride = table?.permissions?.override?.admin
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property on the override config object, not a Drizzle query.
   return adminOverride?.delete !== undefined
 }
 
@@ -369,21 +373,21 @@ export function hasDeletePermission(
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
   const deletePermission = effectivePerms?.delete
 
-  // `delete: 'all'` / `'authenticated'` admits a viewer. The viewer rule below
-  // is deliberately NOT the create/update one: a viewer named in an explicit
-  // delete allowlist keeps its grant.
-  if (isOpenPermissionLiteral(deletePermission)) return true
+  // `delete: 'all'` / `'authenticated'` admits a viewer. The rule below is
+  // deliberately NOT the create/update one: a viewer named in an explicit
+  // delete allowlist keeps its grant. A role that does not hold the default
+  // gets an allowlist's grant and nothing else.
+  if (isOpenPermissionLiteral(deletePermission, userRole)) return true
 
-  if (userRole === 'viewer') {
+  if (!holdsDefaultGrant(userRole)) {
     return Array.isArray(deletePermission) && grantAdmits(deletePermission, userRole, groups)
   }
 
   // `Array.isArray` already answers false for `undefined`, `null` and the two
-  // rung literals, so the `!deletePermission` half this used to carry could
-  // never decide anything on its own.
+  // rung literals, so a separate `!deletePermission` check would never decide
+  // anything on its own.
   if (!Array.isArray(deletePermission)) {
     return omittedOperationIsOpen(effectivePerms)
   }
@@ -426,13 +430,13 @@ export function hasUpdatePermission(
   const updatePermission = effectivePerms?.update
 
   // `update: 'all'` / `'authenticated'` admits a viewer.
-  if (isOpenPermissionLiteral(updatePermission)) return true
+  if (isOpenPermissionLiteral(updatePermission, userRole)) return true
 
   if (Array.isArray(updatePermission)) {
     return grantAdmits(updatePermission, userRole, groups)
   }
 
-  if (userRole === 'viewer') return false
+  if (!holdsDefaultGrant(userRole)) return false
 
   return omittedOperationIsOpen(effectivePerms)
 }
@@ -514,9 +518,9 @@ export function hasReadPermission(
     return grantAdmits(readPermission, userRole, groups)
   }
 
-  if (isOpenPermissionLiteral(readPermission)) return true
+  if (isOpenPermissionLiteral(readPermission, userRole)) return true
 
-  if (userRole === 'viewer') return false
+  if (!holdsDefaultGrant(userRole)) return false
 
   return omittedOperationIsOpen(effectivePerms)
 }
@@ -566,13 +570,13 @@ export function readOpensToEveryone(
  *
  * - When a `permissions.comment` grant is declared it is authoritative — the
  *   user's role must be in it (admin override applies). Read access alone does
- * NOT confer comment access ([internal ref] decision 2).
+ *   NOT confer comment access.
  * - When no `comment` grant is declared, a `comments` block still marks the
- * table as a commentable surface (backward compatible — pre-[internal ref] comment
- *   specs use a `comments` block and stay read-gated).
+ *   table as a commentable surface (backward compatible — configs written before the `comment` grant
+ *   existed use a `comments` block and stay read-gated).
  * - A table that declares an explicit `permissions` block but neither a
  *   `comment` grant nor a `comments` block is NON-commentable — a "post-it"
- * such as Sovrium Partner's anonymized `pains` ([internal ref] decision 1). A table
+ *   such as an anonymized feedback table. A table
  *   with no `permissions` block at all stays commentable (the documented
  *   fully-open default), so the original bare-table comment specs keep passing.
  *
@@ -774,16 +778,14 @@ export function hasInlineEditDefaultForRoles(
  * crosses read AND comment: making only the read half group-aware would leave a
  * group-granted caller denied by the comment half, invisibly.
  *
- * THIS DOC COMMENT USED TO JUSTIFY A `.some()` FOLD OVER THE RAW LIST with the
- * claim that "the declared-grant branch is a pure membership test". That claim
- * was true of the four siblings and FALSE here: the comment branch runs the
- * full evaluator, which matches a `group:<name>` entry against memberships and
- * never against the role string. Folding therefore put the pseudo-role
- * `'group:ops'` in the role slot with no memberships attached, and a grant of
- * `comment: ['group:ops']` could not be satisfied by anyone — while the same
- * entry on `read` was honoured, because `.includes` matched the literal string.
- * One config key, two answers. All five now split role from membership through
- * {@link anyEffectiveCallerAdmits} and share the one mechanism.
+ * NOT A `.some()` FOLD OVER THE RAW LIST. "The declared-grant branch is a pure
+ * membership test" is FALSE here: the comment branch runs the full evaluator,
+ * which matches a `group:<name>` entry against memberships and never against
+ * the role string. A fold would put the pseudo-role `'group:ops'` in the role
+ * slot with no memberships attached, and a grant of `comment: ['group:ops']`
+ * could not be satisfied by anyone — one config key, two answers. All five
+ * split role from membership through {@link anyEffectiveCallerAdmits} and
+ * share the one mechanism.
  */
 export function hasCommentPermissionForRoles(
   table: Parameters<typeof hasCommentPermission>[0],

@@ -136,7 +136,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.structuredData.type` | enum | Schema.org type of the generated article: `TechArticle` (the default) or `Article`. |
 | `sovrium docs config pages[].meta.structuredData.breadcrumbs` | boolean | Also emit a BreadcrumbList for the article’s position in the navigation (default `true`). |
 | `sovrium docs config pages[].meta.structuredData.organization` | string | Organization named as the publisher of every generated article. |
-| `pages[].meta.og:site_name` | string | OpenGraph site name (shorthand for openGraph.siteName) |
+| `sovrium docs config pages[].meta.og:site_name` | string | OpenGraph site name (shorthand for openGraph.siteName) |
 | `sovrium docs config pages[].meta.i18n` | object | Localized metadata translations per language |
 
 ## `pages[].sitemap`

@@ -19,6 +19,41 @@ import { TemplateStringSchema } from '../template'
  *
  * Supports bearer tokens, API keys, and HMAC signature verification.
  */
+/**
+ * The header layouts `scheme: hmac-timestamp` reads. Each names where the
+ * timestamp and the signature sit and which string was signed; the signature
+ * is always the lowercase hex HMAC-SHA256 of that string under `secret`.
+ *
+ * - `t=<ts>,v1=<sig>` — signed string `<ts>.<raw body>`. The Stripe layout,
+ *   used by Calendly in `Calendly-Webhook-Signature`. Several `v1=` entries
+ *   may appear (a rotated secret); one matching is enough.
+ * - `ts=<ts>;h1=<sig>` — signed string `<ts>:<raw body>`. The layout Paddle
+ *   Billing writes in `Paddle-Signature`.
+ * - `t=<ts>,v0=<sig>` — signed string `<ts>.<raw body>`, the signature under
+ *   a `v0` tag. The layout Unipile writes in `unipile-signature`.
+ *
+ * A layout no preset names is spelled out with `timestampKey`,
+ * `signatureKey`, `separator` and `join` instead.
+ */
+const WebhookSignatureFormatSchema = Schema.Literals([
+  't=<ts>,v1=<sig>',
+  'ts=<ts>;h1=<sig>',
+  't=<ts>,v0=<sig>',
+]).pipe(
+  Schema.annotate({
+    description:
+      "How the `hmac-timestamp` header lays out its timestamp and signature. 't=<ts>,v1=<sig>': the signature is the hex HMAC-SHA256 of `<ts>.<raw body>`, and any of several v1 entries may match (Stripe's layout, used by Calendly). 'ts=<ts>;h1=<sig>': the hex HMAC-SHA256 of `<ts>:<raw body>` (Paddle Billing). 't=<ts>,v0=<sig>': the hex HMAC-SHA256 of `<ts>.<raw body>` under a v0 tag (Unipile). With `hmac-timestamp`, give either `format` or `timestampKey` and `signatureKey`, never both; refused with any other scheme.",
+    examples: ['t=<ts>,v1=<sig>'],
+  })
+)
+
+/** A field name inside a signature header: `t`, `ts`, `v0`, `v1`, `h1`… */
+const signatureHeaderKey = (description: string, example: string) =>
+  Schema.String.pipe(
+    Schema.annotate({ description, examples: [example] }),
+    Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,32}$/))
+  )
+
 const WebhookAuthSchema = Schema.Struct({
   /** Authentication type */
   type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic']).pipe(
@@ -53,10 +88,13 @@ const WebhookAuthSchema = Schema.Struct({
     Schema.String.pipe(Schema.annotate({ description: 'HMAC algorithm (e.g., sha256, sha512)' }))
   ),
 
-  /** Header name for API key authentication */
+  /** Header name for API key authentication, or the signature header of an hmac scheme */
   header: Schema.optional(
     Schema.String.pipe(
-      Schema.annotate({ description: 'Header name for API key (default: X-API-Key)' })
+      Schema.annotate({
+        description:
+          "Header name: the API key header (default: X-API-Key), the digest header of an `hex` or `base64` hmac, or the signature header an `hmac-timestamp` sender writes (required there, e.g. 'Calendly-Webhook-Signature')",
+      })
     )
   ),
 
@@ -78,14 +116,63 @@ const WebhookAuthSchema = Schema.Struct({
   /**
    * How an `hmac` signature is written. `hex` and `base64` sign the raw body
    * and read the digest from `header` (after `prefix`); the three named
-   * schemes sign a timestamped string and fix their own headers.
+   * schemes sign a timestamped string and fix their own headers;
+   * `hmac-timestamp` signs a timestamped string in the header and the
+   * {@link WebhookSignatureFormatSchema format} the operator names — the
+   * Stripe shape under another sender's header, without a scheme per sender.
    */
   scheme: Schema.optional(
-    Schema.Literals(['hex', 'base64', 'stripe', 'slack', 'svix']).pipe(
+    Schema.Literals(['hex', 'base64', 'stripe', 'slack', 'svix', 'hmac-timestamp']).pipe(
       Schema.annotate({
         defaultNote: 'hex',
         description:
-          "How an hmac signature is written. 'hex' or 'base64': a digest of the raw body in `header`, after `prefix` (Shopify signs base64). 'stripe': the Stripe-Signature header (t=, v1=). 'slack': X-Slack-Signature (v0=) over v0:<timestamp>:<body>. 'svix': svix-id, svix-timestamp and svix-signature, with a whsec_ secret (Clerk, Resend and other Svix senders). The three named schemes are always SHA-256 and fix their own headers.",
+          "How an hmac signature is written. 'hex' or 'base64': a digest of the raw body in `header`, after `prefix` (Shopify signs base64). 'stripe': the Stripe-Signature header (t=, v1=). 'slack': X-Slack-Signature (v0=) over v0:<timestamp>:<body>. 'svix': svix-id, svix-timestamp and svix-signature, with a whsec_ secret (Clerk, Resend and other Svix senders). The three named schemes are always SHA-256 and fix their own headers. 'hmac-timestamp': a timestamp and a SHA-256 hex signature carried together in the header you name, laid out as `format` says or as `timestampKey` and `signatureKey` spell out (Calendly, Paddle and Unipile sign this way).",
+      })
+    )
+  ),
+
+  /**
+   * How an `hmac-timestamp` header lays out its timestamp and signature, and
+   * so which string was signed. An enum of documented layouts rather than a
+   * template the server would have to parse: each value fixes the separators,
+   * the field names and the signed string together, and a layout no sender
+   * documents cannot be written.
+   */
+  format: Schema.optional(WebhookSignatureFormatSchema),
+
+  /**
+   * The `hmac-timestamp` layout spelled out, for a sender no `format` preset
+   * names: the timestamp's and the signature's field names, the character
+   * between entries and the character between `<ts>` and the raw body in the
+   * signed string. An alternative to `format`, never beside it.
+   */
+  timestampKey: Schema.optional(
+    signatureHeaderKey(
+      'Name of the timestamp entry in an `hmac-timestamp` header (the `t` of `t=1712345678`). Given with `signatureKey`, instead of `format`, for a layout no format names. Only for the hmac-timestamp scheme.',
+      't'
+    )
+  ),
+  signatureKey: Schema.optional(
+    signatureHeaderKey(
+      'Name of the signature entry in an `hmac-timestamp` header (the `v0` of `v0=5257a8…`). Several entries of that name may appear; one matching is enough. Given with `timestampKey`, instead of `format`. Only for the hmac-timestamp scheme.',
+      'v0'
+    )
+  ),
+  separator: Schema.optional(
+    Schema.Literals([',', ';']).pipe(
+      Schema.annotate({
+        defaultNote: ',',
+        description:
+          'The character between the entries of an `hmac-timestamp` header, when the layout is spelled out with `timestampKey` and `signatureKey`.',
+      })
+    )
+  ),
+  join: Schema.optional(
+    Schema.Literals(['.', ':']).pipe(
+      Schema.annotate({
+        defaultNote: '.',
+        description:
+          'The character between the timestamp and the raw body in the string an `hmac-timestamp` sender signs (`<ts>.<raw body>` or `<ts>:<raw body>`), when the layout is spelled out with `timestampKey` and `signatureKey`.',
       })
     )
   ),
@@ -96,7 +183,7 @@ const WebhookAuthSchema = Schema.Struct({
       Schema.annotate({
         defaultNote: '300',
         description:
-          'Seconds a signed timestamp may differ from the server clock before the request is refused as a replay. Only for the stripe, slack and svix schemes.',
+          'Seconds a signed timestamp may differ from the server clock before the request is refused as a replay. Only for the stripe, slack, svix and hmac-timestamp schemes.',
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
@@ -294,7 +381,7 @@ export const WebhookTriggerSchema = Schema.Struct({
    * dedup key (e.g. `'{{body.orderId}}'`). When two requests within the
    * dedup window resolve to the same key, the second is silently dropped
    * — no run row, no side effects. Following Zapier's trigger dedup
-   * pattern; [internal ref].
+   * pattern.
    */
   deduplicationKey: Schema.optional(
     TemplateStringSchema.pipe(
@@ -307,7 +394,7 @@ export const WebhookTriggerSchema = Schema.Struct({
   /**
    * Window (in seconds) during which a previously-seen dedup key blocks
    * fresh requests. Defaults to 300 (5 minutes) when `deduplicationKey`
-   * is set but no explicit window is provided. [internal ref].
+   * is set but no explicit window is provided.
    */
   deduplicationWindow: Schema.optional(
     Schema.Finite.pipe(

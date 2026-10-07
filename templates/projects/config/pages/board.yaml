@@ -61,48 +61,46 @@ components:
               # The three open statuses share the width; the folded Done column
               # takes only what its heading needs. On a phone every column keeps
               # a readable width and the board scrolls sideways.
-              - type: container
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Done]]:flex-[0_0_13.75rem]!'
-                children:
-                  - type: kanban
-                    dataSource:
-                      table: tasks
-                      bindTo: board-filter
-                      sharedFilter: {}
-                      sort:
-                        - { field: due_date, direction: asc }
-                    kanbanGroupBy:
-                      field: status
-                      # Done starts folded: it holds finished work, not work in
-                      # progress.
-                      collapsed: [Done]
-                    drag:
-                      enabled: true
-                      persistAction:
-                        type: crud
-                        operation: update
-                        table: tasks
-                    emptyColumnMessage: No task in this status. Drag one here as the work moves.
-                    card:
-                      children:
-                        - type: text
-                          element: h3
-                          props:
-                            className: text-[13px] font-medium leading-[18px] text-foreground
-                          content: $record.title
-                        - type: text
-                          element: p
-                          props:
-                            className: text-xs text-foreground-muted
-                          content: $record.project
-                      footer:
-                        - { field: due_date, format: short-date }
-                        - { field: priority, format: badge }
-                        - { field: assignee, format: avatar }
-                      onClick:
-                        action: openDrawer
-                        component: task-detail
+              - type: kanban
+                dataSource:
+                  table: tasks
+                  bindTo: board-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: due_date, direction: asc }
+                kanbanGroupBy:
+                  field: status
+                  # Done starts folded: it holds finished work, not work in
+                  # progress.
+                  collapsed: [Done]
+                  columnSizing: fill
+                  columnWidths: { Done: 13.75rem }
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: tasks
+                emptyColumnMessage: No task in this status. Drag one here as the work moves.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-[18px] text-foreground
+                      content: $record.title
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.project
+                  footer:
+                    - { field: due_date, format: short-date }
+                    - { field: priority, format: badge }
+                    - { field: assignee, format: avatar }
+                  onClick:
+                    action: openDrawer
+                    component: task-detail
               # One task, opened over the board. `/board?record=<id>` opens it
               # too, so a task can be linked to directly.
               - type: drawer

@@ -61,11 +61,9 @@ export const CodeFrameSchema = Schema.Literals(['none', 'file', 'terminal']).ann
  * 3. else `output` present ⇒ `'terminal'` (only a command has output);
  * 4. else the frame DERIVED from the block's LANGUAGE (`resolveDefaultCodeFrame`).
  *
- * Step 4 is the one this list used to stop short of, and the omission mattered:
- * a block with no `codeFrame`, no `filename` and no `output` still wears a file
- * bar captioned from its language, so an author reading "else none" here was
- * told the opposite of what they would see. The renderer is right and states
- * why — every block is framed by default, because uniform chrome is the point
+ * Step 4 matters: a block with no `codeFrame`, no `filename` and no `output`
+ * still wears a file bar captioned from its language — there is no "else none".
+ * The renderer states why — every block is framed by default, because uniform chrome is the point
  * and an unframed block has nowhere to put its copy button.
  *
  * `codeFrame: 'none'` remains the honest opt-out, and is the only way to get an

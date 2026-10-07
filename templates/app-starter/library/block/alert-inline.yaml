@@ -1,0 +1,90 @@
+# sovrium-library: block/alert-inline@0.30.0
+name: alert-inline
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8 flex flex-col gap-3
+children:
+  - type: alert
+    alertVariant: info
+    props:
+      className: w-full max-w-3xl
+    children:
+      - type: flex
+        props:
+          className: flex w-full items-start justify-between gap-4
+        children:
+          - type: flex
+            props:
+              className: flex flex-col min-w-0 flex-1 gap-0.5
+            children:
+              - type: text
+                element: span
+                props:
+                  className: text-md font-semibold
+                content: Your export is ready.
+              - type: text
+                element: span
+                props:
+                  className: text-sm opacity-80
+                content: It stays available for 7 days.
+          - type: link
+            props:
+              href: /exports
+              className: text-sm font-medium underline underline-offset-4
+            content: Download
+  - type: alert
+    alertVariant: warning
+    props:
+      className: w-full max-w-3xl
+    children:
+      - type: flex
+        props:
+          className: flex w-full items-start justify-between gap-4
+        children:
+          - type: flex
+            props:
+              className: flex flex-col min-w-0 flex-1 gap-0.5
+            children:
+              - type: text
+                element: span
+                props:
+                  className: text-md font-semibold
+                content: Two invoices have no client email.
+              - type: text
+                element: span
+                props:
+                  className: text-sm opacity-80
+                content: They will not receive reminders.
+          - type: link
+            props:
+              href: /invoices
+              className: text-sm font-medium underline underline-offset-4
+            content: Review
+  - type: alert
+    alertVariant: destructive
+    props:
+      className: w-full max-w-3xl
+    children:
+      - type: flex
+        props:
+          className: flex w-full items-start justify-between gap-4
+        children:
+          - type: flex
+            props:
+              className: flex flex-col min-w-0 flex-1 gap-0.5
+            children:
+              - type: text
+                element: span
+                props:
+                  className: text-md font-semibold
+                content: The bank sync failed.
+              - type: text
+                element: span
+                props:
+                  className: text-sm opacity-80
+                content: The connection token expired on 11 Sep.
+          - type: link
+            props:
+              href: /settings
+              className: text-sm font-medium underline underline-offset-4
+            content: Reconnect

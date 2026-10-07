@@ -85,14 +85,14 @@ export function DynamicPageHead({
           as a synchronous inline script can, minimizing the window in which a
           post-navigation ⌘K could land before the listener is live. */}
       {hasCommandPaletteHost(mergedPage.components) && (
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element; never re-renders client-side
+        // eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it
         <script dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_CAPTURE_SCRIPT }} />
       )}
-      {/* The mobile drawer toggle, on its OWN gate. It used to ride inside the
-          palette capture above, which left a page with a sidebar and no palette
-          with no way to open its navigation on a narrow viewport. */}
+      {/* The mobile drawer toggle, on its OWN gate. Riding inside the palette
+          capture above would leave a page with a sidebar and no palette with
+          no way to open its navigation on a narrow viewport. */}
       {hasDrawerSidebar(mergedPage.components) && (
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element; never re-renders client-side
+        // eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it
         <script dangerouslySetInnerHTML={{ __html: SIDEBAR_DRAWER_TOGGLE_SCRIPT }} />
       )}
       <PageHead
@@ -112,10 +112,8 @@ export function DynamicPageHead({
         feedTitle={feedTitle}
       />
       <IslandPreloadLinks hrefs={islandPreloadHrefs} />
-      {analyticsScript && (
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element; never re-renders client-side
-        <script dangerouslySetInnerHTML={{ __html: analyticsScript }} />
-      )}
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine beacon script; its one config value (the page name) is JSON-encoded by serializeJsonForScript */}
+      {analyticsScript && <script dangerouslySetInnerHTML={{ __html: analyticsScript }} />}
     </head>
   )
 }

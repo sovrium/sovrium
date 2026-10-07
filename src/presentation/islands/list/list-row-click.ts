@@ -10,7 +10,8 @@
  * `onRowClick` is the grid's — `openDrawer` opens the named drawer on the
  * item's record (the drawer then names itself and the record in the address,
  * `?record=<id>&drawer=<id>` — [internal ref]), `navigate` follows a path with the
- * item's `$record.*` values.
+ * item's `$record.*` values, and `fill` writes one of them into a form control
+ * on the page (a composer's saved scripts).
  *
  * ONE handler, on the list: a click or an Enter lands on some element inside
  * an item, and the item it belongs to is found from the event, so a list of a
@@ -20,12 +21,15 @@
 import { useCallback, type SyntheticEvent } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { fillFromCard } from '../runtime/fill-dispatch'
 
 type Row = Readonly<Record<string, unknown>>
 
 interface RowClick {
   readonly type?: unknown
   readonly path?: unknown
+  readonly target?: unknown
+  readonly value?: unknown
   readonly action?: unknown
   readonly component?: unknown
 }
@@ -39,6 +43,10 @@ interface RowClick {
 function runRowClick(click: RowClick, record: Row, table: string | undefined): void {
   if (click.type === 'navigate' && typeof click.path === 'string') {
     cardPathClick(substituteRecordVars(click.path, record))?.()
+    return
+  }
+  if (click.type === 'fill') {
+    fillFromCard(click, record)
     return
   }
   if (click.action === 'openDrawer' && typeof click.component === 'string') {

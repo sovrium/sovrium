@@ -6,6 +6,7 @@
  */
 
 import { type HTMLAttributes, type ReactElement } from 'react'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeLanguageSwitcherDropdownClasses,
   computeLanguageSwitcherOptionClasses,
@@ -26,6 +27,12 @@ const HIDDEN_STYLE = { display: 'none' } as const
 export type LanguageSwitcherWrapperAttributes = Readonly<
   HTMLAttributes<HTMLDivElement> & Record<string, unknown>
 >
+
+/** The author's `link` part classes and the floor that lands after them. */
+export interface LanguageSwitcherLinkPart {
+  readonly className?: string
+  readonly floor?: string
+}
 
 /**
  * Spread the author's attributes onto a wrapper, then its own: the author's
@@ -111,10 +118,12 @@ function LanguageToggle({
   other,
   fallbackLanguage,
   attributes,
+  linkPart,
 }: {
   readonly other: Languages['supported'][number]
   readonly fallbackLanguage: string | undefined
   readonly attributes: LanguageSwitcherWrapperAttributes | undefined
+  readonly linkPart: LanguageSwitcherLinkPart | undefined
 }): ReactElement {
   return (
     <div {...wrapperAttributes(attributes, { variant: 'toggle', fallbackLanguage })}>
@@ -124,7 +133,12 @@ function LanguageToggle({
         lang={other.locale ?? other.code}
         aria-label={other.label}
         data-language-toggle
-        className={computeLanguageSwitcherTriggerClasses()}
+        className={resolveClasses(
+          computeLanguageSwitcherTriggerClasses(),
+          linkPart?.className,
+          undefined,
+          linkPart?.floor
+        )}
       >
         {other.code.toUpperCase()}
       </a>
@@ -167,12 +181,15 @@ export function LanguageSwitcher({
   showFlags = false,
   currentLang,
   attributes,
+  linkPart,
 }: {
   readonly languages: Languages
   readonly variant?: string
   readonly showFlags?: boolean
   readonly currentLang?: string
   readonly attributes?: LanguageSwitcherWrapperAttributes
+  /** The author's `link` part and its floor, for the `toggle` variant's link. */
+  readonly linkPart?: LanguageSwitcherLinkPart
 }): Readonly<ReactElement> {
   const activeLanguage =
     languages.supported.find((lang) => lang.code === currentLang || lang.locale === currentLang) ??
@@ -185,6 +202,7 @@ export function LanguageSwitcher({
         other={other}
         fallbackLanguage={languages.fallback}
         attributes={attributes}
+        linkPart={linkPart}
       />
     )
   }

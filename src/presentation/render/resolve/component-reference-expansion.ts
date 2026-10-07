@@ -26,15 +26,26 @@
  *
  * The template name names the rendered element (`data-component`, the
  * `component-<name>` test id, a template's Open Graph meta), so each expanded
- * root remembers it under {@link EXPANDED_REFERENCE_KEY}. The renderer reads it
- * back where it used to read the reference itself.
+ * root remembers it under {@link EXPANDED_REFERENCE_KEY}, and the renderer reads
+ * it back from there rather than from the reference.
  *
  * ─── WHAT IS LEFT A REFERENCE ──────────────────────────────────────────────
  *
  * A reference to a template that does not exist (the renderer draws its error
  * box and lists the available names), and a reference that would recurse into
  * a template already being expanded on the same path. Both reach the renderer
- * exactly as before. Only `children` — a node's own, and each `responsive`
+ * exactly as before.
+ *
+ * ─── THE `$children` SLOT ──────────────────────────────────────────────────
+ *
+ * A template node may write `children: $children`; the placement's own
+ * `children` are put there AFTER the template's vars are substituted, so the
+ * vars never reach them, and they are expanded on the placement's path — they
+ * are the page's components, in the page's position, for every later pass.
+ *
+ * ─── WHAT IS DESCENDED ─────────────────────────────────────────────────────
+ *
+ * Only `children` — a node's own, and each `responsive`
  * breakpoint's — is descended: a field that happens to hold a `{ component }`
  * shape elsewhere (a specimen's `subject`) is not a child. The breakpoint
  * children are rendered server-side like any other, so a reference left
@@ -48,6 +59,10 @@ import {
   EXPANDED_REFERENCE_KEY,
   isComponentReferenceNode,
 } from '@/presentation/render/resolve/component-reference'
+import {
+  fillTemplateSlot,
+  placementChildrenOf,
+} from '@/presentation/render/resolve/component-template-slot'
 import type { Components } from '@/domain/models/app/components'
 import type {
   ComponentReference,
@@ -70,10 +85,14 @@ function expandReference(
   const resolved = resolveComponent(refName, templates, vars)
   if (resolved === undefined) return item
   const expanded = expandNode(resolved.component, templates, new Set([...path, refName]))
+  // The slotted components are the PAGE's: expanded on the placement's own
+  // path (not the template's), never given the template's vars.
+  const slotted = expandItems(placementChildrenOf(item) as readonly Item[], templates, path)
+  const filled = fillTemplateSlot(expanded, slotted)
   return {
-    ...(expanded as Component),
+    ...(filled as Component),
     [EXPANDED_REFERENCE_KEY]: { name: resolved.name, vars },
-  } as unknown as Component
+  } as Component
 }
 
 /** Expand a node and, recursively, every reference among its `children`. */
@@ -112,7 +131,7 @@ function expandResponsiveChildren(
   })
   if (expanded.every((variant, i) => variant === entries[i]?.[1])) return item as Item
   const next = Object.fromEntries(entries.map(([breakpoint], i) => [breakpoint, expanded[i]]))
-  return { ...item, responsive: next } as unknown as Component
+  return { ...item, responsive: next } as Component
 }
 
 /** Identity-preserving map: an unchanged list comes back by reference. */

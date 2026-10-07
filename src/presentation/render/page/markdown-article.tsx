@@ -6,12 +6,18 @@
  */
 
 import { type ReactElement } from 'react'
-import { DocsArticleBreadcrumb } from '@/presentation/render/markdown/docs-article-breadcrumb'
+import { cn } from '@/presentation/design/class-merge'
+import { renderDocsArticleHeader } from '@/presentation/render/markdown/docs-article-header'
 import {
   getDocsChromeLabels,
   type DocsChromeLabels,
 } from '@/presentation/render/markdown/docs-chrome-labels'
 import { DocsContributionFooter } from '@/presentation/render/markdown/docs-contribution-footer'
+import {
+  DOCS_CONTENT_MEASURE_CLASSES,
+  LIFT_MENU_BUTTON_SCRIPT,
+  docsFrameStyle,
+} from '@/presentation/render/markdown/docs-frame'
 import { DocsPrevNext } from '@/presentation/render/markdown/docs-prev-next'
 import { DocsSidebarNav } from '@/presentation/render/markdown/docs-sidebar-nav'
 import {
@@ -20,11 +26,12 @@ import {
   TOC_SCROLLSPY_SCRIPT_HTML,
   TOC_SCROLLSPY_STYLE_HTML,
 } from '@/presentation/render/markdown/markdown-article-enhancements'
+import { renderToc } from '@/presentation/render/markdown/markdown-toc-nav'
+import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
 import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdown-page-resolver'
 
 /**
- * SSR component that renders a page's resolved markdown payload
- *.
+ * SSR component that renders a page's resolved markdown payload.
  *
  * Layout modes:
  *   - `'prose'` (default): single-column article with prose typography.
@@ -73,152 +80,6 @@ interface MarkdownArticleProps {
 const buildHtmlContainer = (html: string): { readonly __html: string } => ({ __html: html })
 
 /**
- * Indent a TOC entry by its heading level so nested headings (h3 under h2)
- * read as a hierarchy in the right rail. Level 2 = flush, each deeper level
- * adds left padding.
- */
-const tocIndentClass = (level: number): string => {
-  if (level <= 2) return ''
-  if (level === 3) return 'pl-3'
-  return 'pl-6'
-}
-
-const renderToc = (
-  markdown: ResolvedMarkdownPage,
-  labels: DocsChromeLabels
-): Readonly<ReactElement> | undefined => {
-  if (markdown.tocHeadings === undefined || markdown.tocHeadings.length === 0) return undefined
-  const sidebar = markdown.tocPosition === 'sidebar'
-  return (
-    <nav
-      data-component="markdown-toc"
-      data-component-type="toc"
-      data-position={markdown.tocPosition ?? 'top'}
-      aria-label="Table of contents"
-      className={
-        sidebar
-          ? // top-[6.5rem] clears the two-row docs header (104px, measured live);
-            // see NAV_WRAPPER_CLASS in DocsSidebarNav for the same Phase-1 coupling.
-            'text-md sticky top-[6.5rem] hidden max-h-[calc(100dvh-6.5rem)] w-56 shrink-0 self-start overflow-y-auto py-12 pr-4 xl:block'
-          : 'text-md mb-6'
-      }
-    >
-      <p className="text-foreground-subtle mb-3 text-sm font-semibold tracking-wide uppercase">
-        {labels.onThisPage}
-      </p>
-      <ol className="border-border space-y-2 border-l">
-        {markdown.tocHeadings.map((heading) => (
-          <li
-            key={heading.id}
-            data-toc-level={heading.level}
-            className={tocIndentClass(heading.level)}
-          >
-            <a
-              href={`#${heading.id}`}
-              data-toc-link={heading.id}
-              className="sv-toc-link hover:border-border-strong text-foreground-muted hover:text-foreground -ml-px block border-l border-transparent pl-3 transition-colors duration-150"
-            >
-              {heading.text}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  )
-}
-
-/**
- * The docs-header AI-native affordances: a
- * client-side "Copy as Markdown" button and the no-JS "View as Markdown"
- * fallback link, both pointing at the article's per-page `.md` twin. Split out
- * of `renderDocsArticleHeader` to keep that renderer under its line cap. The
- * button's accessible name is deliberately distinct from the per-code-block
- * "Copy code" buttons so the two never collide.
- *
- * The "Edit this page" affordance is NOT here — for the docs layout the edit link
- * lives EXCLUSIVELY in the contribution footer (`DocsContributionFooter`, A2),
- * beside "Report an issue" + the contribution note, so the header stays a clean
- * Copy/View pair.
- */
-const renderDocsMarkdownAffordances = (
-  markdownHref: string,
-  labels: DocsChromeLabels
-): Readonly<ReactElement> => {
-  const affordanceClass =
-    'text-foreground-subtle hover:text-foreground inline-flex items-center gap-1.5 no-underline transition-colors duration-150'
-  return (
-    <div className="flex shrink-0 items-center gap-3 text-sm">
-      <button
-        type="button"
-        data-copy-markdown
-        data-copy-markdown-url={markdownHref}
-        aria-label={labels.copyAsMarkdown}
-        className={affordanceClass}
-      >
-        {labels.copyAsMarkdown}
-      </button>
-      <a
-        href={markdownHref}
-        className={affordanceClass}
-        aria-label={labels.viewAsMarkdown}
-      >
-        {labels.viewAsMarkdown}
-      </a>
-    </div>
-  )
-}
-
-/**
- * Render the docs-article header: a Home → section → page breadcrumb (for
- * orientation across the many sections), plus a compact pair of AI-native
- * affordances:
- *   1. a "Copy as Markdown" button — client-side, copies THIS article's raw
- *      markdown (its per-page `.md` twin) to the clipboard; and
- *   2. a "View as Markdown" link — repointed from the whole-site
- *      `/llms-full.txt` to the article's own per-page `.md` (the no-JS
- *      graceful-degrade fallback: the link always works without the copy
- *      script).
- * Both reuse the same per-page raw-markdown source. Returns undefined
- * when there is no collection nav (e.g. a non-`docs` layout) so the header only
- * appears in the docs three-column layout.
- *
- * The breadcrumb is a `<nav aria-label="Breadcrumb">` containing an ordered
- * list — it is NOT a heading, and the copy control is a `<button>`, so the
- * single-`<h1>` document-outline invariant is
- * preserved. The button's accessible name (`Copy as Markdown`) is deliberately
- * distinct from the per-code-block "Copy code" buttons so the two never collide.
- */
-const renderDocsArticleHeader = (
-  markdown: ResolvedMarkdownPage,
-  labels: DocsChromeLabels
-): Readonly<ReactElement> | undefined => {
-  const nav = markdown.collectionNav
-  if (nav === undefined) return undefined
-  const current = nav.sidebar.find((entry) => entry.isCurrent)
-  if (current === undefined) return undefined
-
-  // This article's per-page `.md` twin. Both affordances point here.
-  const markdownHref = `${current.href}.md`
-
-  // Mobile (<sm): stack the breadcrumb above the affordance cluster so a third
-  // affordance ("Edit this page") does not crowd the ≤375px breadcrumb; from
-  // `sm:` up it returns to the single-row justified layout.
-  return (
-    <div
-      data-component="docs-article-header"
-      className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <DocsArticleBreadcrumb
-        current={current}
-        rootCrumb={markdown.docsRootCrumb}
-        homeLabel={labels.home}
-      />
-      {renderDocsMarkdownAffordances(markdownHref, labels)}
-    </div>
-  )
-}
-
-/**
  * Render the `'none'` layout: the markdown HTML is emitted inside a
  * `<div data-component="markdown" data-layout="none">` container with no
  * `<article>` wrapper and no prose typography classes (cluster 5).
@@ -228,6 +89,7 @@ function renderRawMarkdown(markdown: ResolvedMarkdownPage): Readonly<ReactElemen
     <div
       data-component="markdown"
       data-layout="none"
+      // eslint-disable-next-line sovrium/require-sanitized-html -- markdown rendered from the app's own content directory (operator-authored files), with engine syntax highlighting
       dangerouslySetInnerHTML={buildHtmlContainer(markdown.html)}
     />
   )
@@ -252,20 +114,30 @@ function renderArticle(
     <article
       data-component="markdown"
       data-layout={layout}
-      className={wrapperClass}
+      className={cn(wrapperClass, markdown.parts?.['article'])}
     >
       {inlineToc}
       {docsHeader}
       {/*
         SSR-only: markdown HTML is sanitised by `renderMarkdownToHtml`
         (HTML-escapes author content before injecting our own emphasis tags).
-        Spec scenario [internal ref] verifies the boundary.
+        Spec scenario a pages markdown spec verifies the boundary.
       */}
-      <div dangerouslySetInnerHTML={buildHtmlContainer(markdown.html)} />
+      <div
+        className={layout === 'docs' ? DOCS_CONTENT_MEASURE_CLASSES : undefined}
+        // eslint-disable-next-line sovrium/require-sanitized-html -- markdown rendered from the app's own content directory (operator-authored files), with engine syntax highlighting
+        dangerouslySetInnerHTML={buildHtmlContainer(
+          applyProsePartClasses(markdown.html, markdown.parts)
+        )}
+      />
       {layout === 'docs' && markdown.lastUpdated !== undefined && (
         <p
           data-component="docs-last-updated"
-          className="text-foreground-subtle mt-10 text-sm"
+          className={cn(
+            'text-foreground-subtle mt-10 text-sm',
+            DOCS_CONTENT_MEASURE_CLASSES,
+            markdown.parts?.['lastUpdated']
+          )}
         >
           {labels.lastUpdated} {markdown.lastUpdated}
         </p>
@@ -312,18 +184,33 @@ function renderDocsLayout(
   return (
     // min-h subtracts the two-row docs header (6.5rem/104px, measured live) so a
     // short article still fills the viewport below the sticky header.
-    <div className="bg-background min-h-[calc(100dvh-6.5rem)]">
+    <div
+      className="bg-background min-h-[calc(100dvh-var(--sv-docs-sticky-offset,6.5rem))]"
+      style={docsFrameStyle(markdown.frame)}
+    >
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
       <style dangerouslySetInnerHTML={DOCS_PROSE_PATCH_HTML} />
       {/* Below `lg` the navigation is a menu button above the article, so the row
           stacks; from `lg` it is the three columns it has always been. */}
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pt-4 lg:flex-row lg:items-start lg:gap-8 lg:px-6 lg:pt-0">
+      <div
+        className={cn(
+          'mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pt-4 lg:flex-row lg:items-start lg:gap-8 lg:px-6 lg:pt-0',
+          markdown.parts?.['frame']
+        )}
+      >
         <DocsSidebarNav
           nav={markdown.collectionNav}
           menuLabel={labels.menu}
+          parts={markdown.parts}
         />
         {article}
         {toc}
       </div>
+      {/* After the frame, so the trigger it lifts is already parsed. */}
+      {markdown.frame?.menuButton === 'header' && (
+        // eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf
+        <script dangerouslySetInnerHTML={LIFT_MENU_BUTTON_SCRIPT} />
+      )}
     </div>
   )
 }
@@ -366,13 +253,12 @@ export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<Re
   const labels = getDocsChromeLabels(markdown.lang)
   const body = renderMarkdownBody(markdown, labels)
   // NOTE: there is deliberately no code-copy enhancement here. Every fence is
-  // now server-rendered inside a `<figure data-code-frame>` whose header carries
+  // server-rendered inside a `<figure data-code-frame>` whose header carries
   // an SSR copy button (`markdown-code-frames.ts`), wired to the same delegated
-  // `copyCodeScript` the config `code` component uses. The old client-side
-  // script that walked `pre.shiki` and APPENDED a button was deleted with that
-  // change: left in place it would append a SECOND identical control to every
-  // fence, giving docs readers two adjacent buttons and a screen-reader user
-  // "Copy, Copy".
+  // `copyCodeScript` the config `code` component uses. A client-side script
+  // walking `pre.shiki` and APPENDING a button would add a SECOND identical
+  // control to every fence, giving docs readers two adjacent buttons and a
+  // screen-reader user "Copy, Copy".
   //
   // Emit the TOC scroll-spy only when a TOC is actually rendered (the right-rail
   // / inline "On this page" list has links to track).
@@ -386,10 +272,13 @@ export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<Re
       {body}
       {hasToc && (
         <>
+          {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
           <style dangerouslySetInnerHTML={TOC_SCROLLSPY_STYLE_HTML} />
+          {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
           <script dangerouslySetInnerHTML={TOC_SCROLLSPY_SCRIPT_HTML} />
         </>
       )}
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- a same-file string literal, hoisted into a constant object for react-perf */}
       {hasDocsHeader && <script dangerouslySetInnerHTML={COPY_MARKDOWN_SCRIPT_HTML} />}
     </>
   )

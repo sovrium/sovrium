@@ -15,6 +15,7 @@ import {
   ChartMissingTable,
   type ChartEmptyStateConfig,
 } from './chart-states'
+import { chartAggregateOverGroups, useChartAggregate } from './use-chart-aggregate'
 import { useChartRecords } from './use-chart-records'
 import { useChartSystemRecords } from './use-chart-system-records'
 import type { ChartAggregateConfig, ChartCategoryOption } from './chart-aggregate'
@@ -23,7 +24,7 @@ import type {
   ChartLegendConfig,
   ChartTooltipConfig,
   ChartType,
-} from './chart-canvas'
+} from './chart-canvas-types'
 import type { ChartSeriesConfig } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
@@ -72,6 +73,9 @@ interface ChartIslandProps {
   readonly categoryOptions?: readonly ChartCategoryOption[]
   /** The plotted field's currency display, resolved server-side. */
   readonly valueCurrency?: CurrencyDisplayOptions
+  /** The groups come from one aggregate read (resolved server-side); else from a page of records. */
+  readonly aggregateRead?: boolean
+  readonly dataLabels?: boolean
 }
 
 /**
@@ -171,14 +175,19 @@ interface ChartData {
  * `/api/tables/:t/records`. Both hooks are called unconditionally (hook rules)
  * and gated internally via `enabled`, so only the active binding issues a fetch.
  */
-function useChartData(dataSource: ChartIslandProps['dataSource']): ChartData {
+function useChartData(
+  dataSource: ChartIslandProps['dataSource'],
+  aggregate: ChartAggregateConfig | undefined
+): ChartData {
   const usesSystemSource = isSystemSource(dataSource)
   const systemSource = usesSystemSource ? dataSource.system : undefined
   const tableSource = usesSystemSource ? undefined : dataSource
 
   const systemQuery = useChartSystemRecords(systemSource)
-  const tableQuery = useChartRecords(tableSource)
-  const { data, isLoading, isError, error } = usesSystemSource ? systemQuery : tableQuery
+  const groupQuery = useChartAggregate(aggregate === undefined ? undefined : tableSource, aggregate)
+  const tableQuery = useChartRecords(aggregate === undefined ? tableSource : undefined)
+  const active = usesSystemSource ? systemQuery : aggregate === undefined ? tableQuery : groupQuery
+  const { data, isLoading, isError, error } = active
   return { records: data?.records ?? [], isLoading, isError, error }
 }
 
@@ -196,11 +205,17 @@ export default function ChartIsland({
   ariaLabel: accessibleName,
   categoryOptions,
   valueCurrency,
+  aggregateRead,
+  dataLabels,
 }: ChartIslandProps): ReactElement {
-  const { records, isLoading, isError, error } = useChartData(dataSource)
+  // Grouped by the database when the server says the read can answer it.
+  // A view-bound chart reads the view's records, whatever the server resolved.
+  const viewBound = typeof (dataSource as { readonly view?: unknown }).view === 'string'
+  const readAggregate = aggregateRead === true && !viewBound ? chartAggregate : undefined
+  const { records, isLoading, isError, error } = useChartData(dataSource, readAggregate)
   const fields = useMemo(
-    () => ({ categoryOptions, valueCurrency }),
-    [categoryOptions, valueCurrency]
+    () => ({ categoryOptions, valueCurrency, dataLabels }),
+    [categoryOptions, valueCurrency, dataLabels]
   )
 
   const guard = evaluateChartGuards({
@@ -227,7 +242,7 @@ export default function ChartIsland({
       series={series}
       legend={legend}
       tooltip={tooltip}
-      chartAggregate={chartAggregate}
+      chartAggregate={readAggregate ? chartAggregateOverGroups(readAggregate) : chartAggregate}
       accessibleName={accessibleName}
       fields={fields}
     />

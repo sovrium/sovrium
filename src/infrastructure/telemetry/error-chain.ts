@@ -6,8 +6,7 @@
  */
 
 /**
- * Bounded, cycle-safe `Error.cause` traversal shared by every telemetry sink
- *.
+ * Bounded, cycle-safe `Error.cause` traversal shared by every telemetry sink.
  *
  * Sovrium wraps errors heavily — a single `DatabaseError` construction
  * pattern accounts for ~60 call sites across 19 modules, and each one passes the

@@ -1,0 +1,10 @@
+# Payment reminders a workspace sends: who, how late, and what it says.
+id: 7
+name: reminders
+fields:
+  - { id: 1, name: name, type: single-line-text }
+  - { id: 2, name: days_late, type: integer }
+  - { id: 3, name: message, type: long-text }
+permissions:
+  read: authenticated
+  create: authenticated

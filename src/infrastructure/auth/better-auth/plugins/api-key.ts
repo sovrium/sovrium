@@ -16,7 +16,7 @@ import type { Statements } from 'better-auth/plugins/access'
 
 /**
  * Derive the permission grant a newly-minted key carries, from the ROLE of the
- * user who minted it ([internal ref], D10).
+ * user who minted it (the self-service API key design, D10).
  *
  * This is the whole of the D10 mechanism, and it is deliberately *configuration*
  * rather than a hand-rolled derivation in a wrapper route: the plugin accepts
@@ -101,10 +101,8 @@ type ApiKeyPlugin = ReturnType<typeof apiKey>
 type BeforeHook = ApiKeyPlugin['hooks']['before'][number]
 type HookInput = Parameters<BeforeHook['handler']>[0]
 
-// eslint-disable-next-line functional/prefer-immutable-types -- the vendor's own hook type; a `Readonly<>` wrapper would not match the shape the plugin is registered and called with
 const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
   ...hook,
-  // eslint-disable-next-line functional/prefer-immutable-types -- same: `HookInput` is `better-call`'s own `MiddlewareInputContext`
   handler: (async (input: HookInput) => {
     const result = await hook.handler(input)
     const owner = (
@@ -114,7 +112,6 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
     const standing = owner as
       { readonly banned?: unknown; readonly banExpires?: unknown } | undefined
     if (isBanInForce(standing?.banned, standing?.banExpires)) {
-      // eslint-disable-next-line functional/no-throw-statements -- throwing an `APIError` IS Better Auth's hook-rejection protocol; the dispatcher maps it to the HTTP status, exactly as `admin-role-guards.ts` does
       throw new APIError('UNAUTHORIZED', { message: 'User is banned' })
     }
 
@@ -127,8 +124,7 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
  *
  * Gated exactly like `twoFactor` / `magicLink` / `emailOTP`: absent opt-in means
  * the plugin is not in the array at all, so `/api/auth/api-key/*` answers 404
- * rather than 401 — the surface does not acknowledge its own existence
- *.
+ * rather than 401 — the surface does not acknowledge its own existence.
  *
  * Three options, and each one is load-bearing:
  *
@@ -144,8 +140,7 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
  *    credential OFF `Authorization: Bearer`. `authMiddleware`'s `Bearer ` branch
  *    rebuilds a Headers containing only `authorization`, discarding the cookie
  *    and any `x-api-key`; it resolves nothing today and must stay that way
- *    rather than becoming a second, unaudited credential path
- *.
+ *    rather than becoming a second, unaudited credential path.
  *  - **`permissions.defaultPermissions`** as a FUNCTION — see
  *    {@link permissionsForRole}.
  *  - **`rateLimit: { enabled: false }`** turns OFF a limiter that is on by
@@ -178,7 +173,6 @@ export const buildApiKeyPlugin = (authConfig?: Auth) => {
     enableSessionForAPIKeys: true,
     rateLimit: { enabled: false },
     permissions: {
-      // eslint-disable-next-line functional/prefer-immutable-types -- `GenericEndpointContext` is the vendor's own callback parameter type; a `Readonly<>` wrapper here would not match the signature the plugin calls this with
       defaultPermissions: async (referenceId: string, ctx: GenericEndpointContext) => {
         const user = await ctx.context.internalAdapter.findUserById(referenceId)
         return permissionsForRole((user as { role?: string } | null)?.role, authConfig)

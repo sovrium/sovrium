@@ -26,6 +26,7 @@ import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
+import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
 import {
@@ -144,7 +145,7 @@ interface ResolveCollectionAndFilterInput {
   readonly detectedLanguage?: string
   /** [internal ref]: the host request query, forwarded to `resolveAndFilterPage`. */
   readonly requestQuery?: Readonly<Record<string, string>>
-  /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+  /** The `/:lang/` URL-prefix locale, when present. */
   readonly urlLanguage?: string
   /** G1: the app whose own `$app.*` facts the page reads (a mount's host app). */
   readonly hostApp?: App
@@ -171,7 +172,7 @@ interface ResolveCollectionAndFilterInput {
   readonly requestPath?: string
   /** P9: server-side reader for a SYSTEM-backed select option source. */
   readonly fetchSystemRows?: SystemRowsFetcher
-  /** [internal ref]: server-side reader for a page-level `{ system }` record binding. */
+  /** server-side reader for a page-level `{ system }` record binding. */
   readonly fetchSystemRecord?: SystemRecordFetcher
   /**
    * P10/mount: the caller's resolved powers. A mounted console renders
@@ -198,12 +199,13 @@ export async function resolveCollectionAndFilter(
   const { app, routeParams, session, cookies, db, previewMode } = input
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
-  const matchedPage = prepareRequestPage(input)
+  const invited = await resolvePageInvitation(input.matchedPage, input)
+  const matchedPage = prepareRequestPage({ ...input, matchedPage: invited })
   if (matchedPage === 'not-found') return undefined
   // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and
   // query context, grouped so it reads as one thing.
   const { detectedLanguage, requestQuery } = input
-  // [internal ref]: editorial-role preview bypasses
+  // editorial-role preview bypasses
   // collection.filter so admins/editors can preview drafts at the
   // canonical public URL. The route layer guarantees `previewMode` is
   // only `true` for editorial sessions, so the resolver does not need

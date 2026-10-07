@@ -44,7 +44,6 @@ export async function uploadToBucket(file: File, bucket: string): Promise<Bucket
   const json = (await res.json().catch(() => ({}))) as BucketUploadResponse
 
   if (!res.ok || json.success !== true || !json.key) {
-    // eslint-disable-next-line functional/no-throw-statements -- Rejection is how the caller distinguishes a failed upload from an empty one.
     throw new Error(json.message ?? json.error ?? `Upload failed with status ${res.status}`)
   }
 

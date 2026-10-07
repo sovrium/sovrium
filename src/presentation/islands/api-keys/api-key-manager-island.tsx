@@ -55,7 +55,6 @@ const API_KEYS_QUERY_KEY = ['api-keys', 'own'] as const
  */
 async function fetchApiKeysOrThrow(): Promise<readonly ApiKeySummary[]> {
   const next = await fetchApiKeys()
-  // eslint-disable-next-line functional/no-throw-statements -- a query reports a failed read by rejecting; the transport's `undefined` sentinel is converted here
   if (next === undefined) throw new Error('Failed to read the caller’s API keys')
   return next
 }

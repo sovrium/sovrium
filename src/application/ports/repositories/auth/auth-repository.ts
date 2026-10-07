@@ -83,8 +83,8 @@ export class AuthRepository extends Context.Service<
      * rather than for convenience: a caller that classifies a LIST of users —
      * the connected-users roster, an admin roster filter — otherwise issues one
      * pooled read per row, so a page of rows is a fan-out as wide as the page
-     * against a ten-connection pool. That is the mechanism of the 2026-07-25
-     * production 504; see
+     * against a ten-connection pool. That is the mechanism of a production
+     * 504 this port prevents; see
      * `[internal ref]`.
      *
      * Ids absent from the `user` table, and rows whose `role` column is NULL,
@@ -167,6 +167,16 @@ export class AuthRepository extends Context.Service<
     readonly findUserRole: (
       userId: string
     ) => Effect.Effect<{ readonly role: string | null } | undefined, AuthDatabaseError>
+    /**
+     * How the session `sessionId` was opened — its `sign_in_method`, `'passkey'`
+     * when a passkey opened it — or `undefined` when no such session exists or
+     * it records no method. Read by the MCP bearer bridge to decide whether an
+     * OAuth access token, through the session that authorised it, proves the
+     * passkey the admin plane may require of administrators.
+     */
+    readonly findSessionSignInMethod: (
+      sessionId: string
+    ) => Effect.Effect<string | undefined, AuthDatabaseError>
     /**
      * Ban a user account: sets `banned = true`, and `ban_reason` only when a
      * reason is supplied (an absent reason leaves the column untouched, matching

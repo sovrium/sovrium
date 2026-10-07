@@ -64,7 +64,6 @@ const collectRecording = (
   // Chunks arrive one event at a time; the holder is private to this recorder.
   const collected: { chunks: readonly Blob[] } = { chunks: [] }
   recorder.addEventListener('dataavailable', (event) => {
-    // eslint-disable-next-line functional/immutable-data -- see above
     if (event.data.size > 0) collected.chunks = [...collected.chunks, event.data]
   })
   recorder.addEventListener('stop', () => {
@@ -142,17 +141,14 @@ function useRecordingSession(
   const sessionRef = useRef(0)
   const unmountedRef = useRef(false)
   const onRecordedRef = useRef(onRecorded)
-  // eslint-disable-next-line functional/immutable-data -- latest-callback ref
   onRecordedRef.current = onRecorded
 
   const stop = useCallback((): void => {
     const active = activeRef.current
     if (active === undefined) {
-      // eslint-disable-next-line functional/immutable-data -- honoured once capture starts
       stopRequestedRef.current = true
       return
     }
-    // eslint-disable-next-line functional/immutable-data -- one recording at a time
     activeRef.current = undefined
     releaseRecording(active)
     if (!unmountedRef.current) setPhase('idle')
@@ -160,9 +156,7 @@ function useRecordingSession(
 
   /** Open a session for one press; its id is what `begin` must present. */
   const open = useCallback((): number => {
-    // eslint-disable-next-line functional/immutable-data -- reset for this press
     stopRequestedRef.current = false
-    // eslint-disable-next-line functional/immutable-data -- a newer press supersedes
     sessionRef.current += 1
     return sessionRef.current
   }, [])
@@ -173,7 +167,6 @@ function useRecordingSession(
         stream.getTracks().forEach((track) => track.stop())
         return
       }
-      // eslint-disable-next-line functional/immutable-data -- one recording at a time
       activeRef.current = startRecording(stream, type, (file) => {
         // A recording cut short by unmounting is discarded, not transcribed.
         if (!unmountedRef.current) onRecordedRef.current(file)
@@ -189,7 +182,6 @@ function useRecordingSession(
   // microphone light on; a grant still pending is released when it lands.
   useEffect(
     () => () => {
-      // eslint-disable-next-line functional/immutable-data -- lifecycle flag
       unmountedRef.current = true
       stop()
     },

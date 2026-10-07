@@ -7,6 +7,11 @@
 
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
+import {
+  ActivityDatabaseError,
+  ActivityNotFoundError,
+  type ActivityLogWithUser,
+} from '@/application/ports/repositories/analytics/activity-repository'
 import { Database } from '@/infrastructure/database'
 import {
   authUsersTable,
@@ -24,41 +29,6 @@ import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/dr
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 /**
- * Activity log with user metadata
- */
-export interface ActivityLogWithUser {
-  readonly id: string
-  readonly userId: string
-  readonly action: string
-  readonly tableName: string
-  /** The record id as the records API names it — the text the log stores. */
-  readonly recordId: string
-  readonly changes: Record<string, unknown> | null
-  readonly createdAt: Date
-  readonly user: {
-    readonly id: string
-    readonly name: string
-    readonly email: string
-  }
-}
-
-/**
- * Database error for activity queries
- */
-export class ActivityDatabaseError {
-  readonly _tag = 'ActivityDatabaseError'
-  constructor(readonly cause: unknown) {}
-}
-
-/**
- * Activity not found error
- */
-export class ActivityNotFoundError {
-  readonly _tag = 'ActivityNotFoundError'
-  constructor(readonly activityId: string) {}
-}
-
-/**
  * Get activity log by ID with user metadata
  *
  * Fetches activity log details with a JOIN to the users table to include
@@ -67,7 +37,9 @@ export class ActivityNotFoundError {
  * @param activityId - Activity log ID (UUID string)
  * @returns Effect program that resolves to activity with user metadata or fails with error
  */
-export const getActivityById = (activityId: string) =>
+export const getActivityById = (
+  activityId: string
+): Effect.Effect<ActivityLogWithUser, ActivityNotFoundError | ActivityDatabaseError, Database> =>
   Effect.gen(function* () {
     const db = yield* Database
 
@@ -105,7 +77,6 @@ export const getActivityById = (activityId: string) =>
     const row = result[0]
 
     // Changes is already JSONB (parsed by Drizzle), cast to expected type
-    // eslint-disable-next-line unicorn/no-null -- Null is intentional for JSONB columns with no data
     const changes = (row.changes as Record<string, unknown> | null) ?? null
 
     const activity: ActivityLogWithUser = {

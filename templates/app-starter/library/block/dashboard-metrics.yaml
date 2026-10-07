@@ -1,0 +1,148 @@
+# sovrium-library: block/dashboard-metrics@0.30.0
+name: dashboard-metrics
+type: container
+element: section
+props:
+  className: mx-auto flex w-full max-w-360 flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-wrap items-end justify-between gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: 'Metrics'
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: 'Where projects come from, over the period.'
+      - type: container
+        element: nav
+        props:
+          aria-label: Period
+          className: flex w-fit items-center gap-0.5 rounded-md border border-border p-0.5
+        children:
+          - type: link
+            content: 7 days
+            props:
+              href: '?period=7d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 7d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+          - type: link
+            content: 30 days
+            props:
+              href: '?period=30d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 30d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+          - type: link
+            content: 90 days
+            props:
+              href: '?period=90d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 90d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 sm:grid-cols-3
+    children:
+      - type: kpi
+        label: 'Budget'
+        dataSource: &dataSource
+          table: projects
+          filter:
+            - field: due_date
+              operator: gte
+              value: $window.start
+            - field: due_date
+              operator: lte
+              value: $window.end
+        kpiAggregate:
+          function: sum
+          field: budget
+        kpiFormat: &kpiFormat
+          type: currency
+          options:
+            currency: EUR
+        sparkline: &sparkline
+          field: budget
+          groupBy: due_date
+          interval: day
+          days: 30
+      - type: kpi
+        label: 'Projects'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: count
+        kpiFormat:
+          type: number
+        sparkline: *sparkline
+      - type: kpi
+        label: 'Average budget'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: avg
+          field: budget
+        kpiFormat: *kpiFormat
+        sparkline: *sparkline
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 lg:grid-cols-12
+    children:
+      - type: container
+        element: section
+        props:
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-7
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-md font-semibold text-foreground
+            content: 'Budget by type'
+          - type: chart
+            chartType: bar
+            dataSource: *dataSource
+            chartAggregate: &chartAggregate
+              function: sum
+              field: budget
+              groupBy: category
+              order: value-desc
+              limit: 5
+              otherLabel: Other
+      - type: container
+        element: section
+        props:
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-5
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-md font-semibold text-foreground
+            content: 'Share of budget'
+          - type: chart
+            chartType: donut
+            dataLabels: false
+            dataSource: *dataSource
+            chartAggregate: *chartAggregate
+            legend:
+              position: right

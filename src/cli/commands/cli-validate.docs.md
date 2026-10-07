@@ -19,6 +19,37 @@ sovrium validate app.yaml || exit 1
 
 **One validation, three commands.** `validate`, `start` and `build` read your config through the same pipeline: the same authoring shorthands are accepted, and the same cross-field rules are enforced. A config `sovrium validate` accepts is a config `sovrium start` boots.
 
+### Every mistake, in one report
+
+`validate` reports every mistake it finds in one run, not the first one. A config with a wrong strategy type under `auth`, a field without its `name`, and a misspelled component property in a `$ref` partial prints all three:
+
+```console
+$ sovrium validate app.yaml
+Error: Validation failed.
+
+3 problems
+
+app.yaml
+  Expected Auth Strategy, got {"type":"emailAndPasword"}
+    at auth.strategies[0]
+    Accepted variants: Email and Password Strategy, Magic Link Strategy, OAuth Strategy
+  Missing key
+    at ["tables"][0]["fields"][0]["name"]
+
+pages/home.yaml
+  Unknown property 'elemnt' on component type 'text'
+    at pages[0].components[0]
+    Did you mean 'element'?
+    Accepted here: type, children, props, content, interactions, responsive, visibility, i18n, session, element, required
+```
+
+- **A count heads the list** — `1 problem`, `3 problems` — so you know how much is coming.
+- **One heading per file.** Each is the file's path from the root config's directory — `pages/home.yaml`, not `home.yaml`, because two partials in two folders can share a name. The root config comes first, then each partial. Within a file, problems follow the order the keys appear in it.
+- **One mistake, one problem.** A value that matches none of the shapes a position accepts is reported against the shape you meant — the one whose `type` you wrote, or that recognises most of your keys — and never again for the shapes it was compared with and ruled out.
+- **At most 50 in prose.** Past that, the report prints the first 50 and closes with `and N more problems`; fix those and run again. The ceiling is for a terminal: `--json` carries every finding, however many there are.
+
+`sovrium start` and `sovrium build` print the same report between their own first line — `Sovrium refused this configuration — nothing was started.` (or `built`) — and a closing pointer to `sovrium validate`, and exit `1` having started or built nothing.
+
 ### `--json` — the same verdict, for a program
 
 `sovrium validate app.yaml --json` reports the verdict as one JSON document instead of prose. It is for the readers a terminal does not serve: an editor underlining the offending line, a CI step, a supervising shell, or the AI that just wrote the config and has to find out whether the edit landed.
@@ -76,7 +107,7 @@ A finding:
 | `sourceFile` | The `$ref` partial the mistake lives in, present only for a split config. There, `path` names a position in the _resolved_ document, which exists in no file; this names the file to open |
 | `severity`   | `"error"` on every finding. Every refusal `validate` reports is fatal; the field exists so a reader never has to infer that from the exit code of the whole run                           |
 
-Two things to build around. A config that cannot be **read** at all — a missing file, an unsupported extension — is refused before a verdict exists, so it prints an `Error:` line on stderr and exits `1` with no JSON document. And the decoder stops at the first structural refusal, so a config with several unrecognised properties reports them one run at a time.
+Two things to build around. A config that cannot be **read** at all — a missing file, an unsupported extension — is refused before a verdict exists, so it prints an `Error:` line on stderr and exits `1` with no JSON document. And `findings` carries **every** mistake the run found, with no ceiling: the 50-problem limit applies to the prose report only, because a program can page through what a person would have to scroll.
 
 The same finding shape is published by a running instance's status file, described in **Lifecycle Commands**, and pushed to the browser when a `--watch` save is refused — one vocabulary, whether you asked the question or were told the answer.
 
@@ -94,7 +125,7 @@ What survives is always enough to act on: the path, the complaint, and the shape
 
 ### Notices
 
-A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today three exist — a superseded design key, a field whose id is left implicit, and an engine interface string overridden under its bare name.
+A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today four exist — a superseded design key, a field whose id is left implicit, an engine interface string overridden under its bare name, and a prose part (`paragraph`, `heading2`, `list` …) spaced with the `my-*` shorthand, which paints nothing there: the notice names the token, the part and the `mt-*` / `mb-*` spelling that does. A **deprecated key** is told the same way: it is still accepted for one release, and `sovrium validate`, `sovrium start` and `sovrium build` each print one `Warning:` line per occurrence on **stderr** — naming the key, its path, the release that will refuse it and what to write instead — without changing the verdict or the exit code.
 
 #### `field-id-implicit`
 
@@ -182,8 +213,19 @@ Print the JSON Schema (Draft 2020-12) for the app configuration — the same doc
 
 ```bash
 sovrium schema
-sovrium schema --output app.schema.json
+sovrium schema --output schemas/app.json
 ```
+
+With `--output`, the full schema is joined by files for editing **one section** of a config — what a `$ref` partial holds. For `--output schemas/app.json`:
+
+| File                     | What it describes                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `schemas/app.json`       | The whole config. Byte-for-byte what `sovrium schema` prints                                                         |
+| `schemas/app.index.json` | The whole config too, with each top-level key pointing at its own file                                               |
+| `schemas/app/<key>.json` | The value of one top-level key — `app/tables.json` is what a `tables.yaml` partial holds, `app/pages.json` a `pages` |
+| `schemas/app/_defs.json` | The definitions the per-key files share, written once rather than copied into each                                   |
+
+The files reference each other by relative path and declare no `$id`, so an editor resolves them on disk, never over the network. Printing to stdout writes nothing at all.
 
 It takes no arguments beyond the output path and reads nothing from the environment: the schema is derived from the config schema itself, so the output depends only on the Sovrium version. That makes it safe to regenerate in CI and diff — a change in the file is a change in the schema, never in the machine that ran it.
 

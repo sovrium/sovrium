@@ -170,11 +170,12 @@ export const AutomationSchema = Schema.Struct({
   /** Per-automation permission configuration */
   permissions: Schema.optional(
     Schema.Struct({
-      /** Who can trigger this automation (e.g., via chat commands, manual trigger) */
+      /** Who may start this automation by name, on any road (narrows `requiredRole`, never widens) */
       trigger: Schema.optional(
         PermissionValueSchema.pipe(
           Schema.annotate({
-            description: "Who can trigger this automation. 'all', 'authenticated', or role array.",
+            description:
+              "Who may start this automation by name, on any road — the trigger endpoint, the MCP tool and the AI chat: 'all', 'authenticated', or a role array. It narrows the manual trigger's requiredRole and never widens it.",
           })
         )
       ),

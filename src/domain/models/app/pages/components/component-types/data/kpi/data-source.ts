@@ -106,7 +106,7 @@ export const KpiSystemSourceSchema = Schema.Struct({
 
 /**
  * KPI data source binding — discriminated by which key is present:
- * - `{ table, ... }`                  → DB-table binding (unchanged, aggregated client-side)
+ * - `{ table, ... }`                  → DB-table binding (the figure from the table's aggregate read)
  * - `{ system: { endpoint, ... } }`   → system read-endpoint binding (scalar value-path)
  */
 export const KpiDataSourceSchema = Schema.Union([
@@ -122,7 +122,7 @@ export const KpiDataSourceSchema = Schema.Union([
   identifier: 'KpiDataSource',
   title: 'KPI Data Source',
   description:
-    'Data binding for the KPI: a DB table (aggregated client-side) OR a system read endpoint (pre-computed scalar value-path)',
+    'Data binding for the KPI: a DB table (its figure computed by the server over every matching record) OR a system read endpoint (pre-computed scalar value-path)',
 })
 
 // ---------------------------------------------------------------------------

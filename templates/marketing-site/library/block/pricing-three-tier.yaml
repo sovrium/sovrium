@@ -1,0 +1,306 @@
+# sovrium-library: block/pricing-three-tier@0.30.0
+name: pricing-three-tier
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col mx-auto max-w-2xl items-center gap-4 text-center
+        children:
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: $t:pricing.heading
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: $t:pricing.lead
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 items-stretch gap-4 lg:grid-cols-3
+        children:
+          - type: card
+            props:
+              className: flex flex-col gap-4 p-6 sm:p-8
+            children:
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-2
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-xl font-semibold text-foreground
+                    content: $t:pricing.planA
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: $t:pricing.forA
+              - type: flex
+                props:
+                  className: flex items-baseline gap-2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                    content: $t:pricing.price
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: $t:pricing.period
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                content: $t:pricing.chooseA
+              - type: divider
+              - type: flex
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.included
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.included
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.limit
+          - type: card
+            props:
+              className: flex flex-col gap-4 p-6 sm:p-8 border-foreground ring-1 ring-foreground
+            children:
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-2
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-xl font-semibold text-foreground
+                    content: $t:pricing.planB
+                  - type: badge
+                    content: $t:pricing.mostChosen
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: $t:pricing.forB
+              - type: flex
+                props:
+                  className: flex items-baseline gap-2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                    content: $t:pricing.price
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: $t:pricing.period
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                content: $t:pricing.chooseB
+              - type: divider
+              - type: flex
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.everythingA
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.included
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.included
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.limit
+          - type: card
+            props:
+              className: flex flex-col gap-4 p-6 sm:p-8
+            children:
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-2
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-xl font-semibold text-foreground
+                    content: $t:pricing.planC
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                content: $t:pricing.forC
+              - type: flex
+                props:
+                  className: flex items-baseline gap-2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-5xl font-medium tracking-tight text-foreground text-4xl
+                    content: $t:pricing.price
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: $t:pricing.period
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                content: $t:pricing.chooseC
+              - type: divider
+              - type: flex
+                props:
+                  className: flex flex-col gap-2
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.everythingB
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.included
+                  - type: flex
+                    props:
+                      className: flex items-start gap-2
+                    children:
+                      - type: icon
+                        props:
+                          name: check
+                          size: 18
+                          className: mt-0.5 flex-none text-foreground
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md text-foreground-muted
+                        content: $t:pricing.contact
+      - type: flex
+        props:
+          className: flex flex-col mt-6 items-center text-center
+        children:
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle
+            content: $t:pricing.taxNote

@@ -53,7 +53,7 @@ export const tableChannel = (appId: string, tableName: string): string =>
 export type RecordChangeEvent = 'insert' | 'update' | 'delete'
 
 /**
- * The actor that produced a record change ([internal ref] Phase 2, design §5).
+ * The actor that produced a record change.
  *
  * `'user'` — an ordinary user-originated CRUD write (the default).
  * `'ai-refine'` — the async AI-compute refinement write-back. The realtime

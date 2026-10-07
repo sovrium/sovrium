@@ -6,14 +6,16 @@
  */
 
 import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
+import { resolveTypedColumnConfig } from '@/presentation/design/field-control-attributes'
 import {
   declaredFieldDescription,
   declaredFieldLabel,
   resolveDisplayDescription,
   resolveDisplayLabel,
 } from '@/presentation/design/field-display'
-import { fieldWidgetOf, showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
+import { showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/design/string-utils'
+import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
 import {
   callerTableOf,
   readableFieldsOf,
@@ -25,30 +27,6 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
 import type { FieldType } from '@/domain/models/app/tables/fields'
-import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
-
-/**
- * Normalize a choice field's declared options to their VALUE strings.
- *
- * `single-select` / `multi-select` declare `options: string[]`, but `status`
- * declares `options: { value, color }[]`. Rendering the raw entry would emit
- * `<option value="[object Object]">`, so the object form is unwrapped here —
- * once, at the single boundary where table-schema fields become form fields —
- * rather than in each of the two renderers.
- */
-function normalizeOptions(raw: unknown): readonly string[] | undefined {
-  if (!Array.isArray(raw)) return undefined
-  return raw
-    .map((entry) => {
-      if (typeof entry === 'string') return entry
-      if (typeof entry === 'object' && entry !== null) {
-        const { value } = entry as Record<string, unknown>
-        return typeof value === 'string' ? value : undefined
-      }
-      return undefined
-    })
-    .filter((value): value is string => value !== undefined)
-}
 
 /**
  * Read a table field's schema-declared `default` as a form default value.
@@ -64,7 +42,7 @@ function declaredDefaultOf(
   fieldType: string
 ): string | number | boolean | undefined {
   if (!showsDeclaredDefault(fieldType)) return undefined
-  const value = (tableField as unknown as Record<string, unknown>)['default']
+  const value = (tableField as Record<string, unknown>)['default']
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value
   }
@@ -132,12 +110,6 @@ function resolveCfgOverrides(cfg: FormFieldConfig) {
     // table field's schema-declared `default`.
     ...(cfg.defaultValue !== undefined && { defaultValue: cfg.defaultValue }),
     hidden: cfg.hidden,
-    visibleWhen: cfg.visibleWhen,
-    requiredWhen: cfg.requiredWhen,
-    disabledWhen: cfg.disabledWhen,
-    accept: cfg.accept,
-    dropZone: cfg.dropZone,
-    maxFiles: cfg.maxFiles,
   }
 }
 
@@ -162,7 +134,7 @@ function resolveDisplayProps(
 }
 
 /**
- * [internal ref]: the file field uploads to — and previews from — the bucket DECLARED
+ * The file field uploads to — and previews from — the bucket DECLARED
  * on the bound column, not the built-in `system` and not the "single declared
  * bucket" heuristic used for the rich-text image button (which is wrong the
  * moment an app declares two buckets).
@@ -202,7 +174,7 @@ function resolveAllowedFileTypes(
  * Carry a `relationship` column's picker configuration onto the resolved field
  * def, so the form renders a real record picker instead of a text box.
  *
- * This is the gap [internal ref] names: the GRID has read `relatedTable` /
+ * This is the gap the relationship-field `allowCreate`/`maxLinked` design names: the GRID has read `relatedTable` /
  * `displayField` / `allowMultiple` off `fieldMeta.edit` since the cell editor
  * shipped, while the form's resolver composed no relationship extractor at all
  * — so none of those properties ever reached the client and the widget degraded
@@ -254,43 +226,14 @@ function resolveButtonConfig(
   }
 }
 
-/**
- * Carry a typed column's own control configuration onto the resolved field def,
- * so the form draws the control the data table edits that column with: a number
- * input stepped by `precision`, with its currency or percent sign and its bounds;
- * a date-and-time input read in the column's `timeZone`; a rating scale of `max`
- * ranks in the column's glyph. Returns an empty overlay for every other type so
- * the caller spreads it unconditionally. The hosted form reads the same overlay
- * (`form-field-resolver.ts`), so a column is configured alike on both forms.
- */
-export function resolveTypedColumnConfig(
-  fieldType: string,
-  tf: Readonly<Record<string, unknown>>
-): TypedColumnConfig {
-  const widget = fieldWidgetOf(fieldType)
-  const numberProp = (key: string) => (typeof tf[key] === 'number' ? { [key]: tf[key] } : {})
-  const stringProp = (key: string, as = key) =>
-    typeof tf[key] === 'string' ? { [as]: tf[key] } : {}
-  if (widget === 'number') {
-    return {
-      ...numberProp('precision'),
-      ...numberProp('min'),
-      ...numberProp('max'),
-      ...stringProp('currency'),
-      ...stringProp('symbolPosition'),
-    }
-  }
-  if (widget === 'rating') return { ...numberProp('max'), ...stringProp('style', 'ratingStyle') }
-  if (widget === 'datetime') return stringProp('timeZone')
-  return {}
-}
-
 function resolveFieldDef(
   tableField: { readonly name: string; readonly type: string; readonly required?: boolean },
   cfg: FormFieldConfig | undefined,
   imageBucket: string | undefined
 ): ResolvedFieldDef {
-  const options = normalizeOptions((tableField as Record<string, unknown>)['options'])
+  // Each option as `{ value, label }`, read as a `formRef` form reads it; the
+  // renderer translates a `$t:` label in the page language.
+  const options = readColumnOptions(tableField, undefined, undefined)
   const fallbackLabel = humanizeFieldName(tableField.name)
   const passthrough = extractFieldTypePassthrough(tableField)
   // imageBucket is only meaningful for rich-text; including it on every type
@@ -366,7 +309,7 @@ export function buildResolvedFieldDefs(
   const fieldsConfig = getFieldsConfig(component)
   // Rich-text image-button bucket binding: the contract is "the single bucket
   // declared in the schema's buckets[] array" (asserted by
-  // [internal ref]). When zero or more than one bucket is
+  // A pages CRUD wysiwyg spec). When zero or more than one bucket is
   // declared, no implicit binding happens — the editor falls back to a
   // server-default bucket.
   const imageBucket = buckets && buckets.length === 1 ? buckets[0]!.name : undefined
@@ -383,31 +326,8 @@ export function buildResolvedFieldDefs(
 }
 
 /**
- * The fields a CREATE form renders an input for. A form listing its `fields`
- * renders those; a form listing none generates one input per field of the
- * table. Either list is narrowed, when the page stamped the reader's view of
- * the table (`props._callerTable`), to the fields she may write
- * (`writableFieldsOf`, the records API's own write predicate, which names no
- * field she may not read): a new record has no value to show for any other,
- * and the island props and the server-drawn controls are both built from this
- * one list.
- */
-export function buildCreateFieldDefs(
-  tables: Tables | undefined,
-  tableName: string,
-  component?: Component,
-  buckets?: Buckets
-): readonly ResolvedFieldDef[] {
-  const defs = buildResolvedFieldDefs(tables, tableName, component, buckets)
-  const callerTable = component === undefined ? undefined : callerTableOf(component)
-  if (callerTable === undefined) return defs
-  const writable = new Set(writableFieldsOf(callerTable))
-  return defs.filter((def) => writable.has(def.name))
-}
-
-/**
- * The fields an UPDATE form renders a control for, from the same per-reader
- * answer a create form reads (`props._callerTable`): a control only for a field
+ * The fields an UPDATE form renders a control for, from the per-reader answer
+ * the page stamped (`props._callerTable`): a control only for a field
  * she may write — the records API's own write predicate, which names no field
  * she may not read. A form the page drew read-only (`readOnly`: the table's
  * `update` refuses her) shows every field she may READ, disabled, instead.

@@ -8,16 +8,16 @@
 import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runtime-ready-marks'
 
 /**
- * Client-side enhancement payloads for the markdown article ([internal ref], P4). These are inline `<style>`/`<script>` string
+ * Client-side enhancement payloads for the markdown article (the pages layout markdown pages requirements, P4). These are inline `<style>`/`<script>` string
  * literals injected via `dangerouslySetInnerHTML` — the "no island runtime"
  * pattern for the docs article: a prose-styling patch, the TOC scroll-spy, and
  * the header Copy-as-Markdown control.
  *
- * The per-code-block copy button used to live here too, as a script that walked
- * every `pre.shiki` and APPENDED a control. It is gone: fences are now
- * server-rendered inside the shared code-block frame with the button already in
- * their header (`markdown-code-frames.ts`), so the script would append a SECOND
- * identical control to every block.
+ * There is no per-code-block copy script here (one walking every `pre.shiki`
+ * and APPENDING a control): fences are server-rendered inside the shared
+ * code-block frame with the button already in their header
+ * (`markdown-code-frames.ts`), so such a script would append a SECOND identical
+ * control to every block.
  *
  * They live here (not in `markdown-article.tsx`) purely to keep that SSR
  * component under its line cap; the hoisted `*_HTML` wrappers are exported so
@@ -59,21 +59,24 @@ import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runti
  *      re-asserted on `li` in (4) is handed back too: a crumb takes the trail's
  *      tone and the current crumb the foreground role, whatever prose paints.
  *
+ *   6. An element the author styled by part (`markdown.classes`) carries
+ *      `data-part`, and the rules above that would outrank its classes skip it.
+ *
  * Raw author selectors do not need to live in `BUILTIN_CSS_CANDIDATES` (only
  * Tailwind utility class names are candidate-gated), so this scoped sheet is
  * safe to inject directly without a `bun run build:css-assets` regeneration.
  */
 const DOCS_PROSE_PATCH = `
-.prose :where(p,li){color:var(--tw-prose-body);}
-.prose :where(a):not(:where([data-component] *)){color:var(--color-warmth, var(--color-foreground));text-decoration:underline;text-underline-offset:2px;}
-.prose :where(a):not(:where([data-component] *)):hover{color:var(--color-warmth-border, var(--color-border-strong));}
+.prose :where(p,li):not([data-part]){color:var(--tw-prose-body);}
+.prose :where(a):not(:where([data-component] *)):not([data-part]){color:var(--color-warmth, var(--color-foreground));text-decoration:underline;text-underline-offset:2px;}
+.prose :where(a):not(:where([data-component] *)):not([data-part]):hover{color:var(--color-warmth-border, var(--color-border-strong));}
 .prose :where(:not(pre)>code)::before,.prose :where(:not(pre)>code)::after{content:none;}
-.prose :where(:not(pre)>code){color:var(--color-warmth, var(--color-foreground));background:#f5f0eb;border:1px solid #e5ded5;border-radius:.375rem;padding:.1rem .4rem;font-weight:500;}
-.dark .prose :where(:not(pre)>code){background:#171717;border-color:#262626;}
+.prose :where(:not(pre)>code):not([data-part]){color:var(--color-warmth, var(--color-foreground));background:#f5f0eb;border:1px solid #e5ded5;border-radius:.375rem;padding:.1rem .4rem;font-weight:500;}
+.dark .prose :where(:not(pre)>code):not([data-part]){background:#171717;border-color:#262626;}
 .prose pre.shiki{background:#0d0d0d;color:#e1e4e8;border:1px solid #262626;border-radius:.75rem;padding:1rem 1.25rem;overflow-x:auto;}
 .prose pre.shiki code{background:none;border:0;padding:0;color:inherit;font-weight:400;}
-.prose .md-callout,.prose [data-component="alert"]{border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:0 0 1.5rem;color:#3f3a34;}
-.dark .prose .md-callout,.dark .prose [data-component="alert"]{border-color:#262626;background:#171717;color:#d4d4d4;}
+.prose .md-callout:not([data-part]),.prose [data-component="alert"]:not([data-part]){border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:0 0 1.5rem;color:#3f3a34;}
+.dark .prose .md-callout:not([data-part]),.dark .prose [data-component="alert"]:not([data-part]){border-color:#262626;background:#171717;color:#d4d4d4;}
 .prose [data-component="alert"][data-type="note"]{border-left-color:var(--color-foreground-subtle);}
 .prose [data-component="alert"][data-type="tip"]{border-left-color:var(--color-success-solid);}
 .prose [data-component="alert"][data-type="warning"]{border-left-color:var(--color-warning-solid);}

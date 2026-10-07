@@ -76,7 +76,6 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       db
         .update(userFavorites)
         .set({
-          // eslint-disable-next-line unicorn/no-null -- nullable column requires SQL NULL
           deletedAt: null,
           tableId: tableName,
           createdAt: new Date(),
@@ -169,7 +168,6 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       const offsetClause = isSqliteRuntime()
         ? sql`LIMIT -1 OFFSET ${maxItems}`
         : sql`OFFSET ${maxItems}`
-      // eslint-disable-next-line functional/no-expression-statements -- DB side effect: raw prune DELETE
       await executeRaw(
         db,
         sql`DELETE FROM ${userRecentItems} WHERE id IN (
@@ -192,7 +190,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       try {
         const rows = (await db.execute(
           sql`SELECT 1 FROM ${sql.identifier(physicalName)} WHERE id = ${entity.entityId} LIMIT 1`
-        )) as unknown as readonly unknown[]
+        )) as readonly unknown[]
         return rows.length > 0
       } catch {
         return false

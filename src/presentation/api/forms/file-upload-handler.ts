@@ -5,10 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { canonicalMimeType } from '@/domain/kernel/identity/mime-types'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import {
+  admitReadFormFile,
+  failGenerically,
+  readOne,
+  type AdmittedFormFile,
+  type FormUploadError,
+  type FormUploadRefusedError,
+} from '@/presentation/api/forms/file-upload-admission'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -37,10 +44,6 @@ export interface FileMetadata {
   readonly size: number
   readonly mimeType: string
 }
-
-export class FormUploadError extends Data.TaggedError('FormUploadError')<{
-  readonly message: string
-}> {}
 
 /**
  * Resolve the storage bucket for a specific form field. Precedence:
@@ -239,41 +242,54 @@ const isMultiFileField = (
 }
 
 /**
- * Upload a single File to the resolved bucket and produce canonical
- * metadata. Mirrors the bucket-route upload key convention
- * (`<uuid>-<original-filename>`) so downloads via
- * `GET /api/buckets/:bucket/files/:key` resolve through the same code path.
+ * Upload one admitted file and produce canonical metadata. Mirrors the
+ * bucket-route upload key convention (`<uuid>-<original-filename>`) so downloads
+ * via `GET /api/buckets/:bucket/files/:key` resolve through the same code path.
+ * A signed-in submitter is recorded as the uploader, which is what erasure
+ * removes her files by; an anonymous upload names nobody.
  */
 const uploadOne = (
-  bucketName: string,
-  file: File
+  formName: string,
+  admitted: Readonly<AdmittedFormFile>,
+  uploadedById: string | undefined
 ): Effect.Effect<FileMetadata, FormUploadError, StorageService> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    const arrayBuffer = yield* Effect.tryPromise({
-      try: () => file.arrayBuffer(),
-      catch: (cause) =>
-        new FormUploadError({ message: `Could not read ${file.name}: ${String(cause)}` }),
-    })
-    const bytes = new Uint8Array(arrayBuffer)
-    // Browsers disagree on the spelling of one type (`audio/x-m4a` vs
-    // `audio/mp4`); the stored metadata carries the registered one.
-    const mimeType = canonicalMimeType(file.type) || 'application/octet-stream'
+    const { bucketName, bytes, file, mimeType } = admitted
     const key = `${crypto.randomUUID()}-${file.name}`
+    const target = uploadedById === undefined ? bucketName : { bucket: bucketName, uploadedById }
     yield* storage
-      .upload(key, bytes, mimeType, bucketName)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new FormUploadError({ message: `Upload failed for ${file.name}: ${String(cause)}` })
-        )
-      )
+      .upload(key, bytes, mimeType, target)
+      .pipe(failGenerically(formName, 'storing an uploaded file'))
     return {
       url: `/api/buckets/${bucketName}/files/${key}`,
       name: file.name,
       size: bytes.length,
       mimeType,
     }
+  })
+
+type FileGroupOf<T> = readonly [field: string, files: readonly T[]]
+
+/**
+ * Read every file of the submission, then admit every one of them, before the
+ * first upload — so a refused file leaves nothing stored.
+ */
+const admitAllFiles = (
+  app: Readonly<App>,
+  form: Readonly<Form>,
+  grouped: readonly FileGroup[]
+): Effect.Effect<
+  readonly FileGroupOf<AdmittedFormFile>[],
+  FormUploadError | FormUploadRefusedError
+> =>
+  Effect.forEach(grouped, ([field, files]) => {
+    const bucketName = resolveFormBucket(app, form, field)
+    return Effect.forEach(files, (file) =>
+      readOne(form.name, field, file).pipe(
+        Effect.flatMap((read) => admitReadFormFile(app, form, read, bucketName))
+      )
+    ).pipe(Effect.map((admitted): FileGroupOf<AdmittedFormFile> => [field, admitted]))
   })
 
 /**
@@ -283,32 +299,42 @@ const uploadOne = (
  * (`attachments[0]`, `attachments[1]`) are collapsed to a single
  * `attachments` array.
  *
+ * Every file is first checked against its field's `accept` and `maxFileSize`
+ * and its bucket's policy; one refusal fails the whole submission with
+ * {@link FormUploadRefusedError} before anything is stored.
+ *
+ * A signed-in `submitter` is recorded as the uploader of every stored file.
+ *
  * When no Files are present, returns the original body unchanged so the
  * function is safe to call on JSON submissions too.
  */
 export const transformMultipartFiles = (
   app: Readonly<App>,
   form: Readonly<Form>,
-  body: Readonly<Record<string, unknown>>
-): Effect.Effect<Record<string, unknown>, FormUploadError, StorageService> =>
+  body: Readonly<Record<string, unknown>>,
+  submitter?: { readonly userId: string }
+): Effect.Effect<
+  Record<string, unknown>,
+  FormUploadError | FormUploadRefusedError,
+  StorageService
+> =>
   Effect.gen(function* () {
     const grouped = groupFilesByField(body)
     if (grouped.length === 0) return { ...body }
 
-    // Upload every file in parallel. Bucket is resolved per-field so
-    // each attachment column writes through its declared `bucket`
-    // (column-level binding wins over app-level fallback). Field name
-    // is paired back with the resulting metadata in insertion order so
-    // single-attachment fields get a single object and multi-attachment
-    // fields get an array.
+    const admitted = yield* admitAllFiles(app, form, grouped)
+
+    // Upload every admitted file in parallel. Each field writes through its own
+    // bucket (column-level binding wins over the app-level fallback), and the
+    // field name is paired back with its metadata in insertion order so
+    // single-attachment fields get a single object and multi-attachment fields
+    // get an array.
     const uploaded = yield* Effect.forEach(
-      grouped,
-      ([field, files]) => {
-        const bucketName = resolveFormBucket(app, form, field)
-        return Effect.forEach(files, (file) => uploadOne(bucketName, file)).pipe(
+      admitted,
+      ([field, files]) =>
+        Effect.forEach(files, (file) => uploadOne(form.name, file, submitter?.userId)).pipe(
           Effect.map((metas) => [field, metas] as const)
-        )
-      },
+        ),
       { concurrency: 'unbounded' }
     )
 
@@ -325,7 +351,6 @@ export const transformMultipartFiles = (
 
     const replacementEntries = uploaded.map(([field, metas]): readonly [string, unknown] => {
       const isMulti = isMultiFileField(app, form, field, metas.length)
-      // eslint-disable-next-line unicorn/no-null -- single-attachment public contract: null when no file
       return [field, isMulti ? metas : (metas[0] ?? null)]
     })
 

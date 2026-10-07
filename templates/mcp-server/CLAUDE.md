@@ -13,6 +13,9 @@ the server on and connect a client. Nobody can open an account; the admin comes 
   and `permissions`: every role reads, an editor also creates and updates documents, only an
   admin deletes; a draft is read by its author and an admin)
 - **Pages** (1): home (`/`, the developer landing)
+- **Automations** (1): import-runbook — an admin's manual import of a GitHub file as a draft
+  document, through the library connection `library/connection/github.yaml`, once
+  `GITHUB_TOKEN` is set
 - **Singletons**: design (compact, mono headings, one cyan accent), auth (sign-up closed, API
   keys on, an `editor` role)
 - **Seed**: `seed/` — four tags, eight documents (six published, one draft, one archived), and

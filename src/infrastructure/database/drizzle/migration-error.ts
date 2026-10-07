@@ -9,18 +9,14 @@
  * The migration failure type, in its own module so that BOTH ends of the
  * migration path can name it.
  *
- * It used to live in `migrate.ts`, which imports `migration-folder.ts` — so
- * when `resolveMigrationsFolder` stopped claiming it could not fail, it had no
- * way to say what it failed WITH without creating an import cycle. Neither side
- * owns the other; the error belongs to the area, so it sits beside them both.
+ * It cannot live in `migrate.ts`, which imports `migration-folder.ts` — so
+ * `resolveMigrationsFolder` could not say what it fails WITH without creating
+ * an import cycle. Neither side owns the other; the error belongs to the area,
+ * so it sits beside them both.
  *
- * `migrate.ts` re-exports it, so every existing importer is unaffected.
+ * `migrate.ts` re-exports it, so importers of `migrate.ts` can name it too.
  */
 
-import { Data } from 'effect'
-
-/** Error when migration fails */
-export class MigrationError extends Data.TaggedError('MigrationError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+// Declared with the `DatabaseMigrator` port; re-exported here because this is
+// where the migrator's own modules look for it.
+export { MigrationError } from '@/application/ports/services/database-migrator'

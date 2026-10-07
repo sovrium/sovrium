@@ -9,23 +9,21 @@
  * AI Chat function/tool-calling executor.
  *
  * Orchestration layer for `[internal ref]`
- *. When the AI provider responds with `tool_calls`
+ * When the AI provider responds with `tool_calls`
  * instead of (or alongside) text, this module:
  *
  *  - executes each requested tool — a `query_<table>` tool runs the
- * AI-supplied read query against `<table>`;
+ *    AI-supplied read query against `<table>`;
  *  - RBAC-gates execution by the tool's target table — a role lacking `read`
- *    on the table yields an error tool result, never data
- *;
+ *    on the table yields an error tool result, never data;
  *  - feeds each tool result back to the provider as a `role: 'tool'` message
- * and re-queries so the model can continue;
+ *    and re-queries so the model can continue;
  *  - caps the request/response loop at `AI_CHAT_MAX_TOOL_ITERATIONS`
- *    iterations so a model that keeps requesting tools cannot loop forever
- *;
+ *    iterations so a model that keeps requesting tools cannot loop forever;
  *  - records every executed tool call in `system.ai_activity_logs` under the
- * `ai.chat.tool` action;
+ *    `ai.chat.tool` action;
  *  - surfaces each executed tool call as a `type: 'query'` entry in the chat
- * response `actions` array.
+ *    response `actions[]` array.
  *
  * SECURITY (Finding #1): the model NO LONGER supplies SQL. Each `query_<table>`
  * / `count_<table>` tool advertises a STRUCTURED schema (select/filters/sort/
@@ -36,11 +34,10 @@
  *   • cross-table reads are structurally impossible (no table-name arg);
  *   • writes / DDL are structurally impossible (read-only builder);
  *   • all values are bound; a fabricated SQL string lands in a filter `value`
- * and is treated as data, never as SQL;
- *   • field-level read permissions scope the `select` enum and result rows
- *;
+ *     and is treated as data, never as SQL;
+ *   • field-level read permissions scope the `select` enum and result rows;
  *   • a hard row cap of `MAX_QUERY_ROWS` is enforced server-side regardless of
- * the requested `limit`.
+ *     the requested `limit`.
  */
 
 import { Effect } from 'effect'
@@ -102,9 +99,8 @@ export interface ToolCallTable {
  * list used to build the function/tool definitions advertised to the AI
  * provider. A table the role cannot read is omitted
  * entirely, so the produced tool list never exposes an unauthorized table
- *. Each surviving table carries its role-readable column
- * projection so the tool enums and result rows are field-level scoped
- *.
+ * Each surviving table carries its role-readable column
+ * projection so the tool enums and result rows are field-level scoped.
  */
 export const toToolCallTables = (
   app: App | undefined,
@@ -114,7 +110,7 @@ export const toToolCallTables = (
   return tables.flatMap((table) => {
     // The records route's own effective roles for this table: the account role,
     // a `group:<name>` entry per group (a bare role can never match one,
-    // [internal ref]) and, under row-level rules, every assignment role —
+    // An AI chat tool spec) and, under row-level rules, every assignment role —
     // so a table the records API lists for her is advertised to her.
     // An agent answering a person passes only where she passes too, and its
     // columns are the ones both may read (`chatReadableColumns`).
@@ -227,7 +223,7 @@ const RBAC_DENIED_REPLY =
 /**
  * Reply text for a turn that EXECUTED tools but settled without any assistant
  * prose — the model kept requesting tools until the iteration budget ran out
- *, or the follow-up provider call failed.
+ * or the follow-up provider call failed.
  *
  * Deliberately not a fabricated answer: it reports what is actually known —
  * that the lookups ran and no summary came back — and points at the `actions[]`
@@ -285,7 +281,7 @@ const executeToolCall = async (
   }
 
   // RBAC gate — the role must be able to read the target table
-  //. An unknown table or a denied role both yield an
+  // An unknown table or a denied role both yield an
   // error tool result; no query is run.
   const scope = await toolRowScope(table, input)
   if (table === undefined || scope.kind === 'refused') {
@@ -349,7 +345,7 @@ const executeQuery = async (run: ToolCallRun): Promise<ToolExecution> => {
     return { content: JSON.stringify({ rows: [] }), action, denied: false }
   }
   // `Effect.result` turns a failure into the error tool-result fed back to the
-  // model (never throws / never 500s, [internal ref]).
+  // model (never throws / never 500s, an AI chat tool spec).
   const result = await Effect.runPromise(
     toolQueryProgram({
       app: run.app,
@@ -495,7 +491,6 @@ const executeToolCalls = async (
   // call, at a width the model chose. That these writes are best-effort bounds
   // their consequence, not their cost — a swallowed failure still held a
   // connection while it ran.
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect; the void result is discarded
   await Effect.runPromise(
     Effect.forEach(
       executions,
@@ -621,7 +616,7 @@ export const runToolCallingLoop = async (input: ToolCallingInput): Promise<ToolC
  * the tool-calling and read-query completion paths.
  */
 export const respondWithActions = (
-  c: Readonly<Context>,
+  c: Context,
   parts: {
     readonly reply: string
     readonly actions: ReadonlyArray<ChatAction>
@@ -647,7 +642,7 @@ export const respondWithActions = (
  * dispatch. The loop persists the exchange and records activity itself.
  */
 export const completeToolCallingTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: ToolCallingInput & { readonly rateLimitRemaining: number | undefined }
 ): Promise<Response> => {
   const loop = await runToolCallingLoop(input)

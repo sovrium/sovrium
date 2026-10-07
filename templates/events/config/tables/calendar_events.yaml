@@ -1,0 +1,17 @@
+# What the organizers' shared Google calendar holds, filed here every hour by
+# the calendar recipe (library/recipe/google-calendar-events-to-table.yaml) so
+# a planned date can become a community event without retyping it. Only the
+# organizers read it; it fills only once a Google account is connected.
+id: 3
+name: calendar_events
+fields:
+  - { id: 1, name: google_id, type: single-line-text }
+  - { id: 2, name: title, type: single-line-text }
+  - { id: 3, name: starts_at, type: single-line-text }
+  - { id: 4, name: ends_at, type: single-line-text }
+  - { id: 5, name: link, type: url }
+permissions:
+  read: [admin]
+  create: [admin]
+  update: [admin]
+  delete: [admin]

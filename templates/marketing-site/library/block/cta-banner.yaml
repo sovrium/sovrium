@@ -1,0 +1,43 @@
+# sovrium-library: block/cta-banner@0.30.0
+name: cta-banner
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: card
+        props:
+          className: flex flex-col gap-8 rounded-xl border-primary bg-primary p-8 text-primary-fg shadow-none sm:p-12 lg:flex-row lg:items-center lg:justify-between lg:p-14
+        children:
+          - type: flex
+            props:
+              className: flex flex-col max-w-xl gap-3
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-3xl font-semibold tracking-tight text-balance text-primary-fg sm:text-4xl
+                content: Repeat the offer as an invitation
+              - type: text
+                element: p
+                props:
+                  className: text-lg text-primary-fg opacity-75
+                content: One sentence that removes the last doubt.
+          - type: flex
+            props:
+              className: flex flex-col gap-3 sm:flex-row
+            children:
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border px-5 text-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-fg)] border-primary-fg bg-primary-fg text-primary hover:opacity-90'
+                content: '[Primary action]'
+              - type: link
+                props:
+                  href: /about
+                  className: 'inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border px-5 text-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-fg)] border-[color-mix(in_oklch,var(--color-primary-fg)_40%,transparent)] text-primary-fg hover:bg-[color-mix(in_oklch,var(--color-primary-fg)_10%,transparent)]'
+                content: '[Secondary]'

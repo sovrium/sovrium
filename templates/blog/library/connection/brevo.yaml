@@ -1,0 +1,8 @@
+# sovrium-library: connection/brevo@0.30.0
+name: brevo
+type: apiKey
+label: Brevo
+description: 'Brevo API, authenticated with an API key'
+props:
+  key: $env.BREVO_API_KEY
+  header: api-key

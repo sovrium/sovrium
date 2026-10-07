@@ -1,0 +1,7 @@
+name: sso
+path: /sso
+meta:
+  title: Single sign-on · App starter
+  description: Sign in with your company account.
+components:
+  - component: auth-sso

@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computer for the SSR-rendered specialty cluster
- *: `time-picker`, `language-switcher`, and `reorderable-list`. Schema
+ * `time-picker`, `language-switcher`, and `reorderable-list`. Schema
  * authors who write the bare `{ type: 'time-picker' }`,
  * `{ type: 'language-switcher' }`, or `{ type: 'reorderable-list', children: […] }`
  * get a complete, opinionated specialty surface — bordered input chrome with
@@ -53,10 +53,9 @@
  * `computeStatusBadgeDotClasses` in `feedback-default-classes.ts` — it's the
  * `variant: 'status'` mode of the badge renderer.
  *
- * The `wizard` schema (in `domain/.../specialty/wizard/`) is consumed
- * indirectly by the CRUD-form island as `wizardSteps` (multi-step create form
- * progress indicator), not as a stand-alone renderer. Prestyle defaults for
- * the step-indicator chrome remain TODO and ship with the forms slice next.
+ * The `wizard` schema (in `domain/.../specialty/wizard/`) has no stand-alone
+ * renderer here; a multi-step form is a `forms[]` entry with `layout:
+ * multi-step`, which draws its own step indicator.
  *
  * The `file-upload` schema (in `domain/.../specialty/file-upload.ts`) already
  * carries dropzone chrome via the forms slice; no new subpart needed here.

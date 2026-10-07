@@ -19,8 +19,6 @@
  * the endpoint still enforces it, and a refusal is reported inline.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- per-field change handlers close over the field name; the form exists only while the reader is creating. */
-
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { RelatedLabels, RelatedSection } from './record-drawer-related'
 

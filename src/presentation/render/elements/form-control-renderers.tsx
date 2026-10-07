@@ -76,7 +76,7 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
   // the file on the SSR input, which is then unmounted by `createRoot.render`
   // before the change can propagate.
   //
-  // [internal ref]: when `dropZone: true`, paint the prestyled dashed-border drop-
+  // When `dropZone: true`, paint the prestyled dashed-border drop-
   // target stack (glyph + prompt + constraint hint).
   //
   // R-E: both branches now paint from the SHARED recipes in
@@ -153,7 +153,7 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
   const ariaLabel = label ?? (props['aria-label'] as string | undefined)
   const showAmPm = timeFormat === '12h'
 
-  // [internal ref] prestyle: merge wrapper recipe with any author-supplied className.
+  // The prestyled-islands rule prestyle: merge wrapper recipe with any author-supplied className.
   // The author wins same-property conflicts because `resolveClasses` drops the
   // recipe's losing class — NOT because Tailwind sorts later utilities last,
   // which it does not do by concatenation order.
@@ -192,10 +192,8 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
   )
 }
 
-// NOTE ([internal ref] merge cleanup): `renderNumberInput` (plain SSR variant) was
-// removed because the only call site uses `renderNumberInputIsland`. If a
-// non-interactive number-input renderer is needed later, restore from git
-// history.
+// NOTE: there is no plain SSR `renderNumberInput`; the only call site uses
+// `renderNumberInputIsland`.
 
 /**
  * Configuration for {@link renderDatePickerIsland}.
@@ -243,7 +241,7 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       className={className}
       data-testid={testId}
       data-component="date-picker"
-      // NO island marker on a depiction. `[internal ref]` asserts the
+      // NO island marker on a depiction. An admin design system spec asserts the
       // absence, and the reason is not tidiness: the eager `DatePickerIsland`
       // would replace this subtree on mount with a CLOSED trigger, so the cell
       // labelled `open` would flash a calendar and then contradict its label.
@@ -267,7 +265,7 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
         // Markup from the island's own `DatePickerPopup`, produced server-side
         // from decoded config — see `presentation/rendering/open-specimen-markup.ts`
         // for why it arrives as a string and why that is safe here.
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR markup emission
+        // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
         <span dangerouslySetInnerHTML={{ __html: openPopupHtml }} />
       )}
     </span>

@@ -32,6 +32,22 @@ components:
               - type: container
                 props:
                   className: grow
+              # Runs config/automations/chase-blocked-tasks.yaml in the
+              # background: the run waits a day before its second half, so the
+              # button does not wait for it.
+              - type: button
+                content: Check blockers tomorrow
+                variant: outline
+                props:
+                  className: h-7 px-3 text-[13px]
+                action:
+                  type: automation
+                  name: chase-blocked-tasks
+                  await: false
+                  onSuccess:
+                    toast:
+                      message: Noted. Tomorrow the lead is told which tasks are still blocked.
+                      variant: info
               - type: button
                 content: Add task
                 props:
@@ -45,26 +61,7 @@ components:
               id: new-project-dialog
               title: New project
               description: It starts as Planned. Give it an owner and its dates.
-            children:
-              - type: form
-                dataSource:
-                  table: projects
-                fields:
-                  - { field: name, label: Name }
-                  - { field: owner, label: Owner }
-                  - { field: start_date, label: Start date }
-                  - { field: end_date, label: End date }
-                  - { field: budget, label: Budget }
-                action:
-                  type: crud
-                  operation: create
-                  table: projects
-                  submitLabel: Create project
-                  onSuccess:
-                    navigate: /
-                    toast:
-                      message: Project created
-                      variant: success
+            formRef: new-project
           - type: container
             props:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
@@ -214,6 +211,7 @@ components:
                         click:
                           modal: new-project-dialog
               - type: table
+                readOnly: true
                 dataSource:
                   table: projects
                   view: portfolio

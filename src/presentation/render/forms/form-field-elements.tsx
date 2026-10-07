@@ -51,10 +51,7 @@ export interface ResolvedFormField {
   readonly label: string
   readonly placeholder: string
   readonly helpText: string
-  /**
-   * `helpText` after its `$t:` key resolves, rendered as inline markdown and
-   * sanitized (`renderInlineMarkdown`); `''` when there is no help text.
-   */
+  /** `helpText`, `$t:` resolved, as sanitized inline markdown; `''` when there is none. */
   readonly helpTextHtml?: string
   readonly required: boolean
   readonly hidden: boolean
@@ -82,7 +79,7 @@ export interface ResolvedFormField {
   /** Seconds a browser recording may last; present only when `recordAudio` is set. */
   readonly recordAudioMaxSeconds?: number
   /**
-   * For `user`-typed columns: whether the picker
+   * For `user`-typed columns ([internal ref] / a forms spec): whether the picker
    * allows multiple selections. Surfaces as the `data-allow-multiple`
    * attribute on the picker root so the inline runtime can choose between
    * single- and multi-select widgets.
@@ -98,6 +95,7 @@ export interface ResolvedFormField {
   readonly column?: ControlAttributeField
   /** For a `section` item: its heading level, `3` inside a multi-step form. */
   readonly sectionLevel?: 2 | 3
+  readonly readOnly?: boolean // a `calculation`: read, never typed into
 }
 
 /**
@@ -184,7 +182,7 @@ const TextareaInput = ({
  *
  * The label is the field's own `placeholder` — already an AppSchema property
  * on every form field. A select is simply the one input type with nowhere to
- * put it, so it used to be dropped without a word.
+ * put it, so without this it would be dropped without a word.
  */
 const SelectInput = ({
   field,
@@ -346,6 +344,7 @@ const TextInput = ({
         {...ariaRequired(field.required)}
         {...typedAttributesOf(field)}
         disabled={field.conditionHidden}
+        readOnly={field.readOnly}
         placeholder={field.placeholder || undefined}
         defaultValue={defaultValue ?? undefined}
       />
@@ -448,7 +447,7 @@ const LockedHiddenInput = ({
  * Splitting further would be more indirection than it's worth — this is the
  * leaf dispatcher.
  *
- * [internal ref] added the `'user'` branch.
+ * [internal ref] / the forms specs added the `'user'` branch.
  */
 
 /** A `section` item and a `rating` scale, the two items that are not a single input. */

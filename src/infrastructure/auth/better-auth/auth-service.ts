@@ -16,8 +16,8 @@ export { AuthError }
  * The shape `betterAuth` hands back.
  *
  * Derived from the factory rather than from a module-level default instance:
- * that instance was deleted because evaluating it at import time made a keyless
- * `sovrium init --help` provision a root secret. A type alias costs nothing at
+ * there is no such instance, because evaluating it at import time would make a
+ * keyless `sovrium init --help` provision a root secret. A type alias costs nothing at
  * runtime and expresses the same thing.
  *
  * The import is `import type` DELIBERATELY, and it is what makes this module
@@ -80,7 +80,6 @@ const NOT_CONFIGURED = 'Auth is not configured for this app'
  * Reaching either of these is a BUG, not a supported path — see `NoAuthLayer`.
  */
 const refuse = (): never => {
-  // eslint-disable-next-line functional/no-throw-statements -- unreachable-by-construction guard; a silent no-op here would hide the wiring bug that reached it
   throw new Error(`${NOT_CONFIGURED}. This code path requires an \`auth:\` block.`)
 }
 

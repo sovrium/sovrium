@@ -45,25 +45,7 @@ components:
               id: request-time-off-dialog
               title: Request time off
               description: It waits on an admin's decision and shows on the calendar once approved.
-            children:
-              - type: form
-                dataSource:
-                  table: time_off_requests
-                fields:
-                  - { field: employee, label: Person }
-                  - { field: type, label: Type }
-                  - { field: start_date, label: From }
-                  - { field: end_date, label: To }
-                action:
-                  type: crud
-                  operation: create
-                  table: time_off_requests
-                  submitLabel: Send request
-                  onSuccess:
-                    navigate: /people
-                    toast:
-                      message: Request sent
-                      variant: success
+            formRef: request-time-off
           - type: container
             props:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
@@ -100,8 +82,6 @@ components:
                           className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                         content: Waiting on your decision
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
                         dataSource:
                           table: time_off_requests
                           filter:
@@ -109,6 +89,7 @@ components:
                           sort:
                             - { field: start_date, direction: asc }
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: No request waits on a decision.
                           itemTemplate:
                             title: $record.employee_name
@@ -117,7 +98,11 @@ components:
                               - { field: type, format: text }
                               - { field: start_date, format: short-date }
                               - { field: end_date, format: short-date }
+                        classes:
+                          parts:
+                            item: gap-y-1
               - type: table
+                readOnly: true
                 dataSource:
                   table: employees
                   view: team_directory

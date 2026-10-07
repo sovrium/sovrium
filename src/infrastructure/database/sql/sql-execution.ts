@@ -9,11 +9,34 @@ import { Data, Effect } from 'effect'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 /**
- * Type definition for a database transaction that can execute raw SQL
+ * Type definition for a database transaction that can execute raw SQL.
+ *
+ * `params` binds `$1`, `$2`, … positionally — `bun:sql` on PostgreSQL and the
+ * `bun:sqlite` adapter (`sqliteTransactionLike`) both honour it. A wrapper that
+ * re-exposes another transaction's `unsafe` must FORWARD `params`: the type
+ * cannot catch a wrapper that drops them, because a one-argument function is
+ * assignable here, and a dropped array fails only at run time with an unbound
+ * placeholder.
  */
 export interface TransactionLike {
-  readonly unsafe: (sql: string) => Promise<readonly unknown[]>
+  readonly unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>
 }
+
+/**
+ * Wrap a `bun:sql` client or transaction as a {@link TransactionLike}, bound
+ * values included. Every PostgreSQL wrapper goes through this so none can drop
+ * `params` — a hand-written `(sql) => client.unsafe(sql)` type-checks and then
+ * fails at run time on the first `$1`.
+ */
+export const postgresTransactionLike = (client: {
+  readonly unsafe: (sql: string, values?: unknown[]) => PromiseLike<unknown>
+}): TransactionLike => ({
+  unsafe: async (sql, params) =>
+    (await client.unsafe(
+      sql,
+      params === undefined ? undefined : [...params]
+    )) as readonly unknown[],
+})
 
 /**
  * Error type for SQL execution failures
@@ -74,10 +97,11 @@ interface MatViewNameResult {
  */
 export const executeSQL = (
   tx: TransactionLike,
-  sql: string
+  sql: string,
+  params?: readonly unknown[]
 ): Effect.Effect<readonly unknown[], SQLExecutionError> =>
   Effect.tryPromise({
-    try: () => tx.unsafe(sql),
+    try: () => (params === undefined ? tx.unsafe(sql) : tx.unsafe(sql, params)),
     catch: (error) =>
       new SQLExecutionError({
         message: `SQL execution failed: ${String(error)}`,
@@ -90,7 +114,6 @@ export const executeSQL = (
  * Execute multiple SQL statements sequentially
  * Use this when statements must be executed in order (e.g., DDL that depends on previous statements)
  */
-/* eslint-disable functional/no-loop-statements */
 export const executeSQLStatements = (
   tx: TransactionLike,
   statements: readonly string[]
@@ -102,7 +125,6 @@ export const executeSQLStatements = (
           yield* executeSQL(tx, sql)
         }
       })
-/* eslint-enable functional/no-loop-statements */
 
 /**
  * Execute multiple SQL statements in parallel

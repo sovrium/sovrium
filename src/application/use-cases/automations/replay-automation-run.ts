@@ -94,7 +94,7 @@ const resolveReplayTarget = (
 /**
  * The actions a replay records as `'skipped'` without running: every action of
  * the automation EXCEPT those the original run recorded `'skipped'` — the tail
- * a failure cut off ([internal ref] records it so). The replay runs
+ * a failure cut off (an automation retry spec records it so). The replay runs
  * that tail and nothing else.
  *
  * The complement, rather than "everything that ran", because what a run did
@@ -143,8 +143,7 @@ const coerceTriggerData = (raw: unknown): TriggerData => {
 }
 
 /**
- * Replay an automation run from its previously-failed step. The semantics
- *:
+ * Replay an automation run from its previously-failed step. The semantics:
  *
  *   1. Load the original run + its steps from `system.automation_runs` /
  *      `system.automation_run_steps`.

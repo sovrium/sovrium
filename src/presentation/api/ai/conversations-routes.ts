@@ -22,11 +22,10 @@ import type { Hono, Context } from 'hono'
  * AI Conversation history routes:
  *
  *  - `GET    /api/ai/conversations`            — paginated list of the
- * authenticated user's conversation threads.
- *  - `GET    /api/ai/conversations/:sessionId` — all messages in one thread
- *.
+ *    authenticated user's conversation threads (an AI memory spec).
+ *  - `GET    /api/ai/conversations/:sessionId` — all messages in one thread.
  *  - `DELETE /api/ai/conversations/:sessionId` — delete a thread and (by
- * ON DELETE CASCADE) all its messages.
+ *    ON DELETE CASCADE) all its messages.
  *
  * All three are scoped by the acting user's id, so a caller can only ever
  * see or delete their own conversations. Auth is enforced by the
@@ -34,13 +33,13 @@ import type { Hono, Context } from 'hono'
  */
 
 /** Resolve the authenticated user's id, or undefined when no session. */
-const resolveUserId = (c: Readonly<Context>): string | undefined => {
-  const session = getSessionContext(c as unknown as Context)
+const resolveUserId = (c: Context): string | undefined => {
+  const session = getSessionContext(c)
   return session?.userId
 }
 
 /** GET /api/ai/conversations — list the user's conversation threads. */
-const handleListConversations = async (c: Readonly<Context>): Promise<Response> => {
+const handleListConversations = async (c: Context): Promise<Response> => {
   const userId = resolveUserId(c)
   if (userId === undefined) {
     return c.json(
@@ -70,7 +69,7 @@ const handleListConversations = async (c: Readonly<Context>): Promise<Response> 
 }
 
 /** GET /api/ai/conversations/:sessionId — all messages in one thread. */
-const handleGetConversation = async (c: Readonly<Context>): Promise<Response> => {
+const handleGetConversation = async (c: Context): Promise<Response> => {
   const userId = resolveUserId(c)
   if (userId === undefined) {
     return c.json(
@@ -109,7 +108,7 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
 }
 
 /** DELETE /api/ai/conversations/:sessionId — delete a thread + its messages. */
-const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response> => {
+const handleDeleteConversation = async (c: Context): Promise<Response> => {
   const userId = resolveUserId(c)
   if (userId === undefined) {
     return c.json(
@@ -144,15 +143,9 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
  * Chain the AI conversation-history routes onto the given Hono app. Always
  * registered — the handlers themselves return 401 when no session is present.
  */
-export function chainAiConversationRoutes<T extends Hono>(honoApp: T): T {
-  /* eslint-disable drizzle/enforce-delete-with-where -- Hono route registration, `.delete()` is a route verb not a Drizzle delete */
+export function chainAiConversationRoutes(honoApp: Hono): Hono {
   return honoApp
-    .get('/api/ai/conversations', (c) => handleListConversations(c as unknown as Readonly<Context>))
-    .get('/api/ai/conversations/:sessionId', (c) =>
-      handleGetConversation(c as unknown as Readonly<Context>)
-    )
-    .delete('/api/ai/conversations/:sessionId', (c) =>
-      handleDeleteConversation(c as unknown as Readonly<Context>)
-    ) as unknown as T
-  /* eslint-enable drizzle/enforce-delete-with-where */
+    .get('/api/ai/conversations', (c) => handleListConversations(c))
+    .get('/api/ai/conversations/:sessionId', (c) => handleGetConversation(c))
+    .delete('/api/ai/conversations/:sessionId', (c) => handleDeleteConversation(c))
 }

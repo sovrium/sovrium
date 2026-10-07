@@ -6,13 +6,12 @@
  */
 
 import { SPECIMEN_TABLE_NAME } from '@/domain/models/app/design/specimen-fixture'
+import { refuseNonJsonBody } from '@/presentation/api/middleware/json-body'
 import {
   validateTable,
   enrichUserRole,
   rejectNonKeyRecordId,
 } from '@/presentation/api/middleware/table'
-import { chainUserTablePreferenceRoutes } from '@/presentation/api/tables/user-table-preference-routes'
-import { chainUserViewRoutes } from '@/presentation/api/tables/user-view-routes'
 import { chainBatchRoutesMethods } from './batch-routes'
 import { chainRecordRoutesMethods } from './record-routes'
 import { handleListSpecimenTableRecords } from './specimen-handlers'
@@ -92,7 +91,7 @@ function provideGuestContext() {
 export function chainTableRoutes<T extends Hono<any, any, any>>(
   honoApp: T,
   app: App,
-  // [internal ref]: optional live-App resolver. After a schema `POST /draft/publish`
+  // Optional live-App resolver. After a schema `POST /draft/publish`
   // swaps the live App without a restart, a newly-added table must be
   // resolvable by `validateTable` and queryable by the record handlers. The
   // composition root (`api-routes.ts`) supplies a resolver that reads the live
@@ -143,9 +142,9 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   const honoWithMiddleware = app.auth
     ? honoWithSpecimenTable
         .use('/api/tables/:tableId', validateTable(resolveApp))
-        .use('/api/tables/:tableId', enrichUserRole())
+        .use('/api/tables/:tableId', enrichUserRole(resolveApp))
         .use('/api/tables/:tableId/*', validateTable(resolveApp))
-        .use('/api/tables/:tableId/*', enrichUserRole())
+        .use('/api/tables/:tableId/*', enrichUserRole(resolveApp))
     : honoWithSpecimenTable
         .use('/api/tables/:tableId', validateTable(resolveApp))
         .use('/api/tables/:tableId', provideGuestContext())
@@ -155,12 +154,6 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   // Route registration order matters for Hono's router.
   // More specific routes (batch/restore) must be registered BEFORE
   // parameterized routes (:recordId/restore) to avoid route collisions.
-  //
-  // PG-03 / [internal ref]: register `/user-views[*]` and `/user-preferences` BEFORE
-  // record routes so the more-specific paths win over `:recordId` style
-  // route patterns. These routes inherit the `:tableId/*` middleware chain
-  // (validateTable + enrichUserRole / guest), so the caller must be
-  // authenticated and the table must exist.
   // An id no key of the table could hold names no record: 404 before any query.
   const honoWithRecordIdGate = honoWithMiddleware
     .use('/api/tables/:tableId/records/:recordId', rejectNonKeyRecordId(resolveApp))
@@ -168,13 +161,15 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
     // A table the caller may not read answers as one that does not exist,
     // before any route or request validator looks at the request.
     .use('/api/tables/:tableId/*', gateUnreadableTable(resolveApp))
-  const honoWithRuntimeViews = chainUserTablePreferenceRoutes(
-    chainUserViewRoutes(honoWithRecordIdGate)
-  )
+    // A body that is not labelled JSON is refused 415 before any handler reads
+    // it — the CORS-simple shape a cross-site page can forge. Form routes opt
+    // in with `acceptsFormBody`. After the read gate, so an unreadable table
+    // still answers as one that does not exist.
+    .use('/api/tables/:tableId/*', refuseNonJsonBody())
   return chainViewRoutesMethods(
     chainRecordRoutesMethods(
       chainBatchRoutesMethods(
-        chainTableRoutesMethods(honoWithRuntimeViews, resolveApp),
+        chainTableRoutesMethods(honoWithRecordIdGate, resolveApp),
         resolveApp
       ),
       resolveApp

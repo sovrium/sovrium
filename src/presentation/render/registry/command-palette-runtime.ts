@@ -12,8 +12,7 @@ import { INLINE_TOAST_POLICY_RUNTIME } from './inline-toast-policy-runtime'
 
 /**
  * Global command-palette runtime for the synthesized `command-palette`
- * component ([internal ref] /
- * [internal ref]).
+ * component.
  *
  * Server-authored constant string (no untrusted interpolation) dropped into an
  * inline `<script>` so the palette works without shipping the React island
@@ -23,7 +22,7 @@ import { INLINE_TOAST_POLICY_RUNTIME } from './inline-toast-policy-runtime'
  *  - `Cmd+K` / `Ctrl+K` opens the centered modal overlay and focuses the
  *    search input. `Escape` closes it.
  *  - When opened with an empty query, the palette renders a list of **quick
- * actions**: "Create new record
+ *    actions**: "Create new record
  *    in <table>" for each table, "Go to <page>" for each navigable page, and a
  *    "Toggle dark mode" action. It also fetches `GET /api/favorites` and
  *    `GET /api/recent` and renders a "Favorites" section above a "Recent"

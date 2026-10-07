@@ -51,10 +51,9 @@
  * telemetry runtime, and nothing is rebuilt per request — a `Context` is the
  * built result, not a recipe.
  *
- * This wrapper is the house pattern for the request edge; what W3 changed is
- * what is provided to it. Fifteen of the nineteen per-folder `effect-runner.ts`
- * files have retired with their last caller, and `provideDomain` is the only
- * shape a NEW handler should reach for.
+ * This wrapper is the house pattern for the request edge, and `provideDomain`
+ * — the server's resolved services — is what it is given. `provideDomain` is
+ * the only shape a NEW handler should reach for.
  *
  * FOUR runners remain, each for a reason that is not "not done yet" — read the
  * header of the one you are looking at before assuming otherwise:
@@ -105,7 +104,6 @@ const decideSampled = (ratio: number): boolean => {
  * service provides it before handing the program over.
  */
 export async function runRequestEffect<A, E = never>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is inherently mutable
   c: Context,
   provided: Effect.Effect<A, E, never>
 ): Promise<A> {

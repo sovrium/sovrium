@@ -9,12 +9,12 @@
  * Content base-directory anchor for relative markdown/contentDir paths.
  *
  * Markdown sources declared via `markdown.file`, `page.source.file`, and
- * `contentDir.directory` are RELATIVE paths in the schema. Historically the
- * resolvers anchored them to `process.cwd()`, which only works when the server
- * happens to be started from the config-file directory. The deployed binary
- * (and the E2E harness, which spawns the CLI from the repo root with an inline
- * `APP_SCHEMA`) run from an arbitrary CWD, so a relative `content/docs/en`
- * resolved to nothing and the article rendered empty.
+ * `contentDir.directory` are RELATIVE paths in the schema. Anchoring them to
+ * `process.cwd()` only works when the server happens to be started from the
+ * config-file directory. The deployed binary (and the E2E harness, which spawns
+ * the CLI from the repo root with an inline `APP_SCHEMA`) run from an arbitrary
+ * CWD, where a relative `content/docs/en` would resolve to nothing and the
+ * article would render empty.
  *
  * The anchor is read from the `SOVRIUM_CONTENT_DIR` env var. The CLI sets it to
  * the config-file directory at startup (`dirname(configPath)`), mirroring

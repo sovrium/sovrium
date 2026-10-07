@@ -8,8 +8,8 @@
 /**
  * In-place hot swap for `sovrium start --watch`.
  *
- * A reload used to mean a full teardown: stop the listener, wait for the port
- * to be released, rebuild everything, rebind. Most saves change only what the
+ * A reload does not need a full teardown (stop the listener, wait for the port
+ * to be released, rebuild everything, rebind). Most saves change only what the
  * request handler RENDERS, and `Bun.serve().reload({ fetch, websocket })`
  * replaces the handler of a LIVE listener — the socket never closes, so no
  * connection is dropped, no port is briefly unbound, and nothing has to be
@@ -55,9 +55,11 @@ export interface ServerReloadDeps {
    * `createServer`'s to shape — it carries the WebSocket handler the records
    * real-time transport upgrades onto, and rebuilding it from a narrower type
    * here would be a second, silently divergent definition of what this server
-   * serves.
+   * serves. The decoded `app` travels with it because the option object is
+   * derived from it too: the request-body ceiling follows the largest upload
+   * the new config's buckets allow.
    */
-  readonly swapHandler: (honoApp: Readonly<Hono>) => void
+  readonly swapHandler: (honoApp: Readonly<Hono>, app: App) => void
   /** Absolute config path recorded in the lock file; `''` when there is none. */
   readonly configPath: string
   /** A silent server owns no lock file and registers no cleanup — see `createServer`. */
@@ -99,7 +101,7 @@ const refreshLockFile = (
  * built BEFORE `server.reload` is called, so a config that cannot produce one
  * leaves the old handler in place and the listener still bound — the operator
  * keeps their port and their browser tab, and the watcher reports the failure.
- * That is the property `[internal ref]` pins: the old ordering stopped
+ * That is the property a CLI start watch spec pins: the old ordering stopped
  * the listener first and compiled second, so a stylesheet error unbound the
  * port while the watcher printed that the previous server was still serving.
  *
@@ -133,7 +135,7 @@ export const createServerReload =
       // Closing them here was considered and rejected: it would drop live data
       // connections on a save that changed a page's text, which is a worse
       // developer experience than a stream that is at most 25 s stale.
-      yield* Effect.sync(() => deps.swapHandler(nextHonoApp))
+      yield* Effect.sync(() => deps.swapHandler(nextHonoApp, app))
 
       if (!deps.silent) {
         yield* refreshLockFile(deps.server.port ?? 0, configHash, deps.configPath)

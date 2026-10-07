@@ -49,7 +49,11 @@
  * docstring names the caller's guard as load-bearing, and a second caller owes
  * it.
  *
- * Specs: [internal ref]
+ * The same pass refuses a value outside a closed (`enum`) option's own set: the
+ * path exists, the value does not belong to it, and the frame would draw the
+ * default under a caption announcing the value.
+ *
+ * Specs: a design system component preview spec (and its closed-set sibling)
  */
 
 import {
@@ -80,10 +84,12 @@ const isResolvableNow = (value: string): boolean =>
 const catalogedTypes = (): ReadonlySet<string> =>
   new Set(CATALOG_COMPONENT_CATEGORIES.flatMap((category) => catalogedTypesOf(category)))
 
-/** One `preview`'s declared subject, reduced to the two strings this rule reads. */
+/** One `preview`'s declared subject, reduced to what this rule reads. */
 interface PreviewSubject {
   readonly type: string
   readonly option: string
+  /** The value written onto the option, when it is a scalar. */
+  readonly value?: string | number | boolean
 }
 
 /**
@@ -102,9 +108,13 @@ const collectPreviewSubjects = (node: unknown): readonly PreviewSubject[] => {
 
   const { subject } = node
   if (!isRecord(subject)) return nested
-  const { type, option } = subject
+  const { type, option, value } = subject
+  const scalar =
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+      ? { value }
+      : {}
   return typeof type === 'string' && typeof option === 'string'
-    ? [{ type, option }, ...nested]
+    ? [{ type, option, ...scalar }, ...nested]
     : nested
 }
 
@@ -135,14 +145,35 @@ const publishedPaths = (type: string): string => {
     : `it publishes ${shown}`
 }
 
+/**
+ * A value outside a CLOSED option's own set. Only an `enum` row publishes a
+ * set, so membership is decidable there and nowhere else: an open option (a
+ * string, a number) has no set to be outside of, and is left alone. A
+ * deferred value (`$record.value`) is a row fact, not a config fact.
+ */
+const outsideClosedSet = ({ type, option, value }: PreviewSubject): string | undefined => {
+  if (value === undefined || (typeof value === 'string' && !isResolvableNow(value))) {
+    return undefined
+  }
+  const row = schemaOptionTree(type).items.find((item) => item.path === option)
+  if (row?.kind !== 'enum' || row.values === undefined) return undefined
+  if (row.values.includes(String(value))) return undefined
+  return (
+    `A preview sets option "${option}" on subject type "${type}" to "${String(value)}", which ` +
+    `that option does not accept — it accepts ${row.values.join(', ')}. The frame would draw the ` +
+    `default under a caption announcing "${String(value)}".`
+  )
+}
+
 /** Validate ONE subject; returns an error message, or `undefined`. */
 const validatePreviewSubject = (
-  { type, option }: PreviewSubject,
+  subject: PreviewSubject,
   cataloged: ReadonlySet<string>
 ): string | undefined => {
+  const { type, option } = subject
   if (!isResolvableNow(type) || !isResolvableNow(option)) return undefined
   if (!cataloged.has(type)) return undefined
-  if (publishesOption(type, option)) return undefined
+  if (publishesOption(type, option)) return outsideClosedSet(subject)
 
   return (
     `A preview names option "${option}" on subject type "${type}", which publishes no option ` +

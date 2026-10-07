@@ -6,9 +6,13 @@
  */
 
 /**
- * The invitation LIFECYCLE endpoints — list / resend / revoke.
+ * The invitation LIFECYCLE actions — resend / revoke.
  *
- *   - `GET    /api/admin/invitations`             — what is outstanding
+ * Their read, `GET /api/admin/invitations` (what is outstanding), is an admin
+ * read-registry entry (`application/use-cases/admin/people-read-operations.ts`)
+ * mounted with the other people reads, so its route, OpenAPI operation and MCP
+ * admin tool are one entry; it is gated by the `/api/admin/*` admin-tier guard.
+ *
  *   - `POST   /api/admin/invitations/:id/resend`  — send it again
  *   - `DELETE /api/admin/invitations/:id`         — take it back
  *
@@ -28,7 +32,6 @@
  */
 
 import {
-  listInvitations,
   resendInvitation,
   revokeInvitation,
   type InvitationActionResult,
@@ -36,12 +39,12 @@ import {
 import {
   adminInvitationResendResponseSchema,
   adminInvitationRevokeResponseSchema,
-  adminInvitationsListResponseSchema,
 } from '@/domain/models/api/admin/invitations/lifecycle'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { logError } from '@/infrastructure/logging/logger'
 import { requireAdminCaller } from '@/presentation/api/auth/admin-invitation-guard'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import type { InvitationServices } from '@/application/ports/contracts/invitation-services'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
@@ -98,34 +101,6 @@ const respondValidated = (
 }
 
 /**
- * GET /api/admin/invitations
- *
- * Every outstanding invitation, each with the address, role, issuer, issue date
- * and expiry an operator needs to act on — and an explicit `status`.
- *
- * EXPIRED invitations are listed AS expired rather than omitted: "it expired"
- * and "it was never sent" are different problems with different next actions,
- * and a list that drops expired rows makes them look identical.
- */
-const createListInvitationsHandler =
-  (authInstance: AuthInstance, app: Readonly<App> | undefined) => async (c: Context) => {
-    try {
-      const authorized = await requireAdminCaller(authInstance, c, app)
-      if (authorized instanceof Response) return authorized
-
-      const items = await listInvitations()
-      c.header('Cache-Control', 'no-store')
-      return respondValidated(c, adminInvitationsListResponseSchema, { items }, 'list invitations')
-    } catch (error) {
-      logError('[admin-invitation] list-invitations handler crashed', error)
-      return c.json(
-        { success: false, message: 'Failed to list invitations', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
-  }
-
-/**
  * POST /api/admin/invitations/:id/resend
  *
  * Delivers the SAME invitation again and re-arms its expiry. The token is
@@ -133,19 +108,20 @@ const createListInvitationsHandler =
  * `resendInvitation` for why.
  */
 const createResendInvitationHandler =
-  (
-    authInstance: AuthInstance,
-    emailHandlers: EmailHandlers,
-    app: Readonly<App> | undefined,
-
-    resolveBaseURL: (c: Context) => string
-  ) =>
+  ({
+    authInstance,
+    emailHandlers,
+    app,
+    resolveBaseURL,
+    invitations,
+  }: InvitationLifecycleRouteDeps) =>
   async (c: Context) => {
     try {
       const authorized = await requireAdminCaller(authInstance, c, app)
       if (authorized instanceof Response) return authorized
 
       const result = await resendInvitation({
+        store: invitations.store,
         authConfig: app?.auth,
         emailHandlers,
         baseURL: resolveBaseURL(c),
@@ -177,12 +153,13 @@ const createResendInvitationHandler =
  * operator's list.
  */
 const createRevokeInvitationHandler =
-  (authInstance: AuthInstance, app: Readonly<App> | undefined) => async (c: Context) => {
+  ({ authInstance, app, invitations }: InvitationLifecycleRouteDeps) =>
+  async (c: Context) => {
     try {
       const authorized = await requireAdminCaller(authInstance, c, app)
       if (authorized instanceof Response) return authorized
 
-      const result = await revokeInvitation(c.req.param('id') ?? '')
+      const result = await revokeInvitation(invitations.store, c.req.param('id') ?? '')
       if (result.status !== 'ok') return respondToActionFailure(c, result)
       return respondValidated(
         c,
@@ -203,6 +180,8 @@ const createRevokeInvitationHandler =
 export interface InvitationLifecycleRouteDeps {
   readonly authInstance: AuthInstance
   readonly emailHandlers: EmailHandlers
+  /** The invitation store, built at the composition root. */
+  readonly invitations: InvitationServices
   /**
    * Passed in rather than re-derived so the accept link a resend delivers is
    * built exactly the way the original issue path built it.
@@ -213,25 +192,12 @@ export interface InvitationLifecycleRouteDeps {
 }
 
 /**
- * Chain the three lifecycle routes onto a Hono app.
+ * Chain the two lifecycle actions onto a Hono app.
  */
 export const chainAdminInvitationLifecycleRoutes = (
   honoApp: Readonly<Hono>,
   deps: InvitationLifecycleRouteDeps
 ): Readonly<Hono> =>
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `.delete()` here is Hono's HTTP route registrar, not a Drizzle query builder; the rule matches on the method name alone
   honoApp
-    .get('/api/admin/invitations', createListInvitationsHandler(deps.authInstance, deps.app))
-    .post(
-      '/api/admin/invitations/:id/resend',
-      createResendInvitationHandler(
-        deps.authInstance,
-        deps.emailHandlers,
-        deps.app,
-        deps.resolveBaseURL
-      )
-    )
-    .delete(
-      '/api/admin/invitations/:id',
-      createRevokeInvitationHandler(deps.authInstance, deps.app)
-    )
+    .post('/api/admin/invitations/:id/resend', createResendInvitationHandler(deps))
+    .delete('/api/admin/invitations/:id', createRevokeInvitationHandler(deps))

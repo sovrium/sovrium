@@ -236,9 +236,9 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     const inputs = parseTransformImageInputs(p)
     const imageTransform = yield* ImageTransformService
     // The port reports a transform it could not perform. Reporting it as a
-    // failed STEP is a deliberate, visible choice here — the alternative the
-    // port used to make for every caller was to return the source bytes
-    // unchanged, which wrote an untransformed file and called it success.
+    // failed STEP is a deliberate, visible choice here — the alternative,
+    // returning the source bytes unchanged, would write an untransformed file
+    // and call it success.
     const transformed = yield* Effect.result(imageTransform.transform(downloaded.success, inputs))
     if (transformed._tag === 'Failure') {
       const { cause } = transformed.failure

@@ -56,6 +56,7 @@
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+import { responsiveClasses, type ResponsiveValues } from '@/presentation/design/responsive-classes'
 
 /**
  * The column rhythm of whatever the KPI host holds: the SSR skeleton, and then
@@ -302,3 +303,44 @@ export const computeKpiSparklineClasses = ({
 }: {
   part?: 'container' | 'svg'
 } = {}): string => (part === 'svg' ? KPI_SPARKLINE_SVG : KPI_SPARKLINE_CONTAINER)
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VALUE SIZE — the KPI's `size`, per breakpoint
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** `md` is the recipe's own size; `sm` suits a row of figures on a phone. */
+const KPI_VALUE_SIZES = {
+  sm: {
+    mobile: 'text-2xl',
+    sm: 'sm:text-2xl',
+    md: 'md:text-2xl',
+    lg: 'lg:text-2xl',
+    xl: 'xl:text-2xl',
+    '2xl': '2xl:text-2xl',
+  },
+  md: {
+    mobile: 'text-4xl',
+    sm: 'sm:text-4xl',
+    md: 'md:text-4xl',
+    lg: 'lg:text-4xl',
+    xl: 'xl:text-4xl',
+    '2xl': '2xl:text-4xl',
+  },
+  lg: {
+    mobile: 'text-5xl',
+    sm: 'sm:text-5xl',
+    md: 'md:text-5xl',
+    lg: 'lg:text-5xl',
+    xl: 'xl:text-5xl',
+    '2xl': '2xl:text-5xl',
+  },
+} as const
+
+/**
+ * The size classes of a KPI value, from its per-breakpoint `size`.
+ *
+ * @param size - The declared `size` struct, if any.
+ */
+export const computeKpiValueSizeClasses = (
+  size: ResponsiveValues<keyof typeof KPI_VALUE_SIZES> | undefined
+): string => responsiveClasses(size, KPI_VALUE_SIZES)

@@ -11,10 +11,10 @@
  * The gate chain in `webhook-handler.ts` is a sequence of small predicates —
  * does the webhook exist, does it accept this method, does the signature check
  * out, is the caller over its rate limit, does the body match the declared
- * schema — and each one used to carry its own inline response literal. That
- * spread the endpoint's wire vocabulary across five functions and made the gate
- * chain itself hard to read: the interesting line (`if (!isMethod(method))`) was
- * buried under the uninteresting one (the shape of the 405 body).
+ * schema. Inline response literals in each would spread the endpoint's wire
+ * vocabulary across five functions and make the gate chain itself hard to read:
+ * the interesting line (`if (!isMethod(method))`) buried under the
+ * uninteresting one (the shape of the 405 body).
  *
  * Collecting them here does three things. The gate chain reads as gates again;
  * the vocabulary a webhook caller must handle can be reviewed in one screen;
@@ -54,10 +54,9 @@ export const webhookNotFound = (c: Context): Response => notFound(c, 'No such we
 /**
  * The webhook exists but does not accept this method.
  *
- * `code` is METHOD_NOT_ALLOWED, which names the refusal. It used to be
- * BAD_REQUEST for want of a union member, and that told the caller its PAYLOAD
- * was wrong — so the indicated repair was to fix the body and resend, which
- * fails identically forever. The repair is to change the verb, and `allowed`
+ * `code` is METHOD_NOT_ALLOWED, which names the refusal. BAD_REQUEST would tell
+ * the caller its PAYLOAD is wrong — so the indicated repair would be to fix the
+ * body and resend, which fails identically forever. The repair is to change the verb, and `allowed`
  * says which one.
  */
 export const webhookMethodNotAllowed = (

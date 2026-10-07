@@ -12,6 +12,10 @@ import {
   authUsersTable,
   authVerificationsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import type {
+  InvitationTokenRow,
+  PendingInvitationRow,
+} from '@/application/ports/contracts/invitation-services'
 
 /**
  * Identifier prefix used for admin invitation verification rows.
@@ -31,16 +35,6 @@ export const INVITATION_IDENTIFIER_PREFIX = 'invitation:'
  */
 export const buildInvitationIdentifier = (token: string): string =>
   `${INVITATION_IDENTIFIER_PREFIX}${token}`
-
-/**
- * Persisted invitation token row.
- */
-export interface InvitationTokenRow {
-  readonly id: string
-  readonly token: string
-  readonly userId: string
-  readonly expiresAt: Date
-}
 
 /**
  * What the `verification.value` column carries for an invitation row.
@@ -117,7 +111,6 @@ export async function insertInvitationToken(params: {
   readonly invitedBy?: string | undefined
 }): Promise<void> {
   const verifications = authVerificationsTable()
-  // eslint-disable-next-line functional/no-expression-statements -- DB insert is a side effect
   await db.insert(verifications).values({
     id: params.id,
     identifier: buildInvitationIdentifier(params.token),
@@ -162,10 +155,8 @@ export async function findInvitationToken(token: string): Promise<InvitationToke
  * Used by resend: the same token is delivered again, so an invitation that was
  * about to lapse would otherwise arrive as a link that dies moments later.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Date is structurally mutable; Drizzle takes the instance as-is and this function never mutates it
 export async function refreshInvitationExpiry(id: string, expiresAt: Date): Promise<void> {
   const verifications = authVerificationsTable()
-  // eslint-disable-next-line functional/no-expression-statements -- DB update is a side effect
   await db.update(verifications).set({ expiresAt }).where(eq(verifications.id, id))
 }
 
@@ -174,7 +165,6 @@ export async function refreshInvitationExpiry(id: string, expiresAt: Date): Prom
  */
 export async function deleteInvitationToken(id: string): Promise<void> {
   const verifications = authVerificationsTable()
-  // eslint-disable-next-line functional/no-expression-statements -- DB delete is a side effect
   await db.delete(verifications).where(eq(verifications.id, id))
 }
 
@@ -202,25 +192,7 @@ export async function deletePendingInvitationsForUser(userId: string): Promise<v
     .map((row) => row.id)
   if (staleIds.length === 0) return
 
-  // eslint-disable-next-line functional/no-expression-statements -- DB delete is a side effect
   await db.delete(verifications).where(inArray(verifications.id, staleIds))
-}
-
-/**
- * One pending invitation, joined with the invitee's account.
- *
- * `invitedBy` is the INVITER'S USER ID (or undefined for a row written before
- * the inviter was recorded); resolving it to an address is the caller's job.
- * The token is deliberately absent — see {@link listPendingInvitations}.
- */
-export interface PendingInvitationRow {
-  readonly id: string
-  readonly userId: string
-  readonly email: string
-  readonly role: string | null
-  readonly invitedBy: string | undefined
-  readonly expiresAt: Date
-  readonly createdAt: Date
 }
 
 /**
@@ -376,7 +348,7 @@ export async function userHasCredentialPassword(userId: string): Promise<boolean
  * Insert a credential account row for an invited user once they accept.
  *
  * This mirrors what Better Auth does internally on first sign-up: link a
- * credential account with the bcrypt-hashed password.
+ * credential account with the scrypt-hashed password.
  */
 export async function insertCredentialAccount(params: {
   readonly id: string
@@ -384,7 +356,6 @@ export async function insertCredentialAccount(params: {
   readonly hashedPassword: string
 }): Promise<void> {
   const accounts = authAccountsTable()
-  // eslint-disable-next-line functional/no-expression-statements -- DB insert is a side effect
   await db.insert(accounts).values({
     id: params.id,
     accountId: params.userId,
@@ -405,7 +376,6 @@ export async function insertCredentialAccount(params: {
  */
 export async function markUserEmailVerified(userId: string): Promise<void> {
   const users = authUsersTable()
-  // eslint-disable-next-line functional/no-expression-statements -- DB update is a side effect
   await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId))
 }
 
@@ -425,7 +395,6 @@ export async function deleteCredentialAccountForUser(userId: string): Promise<vo
   // `issuer` NULL, so an `issuer` predicate would delete nothing: the accept
   // flow would then insert a SECOND credential row, and sign-in, which rejects
   // an ambiguous account key, would fail for the invited customer.
-  // eslint-disable-next-line functional/no-expression-statements -- DB delete is a side effect
   await db
     .delete(accounts)
     .where(and(eq(accounts.userId, userId), eq(accounts.providerId, 'credential')))

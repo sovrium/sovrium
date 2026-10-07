@@ -5,12 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor: one listbox is mounted per open cell and torn down on
-   commit or cancel, and its handlers close over the draft selection. Hoisting
-   them would add indirection without removing re-render work, because picking
-   an option IS the state change that re-renders the list. */
-
 import {
   computeTableEditorLabelClasses,
   computeTableEditorListClasses,

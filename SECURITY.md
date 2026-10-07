@@ -33,7 +33,8 @@ with the current figures at
 
 The engine is free forever in self-hosted mode: no license keys, no feature gating, no phone-home,
 no kill switch. If this project ceases operations, every running instance keeps running, and the
-BSL 1.1 license converts to Apache 2.0 on 2030-08-01 with no action required from anyone.
+BSL 1.1 license converts to Apache 2.0 on the Change Date stated in [LICENSE.md](LICENSE.md), with
+no action required from anyone.
 
 **If the company ceases operations, the private development infrastructure is released publicly.**
 That means the specification suite, the CI pipeline, and the internal tooling. The reason for

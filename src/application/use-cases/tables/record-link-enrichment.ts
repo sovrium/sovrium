@@ -6,7 +6,7 @@
  */
 
 /**
- * [internal ref]: the many-to-many family — the write split, the junction read, and
+ * The many-to-many family — the write split, the junction read, and
  * the related-label enrichment every record-bearing response shares.
  *
  * A `many-to-many` relationship field has NO base column. That one fact is why
@@ -186,18 +186,6 @@ export function mergeManyToManyFields<V>(
     : { ...fields }
 }
 
-/** Write a create's many-to-many junction rows (no-op when there are none). */
-export const writeManyToManyLinks = (
-  repo: TableRepository['Service'],
-  tableName: string,
-  sourceId: string | number,
-  links: readonly ManyToManyWriteLink[]
-): Effect.Effect<void, DatabaseError> =>
-  (links.length === 0
-    ? Effect.void
-    : repo.linkManyToMany({ sourceTable: tableName, sourceId, links })
-  ).pipe(Effect.withSpan('tables.write-many-to-many-links'))
-
 /**
  * The many-to-many fields an update CLEARS: present in the change as `null` or
  * as an empty list. Any other value keeps its add-only meaning — the links it
@@ -214,21 +202,29 @@ export const clearedManyToManySpecs = (
   })
 
 /**
- * Remove every link of the cleared fields that the writer may read. A link to
- * a row the related table hides from the writer is kept: they never saw it, so
- * clearing the field cannot mean it. A writer with no reader identity (an
- * automation) clears every link.
+ * The links an update CLEARS: every link of the cleared fields that the writer
+ * may read. A link to a row the related table hides from the writer is kept:
+ * they never saw it, so clearing the field cannot mean it. A writer with no
+ * reader identity (an automation) clears every link.
+ *
+ * Only READS — the removal is handed to the record write, which applies it in
+ * the same transaction as the rest of the change, so a failed update removes
+ * nothing.
  */
-export const clearManyToManyLinks = (input: {
+export const linksToClear = (input: {
   readonly app: App | undefined
   readonly tableName: string
   readonly recordId: string | number
   readonly cleared: readonly ManyToManyFieldSpec[]
   readonly reader: LinkReader | undefined
-}): Effect.Effect<void, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+}): Effect.Effect<
+  readonly ManyToManyWriteLink[],
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const { app, tableName, recordId, cleared, reader } = input
-    if (cleared.length === 0) return
+    if (cleared.length === 0) return []
     const repo = yield* TableRepository
     const stored = yield* repo.readManyToMany({
       sourceTable: tableName,
@@ -237,16 +233,12 @@ export const clearManyToManyLinks = (input: {
     })
     const readable = yield* filterReadableLinks(app, cleared, stored, reader)
     const lists = readable[String(recordId)] ?? {}
-    yield* repo.unlinkManyToMany({
-      sourceTable: tableName,
-      sourceId: recordId,
-      links: cleared.map((spec) => ({
-        relatedTable: spec.relatedTable,
-        relatedIds: lists[spec.fieldName] ?? [],
-        hasReciprocal: spec.hasReciprocal,
-      })),
-    })
-  }).pipe(Effect.withSpan('tables.clear-many-to-many-links'))
+    return cleared.map((spec) => ({
+      relatedTable: spec.relatedTable,
+      relatedIds: lists[spec.fieldName] ?? [],
+      hasReciprocal: spec.hasReciprocal,
+    }))
+  }).pipe(Effect.withSpan('tables.links-to-clear'))
 
 /** Enrich a page of records with their many-to-many field values from junctions. */
 export const enrichRecordsWithManyToMany = (

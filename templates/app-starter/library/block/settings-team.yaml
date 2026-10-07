@@ -1,0 +1,195 @@
+# sovrium-library: block/settings-team@0.30.0
+name: settings-team
+type: container
+element: section
+props:
+  className: flex w-full max-w-220 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-1
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: Team
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: 'Who can sign in to $app.label, and what they can do.'
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Members
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Change a role to change what someone can see and do.
+          - type: button
+            visibility:
+              capability: administer-accounts
+            props:
+              label: Invite
+              interactions:
+                click:
+                  modal: settings-team-invite
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: container
+            props:
+              className: min-w-0 p-2
+            children:
+              - type: table
+                props:
+                  aria-label: Members
+                dataSource:
+                  auth: members
+                columns:
+                  - field: name
+                    label: Name
+                  - field: email
+                    label: Email
+                  - field: role
+                    label: Role
+                  - field: joinedAt
+                    label: Joined
+                    format: short-date
+                  - type: actions
+                    actions:
+                      - label: Change role
+                        variant: ghost
+                        editSelect:
+                          field: role
+                          label: Role
+                          saveLabel: Save
+                          options:
+                            - { value: admin, label: Admin }
+                            - { value: member, label: Member }
+                            - { value: viewer, label: Viewer }
+                        action:
+                          type: auth
+                          method: setRole
+                          target: $record.id
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Pending invitations
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Each invitation link works for seven days, then expires.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: container
+            props:
+              className: min-w-0 p-2
+            children:
+              - type: table
+                props:
+                  aria-label: Pending invitations
+                dataSource:
+                  auth: invitations
+                columns:
+                  - field: email
+                    label: Email
+                  - field: role
+                    label: Role
+                  - field: sentAt
+                    label: Sent
+                    format: relative-date
+                  - field: expiresAt
+                    label: Expires
+                    format: short-date
+                  - type: actions
+                    actions:
+                      - label: Resend
+                        variant: ghost
+                        action:
+                          type: auth
+                          method: resendInvitation
+                          target: $record.id
+                      - label: Revoke
+                        variant: ghost
+                        action:
+                          type: auth
+                          method: revokeInvitation
+                          target: $record.id
+                        confirm:
+                          title: Revoke this invitation?
+                          message: The link in their email stops working.
+                          confirmLabel: Revoke invitation
+                emptyMessage: No invitation waiting. Invite someone to see it here until they join.
+  - type: dialog
+    visibility:
+      capability: administer-accounts
+    props:
+      id: settings-team-invite
+      title: Invite someone
+      description: They get an email with a link to join. It expires in seven days.
+    children:
+      - type: form
+        endpoint:
+          url: /api/auth/admin/invite-user
+          method: POST
+          responseEnvelope: better-auth
+          submitLabel: Send invitation
+          onSuccess:
+            type: toast
+            variant: success
+            message: Invitation sent.
+            reload: true
+          onError:
+            type: toast
+            variant: destructive
+            message: The invitation could not be sent. Check the address and try again.
+        fields:
+          - field: email
+            control: email
+            label: Email
+          - field: name
+            control: text
+            label: Name
+          - field: role
+            control: select
+            label: Role
+            defaultValue: member
+            options:
+              - { value: admin, label: Admin }
+              - { value: member, label: Member }
+              - { value: viewer, label: Viewer }

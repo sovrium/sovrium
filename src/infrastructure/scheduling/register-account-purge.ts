@@ -7,10 +7,8 @@
 
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
-import {
-  purgeDueAccounts,
-  resolvePurgeTableAuthorship,
-} from '@/infrastructure/database/account-purge'
+import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
+import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'

@@ -8,7 +8,7 @@
 /**
  * Activity logging for the generic `/api/ai/chat` endpoint.
  *
- * Drives [internal ref]: every chat interaction (and any record
+ * Drives an AI chat cross spec: every chat interaction (and any record
  * mutation it triggers) must appear in activity monitoring. Each completed
  * chat turn writes one `system.ai_activity_logs` row with an `ai.chat.*`
  * action so monitoring can attribute the interaction to the originating user.

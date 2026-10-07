@@ -8,10 +8,9 @@
 /**
  * API contract for `POST /api/admin/buckets/:bucketName/files`.
  *
- * The bucket file browser's **admin upload** write endpoint — the missing
- * piece that wires the `/_admin/buckets/{name}` file browser's "Ajouter un
- * fichier" modal (built in [internal ref]) to a real backend. Until this ships, the
- * modal's `uploadFileToBucket()` helper returns `'unavailable'` and renders an
+ * The bucket file browser's **admin upload** write endpoint — the piece that
+ * wires the `/_admin/buckets/{name}` file browser's "Ajouter un fichier" modal
+ * to a real backend. Without it, the modal's `uploadFileToBucket()` helper returns `'unavailable'` and renders an
  * honest "coming soon" notice (see
  * `src/presentation/islands/admin/buckets/admin-bucket-upload-dialog.tsx`).
  *

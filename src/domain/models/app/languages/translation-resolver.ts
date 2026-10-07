@@ -219,19 +219,52 @@ export function resolveTranslation(
 }
 
 /**
- * Resolve $t:key pattern in a string
+ * The shape of a translation key, as a regular-expression source: letters,
+ * digits, `_`, `-` and inner `.`.
  *
- * Processes strings containing $t:key syntax and replaces them with translations.
- * Supports fallback when translation is missing.
+ * A key never ends with a `.`, so sentence punctuation after it is kept as
+ * text rather than swallowed into the key. The ONE definition of the key
+ * grammar: the leading-key split below and the markdown body pre-pass both
+ * build their pattern from it.
+ */
+export const TRANSLATION_KEY_PATTERN_SOURCE = '[a-zA-Z0-9_-](?:[a-zA-Z0-9_.-]*[a-zA-Z0-9_-])?'
+
+/** The key a `$t:` value opens with. */
+const LEADING_TRANSLATION_KEY = new RegExp(`^\\$t:(${TRANSLATION_KEY_PATTERN_SOURCE})`)
+
+/**
+ * Split a value opening with `$t:` into its key and the text written after it.
  *
- * @param text - String that may contain $t:key patterns
+ * `'$t:portal.hello[, $session.name]'` is the key `portal.hello` followed by
+ * `[, $session.name]`, which later passes (`$session.*`, optional segments)
+ * resolve as written. Returns `undefined` for a value that does not open with
+ * a key.
+ */
+export function splitLeadingTranslationKey(
+  text: string
+): { readonly key: string; readonly rest: string } | undefined {
+  const match = LEADING_TRANSLATION_KEY.exec(text)
+  const key = match?.[1]
+  if (match === null || key === undefined) return undefined
+  return { key, rest: text.slice(match[0].length) }
+}
+
+/**
+ * Resolve the `$t:key` a string opens with, keeping whatever follows the key.
+ *
+ * The key ends at the first character a key cannot hold, so a value can carry
+ * text and tokens after it. A value starting with `$t:` but holding no key
+ * shape is resolved whole, as it always was.
+ *
+ * @param text - String that may open with a $t:key pattern
  * @param currentLang - Current language code
  * @param languages - Languages configuration from app schema
- * @returns String with resolved translations
+ * @returns String with the leading translation resolved
  *
  * @example
  * ```typescript
  * resolveTranslationPattern('$t:welcome', 'fr-FR', languages) // 'Bienvenue'
+ * resolveTranslationPattern('$t:hello[, $session.name]', 'fr-FR', languages) // 'Bonjour[, $session.name]'
  * resolveTranslationPattern('$t:goodbye', 'fr-FR', languages) // 'Goodbye' (fallback)
  * resolveTranslationPattern('Hello world', 'fr-FR', languages) // 'Hello world' (no pattern)
  * ```
@@ -241,14 +274,10 @@ export function resolveTranslationPattern(
   currentLang: string,
   languages?: Languages
 ): string {
-  // Check if text starts with $t: pattern
-  if (text.startsWith('$t:')) {
-    const key = text.slice(3) // Remove '$t:' prefix
-    return resolveTranslation(key, currentLang, languages)
-  }
-
-  // No pattern found - return text as-is
-  return text
+  if (!text.startsWith('$t:')) return text
+  const split = splitLeadingTranslationKey(text)
+  if (split === undefined) return resolveTranslation(text.slice(3), currentLang, languages)
+  return `${resolveTranslation(split.key, currentLang, languages)}${split.rest}`
 }
 
 /**

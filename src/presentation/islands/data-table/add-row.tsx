@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One trailing row is mounted per grid (or per group), and its cell handlers
-   close over the draft they edit; typing IS the state change that re-renders
-   the row, so hoisting them would add indirection without removing work. */
-
 import { useEffect, useRef } from 'react'
 import { optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'

@@ -14,6 +14,14 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# Optional: a Pennylane token turns on the morning import of the invoices the
+# company issued (library/recipe/pennylane-invoices-to-table.yaml). Without it
+# the app runs as before and that one automation cannot reach Pennylane.
+env:
+  - key: PENNYLANE_API_TOKEN
+    description: API token of your Pennylane company, for the morning import of invoices.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -30,6 +38,8 @@ tables:
   # People
   - $ref: ./config/tables/employees.yaml
   - $ref: ./config/tables/time_off_requests.yaml
+  # Finance
+  - $ref: ./config/tables/customer_invoices.yaml
 
 # The assistant on /assistant. It needs an AI provider at runtime
 # (AI_PROVIDER, for example ollama for a local model); validating the config
@@ -43,6 +53,14 @@ automations:
   - $ref: ./config/automations/open-project-on-won-deal.yaml
   - $ref: ./config/automations/notify-contact-on-resolved-ticket.yaml
   - $ref: ./config/automations/approve-time-off.yaml
+  - $ref: ./library/recipe/pennylane-invoices-to-table.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/add-deal.yaml
+  - $ref: ./config/forms/request-time-off.yaml
+  - $ref: ./config/forms/new-ticket.yaml
+  - $ref: ./config/forms/add-task.yaml
 
 # Listed in the order of the sidebar: Home first, then one module at a time.
 pages:
@@ -59,3 +77,6 @@ pages:
 # floating pill, so it never sits over the last row of a grid.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/pennylane.yaml

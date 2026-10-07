@@ -49,7 +49,7 @@ async function handleListTables(c: Context, app: App) {
         ])
   // The `user_access` roles the records route adds on a table with row-level
   // rules, so the list names exactly the tables those records admit.
-  const accessRoles = await resolveAccessRolesFor(session, app.tables ?? [])
+  const accessRoles = await resolveAccessRolesFor(c, session, app.tables ?? [])
 
   const program = Effect.gen(function* () {
     const result = yield* createListTablesProgram(
@@ -66,7 +66,7 @@ async function handleListTables(c: Context, app: App) {
 async function handleGetTable(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
   const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-  const caller = await resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
+  const caller = await resolveTableReadCaller(c, app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
     const result = yield* createGetTableProgram(tableId, app, caller)
@@ -102,7 +102,7 @@ async function handleGetPermissions(c: Context, app: App) {
   // caller is resolved as the records route resolves her — assignment roles
   // included on a table with row-level rules — so the map admits whom they do.
   const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-  const caller = await resolveTableReadCaller(app, { session, tableName, userRole, userGroups })
+  const caller = await resolveTableReadCaller(c, app, { session, tableName, userRole, userGroups })
 
   const program = Effect.gen(function* () {
     const result = yield* createGetPermissionsProgram(tableId, app, caller)

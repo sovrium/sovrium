@@ -55,7 +55,12 @@ import {
   toAccessDeniedResult,
 } from './page-access-gating'
 import { resolveCollectionAndFilter } from './page-collection-resolver'
-import { renderPageHtml, resolveIslandAssets, type IslandBuilder } from './page-document-assembly'
+import {
+  renderPageHtml,
+  resolveClientScriptPaths,
+  resolveIslandAssets,
+  type IslandBuilder,
+} from './page-document-assembly'
 import { pagePayloadForReader } from './page-payload-for-reader'
 import { definedOnly } from './page-row-scope-resolver'
 import { absolutizeSharingImage } from './sharing-image-address'
@@ -69,7 +74,7 @@ import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-obje
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
 
 /**
- * [internal ref]: whether an article gated by its own front matter admits the reader
+ * Whether an article gated by its own front matter admits the reader
  * — answered as for a page they may not open, after the page access passed.
  */
 const articleAdmits = (
@@ -99,7 +104,7 @@ export async function renderPageByPath(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
-    /** [internal ref]: host request query for embedded `$query` prefill. */
+    /** [internal ref] / a forms spec: host request query for embedded `$query` prefill. */
     readonly requestQuery?: Readonly<Record<string, string>>
     /**
      * G1: the scheme + host this request arrived on, feeding `$app.origin`.
@@ -140,13 +145,13 @@ export async function renderPageByPath(
      */
     readonly fetchSystemRows?: SystemRowsFetcher
     /**
-     * [internal ref]: server-side record reader for a page-level `{ system }` binding,
+     * server-side record reader for a page-level `{ system }` binding,
      * borrowing the caller's credentials. Absent, the binding falls back to the
      * client-side enhancer marker.
      */
     readonly fetchSystemRecord?: SystemRecordFetcher
     /**
-     * [internal ref]..039: the `/:lang/` URL-prefix locale, when the request
+     * The `/:lang/` URL-prefix locale, when the request
      * carried one. Distinct from `detectedLanguage` (which also carries the
      * browser `Accept-Language` guess) because only the URL prefix outranks a
      * page's own `meta.lang`.
@@ -191,11 +196,11 @@ export async function renderPageByPath(
 
   const session = await resolveOverlayedSession(rawSession, db)
 
-  // Page access first, then [internal ref] formRef gates (404 — S1).
+  // Page access first, then a forms spec formRef gates (404 — S1).
   const denied = toAccessDeniedResult(checkPageAccess(matchedPage.access, app, session, path))
   if (denied !== false) return denied
   //
-  // [internal ref]..005 shares this refusal, because it is the same
+  // The pages route params specs shares this refusal, because it is the same
   // sentence: this address does not name a page for this caller. `page.params`
   // is the page's own statement of which URLs it serves, so it is answered
   // before anything is resolved, fetched or drawn — a segment outside the
@@ -294,25 +299,27 @@ export async function renderPageByPath(
       ),
       path,
       basePath,
-      requestQuery
+      { requestQuery, languages: app.languages, detectedLanguage, urlLanguage }
     ),
     basePath ?? '',
     servedBelowRoot({ path, urlLanguage, basePath })
   )
 
-  // [internal ref]..033 / [internal ref]: highlight every `code`
+  // Highlight every `code`
   // component BEFORE `renderToString`, so a block nested inside a `tabs` panel
   // survives the island's `renderToStaticMarkup` serialisation already
   // highlighted (a post-render splice cannot reach into an escaped attribute).
   const [
     resolvedSidebar,
     islandAssets,
+    clientScriptPaths,
     markdownPayload,
     highlightedComponents,
     highlightedTemplates,
   ] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),
     resolveIslandAssets(page, app.components, islandBuilder),
+    resolveClientScriptPaths(islandBuilder),
     resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern, (fm) =>
       isArticleReadable(undefined, frontmatterAccess(fm), app, session)
     ),
@@ -330,7 +337,7 @@ export async function renderPageByPath(
     ),
   ])
 
-  // [internal ref]: a contentDir page whose requested slug has no
+  // A contentDir page whose requested slug has no
   // backing markdown file (in an existing collection directory) is a genuine
   // not-found — return undefined so the caller renders the 404 not-found page
   // instead of an empty 200 article shell. Checked AFTER the parallel resolve
@@ -350,12 +357,13 @@ export async function renderPageByPath(
     detectedLanguage,
     urlLanguage,
     islandEntryFile: islandAssets.entryFile,
+    clientScriptPaths,
     islandPreloadHrefs: islandAssets.preloadHrefs,
     resolvedSidebar,
     markdownPayload,
     session,
   })
-  // [internal ref]..033: a standalone `code` component emits a synchronous
+  // A standalone `code` component emits a synchronous
   // pre-highlight placeholder (Shiki's dynamic import can't run inside
   // `renderToString`). This async pass splices in the Shiki class-based markup,
   // reading the palette from `design.codeBlock` — both halves of it, when the
@@ -391,7 +399,7 @@ export async function renderPage(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
-    /** [internal ref]: host request query for embedded `$query` prefill. */
+    /** [internal ref] / a forms spec: host request query for embedded `$query` prefill. */
     readonly requestQuery?: Readonly<Record<string, string>>
     /** G1: scheme + host this request arrived on, feeding `$app.origin`. */
     readonly requestOrigin?: string
@@ -409,9 +417,9 @@ export async function renderPage(
     readonly engineVersion?: string
     /** P3: server-side rows reader for `page.redirectToFirst`. */
     readonly fetchSystemRows?: SystemRowsFetcher
-    /** [internal ref]: server-side record reader for a page-level `{ system }` binding. */
+    /** server-side record reader for a page-level `{ system }` binding. */
     readonly fetchSystemRecord?: SystemRecordFetcher
-    /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+    /** The `/:lang/` URL-prefix locale, when present. */
     readonly urlLanguage?: string
     /**
      * P10/mount: the caller's resolved powers. A mounted console renders

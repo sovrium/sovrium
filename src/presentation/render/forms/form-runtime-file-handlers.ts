@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { acceptEntryAdmits } from '@/domain/models/app/forms/form-file-upload-validation'
+
 /**
  * [internal ref] (file-uploads): inline JS source for the file-input portion of
  * the standalone form runtime. Sliced out of `form-runtime.tsx` so the
@@ -40,26 +42,17 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
   function getFileInputs() {
     return form.querySelectorAll('input[type="file"][data-form-file-input]')
   }
+  // The server's own rule (acceptEntryAdmits, form-file-upload-validation.ts), so a
+  // file the submit would refuse (an SVG on an image/* field) is refused here.
+  ${String(acceptEntryAdmits)}
   function fileMatchesAccept(file, accept) {
     if (!accept) return true
-    var entries = accept.split(',').map(function (s) {
-      return s.trim().toLowerCase()
-    })
-    var fileName = (file.name || '').toLowerCase()
+    var fileName = file.name || ''
     var fileType = (file.type || '').toLowerCase()
-    for (var i = 0; i < entries.length; i++) {
-      var entry = entries[i]
-      if (!entry) continue
-      if (entry.charAt(0) === '.') {
-        if (fileName.indexOf(entry) === fileName.length - entry.length) return true
-      } else if (entry.indexOf('/*') === entry.length - 2) {
-        var prefix = entry.slice(0, -1)
-        if (fileType.indexOf(prefix) === 0) return true
-      } else if (fileType === entry) {
-        return true
-      }
-    }
-    return false
+    return accept.split(',').some(function (s) {
+      var entry = s.trim().toLowerCase()
+      return entry !== '' && acceptEntryAdmits(entry, fileType, fileName)
+    })
   }
   function formatBytesShort(bytes) {
     if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'

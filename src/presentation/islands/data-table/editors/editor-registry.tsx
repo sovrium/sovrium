@@ -5,12 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". The two are not interchangeable here — swapping them turns
-   every clear gesture into a silent no-op. */
-
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-type-behavior'
 import { AttachmentEditor } from './attachment-editor'
 import { CodeCellEditorBoundary } from './code-editor-boundary'

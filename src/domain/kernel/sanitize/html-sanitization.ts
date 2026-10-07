@@ -31,7 +31,7 @@
  * This is the single canonical HTML sanitiser (security rule S2) — never add
  * a second one.
  *
- * Asserted by [internal ref] and [internal ref]-*.
+ * Asserted by a pages CRUD wysiwyg spec and [internal ref]-*.
  */
 
 import sanitizeHtml from 'sanitize-html'

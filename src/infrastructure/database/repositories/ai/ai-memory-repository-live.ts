@@ -37,7 +37,7 @@ const wrap = makeDbWrap((cause) => new AiMemoryDatabaseError({ cause }))
  * Derive a conversation title from the first user message.
  *
  * Keeps it short (a thread label, not the whole message) — truncates to 60
- * characters with an ellipsis. [internal ref] only asserts the title is a
+ * characters with an ellipsis. An AI memory spec only asserts the title is a
  * non-empty string, so any deterministic projection of the first message is
  * acceptable.
  */

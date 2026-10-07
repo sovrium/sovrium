@@ -27,6 +27,15 @@ fields:
   - id: 5
     name: captured_at
     type: datetime
+  # What the lead wrote, when the webhook carries a `message`, and the short
+  # summary the Mistral recipe writes beside it once MISTRAL_API_KEY is set
+  # (library/recipe/record-to-mistral-summary.yaml).
+  - id: 6
+    name: message
+    type: long-text
+  - id: 7
+    name: summary
+    type: long-text
 
 # Members read and add leads; only an admin deletes one.
 permissions:

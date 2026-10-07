@@ -68,7 +68,6 @@ function CalendarCreateForm({
   onClose,
   onSubmitted,
 }: CalendarCreateFormProps): ReactElement {
-  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- React 19 Compiler memoizes; useCallback restricted by no-restricted-syntax
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault()
     const payload = formToJsonPayload(e.currentTarget)

@@ -57,6 +57,7 @@
 
 import { Schema } from 'effect'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The `application_type` an OAuth client registering a redirect URI on THIS
@@ -156,3 +157,24 @@ export const instanceFactsResponseSchema = Schema.Struct({
 
 /** @public */
 export type InstanceFactsResponse = typeof instanceFactsResponseSchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/instance`.
+ *
+ * `limit` caps the `tables` list. A plain optional string, matching today's
+ * handler: a value that is not a positive integer is treated as ABSENT (the
+ * whole list), never refused — `limit` narrows a display list, so the honest
+ * degradation is showing everything.
+ */
+export const instanceFactsQuerySchema = Schema.Struct({
+  limit: optionalField(
+    Schema.String.annotate({
+      description:
+        'Cap on the `tables` list. A value that is not a positive integer is ignored and every table is listed.',
+      examples: ['5'],
+    })
+  ),
+}).annotate({ identifier: 'InstanceFactsQuery' })
+
+/** @public */
+export type InstanceFactsQuery = typeof instanceFactsQuerySchema.Type

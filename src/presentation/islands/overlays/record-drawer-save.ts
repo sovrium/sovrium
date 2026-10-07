@@ -18,7 +18,7 @@
 
 import { useCallback } from 'react'
 import { dispatch } from '@/presentation/islands/runtime/event-bus'
-import { isStructured, type RecordDrawerField } from './record-drawer-content'
+import { isStructured, type RecordDrawerField } from './record-drawer-field'
 import { toWireValue, type Values } from './record-drawer-record-read'
 
 export interface SaveParams {

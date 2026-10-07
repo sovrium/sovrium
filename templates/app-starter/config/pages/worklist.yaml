@@ -1,0 +1,11 @@
+name: worklist
+path: /worklist
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Worklist · App starter
+  description: The active projects.
+components:
+  - $ref: ./_nav.yaml
+  - component: dashboard-worklist

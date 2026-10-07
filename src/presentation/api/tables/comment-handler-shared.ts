@@ -34,7 +34,7 @@ export async function callerRolesOnTable(
   table: NonNullable<App['tables']>[number]
 ): Promise<readonly string[]> {
   const { session, userRole, userGroups } = getTableContext(c)
-  const accessRoles = await resolveAccessRolesFor(session, [table])
+  const accessRoles = await resolveAccessRolesFor(c, session, [table])
   return tableEffectiveRoles(table, { role: userRole, groups: userGroups, accessRoles })
 }
 

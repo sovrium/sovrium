@@ -38,8 +38,9 @@
  *   than the object that is actually fetched.
  *
  * Note what this predicate deliberately does NOT establish: that the object
- * exists, or that the caller owns it. Ownership is unknowable today —
- * `file_storage_metadata.uploaded_by_id` is written by nothing — so a caller
+ * exists, or that the caller owns it. Ownership is not this predicate's to read
+ * — and an object stored before upload roads recorded
+ * `file_storage_metadata.uploaded_by_id` names no owner at all — so a caller
  * handed an issued-SHAPED value could still name somebody else's object. That
  * is why the write guard refuses every non-null client-supplied value outright
  * rather than shape-checking it, and why this predicate's only caller is the
@@ -87,7 +88,7 @@ export const AVATAR_BUCKET_NAME = 'avatars'
  * and forgot, and the wrong one for a feature the binary provides itself.
  *
  * `public: false` with NO `permissions`, and both halves are the decision
- * (founder, 2026-09-19). The download gate reads an undeclared `download` as
+ * The download gate reads an undeclared `download` as
  * "a session is required", so an avatar here is readable by any signed-in
  * user — an avatar only its owner can load is not an avatar, since the console
  * draws it in a member directory and beside every comment — and answers 404,

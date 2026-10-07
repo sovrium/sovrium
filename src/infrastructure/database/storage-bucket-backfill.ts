@@ -255,11 +255,8 @@ export const runStorageBucketBackfill = async (app: Readonly<App>): Promise<void
   // Sequential, not `Promise.all`: SQLite serializes writers anyway, and a
   // fan-out over an unbounded number of declared columns would contend for the
   // Postgres pool during boot.
-  // eslint-disable-next-line functional/no-let -- accumulator for the sequential loop below
   let attachments = 0
-  // eslint-disable-next-line functional/no-loop-statements -- sequential per-column recovery
   for (const target of collectAttachmentColumns(app)) {
-    // eslint-disable-next-line functional/no-expression-statements -- accumulate recovered count
     attachments += await recoverColumn(target).catch((error: unknown) => {
       logError(
         `[storage-bucket-backfill] recovery of ${target.relation}.${target.column} failed (non-fatal)`,

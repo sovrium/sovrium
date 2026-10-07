@@ -52,21 +52,30 @@ With no `DATABASE_URL`, tables and authentication work out of the box against a 
 
 ## "Sovrium refused this configuration" / "Error: Validation failed."
 
-Every boot — and every `sovrium validate` and `sovrium build` — decodes your config against the same schema. `validate` prints the finding under `Error: Validation failed.`; `start` and `build` print the same finding under a line naming what did not happen:
+Every boot — and every `sovrium validate` and `sovrium build` — decodes your config against the same schema. `validate` prints the report under `Error: Validation failed.`; `start` and `build` print the same report under a line naming what did not happen:
 
 ```text
 Error: Sovrium refused this configuration — nothing was started.
 
+2 problems
+
+app.yaml
+  Missing key
+    at ["tables"][0]["fields"][0]["name"]
+
+pages/home.yaml
   Unknown property 'tag' on component type 'text'
     at pages[0].components[0]
     Accepted here: type, children, props, content, ..., element, required
 ```
 
-The property you wrote is not one the schema declares at that spot. Check it against the accepted list, or move it under `props` if it is a raw HTML or ARIA attribute — `props` is forwarded to the browser untouched.
+Every mistake is listed in one run, counted, under the file it lives in — a `$ref` partial by its path from the root config's directory. Past 50, the report shows the first 50 and counts the rest.
 
-Structural problems that are not a stray key — a missing `name`, a number where a string belongs — still print as the decoder's indented tree. Read that one from the bottom: the top is schema machinery, and the final lines name the property and the reason (`is missing`, `is unexpected, expected: ...`).
+An `Unknown property` is a key the schema does not declare at that spot. Check it against the accepted list, or move it under `props` if it is a raw HTML or ARIA attribute — `props` is forwarded to the browser untouched.
 
-**Nothing partial happens on a refusal.** No port is bound, no database is touched, no files are written. Fix the property and run again — or run `sovrium validate <config>` first, which asks the same question with no side effects at all. Full guide in **Validating a Config**.
+Structural problems that are not a stray key — a missing `name`, a number where a string belongs — print in the decoder's own words (`Missing key`, `Expected string, got 3`) followed by the path they sit at.
+
+**Nothing partial happens on a refusal.** No port is bound, no database is touched, no files are written. Fix the problems and run again — or run `sovrium validate <config>` first, which asks the same question with no side effects at all. Full guide in **Validating a Config**.
 
 ## "Sovrium could not write its encryption key"
 

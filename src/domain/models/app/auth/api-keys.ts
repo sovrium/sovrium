@@ -27,7 +27,7 @@ import { Schema } from 'effect'
  * - **Permissions are never author-controlled.** A key inherits the role of
  *   the user who created it, derived server-side from `referenceId`. There is
  *   no config path — and no request path — by which a caller can widen a key
- * beyond their own role..
+ *   beyond their own role.
  * - **Ownership is never author-controlled.** A key always belongs to the
  *   session that created it. There is no admin-manages-others mode, so no
  *   config expresses one.

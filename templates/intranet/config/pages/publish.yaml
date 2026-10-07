@@ -37,10 +37,14 @@ components:
     children:
       - type: container
         props:
-          className: flex w-[440px] max-w-full flex-none flex-col gap-4 rounded-lg border border-border bg-background-raised p-5 [&_h1]:text-[17px] [&_h1]:font-semibold [&_h1+p]:text-sm [&_h1+p]:text-foreground-muted
+          className: flex w-[440px] max-w-full flex-none flex-col gap-4 rounded-lg border border-border bg-background-raised p-5
         children:
           - type: form
             formRef: publish-announcement
+            classes:
+              parts:
+                title: text-[17px] font-semibold
+                description: text-sm text-foreground-muted
       - type: container
         element: section
         props:
@@ -53,6 +57,7 @@ components:
               className: text-[17px] font-semibold text-foreground
             content: Directory
           - type: table
+            readOnly: true
             dataSource:
               table: members
               sort:

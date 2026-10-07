@@ -5,13 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/immutable-data, functional/no-expression-statements --
-   Handlebars's `engine.compile` returns the same closure every call, so the
-   compile cache (`Map<string, Compiled>`) is a write-once-per-template
-   optimisation. Using a Map (instead of a frozen record) keeps the lookup
-   O(1) and matches the established mutable-Handlebars-instance pattern in
-   `handlebars-helpers.ts`. The mutations are confined to this file. */
-
 import Handlebars from 'handlebars'
 import { logError } from '@/infrastructure/logging/logger'
 import { registerHelpers } from './handlebars-helpers'

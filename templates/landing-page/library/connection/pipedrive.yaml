@@ -1,0 +1,100 @@
+# sovrium-library: connection/pipedrive@0.30.0
+name: pipedrive
+type: apiKey
+label: Pipedrive
+description: 'Pipedrive API, authenticated with a personal API token'
+props:
+  key: $env.PIPEDRIVE_API_TOKEN
+  header: x-api-token
+baseUrl: https://api.pipedrive.com
+operations:
+  - name: create-person
+    method: POST
+    path: /api/v2/persons
+    summary: Create a person
+    params:
+      name:
+        in: body
+        type: string
+        required: true
+      emails:
+        in: body
+        type: array
+        description: 'Items { value, primary, label }'
+      phones:
+        in: body
+        type: array
+        description: 'Items { value, primary, label }'
+      org_id:
+        in: body
+        type: integer
+      owner_id:
+        in: body
+        type: integer
+  - name: search-persons
+    method: GET
+    path: /api/v2/persons/search
+    summary: 'Find persons by name, email or phone'
+    params:
+      term:
+        in: query
+        type: string
+        required: true
+        description: At least 2 characters
+      fields:
+        in: query
+        type: string
+        description: 'e.g. email,name'
+      exact_match:
+        in: query
+        type: boolean
+  - name: create-lead
+    method: POST
+    path: /v1/leads
+    summary: Create a lead linked to a person or an organization
+    params:
+      title:
+        in: body
+        type: string
+        required: true
+      person_id:
+        in: body
+        type: integer
+      organization_id:
+        in: body
+        type: integer
+      owner_id:
+        in: body
+        type: integer
+      label_ids:
+        in: body
+        type: array
+        items:
+          type: string
+  - name: list-deals
+    method: GET
+    path: /api/v2/deals
+    summary: 'List deals, optionally by status or owner'
+    params:
+      status:
+        in: query
+        type: string
+        enum:
+          - open
+          - won
+          - lost
+          - deleted
+      owner_id:
+        in: query
+        type: integer
+      limit:
+        in: query
+        type: integer
+      cursor:
+        in: query
+        type: string
+    pagination:
+      style: cursor
+      cursorParam: cursor
+      cursorPath: additional_data.next_cursor
+      itemsPath: data

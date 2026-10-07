@@ -24,13 +24,13 @@ import { isEmailConfigured } from '@/infrastructure/process/env'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { adminMountsFor } from '@/infrastructure/server/admin-mounts'
 import { applyBootstrapTokenToSummary } from '@/infrastructure/server/bootstrap-banner'
+import { collectSignUpExposurePhases } from '@/infrastructure/server/sign-up-exposure-phases'
 import { runDatabaseStartup } from '@/infrastructure/server/startup-database'
 import {
   collectAdminPhases,
   collectAiListenerPhases,
   collectAiProviderPhases,
   collectPublicDirPhases,
-  collectSignUpExposurePhases,
   collectStoragePhases,
   collectTelemetryPhases,
 } from '@/infrastructure/server/startup-degradation-phases'
@@ -59,12 +59,12 @@ const getPackageVersion = (): Effect.Effect<string, never> =>
  * `startServer` does, hoisting the chain ahead of its render pass. Otherwise
  * this IS the process's one run.
  *
- * There is no third case any more. A render no longer creates a server at all
- * (`render-app.ts`), so every caller reaching here is a real boot, and the
- * `ephemeral` branch that used to return no rows has nobody left to take it.
+ * There is no third case. A render does not create a server at all
+ * (`render-app.ts`), so every caller reaching here is a real boot, and no
+ * branch returns no rows.
  *
- * SQLite is a real, zero-config database — the historical "DATABASE_URL not
- * set → skip database" branch is gone. The dialect resolver picks PostgreSQL
+ * SQLite is a real, zero-config database — there is no "DATABASE_URL not
+ * set → skip database" branch. The dialect resolver picks PostgreSQL
  * when `DATABASE_URL` is set and SQLite (`./.sovrium/database.db` by default)
  * otherwise; the chain always runs migrations → schema → seeds.
  */
@@ -101,7 +101,7 @@ const collectInfraPhases = (
     // `collectAdminPhases` for the three-branch contract (silent on auth-less
     // apps, silent on fresh boots where the bootstrap-token banner is the
     // source of truth, ✓ when an admin exists, ⚠ when users exist but no
-    // admin does). [internal ref].
+    // admin does).
     // effect-promise: total -- `collectAdminPhases` returns early for an app with no auth and otherwise ends its program in `Effect.orElseSucceed(() => [])`; a banner lookup must not regress the rest of the startup pipeline.
     const adminPhases = yield* Effect.promise(() => collectAdminPhases(app))
 
@@ -190,8 +190,8 @@ const collectInfraPhases = (
  *   then hands the operator a door with no key — the same silent-skip
  *   reasoning that keeps the `✓ Admin:` line off an auth-less banner.
  *
- * [internal ref] (both hold → the row, directly under the URL),
- * [internal ref] (console off), [internal ref] (no auth).
+ * a CLI log output spec (both hold → the row, directly under the URL),
+ * a CLI log output spec (console off), a CLI log output spec (no auth).
  */
 const adminConsoleLocator = (app: App, url: string): string | undefined => {
   if (!app.auth) return undefined

@@ -25,9 +25,10 @@
  *   POST /api/agents/:name/approvals/:id/approve — approve a pending request.
  *   POST /api/agents/:name/approvals/:id/reject  — reject a pending request.
  *
- * Approval decisions are RBAC-gated: only a user whose role level is greater
- * than or equal to the agent's role level may approve or reject (403
- * otherwise). Approved actions execute under the agent's identity, never the
+ * Listing, reading and deciding on approvals follow the agent's trigger list
+ * (`checkTriggerPermission`, admins included): anyone else is answered as for
+ * an undeclared agent, before any approval lookup. Inside the list, a decision
+ * also needs a role level at least the agent's (404 otherwise). Approved actions execute under the agent's identity, never the
  * approver's. Every decision is recorded in the approval activity log.
  *
  * Agent execution always performs a single AI provider round-trip so the AI
@@ -35,13 +36,12 @@
  * of whether the action is auto-executed or queued for approval.
  */
 
-import { MirrorApprovalCreate, MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { checkPermissionWithAdminOverride } from '@/domain/models/app/auth/permissions'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import { requireDomainContext, runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { requireDomainContext } from '@/infrastructure/logging/request-effect'
 import {
   checkAgentListPermission,
   checkTriggerPermission,
@@ -61,19 +61,15 @@ import {
   resolveAgentLimits,
 } from './agent-limits'
 import { serializeAgent } from './agent-presenter'
-import { resolveRoleLevel } from './agent-roles'
-import { runApprovalMirror, runApproverIdentityLookup, toMirrorRecord } from './approval-mirror'
+import { decideAsApprover, type Decision } from './approval-decision'
+import { runApprovalMirror, toMirrorRecord } from './approval-mirror'
 import { buildApprovalRecord, serializeApproval } from './approval-presenter'
 import {
-  appendActivityEntry,
   appendAgentActivityEntry,
   getApproval,
   listApprovalsForAgent,
   putApproval,
   refreshApproval,
-  updateApproval,
-  type ApprovalRecord,
-  type ApprovalStatus,
 } from './approval-store'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -167,13 +163,13 @@ const isRbacDenied = (
 }
 
 /**
- * Tool-allowlist + RBAC double gate.
+ * Tool-allowlist + RBAC double gate (an AI agent def spec / [internal ref]).
  *
  * Two gates must both pass for an agent action to proceed:
  *
- * 1. **RBAC gate**: the agent's auth `role` must hold
+ *  1. **RBAC gate**: the agent's auth `role` must hold
  *     the table-level permission for the requested record CRUD verb.
- * 2. **Allowlist gate**: the requested
+ *  2. **Allowlist gate**: the requested
  *     table AND action must appear in the agent's `tools` allowlist. An agent
  *     with no `tools` configuration has NO access (secure by default).
  *
@@ -217,15 +213,15 @@ const isToolAccessDenied = (
 /**
  * Log an agent action in both activity sinks and return who started its run.
  *
- * [internal ref]: the action appears in activity monitoring with
- * actor_type='agent' and actor_name set to the agent name. [internal ref]
+ * The action appears in activity monitoring with
+ * actor_type='agent' and actor_name set to the agent name. An AI agent perms spec
  * / -007: it also joins the `GET /api/activity` `entries` feed, alongside
  * approval decisions, carrying the table and row it targets — the records read
  * gate a non-admin reader is held to — and the account id of whoever started
  * the run, the one identity the feed's audience rule trusts.
  */
 const logAgentAction = async (
-  c: Readonly<Context>,
+  c: Context,
   agentName: string,
   action: string,
   body: ExecuteRequestBody
@@ -256,14 +252,14 @@ const logAgentAction = async (
  * complete immediately or queue an approval request.
  */
 const runAgentAction = async (
-  c: Readonly<Context>,
+  c: Context,
   agent: Agent,
   body: ExecuteRequestBody,
   action: string
 ): Promise<Response> => {
   const { name: agentName } = agent
 
-  // [internal ref]: rate + concurrency gates. A `queued`
+  // Rate + concurrency gates. A `queued`
   // response is returned WITHOUT calling the AI provider — the action is
   // deferred, not executed.
   const limitGate = checkLimitGates(c, agent)
@@ -283,7 +279,7 @@ const runAgentAction = async (
  * token-exhausted decision.
  */
 const executeWithinSlot = async (
-  c: Readonly<Context>,
+  c: Context,
   agent: Agent,
   body: ExecuteRequestBody,
   action: string
@@ -302,7 +298,7 @@ const executeWithinSlot = async (
   const tokensUsed = await callAgentAi(agent, action)
   recordTokenUsage(agentName, tokensUsed)
 
-  // [internal ref]: once the daily token budget can no longer cover
+  // Once the daily token budget can no longer cover
   // another LLM round-trip, the action fails with an explicit error. The AI
   // call above has already been made (and observed) — the budget check is
   // post-call so the provider round-trip is never silently skipped.
@@ -333,12 +329,12 @@ const executeWithinSlot = async (
 
 const handleExecute =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
 
-    // [internal ref]: `permissions.trigger` governs
+    // `permissions.trigger` governs
     // who may invoke this agent. FIRST of every gate — see the placement note on
     // `checkTriggerPermission`. Both the 503 below and the limiters after it
     // answer differently for a declared agent than an undeclared one, and the
@@ -346,7 +342,7 @@ const handleExecute =
     const triggerRefusal = await checkTriggerPermission(c, agent, app)
     if (triggerRefusal) return triggerRefusal
 
-    // [internal ref]: with no AI provider configured at all, the declared agent is
+    // With no AI provider configured at all, the declared agent is
     // INERT — discoverable but not runnable. Degrade the execute path gracefully
     // with 503 rather than proceeding to the AI round-trip (which has no
     // reachable provider). Checked before every other gate so no work — rate
@@ -379,7 +375,7 @@ const handleExecute =
       )
     }
 
-    // [internal ref]: an action outside the agent's
+    // An AI agent def spec / [internal ref]: an action outside the agent's
     // tools allowlist — or one its role lacks RBAC permission for — is denied
     // as 404 to prevent enumeration. Checked before the AI round-trip so a
     // disallowed call never reaches the LLM provider.
@@ -391,7 +387,7 @@ const handleExecute =
   }
 
 /**
- * [internal ref]: the agent collection.
+ * The agent collection.
  *
  * Two gates, because this path has no `:name` segment and therefore never runs
  * under the `/api/agents/*` middleware wildcard, and no single `trigger` grant
@@ -408,7 +404,7 @@ const handleExecute =
  */
 const handleListAgents =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const listRefusal = await checkAgentListPermission(c, app)
     if (listRefusal) return listRefusal
     const agents = app?.agents ?? []
@@ -421,7 +417,7 @@ const handleListAgents =
 
 const handleGetAgent =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
@@ -432,14 +428,14 @@ const handleGetAgent =
   }
 
 /**
- * [internal ref]: daily token-usage readback.
+ * Daily token-usage readback.
  *
  * Reports the agent's tokens consumed during the current UTC day alongside
  * its effective `maxTokensPerDay` budget. The counter resets at midnight UTC.
  */
 const handleGetUsage =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
@@ -453,7 +449,7 @@ const handleGetUsage =
 
 const handleListApprovals =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
@@ -471,7 +467,7 @@ const handleListApprovals =
 
 const handleGetApproval =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
@@ -485,14 +481,16 @@ const handleGetApproval =
     return c.json(serializeApproval(refreshApproval(record)), 200)
   }
 
-type Decision = 'approve' | 'reject'
-
 const handleDecision =
   (app: App | undefined, decision: Decision) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c)
+    // Before the approval lookup: a caller the trigger list does not admit learns
+    // nothing about which approval ids exist, and decides on none of them.
+    const refusal = await checkTriggerPermission(c, agent, app)
+    if (refusal) return refusal
     const approvalId = c.req.param('id') ?? ''
     const stored = getApproval(approvalId)
     if (!stored || stored.agentName !== agentName) {
@@ -513,79 +511,8 @@ const handleDecision =
       )
     }
 
-    const session = getSessionContext(c as Context)
-    const approver = await resolveApprover(c as Context, session?.userId)
-    if (!approver) {
-      return c.json(
-        errorBody({
-          error: 'Authentication is required to decide on an approval.',
-          code: ApiErrorCode.UNAUTHORIZED,
-        }),
-        401
-      )
-    }
-
-    const agentLevel = resolveRoleLevel(app, agent.role)
-    const approverLevel = resolveRoleLevel(app, approver.role)
-    if (approverLevel < agentLevel) {
-      return c.json(
-        notFoundBody(
-          `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`
-        ),
-        404
-      )
-    }
-
-    return applyDecision(c, record, decision, approver)
+    return decideAsApprover(c, { app, agent, record, decision })
   }
-
-interface Approver {
-  readonly id: string
-  readonly name: string
-  readonly email: string
-  readonly role: string
-}
-
-/** Resolve the approving user from the session, including role, name + email. */
-const resolveApprover = async (
-  c: Context,
-  userId: string | undefined
-): Promise<Approver | undefined> => {
-  if (userId === undefined) return undefined
-  const role = await runDomainPromise(c, getUserRole(userId))
-  const { email, name } = await runApproverIdentityLookup(requireDomainContext(c), userId)
-  return { id: userId, name, email, role }
-}
-
-const applyDecision = async (
-  c: Readonly<Context>,
-  record: ApprovalRecord,
-  decision: Decision,
-  approver: Approver
-): Promise<Response> => {
-  const nextStatus: ApprovalStatus = decision === 'approve' ? 'approved' : 'rejected'
-  // Approved actions execute under the AGENT's identity, never the approver's.
-  const next =
-    updateApproval(record.id, {
-      status: nextStatus,
-      approvedByEmail: approver.email,
-      ...(decision === 'approve' && { actionExecuted: true, executedAs: record.agentName }),
-    }) ?? record
-
-  await runApprovalMirror(requireDomainContext(c), MirrorApprovalUpdate(toMirrorRecord(next)))
-
-  appendActivityEntry({
-    id: crypto.randomUUID(),
-    action: decision === 'approve' ? 'approval.approved' : 'approval.rejected',
-    approvalId: next.id,
-    agentName: next.agentName,
-    actor: { id: approver.id, name: approver.name, email: approver.email },
-    createdAt: new Date().toISOString(),
-    runStartedById: next.requestedById,
-  })
-
-  return c.json(serializeApproval(next), 200)
-}
 
 /**
  * Chain agent action + approval routes onto a Hono app.
@@ -600,20 +527,12 @@ const applyDecision = async (
  */
 export function chainAgentApprovalRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
-    .post('/api/agents/:name/execute', (c) => handleExecute(app)(c as unknown as Readonly<Context>))
-    .post('/api/agents/:name/approvals/:id/approve', (c) =>
-      handleDecision(app, 'approve')(c as unknown as Readonly<Context>)
-    )
-    .post('/api/agents/:name/approvals/:id/reject', (c) =>
-      handleDecision(app, 'reject')(c as unknown as Readonly<Context>)
-    )
-    .get('/api/agents/:name/approvals/:id', (c) =>
-      handleGetApproval(app)(c as unknown as Readonly<Context>)
-    )
-    .get('/api/agents/:name/approvals', (c) =>
-      handleListApprovals(app)(c as unknown as Readonly<Context>)
-    )
-    .get('/api/agents/:name/usage', (c) => handleGetUsage(app)(c as unknown as Readonly<Context>))
-    .get('/api/agents', (c) => handleListAgents(app)(c as unknown as Readonly<Context>))
-    .get('/api/agents/:name', (c) => handleGetAgent(app)(c as unknown as Readonly<Context>)) as T
+    .post('/api/agents/:name/execute', (c) => handleExecute(app)(c))
+    .post('/api/agents/:name/approvals/:id/approve', (c) => handleDecision(app, 'approve')(c))
+    .post('/api/agents/:name/approvals/:id/reject', (c) => handleDecision(app, 'reject')(c))
+    .get('/api/agents/:name/approvals/:id', (c) => handleGetApproval(app)(c))
+    .get('/api/agents/:name/approvals', (c) => handleListApprovals(app)(c))
+    .get('/api/agents/:name/usage', (c) => handleGetUsage(app)(c))
+    .get('/api/agents', (c) => handleListAgents(app)(c))
+    .get('/api/agents/:name', (c) => handleGetAgent(app)(c)) as T
 }

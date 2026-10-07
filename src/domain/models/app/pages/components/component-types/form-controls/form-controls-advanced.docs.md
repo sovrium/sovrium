@@ -81,3 +81,19 @@ pages:
 ```
 
 **You do not need this to link records inside a form or a grid.** A `relationship` column already draws this control wherever it is bound. Reach for `record-picker` when the page has no such column to dispatch from — a filter bar, a panel, a step that writes somewhere else.
+
+## `rating`
+
+A row of stars that reads, and inside a form writes, a `rating` field.
+
+<!-- sovrium:options type:rating -->
+
+Inside a form it is an input: a radio group named "3 of 5", moved with the arrow keys, that submits a whole number. Elsewhere it reads the field from the bound record and draws it read-only. The number of stars comes from `max`, else from the field's own `max`, else five. `allowHalf` rounds a read-only value to the nearest half star, which is only ever true of an average; an input always takes whole stars.
+
+## `signature-pad`
+
+The control that writes a `signature` field, and the reading that shows one.
+
+<!-- sovrium:options type:signature-pad -->
+
+The signer reads `statement` above a ruled well, draws in it, and confirms; with `allowTyped` (on by default) they may type their full name instead, which is a signature too and the path a reader who cannot draw needs. What is stored is the image, the signer's name, the instant, how it was made, and the statement as it read at that moment — so a later edit of the config cannot change what an existing signature agreed to. A signed field is written once: from then on the pad shows "Signed by … on …" and no well.

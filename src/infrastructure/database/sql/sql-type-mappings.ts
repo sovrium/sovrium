@@ -51,6 +51,7 @@ export const fieldTypeToPostgresMap: Readonly<Record<string, string>> = {
   barcode: 'VARCHAR(255)',
   'single-attachment': 'VARCHAR(255)',
   'multiple-attachments': 'JSONB',
+  signature: 'JSONB',
   relationship: 'INTEGER',
   lookup: 'TEXT',
   rollup: 'TEXT',
@@ -65,7 +66,7 @@ export const fieldTypeToPostgresMap: Readonly<Record<string, string>> = {
   // wall-clock reading whose meaning depends on out-of-band knowledge of the
   // zone. The two other emission sites for these same columns (the intrinsic
   // column generator and the ALTER-TABLE backfill) already emit `TIMESTAMPTZ`,
-  // so declaring the field explicitly used to be the one act that downgraded it.
+  // so declaring the field explicitly must not be the one act that downgrades it.
   'created-at': 'TIMESTAMPTZ',
   'updated-at': 'TIMESTAMPTZ',
   'deleted-at': 'TIMESTAMPTZ',
@@ -267,7 +268,6 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   if (special !== undefined) return special
   const postgresType = fieldTypeToPostgresMap[field.type]
   if (!postgresType) {
-    // eslint-disable-next-line functional/no-throw-statements -- Error is caught by Effect.try in table-operations.ts
     throw new Error(`Unknown field type: ${field.type}`)
   }
   return postgresType

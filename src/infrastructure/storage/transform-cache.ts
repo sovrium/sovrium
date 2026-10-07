@@ -101,7 +101,6 @@ const createTransformCache = (): TransformCache => {
   const drop = (key: string): number => {
     const entry = entries.get(key)
     if (entry === undefined) return 0
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- LRU cache requires mutable state
     entries.delete(key)
     return entry.bytes.byteLength
   }
@@ -114,7 +113,6 @@ const createTransformCache = (): TransformCache => {
     if (currentBytes(entries) + freeNeeded <= maxBytes || entries.size === 0) return
     const lruKey = entries.keys().next().value
     if (lruKey === undefined) return
-    // eslint-disable-next-line functional/no-expression-statements -- drop the LRU entry; recursion continues until the new entry fits
     drop(lruKey)
     evictUntilFits(freeNeeded, maxBytes)
   }
@@ -124,9 +122,7 @@ const createTransformCache = (): TransformCache => {
       const entry = entries.get(key)
       if (entry === undefined) return undefined
       // Promote to most-recently-used: re-insert moves the key to the tail.
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- LRU cache requires mutable state
       entries.delete(key)
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- LRU cache requires mutable state
       entries.set(key, entry)
       return entry
     },
@@ -134,13 +130,11 @@ const createTransformCache = (): TransformCache => {
       const maxBytes = resolveMaxBytes()
       const size = value.bytes.byteLength
       // Drop any prior entry for this key first so the size accounting is exact.
-      // eslint-disable-next-line functional/no-expression-statements -- discard the dropped size; currentBytes recomputes the total
       drop(key)
       // An entry that cannot fit even an empty cache is never retained.
       if (size > maxBytes) return
       // Evict LRU entries until the new entry fits, then insert it.
       evictUntilFits(size, maxBytes)
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- LRU cache requires mutable state
       entries.set(key, value)
     },
     evictKey: (storageKey) => {
@@ -160,7 +154,6 @@ const createTransformCache = (): TransformCache => {
       // There is no separate byte accumulator to reset — emptying the map IS
       // the byte accounting reset.
       const cleared: ClearedTransforms = { entries: entries.size, bytes: currentBytes(entries) }
-      // eslint-disable-next-line functional/immutable-data -- LRU cache requires mutable state
       entries.clear()
       return cleared
     },

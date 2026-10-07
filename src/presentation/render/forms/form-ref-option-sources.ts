@@ -54,20 +54,35 @@ export interface FormRefOptionSourceContext {
   readonly cookies: Readonly<Record<string, string>> | undefined
 }
 
-/** The form names this page embeds by `formRef` and shows to this session. */
-const embeddedFormNames = (
+/** Every `formRef` this page embeds and shows to this session, once per embed. */
+const embeddedFormRefs = (
   components: Page['components'],
   session: SessionInfo | undefined,
   app: App
-): readonly string[] => {
-  const names = collectFromComponentTree(components ?? [], {
+): readonly string[] =>
+  collectFromComponentTree(components ?? [], {
     visit: (node) => {
       const formRef = readEmbeddedFormRef(node)
       return formRef === undefined ? [] : [formRef]
     },
     shouldSkip: (node) => isComponentHiddenForSession(node, session, app),
   })
-  return [...new Set(names)]
+
+/** The form names this page embeds by `formRef` and shows to this session. */
+export const embeddedFormNames = (
+  components: Page['components'],
+  session: SessionInfo | undefined,
+  app: App
+): readonly string[] => [...new Set(embeddedFormRefs(components, session, app))]
+
+/** The form names this page embeds more than once — their controls need scoped ids. */
+export const repeatedFormNames = (
+  components: Page['components'],
+  session: SessionInfo | undefined,
+  app: App
+): ReadonlySet<string> => {
+  const refs = embeddedFormRefs(components, session, app)
+  return new Set(refs.filter((name, index) => refs.indexOf(name) !== index))
 }
 
 /** Read ONE plan's rows and project them into choices. */

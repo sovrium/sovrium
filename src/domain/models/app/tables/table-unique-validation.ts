@@ -14,8 +14,8 @@ interface UniqueForValidation {
  * Check that every top-level `unique` entry names fields the table declares.
  *
  * An entry is folded into a field's `unique: true` (one field) or a unique
- * index (several), so a misspelt name used to validate and surface as a
- * database error at boot. An entry has no name of its own, so the message
+ * index (several), so an unchecked misspelt name would validate and surface as
+ * a database error at boot. An entry has no name of its own, so the message
  * names it by position and by the fields it lists. Only declared fields
  * count, as for `indexes`, which a composite entry becomes.
  *

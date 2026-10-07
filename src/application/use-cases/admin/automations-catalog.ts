@@ -34,6 +34,7 @@ import type {
   AutomationPauseDatabaseError,
   AutomationPauseRow,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type {
   AutomationCatalogItem,
   AutomationPauseResponse,
@@ -176,7 +177,7 @@ const announcePauseChange = (
   name: string,
   mutation: 'paused' | 'resumed',
   actorUserId: string | undefined
-): Effect.Effect<void, never, AuthRepository> =>
+): Effect.Effect<void, never, AuthRepository | EmailSender> =>
   Effect.gen(function* () {
     const actor =
       actorUserId === undefined
@@ -214,7 +215,7 @@ const mutateAndAnnounce = (
 ): Effect.Effect<
   AutomationPauseOutcome,
   AutomationPauseDatabaseError,
-  AutomationPauseRepository | AuthRepository
+  AutomationPauseRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const { outcome, changed } = yield* runMutation(app, name, mutate)
@@ -232,7 +233,7 @@ export const PauseAutomation = (
 ): Effect.Effect<
   AutomationPauseOutcome,
   AutomationPauseDatabaseError,
-  AutomationPauseRepository | AuthRepository
+  AutomationPauseRepository | AuthRepository | EmailSender
 > =>
   mutateAndAnnounce(app, name, { mutation: 'paused', actorUserId: pausedByUserId }, (repository) =>
     repository.pause({ automationName: name, pausedByUserId })
@@ -246,7 +247,7 @@ export const ResumeAutomation = (
 ): Effect.Effect<
   AutomationPauseOutcome,
   AutomationPauseDatabaseError,
-  AutomationPauseRepository | AuthRepository
+  AutomationPauseRepository | AuthRepository | EmailSender
 > =>
   mutateAndAnnounce(
     app,

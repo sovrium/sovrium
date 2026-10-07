@@ -55,8 +55,8 @@ export const GLYPH_SVG_ATTRS = {
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  // 1.5, the one stroke weight in the product. It was 2 — lucide's own default,
-  // which nothing else here uses since the icon renderers were moved off it.
+  // 1.5, the one stroke weight in the product — not lucide's own default of 2,
+  // which no icon renderer here uses.
   strokeWidth: '1.5',
   strokeLinecap: 'round',
   strokeLinejoin: 'round',

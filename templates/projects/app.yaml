@@ -12,6 +12,26 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# Optional: a Microsoft 365 app and a Teams channel turn on the new-project post
+# to that channel (library/recipe/record-to-teams-channel.yaml). Without them
+# the app runs as before and that one automation cannot reach Teams.
+env:
+  - key: MICROSOFT_CLIENT_ID
+    description: Client id of your Microsoft Entra app, for the Teams connection.
+    required: false
+    secret: false
+  - key: MICROSOFT_CLIENT_SECRET
+    description: Client secret of your Microsoft Entra app, for the Teams connection.
+    required: false
+  - key: TEAMS_TEAM_ID
+    description: Id of the Microsoft Teams team whose channel hears about new projects.
+    required: false
+    secret: false
+  - key: TEAMS_CHANNEL_ID
+    description: Id of the Teams channel each new project is posted to.
+    required: false
+    secret: false
+
 tables:
   - $ref: ./config/tables/projects.yaml
   - $ref: ./config/tables/tasks.yaml
@@ -19,6 +39,13 @@ tables:
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/notify-assignee-on-blocked.yaml
+  - $ref: ./config/automations/chase-blocked-tasks.yaml
+  - $ref: ./library/recipe/record-to-teams-channel.yaml
+
+# The forms the app's "Add" dialogs open, each placed with `formRef`.
+forms:
+  - $ref: ./config/forms/add-task.yaml
+  - $ref: ./config/forms/new-project.yaml
 
 # Listed in the order of the sidebar: the dashboard is the home page.
 pages:
@@ -32,3 +59,8 @@ pages:
 # floating pill, so it never sits over the last card of a board.
 badge:
   placement: footer
+
+# The Microsoft 365 account the Teams post goes through, installed from the
+# Sovrium library. Its credentials come from the environment, never this file.
+connections:
+  - $ref: ./library/connection/microsoft-365.yaml

@@ -13,6 +13,7 @@ import {
   computeKanbanPlaceholderClasses,
 } from '@/presentation/design/kanban-default-classes'
 import { KanbanCardView } from './kanban-card-view'
+import type { KanbanColumnPlacement } from './column-sizing'
 import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement, ReactNode } from 'react'
@@ -96,6 +97,8 @@ export interface KanbanCellProps {
   readonly folded?: boolean
   /** DOM id of the card well, the target of a foldable header's `aria-controls`. */
   readonly bodyId?: string
+  /** The well's width placement; the readable fixed width when absent. */
+  readonly placement?: KanbanColumnPlacement
 }
 
 /**
@@ -140,6 +143,7 @@ export function KanbanCell({
   header,
   folded = false,
   bodyId,
+  placement,
 }: KanbanCellProps): ReactElement {
   // Make the cell itself a droppable target so dragging onto an empty cell (or
   // onto its background, not over a card) still resolves to a valid drop target.
@@ -156,7 +160,8 @@ export function KanbanCell({
       // skeleton appends the same pair. The recipe owns the well's chrome and
       // its inner rhythm — which no longer includes a border, because a filled
       // well plus a hairline states one boundary twice.
-      className={`${computeKanbanColumnClasses({ state: isOver ? 'over' : 'default' })} w-72 shrink-0`}
+      className={`${computeKanbanColumnClasses({ state: isOver ? 'over' : 'default' })} ${placement?.className ?? 'w-72 shrink-0'}`}
+      style={placement?.style}
     >
       {header}
       {folded ? (

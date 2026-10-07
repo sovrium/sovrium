@@ -16,3 +16,9 @@ export { CodeElementTypeLiteral, codeElementFields } from './code-element'
 export { TocTypeLiteral, tocFields } from './toc'
 export { SearchInputTypeLiteral, searchInputFields } from './search-input'
 export { KbdTypeLiteral, kbdFields } from './kbd'
+export {
+  FilePreviewTypeLiteral,
+  FilePreviewFileSchema,
+  FilePreviewToolSchema,
+  filePreviewFields,
+} from './file-preview'

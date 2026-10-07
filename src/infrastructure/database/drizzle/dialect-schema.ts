@@ -38,11 +38,9 @@ import {
 import { formSubmissions as formSubmissionsSqlite } from './schema-sqlite/form-submissions'
 import { fileStorageMetadata as fileStorageMetadataSqlite } from './schema-sqlite/storage'
 
-// eslint-disable-next-line functional/no-let -- module-scope lazy memoization; written once on first call
 let CACHED_DIALECT: 'postgres' | 'sqlite' | undefined
 
 const resolveDialect = (): 'postgres' | 'sqlite' => {
-  // eslint-disable-next-line functional/no-expression-statements -- memoization cache write
   CACHED_DIALECT ??= parseDatabaseDialectConfig().dialect
   return CACHED_DIALECT
 }
@@ -106,7 +104,6 @@ export const resolveDialectSchema = <T>(pg: T, sqlite: unknown): T =>
  * prefix. Selecting the dialect-correct object here is what makes a form
  * submission insert resolve to a table that actually exists on SQLite.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const formSubmissionsTable = (): typeof formSubmissionsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (formSubmissionsSqlite as unknown as typeof formSubmissionsPg)
@@ -122,7 +119,6 @@ export const formSubmissionsTable = (): typeof formSubmissionsPg =>
  * object here is what makes the file-metadata enumeration resolve to a table
  * that actually exists on SQLite. Same rationale as {@link formSubmissionsTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const fileStorageMetadataTable = (): typeof fileStorageMetadataPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (fileStorageMetadataSqlite as unknown as typeof fileStorageMetadataPg)
@@ -137,7 +133,6 @@ export const fileStorageMetadataTable = (): typeof fileStorageMetadataPg =>
  * (e.g. the admin-bootstrap email-verification update) need the dialect-correct
  * object too — otherwise they emit `auth.user`, which does not exist on SQLite.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authUsersTable = (): typeof authUsersPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authUsersSqlite as unknown as typeof authUsersPg)
@@ -147,7 +142,6 @@ export const authUsersTable = (): typeof authUsersPg =>
  * The Better Auth `session` (`auth.session` / `auth_session`) Drizzle table
  * object for the active dialect. Same rationale as {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authSessionsTable = (): typeof authSessionsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authSessionsSqlite as unknown as typeof authSessionsPg)
@@ -165,7 +159,6 @@ export const authSessionsTable = (): typeof authSessionsPg =>
  *
  * @public
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authAccountsTable = (): typeof authAccountsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authAccountsSqlite as unknown as typeof authAccountsPg)
@@ -176,15 +169,13 @@ export const authAccountsTable = (): typeof authAccountsPg =>
  * Drizzle table object for the active dialect. Same rationale as
  * {@link authUsersTable}.
  *
- * Has no caller today — the invitation handler that read it was removed
- * along with the rest of the unreferenced route-setup code. Kept exported
+ * Has no caller today. Kept exported
  * (and marked `@public`) for symmetry with the rest of the Better Auth
  * table family, so a future verification-token query can adopt the
  * dialect-aware selector without re-introducing it.
  *
  * @public
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authVerificationsTable = (): typeof authVerificationsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authVerificationsSqlite as unknown as typeof authVerificationsPg)
@@ -194,7 +185,6 @@ export const authVerificationsTable = (): typeof authVerificationsPg =>
  * The Better Auth `team` (`auth.team` / `auth_team`) Drizzle table object for
  * the active dialect. Same rationale as {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authTeamsTable = (): typeof authTeamsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authTeamsSqlite as unknown as typeof authTeamsPg)
@@ -204,7 +194,6 @@ export const authTeamsTable = (): typeof authTeamsPg =>
  * The Better Auth `member` (`auth.member` / `auth_member`) Drizzle table object
  * for the active dialect. Same rationale as {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authMembersTable = (): typeof authMembersPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authMembersSqlite as unknown as typeof authMembersPg)
@@ -215,7 +204,6 @@ export const authMembersTable = (): typeof authMembersPg =>
  * Drizzle table object for the active dialect. Same rationale as
  * {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authTeamMembersTable = (): typeof authTeamMembersPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authTeamMembersSqlite as unknown as typeof authTeamMembersPg)
@@ -226,7 +214,6 @@ export const authTeamMembersTable = (): typeof authTeamMembersPg =>
  * Drizzle table object for the active dialect. Same rationale as
  * {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authOrganizationsTable = (): typeof authOrganizationsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authOrganizationsSqlite as unknown as typeof authOrganizationsPg)
@@ -237,7 +224,6 @@ export const authOrganizationsTable = (): typeof authOrganizationsPg =>
  * Drizzle table object for the active dialect. Same rationale as
  * {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authOauthClientsTable = (): typeof authOauthClientsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authOauthClientsSqlite as unknown as typeof authOauthClientsPg)
@@ -248,7 +234,6 @@ export const authOauthClientsTable = (): typeof authOauthClientsPg =>
  * `auth_oauth_access_token`) Drizzle table object for the active dialect. Same
  * rationale as {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authOauthAccessTokensTable = (): typeof authOauthAccessTokensPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authOauthAccessTokensSqlite as unknown as typeof authOauthAccessTokensPg)
@@ -260,7 +245,6 @@ export const authOauthAccessTokensTable = (): typeof authOauthAccessTokensPg =>
  * client identifier and `resource_id` the resource identifier URL — not row
  * primary keys. Same rationale as {@link authUsersTable}.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
 export const authOauthClientResourcesTable = (): typeof authOauthClientResourcesPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authOauthClientResourcesSqlite as unknown as typeof authOauthClientResourcesPg)
@@ -289,8 +273,9 @@ export const authTableRef = (
     | 'oauth_client'
     | 'oauth_access_token'
     | 'verification'
-  // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `sql.raw()` returns the native mutable `SQL` shape; wrapping in `Readonly<>` breaks raw template interpolation `sql\`SELECT … FROM ${authTableRef('user')}\``. Same rationale as the aggregation-helpers cast helpers.
 ): SQL =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql.raw(`auth_${name}`)
-    : sql.raw(`auth.${name}`)
+    ? // sql-literal: identifier -- `name` is a closed union of Better Auth table names
+      sql.raw(`auth_${name}`)
+    : // sql-literal: identifier -- `name` is a closed union of Better Auth table names
+      sql.raw(`auth.${name}`)

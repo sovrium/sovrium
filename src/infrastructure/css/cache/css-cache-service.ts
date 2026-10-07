@@ -82,7 +82,6 @@ export const writePrecompiledCSS = (css: string): Effect.Effect<string, Precompi
     const dir = cssPath.substring(0, cssPath.lastIndexOf('/'))
     yield* Effect.tryPromise({
       try: async () => {
-        // eslint-disable-next-line functional/no-expression-statements
         await mkdir(dir, { recursive: true })
         await Bun.write(cssPath, css)
       },

@@ -4,7 +4,7 @@ name: thanks
 path: /thanks
 meta:
   title: We have your ticket · Tallyline
-  description: Your ticket is with the team. A copy is on its way to your inbox.
+  description: Your ticket is with the team. A person replies by email within one business day.
 components:
   - type: container
     props:
@@ -30,7 +30,7 @@ components:
             element: p
             props:
               className: text-[15px] text-foreground-muted
-            content: A copy of what you sent is on its way to your inbox, and a person on the team will reply within one business day.
+            content: It is in the team's queue, and a person will reply to the address you gave within one business day.
           - type: container
             children:
               - type: link

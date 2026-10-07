@@ -19,7 +19,7 @@ import { type ResourceGroupSpec, type RouteSpec } from '../openapi/route-spec'
 /**
  * Form routes — resource-scoped to `app.forms`. Each configured form expands
  * into a concrete copy of every route below, tagged `Form: <name>`. The form
- * rendering routes return HTML; only the submission route returns JSON.
+ * page route returns HTML; the submission route returns JSON.
  */
 
 const errorResponse = (description: string) => effectJsonResponse(errorResponseSchema, description)
@@ -29,14 +29,6 @@ const htmlResponse = (description: string) => ({
 })
 
 const routes: readonly RouteSpec[] = [
-  {
-    method: 'get',
-    pathTemplate: '/forms/{formSlug}/embed',
-    summary: 'Get the embeddable form',
-    description: 'Returns the form rendered as an embeddable HTML fragment.',
-    operationIdBase: 'getFormEmbed',
-    responses: { 200: htmlResponse('Embeddable form HTML') },
-  },
   {
     method: 'get',
     pathTemplate: '/forms/{formSlug}',

@@ -1,0 +1,36 @@
+# sovrium-library: block/progress-bar@0.30.0
+name: progress-bar
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col max-w-xl gap-2
+    children:
+      - type: flex
+        props:
+          className: flex items-center justify-between gap-4
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-md font-medium text-foreground
+            content: Importing clients
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: 312 / 480
+      - type: progress
+        progressVariant: bar
+        progressValue: 312
+        progressMax: 480
+        size: sm
+        props:
+          label: Importing clients
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-subtle
+        content: About 2 minutes left. You can leave this page.

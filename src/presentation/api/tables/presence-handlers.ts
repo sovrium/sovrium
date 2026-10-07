@@ -10,22 +10,21 @@
  *
  * Served at `GET /api/realtime/presence?pagePath=/tasks`.
  *
- * Drives `[internal ref]`
- *.
+ * Drives `[internal ref]`.
  *
  * When a user opens a page configured with `presence: true`, the
  * presence-indicator island opens an SSE connection here. The handler:
  *
  *  1. Resolves the user's display name + avatar from the Better Auth `user`
- * table.
+ *     table.
  *  2. Registers a presence entry on the page-path channel and broadcasts a
- * `join` event to other connections.
+ *     `join` event to other connections.
  *  3. Streams an immediate `presence-sync` snapshot so the joining user sees
- * every colleague already on the page.
+ *     every colleague already on the page.
  *  4. Streams live `join` / `leave` events from the presence channel.
  *  5. On disconnect (clean close, lifetime timeout, OR client navigation),
- * deregisters the entry and broadcasts a `leave` event.
- * The 60s stale-cleanup timer reaps entries whose
+ *     deregisters the entry and broadcasts a `leave` event.
+ *     The 60s stale-cleanup timer reaps entries whose
  *     connection dropped without a clean close.
  *
  * Presence is scoped strictly per `pagePath`: the channel
@@ -137,7 +136,6 @@ function watchRecordsForRevocation(input: {
     (event.type === 'change' &&
       watched.some((record) => record.table === table && record.recordId === event.recordId))
   const rejudge = (): void => {
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget re-judgement; a failure to judge ends the stream
     void admitsPresenceRecord(c, app, match)
       .then((verdict) => verdict.admitted)
       .catch((error: unknown) => {
@@ -258,11 +256,9 @@ function openPresenceStream(input: {
   // revocation door — without waiting for its lifetime.
   const queue = Effect.runSync(Queue.unbounded<Record<string, unknown>, Cause.Done>())
   const unsubscribePresence = addChannelListener(presenceChannel(appId, pagePath), (event) => {
-    // eslint-disable-next-line functional/no-expression-statements -- synchronous push into the stream queue
     Queue.offerUnsafe(queue, event)
   })
   const end = (): void => {
-    // eslint-disable-next-line functional/no-expression-statements -- ending the queue is what ends the stream
     Queue.endUnsafe(queue)
   }
 

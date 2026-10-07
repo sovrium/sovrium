@@ -12,9 +12,11 @@ import {
   FormAnalyticsSchema,
   FormAvailabilitySchema,
   FormDisplaySchema,
+  FormEditAfterSubmitSchema,
   FormFieldGroupSchema,
   FormOnErrorSchema,
   FormOnSuccessSchema,
+  FormSaveAndResumeSchema,
   FormSchema,
   FormStepSchema,
   GoToRuleSchema,
@@ -31,6 +33,7 @@ import formAccessBody from '@/domain/models/app/forms/form-access.docs.md' with 
 import formAntiSpamBody from '@/domain/models/app/forms/form-anti-spam.docs.md' with { type: 'file' }
 import formAvailabilityBody from '@/domain/models/app/forms/form-availability.docs.md' with { type: 'file' }
 import formConditionalLogicBody from '@/domain/models/app/forms/form-conditional-logic.docs.md' with { type: 'file' }
+import formDraftsAndEditsBody from '@/domain/models/app/forms/form-drafts-and-edits.docs.md' with { type: 'file' }
 import formFieldGroupsBody from '@/domain/models/app/forms/form-field-groups.docs.md' with { type: 'file' }
 import formFieldsBody from '@/domain/models/app/forms/form-fields.docs.md' with { type: 'file' }
 import formFileUploadsBody from '@/domain/models/app/forms/form-file-uploads.docs.md' with { type: 'file' }
@@ -351,6 +354,28 @@ export const formDelivery = defineSection({
       body: formAntiSpamBody,
       documents: [AntiSpamSchema, RateLimitSchema, FormAnalyticsSchema],
       stories: ['US-FORMS-ANALYTICS-AND-RESPONSES', 'US-FORMS-ANTI-SPAM'],
+    }),
+    defineArticle({
+      slug: 'form-drafts-and-edits',
+      title: 'Form Drafts & Edits',
+      description:
+        'Let a submitter save a long form and finish it later from a link sent by email, and correct a submission they already sent within a time window.',
+      keywords: [
+        'sovrium',
+        'save and resume',
+        'save and continue later',
+        'form draft',
+        'resume link',
+        'edit after submit',
+        'edit link',
+        'saveAndResume',
+        'editAfterSubmit',
+      ],
+      order: 4450,
+      sidebarLabel: 'Drafts & Edits',
+      body: formDraftsAndEditsBody,
+      documents: [FormSaveAndResumeSchema, FormEditAfterSubmitSchema],
+      stories: [],
     }),
   ],
 })

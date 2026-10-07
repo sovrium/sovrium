@@ -32,13 +32,17 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'The form posts `{ "name", "email", "message" }` as JSON to `endpoint` and shows a toast on success or failure. It writes to no table, so the block installs into any app.',
+    'The form posts `{ "name", "email", "message" }` to the submissions route of the app form named by `form` (`/api/forms/<form>/submissions`) and shows a toast on success or failure. Declare that form under `forms:` with `name`, `email` and `message` fields — it decides where a message goes (a table through `submitTo`, an automation through a `form` trigger) and who may send one. Until it exists, a submission answers 404 and the error toast shows.',
     'Link the consent line to your privacy policy, or empty `consent` to drop it.',
   ],
   params: [
     stringParam('headline', 'The section heading.', 'Contact'),
     stringParam('subheadline', 'One sentence under the heading.', 'One line on who reads this.'),
-    stringParam('endpoint', 'The URL the form posts the message to.', '/api/contact'),
+    stringParam(
+      'form',
+      'The name of the app form (under `forms:`) that receives the message.',
+      'contact'
+    ),
     stringParam('submitLabel', 'The text of the submit button.', 'Send message'),
     stringParam(
       'successMessage',
@@ -62,7 +66,7 @@ export const entry = defineLibraryEntry({
           [
             sectionHead({ title: p('headline'), lead: p('subheadline') }, 'center'),
             endpointForm({
-              url: p('endpoint'),
+              url: `/api/forms/${encodeURIComponent(p('form'))}/submissions`,
               submitLabel: p('submitLabel'),
               successMessage: p('successMessage'),
               errorMessage: 'The message could not be sent. Try again.',

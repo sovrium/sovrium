@@ -6,9 +6,9 @@
  */
 
 import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity-programs'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { handleRouteError } from './error-handlers'
 import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
@@ -57,7 +57,7 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     userGroups: getTableContext(c).userGroups,
   })
 
-  const result = await runTableProgram(program)
+  const result = await runOnRequest(c, program)
 
   if (result._tag === 'Failure') {
     return handleRouteError(c, result.failure)

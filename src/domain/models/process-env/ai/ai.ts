@@ -93,8 +93,7 @@ export type AiEnvConfig = Schema.Schema.Type<typeof AiEnvSchema>
  * var) intend to disable that setting, not supply an invalid value — this
  * mirrors the "treats an empty AI_PROVIDER the same as unset" contract already
  * enforced by `validate-ai-configuration.ts` and keeps `parseAiEnvConfig`
- * total instead of throwing a `ParseError` at server boot
- *.
+ * total instead of throwing a `ParseError` at server boot.
  */
 const blankToUndefined = (value: string | undefined): string | undefined => {
   if (value === undefined) return undefined

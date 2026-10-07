@@ -9,7 +9,7 @@
  * The facts the console's `/api` and `/mcp` docs pages compose themselves from.
  *
  * Both pages print addresses and commands an operator pastes into a shell, and
- * every one of those is a function of the running app. [internal ref] rules that this
+ * every one of those is a function of the running app. The facts-not-strings rule rules that this
  * endpoint publishes the FACTS and the console composes the strings: no curl, no
  * joined example list, no heading, no `${origin}/api`.
  *
@@ -49,7 +49,6 @@ export function buildInstanceFacts(
   const countOf = (category: McpToolCategory): number =>
     mcpTools.filter((tool) => tool.category === category).length
 
-  /* eslint-disable unicorn/no-null -- `version` and `exampleTable` are declared `Schema.NullOr` on the published contract, and the null is load-bearing: a config gate has a value to compare against where an ABSENT key coerces to the string "undefined" and matches nothing. */
   return {
     origin,
     version: app.version ?? null,
@@ -74,5 +73,4 @@ export function buildInstanceFacts(
     mcpToolCountAutomation: countOf('automation'),
     generatedAt: new Date().toISOString(),
   }
-  /* eslint-enable unicorn/no-null */
 }

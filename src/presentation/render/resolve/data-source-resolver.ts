@@ -23,6 +23,7 @@
 import { utcCalendarDay } from '@/domain/models/app/pages/components/relative-date-filter'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import { bindAuthSource, bindAuthSourcesInTree } from './auth-source-binding'
 import { withCallerTableView } from './caller-table-stamp'
 import { resolveCurrentUserFiltersInTree } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
@@ -42,10 +43,12 @@ import {
   holdsInheritedRecord,
   resolveByMode,
   resolveRenderPlan,
+  withWritePermissionGates,
 } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
 import { bindRouteParams } from './route-param-binding'
-import { isDroppedWithheld } from './withheld-component'
+import { withSsoProviders } from './sso-provider-stamp'
+import { isDroppedWithheld, isWithheldOverUnreadableTable } from './withheld-component'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type {
@@ -71,12 +74,17 @@ function validateDataSourcePrereqs(
   return denyWhenUnreadable(component, ctx.plan)
 }
 
-/** A `table` component whose `dataSource.view` names a view of a table that exists. */
+/**
+ * A grid, or a record component whose island reads its own rows (a board, a
+ * calendar, a gallery, a chart, a timeline, a KPI), whose `dataSource.view`
+ * names a view of a table that exists.
+ */
 function readsThroughDeclaredView(component: Component, matchedTable: unknown): boolean {
   return (
     matchedTable !== undefined &&
-    component.type === 'table' &&
-    component.dataSource?.view !== undefined
+    component.dataSource?.view !== undefined &&
+    (component.type === 'table' ||
+      (component.type !== 'drawer' && isWithheldOverUnreadableTable(component)))
   )
 }
 
@@ -103,7 +111,8 @@ async function resolveComponent(
   // `:placeholder` (`system.param`) and any `$param.<name>` filter value —
   // BEFORE the island short-circuit below serialises `dataSource` for the
   // client, which would otherwise hand the island a literal `:group`.
-  const component = bindRouteParams(desugarSystemSourceRef(item as Component, app), routeParams)
+  const bound = bindAuthSource(item as Component, app, session)
+  const component = bindRouteParams(desugarSystemSourceRef(bound, app), routeParams)
   // A layout container carries no binding of its own, but may HOST one: descend
   // to stamp the island props of any data-bound descendant whose island-ness is
   // decided here rather than by its component type (a `list`, above all).
@@ -120,15 +129,20 @@ async function resolveComponent(
 
   const { table: tableName, fields: requestedFields } = component.dataSource
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)
-  // A grid bound to one of its table's VIEWS reads through the view's own
+  // A component bound to one of its table's VIEWS reads through the view's own
   // records route, and it is that route's grant — the VIEW's, under which a
   // public view admits a visitor with no account — that decides what it
   // serves. The table's read plan is therefore not this binding's gate: asking
   // it would empty a public view's grid for exactly the reader it exists for.
-  // Nothing is resolved here either; the island owns the fetch, read-only.
+  // Nothing is resolved here either; the island owns the fetch.
   // The page still names only what the view's route serves its reader: the
   // stamp carries that route's answer (`caller-table-stamp.ts`).
-  if (readsThroughDeclaredView(component, matchedTable)) return withCallerTableView(component, ctx)
+  if (readsThroughDeclaredView(component, matchedTable)) {
+    // Writes go to the table's records, so the table's write gates are stamped
+    // as on a table-bound grid.
+    const gated = withWritePermissionGates({ component, app, table: matchedTable!, session })
+    return withCallerTableView(gated, ctx)
+  }
   const plan = resolveRenderPlan({
     matchedTable: matchedTable as TableLike | undefined,
     app,
@@ -193,7 +207,9 @@ type ResolveContext = Parameters<typeof resolveComponent>[1]
  * top level uses. Every other nested binding is left exactly as the island
  * stamp returned it, and a bound node's own children — its per-row template —
  * are never entered. A nested record that does not exist answers the page the
- * way the same form written inline does.
+ * way the same form written inline does. A nested `mode: 'search'` list is
+ * handed to it too: its rows ride in its island's props, read here, so one
+ * container down it would otherwise draw an empty `<ul>`.
  *
  * The same walk applies a nested table grid's read and write gates
  * (`gateNestedTableBinding`), for the same reason: it is the one nested pass
@@ -202,10 +218,10 @@ type ResolveContext = Parameters<typeof resolveComponent>[1]
  *
  * Identity-preserving: a subtree with nothing to resolve comes back by reference.
  */
-function isRecordBound(node: Component, routeParams: Readonly<Record<string, string>>): boolean {
+function isResolvedHere(node: Component, routeParams: Readonly<Record<string, string>>): boolean {
   const binding = node.dataSource as { readonly mode?: string; readonly table?: unknown }
   return (
-    binding.mode === 'single' &&
+    (binding.mode === 'single' || binding.mode === 'search') &&
     typeof binding.table === 'string' &&
     resolveIslandShortCircuit(node, routeParams) === undefined
   )
@@ -214,8 +230,8 @@ function isRecordBound(node: Component, routeParams: Readonly<Record<string, str
 /**
  * A section whose rows are drawn HERE, from its per-row `children` template —
  * a container of cards bound to a table. At the top of a page the walk above
- * expands it; one container down it used to ship its template once, with the
- * raw `$record.` text, so it is resolved the same way wherever it sits. A grid
+ * expands it; one container down it would otherwise ship its template once,
+ * with the raw `$record.` text, so it is resolved the same way wherever it sits. A grid
  * (gated by `gateNestedTableBinding`), a drawer and an island binding (whose
  * island owns the fetch) are not.
  */
@@ -245,7 +261,7 @@ async function resolveNestedChild(child: NestedChild, ctx: ResolveContext): Prom
   if (typeof child === 'string' || isComponentReferenceNode(child)) return child
   const node = child as Component
   if (!node.dataSource) return resolveNestedSingleRecords(node, ctx)
-  if (isRecordBound(node, ctx.routeParams)) return resolveComponent(node, ctx)
+  if (isResolvedHere(node, ctx.routeParams)) return resolveComponent(node, ctx)
   if (drawsRowsOnServer(node, ctx)) return resolveComponent(node, ctx)
   if (holdsInheritedRecord(node)) return gateNestedInheritedRecord(node, ctx)
   return withCallerTableView(gateNestedTableBinding(node, ctx), ctx)
@@ -294,19 +310,22 @@ async function resolveNestedResponsive(
   if (sentinel !== undefined) return sentinel
   if (variants.every((variant, index) => variant === entries[index]?.[1])) return host
   const next = Object.fromEntries(entries.map(([breakpoint], i) => [breakpoint, variants[i]]))
-  return { ...host, responsive: next } as unknown as Component
+  return { ...host, responsive: next } as Component
 }
 
 /**
- * A node with no binding of its own. A form that creates a record is stamped
- * with the table it creates in, as its reader may see it, wherever it sits —
- * its inputs are drawn from that answer (`buildCreateFieldDefs`).
+ * A node with no binding of its own. An edit form is stamped with the table it
+ * writes to, as its reader may see it, wherever it sits — its controls are
+ * drawn from that answer (`updateFieldDefsForReader`).
  */
 async function resolveNestedSingleRecords(
   unbound: Component,
   ctx: ResolveContext
 ): Promise<DataSourceSectionResult> {
-  const host = unbound.type === 'form' ? await withCallerTableView(unbound, ctx) : unbound
+  const host =
+    unbound.type === 'form'
+      ? withSsoProviders(await withCallerTableView(unbound, ctx), ctx.app)
+      : unbound
   const children = host.children as ReadonlyArray<NestedChild> | undefined
   const own = children && children.length > 0 ? await resolveNestedList(children, ctx) : children
   if (isSentinel(own)) return own
@@ -337,11 +356,11 @@ export async function resolvePageDataSources(
   }
 ): Promise<Page | { readonly unauthorized: true } | undefined> {
   if (!page.components || page.components.length === 0) return page
-  // Z-1 / [internal ref]: every `$currentUser.*` filter on the page, at any depth,
+  // Z-1 / the uniform `$currentUser` resolution: every `$currentUser.*` filter on the page, at any depth,
   // becomes a concrete value here — before the island stamps serialise a
   // binding for the browser. An anonymous request whose page needs one is 401.
   const components = await resolveCurrentUserFiltersInTree(page.components, {
-    // [internal ref]: relative date tokens in a filter name a day of THIS request.
+    // Relative date tokens in a filter name a day of THIS request.
     // `SOVRIUM_DEV_CLOCK` pins it on a development server.
     today: utcCalendarDay(serverNow()),
     session: ctx.session,
@@ -358,8 +377,11 @@ export async function resolvePageDataSources(
     db: ctx.db,
   }
 
+  // Account lists and account forms are bound (or withheld) at every depth
+  // before any island stamp serialises a binding for the browser.
+  const accountBound = bindAuthSourcesInTree(components, app, ctx.session)
   const resolvedComponents = await Promise.all(
-    components.map((item) => resolveComponent(item, componentCtx))
+    accountBound.map((item) => resolveComponent(item, componentCtx))
   )
 
   if (resolvedComponents.some((s) => s === UNAUTHORIZED)) return { unauthorized: true }

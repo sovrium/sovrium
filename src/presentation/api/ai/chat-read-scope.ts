@@ -319,13 +319,13 @@ export const readScopeOf = (scope: ChatRowScope): { readonly readScope?: QueryFi
  * with them, so the records read gate can judge her rows.
  */
 export const resolveUserPrincipal = async (
-  c: Readonly<Context>
+  c: Context
 ): Promise<{
   readonly userRole: string
   readonly effectiveRoles: readonly string[]
   readonly reader: ChatReader
 }> => {
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   if (session === undefined) {
     return {
       userRole: 'member',
@@ -357,11 +357,8 @@ export const resolveUserPrincipal = async (
  * app without sign-in has no such visitor to tell apart: its agents read with
  * their declared reach.
  */
-export const agentCaller = async (
-  c: Readonly<Context>,
-  app: App
-): Promise<ChatReader | undefined> => {
-  if (getSessionContext(c as unknown as Context) !== undefined) {
+export const agentCaller = async (c: Context, app: App): Promise<ChatReader | undefined> => {
+  if (getSessionContext(c) !== undefined) {
     return (await resolveUserPrincipal(c)).reader
   }
   return app.auth === undefined ? undefined : signedOutReader

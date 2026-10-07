@@ -1,0 +1,59 @@
+# The moment a reader sends a comment from the box under an essay, a language
+# model reads it and sorts it — a question, a correction, praise, spam or
+# something else — and the desk shows that beside the comment, so the editor
+# answers the questions first and rejects the spam in one pass.
+#
+# A form trigger fires on the submission of the `comment` form, on the server,
+# after the comment is saved: `trigger.data.linkedRecord.id` is the comment it
+# wrote. The model only labels; it never approves or rejects anything — every
+# comment still waits, Held, for the editor.
+#
+# The model is your own: set AI_PROVIDER — a local Ollama by default, see
+# `.env.example` — and the provider named below only says which model to ask
+# for. With no provider set, the classify step answers with the reason, the
+# filter after it stops the run, and the comment keeps no label; the run on
+# the admin console's Runs page says why. `continueOnError` does the same for
+# a model that is set but fails to answer.
+name: triage-comment
+label: New comment — let a local model sort it
+description: Ask a language model whether a new comment is a question, a correction, praise or spam, and label it on the desk.
+enabled: true
+trigger:
+  type: form
+  form: comment
+actions:
+  - name: sort
+    type: ai
+    operator: classify
+    continueOnError: true
+    props:
+      provider: ollama
+      model: llama3.1
+      input: '{{trigger.data.body}}'
+      categories:
+        - Question
+        - Correction
+        - Praise
+        - Spam
+        - Other
+  - name: onlyWhenSorted
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{sort.category}}'
+            operator: isNotEmpty
+      onFalse: stop
+  - name: label
+    type: record
+    operator: update
+    props:
+      table: comments
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.linkedRecord.id}}'
+      data:
+        kind: '{{sort.category}}'

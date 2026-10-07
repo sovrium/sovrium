@@ -11,17 +11,17 @@
  *
  * The island payload is public: it is serialised into the page, and a page
  * bound to a public view is read by visitors who hold no account. A table-bound
- * grid ships every field of the table in `tableFields`/`fieldMeta`, the whole
- * `views` catalogue in `tableViews`, and the table's permission block in
- * `tablePermissions` — each of which can name a column the view withholds (the
- * catalogue lists other views' `fields`; a field grant names its field). So a
- * view-bound grid is told only the view's own columns, and neither the
- * catalogue nor the permissions: it is read-only, and nothing it offers needs
- * them.
+ * grid ships every field of the table its reader may read in
+ * `tableFields`/`fieldMeta`, and her permission map in `tablePermissions` —
+ * each of which can name a column the view withholds (a field grant names its
+ * field). So a view-bound grid is told only the view's own columns, and not the
+ * permission block: nothing it offers needs it. Whether the grid may write is
+ * decided server-side (`canUpdate`, `canCreate`) from the table's grants, as on
+ * a table-bound grid; edits go to the table's records, on the view's columns.
  */
 
 import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
-import type { TypeSpecificResolvedInputs } from './type-specific-props-builder'
+import type { TypeSpecificResolvedInputs } from './resolve-type-specific-inputs'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -38,7 +38,7 @@ export function resolveBoundView(
   return typeof key === 'string' ? findViewByKey(table.views, key) : undefined
 }
 
-/** Whether a grid's data source reads through a view — the read-only switch the island honours. */
+/** Whether a grid's data source reads through a view — no export and no live refresh then. */
 export function isViewBoundSource(dataSource: unknown): boolean {
   return (
     typeof dataSource === 'object' &&
@@ -50,7 +50,7 @@ export function isViewBoundSource(dataSource: unknown): boolean {
 /**
  * The resolved grid inputs, narrowed to what a view-bound grid may be told:
  * the view's own columns (all of the table's when the view lists none), and
- * no views catalogue or permission block. `maskedFields` is the view's column
+ * no permission block. `maskedFields` is the view's column
  * list as its route answers the grid's reader (`boundViewFieldsOf`), which
  * names no field she may not read — and, when given, is final: an empty list
  * is a reader the view's route refuses (or one who reads none of its fields),
@@ -76,6 +76,5 @@ export function narrowToBoundView(
             Object.entries(inputs.dataTableFieldMeta).filter(([name]) => keep(name))
           ),
     dataTablePermissions: undefined,
-    dataTableViews: undefined,
   }
 }

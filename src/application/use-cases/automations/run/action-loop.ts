@@ -107,14 +107,14 @@ export const runActionsWithTimeout = (
     //     from `steps[]` (no record). `'return'` early-exits AS IF the
     //     automation completed normally; subsequent actions are skipped from
     //     the run history (no record).
-    // 2. `acc.runStatus` is a terminal failure — [internal ref]
+    //  2. `acc.runStatus` is a terminal failure
     //     requires every post-failure action to be recorded with status
     //     `'skipped'` so callers can audit what was intentionally not run.
     //     `'completed-with-errors'` is NOT a terminal failure — its defining
     //     property is that subsequent actions DO continue.
     //  3. The action's `name` is in `skipActionNames` — set by the replay
     //     endpoint so a resumed run does not re-execute steps that already
-    // fired in the original run. Preserves
+    //     fired in the original run. Preserves
     //     the side-effects-once-only guarantee at replay time.
     const step = (acc: RunAccumulator, rawAction: Readonly<Record<string, unknown>>) => {
       if (acc.halted) return Effect.succeed(acc)

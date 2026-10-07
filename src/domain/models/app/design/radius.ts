@@ -35,7 +35,7 @@ import { guardedKeyRecord } from './token-value-schemas'
  *
  * `DEFAULT` was the one reserved key: it emitted the bare `--radius` variable
  * rather than `--radius-<name>`, mirroring Tailwind's convention that a scale
- * has an unsuffixed member. Measured 2026-09-10, NOTHING reads `var(--radius)`
+ * has an unsuffixed member. Measured, NOTHING reads `var(--radius)`
  * anywhere in the engine, in either shipped app, or in any template — the
  * component recipes all spend named steps (`--radius-base`, `--radius-md`, …).
  * So an author who declared `radius.DEFAULT` got a variable emitted into the

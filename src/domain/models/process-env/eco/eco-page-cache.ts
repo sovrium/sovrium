@@ -28,9 +28,9 @@ export const DEFAULT_ECO_PAGE_CACHE: EcoPageCacheMode = 'on'
  * value resolves to the eco-aligned default (`on`); only an explicit `off`
  * (case-insensitive, surrounding whitespace ignored) disables the cache.
  *
- * A SET-but-unrecognised value throws — `ECO_PAGE_CACHE=0` used to
- * read as `on`, so an operator debugging a stale-page problem kept serving
- * cached HTML while believing the cache was off.
+ * A SET-but-unrecognised value throws — reading `ECO_PAGE_CACHE=0` as `on`
+ * would leave an operator debugging a stale-page problem serving cached HTML
+ * while believing the cache was off.
  *
  * @throws Error when set to anything other than `on` or `off`.
  */

@@ -277,6 +277,7 @@ const repairPostgresKey = (
       try: () =>
         executeRaw(
           db,
+          // sql-literal: ddl -- a foreign-key clause built from catalog and config identifiers, not request input
           sql`ALTER TABLE ${sql.identifier(candidate.relation)} ${sql.join(drops, sql.raw(', '))}, ADD ${sql.raw(constraint)} NOT VALID`
         ),
       catch: asSchemaError(`replace the foreign key on ${candidate.relation}.${candidate.column}`),

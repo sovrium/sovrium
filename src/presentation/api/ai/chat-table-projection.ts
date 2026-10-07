@@ -54,8 +54,7 @@ export interface ProjectTablesOptions {
   readonly includeRequired?: boolean
   /**
    * When present, only tables whose name appears in the allow-list are kept —
-   * the page-scope narrowing applied for `pageContext.allowedTables`
-   *.
+   * the page-scope narrowing applied for `pageContext.allowedTables`.
    */
   readonly allowedTables?: ReadonlyArray<string>
 }
@@ -120,8 +119,7 @@ export const projectAppTables = (
  *
  * Returns the full column list when every column is readable (the plan's
  * `undefined` whitelist), because this drives a tool enum that must be total.
- * Powers the AI structured-query tool's column enums and result-row projection
- *.
+ * Powers the AI structured-query tool's column enums and result-row projection.
  */
 export const readableColumnsForTable = (
   app: App | undefined,

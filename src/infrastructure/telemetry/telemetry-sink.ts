@@ -6,7 +6,7 @@
  */
 
 /**
- * Telemetry activation + dual-write sink ([internal ref]-*).
+ * Telemetry activation + dual-write sink (the infrastructure observability requirement-*).
  *
  * `activateTelemetry` is called ONCE at boot (from `startServer`) after the
  * fail-loud validation has passed. It wires the DSN-gated error reporter (+ its
@@ -71,7 +71,7 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
   // runtime. ANY of the three signals arms it; when several are on, the first
   // present supplies the resource — all carry identical service/environment
   // values. Each signal now has its OWN endpoint variable (metrics joined logs
-  // and traces in that per-signal discipline under [internal ref]), so "several on"
+  // and traces in that per-signal discipline under the telemetry metrics export gate), so "several on"
   // means the operator named several, never one variable deriving two. Traces
   // alone (only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` set) must still arm the
   // runtime so the OtlpTracer tee (and its exporter fiber) is built.
@@ -95,7 +95,6 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
     // and the metrics poller fiber) so later synchronous emits run against the
     // cached runtime. Until it resolves, the sync stdout bootstrap serves each
     // line — boot logs stay stdout-only exactly as before.
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget pre-build
     void initObsRuntime()
   }
 
@@ -208,14 +207,12 @@ export const emitTelemetryLog = (
     // stdout/journald is the last-resort record: it survives the error backend
     // being down, misconfigured, or never enabled, so it must carry the whole
     // chain rather than the outermost link.
-    // eslint-disable-next-line functional/no-expression-statements -- terminal stack write
     process.stderr.write(formatErrorChain(cause) + '\n')
     // The local record above is UNCONDITIONAL and stays that way: stdout is the
     // operator's own log, where a declined write is ordinary, searchable
     // context. Only the error STORE — the paging, triage-me surface — is
     // filtered, and only for faults that are not ours.
     if (isOperatorActionable(cause)) {
-      // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget cause report (deduped)
       void reportException(cause)
     }
   }

@@ -51,7 +51,6 @@ export const rowLevelRuleFor = (
   if (op === 'read') return rlp.read?.when
   if (op === 'write') return rlp.write?.when
   if (op === 'create') return rlp.create?.when
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property of RowLevelPermissions, not a Drizzle query.
   return rlp.delete?.when
 }
 

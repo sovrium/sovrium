@@ -65,7 +65,7 @@ A person or a record as a small round mark: a picture, initials, or a stack of t
 
 <!-- sovrium:options type:avatar -->
 
-`size` is `md` (32px) by default, with `sm` at 24px and `lg` at 40px; `shape` is `circle` for people and `square` for a record or an organisation. `alt` defaults to `label`; set it empty for a decorative avatar. Omit `status` to draw no presence dot at all.
+`size` is `md` (32px) by default, with `sm` at 24px and `lg` at 40px; `shape` is `circle` for people and `square` for a record or an organisation. `alt` defaults to `label`; set it empty for a decorative avatar. Omit `status` to draw no presence dot at all. `src: $session.image` draws the signed-in visitor's own profile picture, and their initials when they have none; **Profile Avatars** shows how a page lets them change it.
 
 ```yaml
 components:
@@ -98,6 +98,8 @@ Pairs of a term and its detail, as a real `<dl>`.
 
 `layout: rows` is the default and puts the term left of the detail; `stacked` puts it above. `dividers` draws a rule under each row, on by default under `rows` and unread under `stacked`. Each entry of `items` takes `term`, `detail`, and an optional `action` of `{ label, href }` drawn as a link in a third column. `detail` is ordinary text, so `$record.<field>` and `$t:<key>` both resolve in it; an empty `detail` is legal and draws the empty-value placeholder rather than collapsing the row, so a panel of facts keeps its shape when one is missing.
 
+On a record page, an entry may name a `field` of the bound record instead of a `detail`: the detail is then drawn by the field's type rather than as the stored value — a date in the page language (`3 Nov 2026`), a select or status as its option's label on its chip, a checkbox as Yes or No, an empty value as "Not set" with its row kept. An entry takes one or the other.
+
 Both layouts emit the same `<dl>` of `<dt>`/`<dd>` pairs, so a screen reader announces each term with its detail either way. That is what a `grid` of `text` components cannot do at any amount of styling, and it is why the reading direction is a property here rather than two separate types.
 
 ## `record-field`
@@ -106,7 +108,7 @@ One column of a bound record, drawn with that field's own type-aware formatting.
 
 <!-- sovrium:options type:record-field depth=3 -->
 
-It answers a different question from `description-list`: "render this field as the field it is" rather than "lay out these facts as a list". Reach for it inside a record-bound region when the value should carry its field type's formatting — a currency as currency, a relation as a link, a status as its coloured chip.
+It answers a different question from `description-list`: "render this field as the field it is" rather than "lay out these facts as a list". Reach for it inside a record-bound region when the value should carry its field type's formatting — a currency as currency, a relation as a link, a status as its coloured chip. A rich-text field is drawn as prose, and its elements take classes by part through `classes`, with the names a markdown text takes: `heading1`, `heading2`, `heading3`, `paragraph`, `list`, `listItem`, `table`, `link`, `inlineCode`, `codeBlock`, `quote` and `image`. The record's own timestamps are fields too: a `record-field` naming `createdAt` or `updatedAt` prints when the record was created or last changed, and takes the same `format` a declared date field takes — `short-date`, `long-date`, `datetime` or a relative format. Without a `format` it reads as a date and time, as a declared `created-at` or `updated-at` field does.
 
 ## `marquee`
 
@@ -134,7 +136,7 @@ A vertical rail of events, in one of two shapes — the `dataSource` decides whi
     - { type: text, element: h3, content: Launch }
 ```
 
-**With a `dataSource`** it is the record-bound Gantt — bars on a time axis, grouped into swimlanes, zoomable — described with the other record views.
+**With a `dataSource`** it is the record-bound Gantt — bars on a time axis, grouped into swimlanes, zoomable — described with the other record views. With `resizable: true` in its `props`, a bar carries a handle at each end for a reader the table lets update and whose field rules let her write that date — no one else gets a handle, and a timeline over a `system` source never has one. Releasing a handle saves the nearest whole day to where it was dropped (a `datetime` keeps its time of day), and an end never crosses its start, so the shortest bar is one day. The change is one ordinary record update, so the table's field rules, automations and webhooks apply; the bar moves at once and goes back if the update is refused.
 
 A timeline laned by a `user` or a labelled relationship heads each lane with the label, not the stored key.
 
@@ -158,9 +160,7 @@ A tabbed container. `panels` declares the tab strip and `children` holds the pan
 
 Each entry of `panels` takes `label`, plus optional `id`, `description`, `disabled` and `body`. `id` defaults to a slug of the label — supply it explicitly when the label is a `$t:` reference, whose slug comes from the translation key and so does not move with the locale. `description` is associated with the trigger by `aria-describedby` and is never part of its accessible name.
 
-A tab set whose panels all carry a `body` string needs no `children` at all. When a panel's body is a component rather than a string, it goes in `children` at the same index.
-
-**`panels` and `children` must be the same length** when both are present; a different number of each is refused at startup by name. The alignment is positional, so an off-by-one puts the wrong body under every tab after the mistake, and nothing on the page says so. That carries a known limitation, stated rather than designed around: once any panel has a component body, every panel needs a slot, including those whose body would have been a string. An explicit `childIndex` per panel would put the correlation back in the author's hands, which is the thing the refusal exists to take away.
+A tab set whose panels all carry a `body` string needs no `children` at all. When a panel's body is a component rather than a string, it goes in `children` at the same index. **`panels` and `children` must be the same length** when both are present; a different number of each is refused at startup by name. The alignment is positional, so an off-by-one puts the wrong body under every tab after the mistake, and nothing on the page says so. That carries a known limitation, stated rather than designed around: once any panel has a component body, every panel needs a slot, including those whose body would have been a string. An explicit `childIndex` per panel would put the correlation back in the author's hands, which is the thing the refusal exists to take away.
 
 A form placed in a panel works there exactly as it does on the page — whether it embeds a top-level form with `formRef` or is declared in place. It keeps its validation, submits in the background without leaving the page, and runs its richer controls such as the audio recorder, in the panel open on arrival as in one opened later.
 
@@ -186,9 +186,7 @@ pages:
 
 `/organisation` opens Summary; `/organisation?tab=people` renders the People panel server-side. The URL then follows whichever tab is open, so Back and Forward walk the tabs the reader visited, and a link to one tab opens on that tab. Each trigger is a real link, so a reader without JavaScript — and a search engine — reaches every panel instead of only the default one.
 
-**Only the addressed panel travels in the first response.** The others are fetched when the reader opens them, once each; a fetch that fails falls back to following the link. On a three-panel page that took the served HTML from 384,633 to 151,251 bytes, and the tab strip's own script payload from 233,845 to 427.
-
-The trade is a round trip the first time a reader opens a panel, in exchange for an address and a page that carries only what it shows. **A `defaultTab` naming a tab `id` literally is unchanged**: every panel ships with the page, switching is instant, and it keeps working offline. Bind the address when the panels are substantial and worth linking to on their own; leave the literal when they are small and switching should never wait.
+**Only the addressed panel travels in the first response.** The others are fetched when the reader opens them, once each; a fetch that fails falls back to following the link. On a three-panel page that took the served HTML from 384,633 to 151,251 bytes, and the tab strip's own script payload from 233,845 to 427. The trade is a round trip the first time a reader opens a panel, in exchange for an address and a page that carries only what it shows. **A `defaultTab` naming a tab `id` literally is unchanged**: every panel ships with the page, switching is instant, and it keeps working offline. Bind the address when the panels are substantial and worth linking to on their own; leave the literal when they are small and switching should never wait.
 
 ### `layout: fill` — a grid inside a panel
 

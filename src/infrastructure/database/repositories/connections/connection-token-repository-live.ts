@@ -190,7 +190,6 @@ const isUnreadableUnderCurrentKey = (envelope: string, currentKeyId: string): bo
   const declared = envelopeKeyId(envelope)
   if (declared !== undefined) return declared !== currentKeyId
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- probe: the return value is irrelevant, only whether it throws
     decryptToken(envelope)
     return false
   } catch (error) {
@@ -202,7 +201,7 @@ const isUnreadableUnderCurrentKey = (envelope: string, currentKeyId: string): bo
  * Count stored token rows that this deployment's key cannot read.
  *
  * Best-effort by construction: a failure here must never keep a server down, so
- * it resolves to `0`. Feeds the boot ⚠ described in [internal ref].
+ * it resolves to `0`. Feeds the boot ⚠ described in a connection keyid spec.
  */
 export const countTokensEncryptedWithAnotherKey = async (): Promise<number> => {
   try {
@@ -276,7 +275,6 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           })
           .returning()
         if (row === undefined) {
-          // eslint-disable-next-line functional/no-throw-statements -- defensive; INSERT...RETURNING never returns zero rows for a successful write
           throw new Error('connection_tokens upsert returned no row')
         }
         return decodeRow(row as Record<string, unknown>)
@@ -396,7 +394,6 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           })
           .returning()
         if (row === undefined) {
-          // eslint-disable-next-line functional/no-throw-statements -- defensive; INSERT...RETURNING never returns zero rows for a successful write
           throw new Error('connection_app_tokens upsert returned no row')
         }
         return decodeAppRow(row as Record<string, unknown>)

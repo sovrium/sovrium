@@ -1,0 +1,81 @@
+name: marketing-site
+version: 1.0.0
+description: >-
+  A marketing website made of library blocks: a home page, features, pricing,
+  customers, a blog, a contact page and a page for every lost visitor.
+
+# English and French: every word that changes with the language is a key in
+# this file, cited as `$t:<key>` by the pages and blocks.
+languages:
+  $ref: ./config/languages.yaml
+
+# The owner's sign-in, for reading contact messages in the admin.
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/posts.yaml
+  - $ref: ./config/tables/orders.yaml
+  - $ref: ./config/tables/messages.yaml
+  - $ref: ./config/tables/subscribers.yaml
+
+# The forms the contact and newsletter blocks post to.
+forms:
+  - $ref: ./config/forms/contact.yaml
+  - $ref: ./config/forms/newsletter.yaml
+
+components:
+  - $ref: ./library/block/banner-top.yaml
+  - $ref: ./library/block/bento-feature-stack.yaml
+  - $ref: ./library/block/blog-cards.yaml
+  - $ref: ./library/block/blog-list.yaml
+  - $ref: ./library/block/content-prose.yaml
+  - $ref: ./library/block/content-with-toc.yaml
+  - $ref: ./library/block/cta-banner.yaml
+  - $ref: ./library/block/cta-split.yaml
+  - $ref: ./library/block/faq-accordion.yaml
+  - $ref: ./library/block/faq-two-column.yaml
+  - $ref: ./library/block/feature-alternating.yaml
+  - $ref: ./library/block/feature-grid.yaml
+  - $ref: ./library/block/feature-list-icons.yaml
+  - $ref: ./library/block/footer-columns.yaml
+  - $ref: ./library/block/footer-simple.yaml
+  - $ref: ./library/block/header-centered.yaml
+  - $ref: ./library/block/header-with-links.yaml
+  - $ref: ./library/block/hero-centered.yaml
+  - $ref: ./library/block/hero-split-image.yaml
+  - $ref: ./library/block/hero-with-screenshot.yaml
+  - $ref: ./library/block/logos-grid.yaml
+  - $ref: ./library/block/logos-marquee.yaml
+  - $ref: ./library/block/navbar-flyout.yaml
+  - $ref: ./library/block/navbar-simple.yaml
+  - $ref: ./library/block/not-found-centered.yaml
+  - $ref: ./library/block/not-found-with-links.yaml
+  - $ref: ./library/block/pricing-three-tier.yaml
+  - $ref: ./library/block/pricing-toggle.yaml
+  - $ref: ./library/block/stats-from-table.yaml
+  - $ref: ./library/block/stats-row.yaml
+  - $ref: ./library/block/team-grid.yaml
+  - $ref: ./library/block/team-list.yaml
+  - $ref: ./library/block/testimonial-grid.yaml
+  - $ref: ./library/block/testimonial-single.yaml
+  - $ref: ./library/block/contact-centered.yaml
+  - $ref: ./library/block/contact-split.yaml
+  - $ref: ./library/block/newsletter-centered.yaml
+  - $ref: ./library/block/newsletter-inline.yaml
+  - $ref: ./library/block/pricing-comparison.yaml
+
+# The site's pages, each a stack of library blocks. Any address that answers
+# nothing renders /404 with a 404 status.
+pages:
+  - $ref: ./config/pages/pricing.yaml
+  - $ref: ./config/pages/blog.yaml
+  - $ref: ./config/pages/about.yaml
+  - $ref: ./config/pages/contact.yaml
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/features.yaml
+  - $ref: ./config/pages/guide.yaml
+  - $ref: ./config/pages/article.yaml
+  - $ref: ./config/pages/product.yaml
+  - $ref: ./config/pages/moved.yaml
+  - $ref: ./config/pages/not-found.yaml

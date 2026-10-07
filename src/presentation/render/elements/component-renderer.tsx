@@ -28,13 +28,11 @@ import {
   substituteChildrenVariables,
 } from '../i18n/variable-substitution'
 import { buildComponentProps } from '../props/component-builder'
+import { resolveTypeSpecificInputs } from '../props/resolve-type-specific-inputs'
 import { buildResponsiveChildrenVariants } from '../props/responsive-children-builder'
 import { buildResponsiveContentVariants } from '../props/responsive-content-builder'
 import { mergeResponsiveProps } from '../props/responsive-props-merger'
-import {
-  buildTypeSpecificElementProps,
-  resolveTypeSpecificInputs,
-} from '../props/type-specific-props-builder'
+import { buildTypeSpecificElementProps } from '../props/type-specific-props-builder'
 import {
   extractComponentReference,
   renderComponentReferenceError,
@@ -50,7 +48,7 @@ import type {
   ComponentReference,
   SimpleComponentReference,
 } from '@/domain/models/app/components/reference'
-import type { Design } from '@/domain/models/app/design'
+import type { ComponentStyle, Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component, ComponentType } from '@/domain/models/app/pages/components'
 import type { VariantOverrides } from '@/domain/models/app/pages/components/responsive'
@@ -135,7 +133,7 @@ function renderChildren(
   children: ReadonlyArray<Component | string> | undefined,
   props: ComponentRendererProps
 ): readonly ReactElement[] {
-  if (!children) return []
+  if (!Array.isArray(children)) return [] // an unfilled `$children` slot draws nothing
 
   return children.map((child: Component | string, index: number) =>
     typeof child === 'string' ? (
@@ -197,7 +195,7 @@ function applyVariableSubstitution(
  *
  * `preview` is the SECOND such type and reaches the same line deliberately. It
  * draws the catalogue's own specimen for a type with one option applied, and the
- * whole claim of [internal ref] is that the drawing goes through the path a `specimen`
+ * whole claim of the data-first Configuration section design is that the drawing goes through the path a `specimen`
  * takes — so a type that draws in the kit draws here, and one that refuses
  * refuses here with the same sentence. A parallel route would be a second
  * pipeline the two could drift apart in.
@@ -395,15 +393,14 @@ function RenderDirectComponent({
     mergedContent,
   } = mergeResponsiveProps(responsive, componentProps, children, content, currentBreakpoint)
 
-  // `design.components[<type>]`, resolved ONCE per component instance against
-  // this instance's variant. Two consumers: `buildFinalClassName`, which folds
-  // the root part and the floor into `className` at the right precedence layer,
-  // and the dispatch config, which carries `replace` + the non-root parts to
-  // the renderers that own a recipe or an island.
+  // `design.components[<type>]` under this instance's `classes`, resolved ONCE
+  // per instance: `buildFinalClassName` folds the root part and the floor into
+  // `className`; the dispatch config carries `replace` + the non-root parts.
   const designStyles = resolveComponentStyle(
     props.design,
     type,
-    (substitutedComponent as { variant?: string }).variant
+    (substitutedComponent as { variant?: string }).variant,
+    (substitutedComponent as { classes?: ComponentStyle }).classes
   )
 
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({

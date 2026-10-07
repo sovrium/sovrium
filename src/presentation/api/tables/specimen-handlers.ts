@@ -57,10 +57,10 @@
  * caller ends up with a 404 nothing explains.
  */
 
+import { parseOptionalPositive } from '@/domain/kernel/format/query-cap-parsers'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { listRecordsResponseSchema } from '@/domain/models/api/tables/tables'
 import { windowSpecimenRows } from '@/domain/models/app/design/specimen-fixture'
-import { parseOptionalPositive } from '@/presentation/api/runtime/query-cap-parsers'
 import type { SpecimenRow } from '@/domain/models/app/design/specimen-fixture'
 import type { Context } from 'hono'
 

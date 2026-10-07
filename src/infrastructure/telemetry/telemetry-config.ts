@@ -6,8 +6,7 @@
  */
 
 /**
- * Parse-once accessor for the resolved telemetry configuration
- * ([internal ref]-*).
+ * Parse-once accessor for the resolved telemetry configuration.
  *
  * The domain parser (`parseTelemetryConfig`) is called a single time per process
  * and the result memoized, so the reporter, the OTLP runtime, the performance
@@ -38,7 +37,6 @@ export const getTelemetryConfig = (): TelemetryConfig => {
   const cached = cache.get('config')
   if (cached !== undefined) return cached
   const resolved = safeParse()
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- memoize parse-once config
   cache.set('config', resolved)
   return resolved
 }

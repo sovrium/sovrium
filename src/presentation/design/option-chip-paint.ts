@@ -35,8 +35,11 @@ import { deriveOptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import { TOKENS as T } from '@/presentation/design/css-var'
 import type { CSSProperties } from 'react'
 
-/** The app-wide badge form (`design.badgeForm`). */
-export type BadgeForm = 'filled' | 'outline-dot'
+/**
+ * A chip's form: the app-wide `design.badgeForm` (`filled` or `outline-dot`),
+ * or a column's own `badgeForm`, which may also ask for the neutral `outline`.
+ */
+export type BadgeForm = 'filled' | 'outline' | 'outline-dot'
 
 /** A chip's leading dot: its classes and its option-colour fill. */
 export interface OptionChipDot {
@@ -69,6 +72,14 @@ const NEUTRAL_OUTLINE: CSSProperties = {
 const neutralPaint = (surface: ChipSurface): OptionChipPaint | undefined =>
   surface === 'grid' ? undefined : { style: NEUTRAL_OUTLINE }
 
+/** `outline` — the quiet chip of a secondary column: no fill, a strong edge, no dot. */
+const OUTLINE_PAINT: OptionChipPaint = {
+  style: {
+    backgroundColor: 'transparent',
+    border: `1px solid var(--sv-border-strong, ${T.borderStrong})`,
+  },
+}
+
 /**
  * The paint for one option value's chip.
  *
@@ -82,6 +93,7 @@ export function resolveOptionChipPaint(
   form: BadgeForm | undefined,
   surface: ChipSurface
 ): OptionChipPaint | undefined {
+  if (form === 'outline') return OUTLINE_PAINT
   const derived = color === undefined ? undefined : deriveOptionChipColors(color)
   if (derived === undefined) return neutralPaint(surface)
   if (form === 'outline-dot') {

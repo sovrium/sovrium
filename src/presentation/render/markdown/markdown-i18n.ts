@@ -5,12 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveTranslation } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveTranslation,
+  TRANSLATION_KEY_PATTERN_SOURCE,
+} from '@/domain/models/app/languages/translation-resolver'
 import type { Languages } from '@/domain/models/app/languages'
 
+/** Every `$t:key` token in a body of text. */
+const TRANSLATION_TOKEN = new RegExp(`\\$t:(${TRANSLATION_KEY_PATTERN_SOURCE})`, 'g')
+
 /**
- * Inline `$t:key` substitution for markdown body text
- *.
+ * Inline `$t:key` substitution for markdown body text.
  *
  * Runs as a regex pre-pass over the RAW markdown source BEFORE
  * `renderMarkdownToHtml` so tokens nested inside emphasis (`**$t:key**`),
@@ -57,8 +62,8 @@ export const resolveMarkdownTranslations = (
 ): string => {
   if (languages === undefined) return source
   if (currentLang === undefined) return source
-  // `$t:` followed by a dotted/hyphenated identifier — matches the same
-  // shape `resolveTranslationPattern` accepts elsewhere in the codebase.
+  // `$t:` followed by a dotted/hyphenated identifier — the key grammar
+  // `resolveTranslationPattern` accepts, built from its one definition.
   // Bounded character class avoids greedy matches over surrounding markdown
   // punctuation (e.g. `$t:docs.cta now.` must capture `docs.cta`, not
   // `docs.cta now.`).
@@ -67,8 +72,7 @@ export const resolveMarkdownTranslations = (
   // punctuation (`$t:docs.note.`) does not get swallowed into the key.
   // This mirrors common dotted-namespace conventions (`docs.cta`,
   // `common.save`).
-  return source.replace(
-    /\$t:([a-zA-Z0-9_-](?:[a-zA-Z0-9_.-]*[a-zA-Z0-9_-])?)/g,
-    (_match, key: string) => resolveTranslation(key, currentLang, languages)
+  return source.replace(TRANSLATION_TOKEN, (_match, key: string) =>
+    resolveTranslation(key, currentLang, languages)
   )
 }

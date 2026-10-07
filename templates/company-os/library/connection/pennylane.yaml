@@ -1,0 +1,34 @@
+# sovrium-library: connection/pennylane@0.30.0
+name: pennylane
+type: bearer
+label: Pennylane
+description: 'Pennylane company API, authenticated with a company API token'
+props:
+  token: $env.PENNYLANE_API_TOKEN
+baseUrl: https://app.pennylane.com/api/external/v2
+operations:
+  - name: get-customer-invoices
+    method: GET
+    path: /customer_invoices
+    summary: List customer invoices
+    params:
+      cursor:
+        in: query
+        type: string
+      limit:
+        in: query
+        type: integer
+      filter:
+        in: query
+        type: string
+      sort:
+        in: query
+        type: string
+      include:
+        in: query
+        type: string
+    pagination:
+      style: cursor
+      cursorParam: cursor
+      cursorPath: next_cursor
+      itemsPath: items

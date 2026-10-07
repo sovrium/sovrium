@@ -67,7 +67,9 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
     err.id = errId
     err.setAttribute('data-field-error', input.name || '')
     err.setAttribute('role', 'alert')
-    err.className = 'field-error'
+    // The page node's 'error' part, carried on the form since this element is made here.
+    var errorPart = form.getAttribute('data-error-class')
+    err.className = errorPart ? 'field-error ' + errorPart : 'field-error'
     // A server reason leads with the column name; the visitor reads the label.
     err.textContent =
       input.name && message.indexOf(input.name + ' ') === 0

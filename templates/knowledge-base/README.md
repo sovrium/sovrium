@@ -32,6 +32,10 @@ sovrium init my-knowledge-base --template knowledge-base
   and asking for one sends them to sign in.
 - **Ask the handbook** (`/assistant`) — an assistant that answers from the five articles
   everyone may read. It needs an AI provider.
+- **Not found** — an address the handbook does not hold answers 404 with three ways on: the
+  start page, the policies and the assistant. It is the `not-found-with-links` block from
+  the Sovrium library (`sovrium library add block/not-found-with-links`), pointed at this
+  handbook.
 
 Every article is a plain markdown file under [`content/`](./content), versioned with the
 rest of the app; `/llms.txt` and the sitemap list none of them, because the handbook is
@@ -76,6 +80,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

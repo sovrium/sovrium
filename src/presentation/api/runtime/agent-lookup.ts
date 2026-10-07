@@ -40,7 +40,7 @@ export const findAgent = (app: App | undefined, name: string): Agent | undefined
  * echoed it back would differ between "never existed" and "exists but refused"
  * and hand an anonymous caller an enumeration oracle, one guess at a time —
  * exactly what answering 404 rather than 403 exists to close (standing rule S1;
- * [internal ref] asserts the two responses match byte for byte).
+ * an AI agent perms spec asserts the two responses match byte for byte).
  */
-export const agentNotFound = (c: Readonly<Context>): Response =>
+export const agentNotFound = (c: Context): Response =>
   c.json(notFoundBody('Agent not found or access denied.'), 404)

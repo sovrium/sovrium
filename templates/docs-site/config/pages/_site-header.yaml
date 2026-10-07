@@ -1,38 +1,10 @@
 # The bar on the landing page and the page-not-found page: the site's name
 # and the two sections. The search box lives on the documentation pages, where
 # it answers with a page to read.
-#
-# It also sets the landing page's pitch, which is markdown rendered after it:
-# the `[&~article_…]` classes turn its first line into the small overline,
-# widen the measure, and draw the paragraph of two links as the two buttons.
 type: container
 element: header
 props:
-  className: >-
-    border-b border-border bg-background
-    [&~article]:!max-w-[880px] [&~article]:!px-0 max-lg:[&~article]:!px-6 [&~article]:!pt-[72px] [&~article]:!pb-0
-    max-md:[&~article]:!px-3 max-md:[&~article]:!pt-8
-    [&~article_h1]:!mt-[26px] [&~article_h1]:!mb-0 [&~article_h1]:!max-w-[760px]
-    [&~article_h1]:!text-[52px] [&~article_h1]:!leading-[1.05] [&~article_h1]:!tracking-[-0.025em]
-    [&~article_h1]:!font-semibold max-md:[&~article_h1]:!text-[34px]
-    [&~article>div>p:first-child]:!m-0 [&~article>div>p:first-child]:font-mono
-    [&~article>div>p:first-child]:!text-xs [&~article>div>p:first-child]:uppercase
-    [&~article>div>p:first-child]:tracking-wider [&~article>div>p:first-child]:!text-foreground-subtle
-    [&~article_h1+p]:!mt-5 [&~article_h1+p]:!mb-0 [&~article_h1+p]:!max-w-[640px]
-    [&~article_h1+p]:!text-[19px] [&~article_h1+p]:!leading-[1.6] [&~article_h1+p]:!text-foreground-muted
-    [&~article_h1+p+p]:!mt-5 [&~article_h1+p+p]:!mb-5 [&~article_h1+p+p]:flex [&~article_h1+p+p]:gap-2.5
-    [&~article_h1+p+p>a]:inline-flex [&~article_h1+p+p>a]:h-9 [&~article_h1+p+p>a]:items-center
-    [&~article_h1+p+p>a]:rounded-md [&~article_h1+p+p>a]:px-3 [&~article_h1+p+p>a]:!text-sm
-    [&~article_h1+p+p>a]:!font-medium [&~article_h1+p+p>a]:!no-underline
-    [&~article_h1+p+p>a]:border [&~article_h1+p+p>a]:border-border
-    [&~article_h1+p+p>a]:bg-background-raised [&~article_h1+p+p>a]:!text-foreground
-    [&~article_h1+p+p>a:first-child]:!border-primary [&~article_h1+p+p>a:first-child]:!bg-primary
-    [&~article_h1+p+p>a:first-child]:!text-primary-foreground
-    [&~article_figure[data-code-frame]]:!my-0 [&~article_figure[data-code-frame]]:!max-w-[640px]
-    [&~article_figure[data-code-frame]]:!border-[#0d0d0d]
-    [&~article_figure[data-code-frame]>figcaption]:!bg-[#0d0d0d]
-    [&~article_figure[data-code-frame]>figcaption]:!text-[#8b949e]
-    [&~article_figure[data-code-frame]>figcaption]:!border-white/10
+  className: border-b border-border bg-background
 children:
   - type: container
     props:

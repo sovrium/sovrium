@@ -13,13 +13,10 @@ import { useLayoutEffect, useRef, type RefObject } from 'react'
  * A data island is named once: the SSR host carries `data-component` beside
  * `data-component-type`, and the element the island mounts inside it carries
  * neither — two elements answering `[data-component="gallery"]` made every
- * reader count the component twice. What the mounted element used to say about
+ * reader count the component twice. What the mounted element says about
  * itself (the gallery's active column count, the calendar's view, the KPI's
- * state) belongs to the component too, so it moves to the element that names
- * it. It is found by the name rather than by `data-island`, because the same
- * island also mounts INSIDE a data-table's view switcher, where the named
- * element is a wrapper the switcher draws and the nearest island host is the
- * table's.
+ * state) belongs to the component too, so it is set on the element that names
+ * it, found by the name rather than by `data-island`.
  *
  * The attributes are set in a layout effect — before paint, so a reader never
  * sees the name without the description — and removed when the element

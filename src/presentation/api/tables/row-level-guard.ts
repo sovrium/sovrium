@@ -14,8 +14,7 @@
  *   2. Decide whether the user role is permitted by the table-level
  *      `permissions.{read,create,update,delete}` gate (overlay of Better
  *      Auth role, any user_access roles and every group the user belongs to)
- *   3. Project / evaluate the relevant `rowLevelPermissions.<op>.when`
- *      predicate
+ *   3. Project / evaluate the relevant `rowLevelPermissions.<op>.when` predicate
  *
  * The guard returns a typed result object the handler maps to the
  * appropriate HTTP outcome:
@@ -60,12 +59,14 @@ import {
   type RowLevelOperation,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { provideTableLive, runTableProgram } from '@/infrastructure/layers/table-layer'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type { TableGateScope } from '@/domain/models/app/auth/permission-evaluator-service'
 import type { RowLevelPermissions } from '@/domain/models/app/tables/permissions'
@@ -118,9 +119,8 @@ export interface RowLevelGuardContext {
  * record gate's own answer for a reader who is not signed in, in the list's SQL
  * projection and in the single read's in-memory check alike.
  *
- * Returns an Effect because we need a database round-trip per
- * scope-table; the handler wraps this in `runTableProgram` /
- * `runEffect` like every other table operation.
+ * Returns an Effect (a database round-trip per scope-table); the handler runs it
+ * on the request like every other table operation.
  */
 export const buildRowLevelGuardContext = (
   session: Pick<UserSession, 'userId'>,
@@ -170,12 +170,13 @@ export const fetchAccessRolesFailingClosed = (
  * only tables where the records route adds them) and the caller is signed in.
  */
 export const resolveAccessRolesFor = async (
+  c: Context,
   session: Pick<UserSession, 'userId'> | undefined,
   tables: readonly Pick<Table, 'rowLevelPermissions'>[]
 ): Promise<readonly string[]> => {
   if (session === undefined || isGuestSession(session.userId)) return []
   if (!tables.some((table) => table.rowLevelPermissions !== undefined)) return []
-  return Effect.runPromise(provideTableLive(fetchAccessRolesFailingClosed(session)))
+  return runDomainPromise(c, fetchAccessRolesFailingClosed(session))
 }
 
 const mergeRoles = (primary: readonly string[], extras: readonly string[]): readonly string[] => {
@@ -184,27 +185,37 @@ const mergeRoles = (primary: readonly string[], extras: readonly string[]): read
 }
 
 /**
- * Convenience: returns the guard context when the table declares row-level
- * permissions, else `undefined`. Resolves the underlying Effect program with
- * `TableLive` so each handler can call this with a single `await`.
+ * The guard context when the table declares row-level permissions, else
+ * `undefined` — as an Effect, for a handler that composes its whole request
+ * into one program.
  */
-export const resolveGuardForTable = async (
+export const guardForTable = (
   session: Pick<UserSession, 'userId'>,
   caller: GuardCaller,
   table: Pick<Table, 'rowLevelPermissions'> | undefined,
   app: Pick<App, 'auth' | 'tables'>
-): Promise<RowLevelGuardContext | undefined> => {
-  if (!table?.rowLevelPermissions) return undefined
-  return Effect.runPromise(
-    provideTableLive(
-      buildRowLevelGuardContext(
+): Effect.Effect<RowLevelGuardContext | undefined, never, DataSourceRepository | AuthRepository> =>
+  table?.rowLevelPermissions
+    ? buildRowLevelGuardContext(
         session,
         caller,
         { rowLevelPermissions: table.rowLevelPermissions },
         app
       )
-    )
-  )
+    : Effect.undefined
+
+/**
+ * {@link guardForTable}, resolved on the REQUEST's services (never a layer per
+ * call) for a handler not yet composed into one program.
+ */
+export const resolveGuardForTable = async (
+  c: Context,
+  session: Pick<UserSession, 'userId'>,
+  caller: GuardCaller,
+  scope: { readonly table: Table | undefined; readonly app: Pick<App, 'auth' | 'tables'> }
+): Promise<RowLevelGuardContext | undefined> => {
+  if (!scope.table?.rowLevelPermissions) return undefined
+  return runDomainPromise(c, guardForTable(session, caller, scope.table, scope.app))
 }
 
 /**
@@ -362,8 +373,8 @@ export const recordPassesPredicate = (
  *
  * The canonical record-{read,update,delete}-handlers run the predicate gate
  * inline because each call site has different control-flow needs. Form-mode,
- * bulk, and CSV-export endpoints reuse the SAME predicate semantics but
- * historically bypassed it entirely. These shared helpers fix that gap.
+ * bulk, and CSV-export endpoints need the SAME predicate semantics; these
+ * shared helpers give it to them so none of them bypasses it.
  * ──────────────────────────────────────────────────────────────────────── */
 
 const NOT_FOUND_BODY = (c: Context): Response => notFound(c)
@@ -389,20 +400,22 @@ interface FormGateInput {
 }
 
 /**
- * Fetch a row for predicate evaluation. Returns `undefined` when missing —
- * caller maps to 404. Centralised so the helpers below are uniform.
+ * Fetch a row for predicate evaluation. Resolves `undefined` when missing (or
+ * unreadable) — the caller maps that to 404. Centralised so the gates below are
+ * uniform.
  */
-async function fetchRowForGate(
+const rowForGate = (
   session: Pick<UserSession, 'userId'>,
   tableName: string,
   recordId: string
-): Promise<Readonly<Record<string, unknown>> | undefined> {
-  const fetched = await runTableProgram(
-    rawGetRecordProgram(session as UserSession, tableName, recordId)
+): Effect.Effect<Readonly<Record<string, unknown>> | undefined, never, TableRepository> =>
+  rawGetRecordProgram(session as UserSession, tableName, recordId).pipe(
+    Effect.map((row) => row ?? undefined),
+    // A row the gate cannot fetch is a row the caller cannot reach, answered with
+    // the same 404 as a missing one (S1): a fault is indistinguishable by design.
+    // effect-swallow: an unfetchable row answers as a missing one (S1 anti-enumeration)
+    Effect.orElseSucceed(() => undefined)
   )
-  if (fetched._tag === 'Failure' || !fetched.success) return undefined
-  return fetched.success
-}
 
 interface MutationPredicateInput {
   readonly c: Context
@@ -437,27 +450,31 @@ function evaluateMutationPredicates(input: MutationPredicateInput): Response | u
  *
  * Returns `undefined` on pass, a `Response` to short-circuit otherwise.
  */
-export async function enforceFormMutationGate(input: FormGateInput): Promise<Response | undefined> {
+export const formMutationGate = (
+  input: FormGateInput
+): Effect.Effect<Response | undefined, never, TableRepository> => {
   const { c, table, session, tableName, recordId, guard, op, change } = input
   const action = op === 'write' ? 'update' : 'delete'
 
-  if (!passesTableRoleGate(table, 'read', guard)) {
-    return NOT_FOUND_BODY(c)
-  }
-  const row = await fetchRowForGate(session, tableName, recordId)
-  if (!row || !table) return NOT_FOUND_BODY(c)
-  if (!passesTableRoleGate(table, op, guard)) {
-    return FORBIDDEN_BODY(c, action)
-  }
-  return evaluateMutationPredicates({
-    c,
-    rlp: table.rowLevelPermissions,
-    op,
-    // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
-    row: readStoredValues(table, row),
-    change,
-    ctx: guard.current,
+  if (!passesTableRoleGate(table, 'read', guard)) return Effect.succeed(NOT_FOUND_BODY(c))
+  return Effect.map(rowForGate(session, tableName, recordId), (row) => {
+    if (!row || !table) return NOT_FOUND_BODY(c)
+    if (!passesTableRoleGate(table, op, guard)) return FORBIDDEN_BODY(c, action)
+    return evaluateMutationPredicates({
+      c,
+      rlp: table.rowLevelPermissions,
+      op,
+      // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
+      row: readStoredValues(table, row),
+      change,
+      ctx: guard.current,
+    })
   })
+}
+
+/** {@link formMutationGate} on the request's services, for a handler not yet composed into one program. */
+export async function enforceFormMutationGate(input: FormGateInput): Promise<Response | undefined> {
+  return runDomainPromise(input.c, formMutationGate(input))
 }
 
 /**
@@ -608,7 +625,8 @@ export async function enforceBulkMutationGate(input: BulkGateInput): Promise<Res
   const filter = buildBulkGateFilter(ids, rlp, guard.current, op)
   if (filter === 'empty') return NOT_FOUND_BODY(c)
 
-  const fetched = await runTableProgram(
+  const fetched = await runOnRequest(
+    c,
     rawListRecordsProgram(session as UserSession, tableName, filter, includeDeleted)
   )
   if (fetched._tag === 'Failure') return NOT_FOUND_BODY(c)

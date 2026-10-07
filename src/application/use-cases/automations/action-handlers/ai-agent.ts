@@ -18,7 +18,7 @@
  * as `ai/generate`), so the agent's LLM round-trips are observed by the AI
  * mock server in E2E specs.
  *
- * Wave: [internal ref].
+ * Wave: the automations actions AI agent requirement.
  */
 
 import { Effect } from 'effect'

@@ -6,7 +6,9 @@
  */
 
 import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-default-classes'
+import { declaredCalendarPartClasses } from '@/presentation/design/calendar-part-class-resolution'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { calendarDayFloorAttributes } from './calendar-day-floor'
 import { renderComponentSearchBar } from './component-search-bar'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -17,8 +19,12 @@ import type { ReactElement } from 'react'
  * Forwarded to the calendar island for client-side data fetching and
  * FullCalendar rendering with date-field mapping.
  */
-function extractCalendarProps(elementProps: Record<string, unknown>): Record<string, unknown> {
+function extractCalendarProps(
+  elementProps: Record<string, unknown>,
+  parts: Readonly<Record<string, string>> | undefined
+): Record<string, unknown> {
   return {
+    ...declaredCalendarPartClasses(parts),
     dataSource: elementProps.dataSource,
     dateField: elementProps.dateField,
     endDateField: elementProps.endDateField,
@@ -130,8 +136,9 @@ export const islandCalendarComponent: ComponentRenderer = ({
   elementProps,
   currentLang,
   languages,
+  designStyles,
 }) => {
-  const islandProps = extractCalendarProps(elementProps)
+  const islandProps = extractCalendarProps(elementProps, designStyles?.parts)
   const propsJson = JSON.stringify(islandProps)
 
   return (
@@ -141,6 +148,7 @@ export const islandCalendarComponent: ComponentRenderer = ({
       {...namedHost('calendar', { 'data-view': calendarView(elementProps.defaultView) })}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={hostClassName(elementProps)}
+      {...calendarDayFloorAttributes(elementProps.dayMinHeight)}
     >
       {renderComponentSearchBar(elementProps.search, { currentLang, languages })}
       {renderCalendarSkeleton()}

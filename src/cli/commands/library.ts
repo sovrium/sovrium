@@ -42,6 +42,7 @@ import {
   selectsOperations,
   showOperation,
 } from './library-operations'
+import { rankEntries, termsOf } from './library-search'
 import { libraryArticleAddress } from './library-wire'
 import { getCurrentVersion } from './update'
 import type { LibraryCatalogueApi, LibraryEntry } from '@/library/manifest/define'
@@ -79,16 +80,13 @@ const SEARCH_LIMIT = 20
 /** Stop with a refusal on stderr and exit 1. */
 const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
 const emit = (content: string): void => {
-  // eslint-disable-next-line functional/no-expression-statements
   process.stdout.write(content.endsWith('\n') ? content : `${content}\n`)
 }
 
-// eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
 const asJson = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
 
 /** Normalise `--format`, refusing anything else by name. */
@@ -109,9 +107,22 @@ const resolveFormat = (raw: string | undefined): LibraryFormat => {
  * see which of its exports are used, and handed on as readonly data.
  */
 const loadCatalogueModule = async (): Promise<LibraryCatalogueApi> => {
-  const { LIBRARY_KINDS, LIBRARY_TARGET_KEY, expectedTables, libraryEntryId, loadCatalogue } =
-    await import('@/library/manifest/catalogue')
-  return { LIBRARY_KINDS, LIBRARY_TARGET_KEY, expectedTables, libraryEntryId, loadCatalogue }
+  const {
+    LIBRARY_KINDS,
+    LIBRARY_TARGET_KEY,
+    entryForms,
+    expectedTables,
+    libraryEntryId,
+    loadCatalogue,
+  } = await import('@/library/manifest/catalogue')
+  return {
+    LIBRARY_KINDS,
+    LIBRARY_TARGET_KEY,
+    entryForms,
+    expectedTables,
+    libraryEntryId,
+    loadCatalogue,
+  }
 }
 
 type CatalogueModule = LibraryCatalogueApi
@@ -174,27 +185,6 @@ const handleList = async (options: LibraryCommandOptions): Promise<void> => {
 // search
 // =============================================================================
 
-/** How well one entry matches one lower-cased term. Zero means no match. */
-const termScore = (catalogue: CatalogueModule, entry: LibraryEntry, term: string): number => {
-  const includes = (text: string): boolean => text.toLowerCase().includes(term)
-  return [
-    catalogue.libraryEntryId(entry) === term || entry.slug === term ? 100 : 0,
-    entry.slug.includes(term) ? 50 : 0,
-    entry.provider?.name.toLowerCase() === term ? 40 : 0,
-    entry.tags.some((tag) => tag.toLowerCase() === term) ? 30 : 0,
-    includes(entry.title) ? 20 : 0,
-    includes(entry.category) ? 10 : 0,
-    includes(entry.description) ? 5 : 0,
-  ].reduce((sum, score) => sum + score, 0)
-}
-
-/** A query as the lower-cased terms every hit must match. */
-const termsOf = (query: string): readonly string[] =>
-  query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((term) => term !== '')
-
 /** `--limit`, a positive whole number, refused by name otherwise. */
 const resolveLimit = (raw: string | undefined): number => {
   if (raw === undefined) return SEARCH_LIMIT
@@ -203,26 +193,6 @@ const resolveLimit = (raw: string | undefined): number => {
     ? value
     : refuse(`Error: --limit expects a positive whole number, got "${raw}".`)
 }
-
-/** Every entry matching EVERY term, best first, ties broken by id. */
-const rankEntries = (
-  catalogue: CatalogueModule,
-  entries: readonly LibraryEntry[],
-  terms: readonly string[]
-): readonly LibraryEntry[] =>
-  entries
-    .map((entry) => ({
-      entry,
-      scores: terms.map((term) => termScore(catalogue, entry, term)),
-    }))
-    .filter(({ scores }) => scores.every((score) => score > 0))
-    .map(({ entry, scores }) => ({ entry, score: scores.reduce((a, b) => a + b, 0) }))
-    .toSorted(
-      (left, right) =>
-        right.score - left.score ||
-        catalogue.libraryEntryId(left.entry).localeCompare(catalogue.libraryEntryId(right.entry))
-    )
-    .map(({ entry }) => entry)
 
 const handleSearch = async (options: LibraryCommandOptions): Promise<void> => {
   const format = resolveFormat(options.format)
@@ -323,6 +293,9 @@ const renderShow = (catalogue: CatalogueModule, entry: LibraryEntry): string => 
     entry.description,
     '',
     `Installs into: ${key} (library/${entry.kind}/${entry.slug}.yaml)`,
+    ...(entry.kind === 'block' && entry.forms !== undefined
+      ? [`Also installs into: forms (library/form/${entry.slug}.yaml), placed with formRef`]
+      : []),
     ...renderParams(entry),
     ...renderTables(catalogue, entry),
     `Environment variables: ${entry.env.length === 0 ? 'none' : entry.env.join(', ')}`,

@@ -188,7 +188,6 @@ export const createPlannedAccounts = async (
       result.ok ? [] : [`accounts: "${plan.toCreate[position]?.email}": ${result.message}`]
     )
     if (failures.length > 0) {
-      // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
       throw new SeedAccountError(failures.join('\n  '))
     }
   }

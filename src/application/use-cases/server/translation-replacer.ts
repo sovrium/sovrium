@@ -7,7 +7,7 @@
 
 import {
   mapStringsDeep,
-  resolveTranslation,
+  resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
 import type { App, Page } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages'
@@ -44,10 +44,8 @@ type TokenReplacementContext = {
  * ```
  */
 function replaceTokens(str: string, context: TokenReplacementContext): string {
-  // Replace $t: translation pattern
-  const translatedStr = str.startsWith('$t:')
-    ? resolveTranslation(str.slice(3), context.langCode, context.languages)
-    : str
+  // Replace the $t: key a value opens with, keeping the text after the key
+  const translatedStr = resolveTranslationPattern(str, context.langCode, context.languages)
 
   // Replace {{currentPath}} pattern (for language switcher hrefs)
   const currentPath = context.currentPath || '/'

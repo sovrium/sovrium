@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { fillRoutePattern, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import { ClientRuntimeScript } from '@/presentation/render/page/client-script-paths'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
 import {
@@ -55,7 +56,7 @@ type DynamicPageProps = {
   readonly detectedLanguage?: string
   /**
    * The `/:lang/` URL-prefix locale, when the request carried one. Outranks
-   * `page.meta.lang` ([internal ref]..039) — see `resolvePageLanguage`.
+   * `page.meta.lang` — see `resolvePageLanguage`.
    */
   readonly urlLanguage?: string
   readonly routeParams?: RouteParams
@@ -190,7 +191,7 @@ const TOAST_CONTAINER_STYLE = {
 const PRESENCE_CONTAINER_STYLE = { minHeight: '1px' } as const
 
 /**
- * Renders the page-level presence-indicator island placeholder (Wave-6).
+ * Renders the page-level presence-indicator island placeholder.
  *
  * Emitted on every page configured with `presence: true`. The placeholder
  * carries the page's ADDRESS as an island prop — the pattern filled with this
@@ -341,7 +342,7 @@ function DynamicPageBody({
       {...dataAttributes}
     >
       {/*
-        Skip link ([internal ref], WCAG 2.4.1 "bypass blocks"): the
+        Skip link (the pages accessibility requirement, WCAG 2.4.1 "bypass blocks"): the
         FIRST focusable element in the page chrome. Visually hidden until
         focused (`sr-only focus:not-sr-only`), it targets `#main-content` so
         keyboard/AT users can jump straight past the header/nav to the main
@@ -405,12 +406,7 @@ function DynamicPageBody({
         position="end"
         frontmatter={markdownPayload?.frontmatter}
       />
-      {hasInteractiveFeatures(page, components) && (
-        <script
-          src="/assets/client.js"
-          defer={true}
-        />
-      )}
+      {hasInteractiveFeatures(page, components) && <ClientRuntimeScript />}
       {hasIslandComponents(page, components) && islandEntryFile && (
         <script
           src={`/assets/islands/${islandEntryFile}`}

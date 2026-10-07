@@ -1,0 +1,166 @@
+# sovrium-library: block/dashboard-worklist@0.30.0
+name: dashboard-worklist
+type: container
+element: section
+props:
+  className: mx-auto flex w-full max-w-360 flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-wrap items-end justify-between gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: 'Worklist'
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: What needs doing next.
+      - type: button
+        props:
+          label: 'New project'
+          interactions:
+            click:
+              modal: dashboard-worklist-new-dialog
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 sm:grid-cols-3
+    children:
+      - type: kpi
+        label: 'Active'
+        dataSource: &dataSource
+          table: projects
+          view: active-projects
+        kpiAggregate:
+          function: count
+        kpiFormat:
+          type: number
+      - type: kpi
+        label: 'Budget in play'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: sum
+          field: budget
+        kpiFormat: &kpiFormat
+          type: currency
+          options:
+            currency: EUR
+      - type: kpi
+        label: 'Average budget'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: avg
+          field: budget
+        kpiFormat: *kpiFormat
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 lg:grid-cols-12
+    children:
+      - type: container
+        props:
+          className: min-w-0 lg:col-span-8
+        children:
+          - type: tabs
+            defaultTab: view
+            panels:
+              - id: view
+                label: 'Active'
+              - id: all
+                label: All
+            children:
+              - type: table
+                dataSource: *dataSource
+                columns: &columns
+                  - field: title
+                    label: 'Project'
+                    editable: false
+                  - field: due_date
+                    label: 'Due'
+                    format: short-date
+                    editable: false
+                  - field: category
+                    label: 'Type'
+                    editable: false
+                  - field: budget
+                    label: 'Budget'
+                    align: right
+                    format: currency
+                    editable: false
+                onRowClick:
+                  action: openDrawer
+                  component: dashboard-worklist-detail
+                phoneLayout: rows
+                pagination:
+                  pageSize: 25
+                emptyMessage: 'Nothing here. New projects land in this list.'
+              - type: table
+                dataSource:
+                  table: projects
+                columns: *columns
+                onRowClick:
+                  action: openDrawer
+                  component: dashboard-worklist-detail
+                phoneLayout: rows
+                pagination:
+                  pageSize: 25
+                emptyMessage: 'Nothing here. New projects land in this list.'
+      - type: container
+        element: section
+        props:
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-4
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-md font-semibold text-foreground
+            content: Activity
+          - type: list
+            props:
+              aria-label: Activity
+            dataSource:
+              table: activity
+              sort:
+                - field: happened_at
+                  direction: desc
+              limit: 6
+            listDisplay:
+              itemTemplate:
+                title: $record.actor
+                subtitle: $record.summary
+                metadata:
+                  - field: happened_at
+                    format: relative-date
+                    className: font-mono
+              emptyMessage: No activity yet. Changes people make show up here.
+  - type: drawer
+    id: dashboard-worklist-detail
+    props:
+      title: 'Project'
+    drawerSide: right
+    drawerSize: md
+    dataSource:
+      table: projects
+    canEdit: true
+    recordFields:
+      - name: title
+        type: single-line-text
+        label: 'Project'
+      - name: due_date
+        type: date
+        label: 'Due'
+      - name: budget
+        type: currency
+        label: 'Budget'
+  - type: dialog
+    props:
+      id: dashboard-worklist-new-dialog
+      title: 'New project'
+      description: It joins the list as soon as you add it.
+    formRef: dashboard-worklist-new

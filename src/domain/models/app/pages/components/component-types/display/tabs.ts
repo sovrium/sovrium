@@ -89,7 +89,7 @@ export const TabsTypeLiteral = Schema.Literal('tabs')
  * parents above it — every link a column that may shrink below its content. A
  * tab set is a link an author cannot dress: the mount host the tabs island
  * renders is deliberately LAYOUT-NEUTRAL, carrying no class of its own, and
- * that is the whole fix behind `[internal ref]` / `-018` — the
+ * that is the whole fix behind the pages tabs specs — the
  * layout must live on exactly ONE element in each state, or the real tab set
  * becomes a non-growing item of a clone of its own layout and shrink-fits.
  *
@@ -125,7 +125,7 @@ export const TabsTypeLiteral = Schema.Literal('tabs')
  *
  * Omitted means `flow`: the tab set takes its natural height, the panel grows
  * with its content, and the page scrolls — which is what every config written
- * before this key existed already renders, and what `[internal ref]` /
+ * before this key existed already renders, and what a pages tabs spec /
  * `-018` measure. Those two assert the DEFAULT path, so they hold by
  * construction rather than by care.
  */

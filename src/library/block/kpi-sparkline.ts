@@ -15,6 +15,7 @@ import {
   stringParam,
   THEME_NOTE,
 } from '@/library/manifest/block-kit'
+import { inWindow, PERIOD_NOTE, periodSelector } from '@/library/manifest/dashboard-block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 /** Three figures from one table, each with a sparkline of its recent weeks. */
@@ -30,6 +31,7 @@ export const entry = defineLibraryEntry({
     PLACE_NOTE,
     DATA_NOTE,
     'Each sparkline groups the records by the date field, one point per week over the last ninety days. Records with no date are left out of the line but still counted in the figure.',
+    PERIOD_NOTE,
     THEME_NOTE,
   ],
   params: [
@@ -62,7 +64,7 @@ export const entry = defineLibraryEntry({
     ): Readonly<Record<string, unknown>> => ({
       type: 'kpi',
       label,
-      dataSource: { table: p('table') },
+      dataSource: inWindow(p('table'), p('dateField')),
       kpiAggregate: aggregate,
       kpiFormat: { type: 'compact' },
       sparkline,
@@ -70,13 +72,14 @@ export const entry = defineLibraryEntry({
     return asComponent(
       name,
       panel([
+        periodSelector(),
         grid(
           [
             kpi('[Records]', { function: 'count' }),
             kpi('[Total]', { function: 'sum', field: p('amountField') }),
             kpi('[Average]', { function: 'avg', field: p('amountField') }),
           ],
-          'gap-4 md:grid-cols-3'
+          'mt-4 gap-4 md:grid-cols-3'
         ),
       ])
     )

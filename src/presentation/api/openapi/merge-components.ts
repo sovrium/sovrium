@@ -96,7 +96,6 @@ export const mergeComponents = (maps: readonly Components[]): Components =>
       // published document (see the doc comment above). Refusing to build the
       // document at all is the point: no caller could meaningfully recover, and
       // returning a partial document would reproduce the exact bug this detects.
-      // eslint-disable-next-line functional/no-throw-statements -- see above
       throw new Error(
         `OpenAPI component name collision: ${conflicts.join(', ')} — two different schemas ` +
           'claim the same `identifier`. Effect keys $defs by identifier, so one would ' +

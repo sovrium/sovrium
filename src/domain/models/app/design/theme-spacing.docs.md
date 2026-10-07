@@ -60,7 +60,7 @@ The syntax-highlighting theme applied to markdown fenced code — on markdown pa
 
 <!-- sovrium:options CodeBlockConfigSchema -->
 
-Omit `darkTheme` and the one theme governs both colour schemes; the pair is declared rather than derived from the light theme's name.
+Omit `darkTheme` and the one theme governs both colour schemes; the pair is declared rather than derived from the light theme's name. Any theme Shiki ships can be named as `darkTheme`: the dark scheme paints that theme's own colours, each held to 4.5:1 against the block as described below.
 
 ```yaml
 design:

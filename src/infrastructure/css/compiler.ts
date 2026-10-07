@@ -6,8 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { parseEcoDesignLayer } from '@/domain/models/process-env/eco/eco-design-layer'
-import { generateArbitraryVarSafelist } from '@/infrastructure/css/arbitrary-var-safelist'
 import {
   getCSSCacheKey,
   getOrComputeCachedCSS,
@@ -28,460 +26,17 @@ import {
   MINIMAL_FALLBACK_CSS,
   resolveNativeFreeCandidates,
 } from '@/infrastructure/css/native-free-compiler'
-import { generateMotionStyles } from '@/infrastructure/css/styles/animation-styles-generator'
-import {
-  generateComponentsLayer,
-  generateUtilitiesLayer,
-} from '@/infrastructure/css/styles/component-layer-generators'
-import { generateMarqueeStyles } from '@/infrastructure/css/styles/marquee-styles-generator'
-import { generateCalendarStyles } from '@/infrastructure/css/theme/calendar-styles'
-import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
-import { generateCommandPaletteStyles } from '@/infrastructure/css/theme/command-palette-styles'
-import {
-  NEUTRAL_FLOOR_LAYER,
-  ROLE_TOKEN_BRIDGE,
-  V1_THEME_REGISTRATIONS,
-  V1_TOKEN_LAYER,
-} from '@/infrastructure/css/theme/default-theme-layer'
-import { SELF_HOSTED_FONT_FACES } from '@/infrastructure/css/theme/fonts'
-import { generateRichTextStyles } from '@/infrastructure/css/theme/rich-text-styles'
-import { scopedTokenLayer } from '@/infrastructure/css/theme/scoped-theme-layer'
-import {
-  generateAuthorSvBridge,
-  generateDarkColorOverrides,
-  generateDensityLayer,
-  generateMotionScale,
-  generateSpacingScale,
-  generateThemeBorderRadius,
-  generateThemeBreakpoints,
-  generateThemeColors,
-  generateThemeFonts,
-  generateThemeShadows,
-  generateThemeTypeScale,
-} from '@/infrastructure/css/theme/theme-generators'
-import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
+import { loadCodeBlockDarkPalette } from '@/infrastructure/css/theme/code-block-theme-palette'
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/process/env'
 import { isCompiled, SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/process/package-paths'
+import { buildSourceCSS } from './source-css'
 import type { App } from '@/domain/models/app'
-import type { Design } from '@/domain/models/app/design'
 import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
 
 // Re-export CompiledCSS type for external use
 export type { CompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
-
-/**
- * Generate the complete Tailwind `@theme` block from `app.design`.
- *
- * ## One parameter, because there is one position
- *
- * This took `(theme, typeScale)` — two parameters for one design system,
- * because the token block was a nested key of its own while the type ladder sat
- * beside it. Every caller had to know which half held which key, and the guard
- * had to be `!theme && !typeScale` rather than the obvious `!theme`, because an
- * app declaring only a type scale was legitimate and an early return on the
- * token block would have made every one of its steps silently emit nothing.
- *
- * [internal ref] collapses both into `design`, so the guard is now simply `!design`:
- * there is no second container that could hold a declared token while this one
- * is absent. That is the whole reason the single position is safe — not that
- * the old split was harmless, but that the class of bug it invited (a key
- * declared in the position the reader did not check) no longer has a place to
- * happen.
- *
- * ## Emission order
- *
- * The first seven emitters keep their exact previous order, and
- * `generateMotionScale` is APPENDED rather than slotted in beside its ladder
- * siblings. That is deliberate: motion is the one token family that emitted
- * nothing before, so appending it leaves the stylesheet of every app that
- * declares no `motion` byte-identical to what it was under `theme.*`.
- */
-function generateDesignCSS(design?: Design): string {
-  if (!design) return ''
-
-  // Narrow ONCE rather than optional-chaining each generator: every `Design`
-  // field is itself optional, so an empty object is a faithful stand-in for
-  // "nothing declared" and each generator already guards its own absent input.
-  const declared: Design = design
-
-  const themeTokens = [
-    generateThemeColors(declared.colors),
-    generateThemeFonts(declared.typeScale?.families),
-    generateSpacingScale(declared.spacing),
-    generateThemeShadows(declared.elevation),
-    generateThemeBorderRadius(declared.radius),
-    generateThemeBreakpoints(declared.breakpoints),
-    generateThemeTypeScale(declared.typeScale?.steps),
-    generateMotionScale(declared.motion),
-  ].filter(Boolean)
-
-  // [internal ref] / Phase 5 follow-up: the author-`--sv-*` bridge block, emitted as
-  // a separate `:root` block AFTER `@theme static`. Each `app.design.colors.X`
-  // value also writes `--sv-Y: value` directly so the prestyled-by-default
-  // island channel (`bg-[var(--sv-Y, …)]`) picks up tenant overrides in
-  // addition to the legacy `bg-X` utility channel. The cascade ordering
-  // (ROLE_TOKEN_BRIDGE → author bridge) ensures the tenant value beats the
-  // bridge's neutral fallback by ordinary "later wins" cascade semantics. See
-  // `generateAuthorSvBridge` for the full rationale.
-  const authorSvBridge = generateAuthorSvBridge(declared.colors)
-
-  // `design.darkColors` — the authored dark palette. Emitted LAST so its
-  // `html:is(.dark, …)` block sits after both the `@theme static` tokens and
-  // the default theme layer's own dark cascade (`V1_ROOT_DARK`), which it ties
-  // with on specificity and must therefore beat on source order. See
-  // `generateDarkColorOverrides` for the full cascade rationale.
-  const darkColorOverrides = generateDarkColorOverrides(declared.darkColors)
-
-  if (themeTokens.length === 0 && !authorSvBridge && !darkColorOverrides) return ''
-
-  // `@theme static` (not plain `@theme`) so author-declared tokens are ALWAYS
-  // emitted to :root, even when no candidate references them yet. Plain `@theme`
-  // tree-shakes unused tokens — fine for Tailwind's default palette, wrong for an
-  // operator's own theme: client-hydrated islands may reference these vars at
-  // runtime, beyond the reach of the build-time candidate scan.
-  const themeStaticBlock =
-    themeTokens.length > 0 ? `@theme static {\n${themeTokens.join('\n')}\n  }` : ''
-
-  return [themeStaticBlock, authorSvBridge, darkColorOverrides].filter(Boolean).join('\n\n')
-}
-
-/**
- * Layout-utility safelist — Tailwind layout primitives that are NOT theme
- * tokens but ARE referenced dynamically (via runtime-composed `className`
- * strings) by operator app schemas. The build-time source scan only sees
- * utilities literally present in Sovrium's own `src/`, so a schema author
- * using `grid-cols-11` (or any column count outside the 1-7 range already
- * used by built-in islands) gets a broken layout.
- *
- * Safelisting `grid-cols-{1..12}` (and the matching `sm:`/`md:`/`lg:`
- * responsive variants) makes the full standard Tailwind grid range
- * resolvable from any app schema, in both the native PostCSS path AND the
- * pure-JS native-free binary path, regardless of source-tree scan output.
- *
- * Standard Tailwind range is 1-12; we don't safelist beyond 12 because that
- * is rare enough that an operator hitting it should opt into a wider
- * candidate set (e.g. by adding a className that the build-time scan picks
- * up in a future feature).
- *
- * Semantic-ramp color utilities (`bg-success-500`, `bg-warning-100`, etc.)
- * are safelisted separately via `CANONICAL_COLOR_UTILITIES` in
- * `default-theme-layer.ts` — they ship inside the v1 token layer alongside
- * their `@theme` color-variable registrations.
- */
-const LAYOUT_UTILITY_SAFELIST = [
-  // Base
-  'grid-cols-1',
-  'grid-cols-2',
-  'grid-cols-3',
-  'grid-cols-4',
-  'grid-cols-5',
-  'grid-cols-6',
-  'grid-cols-7',
-  'grid-cols-8',
-  'grid-cols-9',
-  'grid-cols-10',
-  'grid-cols-11',
-  'grid-cols-12',
-  // sm: responsive variant
-  'sm:grid-cols-1',
-  'sm:grid-cols-2',
-  'sm:grid-cols-3',
-  'sm:grid-cols-4',
-  'sm:grid-cols-5',
-  'sm:grid-cols-6',
-  'sm:grid-cols-7',
-  'sm:grid-cols-8',
-  'sm:grid-cols-9',
-  'sm:grid-cols-10',
-  'sm:grid-cols-11',
-  'sm:grid-cols-12',
-  // md: responsive variant
-  'md:grid-cols-1',
-  'md:grid-cols-2',
-  'md:grid-cols-3',
-  'md:grid-cols-4',
-  'md:grid-cols-5',
-  'md:grid-cols-6',
-  'md:grid-cols-7',
-  'md:grid-cols-8',
-  'md:grid-cols-9',
-  'md:grid-cols-10',
-  'md:grid-cols-11',
-  'md:grid-cols-12',
-  // lg: responsive variant
-  'lg:grid-cols-1',
-  'lg:grid-cols-2',
-  'lg:grid-cols-3',
-  'lg:grid-cols-4',
-  'lg:grid-cols-5',
-  'lg:grid-cols-6',
-  'lg:grid-cols-7',
-  'lg:grid-cols-8',
-  'lg:grid-cols-9',
-  'lg:grid-cols-10',
-  'lg:grid-cols-11',
-  'lg:grid-cols-12',
-  // Flex direction / wrap — emitted by buildFlexClasses from string `direction`/`wrap` props
-  'flex-row',
-  'flex-row-reverse',
-  'flex-col',
-  'flex-col-reverse',
-  'flex-wrap',
-  'flex-nowrap',
-  'flex-wrap-reverse',
-  // Justify-content — emitted from string `justify` prop
-  'justify-start',
-  'justify-center',
-  'justify-end',
-  'justify-between',
-  'justify-around',
-  'justify-evenly',
-  // Align-items — emitted from string `align` prop
-  'items-start',
-  'items-center',
-  'items-end',
-  'items-stretch',
-  'items-baseline',
-  // Gap scale targets — emitted from named `gap` props (sm/md/lg/xl → gap-2/4/6/8, etc.)
-  'gap-0',
-  'gap-1',
-  'gap-2',
-  'gap-3',
-  'gap-4',
-  'gap-5',
-  'gap-6',
-  'gap-8',
-  // Native Admin Dashboard responsive shell. The
-  // shell's sidebar collapse / burger-drawer reflow composes these utilities in
-  // runtime `className` strings AND in the inline `SidebarDrawerToggle` script —
-  // both invisible to the source scanner — so they are safelisted here to be
-  // emitted on EVERY app's CSS (the dashboard is auto-mounted on any operator
-  // app, whose theme drives the served CSS). `overflow-x-auto` backs the
-  // horizontally-scrollable per-domain tab bar (RESPONSIVE-004).
-  'hidden',
-  'md:flex',
-  'md:hidden',
-  'md:block',
-  'overflow-x-auto',
-  'fixed',
-  'inset-0',
-  'inset-y-0',
-  'left-0',
-  'z-30',
-  'z-40',
-  'shadow-xl',
-  'bg-scrim/50',
-].join(' ')
-
-/**
- * Runtime-template-literal arbitrary-value safelist.
- *
- * Islands compose classes like `` `bg-[${v('sv-primary', T.primary)}]` `` whose
- * resolved literal (`bg-[var(--sv-primary,oklch(0.205_0.008_40))]`) is invisible
- * to Tailwind's content scanner — it only sees the template SOURCE, not the
- * value. Without this safelist those classes never reach the compiled CSS and
- * elements render transparent on the dedicated Linux runner. The generator
- * source-scans `src/presentation/islands/*-default-classes.ts` and resolves
- * each `v('sv-X', T.Y)` against `css-var.ts`'s `TOKENS` map; the result is
- * empty in compiled-binary mode (where the JS bundle already contains the
- * resolved literals and Tailwind picks them up natively).
- *
- * See `./arbitrary-var-safelist.ts` and its co-located test for details.
- */
-const ARBITRARY_VAR_CLASS_SAFELIST = generateArbitraryVarSafelist().join(' ')
-
-const ARBITRARY_VAR_SAFELIST_DIRECTIVE = ARBITRARY_VAR_CLASS_SAFELIST
-  ? `@source inline("${ARBITRARY_VAR_CLASS_SAFELIST}");`
-  : '/* arbitrary-var safelist empty — binary mode (resolved literals already in JS bundle) */'
-
-/**
- * Static CSS imports and custom variants
- */
-const STATIC_IMPORTS = `@import 'tailwindcss';
-    @import 'tw-animate-css';
-    /* Tailwind v4 registers JS plugins via the @plugin directive in the CSS
-       input (no tailwind.config.js in Sovrium's programmatic compiler). The
-       typography plugin mints the \`prose\` family (\`prose\`, \`prose-invert\`,
-       \`prose-slate\`, \`prose-sm\`, …) used by markdown article layouts
-       (markdown-article.tsx) and the rich-text editor island. Without it those
-       classes are INERT. Placed after the \`@import 'tailwindcss'\` so the
-       plugin's utilities register against the core theme. Flows through the
-       native PostCSS path here; the native-free binary path resolves the
-       \`prose\` utilities from the candidate set + embedded plugin (see
-       generated-css-assets regeneration). */
-    @plugin "@tailwindcss/typography";
-    /*---break---
-     */
-    @source inline("${LAYOUT_UTILITY_SAFELIST}");
-    /*---break---
-     */
-    ${ARBITRARY_VAR_SAFELIST_DIRECTIVE}
-    /*---break---
-     */
-    @custom-variant dark (&:is(.dark *));
-    /* @theme static (not plain @theme) so the full red palette is ALWAYS
-       emitted to :root by BOTH compile engines. The pure-JS native-free engine
-       (binary path) keeps every declared token, while real oxide tree-shakes a
-       plain @theme block down to only candidate-referenced tokens — making the
-       binary CSS emit reds the dev CSS dropped (CLI-BINARY-CSS-006). static
-       opts both engines out of tree-shaking so they stay equivalent. */
-    @theme static {
-      --color-red-50: #fef2f2;
-      --color-red-100: #fee2e2;
-      --color-red-200: #fecaca;
-      --color-red-300: #fca5a5;
-      --color-red-400: #f87171;
-      --color-red-500: #ef4444;
-      --color-red-600: #dc2626;
-      --color-red-700: #b91c1c;
-      --color-red-800: #991b1b;
-      --color-red-900: #7f1d1d;
-      --color-red-950: #450a0a;
-    }`
-
-/**
- * Final base layer for global resets
- * Note: Removed hardcoded utilities (border-border, bg-background, etc.)
- * These should be defined in the app theme if needed
- */
-const FINAL_BASE_LAYER = ''
-
-/**
- * Build the always-present default token layer (see V1_TOKEN_LAYER in
- * `theme/default-theme-layer.ts`).
- *
- * Selected by `design.baseline`:
- *  - `'replace'` → neutral floor (grayscale, system fonts) + the alias bridge,
- *    so a replaced baseline still defines every canonical token and never
- *    renders unstyled.
- *  - otherwise (default `'extend'`) → the v1 token layer + the alias bridge.
- *
- * The alias bridge supplies the role-token LIGHT values via
- * `author key → legacy → default` fallback chains, late-bound so the author's
- * `@theme` (emitted later in `buildSourceCSS`) still wins.
- *
- * Injected in `buildSourceCSS` between `STATIC_IMPORTS` and the base layer so it
- * flows through BOTH the native PostCSS path and the native-free binary path.
- */
-function buildDefaultLayer(design?: Design): string {
-  // ECO_DESIGN_LAYER=off — operator demotes the token layer's OVERRIDE SURFACE
-  // ([internal ref] contract). The prestyled-by-default islands carry their own OKLCH /
-  // radius / shadow defaults inline via `withVarFallback`, so the page still
-  // renders styled. We still emit the `@theme` token REGISTRATIONS
-  // (`V1_THEME_REGISTRATIONS`) — they mint the canonical `bg-*` / `text-*` /
-  // `border-*` / `ring-*` / `font-*` / `text-{size}` utilities that
-  // `generateBaseLayer` `@apply`s (e.g. `@apply text-foreground`, `font-sans`).
-  // Without them the per-app PostCSS/native-free compile THROWS "Cannot apply
-  // unknown utility class `text-foreground`", which previously forced the
-  // layer-off path to reuse the app-agnostic pre-compiled file — breaking the
-  // with≡without parity for apps that author classes outside the builtin scan
-  // (border resolved to the bare-`border`/red-600 fallback instead of the
-  // canonical token). Dropping only the VALUE blocks (`V1_ROOT_*` / the alias
-  // bridge) keeps the override surface demoted while letting layer-off compile
-  // per-app exactly like layer-on. The self-hosted `@font-face` blocks stay so
-  // text still resolves to Plex Sans / JetBrains Mono (part of the prestyled
-  // baseline, not the override layer). Verified by
-  // `[internal ref]` — the resolved
-  // computed styles with the layer disabled must equal the layer-on reading.
-  if (parseEcoDesignLayer(process.env) === 'off') {
-    return `${SELF_HOSTED_FONT_FACES}\n\n  ${V1_THEME_REGISTRATIONS}`
-  }
-  const tokenLayer = design?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
-  // Emit `@font-face` BEFORE the token layer so the variable face is registered
-  // before the font tokens reference them. Inlined here
-  // (not in V1_TOKEN_LAYER) so the token layer remains a pure token block and
-  // the existing "excludes @font-face" contract on V1_TOKEN_LAYER still holds.
-  return `${SELF_HOSTED_FONT_FACES}\n\n  ${tokenLayer}\n\n  ${ROLE_TOKEN_BRIDGE}`
-}
-
-/**
- * Build the dynamic SOURCE_CSS: the app's own `@theme` tokens plus every
- * layer laid around them.
- *
- * Takes the whole `App` rather than a parameter per key. It used to take
- * `(theme, typeScale, scope)` and adding `density` — a fourth thing derived
- * from the same object at the single call site — made the case for the
- * argument list an argument list no longer. `design.density` is emitted
- * OUTSIDE `generateDesignCSS` because it is not a `@theme` token at all: it is
- * a `:root` + `[data-density]` block pair, and folding it into the theme
- * generator would put it inside `@theme static`, where the four
- * `--sv-density-*` names would be misread as utility-minting tokens.
- */
-function buildSourceCSS(app?: App): string {
-  const design = app?.design
-  const scope = getDesignSystemScope(app)
-  const themeCSS = generateDesignCSS(design)
-  // The author's density ladder. Emitted after `buildDefaultLayer` (below) so
-  // its `:root` block beats the platform's `V1_DENSITY_LAYER` on source order —
-  // the same same-specificity, later-wins contract the author `--sv-*` colour
-  // bridge relies on.
-  const densityCSS = generateDensityLayer(app?.design?.density)
-  // The SCOPED design system, emitted LAST so its selector-bound blocks sit
-  // after every `:root` block the pipeline produces. Source order is not what
-  // makes it win — a declaration on an element always beats an inherited value
-  // — but emitting it last keeps the stylesheet readable as "the host, then the
-  // guest" and leaves no doubt for a future reader.
-  const scopedCSS = scope === undefined ? '' : scopedTokenLayer({ design: scope.design })
-  const animationCSS = generateMotionStyles(design?.motion, design)
-  const defaultLayerCSS = buildDefaultLayer(design)
-  const baseLayerCSS = generateBaseLayer(design)
-  const componentsLayerCSS = generateComponentsLayer()
-  const utilitiesLayerCSS = generateUtilitiesLayer()
-  // Code-block chrome (and `.tok-XXX` token color rules) for markdown pages.
-  // Plain CSS — flows through BOTH the native PostCSS pipeline AND the
-  // pure-JS native-free engine because `buildSourceCSS` is the shared input.
-  const codeBlockCSS = generateCodeBlockStyles(design)
-  // Marquee band chrome + motion. Plain CSS for the same reason as the code-block
-  // rules above: `@keyframes`, `animation-play-state` under `:hover`/`:focus-within`
-  // and a `prefers-reduced-motion` override are not utility-shaped, so they must
-  // not depend on the Tailwind candidate scan.
-  const marqueeCSS = generateMarqueeStyles()
-  // FullCalendar theming: the `--fc-*` → `--sv-*` bridge plus the `.fc-*`
-  // geometry. Plain CSS for a THIRD reason on top of the two above — the
-  // selectors belong to FullCalendar's DOM, not to ours, so the candidate-driven
-  // compiler could never mint them as utilities however the corpus grew.
-  const calendarCSS = generateCalendarStyles()
-  // The command palette, its record-creation dialog and its toast. Plain CSS for
-  // the third reason too: that DOM is built by a runtime STRING with no class
-  // attribute to hang a utility on, and its keyboard mark is a `[data-active]`
-  // state selector an inline style cannot express.
-  const commandPaletteCSS = generateCommandPaletteStyles()
-  return [
-    STATIC_IMPORTS,
-    defaultLayerCSS,
-    densityCSS,
-    baseLayerCSS,
-    componentsLayerCSS,
-    utilitiesLayerCSS,
-    '/*---break---\n     */',
-    themeCSS,
-    '/*---break---\n     */',
-    animationCSS,
-    '/*---break---\n     */',
-    codeBlockCSS,
-    '/*---break---\n     */',
-    marqueeCSS,
-    '/*---break---\n     */',
-    calendarCSS,
-    '/*---break---\n     */',
-    commandPaletteCSS,
-    '/*---break---\n     */',
-    // The `.rte` content block — descendant rules over markup the AUTHOR types.
-    // Shares the separator above rather than adding a sixth: `max-lines` on this
-    // file is at its ceiling, and a break comment in the compiled output is
-    // worth less than the rules it would push out. Splitting the six plain-CSS
-    // generators into their own builder is the real fix; it belongs to a
-    // refactor pass, not to a wave that is adding one of them.
-    generateRichTextStyles(),
-    scopedCSS,
-    '/*---break---\n     */',
-    FINAL_BASE_LAYER,
-  ]
-    .filter(Boolean)
-    .join('\n\n    ')
-}
 
 const CSS_COMPILATION_TIMEOUT_MS = 30_000
 
@@ -505,7 +60,6 @@ const createCompilationTimeout = (): Promise<never> =>
     )
     // Don't keep the event loop alive just for this safety-net timer.
     // Without unref(), a successful build subprocess hangs for 30s waiting for this timer.
-    // eslint-disable-next-line functional/no-expression-statements
     timer.unref()
   })
 
@@ -592,7 +146,7 @@ const isProduction = checkIsProduction()
  *
  * `ECO_DESIGN_LAYER` is NOT consulted here: the pre-compiled file is built in
  * the default (`on`) context, so serving it under `off` would leak the override
- * surface and break the with≡without parity contract ([internal ref],
+ * surface and break the with≡without parity contract (the prestyled-islands rule,
  * contract-without-theme-layer.spec.ts) for apps that widen the candidate set.
  * Layer-off now compiles per-app like layer-on (`buildDefaultLayer` still emits
  * the `@theme` registrations under `off`, so `@apply` resolves), so the
@@ -606,12 +160,11 @@ const isProduction = checkIsProduction()
  * already populated.
  */
 export const canServePrecompiledFile = (app?: App): boolean =>
-  // ONE clause covers every declared token, where this used to carry a clause
-  // per key: `app.design === undefined`, then one for `typeScale`, then `density`,
-  // then `components`, each added after the key it names shipped inert. The
-  // cache key already enumerates every CSS-bearing key for its own reasons, so
-  // asking it whether anything is declared cannot fall behind the schema the way
-  // a hand-listed predicate did — twice.
+  // ONE clause covers every declared token, rather than a clause per key
+  // (`app.design === undefined`, `typeScale`, `density`, `components`, …), which
+  // falls behind the schema each time a key ships. The cache key already
+  // enumerates every CSS-bearing key for its own reasons, so asking it whether
+  // anything is declared cannot fall behind the way a hand-listed predicate does.
   designCacheKey(app?.design) === EMPTY_DESIGN_CACHE_KEY &&
   // A SCOPED design system (the `/_admin` design-system console) emits a whole
   // extra token layer that the app-agnostic pre-compiled file cannot contain.
@@ -636,13 +189,12 @@ export const canServePrecompiledFile = (app?: App): boolean =>
  */
 export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
-    const sourceCSS = buildSourceCSS(app)
+    // The named dark code-block theme's own palette, read from Shiki (async).
+    const sourceCSS = buildSourceCSS(app, yield* loadCodeBlockDarkPalette(app?.design))
 
     logDebug(`[CSS] Source CSS length: ${sourceCSS.length} bytes`)
     logDebug(`[CSS] Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`)
-    logDebug(
-      `[CSS] Contains @import 'tw-animate-css': ${sourceCSS.includes("@import 'tw-animate-css'")}`
-    )
+    logDebug(`[CSS] Contains tw-animate-css: ${sourceCSS.includes("@import 'tw-animate-css'")}`)
 
     // Inside a `bun build --compile` standalone binary, the native PostCSS /
     // Tailwind / lightningcss pipeline cannot load its `.node` addons from the
@@ -764,10 +316,9 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
     // them declares a ladder, so without this segment the second one served is
     // handed the first one's CSS.
     //
-    // …and on `design.typeScale`, the gap this block used to name and leave
-    // open. `[internal ref]` made it load-bearing — the operator's ladder cascades onto
-    // the console, so two consoles with the same absent theme can differ by it —
-    // and closes it here. `getVersionedCssHash`'s OPERATOR branch still derives
+    // …and on `design.typeScale`. The console design-cascade rule makes it
+    // load-bearing — the operator's ladder cascades onto the console, so two
+    // consoles with the same absent theme can differ by it. `getVersionedCssHash`'s OPERATOR branch still derives
     // its URL from `getCSSCacheKey` alone and still does not vary with a ladder:
     // a pre-existing gap on a different surface, left where it is because moving
     // it changes the stylesheet URL of every app declaring one. The CONSOLE

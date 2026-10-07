@@ -14,7 +14,7 @@
  *
  * Source story: [internal ref]
  *
- * @see plan-design §10 (locked 2026-05-09) — first endpoint to author
+ * @see plan-design §10 — first endpoint to author
  * @see keystone plan §12 Q1 — two-tier RBAC (admin / operator)
  */
 

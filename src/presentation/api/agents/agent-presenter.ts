@@ -29,7 +29,7 @@ export const serializeAgent = (agent: Agent): Record<string, unknown> => ({
   ...(agent.instructions !== undefined && { instructions: agent.instructions }),
   ...(agent.approval !== undefined && { approval: agent.approval }),
   ...(agent.tools !== undefined && { tools: agent.tools }),
-  // [internal ref]: `limits` is always reported with defaults
+  // `limits` is always reported with defaults
   // merged in, so a caller sees the agent's effective operational limits
   // even when the `limits` section was omitted from the schema.
   limits: resolveAgentLimits(agent.limits),

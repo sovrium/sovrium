@@ -104,7 +104,7 @@ const RESET_PASSWORD_RELATIVE_PATH = '/reset-password'
  * ─── WHY THE OPERATOR'S DESIGN IS LAYERED HERE, ONCE, AT BOOT ─────────────
  *
  * The console renders with the operator's declared design tokens ([internal ref] A4 /
- * [internal ref] D4, given a runtime by `[internal ref]`), and `withOperatorDesignCascade` is
+ * [internal ref] D4, given a runtime by the console design-cascade rule), and `withOperatorDesignCascade` is
  * where that happens. It sits at BOOT rather than per request for the same
  * reason the href rewrite does: the result is a pure function of two immutable
  * inputs, and doing it here means every later consumer — the renderer, the
@@ -241,11 +241,9 @@ export const resolveScopedMountApp = (mount: EmbeddedAppMount, operatorApp: App)
 export type MountSurfaceOutcome =
   { readonly kind: 'app'; readonly app: App } | { readonly kind: 'none' }
 
-// ─── THERE IS NO `redirect` OUTCOME ANY MORE ────────────────────────────────
+// ─── THERE IS NO `redirect` OUTCOME ─────────────────────────────────────────
 //
-// A bare object path used to 302 to its first object through a builder result
-// that travelled as a bare string the config walk could not see. Every console
-// destination is an authored preset page now, and a page states that intent
+// Every console destination is an authored preset page, and a page states that intent
 // itself with `page.redirectToFirst`, resolved on the render path — so a third
 // outcome here would be a second mechanism for one behaviour, and the one that
 // no producer could reach.
@@ -506,15 +504,12 @@ const readableTableProjection = (
 /**
  * Synthesize the surface for one request into a mount.
  *
- * It used to delegate the per-path composition to `buildDashboardSurfaceApp`
- * and then re-point the absolute console links that builder's surfaces wrote.
- * Both halves are gone. Every console path is an authored preset page matched
- * by the ordinary page router, and a preset page's links are mount-relative and
- * were moved onto this mount's base once, at boot (`buildMount`) — so there is
- * no second rewrite to perform here, and the note that this step "goes away
- * when those builders become config" has come true.
+ * Every console path is an authored preset page matched by the ordinary page
+ * router, and a preset page's links are mount-relative and are moved onto this
+ * mount's base once, at boot (`buildMount`) — so there is no per-path
+ * composition and no link rewrite to perform here.
  *
- * What remains is narrower and is spelled out in the body: the three places a
+ * What this does is narrow and is spelled out in the body: the three places a
  * preset page needs something only the mount holds. An ordinary console page
  * takes the `none` branch and renders from the preset alone.
  *
@@ -529,9 +524,7 @@ const readableTableProjection = (
  *
  * That merge is {@link routeBoundOperatorTables}, and it is the deliberate seam
  * — the single place the mount is allowed to look at the operator's schema
- * rather than only at its config. It moved here from
- * `buildDashboardSurfaceApp` when the Records page became config: the builder
- * that used to need it is gone, and this is now the only path that serves
+ * rather than only at its config, and the only path that serves
  * `/tables/:table`.
  *
  * ─── WHY ONE TABLE AND NOT ALL OF THEM ─────────────────────────────────────

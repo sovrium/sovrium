@@ -6,8 +6,8 @@
  */
 
 /**
- * The CRUD half of the page render gate: who may see a create form, and who
- * sees an update form they are allowed to submit.
+ * The CRUD half of the page render gate: who is offered a create action or a
+ * form placed with `formRef`, and who sees an update form they may submit.
  *
  * Extracted from `render-page.tsx` with its auth sibling
  * (`page-access-gating.tsx`). The two halves are separate files because they
@@ -27,6 +27,7 @@ import {
   type PermissionCaller,
   type PermissionPolicy,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import type { App } from '@/domain/models/app'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -37,8 +38,8 @@ import type { Component } from '@/domain/models/app/pages/components'
  * The policy the CRUD render gate evaluates the write ladder under.
  *
  * `OPEN_WHEN_UNDECLARED` — a table that declares no `create`/`update` grant
- * restricts nobody, which is what both gates already did (and what an anonymous
- * visitor sees on the bare-table create form pinned by [internal ref]).
+ * restricts nobody, which is what both gates already did (an anonymous visitor
+ * is offered the write on a table that declares no grant).
  *
  * `admin-outranks-role-list` — the records API grants an admin the write
  * unconditionally (`hasCreatePermission`/`hasUpdatePermission` return early on
@@ -56,7 +57,7 @@ const CRUD_RENDER_GATE_POLICY: PermissionPolicy = {
  * Read one write grant off a table as a {@link PermissionValue}.
  *
  * An EMPTY role array is normalised to UNDECLARED so it keeps gating nobody —
- * the `.length === 0` escape both gates used to spell out inline. Evaluated as
+ * the `.length === 0` escape, stated once here rather than inline in both gates. Evaluated as
  * a declared array it would match no caller and hide the form from everyone,
  * which no config author writing `create: []` can plausibly have meant.
  */
@@ -155,7 +156,8 @@ function isCrudUpdateAllowed(
 /**
  * Applies CRUD create permission filtering to page components.
  *
- * For each component that has a `crud` create action, checks if the table has
+ * For each component that has a `crud` create action (a button, a calendar's
+ * date click — never a page `form`, which no longer creates), checks if the table has
  * restricted create permissions (`permissions.create`). If the current session
  * role is not in the allowed roles (or the user is unauthenticated), the component
  * is hidden via `display: none` style injection — matching the `applyVisibilityToSection`
@@ -179,6 +181,86 @@ export function applyCrudCreatePermissions(
 
     return hideComponent(component)
   })
+}
+
+/**
+ * Whether this caller is offered the form `formRef` names.
+ *
+ * A form that declares its own `access` is an intake its author opened on
+ * purpose — a public contact form writing to a table no visitor may write
+ * through the records API — and that rule alone decides (the page's form
+ * access gate applies it). A form that declares none adds a record to its
+ * `submitTo.table` for whoever reads the page, so it is offered only to a
+ * caller that table lets create — the same ladder, policy and group handling
+ * as {@link isCrudCreateAllowed}, so the embed is offered exactly to whom the
+ * records API would accept the row from. A form writing to no table is
+ * always offered.
+ */
+function isFormRefOffered(formRef: string, app: App, session: SessionInfo | undefined): boolean {
+  const form = app.forms?.find((candidate) => candidate.name === formRef)
+  if (form === undefined || form.access !== undefined) return true
+  const { table } = form.submitTo
+  return table === undefined || isCrudCreateAllowed(table, app.tables, session)
+}
+
+/** The `responsive` overrides with each breakpoint's children passed through `filterChildren`. */
+function filterResponsiveChildren(
+  responsive: unknown,
+  filterChildren: (children: Page['components']) => Page['components']
+): unknown {
+  if (typeof responsive !== 'object' || responsive === null) return responsive
+  return Object.fromEntries(
+    Object.entries(responsive as Record<string, unknown>).map(([breakpoint, value]) => {
+      const children = (value as { readonly children?: unknown } | null)?.children
+      if (!Array.isArray(children)) return [breakpoint, value]
+      return [
+        breakpoint,
+        { ...(value as object), children: filterChildren(children as Page['components']) },
+      ]
+    })
+  )
+}
+
+/**
+ * Remove, at any depth, every `formRef` embedding (a `form` or a `dialog`)
+ * whose form this caller may not add a record through. Removed rather than
+ * hidden: the embed would otherwise ship its fields, and a submit the records
+ * API's grants refuse.
+ */
+export function withholdUnofferedFormRefs(
+  components: Page['components'],
+  app: App,
+  session: SessionInfo | undefined
+): Page['components'] {
+  if (!components) return components
+  const filterChildren = (children: Page['components']) =>
+    withholdUnofferedFormRefs(children, app, session)
+  return components.flatMap((item) => {
+    if (typeof item !== 'object' || item === null || 'component' in item || '$ref' in item) {
+      return [item]
+    }
+    const formRef = readEmbeddedFormRef(item)
+    if (formRef !== undefined && !isFormRefOffered(formRef, app, session)) return []
+    return [withFilteredChildren(item as Component, filterChildren)]
+  })
+}
+
+/** The component with its `children` and responsive children passed through `filterChildren`. */
+function withFilteredChildren(
+  component: Component,
+  filterChildren: (children: Page['components']) => Page['components']
+): Component {
+  const node = component as { readonly children?: unknown; readonly responsive?: unknown }
+  if (!Array.isArray(node.children) && node.responsive === undefined) return component
+  return {
+    ...component,
+    ...(Array.isArray(node.children)
+      ? { children: filterChildren(node.children as Page['components']) }
+      : {}),
+    ...(node.responsive === undefined
+      ? {}
+      : { responsive: filterResponsiveChildren(node.responsive, filterChildren) }),
+  } as Component
 }
 
 /**

@@ -1,0 +1,25 @@
+# One analytics event per registration, so the organizers can see, event by
+# event, how many people took a seat and how many joined the waitlist — the
+# signal that a session wants a bigger room.
+#
+# The events land in the app's own analytics, beside the page views, and an
+# admin reads them at `/api/analytics/events?event_type=track`. Nothing leaves
+# the server, and no name or address is kept: the event's id and the status
+# are enough to count.
+name: track-registration
+label: New registration — count it
+description: Record an analytics event for each registration, with its event and its status.
+trigger:
+  type: record
+  table: registrations
+  events:
+    - create
+actions:
+  - name: track
+    type: analytics
+    operator: track
+    props:
+      event: registration.created
+      properties:
+        event: '{{trigger.data.record.event}}'
+        status: '{{trigger.data.record.status}}'

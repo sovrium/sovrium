@@ -30,24 +30,21 @@ import { Schema } from 'effect'
  *
  * ## Why it lives ON the template rather than in `design.components`
  *
- * It used to be a `Schema.Record` under `design.components`, keyed by
- * `components[].name` and cross-validated against the declared templates by
- * rule 3 of `design-validation.ts`. That arrangement had two costs and one
- * blocker.
+ * A `Schema.Record` under `design.components`, keyed by `components[].name`,
+ * would have two costs and one blocker.
  *
- * The costs: a rename had to be applied in two places, and the check that
- * caught a half-applied rename could only run because the key was left as a
- * plain `Schema.String` — an Effect v4 `Schema.Record` silently DELETES an
- * entry whose key fails the key schema, so the pattern could not be enforced
- * where it was written. Co-locating removes both: guidance moves with the
- * template it describes, a rename cannot half-apply, and there is no key to
- * mistype.
+ * The costs: a rename would have to be applied in two places, and a check for
+ * a half-applied rename could only run with the key left as a plain
+ * `Schema.String` — an Effect v4 `Schema.Record` silently DELETES an entry
+ * whose key fails the key schema, so the pattern could not be enforced where
+ * it was written. Co-locating removes both: guidance moves with the template it
+ * describes, a rename cannot half-apply, and there is no key to mistype.
  *
- * The blocker: `design.components` is now the home for per-engine-type STYLE
+ * The blocker: `design.components` is the home for per-engine-type STYLE
  * classes (`design.components.button.parts.root`), which is a different subject
  * addressed to a different reader — the operator restyling an app, not the
  * author documenting their own templates. Two unrelated meanings under one key
- * is the ambiguity this move ends.
+ * would be ambiguous.
  */
 export const ComponentGuidanceSchema = Schema.Struct({
   /** What this component is. */

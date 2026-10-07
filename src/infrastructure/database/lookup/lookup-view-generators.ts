@@ -322,7 +322,7 @@ const generateRollupExpression = (
   const defaultValue = getDefaultValueForAggregation(aggregation)
 
   const foreignKeyColumn = resolveForeignKeyColumn(
-    relationshipFieldDef as unknown as Readonly<Record<string, unknown>>,
+    relationshipFieldDef as Readonly<Record<string, unknown>>,
     relationshipField,
     parentTableName,
     allTables
@@ -383,7 +383,7 @@ const generateCountExpression = (
   const alias = relatedAliasOf(relatedTable, countName)
 
   const foreignKeyColumn = resolveForeignKeyColumn(
-    relationshipFieldDef as unknown as Readonly<Record<string, unknown>>,
+    relationshipFieldDef as Readonly<Record<string, unknown>>,
     relationshipField,
     parentTableName,
     allTables
@@ -439,7 +439,7 @@ const buildForwardLookupJoins = (
       if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
         return ''
       }
-      const { relatedTable } = relationshipFieldDef as unknown as { relatedTable: string }
+      const { relatedTable } = relationshipFieldDef as { relatedTable: string }
       const alias = relatedAliasOf(relatedTable, field.name)
       // A linked record in the trash contributes nothing through a link to ONE
       // record either, as through a link to many (`lookup-expressions.ts`).
@@ -602,7 +602,7 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   // narrow list — an omitted `deleted_at` takes the base column's own NULL
   // default, so there is nothing for the insert path to carry.
   const updateBaseFields = getUpdateBaseFields(table)
-  // [internal ref]: DEFAULT-bearing base columns are emitted as COALESCE(NEW.col,
+  // DEFAULT-bearing base columns are emitted as COALESCE(NEW.col,
   // <default>) so an omitted column (e.g. a `created-at` field) takes its base
   // default rather than a NULL that fails a NOT NULL constraint.
   const insertValues = getInsertValueExpressions(table)

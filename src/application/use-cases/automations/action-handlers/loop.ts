@@ -6,6 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
+import { haltedOutcome, runNestedSequence, type SequenceRun } from './nested-sequence'
 import {
   asArray,
   authoredActionProps,
@@ -15,6 +16,7 @@ import {
 } from './run-context-resolution'
 import { actionAttributes, itemLoopOutcome } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { ExecutedStep } from '../run/types'
 
 /**
  * `loop/each` handler — for-each over an array.
@@ -39,7 +41,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * reads its props as AUTHORED (`authoredActionProps`, nothing filled in yet),
  * resolves `items` against the trigger/steps context, and re-resolves each
  * nested action's props against a per-item context before dispatching it
- * through `runContext.invokeNativeAction`. The raw-props/`{{path}}`-or-raw
+ * through `runContext.runNestedStep`. The raw-props/`{{path}}`-or-raw
  * resolution machinery is shared with `data.ts` via
  * `./run-context-resolution`.
  *
@@ -58,9 +60,6 @@ class LoopIterationError extends Data.TaggedError('LoopIterationError')<{
   readonly message: string
   readonly cause: unknown
 }> {}
-
-const propsOf = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
-  (action['props'] ?? {}) as Readonly<Record<string, unknown>>
 
 const asActionList = (value: unknown): ReadonlyArray<Readonly<Record<string, unknown>>> =>
   Array.isArray(value)
@@ -86,9 +85,11 @@ const fail = (message: string): ActionOutcome =>
   ({ status: 'failure', error: message }) as const satisfies ActionOutcome
 
 /** What happened to one loop item. */
-type IterationOutcome =
+type IterationOutcome = (
   | { readonly kind: 'ok'; readonly output: unknown }
   | { readonly kind: 'failed'; readonly error: string }
+  | { readonly kind: 'halted'; readonly output: unknown; readonly halt: ActionOutcome }
+) & { readonly steps: readonly ExecutedStep[] }
 
 /** Running state across the iteration sequence. */
 interface LoopTally {
@@ -96,13 +97,21 @@ interface LoopTally {
   readonly failed: number
   readonly firstError: string | undefined
   readonly stopped: boolean
+  /** A `flow/stop`, a stopping filter or a pause an item reached: it ends the run. */
+  readonly halt: ActionOutcome | undefined
+  readonly responseOverride: Readonly<Record<string, unknown>> | undefined
+  /** Each item that ran, with the steps run for it. */
+  readonly iterations: NonNullable<ExecutedStep['iterations']>
 }
 
 const EMPTY_TALLY: LoopTally = {
+  iterations: [],
   results: [],
   failed: 0,
   firstError: undefined,
   stopped: false,
+  halt: undefined,
+  responseOverride: undefined,
 }
 
 /**
@@ -112,14 +121,13 @@ const EMPTY_TALLY: LoopTally = {
  * The rule is the one the three `record/batch*` operators share — "Continue
  * processing remaining items if one fails (default: false)", byte-identical
  * wording across all four schemas — so the DEFAULT stops at the first failing
- * item rather than attempting the rest and reporting afterwards
- *.
+ * item rather than attempting the rest and reporting afterwards.
  *
  * Why this does not reuse `record-batch.ts`'s `runBatchItems`: that loop is an
  * `Effect` fold over `TableRepository`-requiring per-item Effects, tallying a
  * created/updated/failed vocabulary and deliberately DISCARDING each item's
  * output. A loop item is a promise-returning sub-sequence dispatched through
- * `invokeNativeAction` over any action type, and its output is the whole point
+ * `runNestedStep` over any action type, and its output is the whole point
  * — `results[]` is a documented template surface. Sharing the loop would mean
  * generalising over both the effect requirement and the result vocabulary to
  * save four lines; sharing the RULE, which is what actually drifted, is what
@@ -129,15 +137,26 @@ const foldIteration = (
   tally: LoopTally,
   outcome: IterationOutcome,
   continueOnItemError: boolean
-): LoopTally =>
-  outcome.kind === 'ok'
-    ? { ...tally, results: [...tally.results, outcome.output ?? {}] }
-    : {
-        results: [...tally.results, { error: outcome.error }],
-        failed: tally.failed + 1,
-        firstError: tally.firstError ?? outcome.error,
-        stopped: !continueOnItemError,
-      }
+): LoopTally => {
+  const iteration = { index: tally.iterations.length, steps: outcome.steps }
+  const ran = { ...tally, iterations: [...tally.iterations, iteration] }
+  if (outcome.kind === 'ok') return { ...ran, results: [...tally.results, outcome.output ?? {}] }
+  if (outcome.kind === 'halted') {
+    return {
+      ...ran,
+      results: [...tally.results, outcome.output ?? {}],
+      stopped: true,
+      halt: outcome.halt,
+    }
+  }
+  return {
+    ...ran,
+    results: [...tally.results, { error: outcome.error }],
+    failed: tally.failed + 1,
+    firstError: tally.firstError ?? outcome.error,
+    stopped: !continueOnItemError,
+  }
+}
 
 /**
  * Turn the tally into the step outcome. A loop with failures fails the STEP
@@ -151,64 +170,86 @@ const foldIteration = (
  * ABOVE stays separate on purpose (see `foldIteration`); only the outcome rule
  * is shared, because only the outcome rule was duplicated.
  */
-const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutcome =>
-  itemLoopOutcome({
-    failed: tally.failed,
-    firstError: tally.firstError,
-    output: {
-      results: tally.results,
-      iterations: tally.results.length,
-      failed: tally.failed,
-    },
-    continueOnItemError,
-    fallbackError: 'loop.each: an item failed',
-  })
+const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutcome => {
+  const output = { results: tally.results, iterations: tally.results.length, failed: tally.failed }
+  const nestedSteps = { iterations: tally.iterations }
+  const halted =
+    tally.halt === undefined
+      ? undefined
+      : haltedOutcome(tally.halt, {
+          output,
+          nestedSteps,
+          ...(tally.responseOverride === undefined
+            ? {}
+            : { responseOverride: tally.responseOverride }),
+        })
+  return (
+    halted ?? {
+      ...itemLoopOutcome({
+        failed: tally.failed,
+        firstError: tally.firstError,
+        output,
+        continueOnItemError,
+        fallbackError: 'loop.each: an item failed',
+      }),
+      nestedSteps,
+    }
+  )
+}
 
 /** How a nested action's props are filled in for one item. */
 type FillProps = (props: unknown, itemContext: Readonly<Record<string, unknown>>) => unknown
 
 interface IterationInput {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly itemContext: Readonly<Record<string, unknown>>
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+  readonly runContext: ActionRunContext
+  readonly loop: { readonly item: unknown; readonly index: number }
+  readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
   readonly fill: FillProps
 }
 
 /**
  * Run the nested action sub-sequence for one loop item. Each action's props
- * are re-resolved against the per-item context (so `{{loop.item.*}}` /
- * `{{loop.index}}` resolve) and dispatched via `invokeNativeAction` in
- * order. Returns the last action's output (mirrors how a single `code`
- * step's return value surfaces) or `{}` when the sub-sequence produced
- * nothing.
+ * are filled in against the per-item context just before it runs — so
+ * `{{loop.item.*}}` / `{{loop.index}}` resolve, and so does `{{<step>.*}}` for
+ * an earlier action of the SAME item (never another item's). The item's
+ * result is its last action's output; a failure fails the item, and a stop, a
+ * stopping filter or a pause ends the loop and the run.
  */
-const runIteration = (input: IterationInput): Promise<unknown> => {
-  const { actions, itemContext, invoke, fill } = input
-  return actions.reduce<Promise<unknown>>(
-    (prev, nested) =>
-      prev.then(() => {
-        const type = String(nested['type'] ?? '')
-        const operator = String(nested['operator'] ?? '')
-        return invoke(type, operator, fill(propsOf(nested), itemContext) as Record<string, unknown>)
-      }),
-    Promise.resolve<unknown>(undefined)
-  )
+const runIteration = async (input: IterationInput): Promise<IterationOutcome> => {
+  const { actions, runContext, loop, runNested, fill } = input
+  const run = await runNestedSequence({
+    actions,
+    runNested,
+    previousSteps: runContext.previousSteps,
+    fillProps: (props, previousSteps) => {
+      const view = buildRunContextView({ ...runContext, previousSteps })
+      return fill(props, { ...view, loop }) as Record<string, unknown>
+    },
+  })
+  const { steps } = run
+  if (run.halt === undefined) return { kind: 'ok', output: run.last, steps }
+  if (run.halt.status === 'failure') {
+    return { kind: 'failed', error: run.halt.error ?? 'loop.each: an item failed', steps }
+  }
+  return { kind: 'halted', output: run.last, halt: { ...run.halt, ...pickOverride(run) }, steps }
 }
 
+/** The `responseOverride` a sequence set, as a spreadable overlay. */
+const pickOverride = (run: SequenceRun): Pick<ActionOutcome, 'responseOverride'> =>
+  run.responseOverride === undefined ? {} : { responseOverride: run.responseOverride }
+
 /**
- * Run one item's sub-sequence and reduce a rejection to a value. A nested
- * action that fails rejects the promise (`buildNativeActionInvoker` throws on
- * a failure outcome); catching it here is what lets the caller DECIDE whether
- * to continue rather than having the whole chain unwound for it.
+ * Run one item's sub-sequence and reduce a rejection to a value: a defect in a
+ * nested dispatch fails the item, and the caller DECIDES whether to continue
+ * rather than having the whole chain unwound for it.
  */
 const runIterationSafely = (input: IterationInput): Promise<IterationOutcome> =>
-  runIteration(input).then(
-    (output): IterationOutcome => ({ kind: 'ok', output }),
-    (cause: unknown): IterationOutcome => ({
-      kind: 'failed',
-      error: cause instanceof Error ? cause.message : String(cause),
-    })
-  )
+  runIteration(input).catch((cause: unknown): IterationOutcome => ({
+    kind: 'failed',
+    error: cause instanceof Error ? cause.message : String(cause),
+    steps: [],
+  }))
 
 /** Run all iterations sequentially (one Promise chain) so step order and a
  *  failing item surface deterministically. */
@@ -216,37 +257,40 @@ const runAllIterations = (input: {
   readonly items: readonly unknown[]
   readonly limit: number
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly base: Readonly<Record<string, unknown>>
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+  readonly runContext: ActionRunContext
+  readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
   readonly fill: FillProps
   readonly continueOnItemError: boolean
 }): Promise<LoopTally> => {
-  const { items, limit, actions, base, invoke, fill, continueOnItemError } = input
+  const { items, limit, actions, runContext, runNested, fill, continueOnItemError } = input
   const indices = Array.from({ length: limit }, (_v, i) => i)
   return indices.reduce<Promise<LoopTally>>(async (prev, i) => {
     const tally = await prev
     if (tally.stopped) return tally
-    const itemContext = { ...base, loop: { item: items[i], index: i } }
-    const outcome = await runIterationSafely({ actions, itemContext, invoke, fill })
-    return foldIteration(tally, outcome, continueOnItemError)
+    const loop = { item: items[i], index: i }
+    const outcome = await runIterationSafely({ actions, runContext, loop, runNested, fill })
+    const next = foldIteration(tally, outcome, continueOnItemError)
+    return outcome.kind === 'halted'
+      ? { ...next, responseOverride: outcome.halt.responseOverride ?? tally.responseOverride }
+      : next
   }, Promise.resolve(EMPTY_TALLY))
 }
 
 export const handleLoopEach: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.gen(function* () {
-    if (runContext === undefined || runContext.invokeNativeAction === undefined) {
+    if (runContext === undefined || runContext.runNestedStep === undefined) {
       return ok({ results: [], iterations: 0 })
     }
-    const invoke = runContext.invokeNativeAction
+    const runNested = runContext.runNestedStep
     const props = authoredActionProps(runContext)
-    const base = buildRunContextView(runContext)
     const items = asArray(resolveOwnProp(runContext, props['items']))
     // The loop body is the configuration as written, filled in once per item.
     // A loop whose props a step handed over (final) runs them as given.
     const fill: FillProps =
       runContext.propsFinal === true
         ? (nestedProps) => nestedProps
-        : (nestedProps, itemContext) => resolveRunContextValue(nestedProps, itemContext)
+        : (nestedProps, itemContext) =>
+            resolveRunContextValue(nestedProps, itemContext, runContext.templates)
     const actions = asActionList(props['actions'])
     const limit = Math.min(items.length, maxIterationsOf(props))
     const continueOnItemError = props['continueOnItemError'] === true
@@ -255,7 +299,15 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
       // A per-item rejection is now caught inside the sequence, so this catch
       // only fires for a defect in the iteration machinery itself.
       try: () =>
-        runAllIterations({ items, limit, actions, base, invoke, fill, continueOnItemError }),
+        runAllIterations({
+          items,
+          limit,
+          actions,
+          runContext,
+          runNested,
+          fill,
+          continueOnItemError,
+        }),
       catch: (cause) =>
         new LoopIterationError({
           message: cause instanceof Error ? cause.message : String(cause),

@@ -55,24 +55,39 @@ export function resolveOptionBadgePaints(
 }
 
 /**
- * Carry `design.badgeForm` to the grid: every option field's display meta
- * names the form, so the grid's status pill draws the same chip the list and
- * the board draw. Untouched when the app keeps the default form.
+ * Carry the chip form to the grid: every option field's display meta names the
+ * form its column asks for (`columns[].badgeForm`), else `design.badgeForm`, so
+ * the grid's status pill draws the same chip the list and the board draw.
+ * Untouched when neither asks for anything but the default.
  */
 export function withGridBadgeForm<
   T extends { readonly dataTableFieldMeta: Record<string, unknown> | undefined },
->(inputs: T, form: BadgeForm | undefined): T {
+>(inputs: T, form: BadgeForm | undefined, component?: { readonly columns?: unknown }): T {
   const fieldMeta = inputs.dataTableFieldMeta
-  if (fieldMeta === undefined || form !== 'outline-dot') return inputs
+  const columnForms = columnBadgeForms(component?.columns)
+  if (fieldMeta === undefined || (form !== 'outline-dot' && columnForms.size === 0)) return inputs
   const dataTableFieldMeta = Object.fromEntries(
     Object.entries(fieldMeta).map(([name, meta]) => {
       const entry = meta as { readonly type?: string; readonly display?: object }
-      if (entry.type === undefined || !OPTION_FIELD_TYPES.has(entry.type)) return [name, meta]
-      return [name, { ...entry, display: { ...entry.display, badgeForm: form } }]
+      const chosen = columnForms.get(name) ?? (form === 'outline-dot' ? form : undefined)
+      if (entry.type === undefined || !OPTION_FIELD_TYPES.has(entry.type) || !chosen)
+        return [name, meta]
+      return [name, { ...entry, display: { ...entry.display, badgeForm: chosen } }]
     })
   )
   return { ...inputs, dataTableFieldMeta }
 }
+
+/** The `badgeForm` each field column declares, keyed by its field. */
+const columnBadgeForms = (columns: unknown): ReadonlyMap<string, BadgeForm> =>
+  new Map(
+    (Array.isArray(columns) ? columns : []).flatMap((column) => {
+      const { field, badgeForm } = (column ?? {}) as { field?: unknown; badgeForm?: unknown }
+      return typeof field === 'string' && typeof badgeForm === 'string'
+        ? [[field, badgeForm as BadgeForm] as const]
+        : []
+    })
+  )
 
 /** One kanban footer entry, as the board declares it. */
 interface FooterItem {
@@ -121,4 +136,32 @@ export function resolveKanbanFooterFieldMeta(
     Object.entries(fieldMeta ?? {}).filter(([field]) => named.has(field))
   )
   return withFooterBadgePaints(narrowed, table, footer, form)
+}
+
+/**
+ * Carry the table's `chip` part (`design.components.table` under the
+ * instance's `classes`) onto every option field's display meta in a grid's
+ * island props, where the status pill reads it — and onto the field of every
+ * column drawn as a chip by its `badgeForm`. Untouched without a part.
+ *
+ * @param props - The grid's island props.
+ * @param chip - The resolved `chip` part classes, if any.
+ */
+export function withGridChipPart(
+  props: Readonly<Record<string, unknown>>,
+  chip: string | undefined
+): Readonly<Record<string, unknown>> {
+  const fieldMeta = props['fieldMeta'] as Record<string, unknown> | undefined
+  if (chip === undefined || fieldMeta === undefined) return props
+  const chipColumns = columnBadgeForms(props['columns'])
+  const withChip = Object.fromEntries(
+    Object.entries(fieldMeta).map(([name, meta]) => {
+      const entry = meta as { readonly type?: string; readonly display?: object }
+      const drawnAsChip =
+        chipColumns.has(name) || (entry.type !== undefined && OPTION_FIELD_TYPES.has(entry.type))
+      if (!drawnAsChip) return [name, meta]
+      return [name, { ...entry, display: { ...entry.display, chipClassName: chip } }]
+    })
+  )
+  return { ...props, fieldMeta: withChip }
 }

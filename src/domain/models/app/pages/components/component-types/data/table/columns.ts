@@ -12,7 +12,7 @@ import {
 } from '@/domain/models/app/tables/condition-operators'
 import { ActionSchema } from '../../../action'
 import { ConfirmGateSchema } from '../../../confirm-gate'
-import { optStr } from '../../../shared-schemas'
+import { optStr, ToneSchema } from '../../../shared-schemas'
 import { CallerCapabilitySchema } from '../../../visibility'
 import { SelectOptionSourceBindingSchema } from '../../form-controls/select-option-source'
 
@@ -94,14 +94,35 @@ export const CellStyleConditionSchema = Schema.Struct({
       'Condition matched against the cell value: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte.',
   }),
   /** Tailwind CSS classes to apply when condition matches */
-  className: Schema.String.annotate({
-    description: 'Tailwind CSS classes applied when the condition is met',
-    examples: ['bg-green-50 text-green-700', 'bg-red-50 text-red-400 line-through'],
+  className: Schema.optional(
+    Schema.String.annotate({
+      description: 'Tailwind CSS classes applied to the cell when the condition is met',
+      examples: ['bg-green-50 text-green-700', 'bg-red-50 text-red-400 line-through'],
+    })
+  ),
+  /**
+   * The semantic colour of a matching cell, painted on the cell AND on what the
+   * engine draws inside it — an option chip's text and dot, a link, the plain
+   * text of an option that declares no colour of its own. A `className` reaches
+   * the cell element only, so without this a template would have to reach
+   * inside it with `[&_*]:text-error`.
+   */
+  tone: Schema.optional(ToneSchema),
+}).pipe(
+  Schema.annotate({
+    title: 'Cell Style Condition',
+    description:
+      'Conditional styling rule for table cells: when the cell value matches, apply a tone, classes, or both',
   }),
-}).annotate({
-  title: 'Cell Style Condition',
-  description: 'Conditional styling rule for table cells',
-})
+  Schema.check(
+    Schema.makeFilter(
+      (rule: { readonly className?: string; readonly tone?: string }) =>
+        rule.className !== undefined ||
+        rule.tone !== undefined ||
+        'A cellStyle rule needs a `tone`, a `className`, or both — a rule with neither styles nothing.'
+    )
+  )
+)
 
 // ---------------------------------------------------------------------------
 // Action column item
@@ -377,6 +398,36 @@ export const FieldColumnSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
+  /**
+   * Keep each cell on one line, ending in an ellipsis, at no more than the
+   * column's `width` (or its share of the table when no width is set). Covers
+   * a link cell too — a long file name or URL — which is the case templates
+   * reached with `[&_td_a]:truncate`.
+   */
+  truncate: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Keep each cell on one line, cut with an ellipsis at the column's width (or its share of the table). The full value stays readable in the cell's title tooltip.",
+    })
+  ),
+  /**
+   * How an option value's chip is drawn in THIS column, overriding the app's
+   * `design.badgeForm` for it. `outline` is the quiet neutral chip a secondary
+   * column wants (a category beside a status); `outline-dot` keeps the option
+   * colour as a leading dot; `filled` paints the option colour as the fill.
+   *
+   * On a column that holds TEXT rather than an option — a formula that spells
+   * a post's state — declaring a form draws the value as a chip of that form,
+   * and the colour the chip would have taken from an option comes from the
+   * matching `cellStyle` tone instead. Without it a template drew the pill
+   * itself with `[&>span]:before:` selectors.
+   */
+  badgeForm: Schema.optional(
+    Schema.Literals(['filled', 'outline', 'outline-dot']).annotate({
+      description:
+        "How chips are drawn in this column, overriding design.badgeForm: 'filled' paints the colour as the fill, 'outline' draws a neutral outlined chip, 'outline-dot' an outlined chip with a leading dot. On an option column the colour is the option's; on a text column (a formula, a single-line text) the value itself is drawn as a chip and the colour is the matching cellStyle tone.",
+    })
+  ),
   /** Text alignment */
   align: Schema.optional(
     Schema.Literals(['left', 'center', 'right']).annotate({
@@ -433,7 +484,7 @@ export const FieldColumnSchema = Schema.Struct({
     Schema.Record(Schema.String, Schema.String).annotate({
       title: 'Value Labels',
       description:
-        'Map of raw cell value -> display label, applied at render time only (does not mutate the record value or the API contract). Unmapped values render verbatim.',
+        'Map of raw cell value -> display label, applied at render time only (does not mutate the record value or the API contract). On an option column the label is drawn in the option chip and colour, and an unmapped value shows the option label; elsewhere unmapped values render verbatim.',
       examples: [{ active: 'Actif', oauth2: 'OAuth2' }],
     })
   ),

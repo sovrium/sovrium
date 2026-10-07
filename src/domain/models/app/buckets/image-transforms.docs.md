@@ -20,6 +20,8 @@ The same parameters work on a signed URL and on the URL a record's attachment ha
 
 Give one dimension and the other follows from the aspect ratio. An integer outside the range answers `400`; the ceiling exists because these transforms run synchronously on the request path, and an unbounded dimension is an unbounded amount of work.
 
+**Sources above 50 million pixels are not transformed.** What an image costs to transform is the buffer its decoder allocates from the dimensions in its header, not its size on disk: a file of a few hundred bytes can declare 16000 by 16000 pixels, about a gigabyte once decoded. The header is read first, and a source declaring more than 50,000,000 pixels answers `422` with a message naming its dimensions, before anything is decoded. The original still downloads untouched without transform parameters. The same limit applies to the `file` automation action's `transformImage`, which fails instead.
+
 **A non-numeric dimension is ignored, not rejected.** A width of `abc` produces the untransformed image rather than an error — only an out-of-range **integer** is a `400`. If you build URLs from user input, validate before you interpolate: a silently ignored parameter is easy to miss in review.
 
 ## Fit modes

@@ -38,6 +38,7 @@ import { readServerBootInstant } from '@/infrastructure/process/server-boot-inst
 import { notifyPlatformFailure } from './notify-platform-failure'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -51,7 +52,7 @@ export const reapInterruptedRuns = (
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository
+  AutomationRunOutcomeRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const repository = yield* AutomationRunOutcomeRepository

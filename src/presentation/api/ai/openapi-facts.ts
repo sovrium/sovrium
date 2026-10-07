@@ -65,8 +65,10 @@ export const aiFactsGroup: StaticGroupSpec = {
       parameters: effectParameters(agentNameParam, 'path'),
       responses: {
         200: effectJsonResponse(agentFactsRecallResponseSchema, 'Recalled facts'),
-        401: errorResponse('Not authenticated'),
-        404: errorResponse('Agent not declared in the app schema'),
+        401: errorResponse('Not authenticated, on an agent open to every caller'),
+        404: errorResponse(
+          'Agent not declared in the app schema, or the caller lacks permission to invoke it'
+        ),
         500: errorResponse('Failed to recall facts'),
       },
     },

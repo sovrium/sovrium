@@ -73,6 +73,54 @@ const ROLE_VIEWER = 'viewer'
 const ROLE_MEMBER = 'member'
 
 /**
+ * The role a signed-in caller holds when her stored role grants nothing: the
+ * column is empty or NULL, or names a role the app does not declare (a typo, a
+ * role removed from the config after it was assigned, a hand-edited row).
+ *
+ * Spelled so that no declarable role can collide with it — a role name must
+ * match `^[a-z][a-z0-9-]*$`, and parentheses never do. It matches no role list,
+ * takes no undeclared-operation default, and is never admin-equivalent: the
+ * caller holds exactly the grants open to every session (`'all'`,
+ * `'authenticated'`) and those her groups give her. Normalising to this value,
+ * rather than letting `''` or an unknown string reach the evaluators, is what
+ * keeps every default CLOSED for her instead of open.
+ */
+export const NO_GRANT_ROLE = '(no-role)'
+
+/**
+ * The role the synthetic principal of a signed-out visitor holds, in an app
+ * that has sign-in (a guest comment, a public read or create).
+ *
+ * Never the string `guest`: an app may declare its own `guest` role, and a
+ * visitor who is not signed in must neither satisfy a grant naming it nor the
+ * `'authenticated'` rung. Like {@link NO_GRANT_ROLE} it cannot collide with a
+ * declarable role name. The evaluator reads it as ANONYMOUS on a declared
+ * grant, so `'authenticated'` answers her `unauthorized` and only `'all'` opens.
+ */
+export const SIGNED_OUT_VISITOR_ROLE = '(visitor)'
+
+/**
+ * Does this role take the bare-table default — the operations a table with no
+ * gating `permissions` block leaves open?
+ *
+ * Every role does, EXCEPT `viewer` (the documented least-privilege built-in),
+ * a caller whose stored role grants nothing ({@link NO_GRANT_ROLE}, or an empty
+ * role that was never normalised), and a signed-out visitor
+ * ({@link SIGNED_OUT_VISITOR_ROLE}). The default is therefore CLOSED for any
+ * role nobody vouched for, rather than "open unless the role is `viewer`".
+ */
+export const holdsDefaultGrant = (role: string | undefined): boolean =>
+  role !== undefined &&
+  role !== '' &&
+  role !== ROLE_VIEWER &&
+  role !== NO_GRANT_ROLE &&
+  role !== SIGNED_OUT_VISITOR_ROLE
+
+/** True for the synthetic principal of a signed-out visitor. */
+export const isSignedOutVisitorRole = (role: string | undefined): boolean =>
+  role === SIGNED_OUT_VISITOR_ROLE
+
+/**
  * Prefix marking a `group:<name>` reference inside a role array.
  *
  * Spelled out here rather than imported from
@@ -105,7 +153,7 @@ export interface PermissionCaller {
    * `undefined` means "there IS a session, but its role has not been resolved"
    * — a state that exists because resolving a role can cost a database
    * round-trip on hot paths where the ladder provably never reads it (a bucket
-   * `GET` backs every image on every page; [internal ref]). Use it only after
+   * `GET` backs every image on every page; the bucket-permission enforcement rule). Use it only after
    * {@link classifyPermissionRung} has shown the permission is not a role
    * array. It fails CLOSED: an unresolved role matches no role list and
    * satisfies no role-shaped undeclared policy.
@@ -175,7 +223,7 @@ export type UndeclaredPolicy =
 /**
  * Secure-by-default: an operation nobody declared is granted to nobody.
  *
- * Pinned by `[internal ref]` (`table-operations.ts`) — the table listing
+ * Pinned by an API tables list spec (`table-operations.ts`) — the table listing
  * must not expose a table whose `permissions.read` was never written.
  */
 export const DENY_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'deny' }
@@ -186,7 +234,7 @@ export const DENY_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'deny' }
  * The right default for a RESTRICTION — a `permissions.fields[].read` entry
  * that does not exist restricts nothing, so the field stays readable — and for
  * chat-triggerable automations, where a schema author who wrote no `trigger`
- * grant meant "anyone may run it" (`[internal ref]`/`-014`).
+ * grant meant "anyone may run it" (the AI chat trigger specs).
  */
 export const OPEN_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'open' }
 
@@ -195,8 +243,7 @@ export const OPEN_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'open' }
  *
  * Deliberately the INVERSE of {@link grantWhenUndeclared} on the very same
  * bucket: minting a signed URL bypasses the API's own gates, so an undeclared
- * `sign` must not inherit the permissive storage default
- *.
+ * `sign` must not inherit the permissive storage default.
  */
 export const ADMIN_ONLY_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'admin-only' }
 
@@ -204,7 +251,7 @@ export const ADMIN_ONLY_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'admin-only'
  * Exactly `member` (plus whatever the admin-override policy admits).
  *
  * NO LIVE CALL SITE. This was the RAG knowledge-ingest default until
- * `[internal ref]`: the rule it implemented was documented as "viewer
+ * the rule it implemented was documented as "viewer
  * denied, member allowed" but, as written, denied every CUSTOM role too — so a
  * `supervisor` USER could read a table over the records API that a
  * `supervisor` AGENT could not embed. Ingest now uses
@@ -233,7 +280,7 @@ export const ANY_NON_VIEWER_WHEN_UNDECLARED: UndeclaredPolicy = { kind: 'any-non
  * Used where the fallback is not a property of the ladder but of surrounding
  * context — bucket writes fall back to `defaultWriteGrant(app, bucket, session)`,
  * which weighs `bucket.public` against whether the app configures auth at all
- * (`[internal ref]`/`-014`).
+ * (the buckets perm specs).
  */
 export const grantWhenUndeclared = (allowed: boolean): UndeclaredPolicy => ({
   kind: 'caller-grant',
@@ -376,7 +423,7 @@ const decideRoleShaped = (
   if (role === undefined) return DENIED
   if (policy.kind === 'admin-only') return callerOutranksGrants(caller) ? ALLOW : DENIED
   if (policy.kind === 'member-only') return role === ROLE_MEMBER ? ALLOW : DENIED
-  return role === ROLE_VIEWER ? DENIED : ALLOW
+  return holdsDefaultGrant(role) ? ALLOW : DENIED
 }
 
 /** Apply the site's undeclared-permission policy. */
@@ -420,7 +467,9 @@ const evaluateDeclared = (
   callerIsAdmin: boolean
 ): PermissionDecision => {
   if (permission === RUNG_EVERYONE) return ALLOW
-  if (caller === undefined) {
+  // A signed-out visitor's synthetic principal is anonymous here: it carries a
+  // session only so the routes have something to hold, never a sign-in.
+  if (caller === undefined || isSignedOutVisitorRole(caller.role)) {
     return permission === RUNG_ANY_SESSION ? UNAUTHORIZED : DENIED
   }
   if (permission === RUNG_ANY_SESSION) return ALLOW

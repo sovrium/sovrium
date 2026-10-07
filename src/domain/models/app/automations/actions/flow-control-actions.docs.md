@@ -43,6 +43,8 @@ Routes execution into named branches, each with its own condition and nested act
 
 Inside a branch — its `condition` and its actions — templates resolve as they do at the top level: an earlier step reads as `{{<step>.<key>}}` or `{{<step>.result.<key>}}`, and helpers such as `{{now}}` work.
 
+An action inside a branch is a step of the run. Step names are unique within an automation, so a nested action's output reads as `{{<step>.<key>}}` from a later action of the same path, from an action of a later path, and from any step after the branch. A path's `condition` is evaluated when the branch selects its paths, before any of them runs, so it reads only what ran before the branch; a later path reads an earlier path's outputs in its actions. A `flow/stop`, or a filter that stops, inside a path ends the run there: no later action of the path and no step after the branch runs.
+
 Each value is filled in once, when the branch runs its action. What a value carries is used as it is: trigger data holding `{{…}}` or `$env.` text is stored or sent as those characters, never read as a template a second time.
 
 ```yaml
@@ -76,6 +78,8 @@ Iterates over an array, running its nested actions once per item.
 
 Inside the loop the current item is at **`{{loop.item}}`**, its fields at `{{loop.item.<field>}}`, and the zero-based position at `{{loop.index}}`. A bare `{{item.*}}` does not resolve.
 
+Within one item, a nested action reads the earlier nested actions of that item by name, `{{<step>.<key>}}` — that item's outputs, never another item's. A `flow/stop`, or a filter that stops, reached for one item ends the run: the remaining items and the steps after the loop do not run.
+
 An item is filled in once, as it is: an item holding `{{…}}` or `$env.` text reaches the nested action as those characters, never read as a template a second time. A nested action that takes a list, such as a data transform on `'{{loop.item.orders}}'`, receives the list itself.
 
 ### `maxIterations` truncates silently
@@ -102,6 +106,8 @@ It defaults to **1000**, so a loop over 1,800 rows processes the first thousand 
 ## Flow — stopping early
 
 Halts the run immediately, with an optional status and output.
+
+A stop ends the run wherever it sits — at the top level, inside a path, inside a loop, at any depth: nothing after it runs, at its own level or above, and the caller of a synchronous trigger receives the stop's status, message and output.
 
 <!-- sovrium:options FlowStopActionSchema -->
 

@@ -1005,8 +1005,8 @@ interface PathSegment {
   readonly arrays: number
 }
 
-/** `fields[]` → `{ name: 'fields', arrays: 1 }`; anything else is a refusal. */
-const SEGMENT = /^([A-Za-z_$][A-Za-z0-9_$-]*)((?:\[])*)$/
+/** `fields[]` → `{ name: 'fields', arrays: 1 }`; a name may hold `:` (`og:site_name`). */
+const SEGMENT = /^([A-Za-z_$][A-Za-z0-9_$:-]*)((?:\[])*)$/
 
 const parseOptionPath = (path: string): readonly PathSegment[] | undefined => {
   const segments = path.split('.').map((raw): PathSegment | undefined => {

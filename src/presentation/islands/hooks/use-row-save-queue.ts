@@ -34,7 +34,6 @@ export function useRowSaveQueue() {
     // `run` on both settlements: a save that failed must not block the row
     // forever, and the retry that follows it is exactly the next in line.
     const next = previous.then(run, run)
-    // eslint-disable-next-line functional/immutable-data -- Ref holds the per-row write chain
     queueRef.current = { ...queueRef.current, [key]: next.catch(() => undefined) }
     return next
   }, [])

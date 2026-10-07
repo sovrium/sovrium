@@ -21,6 +21,8 @@
  * - `SOVRIUM_INSTALL_METHOD`   force the detected install method
  * - `SOVRIUM_DISABLE_NETWORK`  skip all network calls (offline)
  * - `SOVRIUM_UPDATE_API_HOST`  override the GitHub API host (default api.github.com)
+ * - `SOVRIUM_UPDATE_DOWNLOAD_HOST`  override the release-asset host (default github.com)
+ * - `SOVRIUM_UPDATE_INSTALL_PATH`   replace this file instead of the running executable
  * - `SOVRIUM_UPDATE_DRY_RUN`   print the package-manager command instead of running it
  */
 
@@ -29,6 +31,15 @@ import { chmod, copyFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Effect, Console } from 'effect'
+import {
+  CHECKSUM_GUIDANCE,
+  UNVERIFIED_NOTE,
+  announceSkippedChecksum,
+  isTrustedFinalUrl,
+  originFor,
+  releaseAssetUrl,
+  verifyChecksum,
+} from '@/cli/commands/update-verify'
 import { UPDATE_HELP_TEXT } from '@/cli/runtime/command-help'
 import { withFetchStallTimeout, withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
@@ -152,8 +163,8 @@ const fetchLatestVersion = async (): Promise<string | undefined> => {
   if (isNetworkDisabled()) return undefined
   try {
     const response = await withFetchTimeout(
-      `https://${githubApiHost()}/repos/${GITHUB_REPO}/releases/latest`,
-      {},
+      `${originFor(githubApiHost())}/repos/${GITHUB_REPO}/releases/latest`,
+      { redirect: 'follow' },
       3000
     )
 
@@ -216,7 +227,6 @@ const runPackageManagerUpdate = async (command: readonly string[]): Promise<void
       headline: `${command[0]} exited with code ${exitCode}. Sovrium changed nothing.`,
       guidance: `Re-run '${display}' directly to see what your package manager reported.`,
     })
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(exitCode)
   }
 }
@@ -230,6 +240,8 @@ const runPackageManagerUpdate = async (command: readonly string[]): Promise<void
 export interface UpdateCommandOptions {
   /** `--help`/`-h` was present in argv after the `update` token. */
   readonly helpRequested?: boolean
+  /** `--insecure-skip-checksum`: install without verifying the published sha256. */
+  readonly insecureSkipChecksum?: boolean
 }
 
 const showUpdateHelp = (): void => {
@@ -331,7 +343,6 @@ export const handleUpdateCommand = async (
         'Check your network, or download the release directly from\n' +
         '  https://github.com/sovrium/sovrium/releases',
     })
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -340,51 +351,7 @@ export const handleUpdateCommand = async (
     return
   }
 
-  await downloadAndReplace(latestVersion, currentVersion)
-}
-
-/**
- * Verify SHA256 checksum of a downloaded archive against the published checksum file.
- * Best-effort: logs warning and continues if checksum file is unavailable.
- * Aborts with exit(1) if checksum mismatches.
- */
-const verifyChecksum = async (
-  archiveBuffer: Buffer,
-  version: string,
-  target: string
-): Promise<boolean> => {
-  const checksumFile = `sovrium-${version}-${target}.sha256`
-  const checksumUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${checksumFile}`
-  try {
-    const checksumText = await withFetchStallTimeout(
-      checksumUrl,
-      {},
-      DOWNLOAD_STALL_TIMEOUT_MS,
-      async (response) => (response.ok ? response.text() : undefined)
-    )
-    if (checksumText !== undefined) {
-      const expectedHash = checksumText.trim().split(/\s+/)[0]
-      const hasher = new Bun.CryptoHasher('sha256')
-      // eslint-disable-next-line functional/no-expression-statements
-      hasher.update(archiveBuffer)
-      const actualHash = hasher.digest('hex')
-      if (actualHash !== expectedHash) {
-        printFailure({
-          headline: 'Checksum does not match the published sha256. Nothing was replaced.',
-          detail: [`Expected ${expectedHash}`, `Got      ${actualHash}`],
-          guidance:
-            "The download may be corrupt. Re-run 'sovrium update'; if it fails again,\n" +
-            '  report it at https://github.com/sovrium/sovrium/issues',
-        })
-        // eslint-disable-next-line functional/no-expression-statements
-        process.exit(1)
-      }
-      return true
-    }
-    return false
-  } catch {
-    return false
-  }
+  await downloadAndReplace(latestVersion, currentVersion, options?.insecureSkipChecksum === true)
 }
 
 /** A finished download, or why it failed and what the operator can do about it. */
@@ -418,6 +385,13 @@ const downloadArchive = async (
             '  https://github.com/sovrium/sovrium/releases',
         }
       }
+      if (!isTrustedFinalUrl(response.url || url)) {
+        return {
+          kind: 'failed',
+          failed: 'Download was redirected to a non-HTTPS location.',
+          guidance: CHECKSUM_GUIDANCE,
+        }
+      }
       // The size is announced only once `content-length` has made it knowable (T20).
       // A faked estimate is worse than none, so an absent header simply omits it.
       const declaredSize = Number(response.headers.get('content-length'))
@@ -442,7 +416,6 @@ const downloadArchive = async (
     detail: [url],
     guidance: outcome.guidance,
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -525,23 +498,31 @@ export const replaceFailure = (error: unknown, currentBinary: string): CliFailur
 /**
  * Download a new binary version and replace the current one.
  */
-const downloadAndReplace = async (version: string, currentVersion: string): Promise<void> => {
+const downloadAndReplace = async (
+  version: string,
+  currentVersion: string,
+  insecureSkipChecksum: boolean
+): Promise<void> => {
   const os = process.platform === 'darwin' ? 'darwin' : 'linux'
   const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
   const target = `${os}-${arch}`
   const archive = `sovrium-${version}-${target}.tar.gz`
-  const url = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${archive}`
+  const url = releaseAssetUrl(version, archive)
+  if (insecureSkipChecksum) announceSkippedChecksum()
 
   const archiveBuffer = await downloadArchive(url, archive, version, target)
 
-  // Verified before the extraction directory exists: a mismatch exits from
+  // Verified before the extraction directory exists: a refusal exits from
   // inside `verifyChecksum`, and would otherwise leave the directory behind.
-  printProgress('Verifying the checksum')
-  const checksumVerified = await verifyChecksum(archiveBuffer, version, target)
+  if (!insecureSkipChecksum) printProgress('Verifying the checksum')
+  const checksumVerified = await verifyChecksum(archiveBuffer, {
+    checksumUrl: releaseAssetUrl(version, `sovrium-${version}-${target}.sha256`),
+    stallTimeoutMs: DOWNLOAD_STALL_TIMEOUT_MS,
+    insecureSkipChecksum,
+  })
 
   const stamp = `${Date.now()}`
   const tempDir = join(tmpdir(), `sovrium-update-${stamp}`)
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(tempDir, { recursive: true })
 
   printProgress('Extracting')
@@ -550,7 +531,6 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
     // needs a `tar` binary on PATH — an assumption that holds on a typical Linux
     // host but not on Windows or in a minimal image. The bytes are already in
     // memory for the checksum above, so the archive never round-trips to disk.
-    // eslint-disable-next-line functional/no-expression-statements
     await new Bun.Archive(archiveBuffer).extract(tempDir)
   } catch (error) {
     await removeQuietly(tempDir)
@@ -559,21 +539,18 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
       detail: [error instanceof Error ? error.message : String(error)],
       guidance: `Retry the update — the download may be truncated or corrupt. If it persists, check that ${tmpdir()} is writable.`,
     })
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
-  const currentBinary = process.execPath
+  const currentBinary = process.env.SOVRIUM_UPDATE_INSTALL_PATH || process.execPath
   const failure = await replaceBinary(join(tempDir, 'sovrium'), currentBinary, stamp, (staged) => {
     if (os === 'darwin') {
-      // eslint-disable-next-line functional/no-expression-statements
       Bun.spawnSync(['xattr', '-d', 'com.apple.quarantine', staged])
     }
   })
   await removeQuietly(tempDir)
   if (failure !== undefined) {
     printFailure(replaceFailure(failure, currentBinary))
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -582,9 +559,7 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
 
   printDocument([
     [{ text: `Sovrium v${version}` }],
-    checksumVerified
-      ? []
-      : [{ glyph: 'warn' as const, text: 'Checksum unavailable — installed without verification' }],
+    checksumVerified ? [] : [{ glyph: 'warn' as const, text: UNVERIFIED_NOTE }],
     [
       { glyph: 'ok' as const, text: `Downloaded ${archive}` },
       ...(checksumVerified ? [{ glyph: 'ok' as const, text: 'Checksum verified' }] : []),
@@ -652,7 +627,6 @@ export const checkForUpdatesInBackground = (currentVersion: string): void => {
       if (!latest || !isNewerVersion(currentVersion, latest)) return
 
       const sovriumDir = dirname(UPDATE_CHECK_FILE)
-      // eslint-disable-next-line functional/no-expression-statements
       await mkdir(sovriumDir, { recursive: true })
       await writeFile(UPDATE_CHECK_FILE, String(Date.now()))
 

@@ -36,12 +36,10 @@
  */
 export type SovriumEventName =
   | 'sovrium:crud-success'
+  | 'sovrium:fill'
   | 'sovrium:navigated'
   | 'sovrium:open-drawer'
   | 'sovrium:refetch'
-  | 'sovrium:view-saved'
-  | 'sovrium:view-applied'
-  | 'sovrium:view-deleted'
 
 /**
  * Payload shape for `sovrium:crud-success`. Fired by `crud-form-island` after
@@ -86,6 +84,24 @@ export interface OpenDrawerDetail {
    * names an unrelated note. Absent, every update form is bound, as before.
    */
   readonly table?: string
+  /**
+   * The ids of the list the record was opened from, in its order and filter —
+   * what a drawer's Previous / Next steps through (`drawer.navigation`).
+   */
+  readonly siblings?: readonly string[]
+}
+
+/**
+ * Payload shape for `sovrium:fill`. Fired by an island whose row click or drop
+ * hook resolves to a `fill` action (a list item, a board drop), with `value`
+ * already resolved against that record. The always-loaded client runtime
+ * (`fill-runtime.ts`) writes it into the control `target` / `field` names.
+ */
+export interface FillDetail {
+  readonly target: string
+  readonly field?: string
+  readonly value: string
+  readonly mode?: 'replace' | 'append'
 }
 
 /**
@@ -101,50 +117,15 @@ export interface RefetchDetail {
 }
 
 /**
- * Payload shape for `sovrium:view-saved`. Fired by the data-table island after
- * a personal saved view is created (`viewId`/`name`) or updated. Sibling
- * islands on the same page bound to the same table can listen and refresh
- * their views list — same as `crud-success` does for record mutations.
- */
-export interface ViewSavedDetail {
-  readonly table: string
-  readonly viewId: string
-  readonly name: string
-  readonly operation: 'create' | 'update'
-}
-
-/**
- * Payload shape for `sovrium:view-applied`. Fired by the data-table island
- * when the user selects a saved or developer-configured view from the Views
- * menu. The `viewId` is `null` for the cleared/default state.
- */
-export interface ViewAppliedDetail {
-  readonly table: string
-  readonly viewId: string | null
-  readonly source: 'personal' | 'developer'
-}
-
-/**
- * Payload shape for `sovrium:view-deleted`. Fired by the data-table island
- * after a personal saved view is removed via the delete-confirmation dialog.
- */
-export interface ViewDeletedDetail {
-  readonly table: string
-  readonly viewId: string
-}
-
-/**
  * Type-level map from event name to payload type. Keep alphabetised with
  * {@link SovriumEventName}.
  */
 export interface SovriumEventPayloads {
   readonly 'sovrium:crud-success': CrudSuccessDetail
+  readonly 'sovrium:fill': FillDetail
   readonly 'sovrium:navigated': NavigatedDetail
   readonly 'sovrium:open-drawer': OpenDrawerDetail
   readonly 'sovrium:refetch': RefetchDetail
-  readonly 'sovrium:view-applied': ViewAppliedDetail
-  readonly 'sovrium:view-deleted': ViewDeletedDetail
-  readonly 'sovrium:view-saved': ViewSavedDetail
 }
 
 /**

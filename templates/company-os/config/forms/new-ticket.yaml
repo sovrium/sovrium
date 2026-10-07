@@ -1,0 +1,37 @@
+# The New ticket dialog on Support opens this form.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 3
+name: new-ticket
+title: New ticket
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: tickets
+display:
+  submitLabel: Add ticket
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /support
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: subject
+    label: Subject
+  - kind: table-field
+    column: company
+    label: Client
+  - kind: table-field
+    column: contact
+    label: Contact
+  - kind: table-field
+    column: priority
+    label: Priority
+  - kind: table-field
+    column: assignee
+    label: Held by

@@ -7,7 +7,7 @@
 
 /**
  * Use case for the Native Admin Dashboard "Tableau de bord" overview
- * (`GET /api/admin/overview`, [internal ref]) — the reclaimed dashboard ROOT.
+ * (`GET /api/admin/overview`) — the dashboard ROOT.
  *
  * This is a CROSS-DOMAIN ROLL-UP. Rather than issuing new database queries, it
  * COMPOSES the existing per-domain admin aggregations (tables / users /
@@ -46,13 +46,13 @@
  * the six concurrent blocks cannot exhaust bun:sql's small default pool. The
  * composed program therefore cannot fail (`never`) AND cannot hang.
  *
- * WHAT THE BLOCKS NO LONGER CATCH. Each block used to bind its own Live layer,
- * so a layer that failed to BUILD degraded that tile to zero. The ports are now
- * declared and resolved once at boot by the runtime `createServer` owns, which
- * means a build failure is a boot failure — loudly, before the listener binds —
- * rather than a permanently grey tile on a server that came up. Everything the
- * blocks were actually catching (a query that fails, a source that is slow) is
- * unchanged, and so is the `degraded: true` marker on both axes.
+ * WHAT THE BLOCKS DO NOT CATCH. No block binds its own Live layer, so a layer
+ * that fails to BUILD does not degrade a tile to zero. The ports are declared
+ * and resolved once at boot by the runtime `createServer` owns, which means a
+ * build failure is a boot failure — loudly, before the listener binds — rather
+ * than a permanently grey tile on a server that came up. The blocks catch a
+ * query that fails and a source that is slow, and mark both with
+ * `degraded: true`.
  */
 
 import { Cause, Effect, Semaphore } from 'effect'
@@ -131,8 +131,8 @@ const CONNECTIONS_ZERO: { readonly total: number; readonly healthy: number } = {
  *
  * A zero block on its own is a lie by omission: "0 submissions" and "the
  * submissions ledger is unreachable" reach the operator as the same pixel, so a
- * dashboard looks calm precisely when its sources are not — which is the
- * 2026-07-25 incident read from the operator's end. `degraded: true` is what
+ * dashboard looks calm precisely when its sources are not — which is how a
+ * pool-exhaustion incident looks from the operator's end. `degraded: true` is what
  * separates "there is nothing" from "nobody could look", and it rides on the
  * block rather than the response so one tile can warn while the other five keep
  * reporting real numbers.
@@ -197,7 +197,7 @@ const BLOCK_TIMEOUT_MS = parseBlockTimeoutMs(process.env.ADMIN_OVERVIEW_BLOCK_TI
  *
  * The per-request budget documented on `buildAdminOverview` (~8 peak
  * connections, under the `DATABASE_POOL_MAX` default of 10) is defeated by any
- * concurrency at all: the 2026-07-25 production incident logged three overview
+ * concurrency at all: a production incident logged three overview
  * requests within 8 ms (`07:50:35.591/.595/.599`), i.e. ~24 connections against
  * a ~10-connection pool. Every query queued behind the pool, nothing finished,
  * and all three failures landed together on the 30 s `API_TIMEOUT_MS` wall.
@@ -243,11 +243,14 @@ const recordsBlock = (
 }
 
 /**
- * `users.total` — the live user count from users-overview `totals.users`. A
- * failure (or a validation miss) degrades to `0`.
+ * `users.total` — the live user count from users-overview `totals.users`, which
+ * leaves out the accounts of invitations nobody has accepted yet. A failure (or
+ * a validation miss) degrades to `0`.
  */
-const usersBlock = (): Effect.Effect<AdminOverviewUsers, never, UsersOverviewRepository | Logger> =>
-  BuildUsersOverview('24h').pipe(
+const usersBlock = (
+  app: App
+): Effect.Effect<AdminOverviewUsers, never, UsersOverviewRepository | Logger> =>
+  BuildUsersOverview(app, '24h').pipe(
     Effect.map((outcome) => ({
       total: outcome._tag === 'Ok' ? outcome.body.totals.users : 0,
     })),
@@ -364,7 +367,7 @@ const connectionsBlock = (): Effect.Effect<
  *
  * That ~8-connection figure is a PER-REQUEST budget, so the whole roll-up is
  * additionally gated by `overviewSemaphore` — otherwise N concurrent dashboard
- * loads multiply it by N and exhaust the pool (the 2026-07-25 incident: three
+ * loads multiply it by N and exhaust the pool (in production, three
  * overlapping requests → ~24 against ~10). Serializing here is what makes the
  * per-request budget an actual process-wide bound.
  */
@@ -373,20 +376,18 @@ export const buildAdminOverview = (
 ): Effect.Effect<AdminOverviewResponse, never, AdminOverviewServices> =>
   Effect.gen(function* () {
     // Fixed-width fan-out: exactly six literal blocks, not data-dependent. The
-    // `sovrium/no-unbounded-promise-fanout` suppression that used to sit here
-    // was retired on 2026-09-01, when that rule's `unboundedConcurrency`
-    // matcher gained the fixed-width-literal exemption its runner matcher
-    // already had — so this shape is now exempt by RULE rather than by
-    // hand-written exception, which is the direction [internal ref] asks for. The two
-    // other guarantees the old comment carried are still load-bearing and are
-    // NOT what the exemption covers: each block has its own timeout, and the
-    // whole overview is serialized process-wide by `overviewSemaphore` below.
+    // `sovrium/no-unbounded-promise-fanout` rule exempts a fixed-width literal,
+    // so this shape needs no suppression — exempt by RULE rather than by
+    // hand-written exception, which is the direction [internal ref] asks for. Two
+    // other guarantees are load-bearing and are NOT what the exemption covers:
+    // each block has its own timeout, and the whole overview is serialized
+    // process-wide by `overviewSemaphore` below.
     const [records, submissions, runs, users, storage, connections] = yield* Effect.all(
       [
         withBlockTimeout(recordsBlock(app), asDegraded(RECORDS_ZERO), BLOCK_TIMEOUT_MS),
         withBlockTimeout(submissionsBlock(app), asDegraded(SUBMISSIONS_ZERO), BLOCK_TIMEOUT_MS),
         withBlockTimeout(runsBlock(app), asDegraded(RUNS_ZERO), BLOCK_TIMEOUT_MS),
-        withBlockTimeout(usersBlock(), asDegraded(USERS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(usersBlock(app), asDegraded(USERS_ZERO), BLOCK_TIMEOUT_MS),
         withBlockTimeout(storageBlock(), asDegraded(STORAGE_ZERO), BLOCK_TIMEOUT_MS),
         withBlockTimeout(connectionsBlock(), asDegraded(CONNECTIONS_ZERO), BLOCK_TIMEOUT_MS),
       ],

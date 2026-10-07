@@ -8,10 +8,8 @@
 import { Schema } from 'effect'
 import {
   ConditionOperatorSchema,
-  type VisibleWhen,
   VisibleWhenSchema,
   type VisibleWhenCondition,
-  VisibleWhenConditionSchema,
 } from '../../../../../forms/visible-when'
 import { SelectOptionSourceBindingSchema } from '../../form-controls/select-option-source'
 
@@ -23,8 +21,8 @@ import { SelectOptionSourceBindingSchema } from '../../form-controls/select-opti
 // because both the top-level forms feature and this legacy in-page form
 // component need them, and the helper crosses the `forms` ↔ `pages` boundary.
 // Re-exported here for backward compatibility with existing imports of this file.
-export { ConditionOperatorSchema, VisibleWhenSchema, VisibleWhenConditionSchema }
-export type { VisibleWhen, VisibleWhenCondition }
+export { ConditionOperatorSchema, VisibleWhenSchema }
+export type { VisibleWhenCondition }
 
 // ---------------------------------------------------------------------------
 // Form field configuration
@@ -33,8 +31,8 @@ export type { VisibleWhen, VisibleWhenCondition }
 /**
  * Per-field configuration for form components
  *
- * Allows overriding label, placeholder, defaults, read-only state,
- * hidden submission, and conditional visibility for individual fields.
+ * Allows overriding label, placeholder, defaults, read-only state and hidden
+ * submission for individual fields.
  *
  * @example
  * ```yaml
@@ -47,12 +45,13 @@ export type { VisibleWhen, VisibleWhenCondition }
  *   - field: source
  *     defaultValue: website
  *     hidden: true
- *   - field: shippingAddress
- *     visibleWhen:
- *       field: deliveryMethod
- *       operator: eq
- *       value: shipping
  * ```
+ *
+ * Conditional fields (`visibleWhen` / `requiredWhen` / `disabledWhen`) and the
+ * file-upload options (`accept` / `dropZone` / `maxFiles`) are not here: they
+ * belong to a form that takes something in, which is a top-level `forms[]`
+ * entry placed on the page with `formRef`. `removed-keys.ts` tells an author
+ * who still writes them where they went.
  */
 /**
  * Explicit input control for a form field.
@@ -75,11 +74,15 @@ export const FormFieldControlSchema = Schema.Literals([
   'textarea',
   'select',
   'switch',
+  'rating',
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch). `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
+    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` is a row of five stars that submits a whole number from 1 to 5. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
 })
+
+/** The controls a `minLength` / `maxLength` rule means something on: the ones a visitor types text into. */
+const LENGTH_RULE_CONTROLS: ReadonlySet<string> = new Set(['text', 'email', 'password', 'textarea'])
 
 export const FormFieldConfigSchema = Schema.Struct({
   /**
@@ -197,6 +200,53 @@ export const FormFieldConfigSchema = Schema.Struct({
       description: 'Placeholder text shown when field is empty',
     })
   ),
+  /**
+   * The visitor must fill this control before the form sends.
+   *
+   * Needed on an ENDPOINT-bound form (`form.endpoint`), for the reason
+   * `description` above gives: there is no table column whose own `required`
+   * the control could inherit, so an empty "current password" went to the
+   * endpoint and came back as a generic error toast. The control carries the
+   * native `required` attribute, and an empty submit is stopped in the browser
+   * and announced under the field, the way a table-bound form announces it. On
+   * a table-bound form the bound column's own `required` already applies.
+   */
+  required: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'If true, the control must be filled before the form sends: an empty submit is stopped in the browser and the reason is announced under the field. Needed on an endpoint-bound form, which has no table column to inherit the rule from.',
+    })
+  ),
+  /**
+   * The fewest characters a `text`, `email`, `password` or `textarea` control
+   * accepts. Checked in the browser before the form sends, and announced under
+   * the field like a missing value. An empty control is judged by `required`,
+   * not by this rule.
+   */
+  minLength: Schema.optional(
+    Schema.Int.pipe(
+      Schema.annotate({
+        description:
+          'Fewest characters a text, email, password or textarea control accepts. Checked before the form sends and announced under the field. An empty control is judged by `required`, not by this rule.',
+        examples: [12],
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(1))
+    )
+  ),
+  /**
+   * The most characters a `text`, `email`, `password` or `textarea` control
+   * accepts. The control stops taking input at that length.
+   */
+  maxLength: Schema.optional(
+    Schema.Int.pipe(
+      Schema.annotate({
+        description:
+          'Most characters a text, email, password or textarea control accepts; the control stops taking input at that length.',
+        examples: [128],
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(1))
+    )
+  ),
   /** Render as non-editable display */
   readOnly: Schema.optional(
     Schema.Boolean.annotate({
@@ -226,36 +276,16 @@ export const FormFieldConfigSchema = Schema.Struct({
       description: 'If true, field value is submitted but input is not rendered',
     })
   ),
-  /** Conditional visibility rule (supports OR / AND compound conditions) */
-  visibleWhen: Schema.optional(VisibleWhenConditionSchema),
-  /** Make field required when condition is met */
-  requiredWhen: Schema.optional(VisibleWhenConditionSchema),
-  /** Disable field when condition is met */
-  disabledWhen: Schema.optional(VisibleWhenConditionSchema),
-
-  // File upload properties (used when field type is attachment)
-  /** Accepted file MIME types for upload fields */
-  accept: Schema.optional(
-    Schema.String.annotate({
-      description: 'Comma-separated MIME types or extensions (e.g. "image/*,.pdf")',
-      examples: ['image/*', '.pdf,.doc,.docx', 'image/png,image/jpeg'],
+  /**
+   * Which column of a `main-aside` form the field sits in. Every field defaults
+   * to `main`; the publishing fields of an editor (status, date, author) go to
+   * the narrow `aside`. Ignored by the other layouts, which have one region.
+   */
+  region: Schema.optional(
+    Schema.Literals(['main', 'aside']).annotate({
+      description:
+        "Which column of a main-aside form the field sits in: 'main' (default) or 'aside'. Ignored by the other layouts.",
     })
-  ),
-  /** Enable drag-and-drop zone for file uploads */
-  dropZone: Schema.optional(
-    Schema.Boolean.annotate({
-      description: 'If true, renders a drag-and-drop area for file uploads',
-    })
-  ),
-  /** Maximum number of files for multi-file upload fields */
-  maxFiles: Schema.optional(
-    Schema.Finite.pipe(
-      Schema.annotate({
-        description: 'Maximum number of files allowed (for multiple-attachments fields)',
-        examples: [1, 5, 10],
-      }),
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
-    )
   ),
 })
   .annotate({
@@ -266,6 +296,24 @@ export const FormFieldConfigSchema = Schema.Struct({
     Schema.makeFilter(
       (field: { readonly control?: string; readonly options?: unknown }) =>
         field.control !== 'switch' || field.options === undefined || 'a switch takes no options'
+    ),
+    Schema.makeFilter(
+      (field: {
+        readonly control?: string
+        readonly minLength?: number
+        readonly maxLength?: number
+      }) =>
+        (field.minLength === undefined && field.maxLength === undefined) ||
+        field.control === undefined ||
+        LENGTH_RULE_CONTROLS.has(field.control) ||
+        'minLength and maxLength apply to a text, email, password or textarea control only'
+    ),
+    Schema.makeFilter(
+      (field: { readonly minLength?: number; readonly maxLength?: number }) =>
+        field.minLength === undefined ||
+        field.maxLength === undefined ||
+        field.minLength <= field.maxLength ||
+        'minLength must not exceed maxLength'
     )
   )
 
@@ -288,43 +336,10 @@ export const FormLayoutSchema = Schema.Literals(['single-column', 'two-column', 
 )
 
 // ---------------------------------------------------------------------------
-// Form field group
-// ---------------------------------------------------------------------------
-
-/**
- * Groups form fields under a labeled section divider
- *
- * @example
- * ```yaml
- * fieldGroups:
- *   - label: Personal Information
- *     fields: [firstName, lastName, dateOfBirth]
- *   - label: Contact Details
- *     fields: [email, phone, address]
- * ```
- */
-export const FormFieldGroupSchema = Schema.Struct({
-  /** Group label displayed as section divider */
-  label: Schema.String.annotate({
-    description: 'Group label displayed as a section divider above the fields',
-  }),
-  /** Field names belonging to this group */
-  fields: Schema.Array(Schema.String).pipe(
-    Schema.annotate({
-      description: 'Array of field names belonging to this group',
-    }),
-    Schema.check(Schema.isMinLength(1))
-  ),
-}).annotate({
-  title: 'Form Field Group',
-  description: 'Groups form fields under a labeled section divider',
-})
-
-// ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 //
-// Note: ConditionOperatorSchema and VisibleWhen are re-exported above from
+// Note: ConditionOperatorSchema and VisibleWhenSchema are re-exported above from
 // `shared/visible-when` to avoid duplicate definitions.
 
 /** @public Public type surface of the form schema; awaiting adoption at callsites. */
@@ -332,5 +347,3 @@ export type FormFieldControl = Schema.Schema.Type<typeof FormFieldControlSchema>
 export type FormFieldConfig = Schema.Schema.Type<typeof FormFieldConfigSchema>
 /** @public Public type surface of the form schema; awaiting adoption at callsites. */
 export type FormLayout = Schema.Schema.Type<typeof FormLayoutSchema>
-/** @public Public type surface of the form schema; awaiting adoption at callsites. */
-export type FormFieldGroup = Schema.Schema.Type<typeof FormFieldGroupSchema>

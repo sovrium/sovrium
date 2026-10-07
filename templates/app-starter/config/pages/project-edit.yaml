@@ -1,0 +1,15 @@
+name: project-edit
+path: /projects/:id/edit
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Edit project · App starter
+  description: Edit one project.
+dataSource:
+  table: projects
+  mode: single
+  param: id
+components:
+  - $ref: ./_nav.yaml
+  - component: record-edit-sections

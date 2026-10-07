@@ -10,6 +10,7 @@ import { CommentRepository } from '@/application/ports/repositories/comment-repo
 import { resolveCreatedCommentMentions } from '@/application/use-cases/tables/comment-mention-programs'
 import { createCommentProgram } from '@/application/use-cases/tables/comment-programs'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { createCommentRequestSchema } from '@/domain/models/api/tables/comments'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
 import {
   hasCommentPermissionForRoles,
@@ -21,10 +22,11 @@ import {
   requiresAuthenticationForComment,
   type CommentModerationConfig,
 } from '@/domain/models/app/tables/comment-moderation-policy'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { decodeOrValidationResponse } from '@/presentation/api/runtime/effect-validator'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { callerRolesOnTable, notFoundResponse } from './comment-handler-shared'
 import { applyRateLimit, classifySpam } from './comment-spam-guards'
 import { buildTriggerDispatchArgs, dispatchCommentPostedTrigger } from './comment-trigger-dispatch'
@@ -235,7 +237,7 @@ function readModerationConfig(table: NonNullable<App['tables']>[number]): Commen
  * Resolve the bound table for a comment CREATE and enforce the read + comment
  * permission gates. Returns the table on success, or a 404 response.
  *
- * [internal ref]: comment-ability follows `permissions.comment`, not read. A table
+ * comment-ability follows `permissions.comment`, not read. A table
  * with an explicit `permissions` block but neither a `comment` grant nor a
  * `comments` block is non-commentable (a "post-it" such as Partner's pains);
  * a role that can read but is not in the `comment` grant is denied. Both denials
@@ -266,14 +268,14 @@ async function resolveCommentableTable(
 
 /**
  * Resolve the `autoApprove.previouslyApproved` input for the moderation policy
- *: has this guest email already earned an
+ * has this guest email already earned an
  * approved comment on this table?
  *
  * The lookup lives here rather than in `resolveCommentModerationStatus` because
  * that helper is pure and synchronous by contract — it declares
  * `priorApprovedCommentExists` as a caller-resolved input precisely so the repo
- * call sits at the route layer. Mirrors [[checkSingleLevelThreading]]'s
- * `runTableProgram` + `CommentRepository` pattern.
+ * call sits at the route layer. Mirrors [[checkReplyParent]]'s
+ * `CommentRepository` read on the request's services.
  *
  * Guarded so a table that has not opted in pays nothing — no query is issued
  * unless ALL of:
@@ -288,18 +290,20 @@ async function resolveCommentableTable(
  * queues the comment for review rather than publishing it unmoderated.
  */
 async function resolvePriorGuestApproval(input: {
+  readonly c: Context
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableId: string
   readonly moderationConfig: CommentModerationConfig
   readonly isAuthenticated: boolean
   readonly guestEmail: string | undefined
 }): Promise<boolean> {
-  const { session, tableId, moderationConfig, isAuthenticated, guestEmail } = input
+  const { c, session, tableId, moderationConfig, isAuthenticated, guestEmail } = input
   if (!isModerationEnabled(moderationConfig)) return false
   if (moderationConfig.autoApprove?.previouslyApproved !== true) return false
   if (isAuthenticated || guestEmail === undefined) return false
 
-  const lookup = await runTableProgram(
+  const lookup = await runOnRequest(
+    c,
     Effect.gen(function* () {
       const repo = yield* CommentRepository
       return yield* repo.hasApprovedGuestComment({ session, tableId, guestEmail })
@@ -320,7 +324,7 @@ async function resolvePriorGuestApproval(input: {
  * sends. It was `AUTH_REQUIRED` — a second spelling of the same refusal,
  * invented here and listed by no published schema, so a generated client had
  * to know both spellings to handle "you are not signed in"
- *. The `message` stays specific: the code says what
+ * The `message` stays specific: the code says what
  * happened, the sentence says where.
  */
 function requireCommentAuthentication(input: {
@@ -337,6 +341,23 @@ function requireCommentAuthentication(input: {
       code: ApiErrorCode.UNAUTHORIZED,
     },
     401
+  )
+}
+
+/**
+ * Judge the body of a comment post, LAST among the create gates.
+ *
+ * The published request schema decides first (same envelope as a route
+ * validator), then the handler's own reading of it; either refusal is a 400.
+ * Runs only once the sign-in, record, spam-trap and rate-limit gates have let
+ * the post through, so a malformed body never reveals which of them it reached.
+ */
+function judgeCreateCommentBody(c: Context, body: unknown): CreateCommentBody | Response {
+  const decoded = decodeOrValidationResponse(c, createCommentRequestSchema, body, 'json')
+  if (decoded instanceof Response) return decoded
+  return (
+    validateCreateCommentBody(body) ??
+    c.json({ success: false, message: 'Invalid request body', code: 'VALIDATION_ERROR' }, 400)
   )
 }
 
@@ -377,18 +398,11 @@ async function checkCreateCommentGate(c: Context, app: App): Promise<CreateComme
   const rateLimitResponse = applyRateLimit({ c, table })
   if (rateLimitResponse !== undefined) return { ok: false, response: rateLimitResponse }
 
-  const validated = validateCreateCommentBody(body)
-  if (!validated) {
-    return {
-      ok: false,
-      response: c.json(
-        { success: false, message: 'Invalid request body', code: 'VALIDATION_ERROR' },
-        400
-      ),
-    }
-  }
+  const validated = judgeCreateCommentBody(c, body)
+  if (validated instanceof Response) return { ok: false, response: validated }
 
   const priorApprovedCommentExists = await resolvePriorGuestApproval({
+    c,
     session,
     tableId,
     moderationConfig,
@@ -440,31 +454,56 @@ function classifyComment(input: {
 }
 
 /**
- * Single-level threading depth check.
+ * Whether a stored comment belongs to the thread being posted to.
  *
- * When a `parentCommentId` is provided, look up the referenced comment and
- * reject with HTTP 422 if it itself has a non-null `parentId` (i.e. it's
- * already a reply). Returns `undefined` when the parent is top-level OR
- * when the referenced parent could not be found — the latter falls through
- * to the existing 404 path in the create-program. Spec-fixture parents
- * (literal strings like `'reply-comment-id'`) are also treated as not-found
- * and fall through, so non-existent parents still produce the documented
- * not-found behavior (rather than a 422 false positive).
+ * Comments carry the table key the URL named when they were written — the
+ * table's name or its numeric id — so either spelling of THIS table matches.
  */
-async function checkSingleLevelThreading(
+function isInThread(
+  parent: Readonly<{ tableId: string; recordId: string }>,
+  thread: Readonly<{ tableKeys: ReadonlySet<string>; recordId: string }>
+): boolean {
+  return thread.tableKeys.has(String(parent.tableId)) && String(parent.recordId) === thread.recordId
+}
+
+/**
+ * Reply-parent check (single-level threading, the pages public comments specs).
+ *
+ * A reply belongs to the thread of its parent. A `parentCommentId` that names
+ * no comment, or a comment on ANOTHER record, answers the one 404 — the same
+ * body either way, so the endpoint never tells which comment ids exist
+ * elsewhere (pending ones included), and no reply is ever stored against a
+ * parent outside its thread. A parent in this thread that is itself a reply
+ * is refused 422: that answer reveals nothing the thread does not already show.
+ */
+async function checkReplyParent(
   c: Context,
+  table: NonNullable<App['tables']>[number],
   parentCommentId: string | undefined
 ): Promise<Response | undefined> {
   if (parentCommentId === undefined) return undefined
-  const { session } = getTableContext(c)
-  const lookup = await runTableProgram(
+  const { session, tableId } = getTableContext(c)
+  const lookup = await runOnRequest(
+    c,
     Effect.gen(function* () {
       const repo = yield* CommentRepository
       return yield* repo.getWithUser({ session, commentId: parentCommentId })
     })
   )
-  if (lookup._tag === 'Failure' || lookup.success === undefined) return undefined
-  if (lookup.success.parentId !== null) {
+  // A lookup that fails (an id the column type cannot hold, a driver fault) is
+  // logged and answered as a missing parent: the reply is refused either way,
+  // and the refusal must not differ from the not-found one.
+  if (lookup._tag === 'Failure') {
+    logError('[comments] reply-parent lookup failed', lookup.failure, requestLogAttributes(c))
+    return notFound(c)
+  }
+  const parent = lookup.success
+  const thread = {
+    tableKeys: new Set([tableId, String(table.id), table.name]),
+    recordId: c.req.param('recordId')!,
+  }
+  if (parent === undefined || !isInThread(parent, thread)) return notFound(c)
+  if (parent.parentId !== null) {
     return c.json(
       {
         success: false,
@@ -485,11 +524,11 @@ export async function handleCreateComment(c: Context, app: App) {
   const recordId = c.req.param('recordId')!
   const { table, validated, combinedStatus } = gate
 
-  // Single-level threading depth check — must run BEFORE the moderation
-  // short-circuit so a nested-reply attempt that would otherwise spam-classify
-  // still gets the canonical 422 verdict.
-  const depthResponse = await checkSingleLevelThreading(c, validated.parentCommentId)
-  if (depthResponse !== undefined) return depthResponse
+  // Reply-parent check — must run BEFORE the moderation short-circuit so a
+  // nested-reply attempt that would otherwise spam-classify still gets the
+  // canonical 422 verdict, and a parent outside this thread its 404.
+  const parentResponse = await checkReplyParent(c, table, validated.parentCommentId)
+  if (parentResponse !== undefined) return parentResponse
 
   // PG-02 moderation persistence: persist the comment with the resolved
   // verdict (`'approved'` | `'pending'` | `'rejected'`) so a moderated
@@ -569,7 +608,8 @@ async function persistResolvedComment(input: {
 }): Promise<Response> {
   const { c, table, validated, session, tableId, recordId, status } = input
 
-  const result = await runTableProgram(
+  const result = await runOnRequest(
+    c,
     createCommentProgram({
       session,
       tableId,
@@ -627,7 +667,8 @@ async function resolveMentionsOfCreatedComment(input: {
   readonly validated: CreateCommentBody
 }): Promise<{ readonly ids: readonly string[]; readonly mentions: readonly CommentMention[] }> {
   const { c, app, table, session, recordId, validated } = input
-  const resolved = await runTableProgram(
+  const resolved = await runOnRequest(
+    c,
     resolveCreatedCommentMentions(
       { app, table, recordId, session },
       validated.content,

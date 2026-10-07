@@ -45,7 +45,7 @@ export const computeTableGroupRowClasses = (): string => TABLE_GROUP_ROW
 //
 // Fixed, like the header cell and for the same reason — a group label is chrome
 // dividing the data, so it should not inflate when the reader asks for more air
-// around the VALUES. It used to interpolate the body's density map.
+// around the VALUES — so it does not interpolate the body's density map.
 const TABLE_GROUP_CELL = [
   'px-2 py-1 text-xs font-medium cursor-pointer',
   `text-[${v('sv-fg', T.fg)}]`,
@@ -62,9 +62,8 @@ const TABLE_GROUP_CELL = [
 export const computeTableGroupCellClasses = (): string => TABLE_GROUP_CELL
 
 // Canvas: `padding:4px 8px; font-size:11px; font-weight:500; color:#565656`.
-// The muted tone is the change: a group's aggregates used to share the label's
-// full-strength `fg`, so a number computed ABOUT the group read as loudly as
-// the group's own name.
+// The muted tone matters: with the label's full-strength `fg`, a number
+// computed ABOUT the group would read as loudly as the group's own name.
 const TABLE_GROUP_SUMMARY_CELL = [
   'px-2 py-1 text-xs font-medium whitespace-nowrap',
   `text-[${v('sv-fg-muted', T.fgMuted)}]`,

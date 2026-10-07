@@ -1,6 +1,6 @@
 # Field Types
 
-> Every field type a table column can declare, grouped into ten categories — and the base properties all of them share.
+> Every field type a table column can declare, grouped into nine categories — and the base properties all of them share.
 
 A table's `fields` array declares its columns. Every field carries the same base properties and adds type-specific ones on top, so learning one category teaches the shape of the rest.
 
@@ -14,18 +14,19 @@ Shared by every field type, whatever its category.
 
 ## The categories
 
-| Category           | Field types                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Text               | `single-line-text`, `long-text`, `rich-text`, `email`, `url`, `phone-number`                         |
-| Numeric            | `integer`, `decimal`, `currency`, `percentage`, `rating`, `progress`                                 |
-| Date & Time        | `date`, `datetime`, `time`, `duration`, `created-at`, `updated-at`, `deleted-at`                     |
-| Selection          | `checkbox`, `single-select`, `multi-select`, `status`                                                |
-| Relational         | `relationship`, `lookup`, `rollup`                                                                   |
-| User & Audit       | `user`, `created-by`, `updated-by`, `deleted-by`                                                     |
-| Attachment & Media | `single-attachment`, `multiple-attachments`, `barcode`                                               |
-| Computed & Action  | `formula`, `rollup`, `count`, `autonumber`, `button`                                                 |
-| Structured         | `json`, `array`, `geolocation`, `color`, `code`                                                      |
-| AI                 | `ai-generate`, `ai-summary`, `ai-categorize`, `ai-extract`, `ai-sentiment`, `ai-tag`, `ai-translate` |
+Sovrium has more than fifty field types, and the table below lists every one of them. It is the one place the set is counted: `sovrium schema` prints the exact list a binary accepts, and every other page that mentions how many there are points here.
+
+| Category      | Field types                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| Text          | `single-line-text`, `long-text`, `rich-text`, `email`, `url`, `phone-number`                         |
+| Numeric       | `number`, `integer`, `decimal`, `currency`, `percentage`, `rating`, `progress`                       |
+| Date and time | `date`, `datetime`, `time`, `duration`, `created-at`, `updated-at`, `deleted-at`                     |
+| Selection     | `checkbox`, `single-select`, `multi-select`, `status`                                                |
+| Relational    | `relationship`, `lookup`, `rollup`                                                                   |
+| Media         | `single-attachment`, `multiple-attachments`, `signature`, `barcode`                                  |
+| User          | `user`, `created-by`, `updated-by`, `deleted-by`                                                     |
+| Advanced      | `formula`, `count`, `autonumber`, `button`, `json`, `array`, `geolocation`, `color`, `code`          |
+| AI            | `ai-generate`, `ai-summary`, `ai-categorize`, `ai-extract`, `ai-sentiment`, `ai-tag`, `ai-translate` |
 
 Each category is documented beside the schemas that declare it, so the list of options you read is the list the binary accepts.
 

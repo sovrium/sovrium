@@ -34,6 +34,7 @@ import { resolvePageLocale } from '../runtime/page-locale'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { formatWeekdayDate, type WeekdayFields } from './weekday-dates'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { ListRowClasses } from '@/presentation/design/list-row-classes'
 import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
 
 /**
@@ -52,6 +53,18 @@ export interface ListRowInputs {
    * item it landed on. Present only when the list declares `onRowClick`.
    */
   readonly onItemEvent?: (event: React.SyntheticEvent<HTMLUListElement>) => void
+  /** The row's classes by part — `itemLayout` and the author's parts, resolved server-side. */
+  readonly rowClasses?: ListRowClasses
+  /** The shell `<ul>`'s classes when the author styles its `list` part, resolved server-side. */
+  readonly listClasses?: string
+  /** The list's accessible name — the author's `props.aria-label`, carried by the host. */
+  readonly ariaLabel?: string
+  /**
+   * The list reads the reader's own sessions (`dataSource: { auth: sessions }`):
+   * each item then says whether it is the session reading the page, as
+   * `data-session-current`, from the row's `current`.
+   */
+  readonly accountSessions?: boolean
 }
 
 export interface ItemTemplate {
@@ -59,7 +72,12 @@ export interface ItemTemplate {
   readonly subtitle?: string
   readonly image?: string
   readonly badge?: string
-  readonly metadata?: readonly { readonly field: string; readonly format?: string }[]
+  readonly metadata?: readonly {
+    readonly field: string
+    readonly format?: string
+    /** The entry's own classes, after the meta group's look (`metadata[].className`). */
+    readonly className?: string
+  }[]
 }
 
 // Item-template rendering (declarative title/subtitle/image/badge/metadata)
@@ -102,25 +120,27 @@ function formatMetadataValue(
         timeZone: resolvePageTimezone(),
         currency,
       })
-    : String(value)
+    : // An empty value (an unlinked lookup reads NULL) prints nothing, never `null`.
+      String(value ?? '')
 }
 
 function renderItemMetadata(
   metadata: ItemTemplate['metadata'],
   record: Record<string, unknown>,
-  key: string,
-  inputs: ListRowInputs | undefined
+  inputs: ListRowInputs | undefined,
+  { key, className }: { readonly key: string; readonly className: string }
 ): React.ReactNode {
   const entries = (metadata ?? [])
     .map((meta, index) => ({ meta, index }))
     .filter(({ meta }) => record[meta.field] !== undefined)
   if (entries.length === 0) return undefined
   return (
-    <div className={computeListMetaClasses()}>
+    <div className={className}>
       {entries.map(({ meta, index }) => (
         <span
           key={`${key}-meta-${index}`}
           data-list-meta={meta.field}
+          className={meta.className}
         >
           {formatWeekdayDate(meta.field, record[meta.field], inputs?.weekdays) ??
             formatMetadataValue(record[meta.field], meta.format, inputs?.currencies?.[meta.field])}
@@ -179,6 +199,29 @@ function renderItemBadge(
   )
 }
 
+/**
+ * The row's classes: the server-resolved ones (layout and author parts, merged
+ * there), else the recipe's — joined here without the class merger, which would
+ * add ~27 KB to every island that draws a row.
+ */
+const rowClassesOf = (inputs: ListRowInputs | undefined): ListRowClasses =>
+  inputs?.rowClasses ?? {
+    item: `${computeListItemClasses()} ${computeListDividerClasses()}`,
+    textColumn: LIST_TEXT_COLUMN_CLASSES,
+    title: computeListTitleClasses(),
+    subtitle: computeListSubtitleClasses(),
+    meta: computeListMetaClasses(),
+  }
+
+/** `data-session-current` for an item of the reader's sessions list, else nothing. */
+const sessionMarker = (
+  record: Record<string, unknown>,
+  inputs: ListRowInputs | undefined
+): Readonly<Record<string, string>> =>
+  inputs?.accountSessions === true && typeof record['current'] === 'boolean'
+    ? { 'data-session-current': String(record['current']) }
+    : {}
+
 export function renderItemTemplate(
   template: ItemTemplate,
   record: Record<string, unknown>,
@@ -186,12 +229,14 @@ export function renderItemTemplate(
   inputs: ListRowInputs | undefined
 ): React.ReactNode {
   const { labelled, title, image, subtitle, badge } = resolveItemSlots(template, record)
+  const classes = rowClassesOf(inputs)
   return (
     <li
       key={key}
       data-list-item="true"
       tabIndex={inputs?.onItemEvent === undefined ? undefined : 0}
-      className={`${computeListItemClasses()} ${computeListDividerClasses()}`}
+      className={classes.item}
+      {...sessionMarker(record, inputs)}
     >
       {image ? (
         <img
@@ -206,11 +251,11 @@ export function renderItemTemplate(
           when at least one of them exists, so a badge-only row is not pushed
           right by an empty `flex-1` box. */}
       {title !== undefined || subtitle !== undefined ? (
-        <div className={LIST_TEXT_COLUMN_CLASSES}>
+        <div className={classes.textColumn}>
           {title ? (
             <span
               data-list-title="true"
-              className={computeListTitleClasses()}
+              className={classes.title}
             >
               {title}
             </span>
@@ -218,7 +263,7 @@ export function renderItemTemplate(
           {subtitle ? (
             <span
               data-list-subtitle="true"
-              className={computeListSubtitleClasses()}
+              className={classes.subtitle}
             >
               {subtitle}
             </span>
@@ -226,13 +271,26 @@ export function renderItemTemplate(
         </div>
       ) : undefined}
       {badge ? renderItemBadge(badge, record, inputs) : undefined}
-      {renderItemMetadata(template.metadata, labelled, key, inputs)}
+      {renderItemMetadata(template.metadata, labelled, inputs, { key, className: classes.meta })}
     </li>
   )
 }
 
 /** The list's empty message, in place of an empty list. */
-export function renderEmptyList(emptyMessage: string): React.ReactNode {
+export function renderEmptyList(emptyMessage: string, ariaLabel?: string): React.ReactElement {
+  // A named list stays a list when it is empty: the reader is told the list
+  // is there, and holds only the message.
+  if (ariaLabel !== undefined)
+    return (
+      <ul aria-label={ariaLabel}>
+        <li
+          data-list-empty="true"
+          className={computeListEmptyClasses()}
+        >
+          {emptyMessage}
+        </li>
+      </ul>
+    )
   return (
     <p
       data-list-empty="true"

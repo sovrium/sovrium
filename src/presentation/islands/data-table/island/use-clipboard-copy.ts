@@ -196,10 +196,8 @@ export function useClipboardCopy() {
     const handleClick = (event: MouseEvent): void => {
       const outcome = resolveClick(container, event, anchorRowRef.current)
       if (!outcome) return
-      /* eslint-disable functional/immutable-data -- Refs track the active selection and its anchor */
       selectionRef.current = outcome.selection
       anchorRowRef.current = outcome.anchorRow
-      /* eslint-enable functional/immutable-data */
     }
 
     const handleKeyDown = (event: KeyboardEvent): void => {

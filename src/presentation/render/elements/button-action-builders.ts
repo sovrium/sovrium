@@ -27,6 +27,7 @@ import type { CrudFormAction } from './crud-form/crud-form-types'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Languages } from '@/domain/models/app/languages'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
+import type { FillAction } from '@/domain/models/app/pages/components/action-client'
 
 /**
  * Build data attributes for click interactions
@@ -222,6 +223,38 @@ export function buildToastDataAttributes(action: ToastButtonAction): Record<stri
       message: action.message,
       ...(action.variant !== undefined && { variant: action.variant }),
       ...(action.duration !== undefined && { duration: action.duration }),
+    }),
+  }
+}
+
+/** A fill action: writes a value into a form control on the page (`fill-runtime.ts`). */
+export type FillButtonAction = FillAction
+
+/**
+ * Returns true if the given action is a fill action
+ */
+export function isFillAction(action: unknown): action is FillButtonAction {
+  return (action as { type?: string })?.type === 'fill'
+}
+
+/**
+ * The fill a button runs on click, its `value` resolved against the button's
+ * record (the row it is drawn in, or the page's bound record) so the client
+ * writes text and never sees a `$record.` token. Carried whole in one JSON
+ * attribute, like the toast and fetch actions beside it.
+ */
+export function buildFillDataAttributes(
+  action: FillButtonAction,
+  record: Readonly<Record<string, unknown>> | undefined
+): Record<string, string> {
+  const value = record === undefined ? action.value : substituteRecordVars(action.value, record)
+  return {
+    'data-action-type': 'fill',
+    'data-action-config': JSON.stringify({
+      target: action.target,
+      value,
+      ...(action.field !== undefined && { field: action.field }),
+      ...(action.mode !== undefined && { mode: action.mode }),
     }),
   }
 }

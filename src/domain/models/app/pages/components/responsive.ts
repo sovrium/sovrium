@@ -25,16 +25,18 @@ import { Schema } from 'effect'
  * }
  * ```
  */
+const OverridePropKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+      message: 'Property key must be camelCase starting with a letter',
+    })
+  )
+)
+
 export const VariantOverridesSchema = Schema.Struct({
   props: Schema.optional(
     Schema.Record(
-      Schema.String.pipe(
-        Schema.check(
-          Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-            message: 'Property key must be camelCase starting with a letter',
-          })
-        )
-      ),
+      Schema.String,
       Schema.Union([
         Schema.String,
         Schema.Finite,
@@ -42,9 +44,23 @@ export const VariantOverridesSchema = Schema.Struct({
         Schema.Record(Schema.String, Schema.Unknown),
         Schema.Array(Schema.Unknown),
       ])
-    ).annotate({
-      description: 'Props to override',
-    })
+    ).pipe(
+      Schema.annotate({
+        description: 'Props to override',
+      }),
+      // Keys: any string in the key position, and the pattern enforced by
+      // `isPropertyNames`, so a mistyped key is refused by name at its own path
+      // with the pattern it must match. A pattern on the key schema itself makes
+      // Effect 4 skip the entry, and the config report then named it an unknown
+      // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+      Schema.check(
+        Schema.isPropertyNames(OverridePropKeySchema, {
+          toJsonSchema: () => ({
+            propertyNames: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9]*$' },
+          }),
+        })
+      )
+    )
   ),
   content: Schema.optional(
     Schema.String.annotate({
@@ -114,3 +130,39 @@ export const ResponsiveSchema = Schema.Struct({
 
 export type VariantOverrides = Schema.Schema.Type<typeof VariantOverridesSchema>
 export type Responsive = Schema.Schema.Type<typeof ResponsiveSchema>
+
+/**
+ * One value per breakpoint, for a single LAYOUT prop.
+ *
+ * `ResponsiveSchema` overrides a whole component at a breakpoint; this is the
+ * narrower shape one prop needs — a calendar's day height, a KPI's size — so
+ * the prop can say "64px on a phone, 90px from md up" without an arbitrary
+ * `max-md:` selector. A breakpoint left out inherits the nearest narrower one
+ * that is set, which is how Tailwind's min-width breakpoints read, and why the
+ * keys are min-width names rather than ranges. One value for every screen is
+ * written `{ mobile: <value> }`.
+ *
+ * It is a plain struct, the same shape as a gallery's `gridColumns`, rather
+ * than a "value OR struct" union: the published option tree and the editor
+ * completion both read a struct's keys directly.
+ *
+ * @param value - The schema of one value.
+ * @param what - What the value is, for the published description.
+ */
+export const responsiveValue = <S extends Schema.Top & { readonly Rebuild: S }>(
+  value: S,
+  what: string
+) =>
+  Schema.Struct({
+    mobile: Schema.optional(
+      value.annotate({ description: `${what} from the narrowest screen up` })
+    ),
+    sm: Schema.optional(value.annotate({ description: `${what} from 640px up` })),
+    md: Schema.optional(value.annotate({ description: `${what} from 768px up` })),
+    lg: Schema.optional(value.annotate({ description: `${what} from 1024px up` })),
+    xl: Schema.optional(value.annotate({ description: `${what} from 1280px up` })),
+    '2xl': Schema.optional(value.annotate({ description: `${what} from 1536px up` })),
+  }).annotate({
+    title: 'Per-Breakpoint Value',
+    description: `${what}, one value per breakpoint (\`mobile\`, \`sm\`, \`md\`, \`lg\`, \`xl\`, \`2xl\`); a breakpoint left out inherits the nearest narrower one`,
+  })

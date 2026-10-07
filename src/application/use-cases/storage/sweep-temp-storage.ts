@@ -74,7 +74,6 @@ const reclaimIfAged = (
     if (metadata._tag === 'Failure') return
     const lastModified = Date.parse(metadata.success.lastModified)
     if (!Number.isFinite(lastModified) || lastModified > cutoff) return
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
     const removal = storage.delete(key, UNATTRIBUTED_BUCKET)
     // effect-swallow: this is a periodic SWEEP — a delete that fails leaves the file for the next pass, which is the same outcome as never having reached it, and a storage outage must not abort the whole sweep partway through.
     yield* Effect.ignore(removal)

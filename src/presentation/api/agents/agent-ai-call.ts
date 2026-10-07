@@ -13,8 +13,7 @@
  * regardless of whether the action is auto-executed or queued for approval.
  *
  * The call also returns the round-trip's token cost (`usage.total_tokens`),
- * which feeds the per-day token budget accounting in `agent-limits.ts`
- *.
+ * which feeds the per-day token budget accounting in `agent-limits.ts`.
  */
 
 import {
@@ -27,7 +26,7 @@ import type { Agent } from '@/domain/models/app/agents/agent'
 /**
  * Build the agent's tool-capability context block.
  *
- * [internal ref]: the agent's `tools` allowlist (tables + actions) is
+ * The agent's `tools` allowlist (tables + actions) is
  * surfaced in the system prompt so the LLM knows the exact constraints it
  * operates within. Returns an empty string for an agent with no `tools`.
  */
@@ -45,11 +44,11 @@ const buildCapabilityContext = (agent: Agent): string => {
 /**
  * Build the agent's effective system prompt.
  *
- * [internal ref]: behavioral `instructions` are appended to the base
+ * Behavioral `instructions` are appended to the base
  * `systemPrompt` as a numbered list, one rule per line, so the model receives
  * them as explicit ordered directives.
  *
- * [internal ref]: when the agent declares `tools`, a capability context
+ * When the agent declares `tools`, a capability context
  * block (allowed tables + actions) is appended so the LLM is aware of its
  * constraints.
  */
@@ -83,14 +82,13 @@ const extractTokenUsage = async (response: Response | undefined): Promise<number
  * owes the caller a decision even when the provider is unreachable.
  *
  * The request carries the agent's per-agent overrides:
- * - [internal ref]: `model` overrides `AI_MODEL`.
- * - [internal ref]: `temperature` overrides `AI_TEMPERATURE`.
- * - [internal ref]: numbered `instructions` are folded into the prompt.
+ *  - `model` overrides `AI_MODEL`.
+ *  - `temperature` overrides `AI_TEMPERATURE`.
+ *  - numbered `instructions` are folded into the prompt.
  *
  * Returns the number of tokens the round-trip consumed (read from the
  * provider's `usage` block), or 0 when the provider is unreachable or the
- * response carries no usage — used by the per-day token accounting
- *.
+ * response carries no usage — used by the per-day token accounting.
  *
  * `userMessage` overrides the default `Perform action <action>.` user turn —
  * scheduled executions pass the agent's `schedule.taskPrompt` verbatim so the
@@ -107,7 +105,7 @@ export const callAgentAi = async (
 
   // The execute path sends a temperature ONLY when the agent or env declares
   // one (fallback `undefined`) — distinct from the chat path's always-on-wire
-  // default. [internal ref].
+  // default.
   const temperature = resolveAgentTemperature(agent, undefined)
 
   const body: Record<string, unknown> = {

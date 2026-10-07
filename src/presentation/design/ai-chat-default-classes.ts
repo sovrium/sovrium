@@ -87,7 +87,7 @@ export const computeAiChatContainerClasses = (): string =>
  *
  * The composer and the chip strip are `shrink-0` for the other half of the
  * same contract: they keep their intrinsic height and the log absorbs the rest.
- * That is what `[internal ref]` measures, and it is why neither this log
+ * That is what an AI chat cross spec measures, and it is why neither this log
  * nor the island that fills it may carry a height of its own — `chatHeight`
  * belongs to {@link computeAiChatContainerClasses} and to nothing else.
  */
@@ -160,11 +160,10 @@ export const computeAiChatMessageBubbleClasses = ({
 /**
  * A failed turn — a line of red text above the composer, on no surface at all.
  *
- * Not a bubble, and since the 2026-09-16 review not a card either. It used to
- * be the drawing's bordered error-toned block at `w-fit max-w-[70%]`, and at
- * that width the sentence wrapped inside a pink box tight enough that the words
- * touched both edges. The founder's call was to delete the box rather than pad
- * it: no fill, no rule, no corner radius, and no bubble width to wrap against.
+ * Not a bubble, and not a card either. A bordered error-toned block at
+ * `w-fit max-w-[70%]` wraps the sentence inside a pink box tight enough that
+ * the words touch both edges; rather than pad the box, there is none: no fill,
+ * no rule, no corner radius, and no bubble width to wrap against.
  *
  * What survives is the part that carries the meaning — the error FOREGROUND,
  * which is the only thing telling a reader this is a failure rather than an

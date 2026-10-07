@@ -42,9 +42,9 @@ export const DEFAULT_ECO_LOW_DATA_DEFAULT: EcoLowDataDefault = 'off'
  * empty value resolves to `off`.
  *
  * A SET-but-unrecognised value throws. `respect-client` is easy to
- * mistype (`respect_client`, `respectClient`) and every misspelling used to
- * resolve to `off` — the one posture that ignores the client signals the
- * operator was explicitly asking the platform to honour.
+ * mistype (`respect_client`, `respectClient`), and a misspelling resolving to
+ * `off` would be the one posture that ignores the client signals the operator
+ * is explicitly asking the platform to honour.
  *
  * @throws Error when set to anything other than `on`, `off` or `respect-client`.
  */

@@ -11,6 +11,7 @@ import { resolveMountBasePath } from '@/presentation/islands/runtime/mount-base-
 import { showSuccessToast } from '../parts/crud-form/toast'
 import { authClient } from '../runtime/auth-client'
 import { type AuthFormField } from './auth-form-validation'
+import { trackSignIn } from './sign-in-in-flight'
 
 // Re-exported so existing importers of `auth-form-submit` keep working.
 export { type AuthMethod }
@@ -24,6 +25,11 @@ export interface AuthState {
   readonly error?: string
   readonly success?: string
   readonly isPending: boolean
+  /**
+   * The values the reader sent, once a form declaring a success page has sent
+   * its request: the form gives way to that page, which reads them.
+   */
+  readonly sentValues?: Readonly<Record<string, string>>
 }
 
 /**
@@ -43,9 +49,25 @@ function pickCredentials(
   }
 }
 
-async function handleLogin(email: string, password: string): Promise<string | undefined> {
-  const result = await authClient.signIn.email({ email, password })
-  return result.error ? (result.error.message ?? 'Authentication failed') : undefined
+/** The banner a password sign-in shows when the account still owes its second step. */
+const TWO_FACTOR_PENDING_MESSAGE =
+  'Two-step verification is on — enter your code to finish signing in'
+
+/**
+ * A password sign-in. An account with two-step on is NOT signed in yet: the
+ * server answers `twoFactorRedirect` and holds the attempt in a short-lived
+ * cookie until the page's `verifyTwoFactor` form checks the code, so the form
+ * says so instead of navigating to a page the reader cannot see.
+ */
+async function handleLogin(
+  email: string,
+  password: string
+): Promise<{ error?: string; success?: string }> {
+  const result = await trackSignIn(authClient.signIn.email({ email, password }))
+  if (result.error) return { error: result.error.message ?? 'Authentication failed' }
+  const pending = (result.data as { readonly twoFactorRedirect?: unknown } | null)
+    ?.twoFactorRedirect
+  return pending === true ? { success: TWO_FACTOR_PENDING_MESSAGE } : {}
 }
 
 async function handleSignup(email: string, password: string): Promise<string | undefined> {
@@ -167,7 +189,7 @@ async function executeAuthMethod(
   switch (method) {
     case 'login':
       if (input.strategy === 'magicLink') return executeMagicLinkLogin(input)
-      return { error: await handleLogin(email, password) }
+      return handleLogin(email, password)
     case 'signup':
       return { error: await handleSignup(email, password) }
     case 'logout':
@@ -196,6 +218,8 @@ export interface SubmitContext {
   readonly redirectUrl: string | undefined
   readonly successToast: ToastConfig | undefined
   readonly errorToast: ToastConfig | undefined
+  /** The form declares `onSuccess.type: 'successPage'`. */
+  readonly hasSuccessPage?: boolean
   readonly setState: (s: AuthState) => void
 }
 
@@ -249,7 +273,13 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       return
     }
     if (result.success) {
-      ctx.setState({ success: result.success, isPending: false })
+      // A request that resolves to a message (a link mailed) becomes the
+      // declared success page when there is one, and the banner otherwise.
+      ctx.setState(
+        ctx.hasSuccessPage === true
+          ? { isPending: false, sentValues: ctx.values }
+          : { success: result.success, isPending: false }
+      )
       return
     }
     handleAuthSuccess(ctx)

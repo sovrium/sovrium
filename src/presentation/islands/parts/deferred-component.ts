@@ -52,7 +52,6 @@ export function useDeferredComponent<P>(
   const [loaded, setLoaded] = useState<Loaded<P> | undefined>(undefined)
 
   useEffect(() => {
-    // eslint-disable-next-line functional/no-let -- cancellation flag for an async load that can outlive the mount
     let live = true
     void load().then(
       (Component) => {

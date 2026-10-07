@@ -72,7 +72,7 @@
  *
  * @see [internal ref] D2, D3, D9 — locked by this story
  * @see ../../combinators/search.ts — the shared `?q=` / `appliedQuery` contract
- * @see plan §4.3 — per-story design for [internal ref]
+ * @see plan §4.3 — per-story design for the admin automations runs list requirement
  * @see plan §5.1 — CC-1 shared `_admin` envelope (authored alongside)
  * @see plan §6.5 — schema reuse rule (extend, never duplicate)
  */
@@ -239,7 +239,7 @@ export type AutomationsRunsDetailResponse = typeof automationsRunsDetailResponse
 
 /**
  * Per-step I/O row surfaced by the admin run-detail endpoint for the dashboard
- * run-detail panel.
+ * run-detail panel (the admin dashboard automations runs requirement, [internal ref]).
  *
  * The run model already persists each step's `input` (the action's `props`) and
  * `output` (`run-persistence.ts:108-109`); this row projects those persisted
@@ -247,7 +247,7 @@ export type AutomationsRunsDetailResponse = typeof automationsRunsDetailResponse
  * backend. `input`/`output` are `z.unknown()` (arbitrary JSON), nullable for
  * steps that produced neither.
  */
-export const adminRunStepSchema = Schema.Struct({
+const adminRunStepBaseSchema = Schema.Struct({
   /**
    * The step's position in the run, from the persisted `step_index` column.
    *
@@ -257,7 +257,7 @@ export const adminRunStepSchema = Schema.Struct({
    * label to a client-side index the config cannot name, and inventing an
    * `$index` interpolation token adds a second grammar for a number the row can
    * simply carry. Publishing a pre-composed label instead would be the
-   * [internal ref] violation this deliberately avoids — an endpoint publishes
+   * the facts-not-strings rule and two-key Data-surface design violation this deliberately avoids — an endpoint publishes
    * facts, the console composes.
    */
   index: Schema.Finite.annotate({
@@ -282,10 +282,58 @@ export const adminRunStepSchema = Schema.Struct({
     description:
       'Entries the step wrote with context.log, in call order, secrets masked; empty when the step logged nothing.',
   }),
-}).annotate({ identifier: 'AdminRunStep' })
+})
 
-/** @public */
-export type AdminRunStep = typeof adminRunStepSchema.Type
+type AdminRunStepBase = typeof adminRunStepBaseSchema.Type
+
+/**
+ * A step of the admin run detail. A `path/branch` step also carries the paths
+ * it ran, and a `loop/each` step the items it ran, each with its nested steps
+ * in this same shape — `index` is then the step's position inside its path or
+ * item, `input` its resolved props, and both are masked like the top level.
+ */
+export interface AdminRunStep extends AdminRunStepBase {
+  readonly paths?:
+    readonly { readonly name: string; readonly steps: readonly AdminRunStep[] }[] | undefined
+  readonly iterations?:
+    readonly { readonly index: number; readonly steps: readonly AdminRunStep[] }[] | undefined
+}
+
+// Recursive, so typed by hand and given an `identifier`: the identifier turns
+// the self-reference into a `$ref` cycle in the OpenAPI document instead of an
+// endless inline walk.
+export const adminRunStepSchema: Schema.Codec<AdminRunStep> = Schema.suspend(
+  (): Schema.Codec<AdminRunStep> =>
+    Schema.Struct({
+      ...adminRunStepBaseSchema.fields,
+      paths: optionalField(
+        Schema.Array(
+          Schema.Struct({
+            name: Schema.String.annotate({ description: 'Name of the path that ran' }),
+            steps: Schema.Array(adminRunStepSchema).annotate({
+              description: 'The steps executed inside this path, in the order they ran',
+            }),
+          })
+        ).annotate({
+          description:
+            'Present on a path/branch step: each path it ran, in the order it ran them, with the steps executed inside. Absent on other steps.',
+        })
+      ),
+      iterations: optionalField(
+        Schema.Array(
+          Schema.Struct({
+            index: Schema.Int.annotate({ description: 'Zero-based position of the item' }),
+            steps: Schema.Array(adminRunStepSchema).annotate({
+              description: 'The steps executed for this item, in the order they ran',
+            }),
+          })
+        ).annotate({
+          description:
+            'Present on a loop/each step: each item it ran, in order, with the steps executed for it. Absent on other steps.',
+        })
+      ),
+    }) as never
+).annotate({ identifier: 'AdminRunStep' })
 
 /**
  * Run-detail response WITH the per-step I/O list — the shape the dashboard's

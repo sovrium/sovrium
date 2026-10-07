@@ -1,0 +1,14 @@
+# What a reader sees at an address the handbook does not hold — an article
+# that was renamed, a link copied with a letter missing. The server answers
+# 404 and renders this page: it says what happened and offers three ways on.
+# The page itself comes from the Sovrium library
+# (library/block/not-found-with-links.yaml).
+name: not-found
+path: /404
+meta:
+  title: Not in the handbook · Corvel handbook
+  description: The page you opened is not in the Corvel handbook.
+components:
+  - $ref: ./_site-header.yaml
+  - component: not-found-with-links
+  - $ref: ./_site-footer.yaml

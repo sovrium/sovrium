@@ -54,7 +54,6 @@ const PAYLOAD_PATH = RAW_PAYLOAD as unknown as string
 export const loadEmbeddedChangelog = async (): Promise<EmbeddedChangelogPayload> => {
   const decoded: unknown = await Bun.file(PAYLOAD_PATH).json()
   if (!isEmbeddedChangelogPayload(decoded)) {
-    // eslint-disable-next-line functional/no-throw-statements -- a payload of the wrong shape is a build defect, not an empty answer
     throw new Error(
       'The embedded changelog payload is not readable by this binary. ' +
         'Regenerate it with `bun run build:changelog`.'

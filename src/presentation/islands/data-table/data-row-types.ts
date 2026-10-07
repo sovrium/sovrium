@@ -12,9 +12,9 @@ import type {
   FieldWriteValue,
   SaveStatus,
 } from '../hooks/use-inline-editing'
+import type { CellRange, GridCursor } from './island/grid-cursor-model'
 import type { TabDirection } from './island/tab-target'
 import type { DataTableCell, DataTableColumnMeta } from './island/table-features'
-import type { CellRange, GridCursor } from './island/use-grid-cursor'
 
 /**
  * Auto-save wiring for inline cell editing. When present, cells in the

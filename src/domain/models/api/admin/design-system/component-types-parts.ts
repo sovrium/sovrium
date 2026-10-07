@@ -81,7 +81,7 @@ export const componentTypeFieldSchema = Schema.Struct({
   // selects. Deriving either from the other needs an `if` no config page has.
   //
   // The WORD is deliberately not published. Which noun stands for "no default"
-  // is the console's wording, which is the editorial half [internal ref] refuses; the
+  // is the console's wording, which is the editorial half the facts-not-strings rule refuses; the
   // page holds the literal and the API holds only the fact. `required` is
   // likewise never published — no catalogued field is required, and printing it
   // would state a constraint the decoder does not enforce.
@@ -237,7 +237,7 @@ export const componentTypeStateSchema = Schema.Struct({
  * arrays can produce a row that names both.
  *
  * That is pinned by a GREEN spec rather than by an implementation detail:
- * `[internal ref]` says in as many words that inside an
+ * A pages system rows template spec says in as many words that inside an
  * inner template the inner record REPLACES the outer rather than merging with
  * it. `expandTemplate` implements exactly that — at depth 1 the outer row is
  * substituted into the inner node's own props and `dataSource` while its
@@ -279,7 +279,7 @@ export const componentTypeCellSchema = Schema.Struct({
   // ─── A ROW CANNOT KNOW IT IS THE FIRST ROW ───────────────────────────────
   //
   // `data-design-state` answers "which states does this type have", and
-  // `[internal ref]` pins each answer at `toHaveCount(1)`. It is
+  // An admin design system spec pins each answer at `toHaveCount(1)`. It is
   // therefore carried by ONE variant row — the drawing side writes
   // `exhibit: index === 0` in `variantMatrix` — and a page stamping every cell
   // reports `button`'s four states seven times each.
@@ -295,7 +295,7 @@ export const componentTypeCellSchema = Schema.Struct({
   // is green now and marks NOTHING the day an interactive type spells its first
   // variant otherwise — silently, since a page marking zero cells still renders.
   //
-  // Admitted under [internal ref] on `cells`' own terms: a mechanical projection of the
+  // Admitted under the facts-not-strings rule on `cells`' own terms: a mechanical projection of the
   // published `variants` order, carrying no word, no label and no sentence.
   exhibit: Schema.Boolean.annotate({
     description:

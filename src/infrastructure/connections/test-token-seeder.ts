@@ -108,7 +108,7 @@ const buildExpiredSeedToken = (kind: 'access' | 'refresh'): string => {
  * the wire and at rest.
  *
  * `userId` is mixed into the JWT payload's `sub` claim so each user's
- * seeded token is unique on the wire — required by [internal ref] which asserts that Alice's injected Bearer differs
+ * seeded token is unique on the wire — required by an automation connection spec which asserts that Alice's injected Bearer differs
  * from Bob's. Without per-user uniqueness, two users seeded within the
  * same wall-clock second would collide on the `iat` timestamp and
  * produce byte-identical tokens.
@@ -132,7 +132,7 @@ const buildAuthorizedSeedToken = (kind: 'access' | 'refresh', userId: string): s
  *
  * When this returns true and `_test.seedExpired` is NOT set, the
  * seeder writes a non-sentinel "as-if-authorized" token so action-auth
- * specs (e.g. [internal ref]) can observe a real Bearer
+ * specs can observe a real Bearer
  * eyJ... header on the outbound HTTP wire. When false (e.g. tokenUrl
  * is `https://provider.com/token`), the seeder keeps the legacy
  * sentinel behavior so status-endpoint specs (072) and no-token
@@ -154,7 +154,7 @@ const isLoopbackTokenUrl = (props: Readonly<Record<string, unknown>>): boolean =
 /**
  * Test-suite convention: emails of the shape `newuser@*` indicate a
  * user that explicitly has NOT yet completed an OAuth authorize round-
- * trip. [internal ref] (`/status` returns
+ * trip. An automation connection spec (`/status` returns
  * `'disconnected'` before authorization) and -077 (an automation
  * triggered by an unauthorized user fails with "not authorized")
  * BOTH use `newuser@example.com` to express this intent — see the
@@ -187,7 +187,7 @@ const isUnauthorizedTestEmail = (userEmail: string | undefined): boolean => {
 
 /**
  * Per-connection seeder hint. The deepened token-refresh specs
- * ([internal ref]..083) set `_test.seedExpired: true`
+ * set `_test.seedExpired: true`
  * on a connection's `props` to flip the seeder from its default
  * "happy-path sentinel + future expiry" mode into "non-sentinel real
  * tokens + past expiry" mode — the latter is what makes injection see
@@ -200,7 +200,7 @@ interface SeederHints {
    * Per-user override: list of email addresses that should receive the
    * "expired token" seeder treatment. Other users on the same connection
    * still receive the default (sentinel or authorized-loopback)
-   * treatment. Used by [internal ref] to fail Alice's
+   * treatment. Used by an automation connection spec to fail Alice's
    * refresh while leaving Bob's row untouched.
    */
   readonly seedExpiredFor: readonly string[]
@@ -233,8 +233,8 @@ const readSeederHints = (props: Readonly<Record<string, unknown>>): SeederHints 
  * Per-user expiry: when `_test.seedExpiredFor` includes `userEmail`,
  * this user gets the expired-refresh treatment EVEN IF the connection
  * itself doesn't set `_test.seedExpired: true` (which would apply
- * globally). This is the cross-user-isolation knob used by
- * [internal ref].
+ * globally). This is the knob that lets a test prove one user's expiry does
+ * not leak into another user's connection.
  */
 const chooseSeederTokens = (
   props: Readonly<Record<string, unknown>>,
@@ -264,7 +264,7 @@ const chooseSeederTokens = (
     // token so action-auth specs can
     // observe a real Bearer eyJ... header on the outbound wire.
     // Per-user uniqueness via userId in the `sub` claim — required by
-    // [internal ref] (Alice's vs Bob's injected
+    // An automation connection spec (Alice's vs Bob's injected
     // Authorization headers must differ on the wire).
     //
     // The `!isUnauthorizedTestEmail` guard preserves the seeder's
@@ -344,7 +344,7 @@ export const seedTestConnectionTokensProgram = (input: {
  * server startup so the auth-headers injection path can verify the
  * connection still exists in the database before building the
  * outbound auth header — closing the "configured then deleted at
- * runtime" gap that [internal ref] exercises by
+ * runtime" gap that an automation connection spec exercises by
  * DELETEing the row directly via `executeQuery`.
  *
  * For OAuth2 connections, the per-user token seeder

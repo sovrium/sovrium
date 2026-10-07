@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-loop-statements, functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- module-level Map is the deliberate design for the OAuth state store; .delete() calls below are Map.prototype.delete, not Drizzle deletes */
-
 import { Effect, Layer } from 'effect'
 import { OAuthStateError, OAuthStateStore } from '@/application/ports/services/oauth-state-store'
 import { OAUTH_STATE_TTL_MS } from '@/domain/kernel/time/timeouts'
@@ -82,5 +80,3 @@ export const OAuthStateStoreLive = Layer.succeed(
     }),
   })
 )
-
-/* eslint-enable functional/no-loop-statements, functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where */

@@ -18,7 +18,8 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
  * resolves to a redirect target:
  *
  * - **Bare URL `defaultLanding`** (no `$currentUser.assignments.<table>[0]`
- *   token): matches when the session is unrestricted (Better Auth admin).
+ *   token): matches when the session holds that role, or when it is
+ *   unrestricted (a Better Auth admin matches any listed role).
  * - **Templated `defaultLanding`**: matches based on assignment count for
  *   the templated table:
  *   - exactly one assignment → substitute the token with the record id
@@ -27,7 +28,7 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
  *
  * Falls through to `auth.noAccessPath` (default `/403`) when no role matches.
  *
- * Cross-feature note: the active-scope
+ * Cross-feature note (the auth active scope session requirement, P-6): the active-scope
  * session feature also needs a "single vs multi assignment per scope"
  * computation, but its inputs are different (cookie-bound active assignment
  * vs declaration-order role walk). The two resolvers should remain
@@ -87,9 +88,10 @@ async function resolveRole(
 
   const table = extractAssignmentTable(role.defaultLanding)
 
-  // Bare URL — only matches global admins (the unconditional case).
+  // Bare URL — matches the accounts that hold the role, and global admins
+  // (an unrestricted account matches any listed role).
   if (table === undefined) {
-    return session.isUnrestricted === true
+    return session.isUnrestricted === true || session.role === role.name
       ? { kind: 'match', url: role.defaultLanding }
       : { kind: 'skip' }
   }

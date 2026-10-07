@@ -296,11 +296,6 @@ export function redactAppConfigForReflection(
   app: App,
   processEnv: Readonly<Record<string, string | undefined>>
 ): ConfigNode {
-  const byPath = redactAppConfigPaths(app as unknown as ConfigNode)
-  return redactSecretsForApp(
-    byPath,
-    app.env,
-    processEnv,
-    app.connections as unknown as ReadonlyArray<ConfigNode> | undefined
-  ) as ConfigNode
+  const byPath = redactAppConfigPaths(app as ConfigNode)
+  return redactSecretsForApp(byPath, app.env, processEnv, app.connections) as ConfigNode
 }

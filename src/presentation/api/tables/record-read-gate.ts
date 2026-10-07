@@ -7,8 +7,8 @@
 
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { recordPassesPredicate, resolveGuardForTable } from './row-level-guard'
 import { checkGetReadGate, NOT_FOUND_RESPONSE } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
@@ -41,13 +41,13 @@ export async function checkRecordReadGate(
   recordId: string
 ): Promise<Response | undefined> {
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
   if (gateError) return gateError
   if (!guard || !table.rowLevelPermissions?.read?.when || guard.current.isUnrestricted) {
     return undefined
   }
-  const fetched = await runTableProgram(rawGetRecordProgram(session, table.name, recordId, app))
+  const fetched = await runOnRequest(c, rawGetRecordProgram(session, table.name, recordId, app))
   if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)
   const record = readStoredValues(table, fetched.success)
   return recordPassesPredicate(table.rowLevelPermissions, 'read', record, guard.current)

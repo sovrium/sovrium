@@ -13,7 +13,7 @@
  *   - the export-payload shaping (id/created_at/updated_at split for authored
  *     records, ISO 8601 coercion of every timestamp, Better-Auth `role` →
  *     export-enum normalization),
- *   - assembling the export body and validating it against the Zod response
+ *   - assembling the export body and validating it against the response schema
  *     contract (byte-for-byte identical to the former route — it is a
  *     user-facing GDPR data export),
  *   - the scheduled-erasure grace-period arithmetic + the cancelled/scheduled
@@ -164,7 +164,7 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
       // 0/1, and the hand-written raw SELECT in the repository bypasses Drizzle's
       // `{ mode: 'boolean' }` column decoding, so `emailVerified` arrives as a
       // number on SQLite. `Boolean(...)` is idempotent for the Postgres boolean,
-      // so this is safe on both dialects (without it the Zod contract rejects the
+      // so this is safe on both dialects (without it the response schema contract rejects the
       // numeric value and the export 500s on the zero-config SQLite default).
       emailVerified: Boolean(user.emailVerified),
       // The two operator-email preferences, coerced for the same SQLite reason.
@@ -232,7 +232,7 @@ export type ExportAccountOutcome =
  * from the `system.form_submissions` ledger scoped to `submitter_user_id =
  * userId`, so another user's submissions never leak in and an anonymous
  * (ownerless) submission is never adopted. The assembled payload is
- * validated against the Zod response contract before returning
+ * validated against the response schema contract before returning
  * (defence-in-depth — a `.parse` throw becomes a defect → the route's 500).
  */
 export const ExportAccount = (
@@ -342,7 +342,7 @@ export const CancelAccountDeletion = (
  * sets `scheduledErasureAt = requestedAt + GRACE_PERIOD_DAYS`) and emits exactly
  * one item; when nothing is scheduled it emits an empty `items` array (so a bound
  * data-table clears its row after a cancel). The body is validated against the
- * Zod response contract before returning (defence-in-depth — a `.parse` throw
+ * response schema contract before returning (defence-in-depth — a `.parse` throw
  * becomes a defect → the route's 500). There is no `userId` path param, so the
  * read is session-scoped with no enumeration surface (the route 401s an anon
  * caller before this runs).

@@ -51,13 +51,14 @@ components:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
             children:
               # Four figures, computed from the events and their registrations
-              # on every visit.
+              # on every visit, drawn a size smaller on a phone.
               - type: grid
                 props:
-                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
                 children:
                   - type: kpi
                     label: Registered
+                    size: { mobile: sm, md: md }
                     dataSource:
                       table: events
                       filter:
@@ -66,6 +67,7 @@ components:
                     kpiFormat: { type: number }
                   - type: kpi
                     label: Coming today
+                    size: { mobile: sm, md: md }
                     dataSource:
                       table: events
                       filter:
@@ -74,8 +76,8 @@ components:
                     kpiFormat: { type: number }
                   - type: kpi
                     label: On a waitlist
-                    props:
-                      className: '[&_[data-role=kpi-value]]:text-warning'
+                    size: { mobile: sm, md: md }
+                    tone: warning
                     dataSource:
                       table: events
                       filter:
@@ -84,8 +86,8 @@ components:
                     kpiFormat: { type: number }
                   - type: kpi
                     label: Full
-                    props:
-                      className: '[&_[data-role=kpi-value]]:text-error'
+                    size: { mobile: sm, md: md }
+                    tone: error
                     dataSource:
                       table: events
                     kpiAggregate: { function: sum, field: is_full }
@@ -101,8 +103,9 @@ components:
                       # Events are quiet outlined chips: the page spends its
                       # colour on the figures above, not on the month.
                       - type: calendar
-                        props:
-                          className: '[&_.fc-event]:!border-border [&_.fc-event]:!bg-background-raised [&_.fc-event_*]:!text-foreground [&_.fc-daygrid-day-frame]:min-h-[64px]'
+                        classes:
+                          parts:
+                            event: '!border-border !bg-background-raised !text-foreground'
                         dataSource:
                           table: events
                           filter:
@@ -123,8 +126,12 @@ components:
                           className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                         content: Seats taken
                       - type: list
-                        props:
-                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        # The column is narrow: each event's name takes the row's
+                        # full width and its seats sit on the line below.
+                        classes:
+                          parts:
+                            item: gap-y-1
+                            title: text-[13px] leading-[var(--text-base--line-height)]
                         dataSource:
                           table: events
                           filter:
@@ -132,6 +139,7 @@ components:
                           sort:
                             - { field: starts_at, direction: asc }
                         listDisplay:
+                          itemLayout: stacked
                           emptyMessage: Open events appear here with their seats taken. Create one with New event, then open it.
                           itemTemplate:
                             title: $record.name

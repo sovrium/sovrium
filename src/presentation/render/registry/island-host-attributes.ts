@@ -11,9 +11,9 @@
  * A generic renderer spreads the element props it is handed onto the element
  * it draws, so every component names its type (`data-component-type`) and
  * carries its author's `props.className` for free. An island host writes its
- * own `<div>` instead, and each one used to pick the attributes it forwarded
- * by hand — which is how most of them came to drop both. These two readers are
- * the one place that decides what the host forwards.
+ * own `<div>` instead, and a host picking the attributes it forwards by hand
+ * tends to drop both. These two readers are the one place that decides what
+ * the host forwards.
  */
 
 /** The `data-component-type` the renderer stamped on the element props, if any. */

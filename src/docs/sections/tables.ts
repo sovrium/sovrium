@@ -51,7 +51,7 @@ export const tables = defineSection({
       slug: 'tables-overview',
       title: 'Tables Overview',
       description:
-        'Configure data tables — structure, table-level properties, and base field properties shared by all 49 field types.',
+        'Configure data tables — structure, table-level properties, and base field properties shared by every field type.',
       keywords: [
         'sovrium',
         'tables',

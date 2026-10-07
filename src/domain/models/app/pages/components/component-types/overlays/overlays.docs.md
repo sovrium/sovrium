@@ -26,15 +26,13 @@ components:
 
 A modal dialog. The dialog itself declares no trigger: it is opened by a sibling whose `props.interactions.click.modal` names this dialog's `props.id`. Clicking the backdrop or pressing Escape closes it, and focus is trapped within the panel while it is open.
 
-Whether a dialog starts open depends on that opener. A dialog named by any `interactions.click.modal` in the page's configuration stays closed until it is opened — even when the trigger is not drawn yet, because it sits in a tab panel the reader has not opened or in another view of the page. A dialog nothing names opens on its own when the page loads.
+Whether a dialog starts open depends on that opener. A dialog named by any `interactions.click.modal` in the page's configuration stays closed until it is opened — even when the trigger is not drawn, because it sits in a tab panel the reader has not opened, in another view of the page, or behind a `visibility` rule that hides it on this record. A dialog is closed whenever its trigger is absent, whatever the reason. A dialog nothing names opens on its own when the page loads.
 
 <!-- sovrium:options type:dialog -->
 
 `props.id` is the identifier the opener names; `props.title` and `props.description` are the heading and the supporting line, and both accept a `$t:` key that prints the active language's text — in the dialog's accessible name too; `children` are rendered inside the panel; and `formRef` names a top-level form from `app.forms[]` to render in the body.
 
-A dialog has a close button in its header, named "Close" in the page language. A dialog that holds a form through `formRef` also offers a Cancel beside the form's submit, which closes the dialog without sending the form; both labels come from the page language, and an author renames them under `sovrium.dialog.close` and `sovrium.dialog.cancel`. A multi-step or one-question form keeps its own step buttons.
-
-A dialog wrapping a form shows one title: its own, or the form's when it declares none.
+A dialog has a close button in its header, named "Close" in the page language. A dialog that holds a form through `formRef` also offers a Cancel beside the form's submit, which closes the dialog without sending the form; both labels come from the page language, and an author renames them under `sovrium.dialog.close` and `sovrium.dialog.cancel`. A multi-step or one-question form keeps its own step buttons. A dialog wrapping a form shows one title: its own, or the form's when it declares none.
 
 **Write the heading and the supporting line inside `props`.** The option table above lists `title` and `description` because the schema declares them beside `type` as well, but only the `props` spelling reaches the panel today: a top-level `title` decodes cleanly and draws nothing. `hydrate` and `formRef` are the two keys this type reads from its own level.
 
@@ -42,9 +40,7 @@ A dialog wrapping a form shows one title: its own, or the form's when it declare
 
 A dialog normally mounts a small interactive component, which is what contains focus inside the panel while it is open and returns focus to the trigger when it closes. `hydrate: false` skips that entirely: the page's built-in click handling opens and closes the overlay, and the page downloads nothing for it.
 
-Everything else is the same — the same trigger, the same backdrop and Escape dismissal, the same close control, the same `children` and `formRef` in the body. What you give up is focus containment and focus restoration, so keep the default for anything holding a form, and reach for `hydrate: false` for read-only panels where the saving is worth more than the focus behaviour.
-
-It is written out rather than guessed at, because nothing else in the config implies it: a dialog with no form and no children still contains focus today, so inferring the mode from what a dialog holds would silently take that away.
+Everything else is the same — the same trigger, the same backdrop and Escape dismissal, the same close control, the same `children` and `formRef` in the body. What you give up is focus containment and focus restoration, so keep the default for anything holding a form, and reach for `hydrate: false` for read-only panels where the saving is worth more than the focus behaviour. It is written out rather than guessed at, because nothing else in the config implies it: a dialog with no form and no children still contains focus today, so inferring the mode from what a dialog holds would silently take that away.
 
 ```yaml
 - { type: button, content: Release notes, interactions: { click: { modal: notes } } }
@@ -64,6 +60,8 @@ A confirmation dialog for a destructive action, with explicit confirm and cancel
 <!-- sovrium:options type:alert-dialog -->
 
 `content` is the message, `confirmLabel` and `cancelLabel` the two buttons, `trigger` the element that opens it, and `action` what running the confirm does — typically a `crud` delete.
+
+`confirmText` asks for a typed confirmation: the dialog draws a field, and the confirm button stays disabled until the reader has typed exactly that text. Use it for what cannot be undone — deleting an account or everything in a workspace — and make it something the reader knows, such as `$session.email` or `$record.name`, rather than a fixed word.
 
 ## `drawer`
 
@@ -106,9 +104,7 @@ pages:
 
 #### Composing content beside the record
 
-`children` is the slot for content that belongs _about_ the record rather than _in_ it — a heading, a timeline of what happened to it, a line of commentary. It renders after the record's fields and before the footer `actions`, because the fields are the facts and the footer is where the reader acts on them. Omit it and the drawer renders exactly as it did before: no container, no separator, no spacer.
-
-A `$record.<field>` written anywhere inside the slot resolves against the record the drawer opened for. The drawer opens before it knows which record that is, so the value appears once the record arrives — the same moment the fields fill in.
+`children` is the slot for content that belongs _about_ the record rather than _in_ it — a heading, a timeline of what happened to it, a line of commentary. It renders after the record's fields and before the footer `actions`, because the fields are the facts and the footer is where the reader acts on them. Omit it and the drawer renders exactly as it did before: no container, no separator, no spacer. A `$record.<field>` written anywhere inside the slot resolves against the record the drawer opened for. The drawer opens before it knows which record that is, so the value appears once the record arrives — the same moment the fields fill in.
 
 #### Repeating a child once per element of an array
 
@@ -126,9 +122,7 @@ A record often carries a list inside itself: the steps of a run, the lines of an
 
 The container itself renders once; its children render once per element. Inside a copy, `$record.<key>` names a key on **that element** rather than on the drawer's record — the same grammar, re-scoped. The drawer's own fields stay reachable everywhere outside the repeat.
 
-`repeat` looks at what the drawer has already fetched; it never reads. An empty array, a missing field, or a field holding something that is not an array each render **zero copies** — never one unsubstituted template, which would ship `$record.` tokens to the browser as text and read as "this record has no steps". A key the element does not carry resolves to nothing, so a field that exists on the record but not on the element prints empty rather than leaking the record's value.
-
-A key holding an **object or an array** is left as its literal `$record.<key>` token instead of being printed. `[object Object]` looks like data, and an empty string is indistinguishable from a null value; a surviving token can only mean "this binding did not resolve", and it names the key that did not.
+`repeat` looks at what the drawer has already fetched; it never reads. An empty array, a missing field, or a field holding something that is not an array each render **zero copies** — never one unsubstituted template, which would ship `$record.` tokens to the browser as text and read as "this record has no steps". A key the element does not carry resolves to nothing, so a field that exists on the record but not on the element prints empty rather than leaking the record's value. A key holding an **object or an array** is left as its literal `$record.<key>` token instead of being printed. `[object Object]` looks like data, and an empty string is indistinguishable from a null value; a surviving token can only mean "this binding did not resolve", and it names the key that did not.
 
 #### Lists inside a list
 
@@ -195,6 +189,10 @@ A related section prints labels and money as the grid does: a relationship colum
 
 **Migrating from `record-drawer`:** rename the `type` to `drawer` and change nothing else. `dataSource`, `recordFields`, `canEdit`, `actions`, `role` and `id` all carry over unchanged, and a drawer additionally accepts `drawerSide` and `drawerSize`. The `dataSource` is what makes it record-bound, so the renamed drawer still answers the same `openDrawer` row-click.
 
+#### Moving between records
+
+`navigation.siblings: true` adds Previous and Next to a record drawer opened from a table row. They step through the rows that table shows, in its current order, filter and page, and the address follows, so each step is a link. A drawer opened from its address alone has no list to step through and draws neither. `navigation.fullPage` adds an "Open full page" link to the record's own page, written with `$record.id`.
+
 ## `popover`
 
 A floating panel anchored to a trigger, opened on click.
@@ -221,10 +219,6 @@ A richer popover that opens on hover, for a profile preview or a link peek.
 
 A transient notification. Toasts are usually emitted from an action's `onSuccess` or `onError` handler rather than placed in the tree directly; page-level placement is configured on the page itself.
 
-`toast` declares no schema option of its own — its fields ride in the open `props` bag. `variant` is `success`, `error`, `warning`, `info`, `default` or `destructive`; `message` is the text and substitutes `$variable` references; `duration` is the auto-dismiss time in milliseconds, defaulting to 5000; `actionLabel` and `actionUrl` add an action button.
+`toast` declares no schema option of its own — its fields ride in the open `props` bag. `variant` is `success`, `error`, `warning`, `info`, `default` or `destructive`; `message` is the text and substitutes `$variable` references; `duration` is the auto-dismiss time in milliseconds, defaulting to 5000; `actionLabel` and `actionUrl` add an action button. Two kinds are left off the timer: one whose `variant` is `error` or `destructive`, and one that renders an action button (`actionLabel` together with `actionUrl`). A failure nobody read is a failure that did not happen, and an action that expires before it is reached is not an action.
 
-Two kinds are left off the timer: one whose `variant` is `error` or `destructive`, and one that renders an action button (`actionLabel` together with `actionUrl`). A failure nobody read is a failure that did not happen, and an action that expires before it is reached is not an action.
-
-Neither one is stranded either. A toast that is not on a timer carries a close button, and `Escape` clears the most recent one, so a reader who is done with it never has to leave it holding the corner of the screen. Each kind still ends its own way as well: an action toast goes when its button is used, and any toast goes when the page changes. A toast that does expire on its own carries no close button.
-
-An `error` or `destructive` toast is also announced urgently to assistive technology, interrupting whatever is being read; every other toast waits its turn. An explicit `duration` overrides all of this, an error included. Multiple toasts stack without overlapping.
+Neither one is stranded either. A toast that is not on a timer carries a close button, and `Escape` clears the most recent one, so a reader who is done with it never has to leave it holding the corner of the screen. Each kind still ends its own way as well: an action toast goes when its button is used, and any toast goes when the page changes. A toast that does expire on its own carries no close button. An `error` or `destructive` toast is also announced urgently to assistive technology, interrupting whatever is being read; every other toast waits its turn. An explicit `duration` overrides all of this, an error included. Multiple toasts stack without overlapping.

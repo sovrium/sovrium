@@ -27,8 +27,6 @@
  * contract is the caller's job.
  */
 
-/* eslint-disable unicorn/no-null -- `nextCursor` is a nullable contract field: `null` is the wire value, and `undefined` would drop the key from the JSON entirely. */
-
 import { Effect } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import { buildCatalog, dbEntry, configEntry, primaryDestination } from './catalog'
@@ -182,5 +180,3 @@ export const readLinkEntry = (input: {
     const state = yield* resolveEntryState(app.name, entry, now)
     return { entry, state }
   }).pipe(Effect.withSpan('links.read-entry'))
-
-/* eslint-enable unicorn/no-null */

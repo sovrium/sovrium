@@ -31,13 +31,10 @@
  *    {@link rewriteConsoleRootPath} moves onto the mount the document is
  *    actually served at.
  *
- * The second used to be the SERVER's problem too: the per-request surfaces
- * built under `application/use-cases/admin/dashboard-surfaces/` wrote absolute
- * links and were re-pointed on their way out. There are none left — every
- * console destination is an authored preset page, so its links are
- * mount-relative like everything else — and the only reader now is the island
- * bundle, which is built once, ahead of any request, and so cannot bake in a
- * base at all.
+ * The second is not the SERVER's problem: every console destination is an
+ * authored preset page, so its links are mount-relative like everything else.
+ * The only reader is the island bundle, which is built once, ahead of any
+ * request, and so cannot bake in a base at all.
  *
  * With the base fixed at `/_admin`, that rewrite is an exact IDENTITY today and
  * the sentinel and the base hold the same string. Both survive because they are
@@ -158,15 +155,13 @@ export const DEFAULT_ADMIN_MOUNT_PATH = '/_admin'
  * and the renderer that points at it
  * (`presentation/render/registry/design-components.tsx`). A literal written
  * twice is a frame that silently 404s the day one of them moves — and a 404
- * inside an `<iframe>` is invisible above the fold, which is precisely the
- * class of failure that made the review row this capability answers.
+ * inside an `<iframe>` is invisible above the fold.
  *
- * `component-frame` and not `preview`: the retired `/preview/:section` routes
- * were whole DESTINATIONS a reader could open, and they were retired because a
- * second host for the same content is a second place for the scheme and the
- * bounds to disagree. This is the inside of a frame — linked from nothing,
- * carrying no chrome, embeddable only by its own origin — so it takes a name
- * that cannot be mistaken for the thing that was removed.
+ * `component-frame` and not `preview`: a `preview` route reads as a whole
+ * DESTINATION a reader could open, and a second host for the same content is a
+ * second place for the scheme and the bounds to disagree. This is the inside of
+ * a frame — linked from nothing, carrying no chrome, embeddable only by its own
+ * origin — so it takes a name that cannot be mistaken for a destination.
  */
 export const COMPONENT_FRAME_BASE = '/design-system/component-frame'
 

@@ -74,7 +74,7 @@ export const EnvVarSchema = Schema.Struct({
    *
    * Why a per-declaration flag rather than a schema-level annotation: the
    * `secret` ANNOTATION flagged as the longer-term fix in
-   * `[internal ref]` marks a FIELD as always-credential-bearing
+   * the admin config schema requirement marks a FIELD as always-credential-bearing
    * (`clientSecret`, `hmac.secret`, `password`). `app.env[].default` is not
    * statically one or the other — `default: '3000'` on `PORT` and
    * `default: 'sk_live_…'` on `STRIPE_KEY` are the same field, and only the

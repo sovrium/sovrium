@@ -22563,6 +22563,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                       ],
+                                      capability: 'edit-operations',
                                       label: '',
                                       type: 'actions',
                                     },
@@ -23307,6 +23308,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               label: '$t:admin.automations.runs.detail.retry',
                               type: 'button',
                               variant: 'secondary',
+                              visibility: {
+                                capability: 'edit-operations',
+                              },
                             },
                           ],
                           element: 'div',
@@ -25027,12 +25031,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             mode: 'multiple',
                           },
                           toolbar: {
-                            columnToggle: true,
-                            density: true,
                             filters: true,
-                            groupBy: true,
                             sort: true,
-                            views: true,
                           },
                           type: 'table',
                         },
@@ -31923,6 +31923,12 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                   label: 'Open',
                                 },
+                              ],
+                              label: 'Actions',
+                              type: 'actions',
+                            },
+                            {
+                              actions: [
                                 {
                                   action: {
                                     method: 'DELETE',
@@ -31956,7 +31962,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                               ],
-                              label: 'Actions',
+                              capability: 'edit-operations',
+                              label: '',
                               type: 'actions',
                             },
                           ],
@@ -32046,6 +32053,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             className: 'flex flex-col gap-3',
                           },
                           type: 'container',
+                          visibility: {
+                            capability: 'edit-operations',
+                          },
                         },
                       ],
                       element: 'div',
@@ -33009,6 +33019,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           },
                           type: 'container',
                           visibility: {
+                            capability: 'edit-operations',
                             record: {
                               eq: 'db',
                               field: 'source',
@@ -34244,6 +34255,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               },
                             },
                           ],
+                          capability: 'edit-operations',
                           label: '$t:admin.connections.col.actions',
                           type: 'actions',
                         },
@@ -35875,6 +35887,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                           type: 'button',
                                           variant: 'secondary',
+                                          visibility: {
+                                            capability: 'edit-operations',
+                                          },
                                         },
                                       ],
                                       element: 'div',
@@ -35980,6 +35995,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                   },
                                                   type: 'button',
                                                   variant: 'secondary',
+                                                  visibility: {
+                                                    capability: 'edit-operations',
+                                                  },
                                                 },
                                               ],
                                               element: 'div',
@@ -39666,6 +39684,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
+                                          href: '/design-system/ui-kit/rating',
+                                          label: 'rating',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-rating',
+                                          },
+                                        },
+                                        {
                                           href: '/design-system/ui-kit/record-picker',
                                           label: 'record-picker',
                                           props: {
@@ -39685,6 +39710,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'select',
                                           props: {
                                             'data-testid': 'design-system-nav-type-select',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/signature-pad',
+                                          label: 'signature-pad',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-signature-pad',
                                           },
                                         },
                                         {
@@ -39799,6 +39831,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
+                                          href: '/design-system/ui-kit/map',
+                                          label: 'map',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-map',
+                                          },
+                                        },
+                                        {
                                           href: '/design-system/ui-kit/matrix',
                                           label: 'matrix',
                                           props: {
@@ -39810,6 +39849,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'table',
                                           props: {
                                             'data-testid': 'design-system-nav-type-table',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/tree',
+                                          label: 'tree',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-tree',
                                           },
                                         },
                                       ],
@@ -39892,6 +39938,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'code',
                                           props: {
                                             'data-testid': 'design-system-nav-type-code',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/file-preview',
+                                          label: 'file-preview',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-file-preview',
                                           },
                                         },
                                         {
@@ -40025,6 +40078,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'scroll-area',
                                           props: {
                                             'data-testid': 'design-system-nav-type-scroll-area',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/stepper',
+                                          label: 'stepper',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-stepper',
                                           },
                                         },
                                         {
@@ -40945,7 +41005,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                               },
                                                               striped: true,
                                                               toolbar: {
-                                                                density: true,
                                                                 filters: true,
                                                                 search: true,
                                                               },
@@ -42948,7 +43007,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                         className:
                                                           'border-border text-foreground hover:bg-background-subtle rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
                                                         'data-design-kit-type': 'link',
-                                                        href: '/en/docs/design',
+                                                        href: 'https://sovrium.com/en/docs/design',
                                                       },
                                                       type: 'link',
                                                     },
@@ -43265,7 +43324,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                             className:
                                                               'border-border text-foreground hover:bg-background-subtle rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
                                                             'data-design-kit-type': 'link',
-                                                            href: '/en/docs/design-components',
+                                                            href: 'https://sovrium.com/en/docs/design-components',
                                                           },
                                                           type: 'link',
                                                         },
@@ -43622,7 +43681,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                             className:
                                                               'border-border text-foreground hover:bg-background-subtle rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
                                                             'data-design-kit-type': 'link',
-                                                            href: '/en/docs/design-components',
+                                                            href: 'https://sovrium.com/en/docs/design-components',
                                                           },
                                                           type: 'link',
                                                         },
@@ -45402,7 +45461,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                         className:
                                                           'border-border text-foreground hover:bg-background-subtle rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
                                                         'data-design-kit-type': 'link',
-                                                        href: '/en/docs/design',
+                                                        href: 'https://sovrium.com/en/docs/design',
                                                       },
                                                       type: 'link',
                                                     },
@@ -49543,6 +49602,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
+                                          href: '/design-system/ui-kit/rating',
+                                          label: 'rating',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-rating',
+                                          },
+                                        },
+                                        {
                                           href: '/design-system/ui-kit/record-picker',
                                           label: 'record-picker',
                                           props: {
@@ -49562,6 +49628,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'select',
                                           props: {
                                             'data-testid': 'design-system-nav-type-select',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/signature-pad',
+                                          label: 'signature-pad',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-signature-pad',
                                           },
                                         },
                                         {
@@ -49676,6 +49749,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
+                                          href: '/design-system/ui-kit/map',
+                                          label: 'map',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-map',
+                                          },
+                                        },
+                                        {
                                           href: '/design-system/ui-kit/matrix',
                                           label: 'matrix',
                                           props: {
@@ -49687,6 +49767,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'table',
                                           props: {
                                             'data-testid': 'design-system-nav-type-table',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/tree',
+                                          label: 'tree',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-tree',
                                           },
                                         },
                                       ],
@@ -49769,6 +49856,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'code',
                                           props: {
                                             'data-testid': 'design-system-nav-type-code',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/file-preview',
+                                          label: 'file-preview',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-file-preview',
                                           },
                                         },
                                         {
@@ -49902,6 +49996,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           label: 'scroll-area',
                                           props: {
                                             'data-testid': 'design-system-nav-type-scroll-area',
+                                          },
+                                        },
+                                        {
+                                          href: '/design-system/ui-kit/stepper',
+                                          label: 'stepper',
+                                          props: {
+                                            'data-testid': 'design-system-nav-type-stepper',
                                           },
                                         },
                                         {
@@ -50446,6 +50547,50 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                   type: 'text',
                                                   visibility: {
                                                     record: {
+                                                      eq: 'map',
+                                                      field: 'type',
+                                                    },
+                                                  },
+                                                },
+                                                {
+                                                  content: '1 variant',
+                                                  element: 'span',
+                                                  type: 'text',
+                                                  visibility: {
+                                                    record: {
+                                                      eq: 'tree',
+                                                      field: 'type',
+                                                    },
+                                                  },
+                                                },
+                                                {
+                                                  content: '1 variant',
+                                                  element: 'span',
+                                                  type: 'text',
+                                                  visibility: {
+                                                    record: {
+                                                      eq: 'file-preview',
+                                                      field: 'type',
+                                                    },
+                                                  },
+                                                },
+                                                {
+                                                  content: '1 variant',
+                                                  element: 'span',
+                                                  type: 'text',
+                                                  visibility: {
+                                                    record: {
+                                                      eq: 'signature-pad',
+                                                      field: 'type',
+                                                    },
+                                                  },
+                                                },
+                                                {
+                                                  content: '1 variant',
+                                                  element: 'span',
+                                                  type: 'text',
+                                                  visibility: {
+                                                    record: {
                                                       eq: 'qr-code',
                                                       field: 'type',
                                                     },
@@ -50678,6 +50823,17 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                   visibility: {
                                                     record: {
                                                       eq: 'timeline',
+                                                      field: 'type',
+                                                    },
+                                                  },
+                                                },
+                                                {
+                                                  content: '1 variant',
+                                                  element: 'span',
+                                                  type: 'text',
+                                                  visibility: {
+                                                    record: {
+                                                      eq: 'stepper',
                                                       field: 'type',
                                                     },
                                                   },
@@ -52576,6 +52732,424 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                               visibility: {
                                                 record: {
                                                   eq: 'matrix',
+                                                  field: 'type',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'default',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              props: {
+                                                                'data-design-kit-type': 'specimen',
+                                                              },
+                                                              subject: {
+                                                                type: 'map',
+                                                              },
+                                                              type: 'specimen',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'contents',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: true,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              content: '$record.refusalReason',
+                                                              element: 'p',
+                                                              props: {
+                                                                className:
+                                                                  'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
+                                                                'data-design-refusal': 'true',
+                                                              },
+                                                              type: 'text',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border bg-background-subtle flex flex-col gap-2 rounded-md border border-dashed p-4',
+                                                            'data-design-specimen-state':
+                                                              '$record.refusalState',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: false,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                      ],
+                                                      element: 'article',
+                                                      props: {
+                                                        className: 'w-full',
+                                                        'data-design-drawing': 'default',
+                                                        'data-design-specimen': 'map',
+                                                        'data-testid':
+                                                          'design-system-specimen-map-default',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className:
+                                                      'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                    'data-design-preview-card': 'true',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-3',
+                                                'data-design-section': 'design-system-type-default',
+                                                'data-design-type-section': 'default',
+                                                'data-testid': 'design-system-specimen-map',
+                                                id: 'design-system-type-default',
+                                              },
+                                              type: 'container',
+                                              visibility: {
+                                                record: {
+                                                  eq: 'map',
+                                                  field: 'type',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'default',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              props: {
+                                                                'data-design-kit-type': 'specimen',
+                                                              },
+                                                              subject: {
+                                                                type: 'tree',
+                                                              },
+                                                              type: 'specimen',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'contents',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: true,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              content: '$record.refusalReason',
+                                                              element: 'p',
+                                                              props: {
+                                                                className:
+                                                                  'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
+                                                                'data-design-refusal': 'true',
+                                                              },
+                                                              type: 'text',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border bg-background-subtle flex flex-col gap-2 rounded-md border border-dashed p-4',
+                                                            'data-design-specimen-state':
+                                                              '$record.refusalState',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: false,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                      ],
+                                                      element: 'article',
+                                                      props: {
+                                                        className: 'w-full',
+                                                        'data-design-drawing': 'default',
+                                                        'data-design-specimen': 'tree',
+                                                        'data-testid':
+                                                          'design-system-specimen-tree-default',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className:
+                                                      'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                    'data-design-preview-card': 'true',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-3',
+                                                'data-design-section': 'design-system-type-default',
+                                                'data-design-type-section': 'default',
+                                                'data-testid': 'design-system-specimen-tree',
+                                                id: 'design-system-type-default',
+                                              },
+                                              type: 'container',
+                                              visibility: {
+                                                record: {
+                                                  eq: 'tree',
+                                                  field: 'type',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'default',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              props: {
+                                                                'data-design-kit-type': 'specimen',
+                                                              },
+                                                              subject: {
+                                                                type: 'file-preview',
+                                                              },
+                                                              type: 'specimen',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'contents',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: true,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              content: '$record.refusalReason',
+                                                              element: 'p',
+                                                              props: {
+                                                                className:
+                                                                  'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
+                                                                'data-design-refusal': 'true',
+                                                              },
+                                                              type: 'text',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border bg-background-subtle flex flex-col gap-2 rounded-md border border-dashed p-4',
+                                                            'data-design-specimen-state':
+                                                              '$record.refusalState',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: false,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                      ],
+                                                      element: 'article',
+                                                      props: {
+                                                        className: 'w-full',
+                                                        'data-design-drawing': 'default',
+                                                        'data-design-specimen': 'file-preview',
+                                                        'data-testid':
+                                                          'design-system-specimen-file-preview-default',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className:
+                                                      'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                    'data-design-preview-card': 'true',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-3',
+                                                'data-design-section': 'design-system-type-default',
+                                                'data-design-type-section': 'default',
+                                                'data-testid':
+                                                  'design-system-specimen-file-preview',
+                                                id: 'design-system-type-default',
+                                              },
+                                              type: 'container',
+                                              visibility: {
+                                                record: {
+                                                  eq: 'file-preview',
+                                                  field: 'type',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'default',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              props: {
+                                                                'data-design-kit-type': 'specimen',
+                                                              },
+                                                              subject: {
+                                                                type: 'signature-pad',
+                                                              },
+                                                              type: 'specimen',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'contents',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: true,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              content: '$record.refusalReason',
+                                                              element: 'p',
+                                                              props: {
+                                                                className:
+                                                                  'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
+                                                                'data-design-refusal': 'true',
+                                                              },
+                                                              type: 'text',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border bg-background-subtle flex flex-col gap-2 rounded-md border border-dashed p-4',
+                                                            'data-design-specimen-state':
+                                                              '$record.refusalState',
+                                                          },
+                                                          type: 'container',
+                                                          visibility: {
+                                                            record: {
+                                                              eq: false,
+                                                              field: 'drawable',
+                                                            },
+                                                          },
+                                                        },
+                                                      ],
+                                                      element: 'article',
+                                                      props: {
+                                                        className: 'w-full',
+                                                        'data-design-drawing': 'default',
+                                                        'data-design-specimen': 'signature-pad',
+                                                        'data-testid':
+                                                          'design-system-specimen-signature-pad-default',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className:
+                                                      'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                    'data-design-preview-card': 'true',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-3',
+                                                'data-design-section': 'design-system-type-default',
+                                                'data-design-type-section': 'default',
+                                                'data-testid':
+                                                  'design-system-specimen-signature-pad',
+                                                id: 'design-system-type-default',
+                                              },
+                                              type: 'container',
+                                              visibility: {
+                                                record: {
+                                                  eq: 'signature-pad',
                                                   field: 'type',
                                                 },
                                               },
@@ -58717,6 +59291,242 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                               visibility: {
                                                 record: {
                                                   eq: 'timeline',
+                                                  field: 'type',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'default',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'current',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  children: [
+                                                                    {
+                                                                      content:
+                                                                        'Name the project and its client.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                    {
+                                                                      content:
+                                                                        'Add a billing contact, or skip and add one later.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                    {
+                                                                      content:
+                                                                        'Check the details before the project is created.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                  ],
+                                                                  finishLabel: 'Create project',
+                                                                  props: {
+                                                                    className: 'w-full',
+                                                                    id: 'design-system-stepper-current',
+                                                                  },
+                                                                  steps: [
+                                                                    {
+                                                                      description:
+                                                                        'Who the project is for',
+                                                                      id: 'current-details',
+                                                                      label: 'Details',
+                                                                    },
+                                                                    {
+                                                                      description: 'Can wait',
+                                                                      id: 'current-billing',
+                                                                      label: 'Billing',
+                                                                    },
+                                                                    {
+                                                                      id: 'current-review',
+                                                                      label: 'Review',
+                                                                    },
+                                                                  ],
+                                                                  type: 'stepper',
+                                                                },
+                                                              ],
+                                                              element: 'article',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                'data-design-drawing': 'current',
+                                                                'data-design-specimen': 'stepper',
+                                                                'data-testid':
+                                                                  'design-system-specimen-stepper-current',
+                                                              },
+                                                              type: 'container',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                            'data-design-preview-card': 'true',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className: 'flex flex-col gap-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'optional',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  children: [
+                                                                    {
+                                                                      content:
+                                                                        'Name the project and its client.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                    {
+                                                                      content:
+                                                                        'Add a billing contact, or skip and add one later.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                    {
+                                                                      content:
+                                                                        'Check the details before the project is created.',
+                                                                      element: 'p',
+                                                                      props: {
+                                                                        className:
+                                                                          'text-foreground-subtle text-sm',
+                                                                      },
+                                                                      type: 'text',
+                                                                    },
+                                                                  ],
+                                                                  finishLabel: 'Create project',
+                                                                  props: {
+                                                                    className: 'w-full',
+                                                                    id: 'design-system-stepper-optional',
+                                                                  },
+                                                                  steps: [
+                                                                    {
+                                                                      description:
+                                                                        'Who the project is for',
+                                                                      id: 'optional-details',
+                                                                      label: 'Details',
+                                                                      optional: true,
+                                                                    },
+                                                                    {
+                                                                      description: 'Can wait',
+                                                                      id: 'optional-billing',
+                                                                      label: 'Billing',
+                                                                    },
+                                                                    {
+                                                                      id: 'optional-review',
+                                                                      label: 'Review',
+                                                                    },
+                                                                  ],
+                                                                  type: 'stepper',
+                                                                },
+                                                              ],
+                                                              element: 'article',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                'data-design-drawing': 'optional',
+                                                                'data-design-specimen': 'stepper',
+                                                                'data-testid':
+                                                                  'design-system-specimen-stepper-optional',
+                                                              },
+                                                              type: 'container',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                            'data-design-preview-card': 'true',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className: 'flex flex-col gap-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className: 'flex flex-col gap-4',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-3',
+                                                'data-design-section': 'design-system-type-default',
+                                                'data-design-type-section': 'default',
+                                                'data-testid': 'design-system-specimen-stepper',
+                                                id: 'design-system-type-default',
+                                              },
+                                              type: 'container',
+                                              visibility: {
+                                                record: {
+                                                  eq: 'stepper',
                                                   field: 'type',
                                                 },
                                               },
@@ -69383,85 +70193,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                       },
                                                       type: 'container',
                                                     },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: 'grouped',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                        {
-                                                          children: [
-                                                            {
-                                                              children: [
-                                                                {
-                                                                  columns: [
-                                                                    {
-                                                                      field: 'name',
-                                                                      label: 'Name',
-                                                                    },
-                                                                    {
-                                                                      field: 'role',
-                                                                      label: 'Role',
-                                                                    },
-                                                                    {
-                                                                      field: 'status',
-                                                                      label: 'Status',
-                                                                    },
-                                                                  ],
-                                                                  dataSource: {
-                                                                    system: {
-                                                                      endpoint:
-                                                                        '/api/admin/design-system/specimen-rows',
-                                                                      idKey: 'id',
-                                                                      query: {
-                                                                        rows: '3',
-                                                                      },
-                                                                      rowsKey: 'items',
-                                                                      totalKey: 'total',
-                                                                    },
-                                                                  },
-                                                                  emptyMessage: 'No specimen rows',
-                                                                  groupBy: {
-                                                                    field: 'status',
-                                                                  },
-                                                                  props: {
-                                                                    'aria-label': 'Specimen rows',
-                                                                    id: 'design-system-table-grouped',
-                                                                  },
-                                                                  type: 'table',
-                                                                },
-                                                              ],
-                                                              element: 'article',
-                                                              props: {
-                                                                className: 'w-full',
-                                                                'data-design-drawing': 'grouped',
-                                                                'data-design-specimen': 'table',
-                                                                'data-testid':
-                                                                  'design-system-specimen-table-grouped',
-                                                              },
-                                                              type: 'container',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className:
-                                                              'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                            'data-design-preview-card': 'true',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className: 'flex flex-col gap-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
                                                   ],
                                                   element: 'div',
                                                   props: {
@@ -74777,6 +75508,407 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           visibility: {
                                             record: {
                                               eq: 'timeline',
+                                              field: 'type',
+                                            },
+                                          },
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'Orientation',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  content: 'stepper.orientation',
+                                                  element: 'p',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground-subtle font-mono text-[11px]',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'orientation: horizontal',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'flex flex-wrap items-baseline gap-x-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  content:
+                                                                    'Name the project and its client.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Add a billing contact, or skip and add one later.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Check the details before the project is created.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                              ],
+                                                              finishLabel: 'Create project',
+                                                              orientation: 'horizontal',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                id: 'design-system-stepper-horizontal',
+                                                              },
+                                                              steps: [
+                                                                {
+                                                                  description:
+                                                                    'Who the project is for',
+                                                                  id: 'horizontal-details',
+                                                                  label: 'Details',
+                                                                },
+                                                                {
+                                                                  description: 'Can wait',
+                                                                  id: 'horizontal-billing',
+                                                                  label: 'Billing',
+                                                                },
+                                                                {
+                                                                  id: 'horizontal-review',
+                                                                  label: 'Review',
+                                                                },
+                                                              ],
+                                                              type: 'stepper',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'w-full',
+                                                            'data-design-specimen': 'stepper',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                        'data-design-preview-card': 'true',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className: 'flex flex-col gap-2',
+                                                    'data-design-option': 'orientation: horizontal',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'orientation: vertical',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'flex flex-wrap items-baseline gap-x-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  content:
+                                                                    'Name the project and its client.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Add a billing contact, or skip and add one later.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Check the details before the project is created.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                              ],
+                                                              finishLabel: 'Create project',
+                                                              orientation: 'vertical',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                id: 'design-system-stepper-vertical',
+                                                              },
+                                                              steps: [
+                                                                {
+                                                                  description:
+                                                                    'Who the project is for',
+                                                                  id: 'vertical-details',
+                                                                  label: 'Details',
+                                                                },
+                                                                {
+                                                                  description: 'Can wait',
+                                                                  id: 'vertical-billing',
+                                                                  label: 'Billing',
+                                                                },
+                                                                {
+                                                                  id: 'vertical-review',
+                                                                  label: 'Review',
+                                                                },
+                                                              ],
+                                                              type: 'stepper',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'w-full',
+                                                            'data-design-specimen': 'stepper',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                        'data-design-preview-card': 'true',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className: 'flex flex-col gap-2',
+                                                    'data-design-option': 'orientation: vertical',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-4',
+                                                'data-design-option-section': 'orientation',
+                                                'data-design-section':
+                                                  'design-system-option-stepper-orientation',
+                                                id: 'design-system-option-stepper-orientation',
+                                              },
+                                              type: 'container',
+                                            },
+                                            {
+                                              children: [
+                                                {
+                                                  content: 'Linear',
+                                                  element: 'h2',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground text-lg font-semibold tracking-tight',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  content: 'stepper.linear',
+                                                  element: 'p',
+                                                  props: {
+                                                    className:
+                                                      'text-foreground-subtle font-mono text-[11px]',
+                                                  },
+                                                  type: 'text',
+                                                },
+                                                {
+                                                  children: [
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'linear: false',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'flex flex-wrap items-baseline gap-x-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  content:
+                                                                    'Name the project and its client.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Add a billing contact, or skip and add one later.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                                {
+                                                                  content:
+                                                                    'Check the details before the project is created.',
+                                                                  element: 'p',
+                                                                  props: {
+                                                                    className:
+                                                                      'text-foreground-subtle text-sm',
+                                                                  },
+                                                                  type: 'text',
+                                                                },
+                                                              ],
+                                                              finishLabel: 'Create project',
+                                                              linear: false,
+                                                              props: {
+                                                                className: 'w-full',
+                                                                id: 'design-system-stepper-free',
+                                                              },
+                                                              steps: [
+                                                                {
+                                                                  description:
+                                                                    'Who the project is for',
+                                                                  id: 'free-details',
+                                                                  label: 'Details',
+                                                                },
+                                                                {
+                                                                  description: 'Can wait',
+                                                                  id: 'free-billing',
+                                                                  label: 'Billing',
+                                                                },
+                                                                {
+                                                                  id: 'free-review',
+                                                                  label: 'Review',
+                                                                },
+                                                              ],
+                                                              type: 'stepper',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className: 'w-full',
+                                                            'data-design-specimen': 'stepper',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className:
+                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                        'data-design-preview-card': 'true',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                  ],
+                                                  element: 'div',
+                                                  props: {
+                                                    className: 'flex flex-col gap-2',
+                                                    'data-design-option': 'linear: false',
+                                                  },
+                                                  type: 'container',
+                                                },
+                                              ],
+                                              element: 'section',
+                                              props: {
+                                                className: 'flex scroll-mt-6 flex-col gap-4',
+                                                'data-design-option-section': 'linear',
+                                                'data-design-section':
+                                                  'design-system-option-stepper-linear',
+                                                id: 'design-system-option-stepper-linear',
+                                              },
+                                              type: 'container',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          props: {
+                                            className: 'flex flex-col gap-8',
+                                          },
+                                          type: 'container',
+                                          visibility: {
+                                            record: {
+                                              eq: 'stepper',
                                               field: 'type',
                                             },
                                           },
@@ -102371,9 +103503,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                 'aria-label': 'Specimen rows',
                                                                 id: 'tbl-col-visible',
                                                               },
-                                                              toolbar: {
-                                                                columnToggle: true,
-                                                              },
                                                               type: 'table',
                                                             },
                                                           ],
@@ -104273,97 +105402,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                       children: [
                                                         {
                                                           content:
-                                                            'toolbar: { groupBy: true, columnToggle: true }',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-tb-group',
-                                                              },
-                                                              toolbar: {
-                                                                columnToggle: true,
-                                                                groupBy: true,
-                                                              },
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      'toolbar: { groupBy: true, columnToggle: true }',
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content:
-                                                            'toolbar: { export: true, refresh: true, density: true }',
+                                                            'toolbar: { export: true, refresh: true }',
                                                           element: 'span',
                                                           props: {
                                                             className:
@@ -104416,7 +105455,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                 id: 'tbl-tb-rest',
                                                               },
                                                               toolbar: {
-                                                                density: true,
                                                                 export: true,
                                                                 refresh: true,
                                                               },
@@ -104444,101 +105482,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                   props: {
                                                     className: 'flex flex-col gap-2',
                                                     'data-design-option':
-                                                      'toolbar: { export: true, refresh: true, density: true }',
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content:
-                                                            'toolbar: { views: true, viewSwitcher: true }',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              kanbanGroupBy: {
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-tb-views',
-                                                              },
-                                                              toolbar: {
-                                                                viewSwitcher: true,
-                                                                views: true,
-                                                              },
-                                                              type: 'table',
-                                                              views: ['grid', 'kanban'],
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      'toolbar: { views: true, viewSwitcher: true }',
+                                                      'toolbar: { export: true, refresh: true }',
                                                   },
                                                   type: 'container',
                                                 },
@@ -104637,495 +105581,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                 'data-design-section':
                                                   'design-system-option-table-toolbar',
                                                 id: 'design-system-option-table-toolbar',
-                                              },
-                                              type: 'container',
-                                            },
-                                            {
-                                              children: [
-                                                {
-                                                  content: 'Grouping',
-                                                  element: 'h2',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground text-lg font-semibold tracking-tight',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                                {
-                                                  content: 'table.groupBy',
-                                                  element: 'p',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground-subtle font-mono text-[11px]',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: "groupBy: { field: 'status' }",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              groupBy: {
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-grp-one',
-                                                              },
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      "groupBy: { field: 'status' }",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content:
-                                                            "groupBy: { field: 'status', thenBy: [{ field: 'priority' }] }",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              groupBy: {
-                                                                field: 'status',
-                                                                thenBy: [
-                                                                  {
-                                                                    field: 'priority',
-                                                                  },
-                                                                ],
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-grp-two',
-                                                              },
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      "groupBy: { field: 'status', thenBy: [{ field: 'priority' }] }",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: 'collapsed: true',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              groupBy: {
-                                                                collapsed: true,
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-grp-collapsed',
-                                                              },
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option': 'collapsed: true',
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: "direction: 'desc'",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              groupBy: {
-                                                                direction: 'desc',
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-grp-desc',
-                                                              },
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option': "direction: 'desc'",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: 'with summaries',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                                {
-                                                                  align: 'right',
-                                                                  field: 'amount',
-                                                                  format: 'currency',
-                                                                  label: 'Amount',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              groupBy: {
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-grp-summary',
-                                                              },
-                                                              summary: [
-                                                                {
-                                                                  field: 'amount',
-                                                                  function: 'sum',
-                                                                  label: 'Total',
-                                                                },
-                                                              ],
-                                                              type: 'table',
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option': 'with summaries',
-                                                  },
-                                                  type: 'container',
-                                                },
-                                              ],
-                                              element: 'section',
-                                              props: {
-                                                className: 'flex scroll-mt-6 flex-col gap-4',
-                                                'data-design-option-section': 'grouping',
-                                                'data-design-section':
-                                                  'design-system-option-table-grouping',
-                                                id: 'design-system-option-table-grouping',
                                               },
                                               type: 'container',
                                             },
@@ -105790,406 +106245,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                 'data-design-section':
                                                   'design-system-option-table-pagination',
                                                 id: 'design-system-option-table-pagination',
-                                              },
-                                              type: 'container',
-                                            },
-                                            {
-                                              children: [
-                                                {
-                                                  content: 'Views',
-                                                  element: 'h2',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground text-lg font-semibold tracking-tight',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                                {
-                                                  content:
-                                                    'table.views[] | viewLabels | kanbanGroupBy | dateField',
-                                                  element: 'p',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground-subtle font-mono text-[11px]',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content:
-                                                            "views: ['grid', 'kanban'] · kanbanGroupBy",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              kanbanGroupBy: {
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-view-kanban',
-                                                              },
-                                                              toolbar: {
-                                                                viewSwitcher: true,
-                                                              },
-                                                              type: 'table',
-                                                              views: ['grid', 'kanban'],
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      "views: ['grid', 'kanban'] · kanbanGroupBy",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content:
-                                                            "views: ['grid', 'calendar'] · dateField",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              dateField: 'startsAt',
-                                                              emptyMessage: 'No specimen rows',
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-view-calendar',
-                                                              },
-                                                              toolbar: {
-                                                                viewSwitcher: true,
-                                                              },
-                                                              type: 'table',
-                                                              views: ['grid', 'calendar'],
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      "views: ['grid', 'calendar'] · dateField",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: "views: ['grid', 'gallery']",
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-view-gallery',
-                                                              },
-                                                              toolbar: {
-                                                                viewSwitcher: true,
-                                                              },
-                                                              type: 'table',
-                                                              views: ['grid', 'gallery'],
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option':
-                                                      "views: ['grid', 'gallery']",
-                                                  },
-                                                  type: 'container',
-                                                },
-                                                {
-                                                  children: [
-                                                    {
-                                                      children: [
-                                                        {
-                                                          content: 'viewLabels: { … }',
-                                                          element: 'span',
-                                                          props: {
-                                                            className:
-                                                              'text-foreground font-mono text-[11px]',
-                                                          },
-                                                          type: 'text',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'flex flex-wrap items-baseline gap-x-2',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                    {
-                                                      children: [
-                                                        {
-                                                          children: [
-                                                            {
-                                                              columns: [
-                                                                {
-                                                                  field: 'name',
-                                                                  label: 'Name',
-                                                                },
-                                                                {
-                                                                  field: 'role',
-                                                                  label: 'Role',
-                                                                },
-                                                                {
-                                                                  field: 'status',
-                                                                  label: 'Status',
-                                                                },
-                                                              ],
-                                                              dataSource: {
-                                                                system: {
-                                                                  endpoint:
-                                                                    '/api/admin/design-system/specimen-rows',
-                                                                  idKey: 'id',
-                                                                  query: {
-                                                                    rows: '3',
-                                                                  },
-                                                                  rowsKey: 'items',
-                                                                  totalKey: 'total',
-                                                                },
-                                                              },
-                                                              emptyMessage: 'No specimen rows',
-                                                              kanbanGroupBy: {
-                                                                field: 'status',
-                                                              },
-                                                              props: {
-                                                                'aria-label': 'Specimen rows',
-                                                                id: 'tbl-view-labels',
-                                                              },
-                                                              toolbar: {
-                                                                viewSwitcher: true,
-                                                              },
-                                                              type: 'table',
-                                                              viewLabels: {
-                                                                grid: 'List',
-                                                                kanban: 'Pipeline',
-                                                              },
-                                                              views: ['grid', 'kanban'],
-                                                            },
-                                                          ],
-                                                          element: 'div',
-                                                          props: {
-                                                            className: 'w-full',
-                                                            'data-design-specimen': 'table',
-                                                          },
-                                                          type: 'container',
-                                                        },
-                                                      ],
-                                                      element: 'div',
-                                                      props: {
-                                                        className:
-                                                          'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-                                                        'data-design-preview-card': 'true',
-                                                      },
-                                                      type: 'container',
-                                                    },
-                                                  ],
-                                                  element: 'div',
-                                                  props: {
-                                                    className: 'flex flex-col gap-2',
-                                                    'data-design-option': 'viewLabels: { … }',
-                                                  },
-                                                  type: 'container',
-                                                },
-                                              ],
-                                              element: 'section',
-                                              props: {
-                                                className: 'flex scroll-mt-6 flex-col gap-4',
-                                                'data-design-option-section': 'views',
-                                                'data-design-section':
-                                                  'design-system-option-table-views',
-                                                id: 'design-system-option-table-views',
                                               },
                                               type: 'container',
                                             },
@@ -115418,6 +115473,42 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
+                                          content: 'Orientation',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle hover:text-foreground hover:bg-background-subtle transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium',
+                                            'data-design-kit-type': 'link',
+                                            'data-design-rail-entry':
+                                              'design-system-option-stepper-orientation',
+                                            href: '#design-system-option-stepper-orientation',
+                                          },
+                                          type: 'link',
+                                          visibility: {
+                                            record: {
+                                              eq: 'stepper',
+                                              field: 'type',
+                                            },
+                                          },
+                                        },
+                                        {
+                                          content: 'Linear',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle hover:text-foreground hover:bg-background-subtle transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium',
+                                            'data-design-kit-type': 'link',
+                                            'data-design-rail-entry':
+                                              'design-system-option-stepper-linear',
+                                            href: '#design-system-option-stepper-linear',
+                                          },
+                                          type: 'link',
+                                          visibility: {
+                                            record: {
+                                              eq: 'stepper',
+                                              field: 'type',
+                                            },
+                                          },
+                                        },
+                                        {
                                           content: 'Label',
                                           props: {
                                             className:
@@ -117164,24 +117255,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           },
                                         },
                                         {
-                                          content: 'Grouping',
-                                          props: {
-                                            className:
-                                              'text-foreground-subtle hover:text-foreground hover:bg-background-subtle transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium',
-                                            'data-design-kit-type': 'link',
-                                            'data-design-rail-entry':
-                                              'design-system-option-table-grouping',
-                                            href: '#design-system-option-table-grouping',
-                                          },
-                                          type: 'link',
-                                          visibility: {
-                                            record: {
-                                              eq: 'table',
-                                              field: 'type',
-                                            },
-                                          },
-                                        },
-                                        {
                                           content: 'Summary',
                                           props: {
                                             className:
@@ -117208,24 +117281,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                             'data-design-rail-entry':
                                               'design-system-option-table-pagination',
                                             href: '#design-system-option-table-pagination',
-                                          },
-                                          type: 'link',
-                                          visibility: {
-                                            record: {
-                                              eq: 'table',
-                                              field: 'type',
-                                            },
-                                          },
-                                        },
-                                        {
-                                          content: 'Views',
-                                          props: {
-                                            className:
-                                              'text-foreground-subtle hover:text-foreground hover:bg-background-subtle transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium',
-                                            'data-design-kit-type': 'link',
-                                            'data-design-rail-entry':
-                                              'design-system-option-table-views',
-                                            href: '#design-system-option-table-views',
                                           },
                                           type: 'link',
                                           visibility: {

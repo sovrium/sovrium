@@ -18,7 +18,7 @@ import { type AuthFormField, type FieldErrors } from './auth-form-validation'
  * a `<label>`-associated input and an inline-error region.
  *
  * The input is **uncontrolled** (`defaultValue` + native DOM value): the
- * `aria-invalid` flag and the inline-error `<div id="<name>-error">` are the
+ * `aria-invalid` flag and the inline-error `<div id={field.errorId}>` are the
  * only React-driven parts. Keeping the input uncontrolled avoids a
  * controlled-input reconciliation race where a blur-triggered re-render could
  * reset the DOM value before the matching `onChange` state update flushes —
@@ -54,12 +54,8 @@ export function AuthFieldRow({
   readonly error: string | undefined
   readonly onBlur: (name: string, value: string) => void
 }) {
-  const autoComplete =
-    field.inputType === 'email'
-      ? 'email'
-      : field.inputType === 'password'
-        ? 'new-password'
-        : undefined
+  // The server scopes it per form; a payload without one keeps the bare id.
+  const errorId = field.errorId ?? `${field.name}-error`
   return (
     <div data-field={field.name}>
       <label className={computeFormFieldClasses()}>
@@ -68,10 +64,11 @@ export function AuthFieldRow({
           type={field.inputType}
           data-component-type="input"
           name={field.name}
-          autoComplete={autoComplete}
+          autoComplete={field.autoComplete}
+          inputMode={field.inputMode}
           defaultValue={defaultValue}
           aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={`${field.name}-error`}
+          aria-describedby={errorId}
           // Wire the auth island into the canonical, theme-aware input recipe
           // so it renders full-width + bordered + focus ring, matching
           // the design-system auth-layout scene. `error` maps to the 'error'
@@ -79,12 +76,11 @@ export function AuthFieldRow({
           // identical to CRUD forms.
           className={computeInputDefaultClasses({ state: error ? 'error' : 'default' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- closure over field.name; blur fires once per field interaction
           onBlur={(e) => onBlur(field.name, e.target.value)}
         />
       </label>
       <div
-        id={`${field.name}-error`}
+        id={errorId}
         className={computeFormFieldErrorClasses()}
         style={INLINE_ERROR_STYLE}
         {...(error ? {} : { 'data-error-empty': '' })}

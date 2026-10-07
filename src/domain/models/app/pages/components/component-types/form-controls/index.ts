@@ -29,3 +29,5 @@ export {
   richTextEditorFields,
 } from './rich-text-editor'
 export { CodeEditorTypeLiteral, codeEditorFields } from './code-editor'
+export { RatingTypeLiteral, ratingFields } from './rating'
+export { SignaturePadTypeLiteral, signaturePadFields } from './signature-pad'

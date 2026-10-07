@@ -24,7 +24,7 @@
  *
  * Allowing the console to re-enable a link the file turned off would be the
  * console overruling a reviewed artefact — config mutation wearing a data-shaped
- * disguise, which is exactly what [internal ref] D2 exists to prevent. Refusing it in
+ * disguise, which is exactly what the links-are-records design exists to prevent. Refusing it in
  * both directions when config already says "off" keeps the file authoritative
  * without making the kill switch conditional on where the link was declared.
  *

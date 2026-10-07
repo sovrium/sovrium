@@ -9,19 +9,14 @@
  * Which `design` keys the compiled stylesheet depends on, and the cache key
  * derived from them.
  *
- * ## Why this module exists, and why it now covers everything
+ * ## Why this module exists, and why it covers everything
  *
- * It used to hold three narrow segments — `density`, `components`, `typeScale` —
- * appended to a key whose main term was `JSON.stringify(app.design)`. That was
- * safe for one structural reason and no other: every other CSS-bearing token
- * lived INSIDE `app.design`, so hashing the container wholesale covered all of
- * them for free. Only the three keys that had escaped the container to sit on
- * `design` needed naming here.
- *
- * [internal ref] removes the container. `colors`, `spacing`, `radius`, `elevation`,
- * `breakpoints` and the rest are now direct keys of `design`, so the wholesale
- * hash that used to cover them covers nothing, and a three-key list would leave
- * a palette out of the cache key entirely. The failure that produces is not a
+ * A key made of a wholesale container hash plus a few named segments would be
+ * safe only if every other CSS-bearing token lived INSIDE that container. The
+ * single-design-schema rule has no container: `colors`, `spacing`, `radius`,
+ * `elevation`, `breakpoints` and the rest are direct keys of `design`, so a
+ * short list of named keys (say `density`, `components`, `typeScale`) would
+ * leave a palette out of the cache key entirely. The failure that produces is not a
  * stale render but a CROSS-APP one: two apps sharing a candidate corpus and
  * differing only in their colours would key identically, and whichever compiled
  * first would have its stylesheet served to the other.

@@ -70,7 +70,7 @@ export const OAuthServerEnvSchema = Schema.Struct({
  * Cursor and ChatGPT Dev Mode all register BEFORE any browser session exists,
  * so an operator running Sovrium as a public MCP server must be able to
  * re-open it. That is an operator posture, not app-author intent, so it is an
- * env var and not an `app.auth.oauthServer.*` schema field (the [internal ref]
+ * env var and not an `app.auth.oauthServer.*` schema field (the env-configured MCP server design
  * env-var-vs-schema split).
  *
  * An unparseable value is treated as `false` — the safe direction. A typo

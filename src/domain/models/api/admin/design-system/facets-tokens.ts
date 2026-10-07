@@ -250,7 +250,7 @@ export const designTokenRowSchema = Schema.Struct({
   // ─── THE CONTRAST TRIPLE ──────────────────────────────────────────────────
   //
   // `contrastLevel` is the machine value a page stamps; `contrastRatio` is the
-  // NUMBER, not the rendered `17.40:1`. [internal ref]: the ratio is a fact and the
+  // NUMBER, not the rendered `17.40:1`. The facts-not-strings rule: the ratio is a fact and the
   // page composes the `:1` beside it, where a pre-rendered string would freeze
   // a two-decimal formatting choice into a published contract.
   //
@@ -359,7 +359,7 @@ export const designTokenRowSchema = Schema.Struct({
   // `text-*` utilities resolve to, a build constant that takes no app. (It read
   // "Tailwind's own" until the ladder moved into the `--text-*` namespace and
   // became Sovrium's; before that no utility read it at all.)
-  // `[internal ref]` draws BOTH: the operator's declared step, and the
+  // An admin design system spec draws BOTH: the operator's declared step, and the
   // platform ladder beside it for an app that declared none. These two fields
   // are the declared half, and keeping them apart is what stops one being read
   // as the other — which is the whole reason the platform ladder got its own
@@ -379,7 +379,7 @@ export const designTokenRowSchema = Schema.Struct({
   // here: `design.typeScale.*.lineHeight` is a unitless ratio typed
   // `Schema.Number`, and DTCG types `lineHeight` the same way. Publishing
   // `'1.1'` would freeze `String(1.1)`'s formatting into a published contract,
-  // which is the objection [internal ref] raises against `contrastRatio` being
+  // which is the objection the facts-not-strings rule raises against `contrastRatio` being
   // pre-rendered as `17.40:1` — the page composes what it prints.
   //
   // Absent both for a non-typography row AND for a declared step that named no

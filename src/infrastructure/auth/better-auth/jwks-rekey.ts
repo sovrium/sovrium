@@ -89,7 +89,6 @@ const isReadable = async (privateKey: string, secret: string): Promise<boolean> 
   try {
     const payload: unknown = JSON.parse(privateKey)
     if (typeof payload !== 'string') return true
-    // eslint-disable-next-line functional/no-expression-statements -- a probe: the plaintext is irrelevant, only whether decryption succeeds
     await symmetricDecrypt({ key: secret, data: payload })
     return true
   } catch {
@@ -122,7 +121,6 @@ export const rekeyUnreadableJwks = async (): Promise<number> =>
       )
       const staleIds = verdicts.filter((verdict) => !verdict.readable).map((verdict) => verdict.id)
       if (staleIds.length === 0) return 0
-      // eslint-disable-next-line functional/no-expression-statements -- the repair itself; Better Auth re-creates the key on the next signing request
       await db.delete(jwks).where(inArray(jwks.id, staleIds))
       return staleIds.length
     } catch {

@@ -104,7 +104,6 @@ export const coerceEmptySelectToNull = (
   return Object.fromEntries(
     Object.entries(fields).map(([key, value]): readonly [string, unknown] => {
       if (!typedColumns.has(key)) return [key, value]
-      // eslint-disable-next-line unicorn/no-null -- SQL NULL is the target value, not "absent": `undefined` is dropped from the INSERT, which would fall back to the column default rather than storing "no answer"
       if (value === '') return [key, null]
       return [key, value]
     })

@@ -10,7 +10,10 @@ import {
   InvitationTokenDatabaseError,
   InvitationTokenRepository,
 } from '@/application/ports/repositories/auth/invitation-token-repository'
-import { findInvitationToken } from '@/infrastructure/auth/better-auth/invitation-queries'
+import {
+  findInvitationToken,
+  listPendingInvitations,
+} from '@/infrastructure/auth/better-auth/invitation-queries'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 /** Wrap a DB promise, adapting failures to `InvitationTokenDatabaseError`. */
@@ -29,4 +32,5 @@ const wrap = makeDbWrap((cause) => new InvitationTokenDatabaseError({ cause }))
  */
 export const InvitationTokenRepositoryLive = Layer.succeed(InvitationTokenRepository, {
   findByToken: (token: string) => wrap(() => findInvitationToken(token)),
+  listPending: wrap(() => listPendingInvitations()),
 })

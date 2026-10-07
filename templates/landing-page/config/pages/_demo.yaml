@@ -18,25 +18,27 @@ children:
     props:
       className: text-[16px] text-foreground-muted
     content: $t:band.lead
-  # The card around the form lays its four fields out two by two; the classes
-  # reach into the form the engine draws, by its own class names.
+  # The card around the form. The form lays its four fields out two by two
+  # through its own parts: the heading, the fields' grid, the controls, the
+  # submit button and the error line.
   - type: container
     props:
-      className: >-
-        mt-2 w-full max-w-[680px] rounded-lg border border-border bg-background-raised p-6 text-left shadow-sm
-        [&_.embedded-form]:!block [&_.form-title]:text-[20px] [&_.form-title]:leading-[1.35] [&_.form-title]:font-semibold
-        [&_.form-title]:text-foreground [&_.form-description]:mt-1 [&_.form-description]:mb-4
-        [&_.form-description]:text-[15px] [&_.form-description]:text-foreground-muted
-        [&_form]:grid [&_form]:grid-cols-2 [&_form]:gap-x-4 [&_form]:gap-y-3.5 max-md:[&_form]:grid-cols-1
-        [&_form_input]:w-full [&_form_select]:w-full [&_form>button]:col-span-full [&_form>button]:justify-self-end
-        [&_form>button]:h-9 [&_form>button]:text-[13px] max-md:[&_form>button]:w-full
-        [&_form_input]:h-10 [&_form_select]:h-10 [&_form_label]:text-[13px]
-        [&_.field-error]:text-[13px] [&_.field-error]:text-error
+      className: mt-2 w-full max-w-[680px] rounded-lg border border-border bg-background-raised p-6 text-left shadow-sm
     children:
       - type: form
         formRef: demo-request
         props:
           headingLevel: h3
+        classes:
+          parts:
+            root: '!block'
+            title: text-[20px] leading-[1.35] font-semibold text-foreground
+            description: mt-1 mb-4 text-[15px] text-foreground-muted
+            body: grid grid-cols-2 gap-x-4 gap-y-3.5 max-md:grid-cols-1
+            input: w-full h-10
+            label: text-[13px] leading-[19px]
+            submit: col-span-full justify-self-end h-9 text-[13px] leading-5 max-md:w-full
+            error: text-[13px] text-error
       - type: text
         element: p
         props:

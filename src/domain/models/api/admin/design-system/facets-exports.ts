@@ -25,7 +25,7 @@ export const designSystemExportFormatSchema = Schema.Literals(['json', 'md']).an
  * The approved reference for the "For agents" page prints *11.2 KB · 178 lines
  * · 13 sections* beside each download. Those are illustrative numbers from one
  * app: on any other instance they are wrong, and nothing would ever say so.
- * `[internal ref]` closes that by fetching the export and comparing —
+ * An admin design system spec closes that by fetching the export and comparing —
  * so the page has to read the real measurement rather than carry a literal, and
  * a config page cannot count bytes.
  *
@@ -44,7 +44,7 @@ export const designSystemExportFormatSchema = Schema.Literals(['json', 'md']).an
  *
  * ─── `excerpt`, AND WHY THE PAGE CANNOT SETTLE FOR A LINK ──────────────────
  *
- * A link says a file exists. `[internal ref]` additionally requires
+ * A link says a file exists. An admin design system spec additionally requires
  * each card to show more than two lines of the real document, because an
  * operator about to paste their whole design system into someone else's
  * context window should be able to see what they are handing over without

@@ -12,14 +12,16 @@ import {
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
 import { computeFormLayoutClasses } from '../../../design/forms-default-classes'
+import { resolveClasses } from '../../../design/resolve-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
+import { buildResolvedFieldDefs, updateFieldDefsForReader } from './crud-form-field-resolver'
 import {
-  buildCreateFieldDefs,
-  buildResolvedFieldDefs,
-  updateFieldDefsForReader,
-} from './crud-form-field-resolver'
-import { applyInlineCrudPrefill } from './crud-form-inline-prefill'
-import { buildCrudIslandProps, readAutoSaveConfig } from './crud-form-island-props'
+  buildAutomationIslandProps,
+  buildCrudIslandProps,
+  formLayoutProps,
+  readAutoSaveConfig,
+} from './crud-form-island-props'
+import { readFormSections, renderSectionedFields } from './crud-form-sections'
 import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skeleton'
 import type { ElementProps } from '../html-element-renderer'
 import type {
@@ -64,26 +66,33 @@ function formUiStrings(
 }
 
 /**
- * The author's `id` and `data-testid` name the `<form>` a reader fills in, not
- * the island host around it: the island draws the same names on its own form,
- * so a host carrying them too would give one page two elements per name.
+ * The author's `id`, `data-testid` and `className` belong to the `<form>` a
+ * reader fills in, not the island host around it: the island draws them on its
+ * own form, so a host carrying them too would give one page two elements per
+ * name. The `className` is merged over the form's layout classes.
  */
 function formNames(props: ElementProps): {
   readonly id?: string
   readonly 'data-testid'?: string
+  readonly className: string
 } {
-  const { id, 'data-testid': testId } = props as Record<string, unknown>
+  const { id, 'data-testid': testId, className } = props as Record<string, unknown>
   return {
+    className: resolveClasses(computeFormLayoutClasses(), undefined, authorClass(className)),
     ...(typeof id === 'string' && { id }),
     ...(typeof testId === 'string' && { 'data-testid': testId }),
   }
 }
+
+const authorClass = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined
 
 /** The island host's attributes: the element props minus the names the form carries. */
 function hostProps(props: ElementProps): ElementProps {
   const {
     id: _id,
     'data-testid': _testId,
+    className: _className,
     ...rest
   } = omitInternalMarkers(props) as Record<string, unknown>
   return rest as ElementProps
@@ -95,9 +104,8 @@ function hostProps(props: ElementProps): ElementProps {
  * which may themselves be `$t:key` references) through the page language.
  *
  * Overrides target a field by `name` (the table column name); fields not listed
- * keep their localized table-derived label. Mirrors the auth-form
- * `applyFieldOverrides` helper. Always runs so a built-in label that is itself a
- * `$t:key` (rare) is still localized.
+ * keep their localized table-derived label, and a choice field's option labels
+ * are localized too. Always runs so a built-in `$t:key` label is localized.
  */
 function applyCrudFieldOverrides(
   fields: readonly ResolvedFieldDef[],
@@ -110,87 +118,9 @@ function applyCrudFieldOverrides(
     const displayLabel = localize(override?.label ?? field.displayLabel, context)
     const rawPlaceholder = override?.placeholder ?? field.placeholder
     const placeholder = rawPlaceholder !== undefined ? localize(rawPlaceholder, context) : undefined
-    return { ...field, displayLabel, ...(placeholder !== undefined && { placeholder }) }
+    const options = field.options?.map((o) => ({ ...o, label: localize(o.label, context) }))
+    return { ...field, displayLabel, options, ...(placeholder !== undefined && { placeholder }) }
   })
-}
-
-// ---------------------------------------------------------------------------
-// Island props builders
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Create form
-// ---------------------------------------------------------------------------
-
-export function renderCrudCreateForm(
-  props: ElementProps,
-  action: CrudFormAction,
-  tables?: Tables,
-  component?: Component,
-  buckets?: Buckets,
-  context: CrudFormRenderContext = {}
-): ReactElement {
-  const baseFields = applyInlineCrudPrefill(
-    buildCreateFieldDefs(tables, action.table, component, buckets),
-    component
-  )
-  const fields = applyCrudFieldOverrides(baseFields, action.fields, context)
-  const submitBtn = readSubmitButtonProps(action, context, component)
-  const { layout, fieldGroups, wizardSteps } = readLayoutOptions(component)
-  const islandProps = buildCrudIslandProps({
-    operation: 'create',
-    action,
-    fields,
-    testId: props['data-testid'],
-    id: props.id,
-    buttonLabel: submitBtn.label,
-    variant: submitBtn.variant,
-    layout,
-    fieldGroups,
-    wizard: wizardSteps,
-    autoSave: readAutoSaveConfig(component),
-    uiStrings: formUiStrings(context),
-  })
-
-  return (
-    <div
-      {...hostProps(props)}
-      data-island="crud-form"
-      data-island-props={islandProps}
-    >
-      {/* SSR skeleton — the first paint, replaced by the island. The records
-          API takes JSON, which only the island sends, so the skeleton's submit
-          is drawn disabled (blocking Enter too) and the form posts, never GETs:
-          a press before the script ran used to put every field in the URL. */}
-      <form
-        className={computeFormLayoutClasses()}
-        aria-label={`Create ${action.table}`}
-        {...formNames(props)}
-        method="post"
-        data-action-type="crud"
-        data-action-method="create"
-        data-action-table={action.table}
-        {...(layout && { 'data-layout': layout })}
-        {...(action.onSuccess?.navigate && {
-          'data-on-success-redirect': action.onSuccess.navigate,
-        })}
-        noValidate
-      >
-        {fields.map((field) => renderSkeletonField(field))}
-        <div
-          data-error-summary
-          hidden
-        />
-        <button
-          type="submit"
-          disabled
-          {...(submitBtn.variant && { 'data-variant': submitBtn.variant })}
-        >
-          {submitBtn.label ?? formString('form.create', context)}
-        </button>
-      </form>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -203,24 +133,10 @@ function buildUpdateFormAction(tableName: string, recordId: string): string {
     : `/api/tables/${tableName}/records/update`
 }
 
-type FieldGroupsArray =
-  readonly { readonly label: string; readonly fields: readonly string[] }[] | undefined
-
-type WizardStepsArray =
-  readonly { readonly label: string; readonly fields: readonly string[] }[] | undefined
-
-function readLayoutOptions(component?: Component): {
-  readonly layout: string | undefined
-  readonly fieldGroups: FieldGroupsArray
-  readonly wizardSteps: WizardStepsArray
-} {
-  const componentRecord = (component ?? {}) as Record<string, unknown>
-  const wizardConfig = componentRecord['wizard'] as { readonly steps: WizardStepsArray } | undefined
-  return {
-    layout: componentRecord['layout'] as string | undefined,
-    fieldGroups: componentRecord['fieldGroups'] as FieldGroupsArray,
-    wizardSteps: wizardConfig?.steps,
-  }
+/** The form's declared `layout`, if any. */
+function readLayout(component?: Component): string | undefined {
+  const layout = (component as Record<string, unknown> | undefined)?.['layout']
+  return typeof layout === 'string' ? layout : undefined
 }
 
 /**
@@ -266,7 +182,8 @@ export function renderCrudUpdateForm(
   // attempt a submit.
   const fields = isReadOnly ? rawFields.map((f) => ({ ...f, disabled: true })) : rawFields
   const recordId = String(record['id'] ?? '')
-  const { layout, fieldGroups } = readLayoutOptions(component)
+  const layout = readLayout(component)
+  const sections = readFormSections(component, (text) => localize(text, context))
   const islandProps = buildCrudIslandProps({
     operation: 'update',
     action,
@@ -275,10 +192,11 @@ export function renderCrudUpdateForm(
     recordId,
     testId: restProps['data-testid'],
     id: restProps['id'],
+    className: authorClass(restProps['className']),
     buttonLabel: submitBtn.label,
     variant: submitBtn.variant,
-    layout,
-    fieldGroups,
+    ...formLayoutProps(component),
+    sections,
     autoSave: readAutoSaveConfig(component),
     uiStrings: formUiStrings(context),
   })
@@ -291,7 +209,6 @@ export function renderCrudUpdateForm(
       data-island-props={islandProps}
     >
       <form
-        className={computeFormLayoutClasses()}
         aria-label={`Edit ${action.table}`}
         {...formNames(restProps as ElementProps)}
         method="POST"
@@ -310,7 +227,7 @@ export function renderCrudUpdateForm(
           name="_redirect"
           value={action.onSuccess?.navigate ?? ''}
         />
-        {fields.map((f) => renderUpdateSkeletonField(f, record))}
+        {renderSectionedFields(fields, sections, (f) => renderUpdateSkeletonField(f, record))}
         {!isReadOnly && (
           <button type="submit">{submitBtn.label ?? formString('form.update', context)}</button>
         )}
@@ -338,34 +255,6 @@ export type AutomationFormAction = {
   }
 }
 
-function buildAutomationIslandProps(ctx: {
-  readonly automationName: string
-  readonly inputData: Record<string, unknown> | undefined
-  readonly fields: readonly ResolvedFieldDef[]
-  readonly redirectUrl: string | undefined
-  readonly successToast: NonNullable<AutomationFormAction['onSuccess']>['toast'] | undefined
-  readonly buttonLabel: string | undefined
-  readonly variant: string | undefined
-  readonly testId: unknown
-  readonly id: unknown
-  readonly uiStrings: Readonly<Record<string, string>> | undefined
-}): string {
-  return JSON.stringify({
-    operation: 'automation',
-    automationName: ctx.automationName,
-    inputData: ctx.inputData,
-    table: '',
-    fields: ctx.fields,
-    redirectUrl: ctx.redirectUrl,
-    successToast: ctx.successToast,
-    buttonLabel: ctx.buttonLabel,
-    variant: ctx.variant,
-    'data-testid': ctx.testId,
-    id: ctx.id,
-    uiStrings: ctx.uiStrings,
-  })
-}
-
 export function renderAutomationForm(
   props: ElementProps,
   action: AutomationFormAction,
@@ -377,9 +266,9 @@ export function renderAutomationForm(
   const componentRecord = (component ?? {}) as Record<string, unknown>
   const dataSource = componentRecord['dataSource'] as { table?: string } | undefined
   const tableName = dataSource?.table ?? ''
-  const fields = buildResolvedFieldDefs(tables, tableName, component, buckets)
-  // Automation actions have no action-level submit label; reuse the helper with
-  // an action carrying only the table identity so it falls back to props.label.
+  const resolved = buildResolvedFieldDefs(tables, tableName, component, buckets)
+  const fields = applyCrudFieldOverrides(resolved, undefined, context) // labels in the page language
+  // No action-level submit label: an action naming only the table falls back to props.label.
   const submitBtn = readSubmitButtonProps(
     { type: 'automation', operation: 'automation', table: tableName },
     context,
@@ -395,6 +284,7 @@ export function renderAutomationForm(
     variant: submitBtn.variant,
     testId: props['data-testid'],
     id: props.id,
+    className: authorClass(props.className),
     uiStrings: formUiStrings(context),
   })
 
@@ -405,10 +295,9 @@ export function renderAutomationForm(
       data-island-props={islandProps}
     >
       {/* SSR skeleton, replaced by the island: an automation is triggered over
-          JSON only, so — like the create form — the submit waits disabled for
+          JSON only, so the submit waits disabled for
           the island and the form posts, never GETs. */}
       <form
-        className={computeFormLayoutClasses()}
         aria-label={`Submit ${action.name}`}
         {...formNames(props)}
         method="post"

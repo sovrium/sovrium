@@ -26,8 +26,8 @@ export const ArrayFieldSchema = BaseFieldSchema.pipe(
         }),
         // Refused HERE, at config validation, rather than by the database.
         // The generator appends `[]` to this value and hands the result to
-        // `CREATE TABLE`, so an unrecognised spelling used to surface as a
-        // startup DDL failure that stopped the server from booting at all.
+        // `CREATE TABLE`, so an unrecognised spelling would otherwise surface as
+        // a startup DDL failure that stops the server from booting at all.
         Schema.check(
           Schema.makeFilter(
             (value) =>

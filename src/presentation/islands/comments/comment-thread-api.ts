@@ -50,7 +50,6 @@ export async function postComment(input: {
     }
   )
   if (!response.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to post comment (${response.status})`)
   }
   return (await response.json()) as CommentCreateResponse
@@ -72,7 +71,6 @@ export async function patchComment(input: {
     }
   )
   if (!response.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to update comment (${response.status})`)
   }
 }
@@ -87,7 +85,6 @@ export async function deleteCommentApi(input: {
     { method: 'DELETE', credentials: 'include' }
   )
   if (!response.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to delete comment (${response.status})`)
   }
 }

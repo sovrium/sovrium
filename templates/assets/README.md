@@ -34,6 +34,13 @@ where it is:
   see what should be there.
 - **Locations** — the offices, the storeroom, the repair shop, and Remote for kit that lives
   at someone's home.
+- On the first of each month, the register written to a dated CSV file under `exports/` in the
+  app's storage, with the columns an accountant's fixed-asset ledger asks for.
+- Optional: each asset event — a check-out, a repair, a return — posted to a Microsoft Teams
+  channel. It is the `record-to-teams-channel` recipe from the Sovrium library (`sovrium
+library add recipe/record-to-teams-channel`); set `MICROSOFT_CLIENT_ID`,
+  `MICROSOFT_CLIENT_SECRET`, `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID` to turn it on — without
+  them the app runs exactly the same.
 
 A holder is a person with an account, never a name typed into the asset's name, and each
 hand-over is a check-out with its return date. Every asset has a unique tag and a unique
@@ -83,6 +90,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

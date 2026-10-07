@@ -72,7 +72,7 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
         .values({
           name: definition.name,
           trigger: definition.trigger,
-          actions: definition.actions as readonly Record<string, unknown>[],
+          actions: definition.actions,
           enabled: definition.enabled ?? true,
         })
         .returning()
@@ -91,7 +91,6 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
 
   delete: (id) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
       await db.delete(automationDefinitions).where(eq(automationDefinitions.id, id))
     }),
 })

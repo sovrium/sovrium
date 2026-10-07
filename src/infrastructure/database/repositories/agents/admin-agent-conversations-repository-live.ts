@@ -56,7 +56,6 @@ const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
  * dialects render the same `"agent_name" is null` — the one place PG and
  * SQLite could have been made to differ by an `= NULL` spelling.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `SQL` condition type is intrinsically mutable; the sibling `build*Conditions` helpers hand back the same shape inside a ReadonlyArray
 const agentScopeCondition = (agentName: string): SQL =>
   isSystemAgentName(agentName)
     ? isNull(aiConversations.agentName)

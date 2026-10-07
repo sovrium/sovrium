@@ -8,20 +8,10 @@
 import { humanizeFieldName } from '@/presentation/design/string-utils'
 import type { RecordButtonConfig } from '../../runtime/record-button'
 import type { FieldType } from '@/domain/models/app/tables/fields'
-import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
-
-/**
- * A single conditional rule used by visibleWhen / requiredWhen / disabledWhen.
- * Mirrors the domain VisibleWhenCondition shape without importing from domain layer.
- */
-export type ConditionRule =
-  | {
-      readonly field: string
-      readonly operator: string
-      readonly value?: string | number | boolean
-    }
-  | { readonly or: readonly ConditionRule[] }
-  | { readonly and: readonly ConditionRule[] }
+import type {
+  ChoiceOption,
+  TypedColumnConfig,
+} from '@/presentation/design/field-control-attributes'
 
 /**
  * Field definition consumed by the CRUD form island.
@@ -41,7 +31,8 @@ export interface FieldDef extends TypedColumnConfig {
    */
   readonly type: FieldType
   readonly required?: boolean
-  readonly options?: readonly string[]
+  /** A choice field's options: the stored `value` and the `label` the control offers. */
+  readonly options?: readonly ChoiceOption[]
   /**
    * The bound column's declared `format` (`barcode`). Carried into the island
    * because it decides whether an untouched empty value may be written at all
@@ -69,17 +60,8 @@ export interface FieldDef extends TypedColumnConfig {
   readonly description?: string
   readonly defaultValue?: string | number | boolean
   readonly hidden?: boolean
-  readonly visibleWhen?: ConditionRule
-  readonly requiredWhen?: ConditionRule
-  readonly disabledWhen?: ConditionRule
   /** Storage bucket name used by the rich-text image button. */
   readonly imageBucket?: string
-  /** Accepted file MIME types / extensions (single-attachment, multiple-attachments). */
-  readonly accept?: string
-  /** Render drag-and-drop zone for file upload fields. */
-  readonly dropZone?: boolean
-  /** Maximum number of files (multiple-attachments). */
-  readonly maxFiles?: number
   /** Maximum file size in bytes (single-attachment, multiple-attachments). */
   readonly maxFileSize?: number
   /** Allowed MIME types for file upload fields (single-attachment, multiple-attachments). */
@@ -93,11 +75,8 @@ export interface FieldDef extends TypedColumnConfig {
   /**
    * Button-field config, present only on `type: 'button'` fields.
    *
-   * Deliberately separate from this type's `visibleWhen`: that one is the
-   * FORM's condition grammar (`{ field, operator, value }`) evaluated against
-   * the form's current values, while the button carries the TABLE's grammar
-   * (`{ field, eq, in, … }`) evaluated against a record. Folding them together
-   * would silently reinterpret one as the other.
+   * Its `visibleWhen` is the TABLE's condition grammar (`{ field, eq, in, … }`),
+   * evaluated against a record.
    */
   readonly button?: RecordButtonConfig
   // ── relationship (record picker) pass-throughs ─────────────────────────

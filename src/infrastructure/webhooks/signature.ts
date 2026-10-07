@@ -67,11 +67,8 @@ export const verifySignature = async (
   if (expected.length !== signature.length) return false
   const a = encoder.encode(expected)
   const b = encoder.encode(signature)
-  // eslint-disable-next-line functional/no-let
   let result = 0
-  // eslint-disable-next-line functional/no-loop-statements
   for (let i = 0; i < a.length; i++) {
-    // eslint-disable-next-line functional/no-expression-statements
     result |= a[i]! ^ b[i]!
   }
   return result === 0

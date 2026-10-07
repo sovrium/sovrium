@@ -136,7 +136,7 @@ const scheduleOne = (
  *
  * The cost is a paused cron job still waking the scheduler on its schedule and
  * being dropped — wasted ticks, never a wrong outcome, and self-correcting the
- * instant the pause is lifted with no restart ([internal ref] pins
+ * instant the pause is lifted with no restart (an automation pause spec pins
  * exactly that). Prefer the failure mode that is cheap and loud over the one
  * that is silent and wrong.
  */

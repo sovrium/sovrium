@@ -53,6 +53,20 @@ export interface FormPrefillContext {
   readonly now?: Date
   /** The column each field lands in, keyed by field name, so `$now` is written as it reads. */
   readonly columns?: Readonly<Record<string, NowTokenColumn>>
+  /** A private link this page was opened from: a resumed draft, or an edit. */
+  readonly link?: FormLinkState
+}
+
+/**
+ * What a resume or edit link brings to the page: the answers to restore (over
+ * every starting value), whether a resume link found nothing (the notice), and
+ * where the form posts instead of the plain submission endpoint.
+ */
+export interface FormLinkState {
+  readonly answers?: Readonly<Record<string, unknown>>
+  readonly unavailable?: boolean
+  readonly action?: string
+  readonly editing?: boolean
 }
 
 /** `$query.<name>`: the named query-string parameter, when present and non-empty. */

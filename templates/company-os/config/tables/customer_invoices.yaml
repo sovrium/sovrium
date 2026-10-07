@@ -1,0 +1,15 @@
+# The invoices the company issued, pulled each morning from Pennylane by the
+# library recipe in library/recipe/. They sit beside the clients and the deals,
+# so the team — and the assistant — can answer "what have we billed?" without
+# opening the accounting tool. Nobody types into this table: the recipe adds
+# each invoice it has not seen before.
+id: 9
+name: customer_invoices
+fields:
+  - { id: 1, name: pennylane_id, type: single-line-text }
+  - { id: 2, name: invoice_number, type: single-line-text }
+  - { id: 3, name: amount, type: decimal }
+  - { id: 4, name: invoice_date, type: date }
+  - { id: 5, name: status, type: single-line-text }
+permissions:
+  read: [admin]

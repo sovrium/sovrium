@@ -34,18 +34,17 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  *
  * The SET clause comes from the SINGLE shared builder
  * (`buildUpdateSetClauseCRUD`), the one the CRUD update and `batch-update`
- * already use. This helper used to carry its own copy that bound every value
- * with `sql\`${value}\``, and drizzle expands a JS array into a SQL ROW
- * CONSTRUCTOR — `['a','b']` became `($1, $2)`. Array-valued fields
- * (`multi-select`, `multiple-attachments`, any JSON column holding an array)
- * therefore failed by ARITY rather than by type: two or more elements raised a
- * row-constructor error, an empty array produced invalid syntax, and a
- * ONE-element array bound to `($1)` — legal scalar syntax — so the upsert
- * answered 200 and silently stored the bare string where the array belonged.
+ * already use. A private copy binding every value with `sql\`${value}\`` breaks
+ * arrays, because drizzle expands a JS array into a SQL ROW CONSTRUCTOR —
+ * `['a','b']` becomes `($1, $2)`. Array-valued fields (`multi-select`,
+ * `multiple-attachments`, any JSON column holding an array) would then fail by
+ * ARITY rather than by type: two or more elements raise a row-constructor
+ * error, an empty array produces invalid syntax, and a ONE-element array binds
+ * to `($1)` — legal scalar syntax — so the upsert answers 200 and silently
+ * stores the bare string where the array belongs.
  *
- * That is the same defect, through the same mechanism, that the batch CREATE
- * path carried: both had COPIED the clause builder instead of calling it.
- * Delegating is what stops a third copy from drifting back.
+ * Any path that COPIES the clause builder instead of calling it is exposed to
+ * the same defect, so every path delegates.
  */
 async function updateSingleRecord(
   tx: Readonly<DrizzleTransaction>,
@@ -288,35 +287,34 @@ function validateMergeFieldsPresent(
 }
 
 /**
- * Validate required fields are present in record (for creates)
- * This prevents database NOT NULL constraint violations
+ * The columns a create must supply: NOT NULL columns that have no DB-side
+ * default, minus the system fields the insert fills itself. Queried ONCE per
+ * batch (dialect-aware) — the table's shape does not change between records.
  */
-async function validateRequiredFieldsInRecord(
+async function requiredFieldsOf(
   tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  record: Readonly<Record<string, unknown>>,
-  recordIndex: number
+  tableName: string
 ): Promise<readonly string[]> {
-  // Query table schema (dialect-aware) to get required fields: NOT NULL
-  // columns that have no DB-side default.
   const columns = await listTableColumns(tx, databaseTableName(tableName))
-  const requiredFields = columns
-    .filter((col) => !col.isNullable && col.columnDefault === null)
-    .map((col) => col.name)
-
   // System fields that are auto-generated (exclude from validation). The
   // literal author columns are filled by `injectCreateAuthorship` on insert.
   const autoFields = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by'])
+  return columns
+    .filter((col) => !col.isNullable && col.columnDefault === null)
+    .map((col) => col.name)
+    .filter((field) => !autoFields.has(field))
+}
 
-  const missingFields = requiredFields.filter(
-    (field) => !autoFields.has(field) && !(field in record)
-  )
-
-  if (missingFields.length > 0) {
-    return [`Record ${recordIndex}: Missing required field(s) ${missingFields.join(', ')}`]
-  }
-
-  return []
+/** The required fields a record (for creates) lacks — a NOT NULL violation in waiting. */
+const missingRequiredFieldsIn = (
+  requiredFields: readonly string[],
+  record: Readonly<Record<string, unknown>>,
+  recordIndex: number
+): readonly string[] => {
+  const missingFields = requiredFields.filter((field) => !(field in record))
+  return missingFields.length > 0
+    ? [`Record ${recordIndex}: Missing required field(s) ${missingFields.join(', ')}`]
+    : []
 }
 
 /**
@@ -328,18 +326,17 @@ function validateAllRecordsHaveRequiredFields(
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<void, BatchValidationError> {
   return Effect.gen(function* () {
-    const allErrors = yield* Effect.reduce(
-      recordsData,
-      () => [] as readonly string[],
-      (acc, record, index) =>
-        Effect.tryPromise({
-          try: () => validateRequiredFieldsInRecord(tx, tableName, record, index),
-          catch: (error) =>
-            new BatchValidationError({
-              message: 'Failed to validate record',
-              details: [String(error)],
-            }),
-        }).pipe(Effect.map((recordErrors) => [...acc, ...recordErrors]))
+    if (recordsData.length === 0) return
+    const requiredFields = yield* Effect.tryPromise({
+      try: () => requiredFieldsOf(tx, tableName),
+      catch: (error) =>
+        new BatchValidationError({
+          message: 'Failed to validate record',
+          details: [String(error)],
+        }),
+    })
+    const allErrors = recordsData.flatMap((record, index) =>
+      missingRequiredFieldsIn(requiredFields, record, index)
     )
 
     if (allErrors.length > 0) {
@@ -397,13 +394,13 @@ export function upsertRecords(
       (error) => {
         if (error instanceof DatabaseError) return error
         // A constraint rejection from the create branch arrives typed, carrying
-        // the client-safe wording from `CONSTRAINT_MESSAGES`. It used to fall
-        // through to the wrap below, and because `ValidationError` carries no
-        // `cause` that wrap produced a `DatabaseError` with a dead chain — which
-        // `sanitizeError` can only read as an unexplained fault and answer 500.
-        // So the SAME caller mistake was a 400 through batch create and a 500
-        // through upsert, blaming the caller on one route and paging the
-        // operator on the other. The return type already admitted this class.
+        // the client-safe wording from `CONSTRAINT_MESSAGES`. Falling through to
+        // the wrap below would, because `ValidationError` carries no `cause`,
+        // produce a `DatabaseError` with a dead chain — which `sanitizeError`
+        // can only read as an unexplained fault and answer 500. The SAME caller
+        // mistake would then be a 400 through batch create and a 500 through
+        // upsert, blaming the caller on one route and paging the operator on
+        // the other. The return type already admitted this class.
         if (error instanceof ValidationError) return error
         if (error instanceof BatchValidationError) {
           // Re-wrap BatchValidationError as DatabaseError to match return type

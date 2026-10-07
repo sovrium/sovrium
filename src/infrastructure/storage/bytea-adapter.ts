@@ -5,17 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements, functional/no-throw-statements */
-
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import {
   UNATTRIBUTED_BUCKET,
   storageObjectNotFound,
+  uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
-import type { BucketBinding } from '@/application/ports/services/storage-service'
+import type { BucketBinding, UploadTarget } from '@/application/ports/services/storage-service'
 
 /**
  * The value the `bucket` column takes for a binding.
@@ -29,10 +28,8 @@ import type { BucketBinding } from '@/application/ports/services/storage-service
  * and would silently RETAIN it, letting an unattributed write inherit a bucket
  * it never asserted.
  */
-/* eslint-disable unicorn/no-null -- see above */
 export const bucketColumnValue = (bucket: BucketBinding): string | null =>
   bucket === UNATTRIBUTED_BUCKET ? null : bucket
-/* eslint-enable unicorn/no-null */
 
 /**
  * Does the bucket a caller named match the binding recorded for the object?
@@ -58,10 +55,10 @@ export const bucketBindingMatches = (
  * A write to a key nobody owns CREATES the binding; a write to a key this same
  * bucket already owns REPLACES the bytes, which is an ordinary re-upload. Any
  * other pairing is a REBIND, and a rebind is what turns a permissive bucket's
- * write right into a write right over every other bucket's objects: the catalog
- * upsert used to end `bucket = EXCLUDED.bucket`, so the read-side ownership
- * check introduced for the download path then compared against the value the
- * attacker had just written, and agreed.
+ * write right into a write right over every other bucket's objects: a catalog
+ * upsert ending `bucket = EXCLUDED.bucket` would let the read-side ownership
+ * check on the download path compare against the value the attacker had just
+ * written, and agree.
  *
  * Read the asymmetry with {@link bucketBindingMatches} deliberately, because the
  * two treat `UNATTRIBUTED_BUCKET` in opposite ways and both are correct:
@@ -116,20 +113,27 @@ export const byteaValidateAndInit = async (): Promise<void> => {
 /**
  * Upsert a file: write metadata row (or update on key conflict) and
  * upsert binary content keyed by the resulting metadata id.
+ *
+ * The target's `uploadedById` names the person behind the write, and is recorded
+ * only when the key is new. An overwrite replaces the bytes but never the
+ * uploader: re-recording it would hand the object to whoever wrote last, who
+ * could then delete it under the owner rule, and an unattributed road would
+ * strip it of the owner erasure finds it by.
  */
 export const byteaUpload = async (
   key: string,
   content: Uint8Array,
   mimeType: string,
-  bucket: BucketBinding
+  target: UploadTarget
 ): Promise<void> => {
+  const { bucket, uploadedById } = uploadTargetParts(target)
   const filename = key.split('/').at(-1) ?? key
   const buf = Buffer.from(content)
 
   const result = (await db.execute(sql`
     INSERT INTO system.file_storage_metadata
-      (key, filename, mime_type, size, storage_provider, bucket)
-    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)})
+      (key, filename, mime_type, size, storage_provider, bucket, uploaded_by_id)
+    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)}, ${uploadedById ?? null})
     ON CONFLICT (key) DO UPDATE SET
       filename = EXCLUDED.filename,
       mime_type = EXCLUDED.mime_type,
@@ -244,8 +248,10 @@ export const writeFileMetadata = async (file: {
   readonly size: number
   readonly storageProvider: string
   readonly bucket: BucketBinding
+  /** The person behind the write, recorded only when the key is new. */
+  readonly uploadedById?: string
 }): Promise<void> => {
-  const { key, mimeType, size, storageProvider } = file
+  const { key, mimeType, size, storageProvider, uploadedById } = file
   const filename = key.split('/').at(-1) ?? key
   // Strip MIME type parameters (e.g. "text/plain;charset=utf-8" → "text/plain")
   // so the stored value is always the canonical base type.
@@ -259,11 +265,20 @@ export const writeFileMetadata = async (file: {
   const ownerUnchanged = bucketValue === null ? isNull(files.bucket) : eq(files.bucket, bucketValue)
   const written = await db
     .insert(files)
-    .values({ key, filename, mimeType: baseMimeType, size, storageProvider, bucket: bucketValue })
+    .values({
+      key,
+      filename,
+      mimeType: baseMimeType,
+      size,
+      storageProvider,
+      bucket: bucketValue,
+      uploadedById: uploadedById ?? null,
+    })
     .onConflictDoUpdate({
       target: files.key,
       // `bucket` is absent from the SET list on purpose: a write REPLACES bytes,
-      // it never MOVES an object between buckets.
+      // it never MOVES an object between buckets. `uploadedById` is absent too:
+      // an overwrite never changes the recorded uploader (see `byteaUpload`).
       set: { filename, mimeType: baseMimeType, size, storageProvider },
       setWhere: ownerUnchanged,
     })
@@ -318,6 +333,7 @@ export const readFileMetadata = async (
       readonly size: number
       readonly lastModified: string
       readonly bucket: string | null
+      readonly uploadedBy: string | null
     }
   | undefined
 > => {
@@ -328,6 +344,7 @@ export const readFileMetadata = async (
       size: files.size,
       modified: files.createdAt,
       bucket: files.bucket,
+      uploadedBy: files.uploadedById,
     })
     .from(files)
     .where(eq(files.key, key))
@@ -345,5 +362,6 @@ export const readFileMetadata = async (
     size: Number(row.size),
     lastModified: modified,
     bucket: row.bucket,
+    uploadedBy: row.uploadedBy,
   }
 }

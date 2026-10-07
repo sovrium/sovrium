@@ -97,14 +97,12 @@ const resolveLang = (raw: string | undefined): void => {
       `  The manual inside this binary is "${SUPPORTED_LANG}" only.\n` +
       `  Translations are published at https://sovrium.com/docs, not shipped here.`
   )
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
 /** Stop with a refusal on stderr and exit 1. */
 const refuse = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -192,7 +190,6 @@ export const handleDocsCommand = async (options: DocsCommandOptions): Promise<vo
 
   if (rendered.refusal !== undefined) {
     printStderr(rendered.refusal)
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 

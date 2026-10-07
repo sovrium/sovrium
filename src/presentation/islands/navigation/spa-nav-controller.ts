@@ -74,7 +74,7 @@ async function navigate(
 ): Promise<void> {
   controllerRef.current?.abort()
   const controller = new AbortController()
-  // eslint-disable-next-line functional/immutable-data, no-param-reassign -- in-flight controller slot for rapid-click cancellation
+  // eslint-disable-next-line no-param-reassign -- in-flight controller slot for rapid-click cancellation
   controllerRef.current = controller
 
   const outcome = await performSpaSwap(url, region, controller.signal)
@@ -123,7 +123,6 @@ export function useSpaNavigation(region: SpaRegion): void {
       if (!anchor) return
       event.preventDefault()
       if (isCurrentDocument(anchor)) return
-      // eslint-disable-next-line functional/immutable-data -- a ref cell is React's own mutable slot
       shownRef.current = `${anchor.pathname}${anchor.search}`
       void navigate(anchor.href, /* push */ true, controller, target)
     }
@@ -144,7 +143,6 @@ export function useSpaNavigation(region: SpaRegion): void {
     const onPopState = (): void => {
       const shown = documentUrl()
       if (shown === shownRef.current) return
-      // eslint-disable-next-line functional/immutable-data -- a ref cell is React's own mutable slot
       shownRef.current = shown
       void navigate(window.location.href, /* push */ false, controller, target)
     }
@@ -153,7 +151,6 @@ export function useSpaNavigation(region: SpaRegion): void {
     window.addEventListener('popstate', onPopState)
     const unsubscribe = subscribeSpaNavigation((url) => {
       const parsed = new URL(url, window.location.href)
-      // eslint-disable-next-line functional/immutable-data -- a ref cell is React's own mutable slot
       shownRef.current = `${parsed.pathname}${parsed.search}`
       return navigate(url, /* push */ true, controller, target)
     })

@@ -31,7 +31,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * itself records `status: 'success'` and lets `responseOverride` carry the
  * semantic stop status in the body.
  *
- * Spec: [internal ref]..003 + REGRESSION.
+ * Spec: the automation action flow stop specs + REGRESSION.
  */
 export const handleFlowStop: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.sync(() => {

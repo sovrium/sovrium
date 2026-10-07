@@ -21,7 +21,6 @@ export interface SSGOptions {
   readonly defaultLanguage?: string
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
-  readonly hydration?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly pagePaths?: readonly string[]
   readonly publicDir?: string
@@ -77,5 +76,21 @@ export class StaticSiteGenerator extends Context.Service<
       app: Hono | Readonly<Hono>,
       options: Readonly<SSGOptions>
     ) => Effect.Effect<SSGResult, SSGGenerationError>
+
+    /**
+     * The page search runtime written beside the search index as
+     * `sovrium-search/runtime.js`. In the compiled binary it is the copy
+     * embedded at compile time, since no source sits beside an installed
+     * executable.
+     */
+    readonly readPageSearchRuntime: Effect.Effect<string, SSGGenerationError>
+    /**
+     * Copy a directory tree (the app's `public/` assets) into the output, and
+     * answer the files written.
+     */
+    readonly copyDirectory: (
+      source: string,
+      destination: string
+    ) => Effect.Effect<readonly string[], SSGGenerationError>
   }
 >()('StaticSiteGenerator') {}

@@ -15,16 +15,22 @@
  * (one fetch, one of three outcomes).
  */
 
+import { readRecordForCaller } from '@/presentation/render/resolve/record-read-gate'
+import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
 /**
  * Outcome of resolving a page's host record.
  *
- * - `record` — `mode: 'single'` returned a row. Expose to inline-prefill.
- *   The row is WHOLE: this resolver holds no session, so its caller gates it
- *   for the visitor (`gateRecordForCaller`) before any of it reaches the page.
- * - `not-found` — `mode: 'single'` produced no live row → 404 the page.
+ * - `record` — `mode: 'single'` bound a row this visitor may read, already
+ *   gated for her (`readRecordForCaller`): less the columns she may not read.
+ *   Expose to inline-prefill.
+ * - `not-found` — `mode: 'single'` bound no row she may read → 404 the page.
+ *   A row that does not exist, one in the trash, and one the table's read
+ *   permission or row-level rule keeps from her answer alike, so the page
+ *   cannot be used to learn which ids exist (S1).
  * - `none` — no dataSource (or list/search mode); no parent context to
  *   expose. The form-ref expander should fall through to declarative
  *   defaults.
@@ -38,24 +44,34 @@ export type PageParentResolution =
   | { readonly kind: 'not-found' }
   | { readonly kind: 'none' }
 
+/** Who the host record is read for. */
+export interface PageParentReader {
+  readonly app: App
+  readonly session: SessionInfo | undefined
+  readonly db: DataSourceDb
+}
+
 /**
  * Resolve a page-level `dataSource: { mode: 'single' }` declaration into
- * the parent record exposed to `inlinePrefill` resolvers. Returns `none`
- * for absent or non-single dataSources so the form-ref expander falls
- * back to its declarative defaults; returns `not-found` so the caller
- * can 404 the page when the requested record doesn't exist (mirrors the
- * component-level single-mode behaviour in `resolvePageDataSources`).
+ * the parent record exposed to `inlinePrefill` resolvers, read for THIS
+ * visitor. Returns `none` for absent or non-single dataSources so the
+ * form-ref expander falls back to its declarative defaults; returns
+ * `not-found` so the caller can 404 the page.
+ *
+ * Which row is bound follows the component-level single binding
+ * (`resolveSingleMode`): the route parameter's row, or — with no `param` and
+ * no segment named after the table (`/system/growth`) — the first row the
+ * visitor may read, a row hidden from her being passed over rather than
+ * answered as missing. A declared `param` the path does not carry is
+ * `not-found`.
  *
  * List-mode and search-mode page-level dataSources are intentionally
- * ignored at this tier: inline-create only needs a single host record
- * and broadening the contract here would force the form-ref expander to
- * grow per-record iteration. A follow-up tier can revisit when a
- * concrete use case appears.
+ * ignored at this tier: inline-create only needs a single host record.
  */
 export async function resolvePageParentRecord(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
-  db: DataSourceDb
+  reader: PageParentReader
 ): Promise<PageParentResolution> {
   const { dataSource } = page as {
     readonly dataSource?: {
@@ -68,10 +84,12 @@ export async function resolvePageParentRecord(
   if (dataSource.mode !== 'single') return { kind: 'none' }
   const paramName = dataSource.param ?? dataSource.table
   const paramValue = routeParams[paramName]
-  if (paramValue === undefined) return { kind: 'not-found' }
+  if (paramValue === undefined && dataSource.param !== undefined) return { kind: 'not-found' }
   // A trashed row answers as missing, as it does on the records API.
-  const record = await db.fetchSingleRecord(dataSource.table, paramName, paramValue, undefined, {
-    liveOnly: true,
+  const record = await readRecordForCaller({
+    ...reader,
+    tableName: dataSource.table,
+    at: paramValue === undefined ? 'first-readable' : { field: paramName, value: paramValue },
   })
   if (record === undefined) return { kind: 'not-found' }
   return { kind: 'record', table: dataSource.table, record }

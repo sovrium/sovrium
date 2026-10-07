@@ -10,7 +10,7 @@ import { text, timestamp, serial, customType, index, unique } from 'drizzle-orm/
 import { systemSchema } from './migration-audit'
 
 /**
- * Admin Global Search Index (PostgreSQL) — [internal ref].
+ * Admin Global Search Index (PostgreSQL).
  *
  * THE BACKING STORE FOR `GET /api/admin/search?q=` — the admin-only, FULLY
  * INDEXED global search that spans EVERY admin entity kind in one query:

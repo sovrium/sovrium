@@ -18,63 +18,83 @@ import {
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
-/** The record-bound panel a row click opens: every field, editable, and a guarded delete. */
-const recordDrawer = (
-  p: (key: string) => string,
-  drawerId: string
-): Readonly<Record<string, unknown>> => ({
+type Node = Readonly<Record<string, unknown>>
+type P = (key: string) => string
+
+/** The first three children of the opened record, when the block names a child table. */
+const relatedRows = (p: P): readonly Node[] =>
+  p('childTable') === ''
+    ? []
+    : [
+        {
+          label: p('childLabel'),
+          table: p('childTable'),
+          field: p('parentField'),
+          limit: 3,
+          emptyMessage: 'Nothing linked yet.',
+        },
+      ]
+
+/** The record-bound panel a row click opens: title, status, facts, the first related rows. */
+const recordDrawer = (p: P, drawerId: string): Node => ({
   type: 'drawer',
   id: drawerId,
-  props: { title: '[Record]' },
+  props: { title: `$record.${p('titleField')}` },
   drawerSide: 'right',
   drawerSize: 'md',
   dataSource: { table: p('table') },
   canEdit: true,
   recordFields: [
-    { name: p('referenceField'), type: 'single-line-text', label: '[Reference]' },
-    { name: p('clientField'), type: 'single-line-text', label: '[Client]' },
-    { name: p('amountField'), type: 'decimal', label: '[Amount]' },
-    { name: p('dateField'), type: 'date', label: '[Date]' },
+    { name: p('titleField'), type: 'single-line-text', label: '[Name]' },
+    { name: p('statusField'), type: 'status', label: '[Status]' },
   ],
+  related: relatedRows(p),
+  navigation: {
+    siblings: true,
+    ...(p('fullPagePath') === '' ? {} : { fullPage: p('fullPagePath') }),
+  },
   actions: [
     {
       label: 'Delete',
       variant: 'destructive',
       action: { type: 'crud', operation: 'delete', table: p('table') },
       confirm: {
-        title: 'Delete this record?',
-        message: 'The record and its history are deleted. This cannot be undone.',
+        title: `Delete $record.${p('titleField')}?`,
+        message: 'The record and what links only to it are deleted. This cannot be undone.',
         confirmLabel: 'Delete',
       },
     },
   ],
 })
 
-/** A table whose row click opens the record's details in a side panel. */
+/** A list whose rows open the record in a side panel, stepping through the list from there. */
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'drawer-record',
   title: 'Record detail in a side panel',
   category: 'application',
-  tags: ['drawer', 'record', 'detail', 'slide-over', 'table'],
+  tags: ['drawer', 'record', 'detail', 'slide-over', 'table', 'previous', 'next'],
   description:
-    'A table over one of your tables whose rows open the record in a panel on the right — every field shown and editable in place, with a delete action at the foot that asks first.',
+    'A list over one of your tables whose rows open the record in a 480 px panel on the right — title, status, its fields editable in place, the first related rows — with Previous and Next through the list and a link to the record’s full page.',
   notes: [
     PLACE_NOTE,
     DATA_NOTE,
-    'The panel also opens from a link carrying `?record=<id>`, so a record can be shared by URL. Set `canEdit` to `false` on the drawer in your copy to make it read-only.',
+    'Nothing opens until a row is clicked. The panel writes `?record=<id>` into the address, so a record can be shared by link; Previous and Next follow the list’s own order and filter.',
+    'Set `fullPagePath` to the record page — `/projects/$record.id` — to draw "Open full page"; leave it empty to omit it. Set `childTable` and `parentField` to list the first three linked records under the fields.',
     THEME_NOTE,
   ],
   params: [
-    stringParam('headline', 'The heading above the table. Empty to omit.', '[Invoices]'),
-    stringParam('table', 'The table the records are read from.', 'invoices'),
-    stringParam('referenceField', 'A text field — a number or a name.', 'reference'),
-    stringParam('clientField', 'A second text field.', 'client'),
-    stringParam('amountField', 'A number field.', 'amount'),
-    stringParam('dateField', 'A date field.', 'issued_on'),
+    stringParam('headline', 'The heading above the list. Empty to omit.', '[Projects]'),
+    stringParam('table', 'The table the records are read from.', 'projects'),
+    stringParam('titleField', 'The text field naming each record.', 'title'),
+    stringParam('statusField', 'The status or single-select field.', 'status'),
+    stringParam('fullPagePath', 'The record page, with `$record.id`. Empty to omit.', ''),
+    stringParam('childTable', 'A table whose records point at these. Empty to omit.', ''),
+    stringParam('parentField', 'The child table’s relationship field pointing here.', ''),
+    stringParam('childLabel', 'The heading of the related rows.', '[Linked records]'),
     stringParam(
       'emptyMessage',
-      'What the table says when it has no record.',
+      'What the list says when it has no record.',
       'No record yet. Create one to see it here.'
     ),
   ],
@@ -82,10 +102,8 @@ export const entry = defineLibraryEntry({
     {
       param: 'table',
       fields: [
-        { name: 'reference', param: 'referenceField', type: 'single-line-text' },
-        { name: 'client', param: 'clientField', type: 'single-line-text' },
-        { name: 'amount', param: 'amountField', type: 'decimal' },
-        { name: 'issued_on', param: 'dateField', type: 'date' },
+        { name: 'title', param: 'titleField', type: 'single-line-text' },
+        { name: 'status', param: 'statusField', type: 'status' },
       ],
     },
   ],
@@ -93,7 +111,6 @@ export const entry = defineLibraryEntry({
   requires: [],
   build: ({ name, params }) => {
     const p = param(params)
-    const table = p('table')
     const drawerId = `${name}-detail`
     return asComponent(
       name,
@@ -103,14 +120,13 @@ export const entry = defineLibraryEntry({
             ...(p('headline') === '' ? [] : [panelHead(p('headline'))]),
             {
               type: 'table',
-              dataSource: { table },
+              dataSource: { table: p('table') },
               columns: [
-                { field: p('referenceField'), label: '[Reference]' },
-                { field: p('clientField'), label: '[Client]' },
-                { field: p('amountField'), label: '[Amount]', align: 'right' },
-                { field: p('dateField'), label: '[Date]', format: 'short-date' },
+                { field: p('titleField'), label: '[Name]', editable: false },
+                { field: p('statusField'), label: '[Status]', editable: false },
               ],
               onRowClick: { action: 'openDrawer', component: drawerId },
+              phoneLayout: 'rows',
               emptyMessage: p('emptyMessage'),
             },
             recordDrawer(p, drawerId),

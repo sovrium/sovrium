@@ -27,6 +27,7 @@ import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { announceRecordWrites } from './record-change-announcement'
 import { splitManyToManyFields } from './record-link-enrichment'
 import { transformRecords, type TransformedRecord } from './record-transformer'
+import { refuseSelfLinkCycles } from './self-link-cycle-check'
 import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -240,6 +241,8 @@ export function batchUpdateProgram(config: {
       })),
       reader: linkReader,
     })
+    // No record of the batch may end up its own ancestor, judged as if the whole batch landed.
+    yield* refuseSelfLinkCycles({ app, session, tableName, records: recordsData })
     const dated = stampBatchUpdateRows(session.userId, app, tableName, recordsData)
     const updatedRecords = yield* batch.batchUpdate(session, tableName, dated)
 
@@ -250,17 +253,10 @@ export function batchUpdateProgram(config: {
     // Transform records to API format with app schema for numeric coercion
     const transformed = transformRecords(echoed, { app, tableName })
 
-    // Use functional pattern to build response object
     const response: { readonly updated: number; readonly records?: readonly TransformedRecord[] } =
       returnRecords
-        ? {
-            updated: transformed.length,
-            records: transformed as TransformedRecord[],
-          }
-        : {
-            updated: transformed.length,
-          }
-
+        ? { updated: transformed.length, records: transformed as TransformedRecord[] }
+        : { updated: transformed.length }
     return response
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.batch-update-program'))
 }

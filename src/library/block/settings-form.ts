@@ -17,7 +17,7 @@ import {
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
-/** One settings record edited in a single form, its fields grouped under headed sections. */
+/** One settings record edited section by section, each section its own form under a heading. */
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'settings-form',
@@ -25,11 +25,11 @@ export const entry = defineLibraryEntry({
   category: 'application',
   tags: ['settings', 'form', 'preferences', 'edit', 'record'],
   description:
-    'A settings page body: one form that edits one record of your settings table, its fields grouped under labelled sections — identity first, reminders second — with a single Save.',
+    'A settings page body that edits one record of your settings table as one form in two titled sections — identity first, reminders second — labels beside the controls and a save bar that counts the unsaved changes.',
   notes: [
     'Place it on a page whose path carries the record id, such as `/settings/:id`: the form loads that record and saves it back. `recordParam` names the path segment it reads.',
     DATA_NOTE,
-    'The two sections are `fieldGroups` of one form, so everything saves at once. To save each section on its own, install the block twice and keep one group in each.',
+    'It is one form over the record: the save bar stays in view while the page scrolls, counts the changes, and Save stores them all at once. Leaving with unsaved changes asks first.',
     THEME_NOTE,
   ],
   params: [
@@ -75,6 +75,8 @@ export const entry = defineLibraryEntry({
             {
               type: 'form',
               dataSource: { table, mode: 'single', param: p('recordParam') },
+              labelPlacement: 'side',
+              stickyActions: true,
               fields: [
                 { field: p('legalNameField'), label: '[Legal name]' },
                 { field: p('taxIdField'), label: '[Tax number]' },
@@ -82,17 +84,23 @@ export const entry = defineLibraryEntry({
                 { field: p('enabledField'), label: '[Send reminders]' },
                 { field: p('daysField'), label: '[Days after the due date]' },
               ],
-              fieldGroups: [
+              sections: [
                 {
-                  label: p('firstGroup'),
+                  title: p('firstGroup'),
+                  description: 'How the organisation appears on documents.',
                   fields: [p('legalNameField'), p('taxIdField'), p('emailField')],
                 },
-                { label: p('secondGroup'), fields: [p('enabledField'), p('daysField')] },
+                {
+                  title: p('secondGroup'),
+                  description: 'When a late payment gets a reminder.',
+                  fields: [p('enabledField'), p('daysField')],
+                },
               ],
               action: {
                 type: 'crud',
                 operation: 'update',
                 table,
+                submitLabel: 'Save settings',
                 onSuccess: { toast: { message: p('successMessage'), variant: 'success' } },
               },
             },

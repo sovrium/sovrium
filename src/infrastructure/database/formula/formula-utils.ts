@@ -580,7 +580,7 @@ export const translateFormulaToPostgres = (
  * CAST so integer-by-integer division does not truncate. Two render modes:
  *
  *  - GENERATED-column path: bare references (`minutes / 60` →
- * `CAST(minutes AS NUMERIC) / 60`) — [internal ref].
+ *    `CAST(minutes AS NUMERIC) / 60`).
  *  - TRIGGER path: alias-qualified references (run AFTER
  *    `qualifyColumnReferences`, `t.total_minutes / 60` →
  *    `CAST(t.total_minutes AS NUMERIC) / 60`) — FORMULA-127.

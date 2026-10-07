@@ -1,0 +1,77 @@
+# When an account is created, it is joined to its row in the directory — the
+# row an admin added with the same email address. Sign-up is closed here, so an
+# account is created by an admin (`sovrium admin create <email>`, or the admin
+# console's Users page): add the person to the directory first, then create
+# their account, and the two meet on their own.
+#
+# 1. The directory row with the account's email and no account yet is found.
+#    No such row — an account for someone not in the directory — ends the run
+#    here, as a success.
+# 2. The account is written on the row. From then on a time-off request they
+#    file is matched to their row (approve-time-off.yaml).
+# 3. When the row is in the People team, the account is given the admin role:
+#    the People team is HR, and HR decides on requests and reads salaries.
+#    Only an admin can add or move a row in the directory, so this grants
+#    nothing an admin has not already decided. Moving someone out of People
+#    later does not take the role back — do that from the admin console's
+#    Users page.
+name: join-new-account-to-directory
+label: New account — join it to its directory row
+description: When an account is created, write it on the directory row with its email, and make People-team members admins.
+enabled: true
+trigger:
+  type: auth
+  events:
+    - signUp
+actions:
+  - name: findRow
+    type: record
+    operator: list
+    props:
+      table: employees
+      filter:
+        logic: and
+        conditions:
+          - field: email
+            operator: equals
+            value: '{{trigger.data.user.email}}'
+          - field: account
+            operator: isEmpty
+      limit: 1
+  - name: onlyWhenInDirectory
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{findRow.records}}'
+            operator: isNotEmpty
+      onFalse: stop
+  - name: joinAccount
+    type: record
+    operator: update
+    props:
+      table: employees
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{findRow.result.record.id}}'
+      data:
+        account: '{{trigger.data.user.id}}'
+  - name: hrIsAdmin
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{findRow.result.record.team}}'
+            operator: equals
+            value: People
+      onFalse: stop
+  - name: grantAdmin
+    type: auth
+    operator: assignRole
+    props:
+      userId: '{{trigger.data.user.id}}'
+      role: admin

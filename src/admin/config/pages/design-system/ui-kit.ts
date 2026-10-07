@@ -370,7 +370,7 @@ const recordGrid = (): PageComponent =>
       selection: { mode: 'multiple' },
       striped: true,
       pagination: { position: 'bottom', pageSize: 2, pageSizeOptions: [2, 10] },
-      toolbar: { search: true, filters: true, density: true },
+      toolbar: { search: true, filters: true },
       emptyMessage: 'No records yet.',
     }),
   ])

@@ -6,7 +6,6 @@
  */
 
 import { useMemo } from 'react'
-import { savedViewFiltersToDataFilters, type SavedView } from '../../../hooks/use-saved-views'
 import type { SortRow } from '../use-ui-state'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
@@ -48,27 +47,10 @@ export function resolveEffectiveSorting(
 
 /**
  * The filter and sort the records request will actually carry, once the
- * default view and the runtime sort panel have had their say.
+ * runtime sort panel has had its say.
  */
 export function useEffectiveQuery(ctx: SetupContext, layout: EffectiveLayout) {
-  // When the user has a default view set, resolve it from the saved-views list
-  // and apply its filters on top of the schema's `dataSource.filter`. The
-  // resolution happens AFTER the views query resolves, so the table briefly
-  // renders unfiltered before the filtered query supersedes it.
-  const activeView: SavedView | undefined =
-    layout.prefs.preferences.defaultViewId !== undefined
-      ? layout.savedViews.views.find((view) => view.id === layout.prefs.preferences.defaultViewId)
-      : undefined
-
-  const viewFilters = savedViewFiltersToDataFilters(activeView?.filters)
-  const dataSourceFilter = ctx.params.dataSource.filter
-  const filter = useMemo(
-    () =>
-      viewFilters && viewFilters.length > 0
-        ? [...(dataSourceFilter ?? []), ...viewFilters]
-        : dataSourceFilter,
-    [dataSourceFilter, viewFilters]
-  )
+  const { filter } = ctx.params.dataSource
 
   // The runtime multi-sort panel takes precedence over column-header sort, and
   // falls back to it when cleared. `resolveEffectiveSorting` owns that rule and
@@ -81,5 +63,5 @@ export function useEffectiveQuery(ctx: SetupContext, layout: EffectiveLayout) {
     [activeSorts, headerSorting]
   )
 
-  return { activeView, filter, sorting }
+  return { filter, sorting }
 }

@@ -7,13 +7,12 @@
 
 /**
  * Document knowledge sync — discovers, parses, chunks and embeds document
- * files from `AI_KNOWLEDGE_DIR` into `system.ai_embeddings`
- *.
+ * files from `AI_KNOWLEDGE_DIR` into `system.ai_embeddings`.
  *
  * Mirrors the table-knowledge pipeline in `knowledge-sync.ts`:
  *  - `discoverDocuments()` reads `AI_KNOWLEDGE_DIR` (default `./knowledge`),
  *    keeps `.pdf` / `.md` / `.txt`, and logs a warning for unsupported
- * extensions (`.xlsx`, `.docx`...) — [internal ref].
+ *    extensions (`.xlsx`, `.docx`...).
  *  - `syncAgentDocuments()` parses each file to text (`document-parser`),
  *    chunks it with the shared `chunkText`, embeds every chunk via the
  *    eco-routed `AiService`, and persists rows with `source_type:'document'`.
@@ -22,7 +21,7 @@
  *
  * Re-running is idempotent: a document's embeddings are pre-cleared by
  * `source_id` prefix before re-embedding, so a content change (detected on
- * the next sync / rebuild) replaces rather than duplicates — [internal ref].
+ * the next sync / rebuild) replaces rather than duplicates.
  */
 
 import { readdir, readFile } from 'node:fs/promises'
@@ -166,7 +165,6 @@ const syncDocuments = (input: {
 
     const rows = yield* embedChunksToRows(pending, (chunk, embedding): NewEmbedding => ({
       // Document knowledge is global — no owning agent → SQL NULL.
-      // eslint-disable-next-line unicorn/no-null -- SQL NULL for nullable agent_name column
       agentName: null,
       sourceType: 'document',
       sourceId: documentSourceId(chunk.path),
@@ -212,7 +210,6 @@ export const runSyncDocuments = async (
  * failure is logged but never thrown.
  */
 export const runSyncDocumentsAtStartup = async (): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort document sync
   await runSyncDocuments(process.env).catch((error: unknown) => {
     logError('[ai-rag] document sync failed', error)
   })

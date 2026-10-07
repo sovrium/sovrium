@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coerceFieldValue, isComputedFieldType } from '../../runtime/field-value-coercion'
-import { cursorOfCell, rectangleBetween, type GridCursor } from './use-grid-cursor'
+import { cursorOfCell, rectangleBetween, type GridCursor } from './grid-cursor-model'
 import type { DataTableGridColumn, DataTableRow } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { CellCommit } from '../body'
@@ -190,10 +190,8 @@ export function useFillHandle(params: FillHandleParams) {
   const [drag, setDrag] = useState<FillDrag | undefined>(undefined)
   const [refusals, setRefusals] = useState<readonly string[]>([])
   const paramsRef = useRef(params)
-  // eslint-disable-next-line functional/immutable-data -- ref write: the listeners read the grid of the latest render
   paramsRef.current = params
   const dragRef = useRef<FillDrag | undefined>(drag)
-  // eslint-disable-next-line functional/immutable-data -- ref write: mouseup reads the span as of the last move
   dragRef.current = drag
 
   const finish = useCallback(

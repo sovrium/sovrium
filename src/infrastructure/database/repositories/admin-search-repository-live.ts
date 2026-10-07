@@ -10,24 +10,21 @@ import { Effect, Layer } from 'effect'
 import {
   AdminSearchRepository,
   AdminSearchDatabaseError,
-  type AdminSearchIndexHit,
   type AdminSearchStaleness,
   type AdminSearchUpsertRow,
 } from '@/application/ports/repositories/admin-search-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
-import {
-  ADMIN_SEARCH_CONTENT_TABLE,
-  ADMIN_SEARCH_FTS_TABLE,
-} from '@/infrastructure/database/lookup/admin-search-fts-ddl'
+import { ADMIN_SEARCH_CONTENT_TABLE } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import type { AdminSearchEntityType } from '@/domain/models/api/admin/search/search'
+import { searchAdminIndex } from './admin-search-query'
+import { recordIndexKey } from './admin-search-record-key'
 
 /**
- * Admin Global Search Repository Implementation — [internal ref].
+ * Admin Global Search Repository Implementation.
  *
  * Three raw concerns over the dedicated `_admin_search_index` store:
  *
@@ -54,8 +51,8 @@ const wrap = makeDbWrap((cause) => new AdminSearchDatabaseError({ cause }))
  *   - SQLite:   `system_<logical>`
  * Mirrors the `system_` table-prefix / `pgSchema('system')` divergence.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle `sql.raw()` returns the native mutable SQL shape required for raw interpolation; same rationale as authTableRef.
 const systemTableRef = (logical: string): SQL =>
+  // sql-literal: identifier -- `logical` is one of this module's own system table names
   isSqliteRuntime() ? sql.raw(`system_${logical}`) : sql.raw(`system."${logical}"`)
 
 /**
@@ -65,12 +62,11 @@ const systemTableRef = (logical: string): SQL =>
  * SAME relation this repository writes — the dialect branch must not be
  * restated in a second place.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- raw SQL identifier, see systemTableRef
 export const adminSearchContentTableRef = (): SQL =>
+  // sql-literal: identifier -- a module constant naming the search content table
   isSqliteRuntime() ? sql.raw(ADMIN_SEARCH_CONTENT_TABLE) : sql.raw('system."_admin_search_index"')
 
 /** Coerce an upsert row's `updatedAt` to the column's native form. */
-// eslint-disable-next-line functional/prefer-immutable-types -- `Date` is the upstream-mutable JS shape; read-only here (only `.getTime()`), no mutation
 const updatedAtValue = (date: Date): number | Date => (isSqliteRuntime() ? date.getTime() : date)
 
 // ─── Per-source readers (each resilient: a bad source yields []) ──────────────
@@ -98,7 +94,7 @@ const readTableRecords = (
     .then((rows) =>
       rows.map((row): AdminSearchUpsertRow => ({
         type: 'record',
-        entityId: String(row['entity_id']),
+        entityId: recordIndexKey(displayName, String(row['entity_id'])),
         title: typeof row['title'] === 'string' ? row['title'] : String(row['entity_id']),
         body: '',
         href: `/_admin/tables/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
@@ -109,7 +105,7 @@ const readTableRecords = (
 }
 
 /**
- * Read form submissions into index rows — METADATA ONLY ([internal ref] R2).
+ * Read form submissions into index rows — METADATA ONLY.
  *
  * THE SUBMITTED BODY IS PERMANENTLY OUT OF THE FTS DOCUMENT, and the reason is
  * a confidentiality boundary rather than a scoping preference. Revealing a
@@ -130,7 +126,7 @@ const readTableRecords = (
  * surface: the form NAME (carried as `title`) and the submission ID (carried as
  * `body`, since the FTS document spans `title || ' ' || body` and NOT
  * `entity_id`). The SUBMITTER identity — the other half of the list haystack in
- * [internal ref] D4 — is deliberately DEFERRED, not forgotten: it needs a new
+ * is deliberately DEFERRED, not forgotten: it needs a new
  * `auth.user` LEFT JOIN here and would bake an e-mail into a derived store the
  * GDPR account purge does not yet cover. That widening does not belong inside a
  * confidentiality fix; the capability survives via the `user` rows, indexed
@@ -144,7 +140,7 @@ const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
     db,
     sql`SELECT id AS entity_id, form_name
         FROM ${systemTableRef('form_submissions')}
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND (status IS NULL OR status <> 'draft') -- a draft was never sent
         LIMIT 500`
   )
     .then((rows) =>
@@ -195,7 +191,6 @@ const readRuns = (): Promise<readonly AdminSearchUpsertRow[]> =>
 
 /** Read users into index rows (email + display name; never a password hash). */
 const readUsers = (): Promise<readonly AdminSearchUpsertRow[]> => {
-  // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle `sql.raw()` returns the native mutable SQL shape required for raw interpolation; same rationale as systemTableRef
   const userTable: SQL = isSqliteRuntime() ? sql.raw('auth_user') : sql.raw('auth."user"')
   return executeRaw(db, sql`SELECT id AS entity_id, email, name FROM ${userTable} LIMIT 500`)
     .then((rows) =>
@@ -292,7 +287,7 @@ const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
  *
  * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. The width here is
  * CONFIG-bounded (one `LIMIT 500` read per configured table), which is exactly
- * the provenance the 2026-07-25 incident had and exactly why provenance is not a
+ * the provenance a production pool-exhaustion incident had, and exactly why provenance is not a
  * safety argument: ten configured tables is an ordinary app and ten is the whole
  * pool.
  *
@@ -350,20 +345,19 @@ const readFixedSources = () =>
  * `500 × |tables| + 5 × 500 + |extraRows|` — thousands of statements for an
  * ordinary app, every one of them competing for a slot in a pool of ten.
  *
- * The previous justification for leaving it unbounded was that "`bun:sqlite`
- * runs the statements synchronously so this is effectively sequential despite
- * the `Promise.all`". That is TRUE ON SQLITE ONLY. On PostgreSQL — `bun:sql`,
- * genuinely async and genuinely pooled, and the engine behind the 2026-07-25
- * outage — the statements were issued all at once and saturated the pool for the
- * whole rebuild. A dialect-specific argument is not a safety argument for a
+ * The tempting argument for leaving it unbounded — "`bun:sqlite` runs the
+ * statements synchronously so this is effectively sequential despite the
+ * `Promise.all`" — is TRUE ON SQLITE ONLY. On PostgreSQL — `bun:sql`, genuinely
+ * async and genuinely pooled, and the engine behind a production outage — the
+ * statements would be issued all at once and saturate the pool for the whole
+ * rebuild. A dialect-specific argument is not a safety argument for a
  * dual-dialect call site.
  *
  * NOT COLLAPSED INTO A MULTI-ROW `INSERT … VALUES (…), (…)`: that would cut the
  * statement count by ~100x, but it is not correct here. `_admin_search_index`
- * carries `unique(type, entity_id)`, and `allRows` reliably contains DUPLICATE
- * keys — every operator table contributes `type: 'record'` with the row's own
- * `id`, so two tables that both have a row `1` both emit `('record', '1')`.
- * One statement per row resolves that collision by last-write-wins; a batched
+ * carries `unique(type, entity_id)`, and the config-derived rows are not
+ * de-duplicated against the sources (records are keyed `table:id`, so tables do
+ * not collide). One statement per row resolves a collision by last-write-wins; a batched
  * `ON CONFLICT DO UPDATE` cannot, because PostgreSQL rejects a statement that
  * proposes the same conflict key twice ("cannot affect row a second time"). So
  * batching would hard-fail the rebuild for essentially every multi-table app.
@@ -393,59 +387,6 @@ const upsertAllRows = (rows: readonly AdminSearchUpsertRow[]) =>
   }).pipe(Effect.asVoid)
 
 // ─── FTS query helpers ────────────────────────────────────────────────────────
-
-/**
- * Build the SQLite FTS5 MATCH expression from a raw query: split into
- * alphanumeric tokens and AND them as prefix terms. A token-prefix match makes
- * `Zaphod` match the title `Zaphod CRM connection` and `admin@example.com`
- * match (its `@`/`.`-delimited tokens). An all-empty token set yields no match.
- */
-const toFtsMatch = (query: string): string =>
-  query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 0)
-    .map((token) => `${token}*`)
-    .join(' AND ')
-
-/** Map a raw index row to the port's hit shape. */
-const toHit = (row: Readonly<Record<string, unknown>>): AdminSearchIndexHit => ({
-  type: String(row['type']) as AdminSearchEntityType,
-  entityId: String(row['entity_id']),
-  title: typeof row['title'] === 'string' ? row['title'] : '',
-  href: typeof row['href'] === 'string' ? row['href'] : '',
-  updatedAt: row['updated_at'] as Date | string | number,
-})
-
-/** Run the SQLite FTS5 search. */
-const searchSqlite = (query: string): Promise<readonly AdminSearchIndexHit[]> => {
-  const match = toFtsMatch(query)
-  if (match.length === 0) return Promise.resolve([])
-  return executeRaw(
-    db,
-    sql`SELECT c.type, c.entity_id, c.title, c.href, c.updated_at
-        FROM ${sql.raw(ADMIN_SEARCH_CONTENT_TABLE)} AS c
-        JOIN ${sql.raw(ADMIN_SEARCH_FTS_TABLE)} AS f ON f.rowid = c.id
-        WHERE ${sql.raw(ADMIN_SEARCH_FTS_TABLE)} MATCH ${match}
-        ORDER BY c.updated_at DESC
-        LIMIT 200`
-  )
-    .then((rows) => rows.map(toHit))
-    .catch(() => [])
-}
-
-/** Run the PostgreSQL tsvector search. */
-const searchPostgres = (query: string): Promise<readonly AdminSearchIndexHit[]> =>
-  executeRaw(
-    db,
-    sql`SELECT type, entity_id, title, href, updated_at
-        FROM system."_admin_search_index"
-        WHERE content_tsv @@ plainto_tsquery('simple', ${query})
-        ORDER BY updated_at DESC
-        LIMIT 200`
-  )
-    .then((rows) => rows.map(toHit))
-    .catch(() => [])
 
 /**
  * Admin Global Search Repository Live layer.
@@ -489,5 +430,5 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
       yield* upsertAllRows(allRows)
     }),
 
-  search: (query) => wrap(() => (isSqliteRuntime() ? searchSqlite(query) : searchPostgres(query))),
+  search: (query) => wrap(() => searchAdminIndex(query)),
 })

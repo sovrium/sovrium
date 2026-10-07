@@ -12,16 +12,16 @@ import { translateFormulaToPostgres } from './formula-utils'
 /**
  * The dialect seam for formula SQL.
  *
- * Every formula-to-SQL path used to call `translateFormulaToPostgres` directly,
- * which made the whole formula subsystem Postgres-only BY CONSTRUCTION: there
- * was no SQLite arm to reach and no branch that could have reached one. On the
- * zero-config default engine that produced SQL SQLite cannot execute.
+ * A formula-to-SQL path calling `translateFormulaToPostgres` directly is
+ * Postgres-only BY CONSTRUCTION: it has no SQLite arm to reach and no branch
+ * that could reach one. On the zero-config default engine that produces SQL
+ * SQLite cannot execute.
  *
  * Routing every call site through this function means adding an engine is a
  * change to ONE dispatch, and a formula path can no longer silently assume
  * Postgres.
  *
- * Reachability of the four call sites, as it stands (measured 2026-07-26):
+ * Reachability of the four call sites, as it stands:
  *
  *   - `view-formula-generators.ts` — reachable on BOTH dialects. View-computed
  *     formulas (those referencing a rollup/lookup/count) are rendered into the

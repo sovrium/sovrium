@@ -120,3 +120,11 @@ The slug is not checked against your declared `links[]`. A poster is usually des
 The wrapper element carries the encoded string as `data-qr-value`. Inside the SVG the payload exists only as path geometry, so this attribute is how you confirm what a symbol actually encodes, in view source or in a test.
 
 A payload longer than the largest QR version can hold is not encodable. The page still renders: the symbol is dropped and the wrapper carries `data-qr-error` with the reason.
+
+## `file-preview`
+
+A stored file drawn inline: a PDF in the browser's own viewer inside a bordered stage, an image with zoom, any other type as a card with a Download button.
+
+<!-- sovrium:options type:file-preview -->
+
+Name the file one of two ways, never both: `field`, an attachment field of the bound record (the invoice of this order), or `file`, a fixed `{ bucket, key }` (the handbook every member reads). A field holding several files previews each in its own stage, one after the other, unless `list: none`, which previews the first only. `toolbar` picks the buttons, in order — `download` and `open` by default, `zoom` (the image at full size) and `rotate` (a quarter turn) for images. A PDF opens in the browser's own viewer; any other type is shown by its name, with its download. The file is served through an address signed for the reader's own session, so a reader who may not read the record or the bucket sees no preview at all. The stage is a region named by the file, an image takes its alternative text from `altField` or else its file name, and a plain link to the file is always present for a reader whose browser cannot show it.

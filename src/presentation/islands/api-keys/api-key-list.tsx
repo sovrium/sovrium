@@ -56,7 +56,6 @@ function ApiKeyRow({
       <td className={CELL}>
         <button
           type="button"
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- the handler closes over this row's key; hoisting it would need a per-row memo for no measurable gain on a list this size
           onClick={() => onRequestRevoke(apiKey)}
           className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >

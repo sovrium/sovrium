@@ -42,12 +42,7 @@ const NAME_LOCATIONS: ReadonlyMap<string, readonly ('body' | 'data')[]> = new Ma
 /** The object the name lives on — mutable, because the guard rewrites it in place. */
 type NameHolder = { name?: unknown }
 
-const target = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- Better Auth hands the hook a mutable ctx
-  ctx: AuthMiddlewareCtx,
-  location: 'body' | 'data'
-  // eslint-disable-next-line functional/prefer-immutable-types -- the caller rewrites `name` in place
-): NameHolder | undefined => {
+const target = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): NameHolder | undefined => {
   const body = ctx.body as { data?: unknown } | undefined
   const holder = location === 'body' ? body : body?.data
   return typeof holder === 'object' && holder !== null ? (holder as NameHolder) : undefined
@@ -63,14 +58,12 @@ const target = (
  * removes markup the client sent as markup; it does not make a name safe to
  * interpolate raw.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 export const applyDisplayNameGuard = (ctx: AuthMiddlewareCtx): void => {
   const locations = NAME_LOCATIONS.get(ctx.path)
   if (locations === undefined) return
   locations.forEach((location) => {
     const holder = target(ctx, location)
     if (typeof holder?.name === 'string') {
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
       holder.name = stripHtmlToText(holder.name)
     }
   })

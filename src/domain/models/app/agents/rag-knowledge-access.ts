@@ -6,7 +6,7 @@
  */
 
 /**
- * RAG knowledge-source access control.
+ * RAG knowledge-source access control (an AI RAG cross spec / TABLE-006).
  *
  * An agent may only embed a table its declared `role` is allowed to read.
  * This is the ingest-time backstop behind the decode-time validation in

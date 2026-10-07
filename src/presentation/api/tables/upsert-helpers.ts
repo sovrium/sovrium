@@ -29,10 +29,10 @@ import type { Context } from 'hono'
  * Records come from schema in nested format: { fields: {...} }
  *
  * The rule is the shared one (`domain/validators/required-fields`), NOT a local
- * copy: this route used to carry its own, which never received the `default`
- * exemption `POST /records` has. A field declared `required: true,
- * default: 'draft'` therefore created fine through one route and was rejected
- * with `Required field is missing` through this one.
+ * copy, so this route gets the same `default` exemption `POST /records` has. A
+ * local copy drifts: a field declared `required: true, default: 'draft'` would
+ * create fine through one route and be rejected with `Required field is
+ * missing` through this one.
  */
 export async function validateUpsertRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
@@ -145,7 +145,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
 
   // Both gates cleared, so the caller may already read and write this table and
   // naming the bad field reveals nothing they cannot see. Answering here also
-  // keeps a caller's typo from reaching the database layer, which used to blame
+  // keeps a caller's typo from reaching the database layer, which would blame
   // the operator for it with a 500.
   if (unresolvable !== undefined) {
     return {
@@ -490,7 +490,7 @@ export async function validateUpsertRequest(config: {
     tableName,
     userRole,
     userGroups,
-    accessRoles: await resolveAccessRolesFor(config.session, table ? [table] : []),
+    accessRoles: await resolveAccessRolesFor(c, config.session, table ? [table] : []),
     records: strippedRecords,
     fieldsToMergeOn,
     c,

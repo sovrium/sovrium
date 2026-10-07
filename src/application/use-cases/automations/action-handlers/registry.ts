@@ -236,15 +236,14 @@ const missingHandlerMessage = (action: Readonly<Record<string, unknown>>): strin
 /**
  * Fallback handler used when no entry is registered for the action's key.
  *
- * This used to be a no-op that reported SUCCESS, on the reasoning that the
- * dispatch shape should stay additive across waves — a new action type landing
- * without a handler would not regress unrelated tests. What it actually bought
- * was silence: `path/branch`, `record/batchUpdate`, `record/batchDelete` and
- * `record/batchUpsert` all shipped declarable, documented and schema-valid with
- * no handler, and every run of them reported success while doing nothing. The
- * only signal was the absence of rows in the database.
+ * It is not a no-op that reports SUCCESS. That would keep the dispatch shape
+ * additive — a new action type landing without a handler would not regress
+ * unrelated tests — but what it buys is silence: an action type can ship
+ * declarable, documented and schema-valid with no handler, and every run of it
+ * reports success while doing nothing, the only signal being the absence of
+ * rows in the database.
  *
- * So an unregistered key is now a step FAILURE. The blast radius is provably
+ * So an unregistered key is a step FAILURE. The blast radius is provably
  * zero for schema-valid configs: `registry-schema-coverage.test.ts` asserts
  * that every declarable action has a handler, so nothing a config author can
  * write reaches this path. It remains reachable from the code-action sandbox's

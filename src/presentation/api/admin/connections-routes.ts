@@ -16,6 +16,11 @@
  *     per-user token roster (secret-free: `userId` + `expiresAt` + per-user
  *     `status`).
  *
+ * Both are admin read-registry entries
+ * (`application/use-cases/admin/links-connections-read-operations.ts`), mounted
+ * here through `chainAdminReadRoutes`: the route, its OpenAPI operation and its
+ * MCP admin tool are one entry.
+ *
  * Both read the RUNTIME DB rows in `system.connections` joined with the
  * per-connection token summary from `system.connection_tokens` (NOT the
  * `app.connections` config). Both emit exactly ONE
@@ -27,132 +32,19 @@
  * BOTH the `/api/admin/connections/*` wildcard AND the bare
  * `/api/admin/connections` path in `infrastructure/server/route-setup/
  * api-routes.ts`, which 404s both missing-session and wrong-role callers (S1
- * anti-enumeration). These handlers add only the per-connection anti-enum 404
- * (an unknown connection id is not an enumerable resource) and the success path.
+ * anti-enumeration). The entries add only the per-connection anti-enum 404 (an
+ * unknown connection id is not an enumerable resource) and the success path.
  *
  * ⛔ SECURITY (S4 — absolute): the response is a HARD ALLOW-LIST. The use case
- * projects ONLY the allow-listed fields and validates against the `.strict()`
- * Zod schema, so `credentials` / `accessToken` / `refreshToken` can NEVER be
- * serialized.
+ * projects ONLY the allow-listed fields and validates against the strict
+ * schema, so `credentials` / `accessToken` / `refreshToken` can NEVER be
+ * serialized — on HTTP or over MCP.
  */
 
-import { Effect } from 'effect'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
-import {
-  BuildConnectionsList,
-  BuildConnectionDetail,
-} from '@/application/use-cases/admin/connections'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
-import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { notFoundBody } from '@/presentation/api/runtime/auth-helpers'
-import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import type { ContextWithSession } from '@/presentation/api/middleware/auth'
-import type { Context, Hono } from 'hono'
-
-const NOT_FOUND = notFoundBody('Not found')
-const INTERNAL_ERROR = {
-  success: false,
-  message: 'Internal error',
-  code: 'INTERNAL_ERROR',
-} as const
-
-/**
- * Sentinel resource id carried by the list-queried audit emit (the list read
- * has no single connection id). The spec asserts `resource.type === 'connection'`
- * — the canonical type comes from the action catalog, not this id. Mirrors the
- * `SYSTEM_BUCKET_ID` convention used by the bucket list emit.
- */
-const CONNECTION_LIST_RESOURCE_ID = 'connections'
-
-/**
- * GET /api/admin/connections handler — the connection list with per-connection
- * token/expiry summary + derived status badge.
- */
-async function handleListConnections(c: Context): Promise<Response> {
-  const session = (c as ContextWithSession).var.session!
-
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, BuildConnectionsList).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') {
-    logError('[admin] connection-list lookup failed', result.failure, requestLogAttributes(c))
-    return c.json(INTERNAL_ERROR, 500)
-  }
-  if (result.success._tag === 'ValidationFailed') {
-    logError(
-      '[admin] connection-list response validation failed',
-      result.success.error,
-      requestLogAttributes(c)
-    )
-    return c.json(INTERNAL_ERROR, 500)
-  }
-
-  // Emit one audit entry per call (canonical resource.type 'connection' —
-  // derived by the emit use-case from the ACTION_CATALOG entry).
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.CONNECTION_LIST_QUERIED,
-    actor,
-    resourceId: CONNECTION_LIST_RESOURCE_ID,
-    severity: 'info',
-    result: 'success',
-  })
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(result.success.body, 200)
-}
-
-/**
- * GET /api/admin/connections/:id handler — the connection header + secret-free
- * per-user token roster.
- */
-async function handleConnectionDetail(c: Context): Promise<Response> {
-  const session = (c as ContextWithSession).var.session!
-  const id = c.req.param('id')
-  if (!id) return c.json(NOT_FOUND, 404)
-
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, BuildConnectionDetail(id)).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') {
-    logError('[admin] connection-detail lookup failed', result.failure, requestLogAttributes(c))
-    return c.json(INTERNAL_ERROR, 500)
-  }
-  // Unknown connection id → anti-enum 404 (no audit emit on a miss — only
-  // successful reads are audited).
-  if (result.success._tag === 'NotFound') {
-    return c.json(NOT_FOUND, 404)
-  }
-  if (result.success._tag === 'ValidationFailed') {
-    logError(
-      '[admin] connection-detail response validation failed',
-      result.success.error,
-      requestLogAttributes(c)
-    )
-    return c.json(INTERNAL_ERROR, 500)
-  }
-
-  // Emit one audit entry per call (canonical resource.type 'connection').
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.CONNECTION_DETAIL_QUERIED,
-    actor,
-    resourceId: id,
-    severity: 'info',
-    result: 'success',
-  })
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(result.success.body, 200)
-}
+import { CONNECTIONS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
+import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
+import type { App } from '@/domain/models/app'
+import type { Hono } from 'hono'
 
 /**
  * Chain the admin/connections read routes onto a Hono app.
@@ -160,15 +52,10 @@ async function handleConnectionDetail(c: Context): Promise<Response> {
  * Auth gating is wired upstream in `createApiRoutes` (authMiddleware +
  * requireAdminTier on the `/api/admin/connections/*` wildcard AND the bare
  * `/api/admin/connections` path). Connection rows are read from the RUNTIME DB,
- * not `app.connections` config, so no live-App resolver is needed.
- *
- * Order matters — the more-specific `/:id` path is registered before the bare
- * list path so Hono routes the detail request to the detail handler (Hono routes
- * by registration order for `.get` overlaps). The single-segment `/:id` does not
- * overlap the two-segment `/:name/calls` registered by the metrics chain.
+ * not `app.connections` config; the resolver only satisfies the registry's
+ * adapter. The single-segment `/:id` does not overlap the two-segment action
+ * paths chained after it.
  */
-export function chainAdminConnectionsRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp
-    .get('/api/admin/connections/:id', (c) => handleConnectionDetail(c))
-    .get('/api/admin/connections', (c) => handleListConnections(c)) as T
+export function chainAdminConnectionsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+  return chainAdminReadRoutes(honoApp, resolveApp, CONNECTIONS_READ_OPERATIONS)
 }

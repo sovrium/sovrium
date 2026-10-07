@@ -1,0 +1,67 @@
+# sovrium-library: block/card-heading@0.30.0
+name: card-heading
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: card
+    props:
+      className: max-w-xl p-0
+    children:
+      - type: flex
+        props:
+          className: flex items-center justify-between gap-4 border-b border-border px-5 py-4
+        children:
+          - type: flex
+            props:
+              className: flex items-center gap-3
+            children:
+              - type: avatar
+                label: Atelier Nord
+                shape: square
+              - type: flex
+                props:
+                  className: flex flex-col gap-0.5
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-md font-semibold text-foreground
+                    content: Atelier Nord
+                  - type: text
+                    element: span
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: Client since March 2024
+          - type: dropdown-menu
+            triggerLabel: Card actions
+            menuItems:
+              - label: Edit
+                icon: pencil
+                action:
+                  type: navigate
+                  path: /clients/atelier-nord/edit
+              - label: Share
+                icon: share-2
+                action:
+                  type: navigate
+                  path: /clients/atelier-nord/share
+              - separator: true
+              - label: Archive
+                icon: archive
+                action:
+                  type: navigate
+                  path: /clients/atelier-nord/archive
+      - type: container
+        props:
+          className: p-5
+        children:
+          - type: container
+            props:
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-28
+            children:
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Card content]'

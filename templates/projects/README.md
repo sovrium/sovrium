@@ -32,6 +32,13 @@ A project workspace for a team of three to fifteen, built around who does what b
 - **Calendar** — the month's deadlines, with your own open tasks beside them.
 - An email to a task's assignee when it turns Blocked, and sign-up closed: an admin adds
   each account.
+- **Check blockers tomorrow** — a button on the dashboard that notes today's Blocked tasks,
+  waits a day, and emails the team lead how many are still Blocked. The waiting run is
+  visible under Runs in the admin console.
+- Optional: each new project announced in your Microsoft Teams channel. It is the
+  `record-to-teams-channel` recipe from the Sovrium library (`sovrium library add
+recipe/record-to-teams-channel`); set the Microsoft variables in `.env.example` to turn it
+  on — without them the app runs exactly the same.
 
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
 no application code. Edit the config, restart, done.
@@ -74,6 +81,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

@@ -157,12 +157,11 @@ export const computeTableEditorLabelClasses = (): string =>
 /**
  * Compute the className for the scrolling list inside a cell-editor popover.
  *
- * LAYOUT ONLY, deliberately. The listbox used to carry the border, the fill and
- * the elevation itself, which made it a popover in its own right — so a picker
- * that hung a link-count strip beneath it produced two stacked surfaces with a
- * seam between them, patched at the strips with `-mt-px`. The chrome now belongs
- * to {@link computeTableEditorPopoverClasses} once, and this is the list inside
- * it.
+ * LAYOUT ONLY, deliberately. A listbox carrying the border, the fill and the
+ * elevation itself would be a popover in its own right — so a picker that hangs
+ * a link-count strip beneath it would produce two stacked surfaces with a seam
+ * between them. The chrome belongs to {@link computeTableEditorPopoverClasses}
+ * once, and this is the list inside it.
  */
 export const computeTableEditorListClasses = (): string =>
   'flex max-h-56 min-w-40 flex-col overflow-auto'

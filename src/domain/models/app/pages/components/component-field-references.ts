@@ -32,12 +32,10 @@
  * the timestamps, the authorship columns). Those exist without appearing in
  * `fields[]`; see `domain/models/app/tables/system-fields.ts`.
  *
- * IT DOES RUN AT DECODE TIME. This comment used to say the opposite — "a
- * pre-flight `sovrium validate` check, not a new way for a running app to refuse
- * to start". That held while the promise was only that validate and start
- * mostly agreed. It stopped holding once the promise became that they run the
- * SAME validation: a rule that fires in one command and not the other is the
- * divergence, whichever direction it leans. `decodeAppConfigObject` calls this,
+ * IT DOES RUN AT DECODE TIME, not only as a pre-flight `sovrium validate`
+ * check. The promise is that validate and start run the SAME validation: a
+ * rule that fires in one command and not the other is a divergence, whichever
+ * direction it leans. `decodeAppConfigObject` calls this,
  * so `validate`, `start` and `build` reach the same verdict. See
  * `runSemanticChecks` there for why "no warning" was the worse of the two
  * options rather than the safe one.
@@ -299,12 +297,9 @@ const resolvesToDeclaredField = (
  *    or a table name that does not exist — the latter is the table rule's error);
  *  - a non-string value (malformed raw config — the structural decode owns it).
  *
- * The first of those used to be a deferral to nowhere. The "table rule" was
- * `validateDbTableColumns`, whose walker filters on `type === 'table'`, so a
- * `kpi` naming an undeclared table lost BOTH checks at once: the table went
- * unreported, and its `dataSource.filter[].field` references were skipped along
- * with it. `validateTableNameReferences` now answers for every surface
- * ([internal ref]..038), which is what makes the deferral honest — there is
+ * The first of those defers to `validateTableNameReferences`, which answers for
+ * every surface (not only `type === 'table'`) — so a `kpi` naming an undeclared
+ * table is still reported. That is what makes the deferral honest — there is
  * no field list to check against once the table does not resolve, so skipping
  * is the right posture rather than a silent gap.
  */

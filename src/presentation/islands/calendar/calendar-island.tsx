@@ -6,14 +6,11 @@
  */
 
 import { useMemo } from 'react'
-import { resolveIslandRecords } from '../runtime/data-binding'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { CalendarError, CalendarLoading, CalendarMissingDateField } from './calendar-states'
 import { CalendarViewComponent } from './calendar-view'
 import { recordsToCalendarEvents } from './record-to-event'
 import { useCalendarRecords } from './use-calendar-records'
-import type { CalendarEvent } from './record-to-event'
-import type { TableRecord } from '../runtime/types'
 import type {
   CalendarEventConfig,
   CalendarInteraction,
@@ -21,6 +18,7 @@ import type {
 } from '@/domain/models/app/pages/components/component-types/data/calendar/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
+import type { CalendarPartClasses } from '@/presentation/design/calendar-part-classes'
 import type { ReactElement } from 'react'
 
 interface CalendarIslandProps {
@@ -39,19 +37,6 @@ interface CalendarIslandProps {
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
   }
-  /**
-   * Rows supplied by an EMBEDDING component instead of fetched here — the
-   * data-table's view switcher renders this island over the rows its grid is
-   * already showing, so a runtime search / filter carries across the switch.
-   * Passed WITHOUT a `dataSource`, which disables the fetch.
-   *
-   * Embedded mode also lands the calendar on the month of the EARLIEST record
-   * rather than on today. A standalone calendar is a surface you navigate, so
-   * "today" is the right landing point; a calendar that is one tab of a view
-   * switcher is a rendering OF a set of records the user just narrowed, and
-   * opening on an empty month would read as "the switch lost my records".
-   */
-  readonly records?: readonly TableRecord[]
   readonly dateField?: string
   readonly endDateField?: string
   readonly defaultView?: CalendarView
@@ -71,31 +56,8 @@ interface CalendarIslandProps {
   readonly maxEventsPerDay?: number
   readonly calendarEvent?: CalendarEventConfig
   readonly calendarInteraction?: CalendarInteraction
-}
-
-/**
- * Earliest event start as the `YYYY-MM-DD` string FullCalendar's `initialDate`
- * wants. Undefined when there is nothing to land on, which leaves
- * FullCalendar's own "today" default in place.
- *
- * ISO-8601 timestamps compare correctly as plain strings for a common offset,
- * which is what `recordsToCalendarEvents` emits — no Date parsing needed.
- */
-function earliestEventDate(events: readonly CalendarEvent[]): string | undefined {
-  const starts = events.map((e) => e.start).filter((s) => typeof s === 'string' && s.length > 0)
-  const earliest = starts.length === 0 ? undefined : starts.reduce((min, s) => (s < min ? s : min))
-  return earliest?.slice(0, 10)
-}
-
-/**
- * Only the EMBEDDED calendar re-anchors — see the `records` docstring for why a
- * standalone calendar keeps FullCalendar's "today" default.
- */
-function resolveInitialDate(
-  records: readonly TableRecord[] | undefined,
-  events: readonly CalendarEvent[]
-): string | undefined {
-  return records ? earliestEventDate(events) : undefined
+  /** The author's classes for the calendar's pieces, resolved server-side. */
+  readonly calendarClasses?: CalendarPartClasses
 }
 
 /**
@@ -118,7 +80,6 @@ function useZones(fieldTimeZones: Readonly<Record<string, string>> | undefined):
 
 export default function CalendarIsland({
   dataSource,
-  records,
   dateField,
   endDateField,
   defaultView,
@@ -130,6 +91,7 @@ export default function CalendarIsland({
   maxEventsPerDay,
   calendarEvent,
   calendarInteraction,
+  calendarClasses,
 }: CalendarIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useCalendarRecords(dataSource)
   const { pageZone, zoneOf } = useZones(fieldTimeZones)
@@ -138,7 +100,7 @@ export default function CalendarIsland({
   if (isLoading) return <CalendarLoading />
   if (isError) return <CalendarError error={error} />
 
-  const events = recordsToCalendarEvents(resolveIslandRecords(records, data?.records), {
+  const events = recordsToCalendarEvents(data?.records ?? [], {
     dateField,
     endDateField,
     labelField,
@@ -147,7 +109,6 @@ export default function CalendarIsland({
     dateOnlyFields,
     zoneOf,
   })
-  const initialDate = resolveInitialDate(records, events)
 
   // A system source is READ-ONLY: there is no records table to write to, so the
   // DB-table-only write affordances are gated off. `tableName` is undefined for a
@@ -160,7 +121,6 @@ export default function CalendarIsland({
     <CalendarViewComponent
       events={events}
       defaultView={defaultView}
-      {...(initialDate && { initialDate })}
       maxEventsPerDay={maxEventsPerDay}
       calendarEvent={calendarEvent}
       calendarInteraction={isSystemSource ? undefined : calendarInteraction}
@@ -169,6 +129,7 @@ export default function CalendarIsland({
       endDateField={endDateField}
       pageZone={pageZone}
       zoneOf={zoneOf}
+      calendarClasses={calendarClasses}
     />
   )
 }

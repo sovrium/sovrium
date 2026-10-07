@@ -6,21 +6,15 @@
  */
 
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
-
-/** A resolved token exchange request: every `$env.VAR` already substituted. */
-export interface TokenExchangeRequest {
-  readonly tokenUrl: string
-  readonly body: Readonly<Record<string, string>>
-  readonly bodyType: 'json' | 'form'
-  readonly tokenPath: string
-  readonly expiresInPath: string
-}
-
-export type TokenExchangeResult =
-  | { readonly ok: true; readonly accessToken: string; readonly expiresAt: Date }
-  | { readonly ok: false; readonly error: string }
+import {
+  guardedFetch,
+  guardedText,
+  TOKEN_RESPONSE_MAX_BYTES,
+} from '@/infrastructure/egress/guarded-fetch'
+import type {
+  TokenExchangeRequest,
+  TokenExchangeResult,
+} from '@/application/ports/services/oauth-token-client'
 
 /** An answer without a lifetime is kept for one hour. */
 const DEFAULT_LIFETIME_SECONDS = 3600
@@ -57,32 +51,32 @@ const encodeBody = (
  * Exchange a stored credential for a short-lived token at an endpoint that is
  * not an OAuth2 token endpoint (Spendesk and similar): POST the credential as
  * JSON or as a form, read the token and its lifetime from the answer by dot
- * path. The body carries secrets, so the request passes the outbound-address
- * guard first and a transport failure is reported by tag, never by message.
+ * path. The body carries secrets, so the request and every redirect it follows
+ * pass the outbound-address guard, and a transport failure is reported by tag,
+ * never by message.
  */
 export const requestExchangedToken = async (
   request: TokenExchangeRequest
 ): Promise<TokenExchangeResult> => {
-  const validation = validateOutboundUrl(request.tokenUrl)
-  if (!validation.ok) {
-    return { ok: false, error: `token_invalid_url_${validation.issue.reason}` }
-  }
   const { contentType, payload } = encodeBody(request)
   try {
-    const response = await withFetchTimeout(
+    const sent = await guardedFetch(
       request.tokenUrl,
       {
         method: 'POST',
         headers: { 'Content-Type': contentType, Accept: 'application/json' },
         body: payload,
       },
-      OAUTH_CALLBACK_TIMEOUT_MS
+      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
     )
+    if (!sent.ok) return { ok: false, error: `token_invalid_url_${sent.reason}` }
+    const { response } = sent
     if (!response.ok) {
       const range = response.status >= 400 && response.status < 500 ? '4xx' : '5xx'
       return { ok: false, error: `token_endpoint_${range}_${String(response.status)}` }
     }
-    const answer: unknown = await response.json()
+    if (response.truncated) return { ok: false, error: 'token_response_too_large' }
+    const answer: unknown = JSON.parse(guardedText(response))
     const token = readPath(answer, request.tokenPath)
     if (typeof token !== 'string' || token === '') {
       return { ok: false, error: 'token_response_missing_token' }

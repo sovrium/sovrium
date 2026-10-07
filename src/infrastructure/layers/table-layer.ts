@@ -6,7 +6,6 @@
  */
 
 import { Effect, type Layer, type Result } from 'effect'
-import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 
@@ -24,24 +23,6 @@ export {
   checkForExistingRecords,
   findRecordIdsByMergeFields,
 } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
-
-/**
- * The composite layer for table routes that also dispatch record-event
- * automations — now simply the automation runtime itself.
- *
- * It used to be a SECOND, smaller composition maintained beside
- * `AutomationRuntimeLayer`, and the divergence was a live bug: the twin left
- * out `AuthRepository`, `AutomationApprovalRepository`, `AiService`,
- * `StorageService` and `ImageTransformService`, so an automation step reaching
- * for one of those ran from a webhook or cron trigger and failed from a RECORD
- * trigger. Nothing caught it, because this module asserted the provided program
- * had no requirements left rather than proving it, and
- * `triggerRecordEventAutomations` folded the resulting missing-service defect
- * into one log line. With the assertion removed the compiler reports the gap,
- * and the fix is to stop maintaining two lists: a record write now carries
- * exactly the services a cron or webhook run carries.
- */
-const TableWithAutomationsLive = AutomationRuntimeLayer
 
 /**
  * Composite layer for the user_access (Z-2) endpoints. The route is
@@ -109,14 +90,4 @@ export async function runUserAccessProgram<A, E>(
 export function provideTableLive<A, E, R>(program: Effect.Effect<A, E, R>) {
   // Type assertion: TableLive provides all required repositories, so remaining requirements are never
   return Effect.provide(program, TableLive)
-}
-
-/**
- * Provide TableLive + AutomationRepositories to an Effect program. Use this
- * when a table-route program also taps a record-triggered automation
- * (`triggerRecordEventAutomations`) — the record write and automation engine
- * run inside the same Effect request scope.
- */
-export function provideTableWithAutomationsLive<A, E, R>(program: Effect.Effect<A, E, R>) {
-  return Effect.provide(program, TableWithAutomationsLive)
 }

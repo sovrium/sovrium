@@ -171,11 +171,13 @@ languages:
 ```yaml
 - type: button
   label: '$t:cta.bookDemo'
+- type: text
+  content: '$t:portal.dashboard.hello[, $session.name]' # Bonjour, Camille Martin
 ```
 
-The keys are your own vocabulary rather than the schema's, so the block is an open map: nothing validates a key name, and a typo surfaces as an untranslated string rather than as a decode error.
+A key can open a longer value, as in the second component above. The key ends at the first character a key cannot hold (a key is letters, digits, `.`, `_` and `-`, and never ends with a `.`), and everything after it is kept as written, including `$session.*` tokens and their optional `[ … ]` segments. Writing the whole sentence into the dictionary (`portal.dashboard.hello: 'Bonjour[, $session.name]'`) works too, and is the better choice when word order changes between languages.
 
-A key missing in the active language falls back to `fallback`, then to `default`. A key missing everywhere renders as the key itself, which is deliberately ugly: a silent empty string would ship a blank label.
+The keys are your own vocabulary rather than the schema's, so the block is an open map: nothing validates a key name, and a typo surfaces as an untranslated string rather than as a decode error. A key missing in the active language falls back to `fallback`, then to `default`. A key missing everywhere renders as the key itself, which is deliberately ugly: a silent empty string would ship a blank label.
 
 ## The engine's own interface text
 
@@ -193,11 +195,9 @@ languages:
       sovrium.datatable.columns: Champs
 ```
 
-The keys are grouped by surface: `datatable.*` (toolbar, the view switcher's `datatable.viewGrid` and `datatable.viewCalendar`, `datatable.pagination.*` for the pager), `form.*` (default submit labels, `form.required`, `form.requiredNamed`, `form.submissionFailed`, and `form.clear` / `form.clearNamed` for the control that empties an optional value), `comments.*`, `search.placeholder`, `list.loading`, `list.loadFailed`, `rateLimit.message` and `rateLimit.retry` (the notice a widget shows when its reads are rate-limited), `recordDrawer.*`, `confirmGate.*` and `commandPalette.*` (the command palette's create dialog). A value may carry placeholders such as `{label}` or `{page}`, which the engine fills in.
+The keys are grouped by surface: `datatable.*` (toolbar, the view switcher's `datatable.viewGrid` and `datatable.viewCalendar`, `datatable.pagination.*` for the pager), `form.*` (default submit labels, `form.required`, `form.requiredNamed`, `form.submissionFailed`, and `form.clear` / `form.clearNamed` for the control that empties an optional value), `comments.*`, `search.placeholder`, `list.loading`, `list.loadFailed`, `rateLimit.message` and `rateLimit.retry` (the notice a widget shows when its reads are rate-limited), `recordDrawer.*`, `confirmGate.*`, `commandPalette.*` (the command palette's create dialog), `twoFactor.*` (the two-step enrolment screens: `twoFactor.qrTitle`, `twoFactor.keyHint`, `twoFactor.code`, `twoFactor.verify`, `twoFactor.recoveryCodes`, `twoFactor.codesSaved`, `twoFactor.done`), `passkey.add` and `passkey.signIn` (the one-button passkey forms), and `datatable.passkeyName` for the field a passkeys list renames a key in. A value may carry placeholders such as `{label}` or `{page}`, which the engine fills in.
 
-An override applies to the language it is written under. A page in a language the engine ships (English or French) keeps the engine's own words for any key you did not translate into that language, so the English-only `sovrium.form.submit: Send` above leaves a French page reading « Envoyer »; in any other language, your `fallback` and `default` strings come before the engine's English.
-
-The prefix keeps the engine's words apart from yours. A key of your own that happens to share an engine name — `form.submit` for the call to action on your landing page — is yours alone: it resolves wherever you write `$t:form.submit`, and it does not rename the engine's button.
+An override applies to the language it is written under. A page in a language the engine ships (English or French) keeps the engine's own words for any key you did not translate into that language, so the English-only `sovrium.form.submit: Send` above leaves a French page reading « Envoyer »; in any other language, your `fallback` and `default` strings come before the engine's English. The prefix keeps the engine's words apart from yours. A key of your own that happens to share an engine name — `form.submit` for the call to action on your landing page — is yours alone: it resolves wherever you write `$t:form.submit`, and it does not rename the engine's button.
 
 Ten keys were read under their bare name before the prefix existed: `datatable.newRecord`, `datatable.save`, `datatable.cancel`, `confirmGate.confirm`, `confirmGate.cancel`, `confirmGate.message`, `recordDrawer.title`, `recordDrawer.save`, `recordDrawer.close` and `recordDrawer.relatedCreateFailed`. They still are, so an app written that way keeps its wording, but `sovrium validate` and the server at startup print an `engine-key-unprefixed` notice naming each one and its prefixed spelling. When both spellings are written, the prefixed one wins.
 

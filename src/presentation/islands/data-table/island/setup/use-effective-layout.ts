@@ -6,45 +6,25 @@
  */
 
 import { useDataTableState } from '../../../hooks/use-data-table-state'
-import { useSavedViews } from '../../../hooks/use-saved-views'
-import { densityToHeight, useTablePreferences } from '../../../hooks/use-table-preferences'
+import { cappedPageSize } from './row-cap'
 import type { SetupContext } from './setup-params'
 
 export type EffectiveLayout = ReturnType<typeof useEffectiveLayout>
 
 /**
- * Per-user, per-table preferences and the table state they drive.
- *
- * Layout precedence: the APPLIED VIEW wins while it is applied; the
- * per-(user, table) preference is the fallback when the view expresses no
- * opinion. Both halves matter — "view always wins" would satisfy an
- * override-only assertion while silently resetting every user's table-wide
- * density the moment they opened a view that never set one.
+ * The table state the grid draws from: its page size and its row height, both
+ * as the author declared them — the page never larger than the binding's
+ * `limit`. A reader's resizes and toggles last for the
+ * visit only — nothing about how she looked at the grid is stored.
  */
 export function useEffectiveLayout(ctx: SetupContext) {
-  // A view-bound grid keeps no per-user state: the empty key short-circuits
-  // both reads, which a visitor on a public view would only be refused.
-  const personalKey = ctx.isViewBound ? '' : ctx.tableKey
-  const prefs = useTablePreferences(personalKey)
-  const savedViews = useSavedViews(personalKey)
-
-  const effectiveRowDensity = ctx.ui.activeViewRowDensity ?? prefs.preferences.rowDensity
-  const effectiveColumnWidths = ctx.ui.activeViewColumnWidths ?? prefs.preferences.columnWidths
-
-  // Drive the row height synchronously each render so the first paint after a
-  // `page.reload()` already reflects whichever density is in force. With none,
-  // the schema's `rowHeight` wins and the in-component toggle keeps working.
-  const controlledRowHeight = effectiveRowDensity ? densityToHeight(effectiveRowDensity) : undefined
-
   const tableState = useDataTableState({
-    initialPageSize: ctx.params.paginationConfig?.pageSize ?? 25,
+    initialPageSize: cappedPageSize(
+      ctx.params.dataSource.limit,
+      ctx.params.paginationConfig?.pageSize
+    ),
     initialRowHeight: ctx.params.initialRowHeight,
-    ...(controlledRowHeight && { controlledRowHeight }),
-    ...(effectiveColumnWidths && {
-      initialColumnSizing: effectiveColumnWidths,
-      controlledColumnSizing: effectiveColumnWidths,
-    }),
   })
 
-  return { prefs, savedViews, tableState }
+  return { tableState }
 }

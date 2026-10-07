@@ -27,7 +27,7 @@
  *
  * ─── WHY THE ISLAND'S COMPONENTS AND NOT A DRAWING OF THEM ──────────────────
  *
- * `[internal ref]` exists to catch a specimen that documents markup
+ * an admin design system spec exists to catch a specimen that documents markup
  * the app never emits. A calendar hand-shaped out of a table and some buttons
  * would look right and teach a reader a structure this app does not ship, so
  * what is rendered here is the same `<DateGrid>` a visitor clicks, the same
@@ -39,7 +39,7 @@
  * Three things, and each is the one the drawing cannot claim:
  *
  *  - **the dialog role**, because a dialog nobody opened is a second dialog the
- * document advertises (`[internal ref]` asserts its absence);
+ *    document advertises (an admin design system spec asserts its absence);
  *  - **the floating position**, because a specimen cell lays its neighbours out
  *    beside it and an absolutely positioned panel would cover them;
  *  - **every handler**, which costs nothing to withhold: `renderToStaticMarkup`

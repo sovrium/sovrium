@@ -26,7 +26,7 @@ export const section = defineSection({
       slug: 'backup-restore-sqlite',
       title: 'Back up and restore a Sovrium SQLite database',
       description:
-        'Take a consistent backup of an app on the SQLite default, and restore it — one file holds all your data.',
+        'Back up an app on the SQLite default with sovrium backup — database, key, config and uploads in one archive — and restore it with sovrium restore.',
       keywords: [
         'sovrium',
         'backup',
@@ -35,7 +35,8 @@ export const section = defineSection({
         'database',
         'data directory',
         'disaster recovery',
-        'wal',
+        'sovrium backup',
+        'sovrium restore',
       ],
       order: 10_600,
       sidebarLabel: 'Back up & restore SQLite',

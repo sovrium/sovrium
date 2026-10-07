@@ -87,7 +87,7 @@ export const checkUploadPath = (path: string): UploadRejection | undefined => {
 }
 
 /** Whether the bucket's `allowedMimeTypes` admits this type. An absent list admits all. */
-const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): boolean => {
+export const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): boolean => {
   const allowed = bucket.allowedMimeTypes
   if (!allowed || allowed.length === 0) return true
   return allowed.some((entry) =>
@@ -102,7 +102,7 @@ const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): boolean 
  * 100MB default. The tier travels with the number so the refusal can name which
  * knob the operator has to turn.
  */
-const resolveMaxFileSize = (
+export const resolveMaxFileSize = (
   bucket: Readonly<Bucket>
 ): { readonly limit: number; readonly tier: 'bucket' | 'global' } | undefined => {
   if (bucket.maxFileSize !== undefined) return { limit: bucket.maxFileSize, tier: 'bucket' }
@@ -126,15 +126,13 @@ export const checkUploadFile = (
   const filenameRejection = checkUploadFilename(file.name)
   if (filenameRejection) return filenameRejection
 
+  // A cap names the LARGEST size accepted, at both tiers: a file of exactly
+  // `maxFileSize` or exactly `STORAGE_MAX_FILE_SIZE` is stored.
   const sizeLimit = resolveMaxFileSize(bucket)
-  if (sizeLimit) {
-    const exceedsBucket = sizeLimit.tier === 'bucket' && file.size > sizeLimit.limit
-    const exceedsGlobal = sizeLimit.tier === 'global' && file.size >= sizeLimit.limit
-    if (exceedsBucket || exceedsGlobal) {
-      return {
-        reason: 'file-too-large',
-        message: `File size ${file.size} bytes exceeds ${sizeLimit.tier} limit of ${sizeLimit.limit} bytes`,
-      }
+  if (sizeLimit && file.size > sizeLimit.limit) {
+    return {
+      reason: 'file-too-large',
+      message: `File size ${file.size} bytes exceeds ${sizeLimit.tier} limit of ${sizeLimit.limit} bytes`,
     }
   }
 

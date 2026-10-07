@@ -1,0 +1,62 @@
+# sovrium-library: block/newsletter-centered@0.30.0
+name: newsletter-centered
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-2xl
+    children:
+      - type: card
+        props:
+          className: flex flex-col items-center gap-4 px-6 py-12 text-center sm:px-10 sm:py-14
+        children:
+          - type: icon
+            props:
+              name: mail
+              size: 26
+              className: text-foreground
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1] sm:text-4xl'
+            content: 'Get [the thing] by email'
+          - type: text
+            element: p
+            props:
+              className: max-w-md text-md text-foreground-muted
+            content: One sentence on cadence and content. Nothing else.
+          - type: container
+            props:
+              className: mt-2 w-full max-w-sm text-left
+            children:
+              - type: form
+                props:
+                  className: '!border-0 !bg-transparent !p-0'
+                classes:
+                  parts:
+                    submit: h-10 px-4
+                endpoint:
+                  url: /api/forms/newsletter/submissions
+                  method: POST
+                  submitLabel: Subscribe
+                  onSuccess:
+                    type: toast
+                    variant: success
+                    message: You are subscribed.
+                  onError:
+                    type: toast
+                    variant: destructive
+                    message: The address could not be saved. Try again.
+                fields:
+                  - field: email
+                    control: email
+                    label: Email
+                    placeholder: you@example.com
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle
+            content: '[Privacy line — link to the policy]'

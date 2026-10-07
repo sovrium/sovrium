@@ -15,6 +15,7 @@ import {
 import { columnDropId } from './collision-detection'
 import { KanbanCell } from './kanban-cell'
 import { LaneChevron } from './kanban-swimlane'
+import type { KanbanColumnPlacement } from './column-sizing'
 import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
@@ -54,7 +55,6 @@ function ColumnTitle({
         aria-expanded={expanded}
         aria-controls={bodyId}
         className={computeKanbanSwimlaneToggleClasses()}
-        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one closure per column over its own value; React Compiler not yet enabled in Bun
         onClick={() => onToggle(value)}
       >
         <LaneChevron expanded={expanded} />
@@ -138,8 +138,10 @@ export function KanbanColumn({
   expanded,
   onToggle,
   idPrefix,
+  placement,
 }: {
   readonly column: KanbanColumnData
+  readonly placement?: KanbanColumnPlacement
   readonly emptyMessage?: string
   readonly card?: KanbanCard
   /** Open state, present only on a board that declares `kanbanGroupBy.collapsed`. */
@@ -165,6 +167,7 @@ export function KanbanColumn({
       }
       folded={expanded === false}
       bodyId={bodyId}
+      placement={placement}
     />
   )
 }

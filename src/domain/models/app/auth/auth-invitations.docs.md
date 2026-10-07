@@ -21,16 +21,19 @@ auth:
         This invitation expires in 72 hours.
 ```
 
-## The two endpoints
+## The three endpoints
 
 | Endpoint                                 | Behaviour                                                                         |
 | ---------------------------------------- | --------------------------------------------------------------------------------- |
 | `POST /api/auth/admin/invite-user`       | Takes an address, a name and a role, and no password                              |
 | `POST /api/auth/admin/accept-invitation` | Backs the public accept page; the invitee sets a password and lands authenticated |
+| `POST /api/auth/decline-invitation`      | Backs the decline form; takes the token alone and withdraws the invitation        |
 
 Issuing answers `401` when unauthenticated and **`404`** when the caller may not invite that role — never `403`, so the endpoint leaks nothing about which roles exist. It answers `400` for invalid input, and `422` when the address already maps to a fully onboarded user.
 
 Accepting answers `400` for an invalid token and `410` for an expired one.
+
+Declining needs no session: the token from the email is the credential. Once declined, the link stops working. An unknown, already-used or withdrawn token answers `404`.
 
 The accept page sends nothing until its script has run: its Accept button waits for it, so the token and the chosen password never travel in the page address.
 

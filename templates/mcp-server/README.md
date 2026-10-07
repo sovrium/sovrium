@@ -57,6 +57,11 @@ incident write-up, onboarding notes — under four tags. The page at `/` says ho
 server on and connect a client, and lists the tools. The admin console at `/_admin` is where
 keys, roles and documents are managed.
 
+Optional: an admin can import a runbook the team keeps in a GitHub repository, filed as a
+draft, with the `import-runbook` automation; it reads the file through the `github` connection
+from the Sovrium library (`sovrium library add connection/github`). Set `GITHUB_TOKEN` to turn
+it on — without it the app runs exactly the same.
+
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
 application code. Replace the tables in `config/tables/` and the documents in `seed/`.
 
@@ -110,6 +115,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically, and `MCP_ENABLED=true` and
 `MCP_TRANSPORT=streamable-http` come preset; you only fill in `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config (see the
 [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

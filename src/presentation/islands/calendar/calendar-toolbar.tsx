@@ -95,6 +95,8 @@ export interface CalendarToolbarProps {
   readonly agenda?: boolean
   /** Draw the agenda; given with {@link phone}. */
   readonly onAgenda?: () => void
+  /** The toolbar's classes with the author's `toolbar` part merged in; the recipe's when absent. */
+  readonly className?: string
 }
 
 type ViewItem = CalendarView | 'agenda'
@@ -204,10 +206,11 @@ export function CalendarToolbar({
   phone,
   agenda,
   onAgenda,
+  className,
 }: CalendarToolbarProps): ReactElement {
   return (
     <div
-      className={TOOLBAR_CLASSES}
+      className={className ?? TOOLBAR_CLASSES}
       data-calendar-toolbar=""
     >
       <CalendarNavGroup

@@ -6,7 +6,7 @@
  */
 
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
-import { useRecordQuery, type RecordDataSource } from './hooks/use-records-query'
+import { useRecordQuery, type RecordDataSource } from './hooks/use-record-query'
 import { hasDataBinding } from './runtime/data-binding'
 import { resolvePageLocale } from './runtime/page-locale'
 import { resolvePageTimezone } from './runtime/page-timezone'

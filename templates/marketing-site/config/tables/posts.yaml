@@ -1,0 +1,14 @@
+# The articles the blog sections list. Anyone may read a published post; only
+# an admin writes one.
+id: 1
+name: posts
+fields:
+  - { id: 1, name: title, type: single-line-text, required: true }
+  - { id: 2, name: excerpt, type: long-text }
+  - { id: 3, name: cover, type: url }
+  - { id: 4, name: published_at, type: date }
+permissions:
+  read: all
+  create: [admin]
+  update: [admin]
+  delete: [admin]

@@ -1,0 +1,162 @@
+# sovrium-library: block/auth-invitation-accept@0.30.0
+name: auth-invitation-accept
+type: container
+element: main
+props:
+  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+children:
+  - type: container
+    props:
+      className: flex w-full max-w-104 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2 text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: layers
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: $app.label
+      - type: flex
+        props:
+          className: flex flex-col gap-6
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1.5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: $invitation.inviter.name invited you to $invitation.workspace
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Accept to join with the email the invitation was sent to. The link works for seven days after it was sent.
+          - type: flex
+            props:
+              className: flex flex-col divide-y divide-border border-y border-border
+            children:
+              - type: flex
+                props:
+                  className: flex items-baseline justify-between gap-4 py-2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: text-md text-foreground-muted
+                    content: Email
+                  - type: text
+                    element: span
+                    props:
+                      className: text-md text-foreground
+                    content: $invitation.email
+              - type: flex
+                props:
+                  className: flex items-baseline justify-between gap-4 py-2
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: text-md text-foreground-muted
+                    content: Role
+                  - type: text
+                    element: span
+                    props:
+                      className: text-md text-foreground
+                    content: $invitation.role
+          - type: form
+            action:
+              type: auth
+              method: acceptInvitation
+              submitLabel: Accept and join
+              onSuccess:
+                navigate: /
+          - type: form
+            action:
+              type: auth
+              method: declineInvitation
+              submitLabel: Decline
+              onSuccess:
+                navigate: /sign-in
+        visibility:
+          condition:
+            field: $invitation.status
+            operator: eq
+            value: pending
+      - type: flex
+        props:
+          className: flex flex-col gap-6
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1.5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: This invitation has expired
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Ask the person who invited you to send a new one.
+          - type: flex
+            props:
+              className: flex flex-wrap gap-1 text-md text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Already a member?
+              - type: link
+                props:
+                  href: /sign-in
+                  className: font-medium text-foreground underline underline-offset-4
+                content: Sign in
+        visibility:
+          condition:
+            field: $invitation.status
+            operator: eq
+            value: expired
+      - type: flex
+        props:
+          className: flex flex-col gap-6
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1.5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-2xl font-semibold tracking-tight text-foreground
+                content: This invitation link is not valid
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: It may have been mistyped or already used. Ask for a new invitation.
+          - type: flex
+            props:
+              className: flex flex-wrap gap-1 text-md text-foreground-muted
+            children:
+              - type: text
+                element: span
+                content: Already a member?
+              - type: link
+                props:
+                  href: /sign-in
+                  className: font-medium text-foreground underline underline-offset-4
+                content: Sign in
+        visibility:
+          condition:
+            field: $invitation.status
+            operator: eq
+            value: invalid

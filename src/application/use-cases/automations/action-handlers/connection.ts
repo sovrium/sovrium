@@ -7,18 +7,17 @@
 
 import { Data, Duration, Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import {
+  guardedFetch,
+  guardedText,
+  type GuardedResponse,
+} from '@/infrastructure/egress/guarded-fetch'
 import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
 import { resolveConnectionHeaders } from './auth-headers'
-import {
-  buildOperationRequest,
-  nextLinkOf,
-  readDotPath,
-  retryAfterMs,
-  withQueryParam,
-  type OperationRequest,
-} from './connection-request'
+import { withWholeFileParams } from './connection-file-read'
+import { firstPageUrl, itemsOf, nextPageUrl, type PagePosition } from './connection-pagination'
+import { retryAfterMs, type OperationRequest } from './connection-request'
+import { buildCallRequest } from './connection-written-body'
 import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { App } from '@/domain/models/app'
@@ -52,7 +51,7 @@ const MAX_RATE_LIMIT_RETRIES = 3
 /** The longest `Retry-After` honoured; a longer ask fails the step instead of wedging the run. */
 const MAX_RETRY_AFTER_MS = 60_000
 
-/** The largest response body read, per page — past it the step fails rather than truncating JSON. */
+/** The largest response body read, in bytes, per page — past it the step fails rather than truncating JSON. */
 const RESPONSE_BODY_LIMIT = 5 * 1024 * 1024
 
 /** Hard stop for `paginate: all`, so a service that always names a next page cannot loop forever. */
@@ -82,55 +81,47 @@ const decodeBody = (text: string): unknown => {
   }
 }
 
-const readAnswer = async (response: Response): Promise<PageAnswer> => {
-  const text = await response.text()
-  const oversize = text.length > RESPONSE_BODY_LIMIT
-  return {
-    oversize,
-    status: response.status,
-    headers: Object.fromEntries(response.headers.entries()),
-    body: oversize ? undefined : decodeBody(text),
-    retryAfter: response.headers.get('retry-after'),
-    link: response.headers.get('link'),
-  }
-}
+const readAnswer = (response: GuardedResponse): PageAnswer => ({
+  oversize: response.truncated,
+  status: response.status,
+  headers: Object.fromEntries(response.headers.entries()),
+  body: response.truncated ? undefined : decodeBody(guardedText(response)),
+  retryAfter: response.headers.get('retry-after'),
+  link: response.headers.get('link'),
+})
 
-/** Send one request, once. The outbound guard runs before any byte leaves. */
+/** Send one request, once. The outbound guard runs on the URL and every redirect hop. */
 const sendOnce = (
   request: OperationRequest,
   timeoutMs: number
-): Effect.Effect<PageAnswer, ConnectionCallError> => {
-  const validation = validateOutboundUrl(request.url)
-  if (!validation.ok) {
-    return Effect.fail(
-      new ConnectionCallError({ message: `invalid_outbound_url_${validation.issue.reason}` })
-    )
-  }
-  return Effect.tryPromise({
-    try: async () =>
-      readAnswer(
-        await withFetchTimeout(
-          request.url,
-          {
-            method: request.method,
-            headers: request.headers,
-            ...(request.body !== undefined ? { body: request.body } : {}),
-          },
-          timeoutMs
-        )
+): Effect.Effect<PageAnswer, ConnectionCallError> =>
+  Effect.tryPromise({
+    try: () =>
+      guardedFetch(
+        request.url,
+        {
+          method: request.method,
+          headers: request.headers,
+          ...(request.body !== undefined ? { body: request.body } : {}),
+        },
+        { timeoutMs, maxBodyBytes: RESPONSE_BODY_LIMIT }
       ),
     catch: (error) =>
       new ConnectionCallError({ message: error instanceof Error ? error.message : String(error) }),
   }).pipe(
+    Effect.flatMap((sent) =>
+      sent.ok
+        ? Effect.succeed(readAnswer(sent.response))
+        : Effect.fail(new ConnectionCallError({ message: sent.message }))
+    ),
     Effect.filterOrFail(
       (answer) => !answer.oversize,
       () =>
         new ConnectionCallError({
-          message: `the response body exceeds ${String(RESPONSE_BODY_LIMIT)} characters`,
+          message: `the response body exceeds ${String(RESPONSE_BODY_LIMIT)} bytes`,
         })
     )
   )
-}
 
 /** Send one request, waiting out a `Retry-After` on 429 / 503 and trying again. */
 const sendWithRateLimitRetry = (
@@ -150,120 +141,6 @@ const sendWithRateLimitRetry = (
       )
     })
   )
-
-/** The items of one page, per the operation's pagination. */
-const itemsOf = (pagination: OperationPagination, body: unknown): readonly unknown[] => {
-  const items = pagination.itemsPath === undefined ? body : readDotPath(body, pagination.itemsPath)
-  return Array.isArray(items) ? items : []
-}
-
-const isPresent = (value: unknown): boolean => value !== undefined && value !== null && value !== ''
-
-/** Where the reader stands: the URL just read, and the page number / offset it carried. */
-interface PagePosition {
-  readonly url: string
-  readonly page: number
-  readonly offset: number
-}
-
-/**
- * A `Link: rel="next"` URL, resolved against the page just read and kept only
- * when it stays on the same origin: the request carries the connection's
- * credentials, and a next link pointing elsewhere must not receive them.
- */
-const sameOriginLink = (current: string, next: string | undefined): string | undefined => {
-  if (next === undefined) return undefined
-  try {
-    const resolved = new URL(next, current)
-    return resolved.origin === new URL(current).origin ? resolved.toString() : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** The 'page' style: the page number the response names, else the one after. */
-const nextPageNumberUrl = (
-  pagination: Extract<OperationPagination, { readonly style: 'page' }>,
-  current: PagePosition,
-  body: unknown,
-  items: readonly unknown[]
-): string | undefined => {
-  if (pagination.nextPath !== undefined) {
-    const next = readDotPath(body, pagination.nextPath)
-    return isPresent(next)
-      ? withQueryParam(current.url, pagination.pageParam, String(next))
-      : undefined
-  }
-  return items.length === 0
-    ? undefined
-    : withQueryParam(current.url, pagination.pageParam, String(current.page + 1))
-}
-
-/** The URL of the page after `answer`, or `undefined` when it was the last one. */
-const nextPageUrl = (
-  pagination: OperationPagination,
-  current: PagePosition,
-  answer: PageAnswer
-): string | undefined => {
-  const items = itemsOf(pagination, answer.body)
-  switch (pagination.style) {
-    case 'page':
-      return nextPageNumberUrl(pagination, current, answer.body, items)
-    case 'offset':
-      return items.length < pagination.limit
-        ? undefined
-        : withQueryParam(
-            current.url,
-            pagination.offsetParam,
-            String(current.offset + pagination.limit)
-          )
-    case 'cursor': {
-      const cursor = readDotPath(answer.body, pagination.cursorPath)
-      return isPresent(cursor)
-        ? withQueryParam(current.url, pagination.cursorParam, String(cursor))
-        : undefined
-    }
-    case 'link':
-      return sameOriginLink(current.url, nextLinkOf(answer.link))
-    case 'lastItem':
-      return afterLastItemUrl(pagination, current.url, answer.body, items)
-  }
-}
-
-/**
- * The 'lastItem' style: the next page is asked for with the id of the last item
- * just read (`starting_after`). It ends on an empty page, or — when the
- * operation names one — on a `hasMorePath` answering false, which is what spares
- * the extra request an empty page would cost.
- */
-const afterLastItemUrl = (
-  pagination: Extract<OperationPagination, { readonly style: 'lastItem' }>,
-  url: string,
-  body: unknown,
-  items: readonly unknown[]
-): string | undefined => {
-  if (items.length === 0) return undefined
-  if (pagination.hasMorePath !== undefined && readDotPath(body, pagination.hasMorePath) === false) {
-    return undefined
-  }
-  const lastId = readDotPath(items[items.length - 1], pagination.idField ?? 'id')
-  return isPresent(lastId) ? withQueryParam(url, pagination.afterParam, String(lastId)) : undefined
-}
-
-/** The first page's URL: the page / offset parameters set to their start values. */
-const firstPageUrl = (pagination: OperationPagination, url: string): string => {
-  if (pagination.style === 'page') {
-    return withQueryParam(url, pagination.pageParam, String(pagination.startPage ?? 1))
-  }
-  if (pagination.style === 'offset') {
-    return withQueryParam(
-      withQueryParam(url, pagination.offsetParam, '0'),
-      pagination.limitParam,
-      String(pagination.limit)
-    )
-  }
-  return url
-}
 
 interface CallResult {
   readonly answer: PageAnswer
@@ -407,7 +284,7 @@ const performCall = (input: {
     } as const
   })
 
-export const handleConnectionCall: ActionHandler = (action, app, automation) =>
+export const handleConnectionCall: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const connectionName = stringProp(props, 'connection')
@@ -424,14 +301,15 @@ export const handleConnectionCall: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: `connection ${connectionName}: ${base.error}` } as const
     }
 
-    const params = (props['params'] as Record<string, unknown> | undefined) ?? {}
-    const built = buildOperationRequest({ baseUrl: base.url, operation, params })
-    if (!built.ok) {
-      return { status: 'failure', error: `operation ${label}: ${built.error}` } as const
+    const rendered = (props['params'] as Record<string, unknown> | undefined) ?? {}
+    const params = withWholeFileParams(rendered, operation, runContext)
+    const built = yield* Effect.result(buildCallRequest({ baseUrl: base.url, operation, params }))
+    if (built._tag === 'Failure') {
+      return { status: 'failure', error: `operation ${label}: ${built.failure.message}` } as const
     }
     return yield* performCall({
       label,
-      request: { ...built.request, headers: { ...built.request.headers, ...auth.headers } },
+      request: { ...built.success, headers: { ...built.success.headers, ...auth.headers } },
       operation,
       bound: paginateBound(props['paginate']),
       timeoutMs: timeoutOf(props),

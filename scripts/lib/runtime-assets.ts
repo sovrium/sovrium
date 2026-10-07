@@ -7,8 +7,8 @@
 
 /**
  * Shared builder for the client-side runtime assets that the server serves at
- * `/assets/*` (the client bundle, the React island bundle + chunks, and the
- * static client scripts).
+ * `/assets/*` (the client runtime loader + its split chunks, the React island
+ * bundle + chunks, and the static client scripts).
  *
  * Used by both packaging flows:
  * - `[internal ref]` → npm `dist/` (bundled mode reads these from disk)
@@ -95,7 +95,7 @@ export function nonCanonicalNodeModulesRefusal(
  * The static client scripts, each with the string literals that MUST survive
  * minification.
  *
- * A sentinel is not decoration. These three files are plain IIFEs whose whole
+ * A sentinel is not decoration. These files are plain IIFEs whose whole
  * contract with the page is a set of string literals — the attributes they
  * `querySelector`, the storage keys and the cookie name they write. A minifier
  * renames identifiers freely and must never touch those, so each one is asserted
@@ -117,11 +117,87 @@ const CLIENT_SCRIPTS = [
     // reach the NEXT request.
     sentinels: ['data-language-switcher-config', 'sovrium_language'],
   },
-  { name: 'banner-dismiss.js', sentinels: ['sovrium_banner-dismissed'] },
 ] as const
+
+/**
+ * The prebuilt page search runtime, directly under `dist/`. The same name is
+ * read by `generate-embedded-runtime-assets.ts` (embedding) and by the npm
+ * bundle's reader in `src/infrastructure/assets/page-search-runtime.ts`.
+ */
+export const PAGE_SEARCH_RUNTIME_FILE = 'page-search-runtime.js'
 
 const EMPTY_CHUNK_PAD =
   '/* sovrium: intentionally empty split chunk — padded so the server never emits a bodiless 204 */\n'
+
+/**
+ * The client runtime's split chunks, directly under `<distDir>`. The loader
+ * (`client-bundle.js`) imports them as `./client-chunks/<name>-<hash>.js`, a
+ * specifier Bun computes from this `naming.chunk` template, so the directory
+ * name is part of the shipped bytes and not only of the layout. Read by
+ * `generate-embedded-runtime-assets.ts` (embedding, keyed by file name without
+ * this prefix) and by `Performance Budget` (the universal payload).
+ */
+export const CLIENT_CHUNKS_DIR = 'client-chunks'
+
+/**
+ * The basename prefix of the one chunk every page runs. The server resolves the
+ * loader's `core` feature by this name, so a rename on the `src/` side has to
+ * fail the build here rather than ship a manifest the server cannot read.
+ */
+export const CLIENT_CORE_RUNTIME_CHUNK_PREFIX = 'client-core-runtime-'
+
+/**
+ * Pad every zero-byte `.js` in `dir`, then refuse if any is still empty.
+ *
+ * splitting+minify can reduce a shared facade chunk to 0 bytes while the bare
+ * side-effect import of it survives in the entry; a Response over a zero-length
+ * `Bun.file` collapses to 204 No Content, the browser rejects the module, and
+ * nothing that imports it runs. Both split builds (islands and the client
+ * runtime) go through here so the two cannot drift apart.
+ *
+ * @param dir - The split build's chunk directory
+ * @param label - Names the build in the error
+ */
+export function padEmptyChunks(dir: string, label: string): void {
+  for (const name of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const chunkPath = join(dir, name)
+    if (statSync(chunkPath).size === 0) writeFileSync(chunkPath, EMPTY_CHUNK_PAD)
+  }
+  const stillEmpty = readdirSync(dir).filter(
+    (name) => name.endsWith('.js') && statSync(join(dir, name)).size === 0
+  )
+  if (stillEmpty.length > 0) {
+    throw new Error(`${label} produced zero-byte chunks after padding: ${stillEmpty.join(', ')}`)
+  }
+}
+
+/**
+ * Refuse a client runtime build that did not emit exactly one
+ * `client-core-runtime-<hash>.js` chunk.
+ *
+ * Zero means the loader's `core` split point was renamed or inlined, and the
+ * server, which finds the chunk by this basename, would serve a loader whose
+ * only feature it cannot locate. Two means a stale file survived beside the
+ * fresh one (step 0 removes the directory, so that is a builder bug) and the
+ * server's choice between them would be arbitrary.
+ *
+ * @param chunkNames - The `.js` file names in `<distDir>/client-chunks/`
+ */
+export function assertSingleCoreRuntimeChunk(chunkNames: readonly string[]): void {
+  const core = chunkNames.filter(
+    (name) => name.startsWith(CLIENT_CORE_RUNTIME_CHUNK_PREFIX) && name.endsWith('.js')
+  )
+  if (core.length !== 1) {
+    throw new Error(
+      `Client runtime build emitted ${core.length} \`${CLIENT_CHUNKS_DIR}/` +
+        `${CLIENT_CORE_RUNTIME_CHUNK_PREFIX}*.js\` chunk(s), expected exactly 1` +
+        (core.length > 0 ? ` (${core.join(', ')})` : '') +
+        `. The server resolves the loader's \`core\` feature by that basename: if ` +
+        `\`src/presentation/islands/runtime/client-core-runtime.ts\` was renamed, ` +
+        `rename the prefix here and on the server side together.`
+    )
+  }
+}
 
 /**
  * Minify one static client script for shipping, asserting its load-bearing
@@ -144,7 +220,7 @@ const EMPTY_CHUNK_PAD =
  *
  * WHY `'use strict'` IS RE-ADDED
  * ------------------------------
- * All three sources open their IIFE with `'use strict'`, and Bun's minifier
+ * Every source opens its IIFE with `'use strict'`, and Bun's minifier
  * DROPS the directive — measured, not assumed. Silently demoting shipped code to
  * sloppy mode is a semantic change (an assignment to an undeclared name creates
  * a global instead of throwing), so the directive is restored at the top of the
@@ -169,7 +245,7 @@ export async function minifyClientScript(
   // THROWS an `AggregateError` whose message is the bare string "Bundle
   // failed" — no filename — rather than returning `success: false`; the
   // `success` branch below covers the returning shape. Naming the file is the
-  // whole point: three scripts go through here, and a build failure that does
+  // whole point: several scripts go through here, and a build failure that does
   // not say which one is a hunt.
   //
   // `format: 'iife'` because these are classic `<script src>` payloads, not
@@ -208,12 +284,15 @@ export async function minifyClientScript(
 /**
  * Build the client/island bundles and minify the static client scripts into
  * `<distDir>`, producing:
- *   - `<distDir>/client-bundle.js`
+ *   - `<distDir>/client-bundle.js` (the client runtime LOADER, ~1.4 KB)
+ *   - `<distDir>/client-chunks/*.js` (its split features; today exactly one,
+ *     `client-core-runtime-<hash>.js`)
  *   - `<distDir>/client-scripts/*.js`
  *   - `<distDir>/island-chunks/island-entry.js` + code-split chunks
+ *   - `<distDir>/page-search-runtime.js` (the page search `runtime.js`)
  */
 export async function buildRuntimeAssets(distDir: string, srcDir: string): Promise<void> {
-  // 0. Clear THIS builder's three output surfaces before writing them.
+  // 0. Clear THIS builder's output surfaces before writing them.
   //
   //    Island chunk names are content-hashed (`[name]-[hash].js`), so editing an
   //    island emits a NEW file and leaves the previous one behind. Nothing ever
@@ -229,14 +308,18 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
   //    before calling us; the binary flow (`build-binary.ts`) does not, and a
   //    developer's `dist/` survives indefinitely between builds. Cleaning here
   //    rather than in either caller makes the invariant the builder's own: the
-  //    three paths below hold exactly what THIS run produced, whoever called it.
+  //    paths below hold exactly what THIS run produced, whoever called it. The
+  //    client runtime's chunks are content-hashed too, so `client-chunks/` is
+  //    cleared for the same reason as `island-chunks/`.
   //
-  //    Scoped to the three outputs by name, never `distDir` itself — the npm
+  //    Scoped to the outputs by name, never `distDir` itself — the npm
   //    flow bundles `dist/index.js` and `dist/cli.js` alongside these, and a
   //    wholesale wipe here would delete a sibling step's work.
   rmSync(join(distDir, 'island-chunks'), { recursive: true, force: true })
   rmSync(join(distDir, 'client-scripts'), { recursive: true, force: true })
   rmSync(join(distDir, 'client-bundle.js'), { force: true })
+  rmSync(join(distDir, CLIENT_CHUNKS_DIR), { recursive: true, force: true })
+  rmSync(join(distDir, PAGE_SEARCH_RUNTIME_FILE), { force: true })
 
   // 1. Minify the static client scripts (see `minifyClientScript` for why these
   //    are no longer copied verbatim).
@@ -265,7 +348,11 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
     writeFileSync(join(clientScriptsDir, name), await minifyClientScript(src, sentinels))
   }
 
-  // 2. Pre-build client runtime bundle (src/presentation/islands/client.ts → client-bundle.js)
+  // 2. Pre-build the client runtime as a split build: the LOADER
+  //    (`src/presentation/islands/client.ts` → `client-bundle.js`) plus one chunk
+  //    per feature it `import()`s, under `client-chunks/`. The loader is the
+  //    whole of what every page fetches up front; `core` is the one feature
+  //    today, and the page modulepreloads it.
   //
   // The entry point is assembled from SEGMENTS, so it contains no path-shaped
   // literal and no literal rewriter can see it. W5a moved `client.ts` down into
@@ -274,19 +361,34 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
   // disagreeing reads as if the move had landed. The failure mode is silent,
   // because `Bun.build` is handed a path that does not exist and the client
   // bundle simply stops being produced.
+  //
+  // `outdir` is `distDir` itself and the chunk template carries the
+  // subdirectory, so the loader's import specifiers are
+  // `./client-chunks/<name>-<hash>.js`, relative to wherever the loader is
+  // served from (its stable and its hashed name sit side by side).
   const clientResult = await Bun.build({
     entrypoints: [join(srcDir, 'presentation', 'islands', 'client.ts')],
     outdir: distDir,
     target: 'browser',
     format: 'esm',
+    splitting: true,
     minify: true,
     define: { 'process.env.NODE_ENV': '"production"' },
-    naming: { entry: 'client-bundle.js' },
+    naming: { entry: 'client-bundle.js', chunk: `${CLIENT_CHUNKS_DIR}/[name]-[hash].js` },
   })
   if (!clientResult.success) {
     const errors = clientResult.logs.map((l) => String(l)).join('\n')
     throw new Error(`Client bundle build failed:\n${errors}`)
   }
+  const clientChunksDir = join(distDir, CLIENT_CHUNKS_DIR)
+  if (!existsSync(clientChunksDir)) {
+    throw new Error(
+      `Client runtime build emitted no ${CLIENT_CHUNKS_DIR}/ directory: the loader's ` +
+        `split points were inlined, so the server has no chunk to serve for \`core\`.`
+    )
+  }
+  padEmptyChunks(clientChunksDir, 'Client runtime build')
+  assertSingleCoreRuntimeChunk(readdirSync(clientChunksDir))
 
   // 3. Pre-build island entry bundle with code splitting
   const islandOutDir = join(distDir, 'island-chunks')
@@ -309,20 +411,42 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
     throw new Error(`Island bundle build failed:\n${errors}`)
   }
 
-  // 4. Pad zero-byte split chunks. splitting+minify can reduce shared facade
-  //    chunks to 0 bytes while their bare side-effect imports survive in
-  //    island-entry.js; a Response over a zero-length Bun.file collapses to
-  //    204 No Content, the browser rejects the module, and no island hydrates.
-  for (const name of readdirSync(islandOutDir).filter((f) => f.endsWith('.js'))) {
-    const chunkPath = join(islandOutDir, name)
-    if (statSync(chunkPath).size === 0) writeFileSync(chunkPath, EMPTY_CHUNK_PAD)
+  // 4. Pad zero-byte split chunks (see `padEmptyChunks`): a zero-byte chunk
+  //    whose bare import survives in island-entry.js is served as a 204, the
+  //    browser rejects the module, and no island hydrates.
+  padEmptyChunks(islandOutDir, 'Island build')
+
+  // 5. Pre-build the page search runtime (`/sovrium-search/runtime.js`).
+  //
+  //    It is written next to the search index at `start` and at `build` of any
+  //    site with a page-scoped search box. It used to be compiled from
+  //    `src/presentation/islands/page-search/runtime-entry.ts` at RUN time,
+  //    from a path resolved against the package root — which, in the compiled
+  //    binary, is the folder the executable sits in. Nothing sits beside an
+  //    installed binary, so `start` logged "Search index not built" and 404'd
+  //    the runtime, and `build` failed outright. Building it here, with the
+  //    other client payloads, lets the binary embed it.
+  //
+  //    Kept OUT of `client-scripts/`: those are the universal payload every
+  //    page loads (and `Performance Budget` weighs them as such); this one is
+  //    fetched only by sites that declare a page search box.
+  const searchResult = await Bun.build({
+    entrypoints: [join(srcDir, 'presentation', 'islands', 'page-search', 'runtime-entry.ts')],
+    target: 'browser',
+    format: 'iife',
+    minify: true,
+  })
+  if (!searchResult.success) {
+    const errors = searchResult.logs.map((l) => String(l)).join('\n')
+    throw new Error(`Page search runtime build failed:\n${errors}`)
   }
-  const stillEmpty = readdirSync(islandOutDir).filter(
-    (name) => name.endsWith('.js') && statSync(join(islandOutDir, name)).size === 0
-  )
-  if (stillEmpty.length > 0) {
+  const searchArtifact = searchResult.outputs[0]
+  const searchCode = searchArtifact === undefined ? '' : await searchArtifact.text()
+  if (!searchCode.includes('SovriumSearch')) {
     throw new Error(
-      `Island build produced zero-byte chunks after padding: ${stillEmpty.join(', ')}`
+      'Page search runtime build produced no `window.SovriumSearch` global; the ' +
+        'page search box would load a script that does nothing.'
     )
   }
+  writeFileSync(join(distDir, PAGE_SEARCH_RUNTIME_FILE), searchCode)
 }

@@ -33,11 +33,10 @@
 // console with the operator's design.
 //
 // THE CONFIG TYPES ARE IMPORTED UNDER THE NAMES AN OPERATOR WRITES, and the
-// aliasing is deliberate rather than cosmetic. This tree used to name the
-// `sovrium` package, exactly as a config outside the repo does; under `src/`
-// that specifier is the wrong one to reach for, so all 44 sites now name
-// `@/domain/models/app` — which is where `sovrium`'s own declaration is
-// generated FROM, so nothing about the types changed. What the alias preserves
+// aliasing is deliberate rather than cosmetic. A config outside the repo names
+// the `sovrium` package; under `src/` that specifier is the wrong one to reach
+// for, so these sites name `@/domain/models/app` — which is where `sovrium`'s
+// own declaration is generated FROM, so the types are identical. What the alias preserves
 // is the property [internal ref] D5 rests on: this console is authored in exactly the
 // surface an operator authors, down to the spelling. An operator writes
 // `PageConfig`; so does this tree.
@@ -141,8 +140,8 @@ export default {
   // builders synthesised per request until the shell became config. They are
   // static bodies over existing endpoints, so nothing about them needed a
   // builder except the shell they had no other way to reach. `api-keys` carries
-  // `requires: ['auth.apiKeys']`, which replaces the hand-written capability
-  // `if` the builder registry used to run.
+  // `requires: ['auth.apiKeys']`, so the capability gate is declared in config
+  // rather than hand-written.
   //
   // The operator-DATA surfaces arrive as ONE area module
   // (`config/pages/data/data-pages.ts`)

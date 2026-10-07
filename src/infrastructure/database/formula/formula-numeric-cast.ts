@@ -17,7 +17,6 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
  * Single source of truth so integer-by-integer division inside a numeric
  * formula (`heures + minutes / 60` over INTEGER columns) yields the true
  * fractional value (2.5) on BOTH dialects rather than truncating (2) —
- * [internal ref].
  *
  * IMPORTANT — the cast is applied ONLY to references that are direct operands
  * of a `/` division operator. Casting numeric references unconditionally

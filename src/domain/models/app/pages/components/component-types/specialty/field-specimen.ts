@@ -80,7 +80,7 @@ import { visibilityFields } from '../modules/visibility'
  * the field type.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 031
+ * Specs: the pages design primitives specs
  */
 export const FieldSpecimenTypeLiteral = Schema.Literal('field-specimen')
 

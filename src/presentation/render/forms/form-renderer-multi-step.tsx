@@ -20,6 +20,8 @@
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import { stepItems, type resolveAllFields } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
+import type { FormLayoutKeys } from './form-layout-keys'
+import type { SaveForLaterLabels } from './form-save-for-later-labels'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
@@ -27,6 +29,8 @@ import type { Form } from '@/domain/models/app/forms'
  * from `form-renderer.tsx`) to avoid a circular module dependency.
  */
 export interface FormBodyShared {
+  /** "Save and continue later" beside the submit, worded; absent when not offered. */
+  readonly saveForLater?: SaveForLaterLabels
   /** The form title; `''` when the host draws its own heading (a dialog) — then no title is drawn. */
   readonly title: string
   /** The form description as sanitized inline HTML (`renderInlineMarkdown`); `''` for none. */
@@ -54,8 +58,10 @@ export interface FormBodyShared {
    * a labeled header above its fields in declaration order.
    */
   readonly fieldGroups?: NonNullable<Form['fieldGroups']>
+  /** The page form's layout keys on a hosted form: labels beside controls, a sticky submit bar. */
+  readonly layoutKeys?: FormLayoutKeys
   /**
-   * [internal ref]: when true, the form body renders a hidden honeypot
+   * When true, the form body renders a hidden honeypot
    * input (`_hp`) inside the `<form>` element. The server-side
    * `submit-form-honeypot.ts` rejects submissions whose `_hp` is non-empty.
    */

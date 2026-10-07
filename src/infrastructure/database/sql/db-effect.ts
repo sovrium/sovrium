@@ -40,7 +40,7 @@ import { Effect } from 'effect'
  * together — `sovrium/no-unbounded-promise-fanout` is configured with
  * `{ boundaries: ['wrap', 'dbEffect'] }` precisely because a `wrap(async () =>
  * Promise.all(...))` is the same hazard as the literal `Effect.tryPromise` shape
- * that caused a production 504 incident (2026-07-25).
+ * that caused a production 504 incident.
  *
  * Why a ceiling at all — every branch of a fan-out through the `db` facade takes
  * a slot from ONE pool. `DEFAULT_DATABASE_POOL_MAX` is 10

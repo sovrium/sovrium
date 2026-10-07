@@ -10,8 +10,7 @@
  *
  * Bridges the generic `/api/ai/chat` route to the {@link parseAutomationIntent}
  * domain parser and the {@link runManualAutomation} executor — the
- * orchestration layer for `[internal ref]`
- *.
+ * orchestration layer for `[internal ref]`.
  *
  * A chat turn is a *trigger turn* when the user message parses to a recognised
  * automation-trigger intent ("Run the weekly report"). `evaluateTriggerTurn`
@@ -19,19 +18,19 @@
  *
  *  - `kind: 'none'`            — not a trigger turn (plain / query / mutation).
  *  - `kind: 'forbidden'`       — the caller's role is not permitted to trigger
- * this automation;
- *                                the route maps it to HTTP 403.
+ *                                this automation, by `permissions.trigger` or
+ *                                by the manual trigger's `requiredRole`; the
+ *                                route answers 404.
  *  - `kind: 'not-triggerable'` — the named automation exists but is NOT
  *                                manual-triggered (cron/record/webhook); chat
- * cannot run it.
+ *                                cannot run it.
  *  - `kind: 'not-found'`       — a trigger verb was used but no automation
- * matched.
+ *                                matched.
  *  - `kind: 'triggered'`       — the manual automation ran; carries the
  *                                `type: 'automation'` action + reply text.
  *
  * The last automation result per session is remembered in a module-level Map
- * so a follow-up "What was the result of the last …" question can surface it
- *.
+ * so a follow-up "What was the result of the last …" question can surface it.
  */
 
 import { Effect } from 'effect'
@@ -44,12 +43,6 @@ import {
   parseAutomationIntent,
   type AutomationCandidate,
 } from '@/domain/models/app/agents/ai-chat-automation-parser'
-import {
-  evaluatePermission,
-  OPEN_WHEN_UNDECLARED,
-  permits,
-} from '@/domain/models/app/auth/permission-evaluation'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
@@ -58,10 +51,10 @@ import { appendConversationTurn } from './chat-conversation-store'
 import { persistTurnDurably } from './chat-durable-memory'
 import { resolveUserEmail } from './chat-mutation-flow'
 import { respondWithActions } from './chat-tool-calling'
+import { admitChatTrigger } from './chat-trigger-gate'
 import type { ChatTurnToPersist } from './chat-durable-memory'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
-import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
@@ -104,30 +97,6 @@ const toAutomationCandidates = (app: App | undefined): ReadonlyArray<AutomationC
     name: automation.name,
     triggerType: automation.trigger.type,
   }))
-
-/**
- * Evaluate a single permission value (`'all'`, `'authenticated'`, a role
- * array, or undefined) against the acting role. An undeclared `permissions.
- * trigger` defaults to permissive — automations are triggerable by any
- * authenticated user unless the schema author restricts them.
- */
-const triggerRoleAllowed = (
-  permission: PermissionValue | undefined,
-  userRole: string,
-  app: App
-): boolean =>
-  permits(
-    // An admin-equivalent caller (the built-in `admin` or the app's top role)
-    // always satisfies a role-array gate, mirroring `runManualAutomation`.
-    evaluatePermission(
-      permission,
-      { role: userRole, adminEquivalent: isAdminEquivalent(userRole, app) },
-      {
-        whenUndeclared: OPEN_WHEN_UNDECLARED,
-        adminOverride: 'admin-outranks-role-list',
-      }
-    )
-  )
 
 /**
  * Map the engine-internal run status onto the public chat action status.
@@ -193,9 +162,10 @@ const errorToResult = (error: RunAutomationError, automationName: string): Trigg
  * Resolution order:
  *  1. Parse the message for a trigger intent — no verb → `kind: 'none'`.
  *  2. A trigger verb but no automation matched → `kind: 'not-found'`.
- *  3. A matched automation: enforce the per-automation `permissions.trigger`
- *     RBAC gate (403 on denial), then run it via `runManualAutomation`. A
- *     non-manual trigger surfaces as `kind: 'not-triggerable'`.
+ *  3. A matched automation: judge it with {@link admitChatTrigger} — the
+ *     `permissions.trigger` gate, then the manual trigger's role rule — and
+ *     run it via `runManualAutomation` as the caller. A non-manual trigger
+ *     surfaces as `kind: 'not-triggerable'`.
  */
 
 /**
@@ -219,31 +189,29 @@ const turnToPersist = (
  * Run a matched manual automation through the engine and shape the result
  * into a `kind: 'triggered'` (or error-derived) {@link TriggerTurnResult}.
  *
- * Chat-trigger RBAC is owned by the `permissions.trigger` gate in
- * {@link evaluateTriggerTurn} — already satisfied by the time this runs. The
- * engine's own `requiredRole` gate (which defaults to `'admin'` for the
- * *direct* manual-trigger HTTP route) must NOT additionally apply, so
- * `userRole: 'admin'` is passed to make it a no-op ([internal ref] /
- * REGRESSION run a restriction-free automation as a `member` and expect
- * success).
+ * The caller's own role is passed to the engine, so the manual trigger's
+ * `requiredRole` gate holds here exactly as on the direct trigger route —
+ * {@link admitChatTrigger} has already judged it, and the engine re-checks it.
  */
 interface RunMatchedInput {
   readonly app: App
   readonly name: string
   readonly message: string
   readonly userId: string
+  readonly userRole: string
   readonly aiReply: string
 }
 
 const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurnResult> => {
-  const { app, name, message, userId, aiReply } = input
+  const { app, name, message, userId, userRole, aiReply } = input
   const program = runManualAutomation({
     name,
     app,
     processEnv: process.env,
-    userRole: 'admin',
+    userRole,
     triggerData: { body: { message } },
     userId,
+    byName: true,
   })
   const outcome = await Effect.runPromise(Effect.result(provideAutomationRuntime(program)))
   if (outcome._tag === 'Failure') {
@@ -284,11 +252,15 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
 
   const { name } = intent.automation
   const declared = input.app.automations?.find((a) => a.name === name)
+  if (declared === undefined) {
+    return { kind: 'not-found', reply: `The "${name}" automation was not found.` }
+  }
 
-  // Per-automation trigger RBAC gate. The
-  // schema's `permissions.trigger` is matched against the acting role BEFORE
-  // the run starts so a denied caller never triggers a run.
-  if (!triggerRoleAllowed(declared?.permissions?.trigger, input.userRole, input.app)) {
+  // Both gates on the CALLER's role, before any run starts: a declared
+  // `permissions.trigger` narrows who may ask, and the manual trigger's
+  // `requiredRole` (admin when undeclared) still holds.
+  const admission = admitChatTrigger(declared, input.app, input.userRole)
+  if (admission === 'forbidden') {
     return {
       kind: 'forbidden',
       message: `You do not have permission to trigger the "${name}" automation.`,
@@ -296,7 +268,7 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
   }
 
   // A non-manual automation cannot be invoked from chat.
-  if (intent.automation.triggerType !== 'manual') {
+  if (admission === 'not-triggerable') {
     return {
       kind: 'not-triggerable',
       reply: `The "${name}" automation cannot be triggered from chat — it runs automatically on a ${intent.automation.triggerType} schedule.`,
@@ -308,6 +280,7 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
     name,
     message: input.message,
     userId: input.userId,
+    userRole: input.userRole,
     aiReply: input.aiReply,
   })
 }
@@ -337,11 +310,11 @@ export interface CompleteTriggerInput {
  * conversation history, and a `triggered` turn records an `ai.chat.automation`
  * activity row attributed to the acting user's email.
  * A `forbidden` turn records an `ai.chat.error` row and returns HTTP 403
- *. `not-triggerable` / `not-found` turns return
- * a plain reply with an empty `actions` array.
+ * `not-triggerable` / `not-found` turns return
+ * a plain reply with an empty `actions[]` array.
  */
 export const completeTriggerTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: CompleteTriggerInput
 ): Promise<Response | undefined> => {
   const trigger = await evaluateTriggerTurn({
@@ -386,7 +359,7 @@ export const completeTriggerTurn = async (
   }
 
   // `not-triggerable` / `not-found` — record a plain message activity row and
-  // return an empty `actions` array.
+  // return an empty `actions[]` array.
   await recordChatActivity(input.services, {
     action: 'ai.chat.message',
     actorName: input.actorName,

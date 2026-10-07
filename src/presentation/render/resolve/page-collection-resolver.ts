@@ -29,7 +29,7 @@
  * from `data-source-resolver.ts` — the collection-template variant of
  * the per-record walk skips children of components that have a
  * `dataSource` so per-row templates are not pre-bound to the parent
- * collection record ([internal ref] — Category & Tag
+ * collection record (the pages access publishing requirement — Category & Tag
  * Patterns). The `dataSource.filter[].value` IS substituted so the
  * parent record can drive cross-table filtering (eg.
  * `filter: [{ field: 'category', value: '$record.name' }]`).
@@ -114,7 +114,7 @@ const FILTER_OPERATORS: Readonly<
       : false,
   in: (cellValue, expected) =>
     Array.isArray(expected) ? (expected as readonly unknown[]).includes(cellValue) : false,
-  // [internal ref]: missing, null, `''`, `` and `{}` are empty — the one rule,
+  // Missing, null, `''`, `[]` and `{}` are empty — the one rule,
   // judged on the raw row as the SQL filter judges it (SQLite JSON text too).
   isEmpty: (cellValue) => isEmptyCell(cellValue),
   isNotEmpty: (cellValue) => !isEmptyCell(cellValue),
@@ -171,7 +171,7 @@ function substituteRecordDeep(value: unknown, record: Record<string, unknown>): 
 
 /**
  * Substitutes `$record.<field>` tokens across the entire page metadata
- * ([internal ref] — B-4 dynamic-seo-for-collections).
+ * (the pages collection pages requirement — B-4 dynamic-seo-for-collections).
  *
  * Walks the top-level scalar fields (`title`, `description`, `keywords`,
  * `canonical`, `author`, `robots`) AND the nested SEO sub-objects
@@ -326,7 +326,7 @@ function substituteRecordInPageComponents(
  * Auto-bind `table` + `recordId` props on `comments` (either display)
  * components when they appear on a page bound to ONE record. The page binds
  * the comments thread to that record by convention
- *; schema authors should not
+ * schema authors should not
  * need to repeat `table: 'posts', recordId: '$record.id'` in every
  * `props` block. Explicit author values are preserved when present.
  *
@@ -403,8 +403,7 @@ function autoBindCommentInComponent(
  * through to the existing pipeline on `none`, and uses the substituted
  * page from `match` for the rest of the rendering chain.
  *
- * `options.bypassFilter` ([internal ref] /
- * [internal ref]) skips the `collection.filter` step so
+ * `options.bypassFilter` skips the `collection.filter` step so
  * editorial roles can preview unpublished/draft records via their
  * canonical public URL. The bypass is privileged opt-in — the page-
  * route handler only sets it for `?preview=true` requests carrying an
@@ -446,7 +445,7 @@ async function resolveCollectionRecord(
     return { kind: 'not-found' }
   }
 
-  // [internal ref]: row-level read predicate runs AFTER
+  // [internal ref] / a pages collection spec: row-level read predicate runs AFTER
   // the row is confirmed to exist (so a genuinely missing record still 404s
   // — S1 anti-enumeration preserved) and AFTER the collection.filter
   // (status/draft/etc. exclusions take precedence over per-user perms).
@@ -537,7 +536,7 @@ export async function resolveCollectionPage(
       ? autoBindCommentComponents(substitutedComponents, collection.table, String(recordIdValue))
       : substitutedComponents
 
-  // [internal ref]: resolve adjacent records for
+  // Resolve adjacent records for
   // `$collection.previous.*` / `$collection.next.*` substitution. Boundary
   // records (first/last) get `undefined` neighbours; the substitution pass
   // drops any component referencing a null side so prev/next links don't

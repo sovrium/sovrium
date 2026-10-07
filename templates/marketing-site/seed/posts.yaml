@@ -1,0 +1,22 @@
+# Four posts so the blog sections are not empty, dated relative to the day you seed.
+records:
+  - key: p1
+    fields:
+      title: Why we keep the config in one file
+      excerpt: 'One file is easy to read, review and roll back.'
+      published_at: '{{today-3d}}'
+  - key: p2
+    fields:
+      title: What changed this month
+      excerpt: 'Three improvements people asked for, and one we removed.'
+      published_at: '{{today-12d}}'
+  - key: p3
+    fields:
+      title: A week with the new dashboard
+      excerpt: How one team replaced its Monday spreadsheet.
+      published_at: '{{today-20d}}'
+  - key: p4
+    fields:
+      title: Getting started in ten minutes
+      excerpt: From install to the first page you can share.
+      published_at: '{{today-34d}}'

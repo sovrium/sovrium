@@ -66,7 +66,6 @@ function wireResize(els: SplitPaneElements, props: SplitPaneIslandProps): () => 
     const total = horizontal ? rect.width : rect.height
     const offset = horizontal ? event.clientX - rect.left : event.clientY - rect.top
     const next = clampSize(offset, total, props.minSize, props.maxSize)
-    // eslint-disable-next-line functional/immutable-data -- DOM resize is the contract here
     first.style.flexBasis = `${next}px`
   }
 
@@ -102,6 +101,5 @@ export default function SplitPaneIsland(props: SplitPaneIslandProps): null {
     if (!els) return undefined
     return wireResize(els, props)
   }, [props])
-  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   return null
 }

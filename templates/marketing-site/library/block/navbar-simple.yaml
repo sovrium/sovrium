@@ -1,0 +1,136 @@
+# sovrium-library: block/navbar-simple@0.30.0
+name: navbar-simple
+# The landmark sits one level down, named outright: a block's outermost
+# element is drawn as a group, and a header inside the page's main region is not a
+# landmark unless it says so.
+type: container
+children:
+  - type: container
+    element: header
+    props:
+      role: banner
+      className: border-b border-border bg-background px-5 sm:px-8 lg:px-16
+    children:
+      - type: flex
+        props:
+          className: flex mx-auto h-16 w-full max-w-6xl items-center justify-between gap-6
+        children:
+          - type: link
+            props:
+              href: /
+              className: inline-flex items-center gap-2.5 text-lg font-semibold text-foreground
+            children:
+              - type: container
+                props:
+                  className: size-5 rounded bg-foreground
+                  aria-hidden: 'true'
+              - type: text
+                element: span
+                content: $t:brand
+          - type: container
+            element: nav
+            props:
+              aria-label: $t:nav.main
+              className: hidden items-center gap-8 md:flex
+            children:
+              - type: link
+                props:
+                  href: /product
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: $t:brand
+              - type: link
+                props:
+                  href: /pricing
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: $t:nav.pricing
+              - type: link
+                props:
+                  href: /docs
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: $t:nav.docs
+              - type: link
+                props:
+                  href: /company
+                  className: text-md text-foreground-muted hover:text-foreground
+                content: $t:nav.company
+          - type: flex
+            props:
+              className: flex items-center gap-2 max-md:ml-auto
+            children:
+              - type: language-switcher
+                props:
+                  variant: toggle
+                classes:
+                  parts:
+                    link: h-10
+              - type: link
+                props:
+                  href: /login
+                  className: 'max-md:hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-transparent text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                content: $t:nav.signIn
+              - type: link
+                props:
+                  href: /contact
+                  className: 'max-md:hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                content: $t:cta.primary
+          - type: button
+            variant: ghost
+            props:
+              aria-label: $t:nav.menu
+              aria-controls: navbar-simple-menu
+              className: md:hidden
+            interactions:
+              click:
+                toggleElement: '#navbar-simple-menu'
+            children:
+              - type: icon
+                props:
+                  name: menu
+                  size: 20
+      - type: container
+        props:
+          id: navbar-simple-menu
+          style:
+            display: none
+          className: mx-auto w-full max-w-6xl border-t border-border pt-2 pb-6 md:!hidden
+        children:
+          - type: container
+            element: nav
+            props:
+              aria-label: $t:nav.main
+              className: flex flex-col
+            children:
+              - type: link
+                props:
+                  href: /product
+                  className: block border-b border-border py-3 text-lg font-medium text-foreground
+                content: $t:brand
+              - type: link
+                props:
+                  href: /pricing
+                  className: block border-b border-border py-3 text-lg font-medium text-foreground
+                content: $t:nav.pricing
+              - type: link
+                props:
+                  href: /docs
+                  className: block border-b border-border py-3 text-lg font-medium text-foreground
+                content: $t:nav.docs
+              - type: link
+                props:
+                  href: /company
+                  className: block border-b border-border py-3 text-lg font-medium text-foreground
+                content: $t:nav.company
+          - type: flex
+            props:
+              className: flex mt-6 flex-col gap-3
+            children:
+              - type: link
+                props:
+                  href: /contact
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                content: $t:cta.primary
+              - type: link
+                props:
+                  href: /login
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                content: $t:nav.signIn

@@ -7,6 +7,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isGridNavKey, navigateFrom } from '../grid-cursor'
+import {
+  rowIdOf,
+  resolveCursor,
+  rowBelow,
+  rectangleBetween,
+  editingCursor,
+  cursorOfCell,
+} from './grid-cursor-model'
+import type { GridCursor, CellLookup } from './grid-cursor-model'
 import type { DataTableGridColumn, DataTableRow } from './table-features'
 import type { EditingCell } from '../../hooks/use-inline-editing'
 import type {
@@ -17,115 +26,6 @@ import type {
   RefObject,
   SetStateAction,
 } from 'react'
-
-/** The cell the keyboard points at, by identity rather than by index. */
-export interface GridCursor {
-  readonly rowId: string
-  readonly columnId: string
-}
-
-/**
- * A rectangle of cells, as the product of a row set and a column set.
- *
- * A rectangle IS that product — every row in the set crossed with every column
- * in the set — so two sets describe it exactly, and membership of one cell is
- * two `has` calls rather than four index comparisons against an order the cell
- * would first have to be located in.
- */
-export interface CellRange {
-  readonly rowIds: ReadonlySet<string>
-  readonly columnIds: ReadonlySet<string>
-}
-
-/** Finds the `<td>` for a cursor, or `undefined` if the grid no longer has one. */
-type CellLookup = (target: GridCursor) => HTMLTableCellElement | undefined
-
-/** The row identity a `<tr data-row-id>` carries. */
-const rowIdOf = (row: DataTableRow): string => String(row.original.id ?? row.id)
-
-/**
- * The cursor as it applies to THIS render.
- *
- * A stored cursor survives a re-render, but not necessarily a re-QUERY: a
- * sort, a filter or a page turn can retire the row it named. Rather than
- * leaving the grid with no tab stop at all, an unresolvable cursor falls back
- * to the first cell — which is also what gives a freshly loaded grid its
- * initial cursor, without an effect and without stealing focus from whatever
- * the reader was actually doing.
- */
-function resolveCursor(
-  cursor: GridCursor | undefined,
-  rowIds: readonly string[],
-  columnIds: readonly string[]
-): GridCursor | undefined {
-  if (cursor && rowIds.includes(cursor.rowId) && columnIds.includes(cursor.columnId)) return cursor
-  const [firstRow] = rowIds
-  const [firstColumn] = columnIds
-  if (firstRow === undefined || firstColumn === undefined) return undefined
-  return { rowId: firstRow, columnId: firstColumn }
-}
-
-/** The same column one row further down, clamped on the last row. */
-function rowBelow(from: GridCursor | undefined, rowIds: readonly string[]): GridCursor | undefined {
-  if (from === undefined) return undefined
-  const index = rowIds.indexOf(from.rowId)
-  if (index < 0) return undefined
-  const nextRowId = rowIds[Math.min(index + 1, rowIds.length - 1)]
-  return nextRowId === undefined ? undefined : { rowId: nextRowId, columnId: from.columnId }
-}
-
-/**
- * The rectangle between two cells, or `undefined` when either has left the
- * grid — a range whose anchor was sorted off the page is no range at all,
- * and collapsing to the cursor is the only honest answer.
- */
-export function rectangleBetween(
-  anchor: GridCursor,
-  focus: GridCursor,
-  rowIds: readonly string[],
-  columnIds: readonly string[]
-): CellRange | undefined {
-  const rowA = rowIds.indexOf(anchor.rowId)
-  const rowB = rowIds.indexOf(focus.rowId)
-  const colA = columnIds.indexOf(anchor.columnId)
-  const colB = columnIds.indexOf(focus.columnId)
-  if (rowA < 0 || rowB < 0 || colA < 0 || colB < 0) return undefined
-  return {
-    rowIds: new Set(rowIds.slice(Math.min(rowA, rowB), Math.max(rowA, rowB) + 1)),
-    columnIds: new Set(columnIds.slice(Math.min(colA, colB), Math.max(colA, colB) + 1)),
-  }
-}
-
-/**
- * The cursor implied by an open editor: the cell being edited.
- *
- * The column is looked up by FIELD rather than assumed to be the column id,
- * because the two only coincide for a plain accessor column — a generated
- * column carries a field in its meta and an id of its own.
- */
-function editingCursor(
-  editingCell: EditingCell | undefined,
-  leafColumns: readonly DataTableGridColumn[]
-): GridCursor | undefined {
-  if (editingCell === undefined) return undefined
-  const column = leafColumns.find(
-    (candidate) =>
-      candidate.columnDef.meta?.field === editingCell.field || candidate.id === editingCell.field
-  )
-  return column === undefined
-    ? undefined
-    : { rowId: String(editingCell.rowId), columnId: column.id }
-}
-
-/** The cursor a body `<td>` stands for, or `undefined` for anything else. */
-export function cursorOfCell(cell: HTMLTableCellElement): GridCursor | undefined {
-  const rowId = cell.closest('tr')?.getAttribute('data-row-id') ?? undefined
-  const columnId = cell.getAttribute('data-col-id') ?? undefined
-  // A cell of some OTHER table, a group header, or the empty-state row —
-  // none of which the cursor can sit on.
-  if (rowId === undefined || columnId === undefined) return undefined
-  return { rowId, columnId }
-}
 
 /** Resolves a cursor to its rendered `<td>`, by the identities the grid emits. */
 function useCellLookup(tableRef: RefObject<HTMLTableElement | null>): CellLookup {
@@ -179,10 +79,8 @@ function useCursorFocus(enabled: boolean, cellFor: CellLookup, resolved: GridCur
     if (!enabled || request === 0 || target === undefined) return
     const cell = cellFor(target)
     cell?.focus()
-    /* eslint-disable functional/immutable-data -- ref writes: focus has landed, and the request is spent */
     focusedCellRef.current = cell
     pendingRef.current = undefined
-    /* eslint-enable functional/immutable-data */
   }, [request, enabled, cellFor])
 
   // No dependency array on purpose: the render that loses focus is a re-read,
@@ -193,18 +91,15 @@ function useCursorFocus(enabled: boolean, cellFor: CellLookup, resolved: GridCur
     if (document.activeElement !== document.body) return
     const cell = resolved === undefined ? undefined : cellFor(resolved)
     cell?.focus()
-    // eslint-disable-next-line functional/immutable-data -- ref write: focus has moved to the cursor's new node
     focusedCellRef.current = cell
   })
 
   const requestFocus = useCallback((target: GridCursor | undefined): void => {
-    // eslint-disable-next-line functional/immutable-data -- ref write: records the cell this request must land on
     pendingRef.current = target
     setRequest((n) => n + 1)
   }, [])
 
   const noteFocusedCell = useCallback((cell: HTMLTableCellElement): void => {
-    // eslint-disable-next-line functional/immutable-data -- ref write: records which cell currently holds focus
     focusedCellRef.current = cell
   }, [])
 
@@ -393,7 +288,6 @@ export function useGridCursor(params: {
 
   const cellFor = useCellLookup(tableRef)
   const resolvedRef = useRef<GridCursor | undefined>(resolved)
-  // eslint-disable-next-line functional/immutable-data -- ref write: the handlers read the cursor of the latest render
   resolvedRef.current = resolved
 
   const { requestFocus, noteFocusedCell } = useCursorFocus(enabled, cellFor, resolved)

@@ -19,6 +19,8 @@ A question asked through chat answers only what the records API would answer the
 | Trigger a manual automation the user may run                      | Reach records outside the user's permissions |
 | Keep conversation context within a session                        | Bypass field-level permissions               |
 
+"May run" is the manual trigger's own rule, the one the trigger endpoint and the MCP tool apply: the role the trigger declares in `requiredRole`, `admin` when it declares none, or an admin-equivalent role. A `permissions.trigger` on the automation narrows who may ask the chat on top of that, and never widens it: naming `member` there does not let a member start an automation whose trigger requires `admin`. A refused request runs nothing and is answered `404`, as for an automation the caller cannot see.
+
 ## Embedding it in a page
 
 ```yaml

@@ -31,7 +31,6 @@ import { FieldFormatError, FieldValidationError, ValidationContext } from '../mi
  *
  * Every offender is reported, in table field-declaration order, matching the
  * accumulation the format rule already performs.
- *
  */
 export function validateMultiSelectOptions(
   fields: Record<string, unknown>
@@ -72,7 +71,6 @@ export function validateMultiSelectOptions(
  * `field-rules.ts`. Membership is a value-shape rule and follows the
  * `email`/`url` 422 precedent; cardinality is a declared constraint and follows
  * the 400 one.
- *
  */
 export function validateMultiSelectSelectionLimits(
   fields: Record<string, unknown>

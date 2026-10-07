@@ -100,13 +100,11 @@ export function useRealtimeReconciliation(params: {
   const prevRef = useRef<ReadonlyMap<string, TableRecord> | undefined>(undefined)
   const tokenRef = useRef(0)
   const onConflictRef = useRef(onConflict)
-  // eslint-disable-next-line functional/immutable-data -- Ref keeps the latest callback without retriggering the effect
   onConflictRef.current = onConflict
   const [conflict, setConflict] = useState<DetectedConflict | undefined>(undefined)
 
   useEffect(() => {
     if (!enabled) {
-      // eslint-disable-next-line functional/immutable-data -- Ref reset when realtime disabled
       prevRef.current = undefined
       return
     }
@@ -114,17 +112,14 @@ export function useRealtimeReconciliation(params: {
     const prevById = prevRef.current
     // The first snapshot is the baseline — record it without raising a conflict.
     if (prevById === undefined) {
-      // eslint-disable-next-line functional/immutable-data -- Ref holds the displayed-records baseline
       prevRef.current = indexById(records)
       return
     }
 
     const detected = detectConflict(prevById, records)
-    // eslint-disable-next-line functional/immutable-data -- Ref advances to the latest server snapshot
     prevRef.current = indexById(records)
 
     if (detected) {
-      // eslint-disable-next-line functional/immutable-data -- Ref bumps the monotonic conflict token
       tokenRef.current += 1
       setConflict({ ...detected, token: tokenRef.current })
       onConflictRef.current?.()

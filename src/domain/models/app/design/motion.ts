@@ -19,13 +19,12 @@ import {
  *
  * ## Why four members and not one record
  *
- * Motion used to be ONE flat record whose keys were `fadeIn`, `slideUp` — and
- * ALSO `duration`, `easing` and `keyframes`, three reserved names sharing the
- * same keyspace and told apart only by the SHAPE of their value. That is two
- * different kinds of thing in one map: a step of a ladder and a composed
- * animation are not the same declaration, and a record that holds both has to
- * be read by a human before anyone can say which is which. It also meant an
- * author could not name an animation `duration`.
+ * ONE flat record whose keys were `fadeIn`, `slideUp` — and ALSO `duration`,
+ * `easing` and `keyframes`, reserved names told apart only by the SHAPE of
+ * their value — would hold two different kinds of thing in one map: a step of
+ * a ladder and a composed animation are not the same declaration, and a record
+ * that holds both has to be read by a human before anyone can say which is
+ * which. It would also stop an author naming an animation `duration`.
  *
  * The four members split that apart, one purpose each:
  *

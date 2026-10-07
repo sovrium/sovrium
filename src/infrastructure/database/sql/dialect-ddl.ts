@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Database as BunSqlite } from 'bun:sqlite'
+import { Database as BunSqlite, type SQLQueryBindings } from 'bun:sqlite'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { applySqlitePragmas } from './sqlite-pragmas'
 import type { TransactionLike } from './sql-execution'
@@ -50,9 +50,9 @@ import type { TransactionLike } from './sql-execution'
  * connection behaves identically to the connection records-CRUD uses. The file
  * is created if it does not exist (zero-config first boot).
  *
- * This used to hold its own copy of the list with `busy_timeout` LAST, which
- * left its own WAL switch unprotected — that switch takes a lock of its own and
- * fails instantly without a timeout already in force. See
+ * It deliberately holds no copy of the list: a local copy with `busy_timeout`
+ * LAST leaves its WAL switch unprotected — that switch takes a lock of its own
+ * and fails instantly without a timeout already in force. See
  * {@link applySqlitePragmas} for the measurement.
  */
 export const openSqliteDdlDatabase = (path: string): BunSqlite => {
@@ -82,17 +82,16 @@ export const openSqliteDdlDatabase = (path: string): BunSqlite => {
  * transaction.
  */
 export const sqliteTransactionLike = (client: Readonly<BunSqlite>): TransactionLike => ({
-  unsafe: (sql: string): Promise<readonly unknown[]> => {
+  unsafe: (sql: string, params?: readonly unknown[]): Promise<readonly unknown[]> => {
     try {
-      // bun:sqlite's query() compiles a single statement. A row-returning
-      // statement yields its rows; a non-row statement yields [].
-      return Promise.resolve(client.query(sql).all() as readonly unknown[])
+      // query() compiles one statement: its rows, or []. `$1`, `$2`… bind in order.
+      const bindings = (params ?? []) as SQLQueryBindings[]
+      return Promise.resolve(client.query(sql).all(...bindings) as readonly unknown[])
     } catch (error) {
-      // A multi-statement DDL string cannot be prepared by query(); fall back
-      // to exec(), which runs every statement but returns no rows.
+      // A multi-statement DDL string (never one with bound values) cannot be
+      // prepared by query(); exec() runs every statement but returns no rows.
       const message = error instanceof Error ? error.message : String(error)
-      if (/statement|multiple|prepare/i.test(message)) {
-        // eslint-disable-next-line functional/no-expression-statements -- driver call; exec returns void
+      if (params === undefined && /statement|multiple|prepare/i.test(message)) {
         client.exec(sql)
         return Promise.resolve([])
       }
@@ -177,24 +176,17 @@ export const runSqliteSchemaTransaction = async (
   work: (tx: TransactionLike) => Promise<void>
 ): Promise<void> => {
   const tx = sqliteTransactionLike(client)
-  // eslint-disable-next-line functional/no-expression-statements -- MUST precede BEGIN: this pragma is a no-op inside an open transaction
   client.exec('PRAGMA foreign_keys = OFF')
-  // eslint-disable-next-line functional/no-expression-statements -- transaction boundary
   client.exec('BEGIN')
   try {
     await work(tx)
     const violation = describeForeignKeyViolations(client)
-    // eslint-disable-next-line functional/no-throw-statements -- reject before COMMIT so a genuinely dangling reference still rolls back
     if (violation) throw new Error(violation)
-    // eslint-disable-next-line functional/no-expression-statements -- commit on success
     client.exec('COMMIT')
   } catch (error) {
-    // eslint-disable-next-line functional/no-expression-statements -- roll back so no partial schema survives
     client.exec('ROLLBACK')
-    // eslint-disable-next-line functional/no-throw-statements -- re-raise so the caller's tryPromise maps it to SchemaInitializationError
     throw error instanceof Error ? error : new Error(String(error))
   } finally {
-    // eslint-disable-next-line functional/no-expression-statements -- restore runtime enforcement; only takes effect outside the transaction
     client.exec('PRAGMA foreign_keys = ON')
   }
 }
@@ -397,9 +389,8 @@ export const distinctArrayAggExpression = (expression: string): string => {
  * `'[]'` on SQLite.
  *
  * Kept beside the aggregate deliberately: they are one decision (what an empty
- * distinct-array is) expressed at two points in the same `COALESCE`, and the
- * SQLite half of this pair is the exact literal that used to abort schema
- * init with `near "[]": syntax error`.
+ * distinct-array is) expressed at two points in the same `COALESCE`, and a
+ * wrong SQLite half aborts schema init with `near "[]": syntax error`.
  */
 export const emptyArrayLiteral = (): string => (isSqliteRuntime() ? `'[]'` : `ARRAY[]::TEXT[]`)
 
@@ -410,16 +401,16 @@ export const emptyArrayLiteral = (): string => (isSqliteRuntime() ? `'[]'` : `AR
  * Emits `<expr> IS NOT NULL AND <expr>::TEXT != ''` on PostgreSQL and
  * `... CAST(<expr> AS TEXT) != ''` on SQLite.
  *
- * WHY THE VALUE IS COMPARED AS TEXT. Emptiness is a TEXT notion, and the
- * predicate used to apply it to the raw column: `x != ''`. PostgreSQL will not
- * compare an integer to an empty string and aborts schema init with
+ * WHY THE VALUE IS COMPARED AS TEXT. Emptiness is a TEXT notion. Applied to
+ * the raw column (`x != ''`), PostgreSQL will not compare an integer to an
+ * empty string and aborts schema init with
  * `invalid input syntax for type integer: ""`, so `COUNTA` over any non-text
- * column killed the boot. SQLite compares across types instead of refusing, so
- * the SAME config quietly worked there — the two engines disagreed about
- * whether the config was valid at all, which is worse than a plain crash
- * because only one of them says so.
+ * column would kill the boot. SQLite compares across types instead of
+ * refusing, so the SAME config would quietly work there — the two engines
+ * would disagree about whether the config is valid at all, which is worse than
+ * a plain crash because only one of them says so.
  *
- * Casting settles both. A text column behaves EXACTLY as before (the cast is an
+ * Casting settles both. A text column behaves EXACTLY as uncast (the cast is an
  * identity there), and every other type gets the reading a human means by
  * "non-empty": `0`, `false` and a date all count; `NULL` and `''` do not.
  * Verified across text, integer, date and boolean on PostgreSQL 16 and the

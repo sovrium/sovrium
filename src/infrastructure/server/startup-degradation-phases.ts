@@ -8,17 +8,6 @@
 import { stat } from 'node:fs/promises'
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import {
-  classifyPermissionRung,
-  toPermissionValue,
-} from '@/domain/models/app/auth/permission-evaluation'
-import {
-  hasCreatePermission,
-  hasDeletePermission,
-  hasReadPermission,
-  hasUpdatePermission,
-  resolveInheritedPermissions,
-} from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent, resolveAdminRole } from '@/domain/models/app/auth/roles'
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import { appUsesStorage } from '@/domain/models/app/requires-storage'
@@ -37,9 +26,9 @@ import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/startup-summary'
-import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/process/env'
+import { collectPostureWarnings, getNodeEnv } from '@/infrastructure/process/env'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
-import type { App, Table } from '@/domain/models/app'
+import type { App } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
@@ -81,8 +70,8 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  * its operator: the success row names a subsystem they do not use, and the
  * warning warns about a capability they never asked for. Both go silent there
  * — the same silent-skip contract as `collectPublicDirPhases` /
- * `collectAiListenerPhases`. [internal ref] (a bucket → the row appears)
- * against [internal ref] (nothing → no row in either form).
+ * `collectAiListenerPhases`. A CLI log output spec (a bucket → the row appears)
+ * against a CLI log output spec (nothing → no row in either form).
  */
 export const collectStoragePhases = (app: Readonly<App>): readonly StartupPhase[] => {
   if (!appUsesStorage(app)) return []
@@ -159,7 +148,7 @@ export const collectAiListenerPhases = (app: Readonly<App>): readonly StartupPha
  * Emit a warning startup phase when the app USES AI but no provider is chosen.
  *
  * With `AI_PROVIDER` unset an AI-bearing app still boots — that is deliberate
- *: declared agents come up INERT, discoverable but not runnable, and
+ * declared agents come up INERT, discoverable but not runnable, and
  * an `ai-*` column keeps serving its baseline value rather than erroring. A
  * template deployed without an API key must be a working app with the
  * assistant switched off, never a refusal.
@@ -280,67 +269,6 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
   return Effect.runPromise(program)
 }
 
-const SIGN_UP_EXPOSURE_CHECKS = [
-  ['read', hasReadPermission],
-  ['create', hasCreatePermission],
-  ['update', hasUpdatePermission],
-  ['delete', hasDeletePermission],
-] as const
-
-type TableOperation = (typeof SIGN_UP_EXPOSURE_CHECKS)[number][0]
-
-/**
- * An operation the table already grants to anonymous visitors (`'all'`),
- * read through `inherit` the way the evaluator reads it. A chain that does not
- * resolve falls back to the table's own declaration, so a broken `inherit`
- * can only add a line, never hide one.
- */
-const isOpenToEveryone = (
-  table: Table,
-  operation: TableOperation,
-  allTables: readonly Table[]
-): boolean => {
-  const permissions = resolveInheritedPermissions(table, allTables) ?? table.permissions
-  return classifyPermissionRung(toPermissionValue(permissions?.[operation])) === 'everyone'
-}
-
-/**
- * Warn when open sign-up hands every new account access to tables.
- *
- * A self-registered account receives `auth.defaultRole` (`member` unless set),
- * so any table whose permissions admit `authenticated`, that role by name, or
- * leave an operation undeclared (open by default) is reachable by anyone who
- * fills in the sign-up form. That can be the intended design of a community
- * app, so it is a warning and never a refusal — but it is said at every boot,
- * naming the role, each reachable table and its operations, evaluated by the
- * SHARED permission evaluator the records API uses.
- *
- * Silent when the app has no auth, when `allowSignUp` is `false`, and for any
- * operation already open to anonymous visitors (`'all'`, declared or
- * inherited): sign-up changes nothing there.
- */
-export const collectSignUpExposurePhases = (app: Readonly<App>): readonly StartupPhase[] => {
-  if (!app.auth || app.auth.allowSignUp === false) return []
-  const role = app.auth.defaultRole ?? 'member'
-  const tables = app.tables ?? []
-  const reachable = tables.flatMap((table) => {
-    const operations = SIGN_UP_EXPOSURE_CHECKS.filter(
-      ([operation, admits]) =>
-        !isOpenToEveryone(table, operation, tables) && admits(table, role, tables)
-    ).map(([operation]) => operation)
-    return operations.length === 0 ? [] : [`${table.name} (${operations.join(', ')})`]
-  })
-  if (reachable.length === 0) return []
-  return [
-    {
-      label:
-        `Open sign-up — anyone can create an account as '${role}' and reach ${reachable.join(', ')}. ` +
-        "Set auth.allowSignUp: false, or restrict those tables' permissions to roles new accounts do not receive",
-      type: 'warning' as const,
-    },
-  ]
-}
-
 /**
  * Emit a `✓ Telemetry:` success phase per ACTIVE observability signal, naming
  * the destination HOST ONLY.
@@ -378,7 +306,7 @@ export const collectTelemetryPhases = (): readonly StartupPhase[] => {
 }
 
 /**
- * Assemble the ordered startup phases: optional insecure-env ⚠ warning → ✓ Mode
+ * Assemble the ordered startup phases: optional posture ⚠ warnings → ✓ Mode
  * → ✓ Encryption key → infra → CSS → ready. `renderStartupSummary` groups all `warning` phases
  * ahead of `success` phases, so the ⚠ surfaces above the banner while `✓ Mode:`
  * leads the success block.
@@ -428,10 +356,9 @@ export const buildStartupPhases = (params: {
   readonly durationMs: number
   readonly bindHost?: string
 }): readonly StartupPhase[] => {
-  const insecureEnvPhase = collectInsecureEnvWarning(params.bindHost)
   const mode = getNodeEnv() === 'production' ? 'production' : 'development'
   return [
-    ...(insecureEnvPhase ? [insecureEnvPhase] : []),
+    ...collectPostureWarnings(params.bindHost),
     { label: `Mode: ${mode}`, type: 'success' as const },
     ...collectRootSecretPhases(params.app),
     ...params.infraPhases,

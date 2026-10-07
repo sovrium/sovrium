@@ -7,15 +7,18 @@
 
 /**
  * `SOVRIUM_DB_QUERY_HEADER` env var — operator toggle for the
- * `X-Sovrium-Db-Queries` response header (the per-request DB query-count
- * seam; see `@/infrastructure/telemetry/db-query-counter`).
+ * `X-Sovrium-Db-Queries` and `X-Sovrium-Db-Rows` response headers (the
+ * per-request DB cost seam; see `@/infrastructure/telemetry/db-query-counter`).
  *
  * When enabled, every HTTP response carries an `X-Sovrium-Db-Queries: <n>`
- * header — the number of SQL statements issued while serving that request.
+ * header — the number of SQL statements issued while serving that request —
+ * and an `X-Sovrium-Db-Rows: <n>` header — the number of rows the database
+ * returned while reading records for it. The second is the one that tells a
+ * read of one page from a read of the whole table: both are one statement.
  *
  * ## Default `off` — SECURITY-load-bearing, not a style choice
  *
- * Unlike `ECO_INDEX_HEADER` (default `on`), this header defaults OFF and must
+ * Unlike `ECO_INDEX_HEADER` (default `on`), these headers default OFF and must
  * stay that way. Always-on, it lets an unauthenticated caller distinguish
  * "404 because the row does not exist" (few queries) from "404 because you
  * lack permission" (more queries — the permission checks ran) — defeating the

@@ -59,7 +59,6 @@ export const seedMcpResourceServerClient = async (options: {
     .limit(1)
 
   if (existing[0] === undefined) {
-    // eslint-disable-next-line functional/no-expression-statements -- seeding a row IS the side effect this function exists for
     await db.insert(clients).values({
       id: clientId,
       clientId,
@@ -78,7 +77,6 @@ export const seedMcpResourceServerClient = async (options: {
     // The secret is derived from the root secret, so it changes if the root
     // secret is regenerated. Re-stamping keeps the seeded row usable instead of
     // silently 401-ing every introspection after a key rotation.
-    // eslint-disable-next-line functional/no-expression-statements -- re-stamping the row IS the side effect
     await db
       .update(clients)
       .set({ clientSecret: hashedSecret, disabled: false })
@@ -92,7 +90,6 @@ export const seedMcpResourceServerClient = async (options: {
     .limit(1)
 
   if (linked[0] === undefined) {
-    // eslint-disable-next-line functional/no-expression-statements -- linking the client to the resource IS the side effect
     await db.insert(links).values({
       id: `${clientId}::${resource}`,
       clientId,

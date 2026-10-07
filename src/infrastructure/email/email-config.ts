@@ -92,9 +92,9 @@ export const getEmailConfigFromEffect = (): EmailConfigResult => {
 
   // Email is disabled — no transport, no localhost fallback.
   //
-  // NOTHING IS LOGGED HERE, and the `logError('[EMAIL] SMTP_HOST not
-  // configured in production mode')` that used to sit on this line was
-  // unreachable rather than merely redundant. The only runtime route into this
+  // NOTHING IS LOGGED HERE: a `logError('[EMAIL] SMTP_HOST not configured in
+  // production mode')` on this line would be unreachable rather than merely
+  // redundant. The only runtime route into this
   // function is `getTransporter()`, and its only live caller — `deliver()` —
   // reaches it exclusively on the branch where `isEmailConfigured()` already
   // answered TRUE, i.e. where `SMTP_HOST` is set and this branch cannot be

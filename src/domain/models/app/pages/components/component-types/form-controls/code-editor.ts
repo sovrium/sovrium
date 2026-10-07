@@ -36,7 +36,7 @@
  * the twelfth is refused.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 006, plus this type's own REGRESSION rollup
+ * Specs: the design system component code editor specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

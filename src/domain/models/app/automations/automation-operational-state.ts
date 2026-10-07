@@ -128,7 +128,7 @@ export const resolveAutomationOperationalState = (
  * return `false` here, and every call site already treats `false` exactly as it
  * treated `enabled === false`, the two off-states are externally
  * indistinguishable — same 404, same silent filter-out, at the same layer.
- * That preserves the property `[internal ref]` established, and
+ * That preserves the property an automation definition spec established, and
  * it is the reason the webhook HTTP gate must be routed through here too: that
  * gate runs BEFORE auth and rate-limiting, so leaving it on the bare config
  * check would let a paused automation answer `401` where a disabled one

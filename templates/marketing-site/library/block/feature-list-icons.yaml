@@ -1,0 +1,166 @@
+# sovrium-library: block/feature-list-icons@0.30.0
+name: feature-list-icons
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: grid
+        props:
+          className: grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-20
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-4
+            children:
+              - type: flex
+                props:
+                  className: flex flex-col max-w-2xl gap-4
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-2
+                    children:
+                      - type: container
+                        props:
+                          className: size-1.5 rounded-sm bg-primary
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-sm text-foreground-subtle
+                        content: '[Eyebrow]'
+                  - type: text
+                    element: h2
+                    props:
+                      className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+                    content: A heading that the four items prove
+                  - type: text
+                    element: p
+                    props:
+                      className: text-lg text-pretty text-foreground-muted sm:text-xl
+                    content: Keep the argument on the left and the evidence on the right.
+              - type: flex
+                props:
+                  className: flex mt-4
+                children:
+                  - type: link
+                    props:
+                      href: /contact
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                    content: '[Primary action]'
+          - type: flex
+            props:
+              className: flex flex-col gap-0
+            children:
+              - type: flex
+                props:
+                  className: flex items-start gap-4 border-b border-border py-5 last:border-b-0
+                children:
+                  - type: container
+                    props:
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: zap
+                          size: 20
+                          className: ''
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Starts in minutes
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'One line on what the reader does, one on what they get.'
+              - type: flex
+                props:
+                  className: flex items-start gap-4 border-b border-border py-5 last:border-b-0
+                children:
+                  - type: container
+                    props:
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: lock
+                          size: 20
+                          className: ''
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Access by role
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'Name the role and the rule, not the security jargon.'
+              - type: flex
+                props:
+                  className: flex items-start gap-4 border-b border-border py-5 last:border-b-0
+                children:
+                  - type: container
+                    props:
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: chart-column
+                          size: 20
+                          className: ''
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Numbers on one page
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'Say which numbers, and who reads them.'
+              - type: flex
+                props:
+                  className: flex items-start gap-4 border-b border-border py-5 last:border-b-0
+                children:
+                  - type: container
+                    props:
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: upload
+                          size: 20
+                          className: ''
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Leave with everything
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'Export format and effort, stated plainly.'

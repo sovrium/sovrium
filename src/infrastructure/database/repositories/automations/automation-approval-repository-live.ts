@@ -6,7 +6,7 @@
  */
 
 /**
- * Automation Approval Repository Implementation (Drizzle) — [internal ref].
+ * Automation Approval Repository Implementation (Drizzle).
  *
  * Owns the `system.automation_approval_requests` table for automation-step
  * approvals: insert a `pending` row (`approval/request` action handler), load a

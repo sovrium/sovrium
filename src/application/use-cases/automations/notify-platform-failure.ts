@@ -13,7 +13,7 @@
  * instance, so a failure is never silently lost. Analogous to Zapier's built-in
  * "Zap failed" email.
  *
- * Contract ([internal ref]..005, -018..-024):
+ * Contract:
  *   - Fires once per run, only AFTER all retries are exhausted (the engine calls
  *     this from the run's post-run dispatch, beside `dispatchFailureHandlers`).
  *   - Recipients: the app's admin-tier accounts, not banned, who left their
@@ -30,7 +30,7 @@
  *     run id is printed instead of a link that cannot work.
  *   - The footer links to the profile page, where each operator switches the
  *     email off for themselves.
- * - Grouped: a final failure is emailed
+ *   - Grouped: a final failure is emailed
  *     at once only when no OTHER final failure of the same automation completed
  *     in the hour before it. The rest are held back for the hourly roll-up
  *     (`send-failure-rollup.ts`), so an automation failing every minute sends
@@ -54,6 +54,7 @@ import { summariseRunError } from '@/domain/models/app/automations/failure-summa
 import { logError } from '@/infrastructure/logging/logger'
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -163,7 +164,7 @@ const isImmediate = (
  */
 export const notifyPlatformFailure = (
   input: NotifyPlatformFailureInput
-): Effect.Effect<void, never, AuthRepository | AutomationRunOutcomeRepository> =>
+): Effect.Effect<void, never, AuthRepository | AutomationRunOutcomeRepository | EmailSender> =>
   Effect.gen(function* () {
     if (!(yield* isImmediate(input))) return
     yield* deliverAutomationNotice({

@@ -17,7 +17,7 @@
  * Omitting the field defaults a client to `web` (RFC 7591), which the
  * authorization server refuses `400 invalid_redirect_uri` on the zero-config
  * self-hosted posture. So a console printing a registration body without it
- * hands the operator a command that cannot work — [internal ref], and the reason
+ * hands the operator a command that cannot work — the OAuth `application_type` rule, and the reason
  * `/api/admin/instance` publishes the answer rather than leaving config to
  * guess it. Config has no URL parser and no way to test a host against the
  * three loopback spellings.

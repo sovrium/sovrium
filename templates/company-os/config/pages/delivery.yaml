@@ -39,32 +39,14 @@ components:
                   interactions:
                     click:
                       modal: add-task-dialog
-          # Inline in the dialog, so an optional field left empty (no assignee
+          # Opens the add-task form; an optional field left empty (no assignee
           # yet) is simply left out of the new task.
           - type: dialog
             props:
               id: add-task-dialog
               title: Add task
               description: The task lands on the board as To do.
-            children:
-              - type: form
-                dataSource:
-                  table: project_tasks
-                fields:
-                  - { field: title, label: Task }
-                  - { field: project, label: Project }
-                  - { field: assignee, label: Assignee }
-                  - { field: due_date, label: Due }
-                action:
-                  type: crud
-                  operation: create
-                  table: project_tasks
-                  submitLabel: Add task
-                  onSuccess:
-                    navigate: /delivery
-                    toast:
-                      message: Task added
-                      variant: success
+            formRef: add-task
           - type: container
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4
@@ -83,6 +65,7 @@ components:
                       - { value: Done, label: Done }
                   - { name: start_date, label: Start, kind: date }
               - type: table
+                readOnly: true
                 dataSource:
                   table: projects
                   view: delivery_portfolio
@@ -103,14 +86,13 @@ components:
                   className: pt-2 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                 content: Tasks
               - type: kanban
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1'
                 dataSource:
                   table: project_tasks
                   sort:
                     - { field: due_date, direction: asc }
                 kanbanGroupBy:
                   field: status
+                  columnSizing: fill
                 drag:
                   enabled: true
                   persistAction:

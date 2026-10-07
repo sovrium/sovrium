@@ -10,7 +10,7 @@
  *
  * They are one module because they are one shape wearing two verbs: both stamp
  * authorship by FIELD TYPE, both split the many-to-many fields out of the
- * statement and write the junction rows after it, both filter the echoed row
+ * statement and hand the junction rows to the same write (one transaction), both filter the echoed row
  * through the caller's read permissions, and both return the same envelope
  * (system fields at the root, user fields nested AND flat). Separating them
  * would put those four decisions in two places and invite the next change to
@@ -41,17 +41,23 @@ import { refuseWhenNoSingleIdAddress } from './read-record-programs'
 import { announceRecordWrites } from './record-change-announcement'
 import {
   clearedManyToManySpecs,
-  clearManyToManyLinks,
+  linksToClear,
   splitManyToManyFields,
-  writeManyToManyLinks,
 } from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
+import { refuseSelfLinkCycle } from './self-link-cycle-check'
+import { refuseSignatureOverwrite } from './signature-write-once-check'
 import type { LinkReader } from './linked-row-visibility'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { DatabaseError, ForeignKeyViolationError } from '@/domain/errors'
+import type {
+  DatabaseError,
+  ForeignKeyViolationError,
+  StaleWriteError,
+  ValidationError,
+} from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 interface CreateRecordConfig {
@@ -172,17 +178,16 @@ export function createRecordProgram(config: CreateRecordConfig) {
       userId: session.userId,
     })
 
-    // [internal ref]: a many-to-many relationship field has no base column — split it
-    // out of the base INSERT (it would try to write a phantom column → 500) and
-    // write the junction rows after the base row (real id) is created.
+    // A many-to-many relationship field has no base column — split it
+    // out of the base INSERT (it would try to write a phantom column → 500).
+    // The junction rows are written after the base row (real id), in the same
+    // transaction: a refused link leaves no record behind.
     const { baseFields, links } = splitManyToManyFields(
       fieldsWithAuthorship,
       getManyToManyFieldSpecs(app?.tables, tableName)
     )
 
-    // Create record with session context
-    const created = yield* repo.createRecord(session, tableName, baseFields)
-    yield* writeManyToManyLinks(repo, tableName, created.id as string | number, links)
+    const created = yield* repo.createRecord(session, tableName, baseFields, links)
 
     // The answer holds no more than the writer's own read of the record.
     const [record = created] = yield* omitFromWriteEcho(
@@ -219,17 +224,22 @@ export function createRecordProgram(config: CreateRecordConfig) {
 }
 
 /**
- * [internal ref] (update): resolve the base row for an update while handling the
- * many-to-many split. A `many-to-many` relationship field has no base column, so
- * it is split OUT of the SET clause and its ids written to the junction table —
- * mirroring the create path. Without the split the field name reaches the base
- * UPDATE (no such column), the update matches nothing, and the route 404s.
+ * the many-to-many junction-write rule (update): write the row and its many-to-many links as ONE write.
  *
- * Updates the base columns when there is at least one to write; a pure m2m PATCH
- * (only relationship arrays) fetches the existing row instead so the junction
- * write targets a real record and the response reflects it. Returns `{}` when a
- * pure m2m PATCH targets a missing row (the caller surfaces that as a 404).
- * No-op split for tables/patches with no m2m field.
+ * A `many-to-many` relationship field has no base column, so it is split OUT of
+ * the SET clause and its ids written to the junction table — mirroring the
+ * create path. Without the split the field name reaches the base UPDATE (no
+ * such column), the update matches nothing, and the route 404s.
+ *
+ * Everything the change reads is read first — the link targets it may name,
+ * the links a cleared field removes — and everything it writes goes to ONE
+ * `updateRecord` call, which applies the row, the new links and the removed
+ * links in one transaction, with the optimistic-lock token checked in the
+ * row's own UPDATE. So a refused link or a stale token keeps nothing.
+ *
+ * A pure m2m PATCH (only relationship arrays) leaves the row as it is and
+ * changes its links only; it returns `{}` when the row is missing (the caller
+ * surfaces that as a 404). No-op split for tables/patches with no m2m field.
  */
 const resolveUpdatedBaseRecord = (
   session: Readonly<UserSession>,
@@ -240,10 +250,12 @@ const resolveUpdatedBaseRecord = (
     readonly app?: App
     readonly userRole?: string
     readonly linkReader?: LinkReader
+    readonly expectedUpdatedAt?: string
+    readonly auditContext?: Readonly<Record<string, string>>
   }
 ): Effect.Effect<
   Record<string, unknown>,
-  DatabaseError | ForeignKeyViolationError,
+  DatabaseError | ForeignKeyViolationError | StaleWriteError | ValidationError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -255,6 +267,9 @@ const resolveUpdatedBaseRecord = (
       ...{ app: params.app, session, tableName, reader },
       writes: [{ fields: params.fields, held }],
     })
+    const { app, fields } = params
+    yield* refuseSelfLinkCycle({ app, session, tableName, recordId, fields })
+    yield* refuseSignatureOverwrite({ app, tableName, fields, held })
 
     const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
     const { baseFields, links } = splitManyToManyFields(params.fields, m2mSpecs)
@@ -269,27 +284,18 @@ const resolveUpdatedBaseRecord = (
       userId: session.userId,
     })
 
-    const record =
-      Object.keys(baseWithAuthorship).length > 0
-        ? yield* repo.updateRecord(session, tableName, recordId, {
-            fields: baseWithAuthorship,
-            app: params.app,
-          })
-        : ((yield* repo.getRecord(session, tableName, recordId)) ?? {})
+    // A pure m2m PATCH targets a live row: a missing or deleted one is a 404.
+    const writesRow = Object.keys(baseWithAuthorship).length > 0
+    if (!writesRow && (yield* repo.getRecord(session, tableName, recordId)) === null) return {}
 
-    if (Object.keys(record).length === 0) return {}
-
-    // Write the m2m junction rows (idempotent add semantics), then remove the
-    // links of any field the change clears (`null` or `[]`).
-    yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
-    yield* clearManyToManyLinks({
-      app: params.app,
-      tableName,
-      recordId: record.id as string | number,
-      cleared: clearedManyToManySpecs(params.fields, m2mSpecs),
-      reader,
+    const cleared = clearedManyToManySpecs(params.fields, m2mSpecs)
+    const unlinks = yield* linksToClear({ app: params.app, tableName, recordId, cleared, reader })
+    const { expectedUpdatedAt, auditContext } = params
+    return yield* repo.updateRecord(session, tableName, recordId, {
+      ...{ fields: baseWithAuthorship, app: params.app, links, unlinks },
+      ...(expectedUpdatedAt === undefined ? {} : { expectedUpdatedAt }),
+      ...(auditContext === undefined ? {} : { auditContext }),
     })
-    return record
   })
 
 /** What an update writes, and who the record it hands back is read as. */
@@ -305,6 +311,14 @@ interface UpdateRecordParams {
    * with no `userRole` too, every link of a cleared field is removed.
    */
   readonly linkReader?: LinkReader
+  /**
+   * The `updatedAt` the caller last read. Checked inside the write itself: when
+   * the record changed since, nothing is written and the program fails with
+   * `StaleWriteError`.
+   */
+  readonly expectedUpdatedAt?: string
+  /** The surface the change is recorded as made through (a form edit link). */
+  readonly auditContext?: Readonly<Record<string, string>>
 }
 
 export function updateRecordProgram(
@@ -316,7 +330,7 @@ export function updateRecordProgram(
   return Effect.gen(function* () {
     yield* refuseWhenNoSingleIdAddress(params.app, tableName)
 
-    // [internal ref] (update): resolve the base row, handling the many-to-many split +
+    // The many-to-many junction-write rule (update): resolve the base row, handling the many-to-many split +
     // junction write. Extracted so this generator stays under the complexity cap.
     const written = yield* resolveUpdatedBaseRecord(session, tableName, recordId, {
       ...params,

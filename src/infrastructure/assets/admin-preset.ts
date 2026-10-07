@@ -107,7 +107,6 @@ export const pruneRecoveryEntryPoints = (app: App): App => {
 }
 
 /** Process-lifetime memo — the preset is version-locked to the binary. */
-// eslint-disable-next-line functional/no-let -- module-level memo, set once on first call
 let presetCache: App | undefined
 
 /**
@@ -132,11 +131,9 @@ export const resolveAdminPresetApp = (): App => {
     // Sovrium" badge on it would credit the operator's product to its vendor on
     // the one surface where the operator is unambiguously not the audience.
     const app = pruneRecoveryEntryPoints({ ...decoded, badge: false } as App)
-    // eslint-disable-next-line functional/no-expression-statements -- module-level memo write
     presetCache = app
     return app
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- boot refusal: a console that cannot decode must stop the process, not degrade to a 404
     throw new Error(
       'Sovrium failed to start: the embedded admin console preset does not decode against this ' +
         'release’s AppSchema. This is a defect in the build, not in your configuration. ' +

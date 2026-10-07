@@ -22,14 +22,13 @@
  * {@link ApprovalDatabaseError}.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   ApprovalRepository,
   type ApprovalDatabaseError,
   type ApprovalMirrorRecord,
   type ApprovalUserIdentity,
 } from '@/application/ports/repositories/ai/approval-repository'
-import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
 
 /** Mirror a freshly created agent-approval record into the DB table. */
 export const MirrorApprovalCreate = (
@@ -57,8 +56,3 @@ export const LookupApproverIdentity = (
     const repo = yield* ApprovalRepository
     return yield* repo.lookupUserIdentity(userId)
   }).pipe(Effect.withSpan('agents.lookup-approver-identity'))
-
-/**
- * Application layer for the agent-approval mirror use cases.
- */
-export const ApprovalLayer = Layer.mergeAll(ApprovalRepositoryLive)

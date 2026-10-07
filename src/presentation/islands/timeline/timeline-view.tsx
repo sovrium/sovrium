@@ -33,6 +33,7 @@ import {
   type TimelineZoom,
 } from './timeline-compute'
 import { TimelineDependencyLinks, TimelineTodayMarker } from './timeline-overlays'
+import { TimelineResizeHandles } from './timeline-resize'
 import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { ReactElement } from 'react'
 
@@ -117,6 +118,10 @@ function TimelineBar({
       title={item.label}
     >
       <span className={computeTimelineBarLabelClasses()}>{item.label}</span>
+      <TimelineResizeHandles
+        item={item}
+        bounds={bounds}
+      />
     </div>
   )
 }

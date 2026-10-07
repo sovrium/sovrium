@@ -116,7 +116,7 @@ function renderSwatchNotations({
  * `undefined` when the token is not a custom-property name, which is the only
  * thing the cascade can hold. A `design.ramps` step is emitted as no `--sv-*`
  * variable at all (measured), so painting `var(brand-500)` would give a
- * transparent chip where a colour used to be. Reporting nothing is the same
+ * transparent chip where a colour should be. Reporting nothing is the same
  * answer an unresolvable literal already gets, and it stays a render-time fact
  * rather than a decode error for the reason `token` is an open string.
  */
@@ -198,7 +198,6 @@ const colorSwatchComponent: ComponentRenderer = ({
           aria-hidden="true"
           data-token-chip=""
           className="inline-block h-8 w-8 rounded border border-[var(--sv-border,#e5e5e5)] align-middle"
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the swatch IS its colour; a stateless SSR renderer painting it once
           style={{ backgroundColor: resolved ?? 'transparent' }}
         />
       ) : undefined}

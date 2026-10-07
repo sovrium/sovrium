@@ -8,7 +8,7 @@
 /**
  * One-question-at-a-time body rendering.
  *
- * [internal ref]..051: Typeform-style layout. The SSR HTML emits ALL
+ * Typeform-style layout. The SSR HTML emits ALL
  * questions up front, each wrapped in a `<div class="form-question">`
  * with `data-question-index` and `hidden` (except question 0). The
  * inline runtime (form-runtime-one-question.ts) toggles visibility on

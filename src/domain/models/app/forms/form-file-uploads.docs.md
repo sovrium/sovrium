@@ -31,12 +31,12 @@ forms:
 
 Upload behaviour is configured identically on both kinds: a standalone field whose `inputType` is `attachment`, or a table-bound field whose column is a single or multiple attachment. The four upload properties are shared, and they appear in the option tables of both field kinds.
 
-| Property      | Restricts                                                                             |
-| ------------- | ------------------------------------------------------------------------------------- |
-| `accept`      | The file dialog and the drop zone, by MIME type or extension                          |
-| `maxFileSize` | Bytes per file; a larger file is refused with an inline error before uploading starts |
-| `maxFiles`    | How many files a multiple-file field accepts                                          |
-| `dropZone`    | Whether a drag-and-drop area renders alongside the picker                             |
+| Property      | Restricts                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `accept`      | The file dialog and the drop zone, by MIME type or extension; the server checks it again on submission and refuses a mismatch (400)   |
+| `maxFileSize` | Bytes per file; a larger file is refused with an inline error before uploading starts, and by the server (413) if it is posted anyway |
+| `maxFiles`    | How many files a multiple-file field accepts                                                                                          |
+| `dropZone`    | Whether a drag-and-drop area renders alongside the picker                                                                             |
 
 ### Single or multiple
 
@@ -73,16 +73,24 @@ forms:
 
 ## What the field does for you
 
-| Behaviour            | Detail                                                                                                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Type filter          | `accept` restricts both the dialog and the drop zone; a mismatch is an inline error                                                                                                      |
-| Size validation      | `maxFileSize` refuses an oversized file before any upload begins                                                                                                                         |
-| Progress             | A progress indicator shows while each file uploads                                                                                                                                       |
-| Preview              | An image renders a thumbnail after upload; anything else renders its name and size                                                                                                       |
-| Remove               | A selected file can be removed before submit, from the keyboard; the others are untouched                                                                                                |
-| Required enforcement | A required attachment field with no file blocks submission with an inline error; a recorded, dropped or picked file satisfies it, and removing the last file blocks the submission again |
+| Behaviour            | Detail                                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type filter          | `accept` restricts both the dialog and the drop zone; a mismatch is an inline error                                                                                                                                                                 |
+| Size validation      | `maxFileSize` refuses an oversized file before any upload begins                                                                                                                                                                                    |
+| Server enforcement   | The submission endpoint checks every file again, so a file posted by hand cannot skip the page: a type outside `accept` is refused with 400 and a file above `maxFileSize` with 413, both naming the field, and nothing of the submission is stored |
+| Bucket limits        | The bucket's own `maxFileSize` (or `STORAGE_MAX_FILE_SIZE`) and `allowedMimeTypes` apply to form uploads too, exactly as on the bucket's upload endpoint                                                                                            |
+| Progress             | A progress indicator shows while each file uploads                                                                                                                                                                                                  |
+| Preview              | An image renders a thumbnail after upload; anything else renders its name and size                                                                                                                                                                  |
+| Remove               | A selected file can be removed before submit, from the keyboard; the others are untouched                                                                                                                                                           |
+| Required enforcement | A required attachment field with no file blocks submission with an inline error; a recorded, dropped or picked file satisfies it, and removing the last file blocks the submission again                                                            |
 
 Validating before the upload rather than after is the part worth noticing: a visitor who picked the wrong file learns immediately instead of after waiting for twenty megabytes to travel.
+
+The server's check reads the file's **content** as well as its declared type. A file whose bytes open with `<` is markup, and is judged as HTML or SVG whatever it is called; both can carry a script. So `image/*` does **not** admit SVG: a field that wants SVG names `image/svg+xml` or `.svg` explicitly, and an HTML page renamed `photo.png` is refused by `image/*` and by `.png` alike. The page's picker applies the same rule the moment a file is picked, so an SVG chosen for an `image/*` field is refused with the field's message before anything is uploaded. The size limit is inclusive: a file of exactly `maxFileSize` bytes is accepted.
+
+When storing a file fails on the server side, the visitor gets a generic `500` (`upload_failed`) and the cause is written to the server log, naming the form.
+
+A file a **signed-in** visitor submits is recorded as uploaded by her, so it is removed with her account when it is erased. A file sent anonymously names nobody.
 
 ## The metadata a submission carries
 
@@ -97,7 +105,7 @@ type FileMetadata = {
 }
 ```
 
-The type is **detected** rather than taken from the upload's own claim, which is what keeps a file renamed to `.pdf` from being stored as one.
+Where the content announces its type — markup, or the signature of a PNG, JPEG, GIF or WebP image — that **detected** type is what is stored, rather than the upload's own claim; otherwise the declared type is kept.
 
 ## Recording audio in the browser
 

@@ -7,9 +7,16 @@
 
 import { Data, Effect } from 'effect'
 import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
+import {
+  EMPTY_SEQUENCE,
+  haltedOutcome,
+  runNestedSequence,
+  type SequenceRun,
+} from './nested-sequence'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { ExecutedStep } from '../run/types'
 
 /**
  * `path/branch` handler — conditional branching (n8n Switch / Make router).
@@ -24,7 +31,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  *  - `all-matching` — run EVERY matching path, SEQUENTIALLY, in declaration
  *    order. Sequential is the decided semantics: two branches writing to the
  *    same table must have a defined order, and `matched` reports that order.
- *    (The schema annotation used to say "parallel"; it was corrected to match.)
+ *    The schema annotation says the same.
  *
  * Output: `{ matched: readonly string[], results: Record<pathName, unknown> }`.
  * `matched` is the SELECTION half of the contract — the only place path
@@ -51,17 +58,17 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * at that path (arrays and objects intact) and falls back to string
  * substitution otherwise: the path's `condition` first, then each nested
  * action's `props` immediately before dispatching it through
- * `runContext.invokeNativeAction`.
+ * `runContext.runNestedStep`.
  *
  * A handler that forwarded the pre-resolved `action.props` instead would still
  * satisfy "the right branch ran" — the scalar rows appear, `matched` is
  * correct — and only the collapsed non-scalar betrays it. That asymmetry is why
- * [internal ref] puts an ARRAY-valued reference inside a
+ * an automation action path branch spec puts an ARRAY-valued reference inside a
  * branch action and not merely a scalar one: the scalar assertion passes
  * against both implementations and proves nothing on its own. Verified by
  * building the naive variant and watching -001 go red.
  *
- * Spec: [internal ref] + REGRESSION.
+ * Spec: an automation action path branch spec + REGRESSION.
  */
 
 /** Tagged failure when a branch's nested action throws (or rejects). */
@@ -75,9 +82,6 @@ interface DeclaredPath {
   readonly condition: Readonly<Record<string, unknown>> | undefined
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
 }
-
-const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
-  ({ status: 'success', output }) as const satisfies ActionOutcome
 
 const fail = (message: string): ActionOutcome =>
   ({ status: 'failure', error: message }) as const satisfies ActionOutcome
@@ -126,64 +130,84 @@ const pathMatches = (path: DeclaredPath, runContext: ActionRunContext): boolean 
   )
 }
 
-/**
- * Run one branch's action sub-sequence, in order. Each nested action's props
- * are re-resolved against the run context immediately before dispatch — this
- * is the step that keeps `{{trigger.data.*}}` inside a branch action honest.
- * Returns the last action's output (mirroring `loop/each`), or `{}`.
- */
-const runBranch = (input: {
-  readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
-  readonly runContext: ActionRunContext
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
-}): Promise<unknown> => {
-  const { actions, runContext, invoke } = input
-  return actions.reduce<Promise<unknown>>(
-    (prev, nested) =>
-      prev.then(() => {
-        const type = String(nested['type'] ?? '')
-        const operator = String(nested['operator'] ?? '')
-        const props = resolveOwnProp(runContext, nested['props'] ?? {}) as Record<string, unknown>
-        return invoke(type, operator, props)
-      }),
-    Promise.resolve<unknown>(undefined)
-  )
-}
-
 interface BranchRun {
   readonly matched: readonly string[]
   readonly results: Record<string, unknown>
+  /** Each path that ran, with the steps run inside it. */
+  readonly paths: readonly { readonly name: string; readonly steps: readonly ExecutedStep[] }[]
+  /** What every path run so far produced: the next path's actions read it. */
+  readonly sequence: SequenceRun
 }
 
 /**
  * Run every selected branch as ONE promise chain so declaration order is
  * observable in the rows each branch writes, not merely in `matched`.
+ *
+ * Each path's actions read the outputs of every action that ran before them —
+ * in the run, earlier in the path, and in the paths that ran before it (each
+ * one's props filled in just before it runs). An action that ends its
+ * sequence — a failure, a `flow/stop`, a stopping filter, a pause — ends the
+ * branch there: no later action of its path and no later path runs.
  */
 const runSelectedBranches = (input: {
   readonly selected: ReadonlyArray<DeclaredPath>
   readonly runContext: ActionRunContext
-  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+  readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
 }): Promise<BranchRun> => {
-  const { selected, runContext, invoke } = input
+  const { selected, runContext, runNested } = input
+  const fillProps = (props: unknown, previousSteps: ActionRunContext['previousSteps']) =>
+    resolveOwnProp({ ...runContext, previousSteps }, props) as Record<string, unknown>
   return selected.reduce<Promise<BranchRun>>(
     async (prev, path) => {
       const acc = await prev
-      const result = await runBranch({ actions: path.actions, runContext, invoke })
+      if (acc.sequence.halt !== undefined) return acc
+      const run = await runNestedSequence({
+        actions: path.actions,
+        runNested,
+        previousSteps: { ...runContext.previousSteps, ...acc.sequence.outputs },
+        fillProps,
+      })
       return {
         matched: [...acc.matched, path.name],
-        results: { ...acc.results, [path.name]: result ?? {} },
+        results: { ...acc.results, [path.name]: run.last ?? {} },
+        paths: [...acc.paths, { name: path.name, steps: run.steps }],
+        sequence: {
+          ...run,
+          outputs: { ...acc.sequence.outputs, ...run.outputs },
+          responseOverride: run.responseOverride ?? acc.sequence.responseOverride,
+        },
       }
     },
-    Promise.resolve<BranchRun>({ matched: [], results: {} })
+    Promise.resolve<BranchRun>({ matched: [], results: {}, paths: [], sequence: EMPTY_SEQUENCE })
+  )
+}
+
+/** The branch's outcome: its selection and results, and whatever ended it early. */
+const branchOutcome = (run: BranchRun): ActionOutcome => {
+  const { outputs, halt, responseOverride } = run.sequence
+  const carried = {
+    output: { matched: run.matched, results: run.results },
+    nestedOutputs: outputs,
+    nestedSteps: { paths: run.paths },
+    ...(responseOverride === undefined ? {} : { responseOverride }),
+  }
+  if (halt === undefined) return { ...carried, status: 'success' }
+  return (
+    haltedOutcome(halt, carried) ?? {
+      status: 'failure',
+      error: halt.error ?? 'path.branch: an action of the path failed',
+      nestedOutputs: outputs,
+      nestedSteps: { paths: run.paths },
+    }
   )
 }
 
 export const handlePathBranch: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.gen(function* () {
-    if (runContext === undefined || runContext.invokeNativeAction === undefined) {
+    if (runContext === undefined || runContext.runNestedStep === undefined) {
       return fail('path.branch requires a run context to dispatch its branch actions')
     }
-    const invoke = runContext.invokeNativeAction
+    const runNested = runContext.runNestedStep
     const props = authoredActionProps(runContext)
 
     const paths = declaredPaths(props)
@@ -193,7 +217,7 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
     const selected = allMatching ? matching : matching.slice(0, 1)
 
     return yield* Effect.tryPromise({
-      try: () => runSelectedBranches({ selected, runContext, invoke }),
+      try: () => runSelectedBranches({ selected, runContext, runNested }),
       catch: (cause) =>
         new PathBranchError({
           message: cause instanceof Error ? cause.message : String(cause),
@@ -201,7 +225,7 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
         }),
     }).pipe(
       Effect.match({
-        onSuccess: (run) => ok({ matched: run.matched, results: run.results }),
+        onSuccess: branchOutcome,
         onFailure: (error) => fail(error.message),
       })
     )

@@ -10,7 +10,7 @@
  *
  * Planning and writing are deliberately two phases. A `@table.key` reference
  * cannot become a number until the referenced row has been inserted, and the
- * refusal catalogue in `[internal ref]` demands that a malformed token or
+ * refusal catalogue in the CLI seeding data requirement demands that a malformed token or
  * an unresolvable key be reported *before* anything is written — a refusal
  * raised halfway through a data set leaves the retry looking at a non-empty
  * table, and `--mode if-empty` then skips it forever.

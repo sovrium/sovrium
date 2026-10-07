@@ -50,7 +50,6 @@ async function checkAuthorshipColumns(
  * @returns Normalized user ID, or NULL for guest / no-auth users
  */
 function normalizeUserIdForDb(userId: string | undefined): string | null {
-  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
   if (!userId || isGuestSession(userId)) return null
   return userId
 }

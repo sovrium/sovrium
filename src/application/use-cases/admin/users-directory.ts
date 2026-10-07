@@ -70,7 +70,7 @@ const projectRow = (
 /**
  * Outcome of the directory build. `Ok` carries the response-schema-validated
  * body; `ValidationFailed` signals the assembled body failed the response gate
- * (the route maps this to a 500 + logs the Zod error).
+ * (the route maps this to a 500 + logs the schema decode error).
  */
 export type UsersDirectoryOutcome =
   | { readonly _tag: 'Ok'; readonly body: AdminUsersDirectoryResponse }
@@ -176,7 +176,6 @@ export const BuildUsersDirectory = (
       // `appliedQuerySchema`). An omitted key means "this endpoint does not
       // search", which would put the grid back to filtering in memory over the
       // columns it renders — dropping every row matched on `name`.
-      // eslint-disable-next-line unicorn/no-null -- the API envelope canonically distinguishes an explicit `null` ("no term applied") from an ABSENT key ("endpoint does not search"); `undefined` erases that distinction on the wire
       appliedQuery: input.q ?? null,
     } satisfies AdminUsersDirectoryResponse
 

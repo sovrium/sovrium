@@ -163,7 +163,6 @@ async function handleGetActiveScope(c: Context, app: App): Promise<Response> {
 
   const cookieValue = getCookie(c, cookieNameForScope(tableSlug))
   if (!cookieValue) {
-    // eslint-disable-next-line unicorn/no-null -- API contract: null means "no active scope"
     return c.json({ tableSlug, recordId: null }, 200)
   }
 
@@ -174,7 +173,6 @@ async function handleGetActiveScope(c: Context, app: App): Promise<Response> {
   // silently falls back; the API surfaces the bad state.
   const validated = validateActiveAssignment(cookieValue, accessible)
   if (validated === undefined) {
-    // eslint-disable-next-line unicorn/no-null -- API contract: null means "no valid active scope"
     return c.json({ tableSlug, recordId: null }, 200)
   }
 
@@ -195,14 +193,12 @@ async function handleClearActiveScope(c: Context, app: App): Promise<Response> {
   const tableSlug = c.req.param('tableSlug')
   if (!tableSlug || !scopeTables.includes(tableSlug)) return respondNotFound(c)
 
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for cookie clear
   deleteCookie(c, cookieNameForScope(tableSlug), {
     path: '/',
   })
 
   // 204 No Content — explicit null body matches Hono's body() signature
   // (the test asserts `[200, 204].toContain(r.status())`).
-  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null (not undefined) for empty bodies
   return c.body(null, 204)
 }
 
@@ -229,11 +225,9 @@ const safeHandler =
  * Auth middleware MUST already be applied to `/api/session/*` upstream so
  * `getSessionContext` resolves the active session.
  */
-/* eslint-disable drizzle/enforce-delete-with-where -- the .delete() below is a Hono route definition, not a Drizzle delete */
 export function chainActiveScopeRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .post('/api/session/active-scope/:tableSlug', safeHandler(handleSetActiveScope, app))
     .get('/api/session/active-scope/:tableSlug', safeHandler(handleGetActiveScope, app))
     .delete('/api/session/active-scope/:tableSlug', safeHandler(handleClearActiveScope, app)) as T
 }
-/* eslint-enable drizzle/enforce-delete-with-where */

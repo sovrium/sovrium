@@ -1,0 +1,16 @@
+# The contact page's form. The contact blocks post to this form's route,
+# /api/forms/contact/submissions, so this one entry decides where a message
+# goes (the messages table) and who may send one (anyone).
+id: 1
+name: contact
+title: Contact
+access:
+  require: all
+submitTo:
+  table: messages
+antiSpam:
+  honeypot: true
+fields:
+  - { kind: table-field, column: name, required: true, label: Name }
+  - { kind: table-field, column: email, required: true, label: Email }
+  - { kind: table-field, column: message, required: true, label: Message }

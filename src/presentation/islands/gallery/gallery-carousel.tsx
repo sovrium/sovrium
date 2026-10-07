@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One carousel is mounted per gallery and its two controls close over the
-   track ref; hoisting them would add indirection without removing render work,
-   since scrolling the track re-renders nothing. */
-
 import { useRef, type ReactElement } from 'react'
 import { GalleryCardView } from './gallery-card'
 import type { TableRecord } from '../runtime/types'

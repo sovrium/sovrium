@@ -78,7 +78,6 @@ const discoverDesignSystemConfig = async (): Promise<string> => {
         `Usage:\n  sovrium design-system <config.json|config.yaml|config.ts>\n\n` +
         `Run 'sovrium init' to scaffold a new project.`
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -100,7 +99,6 @@ const decodeForExport = async (configPath: string) => {
   if (!decoded.valid) {
     const errorLines = decoded.errors.map((error) => `  ${error}`).join('\n')
     printStderr(`Error: Validation failed.\n\n${errorLines}`)
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 

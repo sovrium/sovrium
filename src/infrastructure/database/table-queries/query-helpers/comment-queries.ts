@@ -62,14 +62,10 @@ function buildCommentInsertValues(config: {
     id: crypto.randomUUID(),
     tableId,
     recordId,
-    // eslint-disable-next-line unicorn/no-null -- write SQL NULL for guest comments (no Better Auth user row)
     userId: isGuest ? null : session.userId,
-    // eslint-disable-next-line unicorn/no-null -- nullable guest columns: null when not a guest comment
     guestName: isGuest ? (guestName ?? null) : null,
-    // eslint-disable-next-line unicorn/no-null -- nullable guest columns: null when not a guest comment
     guestEmail: isGuest ? (guestEmail ?? null) : null,
     content,
-    // eslint-disable-next-line unicorn/no-null -- Drizzle pgcore expects `null` (not undefined) to write SQL NULL into nullable parent_id
     parentId: parentId ?? null,
     status: status ?? 'approved',
     createdAt: now,
@@ -110,7 +106,6 @@ export function createComment(config: {
       const result = await db.insert(recordComments).values(values).returning()
 
       if (result.length === 0) {
-        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new DatabaseError('Failed to create comment')
       }
 
@@ -209,7 +204,6 @@ export function deleteComment(config: {
         .returning()
 
       if (result.length === 0) {
-        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new NotFoundError('Comment not found')
       }
     },
@@ -262,7 +256,7 @@ export function getCommentForAuth(config: {
  * Build base comments query with user join.
  *
  * `includeAllStatuses` controls moderation visibility
- *: non-admin viewers see approved-only,
+ * non-admin viewers see approved-only,
  * admins see every status. See {@link visibleCommentsByRecordId}.
  */
 function buildCommentsQuery(tableId: string, recordId: string, includeAllStatuses: boolean) {
@@ -425,7 +419,6 @@ export function updateComment(config: {
         .returning()
 
       if (result.length === 0) {
-        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new NotFoundError('Comment not found')
       }
 

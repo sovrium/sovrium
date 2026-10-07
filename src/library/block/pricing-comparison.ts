@@ -59,9 +59,18 @@ export const entry = defineLibraryEntry({
                   ['[Support]', 'Email', 'Email', '[Named contact]'],
                   ['Price', '[PRICE]', '[PRICE]', '[PRICE]'],
                 ],
+                tableColumns: [{ className: 'font-medium' }, {}, {}, {}],
                 props: {
                   className:
-                    '!table !w-full !rounded-none !border-0 !bg-transparent min-w-[36rem] text-left text-md text-foreground [&_th]:border-b [&_th]:border-border [&_th]:px-4 [&_th]:py-3 [&_th]:text-sm [&_th]:font-medium [&_th]:text-foreground-subtle [&_td]:border-b [&_td]:border-border [&_td]:px-4 [&_td]:py-3 [&_tr:last-child_td]:border-b-0 [&_td:first-child]:font-medium',
+                    '!table !w-full !rounded-none !border-0 !bg-transparent min-w-[36rem] text-left text-md text-foreground',
+                },
+                classes: {
+                  parts: {
+                    header:
+                      'border-b border-border px-4 py-3 text-sm font-medium text-foreground-subtle',
+                    row: '*:border-b *:border-border last:*:border-b-0',
+                    cell: 'px-4 py-3 text-md',
+                  },
                 },
               },
             ],

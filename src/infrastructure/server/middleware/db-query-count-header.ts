@@ -10,7 +10,8 @@
  * query-count box (`@/infrastructure/telemetry/db-query-counter`) and — when
  * `SOVRIUM_DB_QUERY_HEADER=on` — attaches an `X-Sovrium-Db-Queries: <n>`
  * response header carrying the number of SQL statements issued while serving
- * the request.
+ * the request, and an `X-Sovrium-Db-Rows: <n>` header carrying the number of
+ * rows the database returned through the raw-SQL funnel while serving it.
  *
  * Mounted right after `requestId()`/`securityHeaders` in `createHonoApp` so
  * the box wraps EVERYTHING downstream: Better Auth's `/api/auth/*` handler,
@@ -53,15 +54,15 @@ import { emitMetric } from '@/infrastructure/telemetry/observability-runtime'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 
 const HEADER_NAME = 'X-Sovrium-Db-Queries'
+const ROWS_HEADER_NAME = 'X-Sovrium-Db-Rows'
 
 /**
  * Open the per-request box around `next()`, then record the histogram
  * observation and (when enabled) attach the header. Hoisted out of the
  * middleware factory so the `consistent-function-scoping` lint stays happy.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 async function handleDbQueryCount(c: Context, next: Next): Promise<void> {
-  const { count } = await withDbQueryCount(async () => {
+  const { count, rows } = await withDbQueryCount(async () => {
     await next()
   })
 
@@ -74,6 +75,9 @@ async function handleDbQueryCount(c: Context, next: Next): Promise<void> {
   if (mode === 'off') return
 
   c.res.headers.set(HEADER_NAME, String(count))
+  // Same toggle, same default-off rule: a row count leaks existence just as a
+  // statement count does.
+  c.res.headers.set(ROWS_HEADER_NAME, String(rows))
 }
 
 /**

@@ -17,8 +17,7 @@
  *
  * The placeholder `<div>` itself carries the canonical `data-component="ai-chat"`
  * marker and the author-declared `data-*` attributes:
- *  - `data-agent`: the declared `app.agents[]` entry to chat with
- *.
+ *  - `data-agent`: the declared `app.agents[]` entry to chat with.
  *  - `data-allowed-tables`: a JSON array narrowing the chat's table scope.
  * Because the island client mounts INTO this `<div>` (it does not replace it),
  * those attributes — and the `data-component` marker — survive hydration, so
@@ -34,10 +33,9 @@
  * outside the panel.
  *
  * Degraded mode: when no AI provider is resolvable — `AI_PROVIDER` empty
- * (configured-but-disabled) OR unset entirely (an inert agent, [internal ref]) — the
+ * (configured-but-disabled) OR unset entirely (an inert agent, the inert-AI-agent boot rule) — the
  * skeleton renders a "not configured / unavailable" notice instead of the input
- * row, and the island is not requested; there is no working backend to chat with
- *.
+ * row, and the island is not requested; there is no working backend to chat with.
  */
 
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
@@ -63,9 +61,9 @@ const DEFAULT_CHAT_HEIGHT_PX = 400
 /**
  * The skeleton's two controls, drawn from the SAME recipes the island uses.
  *
- * This file used to carry a hand-written transcription of the island's chat
- * recipe — eight class literals kept in sync by hand, and not — so the panel
- * repainted the instant the island mounted. `presentation/utils/recipes` is the
+ * Not a hand-written transcription of the island's chat recipe: class literals
+ * kept in sync by hand drift, and the panel would repaint the instant the
+ * island mounted. `presentation/utils/recipes` is the
  * one directory both sides may import; see `ai-chat-default-classes.ts`.
  */
 const SEND_BUTTON = computeButtonDefaultClasses({ size: 'sm' })
@@ -87,7 +85,7 @@ const SUGGESTIONS_GROUP_LABEL = 'Suggested questions'
 
 /**
  * AI chat is "disabled" whenever no AI provider is resolvable — the
- * configured-but-empty `AI_PROVIDER` case AND the entirely-unset case ([internal ref]:
+ * configured-but-empty `AI_PROVIDER` case AND the entirely-unset case (the inert-AI-agent boot rule:
  * an `ai-chat` panel bound to an inert agent). In both states there is no
  * working chat backend, so the panel shows the degraded notice with no live
  * send control rather than a chat box that silently fails on send.
@@ -120,7 +118,7 @@ const SPECIMEN_STATUSES: ReadonlySet<string> = new Set<AiChatSpecimenStatus>([
  * element *"while it carries no action and no submit path"* — so what a preview
  * frame may not have is the TRANSPORT, not the picture. Drawing a look-alike
  * out of an `input` and a `button` would document the composition instead of
- * the component (the failure `[internal ref]` exists to catch), so the
+ * the component (the failure an admin design system spec exists to catch), so the
  * renderer draws its own skeleton and withholds the two things that make it
  * live: the island marker, and `type="submit"` on the send control.
  *
@@ -504,7 +502,6 @@ export const aiChatComponent: ComponentRenderer = ({
         elementProps,
         `ai-chat-container ${computeAiChatContainerClasses()}`
       )}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call height merge in a stateless SSR renderer; memoization happens in the outer ComponentRenderer
       style={{ height: `${chatHeight}px` }}
     >
       {disabled ? renderDisabledBody(resolved.labels) : renderSkeletonBody(resolved, specimen)}

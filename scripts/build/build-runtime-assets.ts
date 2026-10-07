@@ -6,7 +6,9 @@
  */
 
 /**
- * Runnable wrapper: build the client/island/script runtime assets into `dist/`.
+ * Runnable wrapper: build the runtime assets into `dist/` (the client runtime
+ * loader and its split chunks, the island bundle, the static client scripts,
+ * and the page search runtime).
  * Invoked by `scripts/build/build-binary.ts` before generating the embedded manifest.
  */
 
@@ -15,4 +17,7 @@ import { buildRuntimeAssets } from '../lib/runtime-assets'
 
 const ROOT = join(import.meta.dir, '..', '..')
 await buildRuntimeAssets(join(ROOT, 'dist'), join(ROOT, 'src'))
-console.log('runtime assets built into dist/ (client-bundle.js, client-scripts/, island-chunks/)')
+console.log(
+  'runtime assets built into dist/ (client-bundle.js, client-chunks/, client-scripts/, ' +
+    'island-chunks/, page-search-runtime.js)'
+)

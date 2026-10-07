@@ -111,8 +111,7 @@ function HreflangLinks({
 }
 
 /**
- * Renders hreflang alternate links for a content-directory page
- *.
+ * Renders hreflang alternate links for a content-directory page.
  *
  * Unlike the generic {@link HreflangLinks} (which keys off the static route
  * pattern and uses the longer `locale`), these alternates are pre-resolved per
@@ -142,8 +141,7 @@ function ContentDirHreflangLinks({
 
 /**
  * Renders the hreflang alternates for a page, choosing the right source:
- *  - a contentDir page uses its pre-resolved per-file `alternates`
- *;
+ *  - a contentDir page uses its pre-resolved per-file `alternates`;
  *  - any other page falls back to the generic route-pattern block. The generic
  *    block is suppressed for contentDir pages because it would emit broken
  *    `:lang`/`:slug` URLs for the dynamic template path.

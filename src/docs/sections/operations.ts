@@ -8,6 +8,7 @@
 import databaseInfrastructureBody from '@/docs/operations/database-infrastructure.md' with { type: 'file' }
 import ecoconceptionBody from '@/docs/operations/ecoconception.md' with { type: 'file' }
 import gdprPrivacyBody from '@/docs/operations/gdpr-privacy.md' with { type: 'file' }
+import logsAndPersonalDataBody from '@/docs/operations/logs-and-personal-data.md' with { type: 'file' }
 import migrationsBody from '@/docs/operations/migrations.md' with { type: 'file' }
 import notificationsBody from '@/docs/operations/notifications.md' with { type: 'file' }
 import securityHardeningBody from '@/docs/operations/security-hardening.md' with { type: 'file' }
@@ -16,7 +17,7 @@ import { defineArticle, defineSection } from './define'
 /**
  * Operations — the section manifest.
  *
- * Six articles about running a deployed instance: policy rather than
+ * Seven articles about running a deployed instance: policy rather than
  * configuration. Each spans the whole engine — a migration touches every
  * table, a security header every response — so none of them is about one
  * property directory and all five sit in the cross-cutting tree.
@@ -165,6 +166,30 @@ export const section = defineSection({
       order: 1630,
       sidebarLabel: 'GDPR & Privacy',
       body: gdprPrivacyBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'logs-and-personal-data',
+      title: 'Logs and Personal Data',
+      description:
+        'What the server logs, what it redacts by default, what an operator must still treat as personal data, and how logs relate to retention and erasure.',
+      keywords: [
+        'sovrium',
+        'logs',
+        'logging',
+        'personal data',
+        'GDPR',
+        'redaction',
+        'retention',
+        'erasure',
+        'LOG_LEVEL',
+        'OTLP',
+        'SENTRY_DSN',
+      ],
+      order: 1635,
+      sidebarLabel: 'Logs and Personal Data',
+      body: logsAndPersonalDataBody,
       documents: [],
       stories: [],
     }),

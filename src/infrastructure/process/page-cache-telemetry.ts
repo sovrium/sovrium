@@ -82,19 +82,12 @@ export interface PageCacheStats {
   readonly since: string
 }
 
-// eslint-disable-next-line functional/no-let -- since-boot counter mutated by the page responder
 let hits = 0
-// eslint-disable-next-line functional/no-let -- since-boot counter mutated by the page responder
 let misses = 0
-// eslint-disable-next-line functional/no-let -- since-boot counter mutated by the page responder
 let bypasses = 0
-// eslint-disable-next-line functional/no-let -- since-boot counter mutated on budget eviction
 let evictions = 0
-// eslint-disable-next-line functional/no-let -- since-boot counter mutated when an entry exceeds the whole budget
 let refusals = 0
-// eslint-disable-next-line functional/no-let -- occupancy mirror, republished by every cache mutation
 let entries = 0
-// eslint-disable-next-line functional/no-let -- occupancy mirror, republished by every cache mutation
 let bytes = 0
 
 /**
@@ -103,24 +96,19 @@ let bytes = 0
  */
 export const recordPageCacheOutcome = (outcome: PageCacheOutcome): void => {
   if (outcome === 'hit') {
-    // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
     hits += 1
     return
   }
   if (outcome === 'miss') {
-    // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
     misses += 1
     return
   }
-  // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
   bypasses += 1
 }
 
 /** Record the outcome of one admission attempt and the occupancy it left behind. */
 export const recordPageCacheAdmission = (admission: PageCacheAdmission): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
   evictions += admission.evicted
-  // eslint-disable-next-line functional/no-expression-statements -- counter mutation is the point
   refusals += admission.refused
   publishPageCacheOccupancy(admission)
 }
@@ -137,9 +125,7 @@ export const publishPageCacheOccupancy = (occupancy: {
   readonly bytes: number
 }): void => {
   const { entries: nextEntries, bytes: nextBytes } = occupancy
-  // eslint-disable-next-line functional/no-expression-statements -- occupancy mirror update
   entries = nextEntries
-  // eslint-disable-next-line functional/no-expression-statements -- occupancy mirror update
   bytes = nextBytes
 }
 
@@ -158,7 +144,6 @@ export const readPageCacheStats = (): PageCacheStats => {
     hits,
     misses,
     bypasses,
-    // eslint-disable-next-line unicorn/no-null -- `null` is "no cacheable render yet", deliberately distinct from a measured rate of 0
     hitRate: cacheable === 0 ? null : Number((hits / cacheable).toFixed(3)),
     entries,
     bytes,
@@ -179,18 +164,11 @@ export const readPageCacheStats = (): PageCacheStats => {
  * report entries the new server does not hold.
  */
 export const resetPageCacheStatsAtBoot = (): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   hits = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   misses = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   bypasses = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   evictions = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   refusals = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   entries = 0
-  // eslint-disable-next-line functional/no-expression-statements -- boot reset
   bytes = 0
 }

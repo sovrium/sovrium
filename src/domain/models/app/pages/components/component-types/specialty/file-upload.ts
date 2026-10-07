@@ -6,7 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema, FetchSuccessResponseSchema, FetchToastResponseSchema } from '../../action'
+import {
+  actionWithoutFill,
+  FetchSuccessResponseSchema,
+  FetchToastResponseSchema,
+} from '../../action'
 import { actionFields } from '../modules/action'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -18,12 +22,21 @@ export const FileUploadTypeLiteral = Schema.Literal('file-upload')
  * `uploadAction` accepts either:
  * - A string URL (e.g. "/api/buckets/default/files") for direct uploads to a
  *   bucket endpoint, or
- * - An `ActionSchema` object for richer flows (CRUD, automation, etc.).
+ * - An action object for richer flows (CRUD, automation, etc.) — any type
+ *   except `fill`, which the upload never runs.
  *
  * The string form is the common case for the basic upload button and the
  * dropzone variant.
  */
-export const FileUploadActionSchema = Schema.Union([Schema.String, ActionSchema]).annotate({
+export const FileUploadActionSchema = Schema.Union([
+  Schema.String,
+  actionWithoutFill(
+    'A file-upload uploadAction (when not a URL string)',
+    'FileUploadActionObject',
+    'Upload Action Object',
+    'An action run with the uploaded file. Every action type except `fill`, which runs only from a button on the page, a list item click or a board drop hook.'
+  ),
+]).annotate({
   title: 'Upload Action',
   description:
     'Upload destination — either a URL string (e.g. "/api/buckets/default/files") or an Action object',

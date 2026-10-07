@@ -48,8 +48,7 @@ components:
               # they are left out of this page.
               - type: form
                 formRef: join-waitlist
-                props:
-                  className: '[&_h1]:hidden [&_h1+p]:hidden'
+                showHeader: false
                 inlinePrefill:
                   prefill:
                     event: $parent.id

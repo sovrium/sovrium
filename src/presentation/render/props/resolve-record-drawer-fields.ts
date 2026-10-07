@@ -9,7 +9,7 @@ import { declaredFieldDescription, declaredFieldLabel } from '@/presentation/des
 import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
 import { resolveOptionBadgePaints, type OptionBadgePaints } from './option-badge-paints'
 import { resolveValueCurrency } from './resolve-chart-field-context'
-import { resolveSourceTable } from './type-specific-props-builder'
+import { resolveSourceTable } from './resolve-type-specific-inputs'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'

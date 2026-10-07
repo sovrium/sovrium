@@ -110,12 +110,12 @@ components:
                       - { value: Remote, label: Remote }
                       - { value: Ateliers Rémi, label: Ateliers Rémi }
               - type: table
+                readOnly: true
                 dataSource:
                   table: assets
+                  view: register_by_category
                   bindTo: register-filter
                   sharedFilter: {}
-                  sort:
-                    - { field: asset_tag, direction: asc }
                 rowHeight: short
                 columns:
                   - { field: asset_tag, label: Tag, sortable: true }
@@ -126,19 +126,19 @@ components:
                     cellStyle:
                       - {
                           when: { in: [Missing at count, Overdue] },
-                          className: 'font-medium text-error [&_*]:text-error',
+                          className: font-medium,
+                          tone: error,
                         }
                       - {
                           when: { in: [Due back today, Warranty ending] },
-                          className: 'font-medium text-warning [&_*]:text-warning',
+                          className: font-medium,
+                          tone: warning,
                         }
                   - { field: status, label: Status }
                   - { field: assigned_to, label: Assigned to }
                   - { field: location, label: Location }
                   - { field: purchased_on, label: Purchased, format: short-date, align: right }
                   - { field: value, label: Value, format: currency, align: right, sortable: true }
-                groupBy:
-                  field: category
                 summary:
                   - { field: asset_tag, function: count, label: Assets }
                   - { field: value, function: sum, label: Σ }

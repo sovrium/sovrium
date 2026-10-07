@@ -96,6 +96,37 @@ const OPERATIONS: LibraryOperations = [
       },
     },
   },
+  {
+    name: 'list-joined-teams',
+    method: 'GET',
+    path: '/me/joinedTeams',
+    summary: 'List the Teams teams the connected user is a member of',
+  },
+  {
+    name: 'list-channels',
+    method: 'GET',
+    path: '/teams/{team_id}/channels',
+    summary: 'List the channels of a Teams team',
+    params: {
+      team_id: { in: 'path', type: 'string', required: true },
+      $filter: { in: 'query', type: 'string' },
+    },
+  },
+  {
+    name: 'post-chat-message',
+    method: 'POST',
+    path: '/chats/{chat_id}/messages',
+    summary: 'Send a message in a Teams chat, one-to-one or group',
+    params: {
+      chat_id: { in: 'path', type: 'string', required: true },
+      body: {
+        in: 'body',
+        type: 'object',
+        required: true,
+        description: '{ contentType: text or html, content }',
+      },
+    },
+  },
 ]
 
 /** Microsoft Graph with OAuth, the provider shorthand supplying Microsoft's endpoints. */
@@ -108,8 +139,9 @@ export const entry = defineLibraryEntry({
   description:
     'A Microsoft 365 account connected with OAuth, with a curated set of Microsoft Graph operations for mail, calendar, files, users and Teams.',
   notes: [
-    'Register an application in Microsoft Entra ID, add a Web redirect URI with the one `sovrium library add` prints, create a client secret, and grant the delegated permissions the operations use: Mail.Send, Mail.Read, Calendars.ReadWrite, Files.Read, User.Read.All and ChannelMessage.Send. Set the client id and secret as environment variables and connect the account from your app once.',
+    'Register an application in Microsoft Entra ID, add a Web redirect URI with the one `sovrium library add` prints, create a client secret, and grant the delegated permissions the operations use: Mail.Send, Mail.Read, Calendars.ReadWrite, Files.Read, User.Read.All, Team.ReadBasic.All, Channel.ReadBasic.All, ChannelMessage.Send and ChatMessage.Send. Set the client id and secret as environment variables and connect the account from your app once.',
     'The `offline_access` scope makes Microsoft return a refresh token, so Sovrium renews the access token itself. Reading every user and posting to Teams may need an administrator of the tenant to consent once for the organization.',
+    'For Teams, `list-joined-teams` and `list-channels` give the ids `post-channel-message` needs; `post-chat-message` writes in a chat instead, by chat id. Messages are posted as the connected user, not as a bot.',
   ],
   params: [],
   env: ['MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'],
@@ -117,7 +149,7 @@ export const entry = defineLibraryEntry({
   provider: {
     name: 'Microsoft Graph',
     docsUrl: 'https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0',
-    verifiedOn: '2026-09-24',
+    verifiedOn: '2026-10-06',
   },
   build: ({ name }) => ({
     name,
@@ -136,7 +168,10 @@ export const entry = defineLibraryEntry({
         'Calendars.ReadWrite',
         'Files.Read',
         'User.Read.All',
+        'Team.ReadBasic.All',
+        'Channel.ReadBasic.All',
         'ChannelMessage.Send',
+        'ChatMessage.Send',
       ],
       pkce: 'S256',
     },

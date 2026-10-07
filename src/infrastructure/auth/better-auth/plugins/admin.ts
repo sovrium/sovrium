@@ -14,21 +14,21 @@ import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 /**
  * Admin plugin configuration extracted from auth config.
  *
- * Only `defaultRole` is configurable. Two former fields were removed in the
- * round-4 audit because both were inert:
+ * Only `defaultRole` is configurable. Two plausible fields are deliberately
+ * absent because both would be inert:
  *
- * - `firstUserAdmin: true` was never read. It does not exist in Better Auth
+ * - `firstUserAdmin: true` would never be read. It does not exist in Better Auth
  *   (0 occurrences in the vendored source); upstream assigns
  *   `role: defaultRole ?? 'user'` to every sign-up unconditionally. The first
- *   registrant has never become an admin. A user reaches `role='admin'` only
+ *   registrant does not become an admin. A user reaches `role='admin'` only
  *   via `bootstrapAdmin` (`AUTH_ADMIN_EMAIL`/`AUTH_ADMIN_PASSWORD`), an
  *   existing admin calling `POST /admin/set-role`, or a direct DB write.
- * - `impersonation: false` only chose between
+ * - `impersonation: false` could only choose between
  *   `impersonationSessionDuration: undefined` and `60 * 60`, and upstream
- *   already defaults an absent duration to one hour — so both branches were the
- *   same behaviour. It never disabled impersonation. A boolean named
+ *   already defaults an absent duration to one hour — so both branches are the
+ *   same behaviour, and neither disables impersonation. A boolean named
  *   `impersonation` that does not disable impersonation is worse than no field
- *   at all, so it is gone rather than "fixed": impersonation IS always on when
+ *   at all: impersonation IS always on when
  *   auth is configured, and `admin-user-management.md` documents it as such.
  */
 export interface AdminPluginConfig {

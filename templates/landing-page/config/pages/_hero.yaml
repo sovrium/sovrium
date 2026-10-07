@@ -51,12 +51,7 @@ children:
   # three on a phone, so nothing runs off a narrow screen.
   - type: container
     props:
-      # The time in mono and the covers right-aligned, as a booking sheet
-      # reads; the classes reach the cells of the two tables below.
-      className: >-
-        w-full max-w-[960px] overflow-hidden rounded-lg border border-border bg-background-raised text-left shadow-lg
-        [&_td:first-child]:font-mono [&_td:nth-child(3)]:text-right [&_th:nth-child(3)]:text-right
-        [&_thead]:bg-background-subtle
+      className: w-full max-w-[960px] overflow-hidden rounded-lg border border-border bg-background-raised text-left shadow-lg
     children:
       - type: container
         props:
@@ -73,11 +68,17 @@ children:
           - type: badge
             badgeVariant: outline
             content: $t:shot.seats
+      # The time in mono and the covers right-aligned, as a booking sheet
+      # reads; the header row sits on the subtle ground.
       - type: table
         props:
           className: max-md:hidden
         caption: $t:shot.caption
+        classes:
+          parts:
+            header: bg-background-subtle
         tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers, $t:shot.table, $t:shot.status]
+        tableColumns: [{ className: font-mono }, {}, { align: right }]
         tableRows:
           - ['19:00', Camille Roux, '2', T4, $t:shot.confirmed]
           - ['19:30', Hugo Martin, '6', T9 + T10, $t:shot.confirmed]
@@ -87,7 +88,11 @@ children:
         props:
           className: md:hidden
         caption: $t:shot.caption
+        classes:
+          parts:
+            header: bg-background-subtle
         tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers]
+        tableColumns: [{ className: font-mono }, {}, { align: right }]
         tableRows:
           - ['19:00', Camille Roux, '2']
           - ['19:30', Hugo Martin, '6']

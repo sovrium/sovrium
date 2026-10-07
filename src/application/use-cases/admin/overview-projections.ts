@@ -13,11 +13,10 @@
  * ------------------------------------
  * The reduce that sums the per-form aggregates is unreachable from an HTTP
  * caller — no request can make a healthy database return an unusable count —
- * so the `NaN`-poisoning defect behind the 2026-07-25 production 500 had no
- * testable tier at all while it lived inside a block. (The blocks used to weld
- * their layer in place with an inline `Effect.provide` too, which closed the
- * unit tier as well; they declare their port now, but the extraction is what
- * gives this reduce a test either way.)
+ * so a `NaN`-poisoning defect (which once caused a production 500) has no
+ * testable tier at all inside a block. (The blocks declare their port rather
+ * than providing a layer inline, but the extraction is what gives this reduce
+ * a test either way.)
  *
  * Extracting the reduce into a dependency-free projection gives it one — the
  * same seam `withBlockTimeout` (`overview-block-timeout.ts`) already carved out

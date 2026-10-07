@@ -1,0 +1,47 @@
+# When an event opens for registration, the community hears about it where it
+# already talks: one message in a Discord channel with the name, the date, the
+# place and the link to register.
+#
+# It fires on the move to Open, from a new event or a draft that an organizer
+# opens, so an edit to an open event's description posts nothing new. With
+# `DISCORD_CHANNEL_ID` unset the run stops at the first step: it shows in the
+# run history as stopped, and nothing is sent.
+name: announce-event
+label: Event opened — post it to Discord
+description: Post each event to the community's Discord channel as it opens for registration.
+trigger:
+  type: record
+  table: events
+  events:
+    - create
+    - update
+  watchFields:
+    - status
+actions:
+  - name: onlyWhenOpen
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.status}}'
+            operator: equals
+            value: Open
+          - field: $env.DISCORD_CHANNEL_ID
+            operator: isNotEmpty
+      onFalse: stop
+  # The connection adds the bot token; the operation names the endpoint, so
+  # the step carries only what the message says.
+  - name: post
+    type: connection
+    operator: call
+    props:
+      connection: discord
+      operation: create-message
+      params:
+        channel_id: $env.DISCORD_CHANNEL_ID
+        content: >-
+          **{{trigger.data.record.name}}** —
+          {{formatDate trigger.data.record.starts_at "EEEE d MMMM, HH:mm" "Europe/Paris"}},
+          {{trigger.data.record.place}}. Register: $env.BASE_URL/register

@@ -34,7 +34,6 @@ export function SliderThumb({ inputRef, label }: SliderThumbProps): ReactElement
   return (
     <Slider.Thumb
       inputRef={inputRef}
-      // eslint-disable-next-line unicorn/no-null -- Base UI's getAriaLabel uses null to signal "no aria-label"; undefined is not equivalent to that contract
       getAriaLabel={label === undefined ? null : getAriaLabel}
       className={computeSliderThumbClasses()}
     />

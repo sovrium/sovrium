@@ -32,8 +32,8 @@ export const reorderableListFields = {
    * `{ type: 'toast' }` action and nothing at all for anything else
    * (`reorderableListComponent` in
    * `src/presentation/ui/sections/rendering/component-registry/reorderable-list-component.tsx`).
-   * The full `ActionSchema` used to be accepted here, so the other seven
-   * variants validated and then silently emitted no attributes.
+   * Accepting the full `ActionSchema` would let the other seven variants
+   * validate and then silently emit no attributes.
    *
    * Known residual gap (NOT fixed by this narrowing): `ToastAction.duration`
    * is still dropped — no `data-on-reorder-toast-duration` is emitted and the

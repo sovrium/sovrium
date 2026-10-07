@@ -74,7 +74,7 @@ function buildFavoritesButton(tableName: string, record: Record<string, unknown>
     entityType: 'record',
     entityId: recordId !== undefined && recordId !== null ? String(recordId) : '',
     tableName,
-  } as unknown as Component
+  } as Component
 }
 
 /**
@@ -426,7 +426,7 @@ export function gateNestedInheritedRecord(
  * Stamp the render-time write-permission gates into a table component's
  * props, where the session role is known and the island's is not.
  *
- * `_canCreate` offers the toolbar "Nouvel
+ * `_canCreate` (a pages datatable spec) offers the toolbar "Nouvel
  * enregistrement" affordance only when the current role may create — absent,
  * not disabled, otherwise: anti-enumeration.
  *
@@ -455,7 +455,7 @@ export function gateNestedInheritedRecord(
  * The per-field answer to "may this caller create in the table this
  * `relationship` column points at?", keyed by field name.
  *
- * [internal ref]'s picker may create a missing related record inline. Whether the
+ * the relationship-field `allowCreate`/`maxLinked` design's picker may create a missing related record inline. Whether the
  * affordance is DRAWN follows the same anti-enumeration rule the toolbar's own
  * create button already follows: absent, never disabled — a disabled control
  * still tells the caller the related table exists and what it would accept.
@@ -519,7 +519,7 @@ function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
   }
 }
 
-function withWritePermissionGates(ctx: WriteGateContext): Component {
+export function withWritePermissionGates(ctx: WriteGateContext): Component {
   if (ctx.component.type !== 'table' || !ctx.app.auth) return ctx.component
   const gates =
     ctx.session !== undefined
@@ -578,7 +578,7 @@ export function gateNestedTableBinding(
   const isGrid = component.type === 'table'
   if (!isGrid && !isWithheldOverUnreadableTable(component)) return component
   const table = directlyBoundTable(component, ctx.app)
-  if (table === undefined) return component
+  if (table === undefined) return gateViewBoundGrid(component, ctx)
   const plan = resolveRenderPlan({
     matchedTable: table as TableLike,
     app: ctx.app,
@@ -587,6 +587,25 @@ export function gateNestedTableBinding(
   const denied = denyWhenUnreadable(component, plan)
   if (denied !== undefined || !isGrid) return denied ?? component
   return withWritePermissionGates({ component, app: ctx.app, table, session: ctx.session })
+}
+
+/**
+ * A grid reading through a view: its read is the view's own grant, checked on
+ * the view's route, but its writes go to the table's records — so it carries
+ * the table's write gates exactly as a table-bound grid does.
+ */
+function gateViewBoundGrid(
+  component: Component,
+  ctx: { readonly app: App; readonly session: SessionInfo | undefined }
+): Component {
+  const tableName = component.dataSource?.table
+  const table =
+    component.type === 'table' && component.dataSource?.view !== undefined
+      ? (ctx.app.tables ?? []).find((t) => t.name === tableName)
+      : undefined
+  return table === undefined
+    ? component
+    : withWritePermissionGates({ component, app: ctx.app, table, session: ctx.session })
 }
 
 /** Resolves a validated component by mode (list/single/search) with field-level filtering. */

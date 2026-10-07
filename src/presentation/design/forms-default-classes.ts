@@ -180,7 +180,7 @@ export const computeInputGroupLabelClasses = (): string =>
  * The row holding the addons and the field.
  *
  * `items-stretch` with NO gap is what makes the seam a seam: the two boxes'
- * edges touch, which is the fact `[internal ref]`
+ * edges touch, which is the fact a design system component input group spec
  * measures. Two elements a pixel apart are not a group, however alike their
  * borders.
  */

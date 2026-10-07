@@ -7,14 +7,17 @@
 
 import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import {
+  SubmissionRateLimiter,
+  type RateLimitReason,
+} from '@/application/ports/services/submission-rate-limiter'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
-import { checkAndRecord, type RateLimitReason } from '@/infrastructure/forms/form-rate-limiter'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
  * Submission rejected by the in-process token-bucket rate-limiter.
  *
- * [internal ref]: the route layer maps this
+ * The route layer maps this
  * to a HTTP 429 with a `Retry-After: <seconds>` header. The ledger row is
  * already written by the time this error surfaces, with `status: 'spam'`
  * and `status_reason: rate_limit_per_ip | rate_limit_per_form` so admins
@@ -30,7 +33,7 @@ export class FormRateLimitedError extends Data.TaggedError('FormRateLimitedError
  * windows; on rejection, records a spam ledger row tagged with the
  * trip reason and fails with {@link FormRateLimitedError}.
  *
- * Honors [internal ref] defaults: a form with no `antiSpam` block still gets
+ * Honors a forms spec defaults: a form with no `antiSpam` block still gets
  * `perIp: 10`, `perForm: 1000`, `windowSeconds: 60` via
  * {@link effectiveAntiSpam}. Explicit author overrides win.
  *
@@ -58,7 +61,7 @@ export const checkRateLimit = (input: {
   Effect.gen(function* () {
     const { form, body, submitterIpHash, rateLimitKeyHash, userAgent } = input
     const policy = effectiveAntiSpam(form).rateLimit
-    const result = checkAndRecord({
+    const result = yield* (yield* SubmissionRateLimiter).checkAndRecord({
       ipHash: rateLimitKeyHash ?? submitterIpHash,
       formName: form.name,
       policy,

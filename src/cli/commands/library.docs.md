@@ -50,6 +50,8 @@ The entry itself is never changed to fit.
 
 A recipe that needs a connection installs it too, unless your config already defines one of that name.
 
+A block that adds a record does it through a form, because a page `form` never creates a row on its own: the block places the form with `formRef`, and `add` installs that form beside it. The form is written to `library/form/<name>.yaml`, opens with the same `# sovrium-library:` line, and is wired with one `- $ref:` line under `forms`. It takes the next form `id` your config does not use, and keeps it if you install the block again. `library show` says when a block ships a form. A form embedded this way stores no submission in the Submissions inbox unless you add `submitTo.storeSubmission: true` to it.
+
 An entry that reads data binds to a table your config already has: `library show` lists the table and fields it expects, `--set table=<yours>` (and any field parameter) rebinds it, and `add` refuses — writing nothing — when the table or a field is missing. The library never creates a table.
 
 `--set key=value` fills a parameter the entry declares, and `--as <name>` installs it under another name. `--dry-run` prints the files and the line it would write and writes nothing. `--no-wire` writes the fragment and prints the line for you to place.
@@ -60,7 +62,9 @@ The config is decoded before anything changes. If it did not validate to begin w
 
 It never overwrites a fragment you edited, and it refuses an entry whose name your config already uses — naming `--as` as the way out. Adding an entry that is already installed and wired changes nothing and says so.
 
-When the target key is written in a form a single line cannot safely extend — `components: []`, a `$ref` to another file, an anchor — the fragment is still written, your config is left exactly as it was, and the line to add is printed with the key it belongs under. A TypeScript config is never edited: the fragment is written as `library/<kind>/<name>.ts` and the `import` to paste is printed.
+An empty list written inline — `components: []` — holds nothing to lose, so it becomes a block list holding the one new line; a trailing comment on that line is kept.
+
+When the target key is written in a form a single line cannot safely extend — a non-empty inline list such as `components: [a, b]`, a `$ref` to another file, an anchor — the fragment is still written, your config is left exactly as it was, and the line to add is printed with the key it belongs under. A TypeScript config is never edited: the fragment is written as `library/<kind>/<name>.ts` and the `import` to paste is printed.
 
 ## Installing API operations one by one
 

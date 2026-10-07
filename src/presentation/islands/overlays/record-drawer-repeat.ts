@@ -205,7 +205,7 @@ function buildCopy(parsed: HTMLTemplateElement, scope: CopyScope): DocumentFragm
     const source = text.nodeValue ?? ''
     if (!source.includes('$')) return
     const next = substituteScopedVars(source, scope.scopes)
-    // eslint-disable-next-line functional/immutable-data, no-param-reassign -- writing the resolved text into the copy IS the expansion, exactly as in `resolveSlotTokens`
+    // eslint-disable-next-line no-param-reassign -- writing the resolved text into the copy IS the expansion, exactly as in `resolveSlotTokens`
     if (next !== source) text.nodeValue = next
   })
   resolveCopyAttributes(copy, scope.scopes)
@@ -224,7 +224,6 @@ function buildCopy(parsed: HTMLTemplateElement, scope: CopyScope): DocumentFragm
  */
 function fillHost(host: HTMLElement, template: string, source: unknown, scope: CopyScope): void {
   const parsed = host.ownerDocument.createElement('template')
-  // eslint-disable-next-line functional/immutable-data -- parsing the AUTHOR's markup, which carries no record data; the copies below are built as text nodes
   parsed.innerHTML = template
   host.replaceChildren(
     ...(Array.isArray(source)

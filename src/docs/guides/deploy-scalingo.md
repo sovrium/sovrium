@@ -15,10 +15,10 @@ https://github.com/sovrium/scalingo-buildpack
 
 ```text
 # .sovrium-version — the release to download; bump it to upgrade
-0.27.0
+X.Y.Z
 ```
 
-Pin whichever release you want from the project's releases page; the buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected.
+Replace `X.Y.Z` with the release you want — the latest one is on the project's releases page, and running the newest release is how you receive security fixes. The buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected.
 
 ```text
 # Procfile
@@ -38,11 +38,13 @@ scalingo --app my-app env-set \
   TRUSTED_PROXY_HOPS=1
 ```
 
-Pick the add-on plan that fits your data; `scalingo addons-plans postgresql` shows the current list. `NODE_ENV=production` is not cosmetic — it switches Sovrium to immutable caching for content-hashed assets. Without it every asset is re-fetched on each page view.
+Pick the add-on plan that fits your data; `scalingo addons-plans postgresql` shows the current list. `NODE_ENV=production` is not cosmetic — it switches Sovrium to immutable caching for content-hashed assets, including the client scripts pages reference by content-hashed names; their old unhashed names are served `no-cache`, so a browser revalidates them on every use. Without it every asset is re-fetched on each page view.
 
 `SOVRIUM_ENCRYPTION_KEY` is the only secret in that list, and it is set here for a reason worth knowing. Sovrium generates its own key when none is given, but Scalingo rebuilds the container filesystem on every deploy and restart, while the managed database keeps everything that key encrypted. Generated, the key would be new each time and the stored credentials would stop opening. Setting it once removes the problem. The session-signing secret derives from it, so there is no second value to set.
 
 `TRUSTED_PROXY_HOPS=1` accounts for Scalingo's own router, which is what stands between the internet and your container. It lets Sovrium believe the client address the router forwards, so rate limits count per visitor instead of lumping every request onto the router's address. Raise it only if you put your own CDN in front of Scalingo, and never above the number of proxies actually in the path.
+
+`BASE_URL` is the `https://` address of the app, not a `localhost` one. Sovrium decides its security posture from it: a loopback `BASE_URL` such as `http://localhost:3000` makes it treat the deployment as local, which turns off the cross-site request (CSRF) origin check and drops the `Secure` attribute from session cookies — on a public app. When you move to your own domain, update `BASE_URL` to that domain's `https://` address.
 
 **Secrets are echoed.** `scalingo env-set` and `scalingo env` print values to your terminal. Generate secrets inline as shown rather than pasting them, and avoid `scalingo env` in shared or recorded sessions.
 

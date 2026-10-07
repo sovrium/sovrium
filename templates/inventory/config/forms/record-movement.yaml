@@ -1,0 +1,43 @@
+# The Record a movement dialog opens this form. The quantity is signed.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 3
+name: record-movement
+title: Record a movement
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: stock_movements
+display:
+  submitLabel: Record movement
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /stock
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: reference
+    label: Reference
+  - kind: table-field
+    column: product
+    label: Product
+  - kind: table-field
+    column: warehouse
+    label: Warehouse
+  - kind: table-field
+    column: type
+    label: Type
+  - kind: table-field
+    column: quantity
+    label: Quantity
+  - kind: table-field
+    column: moved_at
+    label: Date
+  - kind: table-field
+    column: note
+    label: Party / note

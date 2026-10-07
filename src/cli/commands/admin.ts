@@ -99,18 +99,15 @@ const promptHiddenPassword = async (): Promise<string> => {
   })
   const rl = createInterface({ input: process.stdin, output: silentOutput, terminal: true })
 
-  // eslint-disable-next-line functional/no-expression-statements -- interactive prompt label
   process.stderr.write('Admin password: ')
 
   try {
     return await new Promise<string>((resolve, reject) => {
       rl.question('', resolve)
-      // eslint-disable-next-line functional/no-expression-statements -- cancel on Ctrl-C
       rl.once('SIGINT', () => reject(new Error('Password entry cancelled')))
     })
   } finally {
     rl.close()
-    // eslint-disable-next-line functional/no-expression-statements -- newline after the (hidden) entry
     process.stderr.write('\n')
   }
 }
@@ -129,7 +126,6 @@ const resolvePassword = async (flagPassword?: string): Promise<string> => {
       'Error: No password provided.\n\n' +
         'Pass --password <value>, or run this command in a terminal to be prompted.'
     )
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 
@@ -147,7 +143,6 @@ const handleAdminCreateCommand = async (
     printStderr(
       'Error: No email specified.\n\nUsage:\n  sovrium admin create <email> [config] [--password <value>]'
     )
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 
@@ -164,7 +159,6 @@ const handleAdminCreateCommand = async (
     // raw driver stack — operators bare-running `admin create` without a DB
     // shouldn't have to read one. Classified by driver code upstream.
     printStderr(formatAdminCreateFailure(result.message, result.databaseUnreachable ?? false))
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 
@@ -185,12 +179,11 @@ const handleAdminCreateCommand = async (
  *
  * `unreachable` is decided upstream in `createAdmin`, by DRIVER CODE
  * (`isDatabaseUnreachable`), because that is the last place the error object
- * exists. This function used to decide it here by matching lower-cased
- * fragments against the message, which was wrong in both directions: it never
- * fired for a real `bun:sql` connection failure (whose entire message is
- * `Failed to connect`), and it DID fire for `permission denied for table
- * "user"` — a GRANT problem on a perfectly reachable database — telling the
- * operator to set `DATABASE_URL`.
+ * exists. Matching lower-cased fragments against the message here instead
+ * would be wrong in both directions: it never fires for a real `bun:sql`
+ * connection failure (whose entire message is `Failed to connect`), and it DOES
+ * fire for `permission denied for table "user"` — a GRANT problem on a
+ * perfectly reachable database — telling the operator to set `DATABASE_URL`.
  *
  * Pass-through for every other failure (weak password, invalid email,
  * duplicate user, …) so domain-level rejections still surface verbatim.
@@ -219,7 +212,6 @@ export const handleAdminCommand = async (
       `Error: Unknown admin subcommand "${subcommand ?? ''}".\n\n` +
         'Usage:\n  sovrium admin create <email> [config]   Create an admin user'
     )
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 

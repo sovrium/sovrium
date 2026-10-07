@@ -10,7 +10,7 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 
 /**
- * DDL for the engine-managed `system.comment_read_state` table ([internal ref],
+ * DDL for the engine-managed `system.comment_read_state` table (the per-user comment read-state design,
  * opt-in `comments.readTracking`).
  *
  * Stores a per-user high-watermark: one row per `(user_id, table_id,

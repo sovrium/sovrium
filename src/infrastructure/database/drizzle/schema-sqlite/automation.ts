@@ -184,6 +184,8 @@ export const automationRunSteps = systemTable(
      * agent's tool calls named. NULL for every other step.
      */
     reads: text('reads', { mode: 'json' }),
+    /** A path or loop step's paths or items, each with the steps run inside, masked. */
+    nested: text('nested', { mode: 'json' }),
   },
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
 )

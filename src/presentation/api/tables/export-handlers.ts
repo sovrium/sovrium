@@ -8,10 +8,11 @@
 import { Effect } from 'effect'
 import { createListRecordsProgram } from '@/application/use-cases/tables/list-records-program'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
-import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { NUMBER_FIELD_TYPES } from '@/domain/models/app/tables/stored-value-service'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFilterParam } from './field-permission-validation'
@@ -19,15 +20,6 @@ import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
-
-function escapeCsvValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  const str = String(value)
-  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-    return `"${str.replace(/"/g, '""')}"`
-  }
-  return str
-}
 
 // Extract raw value from formattedFieldValue (may be plain value or { value, displayValue })
 function getRawValue(fv: unknown): unknown {
@@ -47,6 +39,17 @@ const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-attachment',
   'multiple-attachments',
 ])
+
+/**
+ * Names of the table's number columns. The CSV escaper writes their cells
+ * as-is even when a driver hands the value over as text (a `decimal`, or a
+ * PostgreSQL `numeric`), so a negative amount is never prefixed as a formula.
+ */
+function numberFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>): Set<string> {
+  return new Set(
+    (table?.fields ?? []).filter((f) => NUMBER_FIELD_TYPES.has(f.type)).map((f) => f.name)
+  )
+}
 
 /** Names of the table's attachment columns, used to scope {@link unwrapAttachment}. */
 function attachmentFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>): Set<string> {
@@ -129,10 +132,11 @@ function buildCsvResponse(
   tableName: string,
   opts: {
     readonly attachments: ReadonlySet<string>
+    readonly numbers: ReadonlySet<string>
     readonly visibleFields?: readonly string[]
   }
 ): Response {
-  const { attachments, visibleFields } = opts
+  const { attachments, numbers, visibleFields } = opts
   // Columns come from EVERY record, never one: a lookup left out of the first
   // row (its linked record hidden from this reader) must not drop the column
   // for the rows that carry it. A readable field the request named in
@@ -152,9 +156,13 @@ function buildCsvResponse(
       ? allOrderedFields.filter((f) => visibleFields.includes(f))
       : allOrderedFields
 
-  const header = orderedFields.map(escapeCsvValue).join(',')
+  const header = orderedFields.map((f) => escapeCsvCell(f)).join(',')
   const rows = records.map((record) =>
-    orderedFields.map((f) => escapeCsvValue(exportValue(record.fields, f, attachments))).join(',')
+    orderedFields
+      .map((f) =>
+        escapeCsvCell(exportValue(record.fields, f, attachments), { numeric: numbers.has(f) })
+      )
+      .join(',')
   )
   const csvContent = [header, ...rows].join('\n') + '\n'
   const date = new Date().toISOString().slice(0, 10)
@@ -176,7 +184,7 @@ function buildCsvResponse(
  * don't break.
  */
 function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: string): Response {
-  const header = tableFieldNames.join(',')
+  const header = tableFieldNames.map((f) => escapeCsvCell(f)).join(',')
   const date = new Date().toISOString().slice(0, 10)
   const filename = `${tableName}-${date}.csv`
   return new Response(header + '\n', {
@@ -246,8 +254,8 @@ function checkExportReadGate(input: ExportReadGateInput): Response | undefined {
  * Every read gate the export must clear, in order: the table-level role gate,
  * then the field-level check on the caller-supplied `?filterField=`.
  *
- * The second used to be missing entirely — export reached the records program
- * with no field check on any of its filter inputs. Omitting the hidden COLUMN
+ * The second is easy to miss: without it, export would reach the records
+ * program with no field check on any of its filter inputs. Omitting the hidden COLUMN
  * from the CSV is not the protection: which ROWS come back is one bit per
  * request, so a member could sweep `filterValue` and reconstruct an admin-only
  * column while every other route on that field answered 404.
@@ -315,7 +323,7 @@ function buildEmptyExportResponse(format: string, tableName: string, tableFieldN
 export async function handleExportTableCsv(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   const { filter, format, visibleFields } = parseExportQuery(c)
 
@@ -360,7 +368,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
     filter: finalFilter,
     limit: Number.MAX_SAFE_INTEGER,
   })
-  const either = await runRequestEffect(c, Effect.result(provideTableLive(program)))
+  const either = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
   if (either._tag === 'Failure') {
     return c.json({ success: false, message: 'Export failed', code: 'INTERNAL_ERROR' }, 500)
   }
@@ -368,6 +376,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
   if (format === 'json') return buildJsonResponse(either.success.records, tableName, attachments)
   return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
     attachments,
+    numbers: numberFieldNames(table),
     visibleFields,
   })
 }

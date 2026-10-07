@@ -151,7 +151,7 @@ export interface RunCronAutomationOnDemandOptions {
  * the run as on-demand (`invokedOnDemand: true`) so callers can tell it apart
  * from background scheduled runs.
  *
- * Spec: [internal ref] (authorized run) / -015 (anonymous
+ * Spec: an automation trigger schedule spec (authorized run) / -015 (anonymous
  * caller rejected).
  */
 export const runCronAutomationOnDemand = ({

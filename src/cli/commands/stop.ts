@@ -19,7 +19,6 @@ export const handleStopCommand = async (): Promise<void> => {
       headline: 'No server is running.',
       guidance: "Start one with 'sovrium start <config>'.",
     })
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -29,7 +28,6 @@ export const handleStopCommand = async (): Promise<void> => {
   // false fact, and the one defect no copy edit can catch.
   const wasRunning = ((): boolean => {
     try {
-      // eslint-disable-next-line functional/no-expression-statements
       process.kill(lockData.pid, 'SIGTERM')
       return true
     } catch {
@@ -37,10 +35,9 @@ export const handleStopCommand = async (): Promise<void> => {
     }
   })()
 
-  // Wait for the process to actually go away. A fixed sleep used to stand in
-  // for this, which made "Server stopped." a claim about elapsed time rather
-  // than about the server — and a slow shutdown printed it over a process that
-  // was still serving requests.
+  // Wait for the process to actually go away. A fixed sleep would make
+  // "Server stopped." a claim about elapsed time rather than about the server —
+  // and a slow shutdown would print it over a process still serving requests.
   const exited = wasRunning ? await waitForProcessExit(lockData.pid) : true
 
   if (!exited) {
@@ -50,7 +47,6 @@ export const handleStopCommand = async (): Promise<void> => {
       headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM.`,
       guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium stop' again to clear the lock.`,
     })
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 

@@ -6,23 +6,18 @@
  */
 
 import { Server, createMcpHandler, type McpHttpHandler } from '@modelcontextprotocol/server'
-import { Schema } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { resolveAdminReadOperation } from '@/application/use-cases/admin/admin-read-registry'
 import {
   compileConfigTools,
   findConfigToolTableCollision,
   isConfigToolName,
 } from '@/application/use-cases/config/config-mcp-tools'
 import {
-  MCP_CONFIG_WRITE_IGNORED_NOTICE,
-  McpEnvSchema,
-  parseMcpConfigWrite,
-  resolveMcpEnv,
-  validateMcpEnv,
-  type McpEnvConfig,
-  type ResolvedMcpEnvConfig,
-} from '@/domain/models/process-env/mcp'
-import { logWarning } from '@/infrastructure/logging/logger'
+  assertNoAdminReadToolCollision,
+  compileAdminReadTools,
+  handleAdminReadToolCall,
+} from '@/presentation/api/mcp/admin-reads'
 import {
   auditedToolsCallDispatch,
   handleAuditListCall,
@@ -30,16 +25,12 @@ import {
 } from '@/presentation/api/mcp/audit'
 import {
   authenticateMcpRequest,
-  isAdminTierCaller,
   readBearerToken,
   type McpAuthInstance,
   type McpAuthOutcome,
   type McpCaller,
 } from '@/presentation/api/mcp/auth'
-import {
-  automationToolIsOffered,
-  loadPausedAutomations,
-} from '@/presentation/api/mcp/automation-call'
+import { loadPausedAutomations } from '@/presentation/api/mcp/automation-call'
 import {
   handleHttpConfigToolCall,
   type HttpConfigToolsDeps,
@@ -51,6 +42,10 @@ import {
   resolveInternalTool,
 } from '@/presentation/api/mcp/internals'
 import {
+  announceIgnoredConfigWrite,
+  parseAndValidateMcpEnv,
+} from '@/presentation/api/mcp/mount-env'
+import {
   buildRateLimitExceededResponse,
   checkMcpRateLimit,
   deriveMcpCallerKey,
@@ -59,8 +54,11 @@ import {
 } from '@/presentation/api/mcp/rate-limit'
 import { handleToolsCall } from '@/presentation/api/mcp/tool-call'
 import { compileMcpTools, type CompiledTool } from '@/presentation/api/mcp/tool-compiler'
+import { filterToolsForRole, refuseHeldAdminTool } from '@/presentation/api/mcp/tool-visibility'
 import { applyMcpIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
+import type { AdminReadHostFactory } from '@/application/ports/services/admin-read-host'
 import type { App } from '@/domain/models/app'
+import type { ResolvedMcpEnvConfig } from '@/domain/models/process-env/mcp'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpToolResult } from '@/presentation/api/mcp/tool-call-helpers'
 
@@ -69,11 +67,10 @@ import type { McpToolResult } from '@/presentation/api/mcp/tool-call-helpers'
 // so we centralize the only legitimate null in this module behind a typed
 // constant — JSON.parse('null') keeps ESLint quiet without changing the
 // wire-format value.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-RPC spec value
-const JSONRPC_NULL_ID = JSON.parse('null') as any
+const JSONRPC_NULL_ID = JSON.parse('null') as null
 
 /**
- * MCP server route mounting ([internal ref] keystone).
+ * MCP server route mounting (the AI MCP server requirement, M-1 keystone).
  *
  * Mounts a JSON-RPC 2.0 endpoint at `MCP_MOUNT_PATH` (default `/mcp`) when
  * `MCP_ENABLED=true`. Default-off: with `MCP_ENABLED` unset the route is
@@ -133,22 +130,13 @@ export interface McpMountDeps {
    * a mount that was never told where to look.
    */
   readonly readStatusDocument?: ReadStatusDocument | undefined
-}
-
-/**
- * Say, once per boot, that `MCP_CONFIG_WRITE` bought this instance nothing.
- *
- * `logWarning` rather than a thrown refusal: refusing the boot was considered
- * and rejected, because `[internal ref]` and
- * `[internal ref]` both boot an HTTP instance with this exact
- * variable set and expect it to serve. Making them red to enforce A8 would be
- * reading the amendment against itself — its regression-fence clause names the
- * existing specs as the thing that must stay green.
- */
-const announceIgnoredConfigWrite = (env: NodeJS.ProcessEnv): void => {
-  if (!parseMcpConfigWrite(env)) return
-
-  logWarning(MCP_CONFIG_WRITE_IGNORED_NOTICE)
+  /**
+   * Build the host an admin read tool answers against — the same builder the
+   * admin HTTP routes use, so a tool and its route read the same process
+   * facts. Injected because it belongs to the admin slug, which an MCP route
+   * may not import.
+   */
+  readonly makeAdminReadHost: AdminReadHostFactory
 }
 
 export function setupMcpRoutes(
@@ -176,31 +164,7 @@ export function setupMcpRoutes(
   // is intentionally NOT mounted — clients hitting it get 404.
   if (config.transport === 'stdio') return honoApp
 
-  // Refused at tool-COMPILE time, where the app name and the table names are
-  // both in hand — never by letting one resolver win the name and leaving the
-  // other silently unreachable. Same reasoning as `isReservedInternalPrefix`,
-  // on an exact name rather than a prefix.
-  assertNoConfigToolCollision(app)
-
-  const userTools = compileMcpTools(app, { confirmDestructive: config.confirmDestructive })
-  // M-14: append the full admin-internals surface — every entry in
-  // `InternalTableRegistry` becomes a `_list` + `_read` tool pair (incl.
-  // `{appName}_system_ai_tool_calls_list`, the M-13 audit-list tool, which
-  // the registry-driven generator now emits alongside everything else).
-  // The viewer/member role-filter in `filterToolsForRole` strips ALL
-  // `_auth_*` / `_system_*` tools downstream regardless of operation.
-  const internalTools = compileInternalTools({
-    appName: app.name,
-    exposeInternals: config.exposeInternals,
-  })
-  // Config-mutation tools (the `{appName}_schema_*` family) were retired with
-  // the config-code-only reshape: config changes ONLY by editing the
-  // app config file. The MCP server now exposes data + internal tools only.
-  // A8 surface 9: four static read tools, derived from `app.name` alone and
-  // never from `app.tables[]`, so no configuration can add, remove or rename
-  // one. The role filter downstream keeps them admin-only.
-  const configTools = compileConfigTools(app.name)
-  const tools = [...userTools, ...internalTools, ...configTools]
+  const tools = compileToolCatalog(app, config)
   const serverInfo = {
     name: `sovrium-${app.name}`,
     version: app.version ?? '0.0.0',
@@ -211,7 +175,9 @@ export function setupMcpRoutes(
     serverInfo,
     app,
     auditEnabled: config.auditEnabled,
+    exposeInternals: config.exposeInternals,
     domainContext: deps.domainContext,
+    makeAdminReadHost: deps.makeAdminReadHost,
     configToolsDeps: {
       app,
       processEnv: env,
@@ -236,12 +202,52 @@ export function setupMcpRoutes(
   // lookup and an OAuth token an introspection call, so both count against the
   // HTTP API's budget first. `MCP_RATE_LIMIT_PER_*` still apply, per caller.
   return applyMcpIpCeiling(honoApp as Hono, config.mountPath)
-    .post(config.mountPath, async (c) =>
-      handleMcpRequest(c as unknown as Readonly<Context>, config, mcpHandler, authenticate)
-    )
-    .get(config.mountPath, async (c) =>
-      handleMcpSseGet(c as unknown as Readonly<Context>, authenticate)
-    )
+    .post(config.mountPath, async (c) => handleMcpRequest(c, config, mcpHandler, authenticate))
+    .get(config.mountPath, async (c) => handleMcpSseGet(c, authenticate))
+}
+
+/**
+ * Compile every tool family the mount may offer, refusing a config whose own
+ * tools would answer to a reserved name. Each family's gate is applied here or
+ * downstream in {@link filterToolsForRole}.
+ */
+const compileToolCatalog = (
+  app: App,
+  config: ResolvedMcpEnvConfig
+): ReadonlyArray<CompiledTool> => {
+  // Refused at tool-COMPILE time, where the app name and the table names are
+  // both in hand — never by letting one resolver win the name and leaving the
+  // other silently unreachable. Same reasoning as `isReservedInternalPrefix`,
+  // on an exact name rather than a prefix.
+  assertNoConfigToolCollision(app)
+
+  const userTools = compileMcpTools(app, { confirmDestructive: config.confirmDestructive })
+  // Same refusal as the config family's, on the admin read tools' exact names,
+  // and regardless of `MCP_EXPOSE_INTERNALS` so the switch never decides a boot.
+  assertNoAdminReadToolCollision(app, userTools)
+  // M-14: append the full admin-internals surface — every entry in
+  // `InternalTableRegistry` becomes a `_list` + `_read` tool pair (incl.
+  // `{appName}_system_ai_tool_calls_list`, the M-13 audit-list tool, which
+  // the registry-driven generator now emits alongside everything else).
+  // The viewer/member role-filter in `filterToolsForRole` strips ALL
+  // `_auth_*` / `_system_*` tools downstream regardless of operation.
+  const internalTools = compileInternalTools({
+    appName: app.name,
+    exposeInternals: config.exposeInternals,
+  })
+  // There are no config-mutation tools (config-code-only, [internal ref]): config
+  // changes ONLY by editing the app config file.
+  // A8 surface 9: four static read tools, derived from `app.name` alone and
+  // never from `app.tables[]`, so no configuration can add, remove or rename
+  // one. The role filter downstream keeps them admin-only.
+  const configTools = compileConfigTools(app.name)
+  // The admin read tools: the admin API's reads, gated by the same switch as
+  // the internals and kept admin-only by the same role filter.
+  const adminReadTools = compileAdminReadTools({
+    appName: app.name,
+    exposeInternals: config.exposeInternals,
+  })
+  return [...userTools, ...internalTools, ...configTools, ...adminReadTools]
 }
 
 /**
@@ -252,7 +258,7 @@ export function setupMcpRoutes(
  * `ProtocolError` — into a `CallToolResult` with `isError: true`, so a JSON-RPC
  * protocol error becomes structurally unreachable from a tool. Sovrium's RBAC
  * and field-permission denials are specified AS protocol errors
- * (`[internal ref]` → -32603, `[internal ref]` → -32602, 16
+ * (an AI MCP RBAC spec → -32603, AN AI MCP RBAC SPEC → -32602, 16
  * assertions across six spec files), and a single `tools/call` request handler
  * is also what lets the layered resolver chain stay one ordered function
  * rather than N independent registrations. Both properties come from `Server`.
@@ -276,7 +282,7 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
       // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
       // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
       // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
-      tools: filterToolsForRole(dispatch.tools, caller, dispatch.app, paused) as unknown as never,
+      tools: filterToolsForRole(dispatch.tools, caller, dispatch.app, paused) as never,
     }
   })
 
@@ -289,7 +295,7 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
         params: (request as { readonly params?: unknown }).params,
         dispatch,
         caller,
-      }) as unknown as never
+      }) as never
   )
 
   return server
@@ -308,17 +314,14 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
  * out. Bound to the app because the role bridge reads its ladder, so the app's
  * top role maps onto the MCP admin tier beside the built-in `admin`.
  */
-type McpAuthenticate = (c: Readonly<Context>) => Promise<McpAuthOutcome>
+type McpAuthenticate = (c: Context) => Promise<McpAuthOutcome>
 
 const readCallerFromAuthInfo = (authInfo: { readonly extra?: unknown } | undefined): McpCaller => {
   const extra = authInfo?.extra as { readonly caller?: McpCaller } | undefined
   return extra?.caller ?? { role: 'viewer', userId: undefined }
 }
 
-const handleMcpSseGet = async (
-  c: Readonly<Context>,
-  authenticate: McpAuthenticate
-): Promise<Response> => {
+const handleMcpSseGet = async (c: Context, authenticate: McpAuthenticate): Promise<Response> => {
   const auth = await authenticate(c)
   if (!auth.ok) return auth.response
   // Minimal SSE body: comment line opens the stream and prevents proxy
@@ -360,6 +363,11 @@ interface McpDispatchContext {
   readonly app: App
   readonly auditEnabled: boolean
   /**
+   * `MCP_EXPOSE_INTERNALS` — re-checked at call time by every family it gates:
+   * the internal tools, the audit-list tool and the admin read tools.
+   */
+  readonly exposeInternals: boolean
+  /**
    * The server's resolved domain services, captured at MOUNT time.
    *
    * An MCP tool call runs inside the SDK's own handler, so there is no Hono
@@ -368,12 +376,14 @@ interface McpDispatchContext {
    * them here is the same value every request would have been handed.
    */
   readonly domainContext: DomainContext
+  /** Builds the host an admin read tool answers against. */
+  readonly makeAdminReadHost: AdminReadHostFactory
   /** What the four A8 config tools read, bound to the booted instance. */
   readonly configToolsDeps: HttpConfigToolsDeps
 }
 
 const handleMcpRequest = async (
-  c: Readonly<Context>,
+  c: Context,
   config: ResolvedMcpEnvConfig,
 
   mcpHandler: McpHttpHandler,
@@ -452,24 +462,23 @@ const withRateLimitHeaders = (
  *      generic dispatcher can. Tier 2 answers `SELECT *`, and `ai_tool_calls`
  *      declares `denylistFields: []`, so letting it claim this tool would put
  *      `session_id` and `request_id` on the wire. The ordering is a
- * DATA-EXPOSURE constraint, pinned by `[internal ref]`.
+ *      DATA-EXPOSURE constraint, pinned by an AI MCP audit spec.
  *
- *      It is NOT an anti-recursion gate, which is what this comment claimed
- * until 2026-08-27: tier 2 returns early from this same
- *      function, outside `auditedToolsCallDispatch`, so NEITHER tier writes an
- *      audit row. "No new row after an audit-read" holds under both orderings
- *      and so cannot motivate this one. Reading the constraint as bookkeeping
- *      makes it look droppable; dropping it leaks two columns.
- *   2. M-14 registry-driven internals dispatcher — every other
+ *      It is NOT an anti-recursion gate: whichever tier claimed the name, the
+ *      audit-list tool is kept out of the ledger, so "no new row after an
+ *      audit-read" cannot motivate the ordering. Reading the constraint as
+ *      bookkeeping makes it look droppable; dropping it leaks two columns.
+ *   2. The admin read tools (`{appName}_admin_*`, by EXACT name) — the admin
+ *      API's reads, which also write the admin audit event their route writes.
+ *   3. M-14 registry-driven internals dispatcher — every other
  *      `{appName}_{auth|system}_{table}_{list|read}` tool flows through the
- *      generic SELECT-and-strip handler. Internal tools are NOT audited
- *      (read-only, admin-only — same observability calculus as the
- *      audit-list tool).
- *   3. User-defined tools — wrapped in `auditedToolsCallDispatch` so every
- *      success/failure lands in `system.ai_tool_calls`.
+ *      generic SELECT-and-strip handler.
+ *   4. User-defined tools.
  *
- * Extracted from `dispatchMcpMethod` to keep that orchestrator under the
- * project-wide `max-lines-per-function` ceiling.
+ * Tiers 2–4 are wrapped in `auditedToolsCallDispatch`, so every call to them —
+ * failures included — lands in `system.ai_tool_calls`; for tiers 2–3 the row
+ * keeps the call's shape and answer size, never its values or answer. Only the
+ * audit-list tool stays out, so reading the trail does not grow it.
  */
 interface DispatchToolsCallInput {
   readonly params: unknown
@@ -480,11 +489,10 @@ interface DispatchToolsCallInput {
 const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToolResult> => {
   const { params, dispatch, caller } = input
   const parsed = parseToolsCallParams(params)
-  // Claimed FIRST, and safe to claim first: a table named `config` — the only
-  // way a user-defined tool could answer to one of these four names — is
-  // refused at mount time by `assertNoConfigToolCollision`. Reading the
-  // configuration touches no database and writes no audit row, for the same
-  // observability calculus the internals tools are exempt under.
+  // The passkey hold is answered first, so a held admin never learns the switch.
+  // Config next: a table named `config` is refused at mount time
+  // (`assertNoConfigToolCollision`); reading it touches no database or audit row.
+  refuseHeldAdminTool(caller, dispatch.app.name, parsed.toolName)
   if (isConfigToolName(dispatch.app.name, parsed.toolName)) {
     return handleHttpConfigToolCall({
       caller,
@@ -493,26 +501,43 @@ const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToolResult
       deps: dispatch.configToolsDeps,
     })
   }
-  if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
-    return handleAuditListCall({ caller, args: parsed.args, domainContext: dispatch.domainContext })
-  }
-  const internalResolved = resolveInternalTool(dispatch.app.name, parsed.toolName)
-  if (internalResolved !== undefined) {
-    return handleInternalToolCall({
-      caller,
-      resolved: internalResolved,
-      args: parsed.args,
-      domainContext: dispatch.domainContext,
-    })
-  }
-  return auditedToolsCallDispatch({
-    auditEnabled: dispatch.auditEnabled,
-    domainContext: dispatch.domainContext,
+  // What every switch-gated family re-checks at call time: who is calling, and
+  // whether `MCP_EXPOSE_INTERNALS` is on.
+  const gated = {
     caller,
-    toolName: parsed.toolName,
     args: parsed.args,
-    dispatch: () => handleToolsCall(dispatch.app, caller, parsed, dispatch.domainContext),
-  })
+    exposeInternals: dispatch.exposeInternals,
+    domainContext: dispatch.domainContext,
+  }
+  if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
+    return handleAuditListCall(gated)
+  }
+  const adminRead = resolveAdminReadOperation(dispatch.app.name, parsed.toolName)
+  const internalResolved = resolveInternalTool(dispatch.app.name, parsed.toolName)
+  const audited = (run: () => Promise<McpToolResult>): Promise<McpToolResult> =>
+    auditedToolsCallDispatch({
+      auditEnabled: dispatch.auditEnabled,
+      domainContext: dispatch.domainContext,
+      caller,
+      toolName: parsed.toolName,
+      args: parsed.args,
+      withholdAnswer: adminRead !== undefined || internalResolved !== undefined,
+      dispatch: run,
+    })
+  if (adminRead !== undefined) {
+    return audited(async () =>
+      handleAdminReadToolCall({
+        ...gated,
+        operation: adminRead,
+        app: dispatch.app,
+        makeAdminReadHost: dispatch.makeAdminReadHost,
+      })
+    )
+  }
+  if (internalResolved !== undefined) {
+    return audited(async () => handleInternalToolCall({ ...gated, resolved: internalResolved }))
+  }
+  return audited(async () => handleToolsCall(dispatch.app, caller, parsed, dispatch.domainContext))
 }
 
 /**
@@ -536,33 +561,6 @@ const parseToolsCallParams = (
   return { toolName, args }
 }
 
-// ---------------------------------------------------------------------------
-// Env parsing + validation
-// ---------------------------------------------------------------------------
-
-const parseAndValidateMcpEnv = (
-  app: Readonly<App>,
-  env: Readonly<NodeJS.ProcessEnv>
-): ResolvedMcpEnvConfig => {
-  // Decode env vars via the schema. Throws on invalid values (e.g. a
-  // non-positive rate limit).
-  const resolved = resolveMcpEnv(decodeMcpEnv(env))
-  if (!resolved.enabled) return resolved
-
-  // The raw env goes through so the retired-var guard can see names the schema
-  // no longer carries — that is the whole point of detecting them by presence
-  // rather than by a constraint on a field that no longer exists.
-  const validationError = validateMcpEnv(resolved, {
-    authConfigured: app.auth !== undefined,
-    env,
-  })
-  if (validationError !== undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
-    throw new Error(`MCP env validation failed: ${validationError}`)
-  }
-  return resolved
-}
-
 /**
  * Refuse a config whose table names would shadow an A8 config tool.
  *
@@ -574,107 +572,9 @@ const parseAndValidateMcpEnv = (
 const assertNoConfigToolCollision = (app: Readonly<App>): void => {
   const collision = findConfigToolTableCollision((app.tables ?? []).map((table) => table.name))
   if (collision === undefined) return
-  // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
   throw new Error(
     `MCP tool-name collision: the table '${collision}' compiles to '${app.name}_config_read', ` +
       `which is the name of this instance's configuration read tool. Rename the table — ` +
       `'config' is reserved on the MCP surface for the same reason 'auth_*' and 'system_*' are.`
   )
-}
-
-const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
-  try {
-    return Schema.decodeUnknownSync(McpEnvSchema)({
-      enabled: env.MCP_ENABLED,
-      transport: env.MCP_TRANSPORT,
-      mountPath: env.MCP_MOUNT_PATH,
-      rateLimitPerMinute: env.MCP_RATE_LIMIT_PER_MINUTE,
-      rateLimitPerDay: env.MCP_RATE_LIMIT_PER_DAY,
-      auditEnabled: env.MCP_AUDIT_ENABLED,
-      exposeInternals: env.MCP_EXPOSE_INTERNALS,
-      confirmDestructive: env.MCP_CONFIRM_DESTRUCTIVE,
-    })
-  } catch (error) {
-    // Re-throw with a stable prefix so operators (and the test regex) see
-    // the MCP-specific tag at the top of the stderr blob, ahead of the
-    // verbose schema diff that Effect renders for parse errors.
-    const message = error instanceof Error ? error.message : String(error)
-    // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
-    throw new Error(`MCP env validation failed: ${message}`, { cause: error })
-  }
-}
-
-/**
- * Filter the compiled tool catalog to what the caller's role is allowed to
- * see. Viewers never see mutating tools (`_create / _update / _delete` on
- * tables and any action template — action templates are always considered
- * mutating because they execute side-effecting workflows). Members and
- * admins see the full catalog of user-defined tools; finer per-field RBAC
- * for member is the subject of M-6, not this discovery spec.
- *
- * Internal tools (`_auth_*`, `_system_*` infixes) are admin-only — both
- * member and viewer roles never see them, regardless of operation type.
- * The `MCP_EXPOSE_INTERNALS=false` switch upstream removes the tools
- * entirely; this filter is the per-role gate for the remaining surface.
- *
- * Manual automations are offered by the run's own role decision rather than by
- * tier ({@link automationToolIsOffered}): a role sees exactly the automations
- * `tools/call` would run for it — a viewer the ones naming `viewer`, a member
- * none it would be refused.
- *
- * The app is threaded through for the config family (decided by an EXACT name
- * rather than an infix) and for the automation decision, which reads the
- * automation's trigger and the app's connections.
- */
-const filterToolsForRole = (
-  tools: ReadonlyArray<CompiledTool>,
-  caller: Readonly<McpCaller>,
-  app: App,
-  pausedNames: ReadonlySet<string>
-): ReadonlyArray<CompiledTool> => {
-  const { role } = caller
-  const offered = tools.filter(
-    (tool) =>
-      (isAdminTierCaller(caller) || !isInternalTool(tool.name, app.name)) &&
-      automationToolIsOffered(app, tool.name, caller, pausedNames)
-  )
-  if (role !== 'viewer') return offered
-  return offered.filter((tool) => !isMutatingTool(tool.name))
-}
-
-const isInternalTool = (toolName: string, appName: string): boolean => {
-  // Tool naming convention: `{appName}_auth_{table}_{op}` and
-  // `{appName}_system_{table}_{op}`. The infixes are unambiguous because
-  // user-defined tables cannot be named `auth_*` or `system_*` — the
-  // cross-validator rejects those at decode time.
-  //
-  // The config family ([internal ref] A8 surface 9) is gated HERE rather than in
-  // `isMutatingTool`: `{app}_config_read` ends in `_read`, so the viewer
-  // mutating-tool filter never catches it, and without this a member-role
-  // caller would see the whole configuration surface.
-  //
-  // It is matched by EXACT NAME rather than by a `_config_` infix, because the
-  // two namespaces above are not comparable to this one. `auth_*` and
-  // `system_*` are refused as table-name PREFIXES, so no user-defined table can
-  // ever produce those infixes. Only the exact name `config` is refused here,
-  // so a table legitimately called `config_backup` compiles to
-  // `{app}_config_backup_list` — which carries the infix while being an
-  // ordinary data tool. An infix match hid that operator's own table from every
-  // non-admin role, with nothing said and the call still succeeding by name.
-  return (
-    toolName.includes('_auth_') ||
-    toolName.includes('_system_') ||
-    isConfigToolName(appName, toolName)
-  )
-}
-
-const isMutatingTool = (toolName: string): boolean => {
-  if (toolName.endsWith('_create')) return true
-  if (toolName.endsWith('_update')) return true
-  if (toolName.endsWith('_delete')) return true
-  // Action templates are never read-only by definition (they execute a
-  // workflow); withhold from viewer until per-template annotations are
-  // honored in M-6.
-  if (toolName.includes('_action_')) return true
-  return false
 }

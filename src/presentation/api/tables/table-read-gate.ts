@@ -57,7 +57,7 @@ export async function callerReadsTable(
 ): Promise<boolean> {
   if (table === undefined) return false
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   return checkGetReadGate({ c, app, table, userRole, userGroups, guard }) === undefined
 }
 
@@ -96,7 +96,6 @@ const gateKindForRecords = (method: string, segments: readonly string[]): GateKi
 /** The gate a request beneath `/api/tables/:tableId` must pass first. */
 const gateKindFor = (method: string, segments: readonly string[]): GateKind => {
   const [head] = segments
-  if (head === 'user-views' || head === 'user-preferences') return 'table'
   if (head === 'records') return gateKindForRecords(method, segments)
   if (head === 'views' && method === 'GET' && segments.length === 3 && segments[2] === 'records') {
     return 'view'
@@ -117,7 +116,7 @@ const DESCRIBING_REFUSALS: ReadonlySet<number> = new Set([400, 409, 422])
 /** Run a create for a caller who may not read the table, masking what would describe it. */
 const createWithoutRead = async (c: Context, next: Next): Promise<void> => {
   await next()
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-param-reassign -- Hono's middleware contract replaces the response by assignment
+  // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
   if (DESCRIBING_REFUSALS.has(c.res.status)) c.res = notFound(c)
 }
 
@@ -131,7 +130,7 @@ const callerReadsView = async (
   const view = findViewByKey(table.views, viewId)
   if (view === undefined) return true // the route answers a missing view itself
   const { session, userRole, userGroups } = getTableContext(c)
-  const accessRoles = await resolveAccessRolesFor(session, [table])
+  const accessRoles = await resolveAccessRolesFor(c, session, [table])
   return viewReadAdmits(app, table, view, {
     role: userRole,
     groups: userGroups,

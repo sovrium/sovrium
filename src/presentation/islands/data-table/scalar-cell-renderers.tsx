@@ -47,9 +47,6 @@
  */
 
 import { isHexColor } from '@/domain/kernel/color/option-chip-color'
-import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
-import { formatDateTimeInstant } from '@/domain/kernel/format/date-time-instant'
-import { formatDurationValue } from '@/domain/kernel/format/duration-format'
 import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import {
   computeAttachmentLinkClasses,
@@ -59,7 +56,6 @@ import {
   computeColorCellClasses,
   computeColorCodeClasses,
   computeColorSwatchClasses,
-  computeDurationClasses,
   computeProgressFillClasses,
   computeProgressTrackClasses,
   computeRatingGlyphClasses,
@@ -74,8 +70,6 @@ import {
 } from '../parts/attachment-entries'
 import { AttachmentLink } from '../parts/attachment-links'
 import { readsAsTrue } from '../runtime/cell-value-semantics'
-import { resolvePageLocale } from '../runtime/page-locale'
-import { resolvePageTimezone } from '../runtime/page-timezone'
 import { richTextPreview } from '../runtime/rich-text-preview'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { CellFieldOptions } from './cell-renderers'
@@ -105,7 +99,7 @@ export function RatingCell({
   return (
     <span
       role="img"
-      aria-label={`${String(score)} out of ${String(max)}`}
+      aria-label={`${String(score)} of ${String(max)}`}
       className={computeRatingRowClasses()}
     >
       {Array.from({ length: max }, (_, index) => {
@@ -239,27 +233,6 @@ export function BarcodeCell({
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DURATION — the declared preset, over a value stored in seconds
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Render a duration under its declared `displayFormat`. Postgres hands back the
- * `INTERVAL` string and SQLite the `INTEGER` count of seconds; the shared
- * formatter reads both, so the cell says the same thing on either dialect.
- */
-export function DurationCell({
-  value,
-  fieldOptions,
-}: {
-  value: unknown
-  fieldOptions?: CellFieldOptions
-}): React.ReactNode {
-  const formatted = formatDurationValue(value, fieldOptions?.display?.displayFormat)
-  if (formatted === undefined) return EMPTY_VALUE
-  return <span className={computeDurationClasses()}>{formatted}</span>
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
 // CHECKBOX — a boolean affordance from the field type alone
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -351,66 +324,6 @@ export function UrlLinkCell({ value }: { value: unknown }): React.ReactNode {
     >
       {text}
     </a>
-  )
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DATE — a calendar day, the same day for every reader
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Render a `date` field as a calendar date in the page's language.
- *
- * A date carries no time of day: the API sends it as `YYYY-MM-DD`, or as the
- * UTC-midnight instant the driver decodes it to. Formatting that instant in
- * the reader's own zone would print the day before for everyone west of UTC,
- * so the day is formatted in UTC — which calendar day it is never depends on
- * who reads it. Only the LOCALE (month names, order) follows the page.
- */
-export function DateCell({
-  value,
-  fieldOptions,
-}: {
-  value: unknown
-  fieldOptions?: CellFieldOptions
-}): React.ReactNode {
-  if (isMissing(value)) return EMPTY_VALUE
-  return (
-    formatCalendarDate(value, fieldOptions?.locale, fieldOptions?.display?.weekday) ?? String(value)
-  )
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DATETIME — a readable instant, not the wire encoding
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Render a stored instant the way a person reads one.
- *
- * `datetime` had no entry in the renderer registry, so a cell showed the raw
- * ISO string the API sends — a machine encoding, in a grid whose editor already
- * receives the field's declared `timeZone` precisely so the two can agree about
- * which day it is.
- *
- * A value that does not parse is passed through untouched rather than replaced
- * by "Invalid Date": showing something unexpected is recoverable, and losing the
- * value is not.
- */
-export function DateTimeCell({
-  value,
-  fieldOptions,
-}: {
-  value: unknown
-  fieldOptions?: CellFieldOptions
-}): React.ReactNode {
-  if (isMissing(value)) return EMPTY_VALUE
-  return (
-    formatDateTimeInstant(value, fieldOptions?.locale ?? resolvePageLocale(), {
-      timeZone: fieldOptions?.timeZone ?? resolvePageTimezone(),
-      ...(fieldOptions?.display?.weekday === undefined
-        ? {}
-        : { weekday: fieldOptions.display.weekday }),
-    }) ?? String(value)
   )
 }
 

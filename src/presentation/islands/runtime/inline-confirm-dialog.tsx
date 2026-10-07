@@ -19,8 +19,6 @@
  * markup for non-React buttons.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional confirm-gate event handlers (confirm/cancel close over the armed action); a transient dialog rendered only while a confirm is armed, not a hot path. Mirrors the same exemption in action-cell.tsx + client.ts. */
-
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState, type ReactElement } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'

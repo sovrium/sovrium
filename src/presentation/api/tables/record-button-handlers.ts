@@ -34,7 +34,7 @@
  */
 
 import { Effect } from 'effect'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
@@ -108,7 +108,7 @@ async function enforceButtonWriteGate(input: {
   const { c, app, table, session } = input
   const { tableName, recordId, userRole, userGroups } = input.context
 
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   if (guard) {
     return enforceFormMutationGate({ c, table, session, tableName, recordId, guard, op: 'write' })
   }
@@ -163,14 +163,17 @@ async function recordButtonInvocation(input: {
   readonly succeeded: boolean
 }): Promise<void> {
   const actor = await runDomainPromise(input.c, resolveActor(input.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.TABLE_RECORD_BUTTON_INVOKED,
-    actor,
-    resourceId: input.recordId,
-    severity: 'info',
-    result: input.succeeded ? 'success' : 'failure',
-    metadata: input.metadata,
-  })
+  await runDomainPromise(
+    input.c,
+    EmitAuditEvent({
+      action: AUDIT_ACTIONS.TABLE_RECORD_BUTTON_INVOKED,
+      actor,
+      resourceId: input.recordId,
+      severity: 'info',
+      result: input.succeeded ? 'success' : 'failure',
+      metadata: input.metadata,
+    })
+  )
 }
 
 export async function handleInvokeRecordButton(c: Context, app: App) {

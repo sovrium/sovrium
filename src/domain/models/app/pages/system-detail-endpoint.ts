@@ -15,7 +15,7 @@ import type { SystemDetailSource } from '@/domain/models/app/pages/components/sy
  * ─── WHY THIS IS DOMAIN CODE AND NOT AN ISLAND HELPER ──────────────────────
  *
  * It was an island hook helper while the only caller was the browser. Since
- * `[internal ref]` the RENDERER
+ * the pages data components page system record SSR requirement the RENDERER
  * resolves the same binding server-side — and `presentation-rendering` may not
  * import `presentation-island`, so the choice was a shared home or a second
  * copy. A second copy of an id-injection rule is a copy that can disagree with

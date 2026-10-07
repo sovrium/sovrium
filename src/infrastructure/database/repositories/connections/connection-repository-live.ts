@@ -96,7 +96,6 @@ export const ConnectionRepositoryLive = Layer.succeed(ConnectionRepository, {
 
   delete: (id) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
       await db.delete(connections).where(eq(connections.id, id))
     }),
 })

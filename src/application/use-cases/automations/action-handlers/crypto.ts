@@ -25,7 +25,7 @@
  * The work is synchronous and trivially fast, so it is wrapped in
  * `Effect.sync` rather than `Effect.tryPromise`.
  *
- * Wave: [internal ref].
+ * Wave: the automations actions crypto requirement.
  */
 
 import { createHash, createHmac } from 'node:crypto'

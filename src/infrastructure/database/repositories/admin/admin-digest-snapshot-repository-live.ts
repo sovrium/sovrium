@@ -139,12 +139,10 @@ export const AdminDigestSnapshotRepositoryLive = Layer.succeed(AdminDigestSnapsh
   insert: (snapshot) =>
     wrap(async () => {
       const id = crypto.randomUUID()
-      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(snapshots).values({
         id,
         periodStart: snapshot.periodStart,
         periodEnd: snapshot.periodEnd,
-        // eslint-disable-next-line unicorn/no-null -- a NULL column means "not delivered"
         sentAt: snapshot.sentAt ?? null,
         recipientCount: snapshot.recipientCount,
         metrics: snapshot.metrics,
@@ -154,7 +152,6 @@ export const AdminDigestSnapshotRepositoryLive = Layer.succeed(AdminDigestSnapsh
 
   markSent: ({ id, sentAt, recipientCount }) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
       await db.update(snapshots).set({ sentAt, recipientCount }).where(eq(snapshots.id, id))
     }),
 })

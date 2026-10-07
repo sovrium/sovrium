@@ -89,11 +89,9 @@ const handleRemove = async (c: Context) => {
  * resolve the caller. Each handler returns 401 itself when no session is
  * attached, so the routes behave consistently whether or not auth is wired.
  */
-/* eslint-disable drizzle/enforce-delete-with-where -- the .delete() call below is a Hono route definition, not a Drizzle delete */
 export function chainFavoriteRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/favorites', handleList)
     .post('/api/favorites', handleAdd)
     .delete('/api/favorites', handleRemove) as T
 }
-/* eslint-enable drizzle/enforce-delete-with-where */

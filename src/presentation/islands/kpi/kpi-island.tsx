@@ -5,12 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback } from 'react'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { isRateLimitedRead } from '../runtime/read-failure'
 import { KpiCard, type KpiTrendConfig } from './kpi-card'
 import {
-  aggregateKpi,
   computeSparklineSeries,
   formatKpiValue,
   resolveKpiThresholdColor,
@@ -20,7 +18,7 @@ import {
   type KpiThresholdConfig,
 } from './kpi-compute'
 import { KpiError, KpiLoading, KpiMissingTable, KpiRateLimited } from './kpi-states'
-import { useKpiRecords } from './use-kpi-records'
+import { useKpiTileFigure } from './use-kpi-aggregate'
 import { KPI_NEUTRAL_VALUE, useKpiSystemValue } from './use-kpi-system-value'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { KpiSystemSource } from '@/domain/models/app/pages/components/component-types/data/kpi'
@@ -29,7 +27,7 @@ import type { ReactElement } from 'react'
 
 /**
  * KPI data source — discriminated: a DB table (`{ table, view?, filter? }`,
- * aggregated client-side) OR a system read endpoint (`{ system: {...} }`,
+ * aggregated by the server's aggregate read) OR a system read endpoint (`{ system: {...} }`,
  * pre-computed scalar value-path).
  */
 type KpiTableSource = {
@@ -47,6 +45,9 @@ interface KpiPresentationProps {
   /** Server-resolved geometry for `icon` (see `@/presentation/utils/lucide-glyph`). */
   readonly iconNode?: unknown
   readonly trend?: KpiTrendConfig
+  /** The value's classes and its tone's ink, resolved server-side. */
+  readonly valueClassName?: string
+  readonly toneClassName?: string
   /** The rate-limited notice's words in the page language (`rateLimit.*`), where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>>
 }
@@ -58,6 +59,8 @@ interface KpiIslandProps extends KpiPresentationProps {
   readonly sparkline?: KpiSparklineConfig
   /** The aggregated field's currency display, resolved server-side from `app.tables`. */
   readonly valueCurrency?: CurrencyDisplayOptions
+  /** The figure comes from one aggregate read (resolved server-side); else from a page of records. */
+  readonly aggregateRead?: boolean
 }
 
 /** Narrowing guard: is this data source the system read-endpoint variant? */
@@ -80,6 +83,8 @@ function KpiSystemTile({
   icon,
   iconNode,
   trend,
+  valueClassName,
+  toneClassName,
 }: KpiPresentationProps & { readonly system: KpiSystemSource }): ReactElement {
   const { data } = useKpiSystemValue(system)
   const value =
@@ -96,43 +101,46 @@ function KpiSystemTile({
       icon={icon}
       iconNode={iconNode}
       trend={trend}
+      valueClassName={valueClassName}
+      toneClassName={toneClassName}
     />
   )
 }
 
 /**
- * DB-table binding — fetch records, aggregate via `kpiAggregate`, format via
- * `kpiFormat`. UNCHANGED from the original KPI island contract.
+ * DB-table binding — the figure from one aggregate read (a page of records
+ * reduced here when the figure is one the read cannot answer), formatted via
+ * `kpiFormat`. A sparkline still reads its records.
  */
 function KpiTableTile({
   source,
-  label,
   kpiAggregate,
   kpiFormat,
-  icon,
-  iconNode,
-  trend,
   thresholds,
   sparkline,
   valueCurrency,
   uiStrings,
+  aggregateRead,
+  ...card
 }: KpiPresentationProps & {
   readonly source: KpiTableSource
   readonly kpiAggregate?: KpiAggregateConfig
   readonly thresholds?: readonly KpiThresholdConfig[]
   readonly sparkline?: KpiSparklineConfig
   readonly valueCurrency?: CurrencyDisplayOptions
+  readonly aggregateRead?: boolean
 }): ReactElement {
-  const { data, isLoading, isError, error, refetch } = useKpiRecords(source)
-  const retry = useCallback(() => {
-    void refetch()
-  }, [refetch])
+  const { rows, metric, caption, isLoading, isError, error, retry } = useKpiTileFigure(source, {
+    aggregate: kpiAggregate ?? { function: 'count' },
+    aggregateRead: aggregateRead === true,
+    sparkline: sparkline !== undefined,
+  })
 
   if (isLoading) return <KpiLoading />
   if (isError && isRateLimitedRead(error))
     return (
       <KpiRateLimited
-        label={label}
+        label={card.label}
         onRetry={retry}
         strings={uiStrings}
       />
@@ -141,24 +149,23 @@ function KpiTableTile({
     return (
       <KpiError
         error={error}
-        label={label}
+        label={card.label}
       />
     )
 
-  const rows = data?.records ?? []
-  const aggregate: KpiAggregateConfig = kpiAggregate ?? { function: 'count' }
-  const metric = aggregateKpi(rows, aggregate)
-  const formatted = formatKpiValue(metric, kpiFormat, resolvePageLocale(), valueCurrency)
-  const thresholdColor = resolveKpiThresholdColor(metric, thresholds)
+  // A ratio over an empty denominator has no figure: the neutral dash, no threshold.
+  const formatted =
+    metric === null
+      ? KPI_NEUTRAL_VALUE
+      : formatKpiValue(metric, kpiFormat, resolvePageLocale(), valueCurrency)
+  const thresholdColor = metric === null ? undefined : resolveKpiThresholdColor(metric, thresholds)
   const sparklineSeries = sparkline ? computeSparklineSeries(rows, sparkline) : undefined
 
   return (
     <KpiCard
-      label={label}
+      {...card}
       value={formatted}
-      icon={icon}
-      iconNode={iconNode}
-      trend={trend}
+      caption={caption}
       thresholdColor={thresholdColor}
       sparklineSeries={sparklineSeries}
     />
@@ -170,7 +177,7 @@ function KpiTableTile({
  *
  * Dispatches on the discriminated `dataSource`:
  * - `{ system: {...} }` → {@link KpiSystemTile} (pre-computed scalar value-path)
- * - `{ table, ... }`    → {@link KpiTableTile} (records aggregated client-side)
+ * - `{ table, ... }`    → {@link KpiTableTile} (one aggregate read)
  * - neither            → {@link KpiMissingTable}
  *
  * The island host names the KPI (`data-component="kpi"`); every branch writes
@@ -188,6 +195,9 @@ export default function KpiIsland({
   sparkline,
   valueCurrency,
   uiStrings,
+  aggregateRead,
+  valueClassName,
+  toneClassName,
 }: KpiIslandProps): ReactElement {
   if (isSystemSource(dataSource)) {
     return (
@@ -198,6 +208,8 @@ export default function KpiIsland({
         icon={icon}
         iconNode={iconNode}
         trend={trend}
+        valueClassName={valueClassName}
+        toneClassName={toneClassName}
       />
     )
   }
@@ -216,6 +228,9 @@ export default function KpiIsland({
         sparkline={sparkline}
         valueCurrency={valueCurrency}
         uiStrings={uiStrings}
+        aggregateRead={aggregateRead}
+        valueClassName={valueClassName}
+        toneClassName={toneClassName}
       />
     )
   }

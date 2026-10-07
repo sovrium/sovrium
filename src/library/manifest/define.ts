@@ -37,7 +37,12 @@ export const LIBRARY_TARGET_KEY: Readonly<Record<LibraryKind, LibraryTargetKey>>
   recipe: 'automations',
 }
 
-export type LibraryTargetKey = 'components' | 'connections' | 'automations'
+/**
+ * Every top-level key an install writes into: each kind's own key, and
+ * `forms` — where a block that embeds a form places that form
+ * (`LibraryEntry.forms`).
+ */
+export type LibraryTargetKey = 'components' | 'connections' | 'automations' | 'forms'
 
 type ElementOf<T> = T extends ReadonlyArray<infer Item> ? Item : never
 
@@ -46,7 +51,15 @@ export interface LibraryFragmentByKey {
   readonly components: ElementOf<NonNullable<AppEncoded['components']>>
   readonly connections: ElementOf<NonNullable<AppEncoded['connections']>>
   readonly automations: ElementOf<NonNullable<AppEncoded['automations']>>
+  readonly forms: ElementOf<NonNullable<AppEncoded['forms']>>
 }
+
+/**
+ * A form a block ships beside its component, as `build` writes it — every key
+ * but `id`, which `library add` gives it: the next id free in the operator's
+ * `forms`, kept on a re-install.
+ */
+export type LibraryBlockForm = Omit<LibraryFragmentByKey['forms'], 'id'>
 
 /**
  * The operations a connection entry declares, typed as the config writes them —
@@ -153,6 +166,15 @@ export type LibraryEntry =
   | (LibraryEntryBase & {
       readonly kind: 'block'
       readonly build: (input: LibraryBuildInput) => LibraryFragmentByKey['components']
+      /**
+       * The forms the block's component places with `formRef` — a page form
+       * never adds a record on its own, so a block that adds one ships its
+       * `forms[]` entry beside its page fragment. Each is installed into
+       * `forms:` with the same provenance line, named as `build` names it (so
+       * from `input.name`, for two installs to keep two forms). Absent for a
+       * block that embeds no form.
+       */
+      readonly forms?: (input: LibraryBuildInput) => readonly LibraryBlockForm[]
     })
   | (LibraryEntryBase & {
       readonly kind: 'connection'
@@ -162,6 +184,12 @@ export type LibraryEntry =
       readonly kind: 'recipe'
       readonly build: (input: LibraryBuildInput) => LibraryFragmentByKey['automations']
     })
+
+/** The forms an entry ships beside its fragment, built for one install; none for most. */
+export const entryForms = (
+  entry: LibraryEntry,
+  input: LibraryBuildInput
+): readonly LibraryBlockForm[] => (entry.kind === 'block' ? (entry.forms?.(input) ?? []) : [])
 
 /** `connection/qonto` — the id is the kind and the slug, which is also the file path. */
 export const libraryEntryId = (entry: Pick<LibraryEntry, 'kind' | 'slug'>): string =>
@@ -205,5 +233,9 @@ export interface LibraryCatalogueApi {
     entry: Pick<LibraryEntry, 'tables'>,
     params: Readonly<Record<string, LibraryParamValue | undefined>>
   ) => readonly ResolvedExpectedTable[]
+  readonly entryForms: (
+    entry: LibraryEntry,
+    input: LibraryBuildInput
+  ) => readonly LibraryBlockForm[]
   readonly loadCatalogue: () => Promise<readonly LibraryEntry[]>
 }

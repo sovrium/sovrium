@@ -20,6 +20,7 @@ import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
 import { makeSerializedSqliteClient } from './sqlite-serialized-client'
+import { refuseSharedDbInTransactionBody } from './transaction-body-guard'
 import type { Logger } from 'drizzle-orm'
 
 /**
@@ -86,7 +87,6 @@ import type { Logger } from 'drizzle-orm'
  */
 export type DrizzleDB = ReturnType<typeof drizzlePg>
 
-// eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- one-shot module-level memo cache; replaces the eager const that crashed at boot when DATABASE_URL was unset
 let cached: DrizzleDB | undefined
 
 /**
@@ -97,7 +97,6 @@ let cached: DrizzleDB | undefined
  * the settings, so the requests the server serves get them. The early pool is
  * left as it is: whatever still holds it keeps working.
  */
-// eslint-disable-next-line functional/no-let -- module-level companion of the `cached` memo
 let builtWithoutSettings: string | undefined
 
 /** Whether `cached` was built before the database was seen to accept the runtime settings. */
@@ -127,7 +126,6 @@ const countingLogger: Logger = {
  * `DrizzleDB` facade — the query-builder surface used by every `db` consumer is
  * structurally compatible across the two dialects.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is the upstream-mutable drizzle-orm/bun-sql return shape; same rationale as getDb
 const buildClient = (): DrizzleDB => {
   const config = parseDatabaseDialectConfig()
 
@@ -137,7 +135,6 @@ const buildClient = (): DrizzleDB => {
     // is a stated number (see `resolveDatabasePoolMax`) instead of an assumption
     // about the driver — and so an operator on a larger Postgres can raise it
     // via `DATABASE_POOL_MAX` without patching code.
-    // eslint-disable-next-line functional/no-expression-statements -- records what this pool was built with (see `builtWithoutSettings`)
     builtWithoutSettings = acceptsRuntimeSettings(config.databaseUrl)
       ? undefined
       : config.databaseUrl
@@ -166,7 +163,6 @@ const buildClient = (): DrizzleDB => {
     // create on a table carrying rollups into an HTTP 500. The contract is pinned
     // by `rollup.spec.ts` ROLLUP-007 (`toBe('4')`) and by the `toFiniteCount` /
     // `Number()` coercions the read paths depend on.
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- driver-level connection setup; resets an option the upstream constructor forces, restoring Bun's own documented default (see above)
     pg.$client.options.bigint = false
     return pg
   }
@@ -176,7 +172,6 @@ const buildClient = (): DrizzleDB => {
   // directory, and the zero-config default now nests under `./.sovrium/`. Skip
   // the in-memory sentinel (no filesystem path).
   if (config.path !== ':memory:') {
-    // eslint-disable-next-line functional/no-expression-statements -- filesystem prep before the synchronous driver open
     mkdirSync(dirname(config.path), { recursive: true })
   }
   // Phase 2 RAG acceleration: when `RAG_SQLITE_VEC=on`, open the
@@ -188,9 +183,8 @@ const buildClient = (): DrizzleDB => {
   primeSqliteVec(config.path)
   const client = new BunSqlite(config.path, { create: true })
   // Foreign keys, WAL journaling and the busy timeout, from the one module that
-  // spells them — this list used to be written out here with `busy_timeout`
-  // LAST, which left its own WAL switch unprotected against the very lock the
-  // timeout exists for.
+  // spells them. A local copy is a trap: with `busy_timeout` LAST, the WAL
+  // switch runs unprotected against the very lock the timeout exists for.
 
   applySqlitePragmas(client)
 
@@ -206,10 +200,8 @@ const buildClient = (): DrizzleDB => {
   return sqliteDb as unknown as DrizzleDB
 }
 
-// eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is the upstream return shape from drizzle-orm/bun-sql; the lint rule cannot prove our consumers don't mutate it. We don't.
 export const getDb = (): DrizzleDB => {
   if (cached !== undefined && !settingsArrivedSinceBuild()) return cached
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo cache assignment
   cached = buildClient()
   return cached
 }
@@ -224,7 +216,6 @@ export const getDb = (): DrizzleDB => {
  * caller has nothing left to act on, and the worst outcome is the leak this
  * close exists to prevent.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is the upstream-mutable drizzle-orm/bun-sql return shape; same rationale as getDb
 const closeRetiredClient = (client: DrizzleDB): void => {
   const handle: unknown = client.$client
   Promise.resolve()
@@ -267,10 +258,8 @@ const closeRetiredClient = (client: DrizzleDB): void => {
  */
 export const resetDbCache = (): void => {
   const retired = cached
-  // eslint-disable-next-line functional/no-expression-statements -- module-level memo reset; intentional mutation of the one-shot cache
   cached = undefined
   if (retired !== undefined) closeRetiredClient(retired)
-  // eslint-disable-next-line functional/no-expression-statements -- reset with the memo it describes
   builtWithoutSettings = undefined
   // Keep the Phase 2 sqlite-vec acceleration memo in lock-step: a test that
   // re-points DATABASE_URL / toggles `RAG_SQLITE_VEC` must re-resolve
@@ -297,10 +286,8 @@ export const resetDbCache = (): void => {
  *
  * @throws {UnsupportedInSqliteError} when the active dialect is SQLite
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- returns the upstream-mutable DrizzleDB; same rationale as getDb
 export const getPgDb = (): DrizzleDB => {
   if (parseDatabaseDialectConfig().dialect !== 'postgres') {
-    // eslint-disable-next-line functional/no-throw-statements -- explicit degradation boundary: raw SQL is unavailable on the SQLite runtime
     throw new UnsupportedInSqliteError({
       feature: 'raw-sql',
       message:
@@ -310,12 +297,18 @@ export const getPgDb = (): DrizzleDB => {
   return getDb()
 }
 
+/** Whether the active runtime is SQLite — read only by the transaction-body guard. */
+const isSqliteDialect = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
+
 /**
  * Lazy proxy preserving the eager `db` import API across ~36 static importers.
  * Each property access defers to `getDb()`; subsequent accesses reuse the
  * cached client.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- DrizzleDB is upstream-mutable (Proxy<DrizzleDB> for the same reason as getDb's return)
 export const db: DrizzleDB = new Proxy({} as DrizzleDB, {
-  get: (_target, prop) => Reflect.get(getDb(), prop),
+  get: (_target, prop) => {
+    // A transaction body reaching the shared client would deadlock on SQLite.
+    refuseSharedDbInTransactionBody(isSqliteDialect)
+    return Reflect.get(getDb(), prop)
+  },
 })

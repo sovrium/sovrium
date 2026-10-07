@@ -25,7 +25,7 @@ import type { App } from '@/domain/models/app'
  *
  * `submitterIpHash` is deliberately a DIGEST, never a raw address: the route
  * boundary hashes the client IP before calling `submitFormProgram` (see
- * `SubmitFormConfig.submitterIpHash` — [internal ref] + rule S5), and
+ * `SubmitFormConfig.submitterIpHash` — a forms spec + rule S5), and
  * `trigger.data` is forwarded verbatim by the `email`, `http` and `code`
  * actions as well as retained in run history. A raw address here would
  * therefore become an uncontrolled export path and make GDPR erasure
@@ -119,7 +119,6 @@ const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData =>
   // body. Using a structural cast (TriggerData has no first-class fields
   // for these names) keeps the new keys backwards-compatible — the
   // dynamic builder threads them through unchanged.
-  // eslint-disable-next-line unicorn/no-null -- public template contract: linkedRecord is null when absent
   const linkedRecordValue = linkedRecord ?? null
   const envelope = {
     body: submissionData,
@@ -129,7 +128,7 @@ const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData =>
     linkedRecord: linkedRecordValue,
     meta,
   }
-  return envelope as unknown as TriggerData
+  return envelope as TriggerData
 }
 
 /**
@@ -173,7 +172,6 @@ const advanceLedgerStatus = (
       .updateStatus({
         id: submissionId,
         status,
-        // eslint-disable-next-line unicorn/no-null -- writing null clears the column
         statusReason: reason ?? null,
       })
       .pipe(

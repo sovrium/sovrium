@@ -6,13 +6,12 @@
  */
 
 /**
- * Presentation-layer SEO + JSON-LD synthesis for `contentDir` pages
- *.
+ * Presentation-layer SEO + JSON-LD synthesis for `contentDir` pages.
  *
  * Split out of `markdown-page-resolver.ts` so the resolver stays focused on the
  * markdown-body pipeline. Composes the pure domain synthesisers
  * (`buildContentDirSeoMeta`, `buildContentDirStructuredData`) with the
- * presentation-layer `BASE_URL` origin + the [internal ref] base-path pattern + the A1
+ * presentation-layer `BASE_URL` origin + the `contentDir.index` convention base-path pattern + the A1
  * zone-tab breadcrumb root crumb.
  */
 
@@ -31,7 +30,7 @@ import type { DocsRootCrumb } from '@/presentation/render/markdown/docs-root-cru
 
 /**
  * Synthesise the JSON-LD documents for a `contentDir` page
- *. Author-wins: when the page declares an
+ * Author-wins: when the page declares an
  * explicit `meta.schema`, return an empty array so the author's structured data
  * is the sole source (no double-emission of the same `@type`). Otherwise the
  * synthesiser reads `meta.structuredData.enabled` and derives a TechArticle +
@@ -72,14 +71,14 @@ function buildContentDirSynthesisedJsonLd(
  * `BASE_URL` operator origin when set (mirrors `seo-routes.resolveBaseUrl`),
  * otherwise fall back to a path-relative URL.
  */
-// eslint-disable-next-line max-params -- [internal ref] threads the index base-path pattern + A1 threads the zone-tab rootCrumb through the existing SEO builder
+// eslint-disable-next-line max-params -- the index base-path pattern and the zone-tab rootCrumb are threaded through the existing SEO builder
 export function buildContentDirSeo(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   frontmatter: Readonly<Record<string, string>>,
   app: App | undefined,
   /**
-   * [internal ref] — when serving a `contentDir.index` article at the collection base
+   * When serving a `contentDir.index` article at the collection base
    * path, the SEO meta is built against the base-path pattern (e.g. `/:lang/docs`)
    * rather than the page's slugged pattern (`/:lang/docs/:slug`), so the canonical
    * link + hreflang alternates point at the base path — the single canonical URL.

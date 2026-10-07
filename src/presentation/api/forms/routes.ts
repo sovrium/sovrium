@@ -9,23 +9,10 @@ import { Effect } from 'effect'
 import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inline-prefill-revalidation'
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
-import {
-  findFormByName,
-  submitFormProgram,
-  FormClosedError,
-  FormFieldConstraintError,
-  FormFieldForeignKeyError,
-  FormFieldFormatError,
-  FormFieldRequiredError,
-  FormHoneypotTrippedError,
-  FormNotFoundError,
-  FormNotYetOpenError,
-  FormRateLimitedError,
-  FormSubmissionLimitError,
-} from '@/application/use-cases/forms/submit-form'
+import { findFormByName, submitFormProgram } from '@/application/use-cases/forms/submit-form'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
+import { hashAccessToken, issueAccessToken } from '@/infrastructure/forms/access-token'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
-import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
   runDomainPromise,
@@ -36,9 +23,17 @@ import {
   evaluateFormAccessForRequest,
   resolveFormOptionVisitor,
 } from '@/presentation/api/forms/access-gate'
+import {
+  editPathOf,
+  handleEditSubmission,
+  handleGetEditPage,
+  handlePostDraft,
+  resolveResumeLink,
+  resumeTokenOf,
+  type FormLinkState,
+} from '@/presentation/api/forms/access-link-handlers'
 import { checkSubmissionAttachmentReferences } from '@/presentation/api/forms/attachment-reference-guard'
 import {
-  FormUploadError,
   multipartFileFieldNames,
   transformMultipartFiles,
 } from '@/presentation/api/forms/file-upload-handler'
@@ -50,19 +45,16 @@ import {
   type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
-import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
 import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
+import { formNameRequired, formNotFound } from './submission-refusals'
 import {
-  formClosed,
-  formHoneypotTripped,
-  formNameRequired,
-  formNotFound,
-  formNotYetOpen,
-  formRateLimited,
-  formSubmissionLimitReached,
-} from './submission-refusals'
+  detectJsonClient,
+  respondParentMissing,
+  respondSubmissionFailure,
+  respondSubmissionSuccess,
+} from './submission-responses'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
@@ -86,6 +78,8 @@ export interface FormPrefillContext {
   readonly user?: Readonly<Record<string, unknown>>
   /** The choices read from tables for this request, keyed by field submit identifier. */
   readonly optionSets?: FormOptionSets
+  /** A private link the page was opened from: a resumed draft, or an edit. */
+  readonly link?: FormLinkState
 }
 
 export interface FormRenderers {
@@ -136,7 +130,7 @@ export interface FormRenderers {
  * path (the alias is registered as a literal route, not `/:name`), so the
  * alias cannot simply delegate to `handleGetForm`.
  *
- * [internal ref]: `authenticated` denials get a 401
+ * `authenticated` denials get a 401
  * page referencing the form name + access level; role denials get a 404
  * (S1 anti-enumeration), never a 403.
  */
@@ -144,13 +138,14 @@ async function respondWithForm(
   c: Context,
   app: App,
   form: Readonly<Form>,
-  renderers: FormRenderers
+  view: { readonly renderers: FormRenderers; readonly editLink?: FormLinkState }
 ): Promise<Response> {
+  const { renderers, editLink } = view
   const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'html')
   if (denied !== undefined) return denied
   const activeLang = c.req.query('lang')
-  // [internal ref]: render the closed-form UI (no submit button)
+  // Render the closed-form UI (no submit button)
   // when the availability window has not yet opened or has already closed.
   // A closed form is a page the visitor is meant to read, so this is a 200 —
   // only the submission endpoint answers 403.
@@ -181,7 +176,13 @@ async function respondWithForm(
       })
     )
   )
-  const html = renderers.renderForm(app, form, activeLang, { ...prefillCtx, optionSets })
+  // A private link's page: an edit, or a draft reopened from its resume link.
+  const link = editLink ?? (await resolveResumeLink(c, form))
+  const html = renderers.renderForm(app, form, activeLang, {
+    ...prefillCtx,
+    optionSets,
+    ...(link === undefined ? {} : { link }),
+  })
   return c.html(html, 200, microphonePolicyHeaders(formRecordsAudio(form)))
 }
 
@@ -194,7 +195,7 @@ async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Pr
   if (!name) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
-  return respondWithForm(c, app, form, renderers)
+  return respondWithForm(c, app, form, { renderers })
 }
 
 /**
@@ -278,240 +279,6 @@ async function readSubmissionBody(c: Context): Promise<Record<string, unknown>> 
 }
 
 /**
- * Render a minimal HTML error page when a native browser form submission
- * fails. The user agent navigates to the API endpoint when the form posts
- * via `<form action="/api/forms/.../submissions">`, so a JSON body would
- * surface as raw text in the address bar; an HTML page with a clear error
- * message is far friendlier and lets the test assertions key on visible
- * text (`getByText(/parent.*does not exist|422/i)`).
- *
- * The status code is exposed via `data-status` and the page title; the
- * single visible element is a `<p>` carrying the error message itself.
- * Keeping the visible text to one element avoids strict-mode locator
- * collisions when assertions match multiple substrings (e.g. `/422|parent
- * does not exist/i` would otherwise resolve to both an `<h1>` and a `<p>`).
- *
- * Kept inline (no template engine) because the foundation tier renders
- * simple, untranslated text. A follow-up tier can route this through the
- * theme and i18n systems once an inline-create error UX needs more polish.
- */
-function renderSubmissionErrorHtml(message: string, statusLabel: string): string {
-  const safe = message.replace(/[&<>"']/g, (ch) => {
-    if (ch === '&') return '&amp;'
-    if (ch === '<') return '&lt;'
-    if (ch === '>') return '&gt;'
-    if (ch === '"') return '&quot;'
-    return '&#39;'
-  })
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${statusLabel}</title></head><body><main class="form-error" data-status="${statusLabel}"><p>${safe}</p></main></body></html>`
-}
-
-/**
- * Resolve the redirect target for a native browser form submission. Falls
- * back to `'/'` when no Referer was sent (some browsers strip it for
- * cross-origin posts) so the user lands on a working page rather than
- * the API JSON response. JSON clients never reach this branch — they get
- * a 201 / 422 JSON body.
- */
-function resolveSubmitRedirectTarget(c: Context): string {
-  const referer = c.req.header('referer')
-  if (typeof referer !== 'string' || referer === '') return '/'
-  // Strip the origin so the redirect stays same-origin even if the reverse
-  // proxy rewrote the Host header. Safe because the `referer` header
-  // always carries a fully-qualified URL when present.
-  try {
-    const url = new URL(referer)
-    return `${url.pathname}${url.search}`
-  } catch {
-    return '/'
-  }
-}
-
-/**
- * Build a parent-missing 422 response. Branches on the client's
- * `Content-Type` so JSON callers get `{ error, message }` while native
- * browser form submits get the inline-create error HTML page.
- *
- * Defense-in-depth: the response intentionally does NOT echo the submitted
- * `paramValue` back. The submitter already knows the value they sent, so
- * including it carries no UX benefit, and surfacing it in a 422 body would
- * make this endpoint a small enumeration oracle for any future auth-gated
- * inline-create flow ("did the host record exist at submit time?"). The
- * generic "parent record does not exist" message is sufficient for the
- * intended UX (host record was deleted between page load and submit).
- */
-function respondParentMissing(c: Context, isJsonClient: boolean): Response {
-  const message =
-    'Parent record does not exist. The host record may have been deleted between page load and form submission.'
-  if (isJsonClient) return c.json({ error: 'parent_missing', message }, 422)
-  return c.html(renderSubmissionErrorHtml(message, '422 — parent does not exist'), 422)
-}
-
-/**
- * Render a validation 400 (form-level required, column-level required, or
- * other field-rule rejection). All three shapes share the same response
- * envelope so client-side UIs can consume one path.
- */
-function respondValidation400(
-  c: Context,
-  isJsonClient: boolean,
-  fieldName: string,
-  message: string
-): Response {
-  const fullMessage = fieldName ? `${fieldName} ${message}`.trim() : message
-  const fieldErrors = fieldName ? [{ name: fieldName, message }] : []
-  if (isJsonClient) {
-    return c.json({ error: 'validation_failed', message: fullMessage, fieldErrors }, 400)
-  }
-  return c.html(renderSubmissionErrorHtml(message, '400 — validation failed'), 400)
-}
-
-/**
- * Map an availability / anti-spam rejection to its structured response.
- * Returns `undefined` when `failure` is not one of these errors so the caller
- * can fall through to the other failure branches. Extracted from
- * `respondSubmissionFailure` to keep that function under the complexity cap.
- *
- * - honeypot → 400 `{ error: 'invalid request' }`
- * - not-yet-open / closed / cap → 403
- */
-function respondAvailability403(c: Context, failure: unknown): Response | undefined {
-  if (failure instanceof FormHoneypotTrippedError) {
-    return formHoneypotTripped(c)
-  }
-  if (failure instanceof FormNotYetOpenError) {
-    return formNotYetOpen(c, failure.opensAt)
-  }
-  if (failure instanceof FormClosedError) {
-    return formClosed(c, failure.closedAt)
-  }
-  if (failure instanceof FormSubmissionLimitError) {
-    return formSubmissionLimitReached(c, failure.maxSubmissions, failure.currentCount)
-  }
-  return undefined
-}
-
-/**
- * Map a field-level validation failure (required / format / FK / generic
- * `FieldValidationError`) to its 400 `respondValidation400` response. Returns
- * `undefined` when `failure` is not one of these so the caller falls through
- * to the upload / 422 branches. Extracted to keep `respondSubmissionFailure`
- * under the complexity cap as the field-error family grew with [internal ref].
- */
-function respondFieldValidation400(
-  c: Context,
-  isJsonClient: boolean,
-  failure: unknown
-): Response | undefined {
-  // [internal ref] / required-field semantics: a field-level validation failure
-  // (form `required: true`, column `required: true`, or any other
-  // field-rule rejection) is a 400 with a `fieldErrors` envelope. The
-  // catch-all 422 branch is kept for genuine server-side rejections
-  // (table-validation crashes, permissions, etc.).
-  if (failure instanceof FormFieldRequiredError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
-  }
-  // [internal ref]: server-side format validation (email).
-  if (failure instanceof FormFieldFormatError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
-  }
-  // [internal ref]: FK violation on user-typed (or any FK) column.
-  if (failure instanceof FormFieldForeignKeyError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
-  }
-  // A unique / CHECK / NOT NULL refusal attributed to one submitted field.
-  if (failure instanceof FormFieldConstraintError) {
-    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
-  }
-  if (failure instanceof FieldValidationError) {
-    return respondValidation400(c, isJsonClient, failure.field ?? '', failure.message)
-  }
-  return undefined
-}
-
-function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: unknown): Response {
-  if (failure instanceof FormNotFoundError) {
-    return formNotFound(c)
-  }
-  // [internal ref]: rate-limit rejections
-  // surface a HTTP 429 with a `Retry-After: <seconds>` header. The body
-  // intentionally does NOT include the trip reason — leaking
-  // `rate_limit_per_ip` vs `rate_limit_per_form` to the client tells an
-  // attacker which knob to circumvent. The ledger row records the reason
-  // for admin visibility.
-  if (failure instanceof FormRateLimitedError) {
-    return formRateLimited(c, failure.retryAfterSec)
-  }
-  // [internal ref]: availability + anti-spam
-  // rejections produce structured 400/403 bodies callers key on.
-  const structured = respondAvailability403(c, failure)
-  if (structured !== undefined) return structured
-  const fieldError = respondFieldValidation400(c, isJsonClient, failure)
-  if (fieldError !== undefined) return fieldError
-  if (failure instanceof FormUploadError) {
-    if (isJsonClient) return c.json({ error: 'upload_failed', message: failure.message }, 400)
-    return c.html(renderSubmissionErrorHtml(failure.message, '400 — upload failed'), 400)
-  }
-  const message = failure instanceof Error ? failure.message : String(failure)
-  // Log failures to stderr so DEBUG=sovrium:server runs surface them; the
-  // raw `failure` is included so test debugging can see the underlying
-  // Effect tagged error chain (FormSubmissionError / TableValidationError).
-  logError(`[forms] submission rejected: ${message}`, failure)
-  if (isJsonClient) return c.json({ error: 'submission_invalid', message }, 422)
-  return c.html(renderSubmissionErrorHtml(message, '422 — submission rejected'), 422)
-}
-
-/**
- * Build the success response: JSON `{ submissionId, linkedRecordId, record }`
- * for programmatic callers, 303 redirect to the Referer for native form
- * submits (so the browser navigates back to the host page).
- *
- * `record` carries ONLY the submitter-supplied bound-table columns (see
- * `SubmitFormResult`) so the client runtime can interpolate `$record.<column>`
- * into `onSuccess.redirect.url` without exposing any
- * server-computed / privileged column.
- */
-function respondSubmissionSuccess(
-  c: Context,
-  isJsonClient: boolean,
-  result: {
-    readonly submissionId: string | null
-    readonly linkedRecordId: string | null
-    readonly record: Readonly<Record<string, unknown>>
-  }
-): Response {
-  if (isJsonClient) {
-    return c.json(
-      {
-        submissionId: result.submissionId,
-        linkedRecordId: result.linkedRecordId,
-        record: result.record,
-      },
-      201
-    )
-  }
-  return c.redirect(resolveSubmitRedirectTarget(c), 303)
-}
-
-/**
- * [internal ref]: multipart submissions from the inline form runtime AND from
- * programmatic clients (test fixtures, third-party API consumers) want a
- * JSON response. Detect them alongside the application/json branch so
- * the Referer-based redirect is reserved for `<form action>` posts that
- * never set Accept and therefore truly want HTML navigation back to the
- * host page.
- */
-function detectJsonClient(c: Context): boolean {
-  const contentType = c.req.header('content-type') ?? ''
-  const acceptHeader = c.req.header('accept') ?? ''
-  return (
-    contentType.includes('application/json') ||
-    contentType.includes('multipart/form-data') ||
-    acceptHeader.includes('application/json')
-  )
-}
-
-/**
  * `POST /api/forms/:name/submissions` — accept a submission, write to
  * the bound table when configured, then write the ledger row.
  *
@@ -531,7 +298,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   if (!name) return formNameRequired(c)
   const form = findFormByName(app, name)
   if (!form) return formNotFound(c)
-  // [internal ref]: enforce the form access gate before reading the
+  // Enforce the form access gate before reading the
   // body. `authenticated` denial → 401; role denial → 404 (anti-enumeration).
   const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'json')
@@ -558,7 +325,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   // table write. JSON / urlencoded bodies pass through untouched.
   const uploadResult = await runRequestEffect(
     c,
-    provideDomain(c, transformMultipartFiles(app, form, rawBody)).pipe(Effect.result)
+    provideDomain(c, transformMultipartFiles(app, form, rawBody, session)).pipe(Effect.result)
   )
   if (uploadResult._tag === 'Failure') {
     return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
@@ -605,7 +372,7 @@ interface RunSubmitProgramConfig {
   readonly isJsonClient: boolean
   /**
    * The signed-in submitter, if any: their id is captured on the ledger row
-   *, and the form's choice filters resolve `$currentUser`
+   * and the form's choice filters resolve `$currentUser`
    * for them as the page did.
    */
   readonly session: Parameters<typeof resolveFormOptionVisitor>[1]
@@ -622,8 +389,10 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
   const visitor = await resolveFormOptionVisitor(c, session)
   const ipAddress = getRequestClientIp(c)
   const userAgent = c.req.header('user-agent')
+  // An embedded form posts to `?surface=embed` (`buildFormAttributes`); the
+  // program reads that marker off the query (`splitSubmissionSurface`).
   const query = c.req.query() as Record<string, string>
-  // [internal ref] + S5: hash-on-write at the route boundary so the raw IP
+  // A forms spec + S5: hash-on-write at the route boundary so the raw IP
   // is bounded to the rate-limiter's volatile in-memory state and never
   // crosses into the application layer or persistence. When the request
   // arrives without an IP (no X-Forwarded-For / X-Real-IP), hash the empty
@@ -631,6 +400,7 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
   // (64 hex chars guaranteed) and anonymous traffic shares a stable
   // rate-limit bucket.
   const submitterIpHash = hashIp(resolveIpHashSalt(), ipAddress ?? '')
+  const links = submissionLinkTokens(c, app, formName)
   const program = submitFormProgram({
     app,
     formName,
@@ -643,12 +413,38 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(submitterUserId !== undefined ? { submitterUserId } : {}),
     ...(visitor !== undefined ? { visitor } : {}),
+    ...links.hashes,
   })
   const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
   if (result._tag === 'Failure') {
     return respondSubmissionFailure(c, isJsonClient, result.failure)
   }
-  return respondSubmissionSuccess(c, isJsonClient, result.success)
+  return respondSubmissionSuccess(c, isJsonClient, {
+    ...result.success,
+    ...links.editUrlFor(result.success.submissionId),
+  })
+}
+
+/**
+ * The private links a submission touches. A form with `editAfterSubmit` hands
+ * each submission an edit link, minted here; a submission sent from a resume
+ * link (`?resume=`) consumes that draft. Only digests reach the program; the
+ * edit token itself leaves only in the answer, as the link.
+ */
+function submissionLinkTokens(c: Context, app: App, formName: string) {
+  const editToken =
+    findFormByName(app, formName)?.editAfterSubmit === undefined ? undefined : issueAccessToken()
+  const resumeToken = resumeTokenOf(c)
+  return {
+    hashes: {
+      ...(editToken === undefined ? {} : { editTokenHash: editToken.hash }),
+      ...(resumeToken === undefined ? {} : { resumeTokenHash: hashAccessToken(resumeToken) }),
+    },
+    editUrlFor: (submissionId: string | null): { readonly editUrl?: string } =>
+      editToken === undefined || submissionId === null
+        ? {}
+        : { editUrl: editPathOf(formName, editToken.token) },
+  }
 }
 
 /**
@@ -656,13 +452,10 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
  *
  * Registers:
  *   GET  /forms/:name              → render form HTML
- *   GET  /forms/:name/embed        → render embed variant
  *   POST /api/forms/:name/submissions → write submission
  *
  * When a form declares a custom `path`, that path is also registered
- * as an alias for the canonical GET. The order matters: more specific
- * paths (`/forms/:name/embed`) are registered before less specific
- * (`/forms/:name`) so Hono resolves them correctly.
+ * as an alias for the canonical GET.
  *
  * `renderers` are injected by the caller (infrastructure/server) so this
  * file does not import directly from `presentation-rendering`.
@@ -676,6 +469,20 @@ export function chainFormRoutes<T extends Hono>(
   const withCanonical = honoApp
     .get('/forms/:name', (c) => handleGetForm(c, app, renderers))
     .post('/api/forms/:name/submissions', (c) => handlePostSubmission(c, app))
+    // Save and resume: keep a half-filled answer, mail its resume link.
+    .post('/api/forms/:name/drafts', (c) => handlePostDraft(c, app, readSubmissionBody))
+    // Edit after submit: the edit page, and the save (PUT, or POST from a native form).
+    .get('/forms/:name/edit/:token', (c) =>
+      handleGetEditPage(c, app, (form, editLink) =>
+        respondWithForm(c, app, form, { renderers, editLink })
+      )
+    )
+    .put('/api/forms/:name/submissions/edit/:token', (c) =>
+      handleEditSubmission(c, app, readSubmissionBody)
+    )
+    .post('/api/forms/:name/submissions/edit/:token', (c) =>
+      handleEditSubmission(c, app, readSubmissionBody)
+    )
     // Multi-step navigation. Registered alongside the canonical submission
     // endpoint so the cross-validator's step-aware rules and the per-step
     // SSR share the same Hono app instance and access the same `app` payload.
@@ -709,7 +516,7 @@ export function chainFormRoutes<T extends Hono>(
     return acc.get(form.path, async (c) => {
       const resolved = findFormByName(app, form.name)
       if (!resolved) return c.notFound()
-      return respondWithForm(c, app, resolved, renderers)
+      return respondWithForm(c, app, resolved, { renderers })
     }) as T
   }, withCanonical as T)
 }

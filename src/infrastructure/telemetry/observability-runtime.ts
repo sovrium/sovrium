@@ -6,7 +6,7 @@
  */
 
 /**
- * Unified observability runtime ([internal ref]-*).
+ * Unified observability runtime (the infrastructure observability requirement-*).
  *
  * ONE `ManagedRuntime` carries the whole logging path: a custom stdout logger
  * (`[ISO] [LEVEL] msg`, byte-compatible with the previous `Console.*` output)
@@ -153,7 +153,6 @@ const stdoutLogger: Logger.Logger<unknown, void> = Logger.make(({ logLevel, mess
   const label = logLevel.toUpperCase()
   const line = `${formatStdoutLogLine(label, String(message), date)}\n`
   const toStderr = label === 'ERROR' || label === 'WARN'
-  // eslint-disable-next-line functional/no-expression-statements -- terminal sink write
   ;(toStderr ? process.stderr : process.stdout).write(line)
 })
 
@@ -373,23 +372,19 @@ const buildLayer = (withOtlp: boolean): Layer.Layer<never> => {
 // than adding `^ObsRuntime$` to that list keeps the list describing types we do
 // not own, instead of quietly accumulating names of ours.
 /** The sync-buildable stdout-only runtime — always available (boot window / OTLP off). */
-// eslint-disable-next-line functional/prefer-immutable-types -- ObsRuntime is an alias
 const bootstrapRuntime = (): ObsRuntime => {
   const existing = runtimes.get('bootstrap')
   if (existing !== undefined) return existing
   const runtime = ManagedRuntime.make(buildLayer(false))
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- memoize
   runtimes.set('bootstrap', runtime)
   return runtime
 }
 
 /** The active runtime: the pre-built stdout+OTLP one once ready, else bootstrap. */
-// eslint-disable-next-line functional/prefer-immutable-types -- ObsRuntime is an alias
 const activeRuntime = (): ObsRuntime => runtimes.get('full') ?? bootstrapRuntime()
 
 /** Provide the OTLP resource identity (called before `initObsRuntime`). */
 export const setLogResource = (resource: LogResource): void => {
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- set-once resource
   state.set('resource', resource)
 }
 
@@ -415,9 +410,7 @@ export const initObsRuntime = async (): Promise<void> => {
   // cached context (ManagedRuntime.d.ts:108), which is what "pre-build" means
   // here — the async OTLP Scope and its exporter fibers are acquired now so
   // every later `runSync` takes the synchronous cached path.
-  // eslint-disable-next-line functional/no-expression-statements -- pre-build the runtime
   await runtime.context()
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- publish the pre-built runtime
   runtimes.set('full', runtime)
 }
 
@@ -502,8 +495,6 @@ export const runRequest = <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
 export const disposeObsRuntime = async (): Promise<void> => {
   const runtime = runtimes.get('full')
   if (runtime === undefined) return
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- release the handle (Map.delete; drizzle rule false-positive on Map)
   runtimes.delete('full')
-  // eslint-disable-next-line functional/no-expression-statements -- flush + close the export runtime
   await runtime.dispose().catch(() => undefined)
 }

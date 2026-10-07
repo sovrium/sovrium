@@ -154,15 +154,12 @@ export const favoritesButtonComponent: ComponentRenderer = ({ component }): Reac
         data-favorited="false"
         aria-pressed="false"
         aria-label="Add to favorites"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR render, no client re-render
         style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1.25rem' }}
       >
         {'☆'}
       </button>
-      <script
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
-        dangerouslySetInnerHTML={{ __html: FAVORITES_BUTTON_RUNTIME }}
-      />
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
+      <script dangerouslySetInnerHTML={{ __html: FAVORITES_BUTTON_RUNTIME }} />
     </>
   )
 }

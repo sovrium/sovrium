@@ -10,7 +10,6 @@ import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   conflict,
-  forbidden,
   notFound,
   unauthorized,
   validationError,
@@ -41,44 +40,6 @@ interface BetterAuthAPI {
       headers: Headers
       body: { userId: string; role: string }
     }) => Promise<unknown>
-  }
-}
-
-/**
- * PATCH /api/auth/user/update
- *
- * Update user profile information.
- * CRITICAL: Prevents role manipulation attacks by blocking role changes.
- *
- * Security Controls:
- * - Rejects any attempt to modify the 'role' field (403 Forbidden)
- * - Ensures users cannot escalate their own privileges
- * - Only Better Auth admin endpoints can modify roles
- */
-const handleUserUpdate = async (c: Context) => {
-  try {
-    // Parse request body
-    const body = (await c.req.json()) as Record<string, unknown>
-
-    // SECURITY: Prevent role manipulation attacks
-    // Users must never be able to change their own role or any user's role
-    // via this endpoint. Role changes require admin privileges and must go
-    // through Better Auth's admin endpoints.
-    if ('role' in body) {
-      return forbidden(c, 'Cannot update user role through this endpoint')
-    }
-
-    // If role field is not present, the request would be valid
-    // (but we don't implement actual user updates yet - minimal implementation)
-    return c.json(
-      { success: false, message: 'User updates not yet implemented', code: 'BAD_REQUEST' },
-      400
-    )
-  } catch {
-    return c.json(
-      { success: false, message: 'Could not parse request body', code: 'BAD_REQUEST' },
-      400
-    )
   }
 }
 
@@ -178,7 +139,7 @@ const authorizeAdminCaller = async (
  * that is not JSON throw a `SyntaxError` which the caller's own catch relabelled
  * `500 'Failed to update user role'` — a caller's typo reported as a server
  * fault, and paged as one. Degrading to `undefined` routes the same input to the
- * 400 below, matching `handleUserUpdate`'s wording for the identical failure.
+ * 400 below.
  *
  * The non-object check closes the same class by the other door: `null`, `5` and
  * `"role"` are all VALID JSON, so they survive the parse and then throw a
@@ -329,13 +290,8 @@ export const chainAuthRoutes = (
   app: AdminRoleResolvable,
   authInstance?: unknown
 ): Hono => {
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for route registration
-  hono.patch('/api/auth/user/update', handleUserUpdate)
-
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for route registration
   hono.post('/api/auth/session/refresh', createSessionRefreshHandler(authInstance))
 
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for route registration
   hono.patch('/api/auth/admin/users/:id', createAdminUserUpdateHandler(app, authInstance))
 
   return hono

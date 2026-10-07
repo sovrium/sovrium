@@ -397,7 +397,7 @@ export function systemRowTemplateDepthViolations(
 // ---------------------------------------------------------------------------
 
 /**
- * The refusals around `container.repeat` ([internal ref] CAP-6, [internal ref] CAP-7).
+ * The refusals around `container.repeat`.
  *
  * `repeat` renders a container's children once per element of an array a
  * record already carries. That is resolvable in two places -- the client-side
@@ -593,7 +593,7 @@ function repeatPositionViolations(
 }
 
 /**
- * Refusals 1, 2, 3 and 5 of [internal ref]: what a repeat may be called, and how deep
+ * Refusals 1, 2, 3 and 5 of the run-as-a-page design: what a repeat may be called, and how deep
  * repeats may nest. Each is otherwise silent — a reserved name re-scopes a token
  * the page already reads, an unnamed parent leaves `$record.` naming a key on two
  * elements at once, a re-used name shadows the outer element, and a third level
@@ -631,7 +631,7 @@ function repeatNestingViolations(
 }
 
 /**
- * Refusal 4 of [internal ref]: a `$<as>.` token outside the repeat that declares `as`.
+ * Refusal 4 of the run-as-a-page design: a `$<as>.` token outside the repeat that declares `as`.
  * Nothing resolves it there, so it would ship as literal text on every copy; the
  * message names the token as written, which is what the author has to move.
  */

@@ -6,8 +6,7 @@
  */
 
 /**
- * Application use-case for the AI-interaction activity feed
- *.
+ * Application use-case for the AI-interaction activity feed.
  *
  * A thin pass-through over the `AiActivityLogRepository` port — the
  * presentation layer consumes it via `Effect.runPromise`, the infrastructure

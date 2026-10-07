@@ -19,8 +19,6 @@ import {
   type SSGGenerationError,
 } from '@/application/ports/services/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
-import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
-import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path'
 import { logDebug } from '@/infrastructure/logging'
 import { generateLlmsFiles } from './generate-llms-files'
 import { generateMarkdownTwinFiles } from './generate-markdown-twins'
@@ -29,7 +27,6 @@ import {
   path,
   translationReplacer,
   writeCssFile,
-  generateHydrationFiles,
   copyPublicAssets,
   formatHtmlFiles,
   applyHtmlOptimizations,
@@ -43,12 +40,12 @@ import {
   generateMultiLanguageFiles,
   generateSingleLanguageFiles,
 } from './static-language-generators'
+import type { StaticBuildServices } from './prebuild-search-index'
 import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
-import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 
 /**
  * Options for static site generation
@@ -62,7 +59,6 @@ export interface GenerateStaticOptions {
   readonly defaultLanguage?: string
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
-  readonly hydration?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly publicDir?: string // Directory containing static assets to copy
   /**
@@ -92,9 +88,8 @@ export interface GenerateStaticResult {
  *
  * `build()` (`src/index.ts`) already ran this config through
  * `decodeAppConfigObject` — the shared pipeline, `onExcessProperty: 'error'`
- * and all — and hands `generateStatic` the NORMALIZED result. So by the time
- * this runs the verdict is settled; what remains is turning an
- * already-accepted object back into the `App` TYPE this module's callers need.
+ * and all — and hands `generateStatic` the NORMALIZED result. The verdict is
+ * settled; this turns an accepted object back into the `App` TYPE callers need.
  *
  * THE MULTI-LANGUAGE BRANCH LOOKS LIKE A HOLE AND IS NOT ONE. When the app
  * declares `languages`, the pages are decoded WITHOUT and then re-attached raw,
@@ -230,22 +225,26 @@ function generateCssFile(
 
     // Write to static output directory (dist/assets/output.css), plus the
     // content-versioned twin the rendered HTML actually links.
-    const cssFile = yield* writeCssFile(outputDir, css, fs, getVersionedCssFileName(app))
+    const cssFile = yield* writeCssFile(outputDir, css, fs, cssCompiler.versionedFileName(app))
 
     if (!emitPrecompiledCss) {
       return cssFile
     }
 
     // Also write pre-compiled CSS for production start
-    const precompiledPath = yield* writePrecompiledCSS(css).pipe(
-      Effect.catch((error) =>
-        Console.log(`⚠️ Could not write pre-compiled CSS: ${error}`).pipe(Effect.as(undefined))
+    const precompiledPath = yield* cssCompiler
+      .writePrecompiled(css)
+      .pipe(
+        Effect.catch(({ cause: c }) =>
+          Console.log(`⚠️ Could not write pre-compiled CSS: ${String(c)}`).pipe(
+            Effect.as(undefined)
+          )
+        )
       )
-    )
     if (precompiledPath) {
       // User-visible (not debug): `sovrium build` documents this line as part of
       // its output contract so operators can confirm the production CSS artifact
-      // was written..
+      // was written.
       yield* Console.log(`Pre-compiled CSS written to ${precompiledPath}`)
     }
 
@@ -270,7 +269,7 @@ const isRecordPageFile =
 /**
  * Optimize HTML files with formatting and transformations
  *
- * Record pages get the transformations (base path, hydration) but are not laid
+ * Record pages get the base-path transformation but are not laid
  * out by Prettier. Formatting costs tens of milliseconds a page, so a table of
  * thousands of rows would spend minutes re-indenting whitespace; a browser and
  * a crawler read the page identically either way.
@@ -296,7 +295,6 @@ function optimizeHtmlFiles(
       outputDir,
       options,
       fs: fsModule,
-      path,
     })
   })
 }
@@ -357,7 +355,6 @@ export const generateStatic = (
   | SSGGenerationError
   | CSSCompilationError
   | ServerCreationError
-  | FileCopyError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   // Raised when `IMAGE_TRANSFORM_PRESETS` is malformed, reached through the
@@ -366,7 +363,7 @@ export const generateStatic = (
   // signature said it could not produce.
   | TransformPresetError
   | Error,
-  ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
+  StaticBuildServices
 > => {
   const program = Effect.gen(function* () {
     // Step 1: Dependencies are statically imported
@@ -403,16 +400,10 @@ export const generateStatic = (
       fs,
       options.emitPrecompiledCss ?? true
     )
-    const hydrationFiles = yield* generateHydrationFiles(outputDir, options.hydration ?? false, fs)
     const assetFiles = yield* copyPublicAssets(options.publicDir, outputDir)
 
     // Collect all generated files
-    const generatedFiles = [
-      ...htmlFiles,
-      cssFile,
-      ...hydrationFiles,
-      ...assetFiles,
-    ] as readonly string[]
+    const generatedFiles = [...htmlFiles, cssFile, ...assetFiles] as readonly string[]
 
     // Step 6: Optimize HTML files
     yield* optimizeHtmlFiles(

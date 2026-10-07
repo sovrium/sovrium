@@ -37,14 +37,20 @@ const ATTACHMENT_GLYPH = (
 export function AttachmentLink({ entry }: { entry: AttachmentEntry }): React.ReactNode {
   if (entry.href === undefined) {
     return (
-      <span className={computeAttachmentEntryClasses()}>
+      <span
+        data-cell-entry=""
+        className={computeAttachmentEntryClasses()}
+      >
         {ATTACHMENT_GLYPH}
         <span className={computeAttachmentLinkClasses()}>{entry.name}</span>
       </span>
     )
   }
   return (
-    <span className={computeAttachmentEntryClasses()}>
+    <span
+      data-cell-entry=""
+      className={computeAttachmentEntryClasses()}
+    >
       {ATTACHMENT_GLYPH}
       <a
         href={entry.href}

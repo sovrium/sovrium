@@ -160,27 +160,44 @@ const collapseParts = (
   )
 }
 
+/** Two part maps, the later appended after the earlier on a shared part. */
+const layerParts = (
+  earlier: Readonly<Record<string, string>>,
+  later: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> => appendParts({ ...earlier }, later)
+
 /**
- * Resolve one engine type's `design.components` block against the active
- * variant.
+ * Resolve one engine type's `design.components` block — and, above it, one
+ * instance's own `classes` — against the active variant.
+ *
+ * The instance layer is the same shape as the app-wide one and lands AFTER it
+ * on every part, so a node's `classes` win over `design.components` for that
+ * node alone: `recipe < design.components < classes < props.className < floor`.
+ * Either layer's `replace: true` drops the recipe, and either declaration arms
+ * the floor.
  *
  * @param design - The app's `design` key, if any.
  * @param type - The engine component type being rendered (`button`, `tabs`, …).
  * @param variant - The variant this instance renders in, if the type has one.
+ * @param classes - This instance's own `classes`, if any.
  * @returns The operator layer, the per-part map, `replace`, and the floor.
  */
 export const resolveComponentStyle = (
   design: Design | undefined,
   type: string,
-  variant?: string
+  variant?: string,
+  classes?: ComponentStyle
 ): ComponentDesignResolution => {
   const style = (design?.components as Readonly<Record<string, ComponentStyle>> | undefined)?.[type]
-  if (!style) return EMPTY_RESOLUTION
+  const layers = [style, classes].filter((layer): layer is ComponentStyle => layer !== undefined)
+  if (layers.length === 0) return EMPTY_RESOLUTION
 
-  const parts = collapseParts(style, variant)
+  const parts = layers
+    .map((layer) => collapseParts(layer, variant))
+    .reduce<Readonly<Record<string, string>>>(layerParts, {})
   const { root = '', ...rest } = parts
   return {
-    replace: style.replace === true,
+    replace: layers.some((layer) => layer.replace === true),
     root,
     parts: rest,
     // The floor is armed by the DECLARATION, not by the type — see the module
@@ -203,6 +220,8 @@ export interface ResolveComponentClassesInput {
   readonly type: string
   readonly part?: string
   readonly variant?: string
+  /** The instance's own `classes`, layered above `design.components`. */
+  readonly classes?: ComponentStyle
   readonly author?: string
   readonly defaults?: string
 }
@@ -211,7 +230,7 @@ export interface ResolveComponentClassesInput {
 const layersFor = (
   input: ResolveComponentClassesInput
 ): { defaults: string; app: string; floor: string } => {
-  const resolution = resolveComponentStyle(input.design, input.type, input.variant)
+  const resolution = resolveComponentStyle(input.design, input.type, input.variant, input.classes)
   const part = input.part ?? 'root'
   const isRoot = part === 'root'
   return {

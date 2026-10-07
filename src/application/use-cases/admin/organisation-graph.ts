@@ -34,7 +34,7 @@
  * The bound is independent of how many teams, tables or principals the instance
  * has. A fourth query per team or per principal is a review failure rather than
  * an optimisation opportunity, which is why
- * `[internal ref]` asserts INVARIANCE under growth and
+ * an admin dashboard organisation graph spec asserts INVARIANCE under growth and
  * not merely a ceiling: a ceiling alone passes on an instance too small to
  * reveal the fan-out. `listAllTeamMemberships` exists for exactly this reason —
  * its per-team sibling would have been the N+1.

@@ -239,7 +239,7 @@ const buildLedgerRow = (input: LedgerRowInput): NewBootLedgerEntry => {
     payload,
     app.env,
     process.env,
-    app.connections as readonly Readonly<Record<string, unknown>>[] | undefined
+    app.connections
   ) as typeof payload
 
   return {
@@ -280,7 +280,7 @@ export const captureBootLedgerEntry = (
       plainSnapshot(app),
       app.env,
       process.env,
-      app.connections as readonly Readonly<Record<string, unknown>>[] | undefined
+      app.connections
     ) as Snapshot
 
     const configHash = computeConfigHash(canonicalJson(redactedSnapshot))

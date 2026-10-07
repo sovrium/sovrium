@@ -30,6 +30,7 @@ import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduli
 import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
 import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
+import { registerFormDraftExpiryScheduler } from '@/infrastructure/scheduling/register-form-draft-expiry'
 import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
 import {
   registerWeeklyDigestScheduler,
@@ -43,6 +44,7 @@ import {
   createStopEffect,
   parsePort,
   reloadBunServer,
+  resolveMaxRequestBodySize,
   startBunServer,
 } from '@/infrastructure/server/bun-listener'
 import { fireAgentSchedule } from '@/infrastructure/server/compose-hono-app'
@@ -66,8 +68,8 @@ import type { ServerCreationError } from '@/infrastructure/errors/server-creatio
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { ServerConfig } from '@/infrastructure/server/server-config'
 
-// Commit 1 of the split keeps every name this module used to export resolving
-// from here. `apply-symbol-moves.ts` re-points the importers and deletes these.
+// Re-exported so importers that name this module still resolve.
+// `apply-symbol-moves.ts` re-points the importers and deletes these.
 export type { ServerConfig } from '@/infrastructure/server/server-config'
 
 /**
@@ -189,7 +191,12 @@ export const createServer = (
     // correctness requirement rather than a preference.
     const domain = yield* buildDomainRuntimeAndApp(config)
 
-    const server = yield* startBunServer(domain.honoApp, port, hostname)
+    const server = yield* startBunServer(
+      domain.honoApp,
+      port,
+      hostname,
+      resolveMaxRequestBodySize(config.app)
+    )
     const url = `http://${hostname}:${server.port}`
 
     // Publish the origin the socket ACTUALLY bound to, before any armed-up
@@ -210,9 +217,8 @@ export const createServer = (
     // register-agent-schedules.ts.
     //
     // All four arm jobs on the ONE `CronScheduler` the domain runtime carries.
-    // They used to `Effect.provide(CronSchedulerLive)` for themselves, which was
-    // harmless while the registry was module-level — and is now a bug, because
-    // the scheduler is scoped: four provides would be four registries in four
+    // None may `Effect.provide(CronSchedulerLive)` for itself, because the
+    // scheduler is scoped: four provides would be four registries in four
     // scopes, each closing (and interrupting its jobs) the instant its own
     // registration returned. Providing the resolved domain context instead is
     // one build, one registry, one scope — the server's.
@@ -230,6 +236,8 @@ export const createServer = (
         // then one every minute. Post-bind, because an `onTimeout: approve`
         // resumes its run through this runtime.
         registerApprovalExpiryScheduler(config.app, process.env),
+        // Saved form drafts past their resume link's life: at boot, then hourly.
+        registerFormDraftExpiryScheduler(config.app),
         registerWeeklyDigestScheduler(config.app),
         // The weekly summary's boot catch-up: one summary for a week missed
         // while the server was down. Post-bind, because it reads every domain
@@ -311,7 +319,8 @@ export const createServer = (
         // whatever the superseded context still holds.
         buildHonoApp: (nextApp, nextHash) =>
           buildHonoAppFromConfig({ ...config, app: nextApp, configHash: nextHash }, domain.context),
-        swapHandler: (nextHonoApp) => reloadBunServer(server, nextHonoApp, hostname),
+        swapHandler: (nextHonoApp, nextApp) =>
+          reloadBunServer(server, nextHonoApp, hostname, resolveMaxRequestBodySize(nextApp)),
         configPath,
         silent: config.silent === true,
       }),

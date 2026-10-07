@@ -30,18 +30,11 @@
 
 import { Effect } from 'effect'
 import {
-  checkStorageQuota,
   produceTransformedFile,
   removeBucketFile,
-  storeBucketFile,
 } from '@/application/use-cases/buckets/bucket-file-programs'
 import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
-import {
-  checkUploadFile,
-  checkUploadPath,
-  type UploadRejection,
-  type UploadRejectionReason,
-} from '@/application/use-cases/buckets/upload-policy'
+import { checkUploadFile, checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isImageKey } from '@/domain/kernel/identity/mime-types'
 import { AVATAR_BUCKET_NAME, resolveAvatarBucket } from '@/domain/models/app/auth/avatar-url'
@@ -69,7 +62,6 @@ import {
   isFilePublic,
   resolveStoragePublicAccess,
 } from '@/domain/models/process-env/storage/storage-public-access'
-import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
   runDomainPromise,
@@ -81,13 +73,14 @@ import {
   getCachedTransform,
   setCachedTransform,
 } from '@/infrastructure/storage/transform-cache'
-import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
 import {
   buildTransformResponse,
   storageFailureResponse,
   transformFailureResponse,
   TRANSFORM_CACHE_CONTROL,
 } from '@/presentation/api/buckets/download-response'
+import { deleteFailureResponse, persistUpload } from '@/presentation/api/buckets/file-writes'
+import { refuseUnlessOwnerOrAdmin } from '@/presentation/api/buckets/object-ownership-gate'
 import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
 import {
   createHandleSign,
@@ -96,9 +89,8 @@ import {
 } from '@/presentation/api/buckets/signed-urls'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
+import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
 import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
@@ -171,7 +163,7 @@ function createHandleGetBucketFile(app: App) {
       if (!allowed) {
         // 404 for BOTH the anonymous and the wrong-role denial: `GET` is the
         // enumeration surface, so it must never distinguish "absent" from
-        // "forbidden" (S1 — [internal ref] sets the anonymous half).
+        // "forbidden" (S1 — a buckets bucket spec sets the anonymous half).
         return notFound(c)
       }
     }
@@ -245,12 +237,7 @@ async function serveFileDownload(
   const etag = buildTransformETag(cacheKey)
 
   if (c.req.header('If-None-Match') === etag) {
-    return c.body(
-      // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 304
-      null,
-      304,
-      { 'Cache-Control': TRANSFORM_CACHE_CONTROL, ETag: etag }
-    )
+    return c.body(null, 304, { 'Cache-Control': TRANSFORM_CACHE_CONTROL, ETag: etag })
   }
 
   const hit = getCachedTransform(cacheKey)
@@ -306,16 +293,16 @@ async function produceTransformResponse(
 /**
  * Decide whether the caller may perform `action` on `bucket`.
  *
- * Mirrors `canSign` (`buckets/signed-urls.ts`) with one deliberate inversion:
+ * Mirrors `canSignBucketUrl` (`domain/models/app/buckets/bucket-sign-validation.ts`) with one deliberate inversion:
  * an UNDECLARED permission falls back to `undeclaredGrant` — the gate the
  * platform applies by default — rather than to signing's admin-only default.
  * Inheriting
  * that default here would lock every app that never wrote a `permissions` block
  * out of its own storage, because `createAuthenticatedUser()` resolves to
- * `member` ([internal ref]; `[internal ref]` is the guard).
+ * `member` (the bucket-permission enforcement rule; a buckets perm spec is the guard).
  *
  * Admin always passes a declared role list (admin override), exactly as in
- * `canSign`. An anonymous caller passes only the literal `'all'`.
+ * `canSignBucketUrl`. An anonymous caller passes only the literal `'all'`.
  *
  * The caller's role is resolved ONLY for a role array: `'all'`, `'authenticated'`
  * and undeclared are all decidable from session presence. `GET` on a bucket file
@@ -367,13 +354,13 @@ async function canAct(
  * permission for it: a session is required.
  *
  * `public: true` governs READS only — it grants nothing on `POST`/`DELETE`
- *. The one exception is an app with no `auth` block at all: there
+ * The one exception is an app with no `auth` block at all: there
  * is no session system to gate against, so a public bucket (including the
  * built-in `system` bucket, which resolves to `public: !app.auth`) stays anonymously
  * writable. That carve-out is what keeps page-component file-upload forms
  * working on a no-auth app; it is bounded on purpose, and a DECLARED bucket
- * without `public: true` stays unwritable there ([internal ref],
- * `[internal ref]` pins both halves).
+ * without `public: true` stays unwritable there (the bucket-permission enforcement rule,
+ * a buckets perm spec pins both halves).
  *
  * The way out of the asymmetry is the same explicit lever an auth-enabled app
  * uses: `permissions: { upload: 'all' }`.
@@ -405,28 +392,6 @@ function denyWrite(c: Context, session: UserSession | undefined): Response {
     )
   }
   return notFound(c, 'Resource not found')
-}
-
-/**
- * The status each upload refusal earns.
- *
- * A table rather than a chain of `if`s, and TOTAL over
- * {@link UploadRejectionReason}, so a rule added on the application side cannot
- * reach the wire without someone choosing its status here. Only the size cap is
- * a 413 — the rest are malformed requests.
- */
-const UPLOAD_REJECTION_STATUS: Readonly<
-  Record<UploadRejectionReason, { readonly status: 400 | 413; readonly code: ApiErrorCode }>
-> = {
-  'invalid-filename': { status: 400, code: 'BAD_REQUEST' },
-  'invalid-path': { status: 400, code: 'BAD_REQUEST' },
-  'file-too-large': { status: 413, code: 'PAYLOAD_TOO_LARGE' },
-  'mime-type-not-allowed': { status: 400, code: 'BAD_REQUEST' },
-}
-
-const rejectUpload = (c: Context, rejection: Readonly<UploadRejection>): Response => {
-  const { status, code } = UPLOAD_REJECTION_STATUS[rejection.reason]
-  return c.json(storageErrorBody(rejection.message, code), status)
 }
 
 /**
@@ -482,70 +447,29 @@ function createHandlePostBucketFile(app: App) {
       return denyWrite(c, session)
     }
 
-    return persistUpload(c, file, bucket.name, explicitPath)
+    // An explicit `path` can name a key that already holds somebody's object:
+    // replacing it is a write over THAT object, judged per object.
+    const refusal = await refuseUnlessOwnerOrAdmin(c, {
+      app,
+      bucket,
+      action: 'upload',
+      session,
+      key: explicitPath,
+    })
+    if (refusal) return refusal
+
+    return persistUpload(c, file, { bucket: bucket.name, session }, explicitPath)
   }
-}
-
-/**
- * Persist a validated upload and return the HTTP response.
- *
- * The quota probe runs FIRST and its verdict is advisory by construction: an
- * unreadable total allows the write (see `checkStorageQuota`), so a read-side
- * outage never becomes a write-side one.
- */
-async function persistUpload(
-  c: Context,
-  file: File,
-  bucket: string,
-  explicitPath?: string
-): Promise<Response> {
-  const arrayBuffer = await file.arrayBuffer()
-  const content = new Uint8Array(arrayBuffer)
-  const mimeType = file.type || 'application/octet-stream'
-  // An explicit `path` is stored verbatim (enables path-prefixed public keys);
-  // otherwise a random per-upload key avoids filename collisions while keeping
-  // the human-readable filename as a suffix for debugging convenience (shared
-  // `<uuid>-<filename>` convention — see {@link buildUploadStorageKey}).
-  const key = explicitPath ?? buildUploadStorageKey(file.name)
-
-  const quota = await runRequestEffect(c, provideDomain(c, checkStorageQuota(content.length)))
-  if (quota.kind === 'exceeded') {
-    return c.json(
-      storageErrorBody(
-        `Storage quota exceeded: ${quota.projected} > ${quota.cap} bytes`,
-        'QUOTA_EXCEEDED'
-      ),
-      507
-    )
-  }
-
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, storeBucketFile({ key, content, mimeType, bucket })).pipe(Effect.result)
-  )
-  if (result._tag === 'Failure') {
-    const { cause } = result.failure
-    logError('[buckets] upload failed', result.failure)
-    // An explicit `path` lets a caller aim an ordinary upload at a key another
-    // bucket owns. The storage layer refuses that write as not-found; answer 404
-    // with the generic message rather than echoing it inside a 500, so the
-    // refusal is indistinguishable from an absent key (S1).
-    if (isNotFoundError(cause)) {
-      return notFound(c, 'File not found')
-    }
-    const message = cause instanceof Error ? cause.message : String(cause)
-    return c.json(storageErrorBody(`Upload failed: ${message}`, 'STORAGE_ERROR'), 500)
-  }
-
-  return c.json({ success: true, key, size: content.length, mimeType, filename: file.name }, 201)
 }
 
 /**
  * Handle DELETE /api/buckets/:bucketName/files/:filename - Delete a file from a bucket
  *
  * Gated by `permissions.delete` (401 anonymous / 404 wrong-role); like upload,
- * `public: true` confers no write. Returns 204 on successful deletion, 404 if
- * the file does not exist.
+ * `public: true` confers no write. When the bucket leaves `delete` undeclared,
+ * only the object's uploader or an admin may remove it, and anyone else gets
+ * the unknown key's 404. Returns 204 on successful deletion, 404 if the file
+ * does not exist.
  */
 function createHandleDeleteBucketFile(app: App) {
   return async (c: Context) => {
@@ -572,28 +496,26 @@ function createHandleDeleteBucketFile(app: App) {
       return c.json(storageErrorBody('Missing filename', 'BAD_REQUEST'), 400)
     }
 
+    const refusal = await refuseUnlessOwnerOrAdmin(c, {
+      app,
+      bucket,
+      action: 'delete',
+      session,
+      key,
+    })
+    if (refusal) return refusal
+
     const result = await runRequestEffect(
       c,
       provideDomain(c, removeBucketFile({ key, bucket: bucket.name })).pipe(Effect.result)
     )
-    if (result._tag === 'Failure') {
-      const { cause } = result.failure
-      const isNotFound = isNotFoundError(cause)
-      if (!isNotFound) {
-        logError('[buckets] delete failed', result.failure)
-      }
-      const message = cause instanceof Error ? cause.message : String(cause)
-      return isNotFound
-        ? notFound(c, 'File not found')
-        : c.json(storageErrorBody(`Delete failed: ${message}`, 'STORAGE_ERROR'), 500)
-    }
+    if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
 
     // The file is gone from storage — drop every cached transform derived from
     // its key so a later download (with or without transform params) returns
     // 404 instead of serving stale cached transformed bytes.
     evictTransformCacheForKey(key)
 
-    // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
     return c.body(null, 204)
   }
 }

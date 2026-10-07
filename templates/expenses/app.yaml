@@ -17,8 +17,20 @@ auth:
 design:
   $ref: ./config/design.yaml
 
+# Optional: Qonto API credentials turn on the morning pull of the business
+# account's transactions (library/recipe/qonto-transactions-to-table.yaml).
+# Without them the app runs as before and that one automation stays idle.
+env:
+  - key: QONTO_LOGIN
+    description: Login of your Qonto organisation, for the transaction pull.
+    required: false
+  - key: QONTO_SECRET_KEY
+    description: Secret key of your Qonto organisation, for the transaction pull.
+    required: false
+
 tables:
   - $ref: ./config/tables/expenses.yaml
+  - $ref: ./config/tables/bank-transactions.yaml
 
 # The Add expense dialog on My expenses opens this form.
 forms:
@@ -29,6 +41,7 @@ automations:
   - $ref: ./config/automations/approve-expense.yaml
   - $ref: ./config/automations/reject-with-reason.yaml
   - $ref: ./config/automations/mark-reimbursed.yaml
+  - $ref: ./library/recipe/qonto-transactions-to-table.yaml
 
 # Listed in the order of the sidebar: your own claims first, then the two
 # pages only finance opens.
@@ -43,3 +56,6 @@ pages:
 # floating pill, so it never sits over the last row of a grid.
 badge:
   placement: footer
+
+connections:
+  - $ref: ./library/connection/qonto.yaml

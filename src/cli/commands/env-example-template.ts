@@ -19,8 +19,8 @@
  *   - Only IMPLEMENTED variables appear here. Every ECO_* row below has a real
  *     enforcement point in the binary — a lever that only echoed itself back
  *     through the admin overview is not a lever and does not belong here.
- *   - Storage is spelled `STORAGE_S3_*`. The bare `S3_*` aliases were removed;
- * `[internal ref]` pins that they never come back.
+ *   - Storage is spelled `STORAGE_S3_*`, with no bare `S3_*` aliases;
+ * `[internal ref]` pins that they never appear.
  */
 export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # Copy to .env and uncomment what you need. Every variable is OPTIONAL:

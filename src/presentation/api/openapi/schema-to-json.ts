@@ -338,7 +338,7 @@ const declaredAnnotations = (schema: Schema.Top): ReadonlyMap<string, JsonSchema
   // exactly what the schema itself declared. Taking the first or last
   // occurrence instead would hand the base whichever use site the walk reached
   // first — the same coin-flip the emitted document already makes.
-  const occurrences = collect((schema as unknown as { ast?: unknown }).ast, 0)
+  const occurrences = collect((schema as { ast?: unknown }).ast, 0)
   const byName = Object.groupBy(occurrences, ([name]) => name)
   return new Map(
     Object.entries(byName).flatMap(([name, group]) => {

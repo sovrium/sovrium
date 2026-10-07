@@ -34,7 +34,7 @@
  * would need the delegated copy runtime, which is scoped to code blocks.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 005, plus this type's own REGRESSION rollup
+ * Specs: the design system component input group specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

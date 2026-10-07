@@ -5,8 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Layer } from 'effect'
-import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
+import { Effect, Layer } from 'effect'
+import {
+  StaticSiteGenerator,
+  type SSGGenerationError,
+} from '@/application/ports/services/static-site-generator'
+import { readPageSearchRuntime } from '@/infrastructure/assets/page-search-runtime'
+import { copyDirectory } from '@/infrastructure/filesystem/copy-directory'
 import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
 
 /**
@@ -17,4 +22,13 @@ import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
  */
 export const StaticSiteGeneratorLive = Layer.succeed(StaticSiteGenerator, {
   generate: generateStaticSite,
+  readPageSearchRuntime,
+  copyDirectory: (source, destination) =>
+    copyDirectory(source, destination).pipe(
+      Effect.mapError((error): SSGGenerationError => ({
+        _tag: 'SSGGenerationError',
+        message: error.message,
+        cause: error,
+      }))
+    ),
 })

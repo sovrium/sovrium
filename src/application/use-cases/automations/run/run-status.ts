@@ -69,8 +69,8 @@ export const toApiStatus = (
  * Map an engine step's status to the API step status enum. The DB column is
  * plain `text` (no CHECK constraint); per-step `'skipped'` and `'filtered'`
  * are propagated verbatim so the persisted shape matches the in-memory shape
- * ([internal ref] reads step status directly via `findRunSteps`;
- * [internal ref] surfaces the filter halt as `'filtered'`).
+ * (an automation retry spec reads step status directly via `findRunSteps`;
+ * an API automation runs spec surfaces the filter halt as `'filtered'`).
  */
 export const toApiStepStatus = (
   engineStatus: 'success' | 'failure' | 'filtered' | 'skipped'

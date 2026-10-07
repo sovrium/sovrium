@@ -2,7 +2,7 @@
 
 ## Sovrium Trademark
 
-**Sovrium** is a registered trademark of **ESSENTIAL SERVICES** in France (and potentially other jurisdictions).
+**Sovrium** is a registered trademark of **ESSENTIAL SERVICES** in France, INPI registration no. [FR5200287](https://data.inpi.fr/marques/FR5200287?q=sovrium) (and potentially other jurisdictions).
 
 - **Trademark Owner**: ESSENTIAL SERVICES
 - **Trademark**: Sovrium
@@ -27,7 +27,7 @@ The copyright notice in all source files:
 Copyright (c) 2025-2026 ESSENTIAL SERVICES
 ```
 
-This protects the **code itself** under the Business Source License 1.1 (see LICENSE.md).
+This protects the **code itself**, which is source-available under the Business Source License 1.1 (see LICENSE.md). That license grants no right in the Sovrium trademark or logo.
 
 ### Trademark (Brand Protection)
 
@@ -59,7 +59,7 @@ You may **NOT** use "Sovrium" to:
 
 ### Commercial Use
 
-Commercial use of the Sovrium software requires a commercial license (see LICENSE.md).
+Use of the Sovrium software is governed by LICENSE.md; uses it restricts require a separate commercial license.
 
 Use of the Sovrium trademark in commercial contexts requires explicit permission from ESSENTIAL SERVICES.
 
@@ -78,8 +78,8 @@ This structure is intentional and provides:
 
 - **Clear ownership**: One legal entity owns everything
 - **Flexibility**: Code can be licensed separately from brand
-- **Protection**: Brand is protected even if code is open source
-- **Professionalism**: Standard practice for commercial open source
+- **Protection**: Brand is protected independently of the license under which the code is published
+- **Professionalism**: Common practice among source-available software publishers
 
 ## Questions?
 

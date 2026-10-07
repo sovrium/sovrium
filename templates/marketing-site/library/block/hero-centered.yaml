@@ -1,0 +1,52 @@
+# sovrium-library: block/hero-centered@0.30.0
+name: hero-centered
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: flex
+    props:
+      className: flex flex-col mx-auto max-w-3xl items-center gap-6 text-center
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2
+        children:
+          - type: container
+            props:
+              className: size-1.5 rounded-sm bg-primary
+          - type: text
+            element: span
+            props:
+              className: font-mono text-sm text-foreground-subtle
+            content: '[Eyebrow — category or release note]'
+      - type: text
+        element: h1
+        props:
+          className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05]'
+        content: State the offer in one sentence the visitor can repeat
+      - type: text
+        element: p
+        props:
+          className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-2xl
+        content: A second line names who it is for and what changes for them once they start. No adjectives it cannot prove.
+      - type: flex
+        props:
+          className: flex flex-col gap-3 sm:flex-row sm:items-center mt-2 w-full sm:w-auto sm:justify-center
+        children:
+          - type: link
+            props:
+              href: /contact
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-12 px-5 text-md'
+            content: '[Primary action]'
+          - type: link
+            props:
+              href: /about
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-12 px-5 text-md'
+            content: '[Secondary action]'
+      - type: text
+        element: p
+        props:
+          className: text-sm text-foreground-subtle mt-2
+        content: '[Reassurance line — what the visitor does not need to start]'

@@ -1,0 +1,16 @@
+# sovrium-library: block/empty-basic@0.30.0
+name: empty-basic
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: empty-state
+    emptyIcon: file-text
+    emptyTitle: No invoices yet
+    emptyDescription: 'Invoices you create or import appear here, newest first.'
+    children:
+      - type: link
+        props:
+          href: /invoices/new
+          className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+        content: New invoice

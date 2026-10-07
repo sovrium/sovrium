@@ -1,0 +1,13 @@
+# What visitors send from the contact page. Anyone may send one through the
+# contact form; only an admin reads them.
+id: 3
+name: messages
+fields:
+  - { id: 1, name: name, type: single-line-text, required: true }
+  - { id: 2, name: email, type: email, required: true }
+  - { id: 3, name: message, type: long-text, required: true }
+permissions:
+  read: [admin]
+  create: [admin]
+  update: [admin]
+  delete: [admin]

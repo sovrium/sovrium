@@ -49,7 +49,11 @@ components:
               # the piece that is late is spelled out on top of it.
               - type: list
                 props:
-                  className: 'md:hidden [&_li>div:last-child>span:first-child]:font-medium [&_li>div:last-child>span:first-child]:text-error [&_li]:rounded-lg [&_li]:border [&_li]:border-error/40 [&_li]:bg-background-raised [&_li]:flex-wrap [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                  className: md:hidden
+                classes:
+                  parts:
+                    item: rounded-lg border border-error/40 bg-background-raised
+                    title: text-[13px] leading-[var(--text-base--line-height)]
                 dataSource:
                   table: content
                   filter:
@@ -57,11 +61,12 @@ components:
                   sort:
                     - { field: publish_at, direction: asc }
                 listDisplay:
+                  itemLayout: stacked
                   emptyMessage: Nothing is late.
                   itemTemplate:
                     title: $record.title
                     metadata:
-                      - { field: flag, format: text }
+                      - { field: flag, format: text, className: font-medium text-error }
                       - { field: status, format: text }
                       - { field: publish_at, format: short-date }
               - type: filter-bar
@@ -124,11 +129,16 @@ components:
               #
               # A piece is a quiet chip with its channel as a coloured edge on
               # the left: the calendar paints the channel's colour as the
-              # chip's border, and the classes below keep only its left side,
+              # chip's border, and the event part below keeps only its left side,
               # so a month of pieces reads as text, not as a wall of colour.
               - type: calendar
-                props:
-                  className: '[&_.fc-event]:!border-l-[3px] [&_.fc-event]:!border-t-border [&_.fc-event]:!border-r-border [&_.fc-event]:!border-b-border [&_.fc-event]:!bg-background-raised [&_.fc-event_*]:!text-foreground [&_.fc-daygrid-day-frame]:min-h-[90px] [&_.fc-daygrid-day]:h-[90px] [&_.fc-col-header-cell]:font-mono [&_.fc-daygrid-day-number]:font-mono max-md:[&_.fc-daygrid-day-frame]:min-h-[64px] max-md:[&_.fc-daygrid-day]:h-auto max-md:[&_.fc-toolbar]:flex-wrap max-md:[&_.fc-toolbar]:gap-2'
+                classes:
+                  parts:
+                    event: '!border-l-[3px] !border-t-border !border-r-border !border-b-border !bg-background-raised !text-foreground'
+                    day: h-[90px] max-md:h-auto
+                    dayNumber: font-mono
+                    columnHeader: font-mono
+                    toolbar: max-md:flex-wrap max-md:gap-2
                 dataSource:
                   table: content
                   bindTo: calendar-filter
@@ -138,6 +148,7 @@ components:
                 dateField: publish_at
                 labelField: title
                 colorField: channel
+                dayMinHeight: { mobile: 64px, md: 90px }
                 defaultView: month
                 # A click opens the piece in the drawer below, through the
                 # same `?record=` address a link to it would use.

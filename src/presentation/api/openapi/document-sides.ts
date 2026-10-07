@@ -26,7 +26,7 @@ import type { JsonSchema } from './markers'
  *
  * `@hono/zod-openapi` is built on `@asteasolutions/zod-to-openapi`, which walks
  * Zod internals. Measured behaviour of that library against a PLAIN JSON-Schema
- * object (probes run 2026-09-03 against `@hono/zod-openapi@1.5.1`):
+ * object (probed against `@hono/zod-openapi@1.5.1`):
  *
  * | position                | plain JSON Schema accepted? |
  * |-------------------------|-----------------------------|

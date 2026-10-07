@@ -22,8 +22,8 @@
  * SSR placeholder always carries the empty-state copy so spec assertions
  * on `[data-component=...]` pass on first paint without JS.
  *
- * Specs: [internal ref] … 035 +
- * [internal ref] … 045
+ * Specs: the pages comments specs +
+ *        the pages public comments specs
  */
 
 import {
@@ -98,9 +98,9 @@ function GuestCommentHoneypot(): ReactElement {
  * The comment textarea is the one exception, and deliberately: it is the SAME
  * control the hydrated island draws, so it takes
  * `computeCommentComposerFieldClasses()` rather than the generic field recipe.
- * It used to carry `computeInputDefaultClasses() + min-h-[100px]` here while
- * the island drew `min-h-[80px]` from an unrelated literal — a 20px jump the
- * moment the page finished loading, from two strings nothing compared.
+ * Two independent strings (say `computeInputDefaultClasses() + min-h-[100px]`
+ * here and `min-h-[80px]` in the island) would make a 20px jump the moment the
+ * page finished loading, from two strings nothing compared.
  */
 const COMMENT_FIELD_ROW = 'grid gap-1'
 
@@ -119,8 +119,9 @@ const COMMENT_FIELD_LABEL = 'text-sm font-medium'
  * The comment is sent as JSON by the inline runtime, never by the form
  * itself: the form is drawn `method="post"` with its submit disabled (which
  * blocks Enter too), and the runtime enables the submit when it wires the
- * form. A press before that script ran used to fall back to the browser
- * default — a GET to the page carrying the guest's name, email and comment.
+ * form. Otherwise a press before that script ran would fall back to the
+ * browser default — a GET to the page carrying the guest's name, email and
+ * comment.
  */
 // eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
 function GuestCommentFormSkeleton({
@@ -252,10 +253,8 @@ function renderCommentsSection(input: {
             guestEmailRequired={cfg.guestEmailRequired}
             honeypotEnabled={showGuestForm}
           />
-          <script
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
-            dangerouslySetInnerHTML={{ __html: GUEST_COMMENT_FORM_RUNTIME }}
-          />
+          {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
+          <script dangerouslySetInnerHTML={{ __html: GUEST_COMMENT_FORM_RUNTIME }} />
         </>
       )}
     </section>
@@ -265,11 +264,11 @@ function renderCommentsSection(input: {
 /**
  * SSR renderer for `comments`, in both of its displays.
  *
- * `display: 'count'` draws the inline total that used to be its own
- * `commentCount` component type; anything else draws the full thread. The
- * dispatch is here rather than in `COMPONENT_REGISTRY` because the registry is
- * keyed by `type` and the two surfaces are now ONE type — which is the point of
- * the merge, and the reason the count branch keeps its own island, its own
+ * `display: 'count'` draws the inline total (there is no separate
+ * `commentCount` type); anything else draws the full thread. The dispatch is
+ * here rather than in `COMPONENT_REGISTRY` because the registry is keyed by
+ * `type` and the two surfaces are ONE type — which is why the count branch
+ * keeps its own island, its own
  * `data-component="comment-count"` marker and its own resolver.
  */
 export const commentsComponent: ComponentRenderer = (context) => {
@@ -300,7 +299,7 @@ export const commentsComponent: ComponentRenderer = (context) => {
           })
         )
       : undefined
-  // PG-02 [internal ref]: when the SSR resolver carries an
+  // PG-02 a pages public comments spec: when the SSR resolver carries an
   // authenticated session, surface the name + email through data-* attrs
   // so the inline guest-form runtime can prefill the visible inputs. The
   // attrs themselves never render user data into the document body — the

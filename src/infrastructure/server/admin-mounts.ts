@@ -32,12 +32,10 @@
  *
  * ─── WHY THIS LIVES IN `server/` AND NOT IN `assets/` ──────────────────────
  *
- * W5c left this file in `assets/` holding a path-scoped
- * `infrastructure/assets -> application/use-cases` grant, and said in as many
- * words that inverting it was "the better ending", deliberately deferred so
- * that wave's HTTP arrow stayed legible. W8 takes it.
+ * In `assets/`, this file would need a path-scoped
+ * `infrastructure/assets -> application/use-cases` grant.
  *
- * The inversion is a MOVE rather than a parameter thread, because measuring the
+ * The fix is a MOVE rather than a parameter thread, because measuring the
  * callers settles where the resolution belongs: all three of them
  * (`compose-hono-app.ts`, `route-setup/static-assets.ts`,
  * `startup-phase-report.ts`) are already in `infrastructure/server/`, which is
@@ -98,7 +96,6 @@ export const adminMountsFor = (operatorApp: App): readonly EmbeddedAppMount[] =>
     adminMode === 'off'
       ? []
       : buildEmbeddedAppMounts(operatorApp, resolveAdminPresetApp(), adminMode)
-  // eslint-disable-next-line functional/no-expression-statements -- memoization of a pure derivation over an immutable input
   mountsByApp.set(operatorApp, mounts)
   return mounts
 }

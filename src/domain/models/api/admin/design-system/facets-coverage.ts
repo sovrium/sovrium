@@ -27,8 +27,8 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  *
  * ─── ONE READ SERVES BOTH THINGS THE OVERVIEW SAYS ─────────────────────────
  *
- * `[internal ref]` prints how MUCH is declared — *2 font families*,
- * *N principles* — and `[internal ref]` prints WHETHER each layer is
+ * an admin design system spec prints how MUCH is declared — *2 font families*,
+ * *N principles* — and an admin design system spec prints WHETHER each layer is
  * declared at all, linking the undeclared ones to the config key that would
  * declare them. Those are the same ledger read twice, so they are one endpoint:
  * splitting them would let a count say "2 font families" beside a coverage row

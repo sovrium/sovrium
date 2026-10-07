@@ -56,12 +56,10 @@ export const SaveIndicatorPositionSchema = Schema.Literals(['inline', 'toast', '
  *
  * WHEN edits persist is configurable; WHAT persists them is not. Auto-save
  * always derives a CRUD update from the component's bound `dataSource.table`.
- * This struct used to carry a `saveAction` override alongside the four
- * properties below — but no code ever read it, so an author who set one got the
- * default update and no sign their override had been ignored. A config option
- * the interpreter does not interpret is worse than a missing one: it is
- * documented, autocompleted from the published JSON Schema, and silent. Adding
- * a real override back is a feature with a spec behind it, not a property.
+ * There is no `saveAction` override: a config option the interpreter does not
+ * interpret is worse than a missing one — it is documented, autocompleted from
+ * the published JSON Schema, and silent. Adding a real override is a feature
+ * with a spec behind it, not a property.
  *
  * @example
  * ```yaml

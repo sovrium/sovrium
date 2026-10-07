@@ -10,16 +10,14 @@ import { DisplayControls, type DisplayControlsProps } from './display-controls'
 import { LeadingControls, type LeadingControlsProps } from './leading-controls'
 import { QueryControls, type QueryControlsProps } from './query-controls'
 import { hasDisplayControls, hasLeadingControls, hasQueryControls } from './toolbar-flags'
-import { ViewsControls, type ViewsControlsProps } from './views-controls'
 import type { ReactElement } from 'react'
 
 /**
- * The toolbar's four regions, each handed down as one bag.
+ * The toolbar's three regions, each handed down as one bag.
  *
  * Regions are grouped by what a control DOES, not by which hook produced its
  * value: `leading` acts on the grid as a whole, `query` changes which rows are
- * asked for, `views` is the saved-views surface, and `display` changes how the
- * fetched rows are presented. The caller translates between the two
+ * asked for, and `display` changes how the fetched rows are presented. The caller translates between the two
  * vocabularies; see the view's props builder.
  */
 export interface DataTableToolbarBarProps {
@@ -27,20 +25,17 @@ export interface DataTableToolbarBarProps {
   readonly importDialogOpen: boolean
   readonly leading: LeadingControlsProps
   readonly query: QueryControlsProps
-  readonly views: ViewsControlsProps
   readonly display: DisplayControlsProps
 }
 
 /**
- * Top toolbar with search + import/filter/columns/export/refresh/density
- * buttons. This shell owns only the two flex containers; every control lives
+ * Top toolbar with search + import/filter/sort/export/refresh buttons. This shell owns only the two flex containers; every control lives
  * in the region component that its cluster maps to.
  */
 export function DataTableToolbarBar({
   importDialogOpen,
   leading,
   query,
-  views,
   display,
 }: DataTableToolbarBarProps): ReactElement | undefined {
   // Nothing to put in it, so there is no bar. The shell used to render
@@ -49,17 +44,12 @@ export function DataTableToolbarBar({
   // toolbar control and cannot be written to — chrome claiming space for
   // nothing, and a rule the reader reads as the top of the table.
   //
-  // The test is asked of the four clusters rather than of the config, because
+  // The test is asked of the three clusters rather than of the config, because
   // several controls are FIXED rather than configured: a writable bound table
   // draws Import and a creatable one draws `+ New record` with no `toolbar`
-  // block at all, and both of those are a full bar. Only a grid where all four
+  // block at all, and both of those are a full bar. Only a grid where all three
   // clusters come back empty loses it.
-  if (
-    !hasLeadingControls(leading) &&
-    !hasQueryControls(query) &&
-    !views.enabled &&
-    !hasDisplayControls(display)
-  ) {
+  if (!hasLeadingControls(leading) && !hasQueryControls(query) && !hasDisplayControls(display)) {
     return undefined
   }
 
@@ -87,7 +77,6 @@ export function DataTableToolbarBar({
           The gap matches the bar's own so a wrapped cluster keeps one rhythm. */}
       <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
         <QueryControls {...query} />
-        {views.enabled && <ViewsControls {...views} />}
         <DisplayControls {...display} />
       </div>
     </div>

@@ -55,11 +55,11 @@ export interface RelationPlan {
  * cannot name a rename the migration would not run, or miss one it would.
  *
  * Renames are detected with `authoredIds`, the ids the author WROTE, which the
- * decode returns beside the config. They used to be recorded on the decoded
- * table OBJECTS, and a copy made on the way (`applySchemaDefaults`) read as "no
- * id written" — how a rename under an authored id was reported by `--dry-run`
+ * decode returns beside the config — not read off the decoded table OBJECTS,
+ * where a copy made on the way (`applySchemaDefaults`) reads as "no id
+ * written", so a rename under an authored id would be reported by `--dry-run`
  * and `--check`, and refused by the `--watch` pre-flight, as a drop of a
- * populated table. An id survives the copy.
+ * populated table. An id in `authoredIds` survives the copy.
  *
  * A failure to read the catalog is reported rather than read as "no rename":
  * the planner that could not look cannot claim the rows stay put.

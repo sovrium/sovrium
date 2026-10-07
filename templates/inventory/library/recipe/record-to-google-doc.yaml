@@ -1,0 +1,28 @@
+# sovrium-library: recipe/record-to-google-doc@0.30.0
+name: record-to-google-doc
+trigger:
+  type: record
+  table: orders
+  events:
+    - create
+actions:
+  - name: copy
+    type: connection
+    operator: call
+    props:
+      connection: google
+      operation: copy-file
+      params:
+        fileId: $env.GOOGLE_ORDER_TEMPLATE_ID
+        name: '{{trigger.data.record.order_number}}'
+  - name: share
+    type: connection
+    operator: call
+    props:
+      connection: google
+      operation: share-file
+      params:
+        fileId: '{{steps.copy.data.id}}'
+        role: reader
+        type: user
+        emailAddress: '{{trigger.data.record.customer_email}}'

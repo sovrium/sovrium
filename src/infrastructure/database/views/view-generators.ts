@@ -48,12 +48,13 @@ const dropViewStatement = (viewName: string): string => {
  *
  * `ViewFilterNodeSchema` is a THREE-arm union whose group arms recurse through
  * `Schema.suspend`, so the shape space is four: a bare condition, a flat group,
- * a group holding a group, and that nested to any depth. This used to read only
- * the flat arms — a bare condition matched neither `'and' in filters` nor
- * `'or' in filters` and fell through to `''` (a view declared to show active
- * tasks selected EVERY row), and a nested group produced `''` from the leaf
- * mapper and was dropped by the `.filter()`, so `a AND (b OR c)` compiled to
- * `a`. Both failures were silent: the view was created, it just did not filter.
+ * a group holding a group, and that nested to any depth. All four must be read.
+ * Reading only the flat arms, a bare condition matches neither `'and' in
+ * filters` nor `'or' in filters` and falls through to `''` (a view declared to
+ * show active tasks selects EVERY row), and a nested group produces `''` from
+ * the leaf mapper and is dropped by the `.filter()`, so `a AND (b OR c)`
+ * compiles to `a`. Both failures are silent: the view is created, it just does
+ * not filter.
  *
  * PARENTHESES ARE THE POINT, not cosmetics. `a AND (b OR c)` and
  * `a AND b OR c` select different rows, because SQL binds AND tighter than OR.
@@ -317,7 +318,7 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
  *    DATABASE name, sibling of `<name>_base`) emitted by the `shouldUseView` machinery
  *    in `lookup-view-generators.ts`.
  *
- * Omitting (b) was the root cause of [internal ref]: the
+ * Omitting (b) was the root cause of a migration checksum view drift spec: the
  * fast-path skip path dropped auto-generated views on every 2nd+ boot,
  * breaking API reads against `<table.name>` with `no such table`.
  */

@@ -131,3 +131,9 @@ permissions:
     - member
   delete:
     - admin
+  # The internal notes on a ticket's own page (config/pages/ticket.yaml): the
+  # team's thread about the ticket. The requester has no account, so nothing
+  # written there ever reaches them.
+  comment:
+    - admin
+    - member

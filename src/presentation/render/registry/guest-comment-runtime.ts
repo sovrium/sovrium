@@ -16,19 +16,19 @@ import { COMMENTS_FORM_READY_MARK } from '@/presentation/design/runtime-ready-ma
  * (table name, record ID) travels in `data-*` attributes on the form.
  *
  * Behaviour (drives `guest-comments.spec.ts`):
- * - [internal ref]: client-side `name` required check;
+ *  - client-side `name` required check;
  *    renders inline "Name is required" message inside the form.
- * - [internal ref]: client-side `email` required check
+ *  - client-side `email` required check
  *    when `data-comments-guest-email-required="true"`; renders inline
  *    "Email is required" message.
- * - [internal ref]: client-side `email` format check;
+ *  - client-side `email` format check;
  *    renders inline "Enter a valid email" message when the value does
  *    not match the canonical `/.+@.+\..+/` shape.
- * - [internal ref]: on a successful submit, append the
+ *  - on a successful submit, append the
  *    posted comment's author name + content to the SSR comments section
  *    so the assertion `page.getByText('Jane Doe')` resolves without a
  *    hydration island roundtrip.
- * - [internal ref]: when the SSR renderer resolved an
+ *  - when the SSR renderer resolved an
  *    authenticated session, prefill the name/email inputs from the
  *    section's `data-comments-session-*` attributes.
  *

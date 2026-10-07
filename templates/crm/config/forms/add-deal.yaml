@@ -1,0 +1,38 @@
+# The Add deal dialog on the Pipeline opens this form.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 2
+name: add-deal
+title: Add deal
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: deals
+display:
+  submitLabel: Add deal
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: name
+  - kind: table-field
+    column: company
+  - kind: table-field
+    column: contact
+  - kind: table-field
+    column: stage
+  - kind: table-field
+    column: value
+  - kind: table-field
+    column: probability
+  - kind: table-field
+    column: close_date
+  - kind: table-field
+    column: owner

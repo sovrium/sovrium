@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level controls: one per editable cell, and each handler closes over that
-   cell's current value and commit callback. */
-
 import { computeTableCheckboxControlClasses } from '@/presentation/design/table-default-classes'
 import { RatingScale } from '../../parts/rating-scale'
 import { readsAsTrue } from '../../runtime/cell-value-semantics'

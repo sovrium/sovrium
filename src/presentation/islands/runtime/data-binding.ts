@@ -27,20 +27,3 @@ export function hasDataBinding<T extends DataBoundSource>(
 ): dataSource is T {
   return Boolean(dataSource?.table) || Boolean(dataSource?.system)
 }
-
-/**
- * Resolve the rows a list-family island renders.
- *
- * `embedded` rows are handed in by a component that already fetched them — the
- * data-table's view switcher renders kanban / calendar / gallery over the rows
- * its grid is currently showing, so a runtime search or filter carries across
- * the switch instead of the view silently re-querying the whole table. When
- * they are present the embedder also omits `dataSource`, which disables the
- * island's own fetch, so `fetched` is empty rather than merely ignored.
- */
-export function resolveIslandRecords<T>(
-  embedded: readonly T[] | undefined,
-  fetched: readonly T[] | undefined
-): readonly T[] {
-  return embedded ?? fetched ?? []
-}

@@ -6,8 +6,8 @@
  */
 
 import { Data, Duration, Effect } from 'effect'
+import { EmailSender } from '@/application/ports/services/email-sender'
 import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
-import { sendEmail } from '@/infrastructure/email/email-service'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -88,7 +88,7 @@ const toRecipientArray = (raw: unknown): readonly string[] | undefined => {
  * `replyTo` were resolved by the run loop's `resolveTriggerInValue` pass,
  * so by the time this handler runs the props are concrete strings.
  *
- * The body is sent as HTML (`html` field) per spec [internal ref] — most
+ * The body is sent as HTML (`html` field) per an email send spec — most
  * customer YAML defines body content with HTML markup and Mailpit reads
  * `email.HTML` to assert formatting. Plain-text-only configs still send
  * (Nodemailer accepts an HTML payload that happens to contain no tags).
@@ -115,27 +115,26 @@ export const handleEmailSend: ActionHandler = (action, app, _automation) =>
     // `withSendTimeout` bounds the send so a slow/half-open SMTP greeting fails
     // fast into the Left/failure path below rather than stalling the
     // (synchronous) caller — e.g. a comment automation awaited inside a POST.
+    const mailer = yield* EmailSender
     const result = yield* withSendTimeout(
-      Effect.tryPromise({
-        try: () =>
-          sendEmail({
-            to,
-            subject,
-            html: sanitizeRichTextHTML(body),
-            text: textBody === '' ? body : textBody,
-            // An explicit `from` is the sender, whole; without one the sender
-            // is the operator's SMTP_FROM, displayed under the app's name.
-            ...(fromOverride !== '' ? { from: fromOverride } : { fromName: app.name }),
-            ...(cc !== undefined ? { cc: [...cc] } : {}),
-            ...(bcc !== undefined ? { bcc: [...bcc] } : {}),
-            ...(replyTo !== undefined ? { replyTo: [...replyTo] } : {}),
-          }),
-        catch: (error) =>
-          new EmailSendActionError({
-            cause: error,
-            message: error instanceof Error ? error.message : String(error),
-          }),
-      })
+      mailer
+        .send({
+          to,
+          subject,
+          html: sanitizeRichTextHTML(body),
+          text: textBody === '' ? body : textBody,
+          // An explicit `from` is the sender, whole; without one the sender
+          // is the operator's SMTP_FROM, displayed under the app's name.
+          ...(fromOverride !== '' ? { from: fromOverride } : { fromName: app.name }),
+          cc,
+          bcc,
+          replyTo,
+        })
+        .pipe(
+          Effect.mapError(
+            (error) => new EmailSendActionError({ cause: error.cause, message: error.message })
+          )
+        )
     ).pipe(Effect.result)
 
     if (result._tag === 'Failure') {

@@ -1,0 +1,37 @@
+# The New project dialog on the Dashboard opens this form.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 2
+name: new-project
+title: New project
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: projects
+display:
+  submitLabel: Create project
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: name
+    label: Name
+  - kind: table-field
+    column: owner
+    label: Owner
+  - kind: table-field
+    column: start_date
+    label: Start date
+  - kind: table-field
+    column: end_date
+    label: End date
+  - kind: table-field
+    column: budget
+    label: Budget

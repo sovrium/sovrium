@@ -71,7 +71,7 @@ Overwriting a different key would make everything encrypted under the stored one
 ## `sovrium update`
 
 ```text
-Usage: sovrium update
+Usage: sovrium update [--insecure-skip-checksum]
 ```
 
 Update Sovrium to the latest release. What happens depends on how it was installed, which the command detects for you:
@@ -82,7 +82,7 @@ Update Sovrium to the latest release. What happens depends on how it was install
 - **docker** — prints the `docker pull` instruction.
 - **desktop** — declines, and points at the app that owns it.
 
-A self-replace downloads the release archive and checks it against the published checksum when one is available. It gives up on a download that makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was. The new binary is written beside the old one and then swapped in with a single rename, so the update either completes or changes nothing. If the binary lives in a directory you cannot write to — typically one it was installed into with `sudo` — the command says so and exits `1` without touching it; run it as that directory's owner, or reinstall with the install script into a directory you own.
+A self-replace downloads the release archive over HTTPS and checks it against the release's published sha256 before anything is replaced. If that checksum cannot be fetched or read, or does not match, the command exits `1` and the installed binary stays as it was — run it again, and if it keeps failing, report it to security@sovrium.com rather than installing by hand. `--insecure-skip-checksum` installs without that check; it is announced before the download and the result says `Checksum not verified`, so use it only when you have verified the archive some other way. The download gives up when it makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was. The new binary is written beside the old one and then swapped in with a single rename, so the update either completes or changes nothing. If the binary lives in a directory you cannot write to — typically one it was installed into with `sudo` — the command says so and exits `1` without touching it; run it as that directory's owner, or reinstall with the install script into a directory you own.
 
 Delegating to Homebrew and Scoop rather than self-replacing is deliberate: it keeps the package manager's own version ledger correct. Docker containers cannot self-update, so that path prints the pull command instead.
 

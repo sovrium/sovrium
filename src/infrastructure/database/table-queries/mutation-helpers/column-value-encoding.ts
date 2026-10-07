@@ -145,7 +145,7 @@ export async function lookupArrayColumnTypes(
           WHERE table_schema = current_schema()
             AND table_name = ${databaseTableName(tableName)}
             AND column_name IN (${inList})`
-    )) as unknown as ReadonlyArray<{
+    )) as ReadonlyArray<{
       readonly column_name: string
       readonly data_type: string
     }>

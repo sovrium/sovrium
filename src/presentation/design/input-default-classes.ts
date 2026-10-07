@@ -14,9 +14,8 @@
  * visual states — with zero theme-layer dependency.
  *
  * The recipe mirrors the `uiKitInput` fixture in
- * `[internal ref]` (which the fixture used to
- * paint manually onto a `<span>` impersonator). Moving the recipe here makes
- * the default design land in the PRODUCTION renderer — the fixture now emits
+ * `[internal ref]`. Keeping the recipe here makes
+ * the default design land in the PRODUCTION renderer — the fixture emits
  * bare `{ type: 'input' }` schema and the dispatcher composes the className.
  *
  * This module lives in `presentation/utils/design` (NOT `element-renderers`) on

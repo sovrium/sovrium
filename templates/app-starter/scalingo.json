@@ -1,0 +1,55 @@
+{
+  "name": "App starter",
+  "description": "A business-app skeleton: every sign-in way, a dashboard, settings pages and record pages.",
+  "repository": "https://github.com/sovrium/app-starter-template",
+  "logo": "https://sovrium.com/logo.png",
+  "website": "https://sovrium.com/apps/app-starter",
+  "env": {
+    "BUILDPACK_URL": {
+      "description": "Sovrium buildpack \u2014 downloads the released, checksum-verified sovrium binary and boots the app config (Scalingo does not build Dockerfiles).",
+      "value": "https://github.com/sovrium/scalingo-buildpack",
+      "required": true
+    },
+    "SOVRIUM_ENCRYPTION_KEY": {
+      "description": "Master key for encrypting stored credentials at rest (AES-256-GCM). Optional \u2014 the app generates and persists one on first start if unset. Keep it set here: the container filesystem is ephemeral, so a generated key would not survive a restart.",
+      "generator": "secret",
+      "required": false
+    },
+    "BASE_URL": {
+      "description": "Public https address of this app (e.g. https://my-crm.osc-fr1.scalingo.io). Used for auth callbacks and absolute links. Never a localhost address: Sovrium would treat the app as local and turn off its cross-site request check and its Secure cookie flag.",
+      "required": true
+    },
+    "TRUSTED_PROXY_HOPS": {
+      "description": "How many proxies stand in front of the app. 1 trusts Scalingo's router to report each visitor's address, so sign-in and API rate limits count per visitor instead of putting every request on the router's address. Raise it only if you add your own CDN in front of Scalingo.",
+      "value": "1",
+      "required": true
+    },
+    "AUTH_ADMIN_EMAIL": {
+      "description": "Bootstrap the first admin account on first start (optional \u2014 you can also run `sovrium admin create <email>` later).",
+      "required": false
+    },
+    "AUTH_ADMIN_PASSWORD": {
+      "description": "Password for the bootstrap admin account (used with AUTH_ADMIN_EMAIL).",
+      "required": false
+    },
+    "SSO_CLIENT_ID": {
+      "description": "Client id of your identity provider, for single sign-on (optional).",
+      "required": false
+    },
+    "SSO_CLIENT_SECRET": {
+      "description": "Client secret of your identity provider, for single sign-on (optional).",
+      "required": false
+    }
+  },
+  "addons": [
+    {
+      "plan": "postgresql:postgresql-starter-512"
+    }
+  ],
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "S"
+    }
+  }
+}

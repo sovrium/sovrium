@@ -87,23 +87,25 @@ components:
                       - { value: Instagram, label: Instagram }
                       - { value: YouTube, label: YouTube }
               - type: table
-                props:
-                  # Status is an outlined word, not a filled chip: the steps stay
-                  # neutral and only a published piece turns green.
-                  className: '[&_td:nth-child(2)_span]:!border [&_td:nth-child(2)_span]:!border-border [&_td:nth-child(2)_span]:!rounded-full [&_td:nth-child(2)_span]:!bg-transparent [&_td:nth-child(2)_span_span]:!border-0'
+                readOnly: true
+                # Status is an outlined word, not a filled chip: the steps stay
+                # neutral and only a published piece turns green.
+                classes:
+                  parts:
+                    chip: '!rounded-full !border !border-border !bg-transparent'
                 dataSource:
                   table: content
+                  view: by_campaign
                   bindTo: content-filter
                   sharedFilter: {}
-                  sort:
-                    - { field: publish_at, direction: asc }
                 rowHeight: short
                 columns:
                   - { field: title, label: Piece, sortable: true }
                   - field: status
                     label: Status
+                    badgeForm: outline
                     cellStyle:
-                      - { when: { eq: Published }, className: '[&_*]:!text-success' }
+                      - { when: { eq: Published }, tone: success }
                   - { field: content_type, label: Type }
                   - { field: channels, label: Channels }
                   - { field: owner, label: Owner }
@@ -114,8 +116,6 @@ components:
                       align: right,
                       sortable: true,
                     }
-                groupBy:
-                  field: campaign
                 summary:
                   - { field: title, function: count, label: Pieces }
                 pagination:

@@ -18,6 +18,20 @@ trigger:
 
 Every property is optional; `requiredRole` defaults to `admin`, which the app's highest role satisfies too. Input supplied at trigger time is read at **`{{trigger.input.*}}`** — not `{{trigger.inputData}}`, which is the property name on the calling side and does not resolve here.
 
+### From a page button
+
+A page component whose action is `{ type: automation, name }` — a button, an alert-dialog confirm, a data form — runs that manual automation under the page's own `access` rule: a button on a public page runs for a signed-out visitor, one on a page that requires a session runs only for a signed-in caller. A `requiredRole` the trigger declares still binds on top of the page rule; the implicit `admin` default does not, because the page's `access` rule is the grant. A page never reaches a webhook, schedule, record or form automation, even when a component names one, and an automation no page names cannot be pressed at all: each of those answers exactly as an unknown name does. So does a press of an automation an operator has paused, or one set to `enabled: false`: nothing runs, even though its button is still on the page.
+
+A button the page does not show the caller cannot be pressed by them either. A press counts only the components the page draws for that caller: one left out by its `visibility` — `roles`, `when`, a `$user.*` `condition` or a `capability`, on the component itself or on any container around it — is answered as an unknown name and runs nothing, so an admin-only button on a public page runs for an admin and for no one else. The `record`, `query`, `declares` and `runtime` gates only decide what a page shows; they are not access controls and are not judged at press time.
+
+A press by a signed-in caller records her as the person who started the run, as the direct trigger does: she may read that run, and replay or cancel it under the trigger's role rule (an admin, by default, when the trigger declares no `requiredRole`). A press with no session records no starter, so only an admin acts on that run. Replaying or cancelling a run is reserved to an admin and to the person who started it by hand, while she still holds the trigger's role; an approver named on the run may read it and decide on its request, not replay or cancel it.
+
+### By name: the trigger endpoint, the MCP tool and the chat
+
+Starting a manual automation by name — `POST /api/automations/{name}/trigger`, the MCP tool an AI client calls, or asking the chat — is held to two rules, both judged on the caller's role: the trigger's `requiredRole` (`admin` when it declares none), and the automation's `permissions.trigger` when declared, which can narrow who may start it and never widen it. A caller either rule refuses gets the answer an unknown automation gets, and no run starts; the MCP tool list does not offer it to her.
+
+The automation listing, `GET /api/automations`, follows the same rule: a caller who is not an admin reads only the manual automations she may start. An admin reads every automation, with every webhook secret redacted.
+
 ### Manual is the only trigger eligible for AI access
 
 An agent may invoke a manual automation over MCP precisely because it does not fire on its own. Exposing a webhook or cron automation to a model would hand it a lever that also pulls itself, so the restriction is enforced when the configuration is decoded rather than merely advised.

@@ -15,7 +15,7 @@
  * data, and these are spread back into its arrays at the point they belong.
  *
  * Every specimen is written exactly as an ordinary page would write it.
- * `[internal ref]` compares each against the same type rendered on a
+ * An admin design system spec compares each against the same type rendered on a
  * real page with one extractor run over both, so a specimen that took a
  * shortcut here would document markup the app does not emit.
  */

@@ -37,7 +37,7 @@
  * rather than appended to the query, because the row is already fetched and a
  * page render has no query builder of its own. {@link callerRecordGateOf}
  * is also what a collection page's `permission-blocked` answer is built from
- *, so the two paths cannot disagree about which row
+ * so the two paths cannot disagree about which row
  * a visitor may see.
  */
 

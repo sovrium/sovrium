@@ -18,6 +18,7 @@
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { resolveTrustedForwardedIp } from '@/domain/kernel/url/client-ip'
 import { isAdminEquivalent } from '@/domain/models/app'
+import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
 import {
   parseTrustedProxyHops,
@@ -80,6 +81,12 @@ const isBoundToThisClient = (
   return false
 }
 
+/** The `signInMethod` a session row carries (a Better Auth additional field), when any. */
+const signInMethodOf = (session: object): string | undefined => {
+  const value = (session as { readonly signInMethod?: unknown }).signInMethod
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
 /**
  * Builds a getSession callback from an auth instance for page access control
  */
@@ -106,7 +113,9 @@ function buildGetSession(
         notifyAutomationAlerts?: boolean
         notifyWeeklyDigest?: boolean
       }
-      const role = user.role ?? 'member'
+      // An absent, empty or undeclared stored role grants nothing — never the
+      // `member` default (the records API judges it the same way).
+      const role = toGrantingRole(user.role, app)
       // Better Auth admin plugin grants global, unrestricted access to the
       // app's admin-equivalent role. The Z-1 `$currentUser.isUnrestricted`
       // flag mirrors that — Z-1.
@@ -119,8 +128,7 @@ function buildGetSession(
       const groups = await runOnDomain(domainContext, getUserGroups(user.id))
       // Effective roles = global Better Auth role + `group:<name>` overlay for
       // every group the user belongs to. Stamped at hydration time so every
-      // downstream consumer (`checkPageAccess`, `isSharedViewAccessDenied`,
-      // …) sees the same set the table-level row-level guard uses — closing
+      // downstream consumer (`checkPageAccess`, …) sees the same set the table-level row-level guard uses — closing
       // the single-role-vs-effective-roles asymmetry called out in Phase 8.
       const effectiveRoles = buildEffectiveRoles(role, groups)
       return {
@@ -146,6 +154,9 @@ function buildGetSession(
         isUnrestricted,
         groups,
         effectiveRoles,
+        ...(signInMethodOf(session.session) === undefined
+          ? {}
+          : { signInMethod: signInMethodOf(session.session) }),
       }
     } catch {
       return undefined

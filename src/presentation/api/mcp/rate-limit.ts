@@ -194,9 +194,7 @@ export const recordMcpRequest = (callerKey: string, now: number = Date.now()): v
   // `maxRequests` is irrelevant to `record` — the ceiling is applied by
   // `checkMcpRateLimit`, which reads the two windows independently — so the
   // config carries only the window each limiter prunes at.
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiter's mutable store
   perMinuteLimiter.record(callerKey, { windowMs: ONE_MINUTE_MS, maxRequests: 0 }, now)
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiter's mutable store
   perDayLimiter.record(callerKey, { windowMs: ONE_DAY_MS, maxRequests: 0 }, now)
 }
 
@@ -213,8 +211,7 @@ export const recordMcpRequest = (callerKey: string, now: number = Date.now()): v
 // so we centralize the only legitimate null in this module behind a typed
 // constant — JSON.parse('null') keeps ESLint quiet without changing the
 // wire-format value.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-RPC spec value
-const JSONRPC_NULL_ID = JSON.parse('null') as any
+const JSONRPC_NULL_ID = JSON.parse('null') as null
 
 /**
  * Build the 429 JSON-RPC envelope returned when the caller has exhausted
@@ -225,7 +222,7 @@ const JSONRPC_NULL_ID = JSON.parse('null') as any
  * still recognize the rate-limit signal.
  */
 export const buildRateLimitExceededResponse = (
-  c: Readonly<Context>,
+  c: Context,
   responseId: number | string | null,
   result: Readonly<McpRateLimitResult>
 ): Response => {

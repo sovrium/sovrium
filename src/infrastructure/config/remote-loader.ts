@@ -56,7 +56,6 @@ const REMOTE_SCHEMA_FETCH_TIMEOUT_MS = 15_000
 export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
   const validation = validateOutboundUrl(url)
   if (!validation.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- boot-time SSRF rejection must fail loud (message contains "outbound" + the structured reason so it is greppable and operator-actionable)
     throw new Error(
       `Blocked outbound schema URL ${url}: ${validation.issue.reason} targets are not allowed (SSRF guard). ` +
         `Set SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1 to permit private/loopback outbound targets.`
@@ -68,13 +67,11 @@ export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
     // the process is the retry.
     const fetched = await fetchFollowingRedirects(validation.url, REMOTE_SCHEMA_FETCH_TIMEOUT_MS)
     if (!fetched.ok) {
-      // eslint-disable-next-line functional/no-throw-statements -- a refused hop must fail boot loudly, for the same reason the SSRF rejection above does
       throw new Error(fetched.message)
     }
     const { response } = fetched
 
     if (!response.ok) {
-      // eslint-disable-next-line functional/no-throw-statements
       throw new Error(`Failed to fetch schema from ${url}: HTTP ${response.status}`)
     }
 
@@ -86,7 +83,6 @@ export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
 
     return parseSchemaContent(content, format)
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
       `Failed to fetch or parse schema from ${url}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }

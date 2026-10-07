@@ -80,7 +80,7 @@ export const AgentScheduleSchema = Schema.Struct({
         }
         const parsed = Cron.parse(cron, zone?.success)
         if (Result.isFailure(parsed)) {
-          const cause = parsed.failure as unknown as { readonly message?: string }
+          const cause = parsed.failure as { readonly message?: string }
           const detail = cause.message ?? String(parsed.failure)
           return `Invalid cron expression "${cron}": ${detail}`
         }

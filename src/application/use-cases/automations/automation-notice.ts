@@ -23,11 +23,11 @@
  * their cause.
  */
 
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
+import { EmailSender } from '@/application/ports/services/email-sender'
 import { resolveNotificationRecipients } from '@/application/use-cases/admin/resolve-notification-recipients'
 import { formatAppIdentity } from '@/domain/kernel/format/app-identity'
 import { parseSovriumNotifyAutomations } from '@/domain/models/process-env/notifications'
-import { sendEmail } from '@/infrastructure/email/email-service'
 import {
   renderSystemNotification,
   type SystemNotificationEmail,
@@ -38,10 +38,6 @@ import { logError } from '@/infrastructure/logging/logger'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
-
-class AutomationNoticeSendError extends Data.TaggedError('AutomationNoticeSendError')<{
-  readonly cause: unknown
-}> {}
 
 /** An environment to read, the process environment by default. */
 export type NoticeEnv = Readonly<Record<string, string | undefined>>
@@ -104,14 +100,18 @@ const sendOne = (
   to: string,
   email: SystemNotificationEmail,
   fromName: string
-): Effect.Effect<void> =>
-  Effect.tryPromise({
-    try: () =>
-      sendEmail({ to, fromName, subject: email.subject, text: email.text, html: email.html }),
-    catch: (cause) => new AutomationNoticeSendError({ cause }),
+): Effect.Effect<void, never, EmailSender> =>
+  Effect.gen(function* () {
+    return yield* (yield* EmailSender).send({
+      to,
+      fromName,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    })
   }).pipe(
     Effect.tapCause((cause) =>
-      Effect.sync(() => logError('[automation-notice] sendEmail failed', cause, { to }))
+      Effect.sync(() => logError('[automation-notice] send failed', cause, { to }))
     ),
     // effect-swallow: the notice follows an event that already happened; a
     // broken mail path is logged above and must not fail that event.
@@ -135,7 +135,7 @@ export const deliverAutomationNotice = (input: {
   readonly content: AutomationNoticeContent
   readonly exclude?: string | undefined
   readonly env?: NoticeEnv | undefined
-}): Effect.Effect<number, never, AuthRepository> =>
+}): Effect.Effect<number, never, AuthRepository | EmailSender> =>
   Effect.gen(function* () {
     const env = input.env ?? process.env
     if (parseSovriumNotifyAutomations(env) === 'off') return 0

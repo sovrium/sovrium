@@ -6,6 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { responsiveValue } from '../../../responsive'
+import { ToneSchema } from '../../../shared-schemas'
 import { contentFields } from '../../modules/content'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
@@ -33,8 +35,8 @@ export const kpiFields = {
   ...i18nFields,
   ...dataBoundFields,
   // Override the shared (table-only) `dataSource` with the KPI-specific
-  // discriminated union so a KPI can bind to either a DB table (unchanged,
-  // aggregated client-side) OR a system read endpoint (pre-computed scalar
+  // discriminated union so a KPI can bind to either a DB table (its figure
+  // computed by the server's aggregate read) OR a system read endpoint (pre-computed scalar
   // value-path). Must come AFTER `...dataBoundFields` to replace its `dataSource`.
   dataSource: Schema.optional(KpiDataSourceSchema),
   label: Schema.optional(
@@ -57,6 +59,26 @@ export const kpiFields = {
     )
   ),
   sparkline: Schema.optional(KPISparklineSchema),
+  /**
+   * How large the value is drawn, per breakpoint if needed. A row of four
+   * figures on a phone needs a smaller value than the same row on a desktop;
+   * `{ mobile: sm, md: md }` says so without a `max-md:` selector.
+   */
+  size: Schema.optional(
+    responsiveValue(
+      Schema.Literals(['sm', 'md', 'lg']).annotate({
+        description: "The value's size: 'sm', 'md' (default) or 'lg'",
+      }),
+      "The size the KPI's value is drawn at"
+    )
+  ),
+  /**
+   * A fixed semantic colour for the value — the figure a page always shows in
+   * the warning colour because of what it counts (overdue items, seats left).
+   * A colour that depends on the value itself is `thresholds`' job, and a
+   * matching threshold wins over the tone.
+   */
+  tone: Schema.optional(ToneSchema),
 } as const
 
 // ---------------------------------------------------------------------------

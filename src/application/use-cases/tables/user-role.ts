@@ -14,35 +14,38 @@
  * services the server resolved at boot; the role read happens on the request's
  * own fiber, inside its span, instead of on a detached one.
  *
- * The Promise-based `AuthRoleService` injection seam that used to sit here is
- * gone. It existed so a unit test could bypass Effect DI; with the requirement
- * declared, a test provides a `Layer` instead — which is the seam Effect
- * already has, and one that cannot drift from the real call path.
+ * There is no Promise-based injection seam for unit tests to bypass Effect DI:
+ * with the requirement declared, a test provides a `Layer` instead — which is
+ * the seam Effect already has, and one that cannot drift from the real call path.
  */
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
-
-// Constants
-const DEFAULT_ROLE = 'member'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 
 /**
- * Retrieves the user's global role from the database.
+ * Retrieves the role the user is judged on, from the stored `role` column.
  *
- * Role resolution:
- * 1. Fetch global user role from users table via AuthRepository
- * 2. Default: 'member'
+ * Role resolution (`toGrantingRole`):
+ * 1. Fetch the stored global role via AuthRepository
+ * 2. Absent (no row, NULL) or empty → `NO_GRANT_ROLE`, which grants nothing.
+ *    It does not fall back to `member`, whose bare-table default opens every
+ *    table without a `permissions` block — the widest guess, not the safest.
+ * 3. With `app`: a name the app does not declare → `NO_GRANT_ROLE` too
  *
  * @param userId - The user ID to look up
+ * @param app - The app whose role vocabulary judges the stored name, when known
  */
 export const getUserRole = (
-  userId: string
+  userId: string,
+  app?: AdminRoleResolvable
 ): Effect.Effect<string, AuthDatabaseError, AuthRepository> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     const role = yield* repo.getUserRole(userId)
-    return role ?? DEFAULT_ROLE
+    return toGrantingRole(role, app)
   }).pipe(Effect.withSpan('tables.get-user-role'))
 
 /**
@@ -55,7 +58,7 @@ export const getUserRole = (
  * `[internal ref]`.
  *
  * Every requested id gets an entry: an id with no user row, or with an unset
- * `role` column, resolves to `DEFAULT_ROLE` — the same fallback `getUserRole`
+ * `role` column, resolves to `NO_GRANT_ROLE` — the same judgement `getUserRole`
  * applies — so callers may index the returned map unconditionally.
  *
  * @param userIds - The user IDs to look up. Duplicates are harmless.
@@ -66,7 +69,7 @@ export const getUserRoles = (
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     const resolved = yield* repo.getUserRoles(userIds)
-    return new Map(userIds.map((userId) => [userId, resolved.get(userId) ?? DEFAULT_ROLE]))
+    return new Map(userIds.map((userId) => [userId, toGrantingRole(resolved.get(userId))]))
   }).pipe(Effect.withSpan('tables.get-user-roles'))
 
 /**

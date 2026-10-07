@@ -17,8 +17,10 @@ import { resolveAccessRolesFor } from './row-level-guard'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { TableCaller } from '@/application/use-cases/tables/table-operations'
 import type { App } from '@/domain/models/app'
+import type { Context } from 'hono'
 
 export const resolveTableReadCaller = async (
+  c: Context,
   app: App,
   context: Readonly<{
     session: Pick<UserSession, 'userId'> | undefined
@@ -28,7 +30,7 @@ export const resolveTableReadCaller = async (
   }>
 ): Promise<TableCaller> => {
   const table = app.tables?.find((t) => t.name === context.tableName)
-  const accessRoles = await resolveAccessRolesFor(context.session, table ? [table] : [])
+  const accessRoles = await resolveAccessRolesFor(c, context.session, table ? [table] : [])
   return {
     role: context.userRole,
     groups: context.userGroups,

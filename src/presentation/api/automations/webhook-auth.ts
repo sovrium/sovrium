@@ -9,6 +9,9 @@ import { resolveSecretInString } from '@/application/use-cases/automations/resol
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
 import {
   DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
+  type HmacTimestampLayoutSpec,
+  hmacTimestampLayout,
+  verifyHmacTimestamp,
   verifyRawBodyDigest,
   verifyTimestampedSignature,
 } from './webhook-signature-schemes'
@@ -93,12 +96,12 @@ const checkBasic = (
   return userOk && passOk ? { ok: true } : { ok: false }
 }
 
-interface HmacAuth {
+interface HmacAuth extends HmacTimestampLayoutSpec {
   readonly secret?: string
   readonly algorithm?: string
   readonly header?: string
   readonly prefix?: string
-  readonly scheme?: 'hex' | 'base64' | 'stripe' | 'slack' | 'svix'
+  readonly scheme?: 'hex' | 'base64' | 'stripe' | 'slack' | 'svix' | 'hmac-timestamp'
   readonly tolerance?: number
 }
 
@@ -139,15 +142,20 @@ const checkHmac = (
   if (scheme === 'hex' || scheme === 'base64') {
     return { ok: checkRawBodyHmac(c, rawBody, { ...auth, scheme }, secret) }
   }
-  return {
-    ok: verifyTimestampedSignature(scheme, {
-      header: (name) => c.req.header(name),
-      rawBody,
-      secret,
-      toleranceSeconds: auth.tolerance ?? DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
-      nowSeconds: Math.floor(Date.now() / 1000),
-    }),
+  const input = {
+    header: (name: string) => c.req.header(name),
+    rawBody,
+    secret,
+    toleranceSeconds: auth.tolerance ?? DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
+    nowSeconds: Math.floor(Date.now() / 1000),
   }
+  if (scheme === 'hmac-timestamp') {
+    // The load-time check requires both; a config that bypassed it fails closed.
+    const layout = hmacTimestampLayout(auth)
+    if (auth.header === undefined || layout === undefined) return { ok: false }
+    return { ok: verifyHmacTimestamp(layout, auth.header, input) }
+  }
+  return { ok: verifyTimestampedSignature(scheme, input) }
 }
 
 /**

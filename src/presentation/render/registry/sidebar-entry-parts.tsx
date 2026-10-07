@@ -6,10 +6,13 @@
  */
 
 import { type ReactElement } from 'react'
+import { cn } from '@/presentation/design/class-merge'
 import {
   computeSidebarDisclosureChevronClasses,
   computeSidebarDisclosureToggleClasses,
   computeSidebarEntryBadgeClasses,
+  computeSidebarEntryClasses,
+  computeSidebarSubEntryClasses,
   computeSidebarToggleChevronSlotClasses,
   computeSidebarToggleLabelClasses,
   computeSidebarToggleRowClasses,
@@ -69,14 +72,18 @@ export const railTitle = (
  * count is still rendered and still visible; it is the entry's metadata, not
  * its identity.
  */
-export function renderBadge(badge: SidebarNavItem['badge']): ReactElement | undefined {
+export function renderBadge(
+  badge: SidebarNavItem['badge'],
+  part?: string
+): ReactElement | undefined {
   if (badge === undefined) return undefined
+  const className = cn(computeSidebarEntryBadgeClasses(), part)
   if (typeof badge === 'string') {
     return (
       <span
         aria-hidden="true"
         data-component-type="badge"
-        className={computeSidebarEntryBadgeClasses()}
+        className={className}
       >
         {badge}
       </span>
@@ -86,7 +93,7 @@ export function renderBadge(badge: SidebarNavItem['badge']): ReactElement | unde
     <span
       aria-hidden="true"
       data-component-type="badge"
-      className={computeSidebarEntryBadgeClasses()}
+      className={className}
       data-island="sidebar-badge"
       data-island-props={JSON.stringify({
         endpoint: badge.endpoint,
@@ -207,3 +214,18 @@ export const toggleRowPayload = (item: SidebarNavItem): Record<string, unknown> 
   ...(item.badge === undefined ? {} : { badge: item.badge }),
   ...(item.props === undefined ? {} : { entryProps: item.props }),
 })
+
+/**
+ * A navigation row's classes: the recipe for its depth and state, then the
+ * author's `link` part (`design.components.sidebar` under the instance's own
+ * `classes`, whose `current` state is already prefixed `aria-[current=page]:`).
+ */
+export const sidebarEntryClasses = (
+  isNested: boolean,
+  isCurrent: boolean,
+  part: string | undefined
+): string =>
+  cn(
+    isNested ? computeSidebarSubEntryClasses(isCurrent) : computeSidebarEntryClasses(isCurrent),
+    part
+  )

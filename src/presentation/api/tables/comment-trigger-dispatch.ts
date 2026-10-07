@@ -5,9 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import { triggerCommentEventAutomations } from '@/application/use-cases/automations/trigger-comment-event'
-import { CommentRepositoryLive } from '@/infrastructure/database/repositories/comment-repository-live'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
 import type { App } from '@/domain/models/app'
@@ -67,11 +65,10 @@ export async function dispatchCommentPostedTrigger(input: {
     mentions: input.mentions,
     processEnv: process.env,
   })
-  // The automation services come from the set the server built at boot, taken
-  // off this request. `CommentRepository` is the one this trigger needs that the
-  // server does not carry — it belongs to the comment feature, not to the
-  // automation runtime — so it is provided here and nowhere else.
-  await runDomainPromise(input.c, program.pipe(Effect.provide(CommentRepositoryLive)))
+  // Every service this trigger needs — `CommentRepository` included, which the
+  // automation runtime carries through `TableLive` — comes from the set the
+  // server built at boot, taken off this request.
+  await runDomainPromise(input.c, program)
 }
 
 /**

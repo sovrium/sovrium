@@ -23,16 +23,14 @@
  *
  * ─── THE `{ system }` ARM RESOLVES SERVER-SIDE ──────────────────
  *
- * This header used to say, of the `{ system }` arm, that the record "cannot be
- * resolved server-side". That was true when it was written and stopped being
- * true when `route-setup/system-rows-fetcher.ts` shipped: a reader that calls
- * our own API ON THE RENDER PATH with the caller's identity headers borrowed,
- * threaded into BOTH render funnels — the operator page route and the
- * mounted-app route. `page.redirectToFirst` and the system option source
- * already spend it, and `systemRecordFetcher` is that same reader against
- * `recordKey` instead of `rowsKey`.
+ * The record CAN be resolved server-side: `route-setup/system-rows-fetcher.ts`
+ * is a reader that calls our own API ON THE RENDER PATH with the caller's
+ * identity headers borrowed, threaded into BOTH render funnels — the operator
+ * page route and the mounted-app route. `page.redirectToFirst` and the system
+ * option source spend it too, and `systemRecordFetcher` is that same reader
+ * against `recordKey` instead of `rowsKey`.
  *
- * So both arms of one binding now reach the same outcome: the record is in the
+ * So both arms of one binding reach the same outcome: the record is in the
  * FIRST response, and a route param naming no record is the page's own 404
  * rather than a 200 whose heading reads `$record.title`.
  *
@@ -58,6 +56,7 @@ import {
 } from '@/domain/models/app/pages/automation-run-status-language'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
+import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import {
   autoBindCommentComponents,
   injectRecordIntoNestedSingleMode,
@@ -95,7 +94,7 @@ function buildPageSystemMarker(
       'data-island': 'page-record-system',
       'data-island-props': JSON.stringify({ system, recordId }),
     },
-  } as unknown as Component
+  } as Component
 }
 
 /**
@@ -158,9 +157,13 @@ function substitutePageComponents(
   tableName: string | undefined
 ): Page['components'] {
   if (!components) return components
-  const visible = filterChildrenForRecord(
-    components as readonly (Component | string)[],
-    record
+  // A dialog whose trigger the record's rules drop is still ADDRESSED by the
+  // page: it is marked from the tree as authored, before the drop, so it waits
+  // closed rather than opening on its own (the later overlay passes only see
+  // the bound tree, where the trigger is already gone).
+  const visible = markAddressedDialogs(
+    components,
+    filterChildrenForRecord(components as readonly (Component | string)[], record)
   ) as Page['components']
   if (!visible) return visible
   const scope = pageRecordScope(record)
@@ -213,8 +216,8 @@ export type PageRecordBinding =
  * Resolve the `{ system }` arm: read the record as the caller, substitute it,
  * and emit NO enhancer marker — the tokens are already filled.
  *
- * Without a fetcher the marker is appended instead, which is the pre-[internal ref]
- * behaviour and the only thing a context-less render can do.
+ * Without a fetcher the marker is appended instead, for the browser to fill —
+ * the only thing a context-less render can do.
  */
 async function bindSystemRecord(
   page: Page,
@@ -266,6 +269,21 @@ function bindComments(
   return autoBindCommentComponents(components, ds.table, String(recordId))
 }
 
+/** A stored timestamp as the records API writes it: an ISO 8601 instant. */
+const isoInstant = (value: unknown): unknown =>
+  value instanceof Date ? value.toISOString() : value
+
+/**
+ * The record with its system timestamps also under the names the records API
+ * gives them (`createdAt`, `updatedAt`), so `$record.createdAt` reads on a
+ * record page what the API answers. A record already carrying the key keeps it.
+ */
+function withApiTimestamps(record: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const alias = (to: string, from: string): Record<string, unknown> =>
+    record[to] === undefined && record[from] != null ? { [to]: isoInstant(record[from]) } : {}
+  return { ...record, ...alias('createdAt', 'created_at'), ...alias('updatedAt', 'updated_at') }
+}
+
 /**
  * Apply a page-level single-record binding to a page before component filters run.
  *
@@ -288,8 +306,9 @@ export async function applyPageLevelRecordBinding(
     return bindSystemRecord(page, ds.system, routeParams, readers)
   }
   if (ds?.mode === 'single' && hostRecord !== undefined) {
-    const components = substitutePageComponents(page.components, hostRecord, ds.table)
-    return { kind: 'page', page: { ...page, components: bindComments(components, hostRecord, ds) } }
+    const record = withApiTimestamps(hostRecord)
+    const components = substitutePageComponents(page.components, record, ds.table)
+    return { kind: 'page', page: { ...page, components: bindComments(components, record, ds) } }
   }
   return { kind: 'page', page }
 }

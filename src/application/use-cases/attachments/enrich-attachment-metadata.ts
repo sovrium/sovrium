@@ -13,10 +13,10 @@
  * recomputed on read: the read enricher deliberately leaves a
  * `storeMetadata` object untouched because it carries no `key`, so whatever is
  * computed here persists. That is why a failed download refuses the write.
- * Degrading to zero bytes — which is what this used to do — turned a transient
- * outage into a permanently stored `size: 0`, a lie that outlives its cause and
- * that no later read can correct. Rows written before the fix are repaired by
- * the boot-time step in `attachment-url-backfill.ts`.
+ * Degrading to zero bytes would turn a transient outage into a permanently
+ * stored `size: 0`, a lie that outlives its cause and that no later read can
+ * correct. Legacy rows carrying such a `size: 0` are repaired by the boot-time
+ * step in `attachment-url-backfill.ts`.
  *
  * The `url` names the bucket the COLUMN declares, matching the read path.
  */

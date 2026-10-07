@@ -261,6 +261,5 @@ export const handleSeedCommand = async (options: SeedCommandOptions): Promise<vo
   }).catch(async (error: unknown) => refuse(await describeRunFailure(error)))
 
   report(lines)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(0)
 }

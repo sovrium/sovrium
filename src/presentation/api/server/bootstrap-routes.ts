@@ -27,13 +27,11 @@
  * Better Auth's `createUser` API handle final validation.
  */
 
-import { Data, Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { type Hono, type Context } from 'hono'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { claimBootstrapToken } from '@/application/use-cases/auth/bootstrap-token'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
-import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
@@ -111,40 +109,6 @@ const parseClaimBody = async (
   }
 }
 
-interface ValidatedBody {
-  readonly token: string
-  readonly email: string
-  readonly password: string
-  readonly name: string
-}
-
-/**
- * Run the bootstrap-token claim Effect program with the necessary
- * Live layers + dynamic auth layer for the active app config.
- */
-/** The lazily-imported Better Auth layer module could not be loaded. */
-class BootstrapAuthModuleError extends Data.TaggedError('BootstrapAuthModuleError')<{
-  readonly cause: unknown
-}> {}
-
-const runClaim = (validated: ValidatedBody, authConfig: NonNullable<App['auth']>) =>
-  Effect.gen(function* () {
-    // A dynamic import rejects when the module is missing or throws while
-    // evaluating. Inside `Effect.promise` that was a defect, so a broken auth
-    // module answered this route with an unhandled crash rather than the 500
-    // its own failure branch already knows how to render.
-    const { createAuthLayer } = yield* Effect.tryPromise({
-      try: () => import('@/infrastructure/auth/better-auth/layer'),
-      catch: (cause) => new BootstrapAuthModuleError({ cause }),
-    })
-    const combined = Layer.mergeAll(
-      BootstrapTokenRepositoryLive,
-      AuthRepositoryLive,
-      createAuthLayer(authConfig)
-    )
-    return yield* claimBootstrapToken(validated).pipe(Effect.provide(combined))
-  })
-
 const handleClaim = async (c: Context, app: App) => {
   if (!app.auth) {
     return notFound(c, 'Bootstrap not available')
@@ -171,10 +135,17 @@ const handleClaim = async (c: Context, app: App) => {
     return badRequest(c, 'Missing required fields: email, password, name')
   }
 
-  const result = await Effect.runPromise(
-    runClaim({ token, email: body.email, password: body.password, name: body.name }, app.auth).pipe(
-      Effect.result
-    )
+  // The claim runs on the server's domain services, which carry the bootstrap
+  // token store, the auth repository and the account provisioner built over
+  // this app's own auth engine.
+  const result = await runDomainPromise(
+    c,
+    claimBootstrapToken({
+      token,
+      email: body.email,
+      password: body.password,
+      name: body.name,
+    }).pipe(Effect.result)
   )
 
   if (result._tag === 'Failure') {
@@ -194,7 +165,7 @@ const handleClaim = async (c: Context, app: App) => {
         logError('[bootstrap] admin creation failed', err.cause as Error)
         return internalError(c, 'Failed to create admin user')
       default:
-        logError('[bootstrap] database error', err as unknown as Error)
+        logError('[bootstrap] database error', err as Error)
         return internalError(c)
     }
   }
@@ -210,7 +181,7 @@ const handleClaim = async (c: Context, app: App) => {
  *
  * @param honoApp the Hono instance to chain the route onto
  * @param app the active App configuration; the route reads `app.auth`
- *            to construct the Better Auth Effect Layer
+ *            to decide whether the route answers at all
  */
 export const setupBootstrapRoutes = (honoApp: Readonly<Hono>, app: App): Readonly<Hono> =>
   honoApp.post('/api/admin/bootstrap/claim', (c) => handleClaim(c, app))

@@ -25,17 +25,36 @@ export const entry = defineLibraryEntry({
   description:
     'A card that names a record and lists its facts as rows, the term on the left and the value on the right, with a rule under each row.',
   notes: [
+    'Place it on a page that shows one record — a path ending in `/:id` and `dataSource: { table: <your table>, mode: single, param: id }` on the page. Each detail is that record’s field drawn by its type, and an empty one reads "Not set".',
     PLACE_NOTE,
     THEME_NOTE,
     'The rows are static text: edit `items` in the installed fragment. On a page bound to a record, write `$record.<field>` in a `detail` to show that record’s value.',
   ],
   params: [
+    stringParam('table', 'The table the page’s record belongs to.', 'clients'),
+    stringParam('field1', 'The first fact.', 'legal_name'),
+    stringParam('field2', 'The second fact.', 'contact_email'),
+    stringParam('field3', 'The third fact.', 'billing_address'),
+    stringParam('field4', 'The fourth fact.', 'payment_terms'),
+    stringParam('field5', 'The fifth fact.', 'vat_number'),
     stringParam('title', 'The card heading.', 'Client details'),
     stringParam(
       'subtitle',
       'One line under the heading.',
       'Shown to members of Finance and Operations.'
     ),
+  ],
+  tables: [
+    {
+      param: 'table',
+      fields: [
+        { name: 'legal_name', param: 'field1', type: 'single-line-text' },
+        { name: 'contact_email', param: 'field2', type: 'email' },
+        { name: 'billing_address', param: 'field3', type: 'long-text' },
+        { name: 'payment_terms', param: 'field4', type: 'single-line-text' },
+        { name: 'vat_number', param: 'field5', type: 'single-line-text' },
+      ],
+    },
   ],
   env: [],
   requires: [],
@@ -61,11 +80,11 @@ export const entry = defineLibraryEntry({
               layout: 'rows',
               props: { className: 'px-6' },
               items: [
-                { term: 'Legal name', detail: 'Atelier Nord SARL' },
-                { term: 'Contact', detail: 'Claire Martin · claire@example.com' },
-                { term: 'Billing address', detail: '12 rue des Tanneurs, 59000 Lille' },
-                { term: 'Payment terms', detail: '30 days' },
-                { term: 'VAT number', detail: 'FR 00 000000000' },
+                { term: '[Legal name]', field: p('field1') },
+                { term: '[Contact]', field: p('field2') },
+                { term: '[Billing address]', field: p('field3') },
+                { term: '[Payment terms]', field: p('field4') },
+                { term: '[VAT number]', field: p('field5') },
               ],
             },
           ],

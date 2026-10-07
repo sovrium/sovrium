@@ -54,7 +54,7 @@ All hover effects apply together, on one coordinated transition. A `duration` of
 
 ## Actions and response handlers
 
-An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fetch` or `automation` — and `onSuccess` / `onError` say what happens next.
+An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fetch`, `automation` or `fill` — and `onSuccess` / `onError` say what happens next.
 
 A `crud` action needs `operation` (`create`, `update`, `delete`) **and** `table`. `confirm` gates it behind a dialog, with `confirmMessage` supplying the wording.
 
@@ -65,6 +65,15 @@ components:
   - type: form
     action: { type: auth, method: logout, submitLabel: Sign out }
 ```
+
+Beyond signing in and out, an `auth` action covers the account pages:
+
+- **Second factor** — `verifyTwoFactor` checks the code after a password (`factor` is `totp` for an authenticator code or `backupCode` for a recovery code, and `trustDevice` offers "Trust this device"); `enableTwoFactor` asks for the password, then walks the reader through the QR code, a first code and the recovery codes, shown once; `disableTwoFactor` turns it off after the password. A password sign-in on an account with two-step on does not navigate: the form says a code is needed, and the page's `verifyTwoFactor` form finishes the sign-in and follows its own `onSuccess.navigate`.
+- **Invitations** — on a page declaring `invitation`, `acceptInvitation` asks the invitee for a password, creates her account, signs her in and follows `onSuccess.navigate`; `declineInvitation` ends the invitation, so its link stops offering anything. Both read the token from the address: `?token=`, or the key the page's `invitation.param` names. `resendInvitation` and `revokeInvitation` act on one pending invitation.
+- **The reader's credentials** — `createApiKey` asks for a name, creates the key and shows it once — Done stays disabled until the reader ticks that they copied it; `revokeOtherSessions` signs out every session but the current one; `revokeApiKey`, `renamePasskey`, `removePasskey` and `revokeSession` act on one of the reader's own keys, passkeys and sessions.
+- **Roles** — `setRole` changes one member's role to the value picked in its `editSelect`, for a reader allowed to administer accounts.
+
+Every method acting on one item takes `target`, almost always `$record.id` from the row it sits in. An item that is not the reader's own, or a member the reader may not administer, answers exactly like one that does not exist. A form running a method on the reader's own account is not drawn for a visitor who is not signed in, and one acting on another member is not drawn for a reader who may not administer accounts.
 
 A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`), `message` and `title` set inline copy, and `actions` renders follow-up buttons on a success page.
 
@@ -90,6 +99,10 @@ pages:
           onSuccess: { type: navigate, navigate: /tasks }
           onError: { type: message, toast: { variant: error, message: 'Delete failed' } }
 ```
+
+### Before the page's script has run
+
+A button whose `action` is `fetch`, `automation`, `auth` or `toast` is carried out by the page's script, which loads just after the page appears. Until it has run, the button is drawn disabled, then enabled, so a press on a slow connection is never silently lost — no confirm dialog that never opens, no request that never leaves. On a fast connection the window is too short to notice. A button you declare `disabled` stays disabled.
 
 ### Showing what came back
 
@@ -133,6 +146,38 @@ action:
   mode: navigate
   url: 'https://docs.google.com/spreadsheets/d/$record.sheet_id'
   openInNewTab: true
+```
+
+### Filling a form field
+
+A `fill` action writes a value into a form control on the same page, as if the reader had typed it: the message box of a composer takes the text of a saved script the reader clicks. Nothing is sent; the form submits the value the way it submits anything typed.
+
+`target` is the `props.id` of the component holding the control — a `form`, with `field` naming the control by its field name, or a standalone `input` or `textarea`, with no `field`. `value` is a literal, a `$record.<field>` read from the record the trigger belongs to, or a template mixing both. `mode: replace`, the default, overwrites what the control holds; `mode: append` adds the value after it, exactly as written — put a leading space or line break in `value` if one is needed — and leaves the cursor at the end so the reader can keep typing. The control takes the focus and raises the same `input` event typing does.
+
+A button anywhere on the page, a button in each row of a list template, a list item's `onRowClick` and a board's drop hook can all run it. Those are the only places a `fill` runs: on a drawer footer button, a stepper's `onFinish` or a file upload's `uploadAction` it is refused when the config is validated, and the error lists the actions that slot accepts. A `target` naming no component on its page is refused at startup, naming it; the check is skipped on a page that places a component template or builds a component id from a token, where the id is only known once the page is drawn. A target that is declared but not on screen when the action runs — a form inside a dialog that is closed — is left alone: nothing is filled and nothing is reported.
+
+```yaml
+forms:
+  - name: new-message
+    submitTo: { table: messages }
+    fields: [{ kind: table-field, column: body, label: Message }]
+pages:
+  - name: Inbox
+    path: /inbox
+    components:
+      - type: list
+        props: { aria-label: Scripts }
+        dataSource: { table: scripts }
+        listDisplay: { itemTemplate: { title: $record.title } }
+        onRowClick:
+          type: fill
+          target: composer
+          field: body
+          value: $record.content
+          mode: append
+      - type: form
+        props: { id: composer }
+        formRef: new-message
 ```
 
 ## Auto-save

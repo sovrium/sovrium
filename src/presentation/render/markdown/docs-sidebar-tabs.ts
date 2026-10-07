@@ -9,11 +9,10 @@
  * Docs navigation tabs (zones) — resolution helpers over the tabs an APP
  * declares in `contentDir.nav.tabs`.
  *
- * The engine ships NO information architecture of its own. This module used to
- * hardcode one app's IA (a closed `TabId` union plus `TAB_ORDER` /
- * `TAB_FOR_SECTION` / `TAB_LABELS` keyed by Sovrium-website section slugs), which
- * every docs-layout app inherited with no way to override. All of that now comes
- * from config; what remains here is the pure resolution logic:
+ * The engine ships NO information architecture of its own: no closed tab union,
+ * order, section mapping or labels keyed by one app's section slugs, which every
+ * docs-layout app would inherit with no way to override. All of that comes from
+ * config; what lives here is the pure resolution logic:
  *
  *   - which tab owns a given `groupBy` section slug (unclaimed → the FIRST tab,
  *     so an IA gap never makes an article unreachable), and

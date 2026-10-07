@@ -84,6 +84,7 @@ import { loadConfigGraph } from './mcp-config-graph'
 import { buildConfigWriteOperations } from './mcp-config-write'
 import { getCurrentVersion } from './update'
 import { lazyImportSchema } from './utils'
+import type { App } from '@/domain/models/app'
 import type {
   JSONRPCMessage,
   MessageExtraInfo,
@@ -168,7 +169,6 @@ const wasProjectDirDeclared = (projectDir: string | undefined): boolean => {
  * whole of what may be read.
  */
 const anchorProjectDir = (projectDir: string): void => {
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the process env IS the channel both readers share
   process.env['SOVRIUM_PROJECT_DIR'] = projectDir
 }
 
@@ -182,7 +182,7 @@ const anchorProjectDir = (projectDir: string): void => {
  *
  * The discovery notice is the same string every other command prints — one
  * wording, so a discovered config is never mysterious — but it lands on the
- * other stream here, which is the whole of `[internal ref]`.
+ * other stream here, which is the whole of a CLI commands MCP spec.
  */
 const discoverConfig = async (projectDir: string): Promise<string | undefined> => {
   const { discoverDefaultConfigFile } = await lazyImportSchema()
@@ -261,8 +261,7 @@ const readOnDisk = async (configPath: string | undefined): Promise<ConfigReadPay
   const graph = await loadConfigGraph(configPath)
   return {
     config: redactAppConfigForReflection(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the redactor walks an `App`-SHAPED object; the encoded config is that shape
-      graph.parsed as any,
+      graph.parsed as App, // the authored config on disk: App-shaped, not decoded
       process.env
     ),
     files: graph.files,
@@ -390,9 +389,6 @@ const resolveWriteGate = (declared: boolean, configPath: string | undefined): bo
  * exempts classes precisely so a small piece of protocol bookkeeping can be
  * written plainly.
  */
-/* eslint-disable functional/no-expression-statements -- a transport is protocol
-   bookkeeping: installing the inner handlers, counting a request against its
-   response and resolving the drain latch are each a side effect by definition. */
 class DrainingStdioTransport implements Transport {
   // stdin reaches the SDK through this, never directly: see the class comment.
   private readonly feed = new PassThrough()
@@ -462,7 +458,6 @@ class DrainingStdioTransport implements Transport {
     this.resolveDrained()
   }
 }
-/* eslint-enable functional/no-expression-statements */
 
 // ---------------------------------------------------------------------------
 // The command
@@ -478,7 +473,6 @@ class DrainingStdioTransport implements Transport {
  * `Server` also answers `initialize`, `ping` and `server/discover` itself, and
  * answers anything else with `-32601` — a refusal rather than a dropped pipe.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- `Server` is the SDK's own class; we neither own nor can annotate it
 const buildStdioServer = (provider: ConfigToolsProvider, version: string): Server => {
   const server = new Server(
     { name: 'sovrium', version },
@@ -495,7 +489,7 @@ const buildStdioServer = (provider: ConfigToolsProvider, version: string): Serve
   const tools = compileConfigTools(provider.appName, { writeEnabled })
   const queue = new ToolCallQueue()
 
-  server.setRequestHandler('tools/list', async () => ({ tools }) as unknown as never)
+  server.setRequestHandler('tools/list', async () => ({ tools }) as never)
 
   server.setRequestHandler('tools/call', async (request) => {
     const { params } = request as {
@@ -508,7 +502,7 @@ const buildStdioServer = (provider: ConfigToolsProvider, version: string): Serve
       !Array.isArray(params.arguments)
         ? (params.arguments as Record<string, unknown>)
         : {}
-    return queue.run(async () => dispatchToolCall(provider, toolName, args)) as unknown as never
+    return queue.run(async () => dispatchToolCall(provider, toolName, args)) as never
   })
 
   return server
@@ -536,7 +530,6 @@ const buildStdioServer = (provider: ConfigToolsProvider, version: string): Serve
  * classes precisely so a small piece of protocol bookkeeping can be written
  * plainly.
  */
-/* eslint-disable functional/no-expression-statements -- advancing the queue's tail is a side effect by definition */
 class ToolCallQueue {
   private tail: Promise<unknown> = Promise.resolve()
 
@@ -549,7 +542,6 @@ class ToolCallQueue {
     return next
   }
 }
-/* eslint-enable functional/no-expression-statements */
 
 /** JSON-RPC `Method not found` — what an unknown TOOL earns, as the SDK does for a method. */
 const METHOD_NOT_FOUND = -32_601
@@ -566,7 +558,6 @@ const dispatchToolCall = async (
   if (
     !isConfigToolName(provider.appName, toolName, { writeEnabled: provider.write !== undefined })
   ) {
-    // eslint-disable-next-line functional/no-throw-statements -- the SDK surfaces a JSON-RPC error member only via a thrown ProtocolError
     throw new ProtocolError(METHOD_NOT_FOUND, `Unknown tool: ${toolName}`)
   }
   const outcome = await handleConfigToolCall(provider, toolName, args)
@@ -574,7 +565,6 @@ const dispatchToolCall = async (
     // `data` rides along when there is any — bound 3's findings reach the client
     // in `sovrium validate --json`'s vocabulary rather than as prose it would
     // have to parse back apart.
-    // eslint-disable-next-line functional/no-throw-statements -- same reason
     throw new ProtocolError(outcome.code, outcome.message, outcome.data)
   }
   return { content: [{ type: 'text', text: JSON.stringify(outcome.payload, undefined, 2) }] }

@@ -17,13 +17,11 @@
  * filenames, and refactors to the seeder no longer ripple into the live
  * repo or auth-header injector.
  *
- * Architectural note ([internal ref], Wave-2 audit, 2026-05-01): an earlier
- * version of this docstring claimed the extraction broke an import cycle.
- * That was incorrect — the seeder reaches the live repo via dynamic
- * `await import(...)` at runtime, so a top-level static import of the
- * sentinel predicate from the live repo would NOT have closed a cycle.
- * The extraction is still architecturally correct (test/live decoupling),
- * but the rationale is decoupling, not cycle-breaking.
+ * Architectural note: this module does NOT exist to break an import cycle.
+ * The seeder reaches the live repo via dynamic `await import(...)` at
+ * runtime, so a top-level static import of the sentinel predicate from the
+ * live repo would not close a cycle. The rationale is test/live decoupling,
+ * not cycle-breaking.
  *
  * The sentinel literals exist solely to satisfy the encryption-at-rest
  * specs — production never sees them
@@ -55,7 +53,7 @@ export const SENTINEL_REFRESH_TOKEN =
  * header-injection path to treat seeded users as "not yet authorized" —
  * without this gate, the seeder's 1-hour expiresAt would make every
  * freshly-created user's `scope: 'user'` connections report 'connected',
- * contradicting specs like [internal ref] that
+ * contradicting specs like the automation connection specs that
  * assert pre-auth state.
  *
  * `endsWith('.signature-placeholder')` covers both sentinel literals

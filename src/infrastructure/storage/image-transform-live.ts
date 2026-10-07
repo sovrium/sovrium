@@ -13,6 +13,7 @@ import {
   type ImageTransformOptions,
   type ImageTransformResult,
 } from '@/application/ports/services/image-transform-service'
+import { applyImageTransform, mimeForFormat } from './apply-image-transform'
 import { MIME_BY_IMAGE_FORMAT, readSourceImageMetadata, runImagePipeline } from './bun-image'
 import { resizeImage, createThumbnail, convertImage } from './image-processor'
 
@@ -101,14 +102,29 @@ export const ImageTransformServiceLive = Layer.succeed(
      * Composed pipeline for the automation `file.transformImage` action.
      *
      * Fails when the input cannot be decoded or the requested encoder is
-     * unavailable. It used to swallow both and return the input bytes verbatim,
-     * which is how a binary that performed no transforms at all shipped
-     * unnoticed — the caller could not distinguish a re-encoded image from the
-     * original one.
+     * unavailable. Swallowing both and returning the input bytes verbatim would
+     * let a binary that performs no transforms at all ship unnoticed — the
+     * caller could not distinguish a re-encoded image from the original one.
      *
      * `contentType` describes the bytes actually produced, whether that came
      * from an explicit format, the conversion default, or the source.
      */
+    negotiateTransform: (input, params, acceptHeader) =>
+      // effect-promise: total -- applyImageTransform catches every pipeline error and reports it as an { ok: false } outcome; it resolves or is interrupted, and never rejects
+      Effect.promise(() => applyImageTransform(input, params, acceptHeader)).pipe(
+        Effect.map((outcome) =>
+          outcome.ok && outcome.format !== undefined
+            ? {
+                ok: true as const,
+                bytes: outcome.bytes,
+                contentType: mimeForFormat(outcome.format),
+              }
+            : outcome.ok
+              ? { ok: true as const, bytes: outcome.bytes }
+              : outcome
+        )
+      ),
+
     transform: (input: Uint8Array, options: ImageTransformOptions) => {
       const resolvedFormat = resolveOutputFormat(options)
       return Effect.tryPromise({

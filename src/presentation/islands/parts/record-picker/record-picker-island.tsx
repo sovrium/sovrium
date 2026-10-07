@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One picker is mounted per declaration and its handlers close over that
-   picker's draft link set and search term, which is the state that re-renders
-   it. Hoisting them would add indirection without removing render work. */
-
 import { useId, type ReactElement } from 'react'
 import { LinkedChips } from '../crud-form/record-picker-chrome'
 import { LinkCountStrip, PickerSearchRow, ReadOnlyLinks } from './record-picker-chrome'

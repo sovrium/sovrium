@@ -31,7 +31,7 @@
  * split rule above cannot make.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 004, plus this type's own REGRESSION rollup
+ * Specs: the design system component kbd specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'

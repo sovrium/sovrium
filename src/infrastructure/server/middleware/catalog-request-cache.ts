@@ -29,7 +29,6 @@ import type { Context, MiddlewareHandler, Next } from 'hono'
  * `consistent-function-scoping` lint stays happy — same shape as
  * `db-query-count-header.ts`.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 function handleCatalogRequestCache(_c: Context, next: Next): Promise<void> {
   return withCatalogRequestCache(() => next())
 }

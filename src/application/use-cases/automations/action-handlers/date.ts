@@ -132,7 +132,6 @@ export const handleDateParse: ActionHandler = (action, _app, _automation) =>
     // The public output contract is `{ instant: string | null, valid: boolean }`.
     // `undefined` would drop the key from the JSON body entirely, so a consumer
     // could not tell "no instant" from "this operator does not report one".
-    // eslint-disable-next-line unicorn/no-null -- explicit null is the wire contract
     return success({ instant: null, valid: false })
   }).pipe(Effect.withSpan('automations.handle-date-parse'))
 

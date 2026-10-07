@@ -10,14 +10,13 @@
  *
  * A record reaches a person through several doors — the records API, a page
  * that draws it, a hosted form that names it as the record its page showed —
- * and each used to assemble the reader on its own, from whatever it happened to
- * have: the page from the full session, the hosted form from an id and a role,
- * the records API from a session with no email. Each assembly answered a
- * different question, and the gaps were access defects in both directions: the
- * app's top role refused a record its page showed it, a rule naming the
- * reader's email refused her own rows and served blank ones, and a role a
- * `user_access` assignment gives opened, on a page, tables the records API kept
- * shut.
+ * and if each assembled the reader on its own, from whatever it happened to
+ * have (the page from the full session, the hosted form from an id and a role,
+ * the records API from a session with no email), each assembly would answer a
+ * different question, with access defects in both directions: the app's top
+ * role refused a record its page showed it, a rule naming the reader's email
+ * refusing her own rows and serving blank ones, and a role a `user_access`
+ * assignment gives opening, on a page, tables the records API keeps shut.
  *
  * So the reader is ONE shape — {@link CallerReader}, everything a read decision
  * reads about a person — and the decision is ONE function over it,

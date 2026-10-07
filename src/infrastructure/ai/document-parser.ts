@@ -6,8 +6,7 @@
  */
 
 /**
- * Knowledge-document parsers — infrastructure layer
- * ([internal ref]: [internal ref]).
+ * Knowledge-document parsers — infrastructure layer.
  *
  * Turns a raw document file into plain text ready for chunking + embedding:
  *  - `.pdf`  → text extraction via `unpdf` (a pure-JS, serverless PDF.js

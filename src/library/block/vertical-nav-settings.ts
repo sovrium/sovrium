@@ -30,7 +30,7 @@ export const entry = defineLibraryEntry({
     PLACE_NOTE,
     THEME_NOTE,
     'Each link marks itself current when `$query.section` equals its key. Place a copy on each settings page, or bind the key to your own route parameter with `$param.<name>`.',
-    'On a phone the list sits above the panel and scrolls sideways.',
+    'On a phone the list folds into one "Settings sections" menu above the panel, so no section hides off-screen.',
   ],
   params: [],
   env: [],
@@ -43,10 +43,24 @@ export const entry = defineLibraryEntry({
           [
             {
               type: 'container',
+              props: { className: 'md:hidden' },
+              children: [
+                {
+                  type: 'dropdown-menu',
+                  triggerLabel: 'Settings sections',
+                  menuItems: SECTIONS.map(([label, href, key]) => ({
+                    label,
+                    action: { type: 'navigate', path: `${href}?section=${key}` },
+                  })),
+                },
+              ],
+            },
+            {
+              type: 'container',
               element: 'nav',
               props: {
                 'aria-label': 'Settings',
-                className: 'flex flex-none gap-1 overflow-x-auto md:w-52 md:flex-col',
+                className: 'hidden flex-none flex-col gap-1 md:flex md:w-50',
               },
               children: SECTIONS.map(([label, href, key]) => ({
                 type: 'link',

@@ -1,0 +1,126 @@
+# sovrium-library: block/not-found-with-links@0.30.0
+# What a reader sees at an address the handbook does not hold. The three
+# destinations are this handbook's own: its start page, the policies, and the
+# assistant, which can find an article by what it says.
+name: not-found-with-links
+type: container
+element: main
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-4
+        children:
+          - type: text
+            element: span
+            props:
+              className: font-mono text-md text-foreground-subtle
+            content: '404'
+          - type: text
+            element: h1
+            props:
+              className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05]'
+            content: This page is not in the handbook
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: 'The link may be old, or the article was moved. These are the pages people usually look for.'
+          - type: container
+            element: nav
+            props:
+              aria-label: Suggested pages
+              className: mt-6 flex flex-col border-t border-border
+            children:
+              - type: link
+                props:
+                  href: /kb
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: book-open
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Start here
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: How the handbook is organised, and where to begin
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle
+              - type: link
+                props:
+                  href: /kb/policies/expense-policy
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: file-text
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Policies
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: Expenses, security and the other rules we keep
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle
+              - type: link
+                props:
+                  href: /assistant
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: message-circle
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Ask the handbook
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: Describe what you were looking for; the assistant finds the article
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle

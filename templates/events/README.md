@@ -32,6 +32,17 @@ sovrium init my-events --template events
   event** opens a dialog; a new event starts as a draft, off the public page.
 - **Registrations** — everyone grouped under the name of their event, newest first, with a
   filter bar. It is also the door: find a name and press **Check in**.
+- **Analytics** — the public pages' views and one event per registration, counted on your own
+  server with no cookie; an admin reads the registrations at
+  `/api/analytics/events?event_type=track`.
+- Optional: each event posted to your community's Discord channel as it opens. It uses the
+  `discord` connection from the Sovrium library (`sovrium library add connection/discord`);
+  set `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID` to turn it on — without them the app runs
+  exactly the same.
+- Optional: the organizers' shared Google calendar filed every hour into a `calendar_events`
+  table, so a planned date becomes an event without retyping it. It is the
+  `google-calendar-events-to-table` recipe from the Sovrium library; set `GOOGLE_CLIENT_ID`
+  and `GOOGLE_CLIENT_SECRET`, then connect the account from the admin's Connections page.
 
 Sign-up is closed: an admin adds each organizer. Everything is declared in
 [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
@@ -84,6 +95,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

@@ -129,20 +129,22 @@ fields:
     type: single-line-text
 
 views:
-  # Finance's queue: what waits first, then the newest.
+  # Finance's queue — the claims still to decide or to pay: what waits first,
+  # then the newest.
   - id: review_queue
     name: Review queue
+    filters:
+      and:
+        - { field: status, operator: in, value: [Pending, Approved] }
     sorts:
       - { field: queue_rank, direction: asc }
-      - { field: expense_date, direction: desc }
-  # A person's own claims, newest first.
-  - id: my_claims
-    name: My claims
-    sorts:
       - { field: expense_date, direction: desc }
   # Approved claims, oldest first: the order they go out in the transfer.
   - id: to_repay
     name: To repay
+    filters:
+      and:
+        - { field: status, operator: equals, value: Approved }
     sorts:
       - { field: expense_date, direction: asc }
 

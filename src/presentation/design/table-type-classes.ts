@@ -27,12 +27,10 @@
  * uppercasing a column label costs legibility at this type step and buys
  * emphasis the border already supplies.
  *
- * 11px against the body's 12px, which is the canvas' pairing and a reversal of
- * what shipped. Header and body used to share ONE 11px step, on the argument
- * that the grid already separates them so the header needs no second signal.
- * That argument holds — and was applied to the wrong row. It says the header
- * needs no emphasis; it does not say the DATA should be shrunk to meet it. A
- * table is read for its values, so the values take the larger step and the
- * header keeps the smaller one it always had.
+ * 11px against the body's 12px, which is the canvas' pairing. The grid already
+ * separates header and body, so the header needs no second signal — but that
+ * says the header needs no emphasis, not that the DATA should shrink to meet
+ * it. A table is read for its values, so the values take the larger step and
+ * the header keeps the smaller one.
  */
 export const TABLE_HEADER_TYPE = 'text-xs font-medium'

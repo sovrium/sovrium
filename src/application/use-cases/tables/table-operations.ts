@@ -172,7 +172,7 @@ export function viewReadAdmits(
 export function createListTablesProgram(
   caller: TableCaller,
   app: App
-): Effect.Effect<readonly unknown[], Error> {
+): Effect.Effect<readonly unknown[]> {
   // An app with no `auth` has no roles to gate the listing on: every visitor is
   // the guest, and the listing names exactly the tables whose records the guest
   // may read — the same rule the records route applies.
@@ -233,7 +233,7 @@ export function createGetTableProgram(
   tableId: string,
   app: App,
   caller: TableCaller
-): Effect.Effect<GetTableResponse, Error> {
+): Effect.Effect<GetTableResponse, TableNotFoundError> {
   return Effect.gen(function* () {
     // Find table by ID or name
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
@@ -261,7 +261,6 @@ export function createGetTableProgram(
           read: table.permissions.read,
           create: table.permissions.create,
           update: table.permissions.update,
-          // eslint-disable-next-line drizzle/enforce-delete-with-where -- False positive: accessing property, not calling Drizzle delete method
           delete: table.permissions.delete,
         }
       : undefined

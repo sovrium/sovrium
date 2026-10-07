@@ -34,7 +34,7 @@ Before 0.30, a `read` or `list` step handed the run the stored row: numeric ids,
 
 Record ids and relationship values are strings (`"12"`, not `12`): compare them as strings in a condition or a `code` step. The same holds for every item of `{{<step>.records}}`.
 
-A `create` step's output carries the new record's `id`, so a later step reads it as `{{<step>.result.id}}`; an `upsert` that creates carries it too. A record written by `create`, `update`, `upsert` or `delete` starts the record automations of its table, as a write through the records API does.
+A `create` step's output carries the new record's `id`, so a later step reads it as `{{<step>.result.id}}`. An `upsert` step's output is `{ operation, id }`: `created` or `updated`, and the id of the row it wrote, either way. An `update` step's output is `{ updated, ids }`, how many rows it changed and their ids, so a later step reads `{{steps.<step>.updated}}`; a filter that matches nothing gives `{ updated: 0, ids: [] }`. A record written by `create`, `update`, `upsert` or `delete` starts the record automations of its table, as a write through the records API does.
 
 `batchUpsert` requires **`matchField`**: the field name used to decide, per item, between an update and an insert. A configuration without it is refused at validation rather than guessing at a key.
 

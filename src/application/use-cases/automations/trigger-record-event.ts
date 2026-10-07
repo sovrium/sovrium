@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
 import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import {
@@ -18,6 +19,7 @@ import {
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
+import { withHydratedId } from './hydrated-field-reference'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { evaluateRecordTriggerCondition, watchFieldsChanged } from './record-trigger-filters'
 import type { TriggerData } from './resolve-trigger-data'
@@ -33,10 +35,11 @@ import type { App } from '@/domain/models/app'
  * it back ({{trigger.data.record.id}}), and the row's other fields when
  * conditional logic depends on the new value.
  *
- * `previousRecord` is only meaningful for `update` events. It is used to
- * narrow update-event triggers via the `watchFields` config (only fire when
- * one of the listed fields actually changed). Pass undefined for create/
- * delete events.
+ * `previousRecord` is only meaningful for `update` events. It narrows
+ * update-event triggers via the `watchFields` config (only fire when one of
+ * the listed fields actually changed), is readable in the trigger's own
+ * `condition`, and reaches every run as `{{trigger.data.previousRecord.X}}`.
+ * Pass undefined for create/delete events.
  */
 export interface TriggerRecordEventInput {
   readonly app: App
@@ -70,6 +73,7 @@ interface RecordEventMatchInput {
   readonly record: Record<string, unknown>
   readonly previousRecord: Record<string, unknown> | undefined
   readonly pausedNames: ReadonlySet<string>
+  readonly templates: TemplateRenderer
 }
 
 /**
@@ -82,7 +86,7 @@ interface RecordEventMatchInput {
 const findMatchingRecordAutomations = (
   input: RecordEventMatchInput
 ): readonly NonNullable<App['automations']>[number][] => {
-  const { app, tableName, event, record, previousRecord, pausedNames } = input
+  const { app, tableName, event, record, previousRecord, pausedNames, templates } = input
   return (app.automations ?? []).filter((automation) => {
     if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
     const { trigger } = automation
@@ -107,10 +111,12 @@ const findMatchingRecordAutomations = (
     }
     // condition filters by record content. Evaluated against a context
     // exposing the new record at both `record.X` and `trigger.data.record.X`
-    // so spec authors can pick the more readable variant.
+    // so spec authors can pick the more readable variant — and, on an update,
+    // the row before it at `trigger.data.previousRecord.X`, so a condition can
+    // name a transition rather than a state.
     if (
       trigger.condition !== undefined &&
-      !evaluateRecordTriggerCondition(trigger.condition, record)
+      !evaluateRecordTriggerCondition(templates, trigger.condition, record, previousRecord)
     ) {
       return false
     }
@@ -154,21 +160,6 @@ const singleUserFieldNames = (app: App, tableName: string): readonly string[] =>
  * declared `UserSession` shape.
  */
 /**
- * Wrap a hydrated column map so template stringification of the FIELD ITSELF
- * ({{...record.plan}} / {{...record.assignee}}) emits the original FK/user id
- * — preserving the pre-hydration contract — while sub-paths
- * ({{...record.plan.tier}}, {{...record.assignee.email}}) keep resolving
- * through the hydrated columns. Handlebars stringifies values via `toString`,
- * so the id lives on the PROTOTYPE (non-enumerable: JSON serialization of the
- * envelope and Object.keys/spread behavior are unaffected).
- */
-const withIdToString = (
-  columns: Readonly<Record<string, unknown>>,
-  id: string
-): Readonly<Record<string, unknown>> =>
-  Object.assign(Object.create({ toString: () => id }), columns) as Record<string, unknown>
-
-/**
  * GAP-J2 reverse-collection value: the FIRST reverse row's column map (a plain
  * object), or `{}` when the collection is empty. The cloud app provisions
  * exactly ONE reverse drain per app, so the only template access in the field
@@ -199,14 +190,14 @@ const firstReverseRowOrEmpty = (
  * Generic single-field hydration core shared by the user and
  * relationship (GAP-J1) hydrators. Both: filter the table's declared fields,
  * resolve each declared field's value to a column map via a repository read,
- * `withIdToString`-wrap it (so the field stringifies as its original id while
+ * `withHydratedId`-wrap it (so the field stringifies as its original id while
  * sub-paths read the hydrated columns), and immutably fold the resolved
  * overlay onto the record. Unresolved fields are omitted from the overlay so
  * their raw id/FK passes through unchanged (back-compat on a lookup miss).
  *
  * `resolveField` returns the `[fieldName, columns]` pair to overlay, or
  * `undefined` to skip (missing/empty value, or a lookup miss). It owns the
- * per-kind value guard and `withIdToString` wrapping because only it knows the
+ * per-kind value guard and `withHydratedId` wrapping because only it knows the
  * id used for the prototype `toString`.
  */
 const hydrateFields = <Field, R>(
@@ -249,7 +240,7 @@ const hydrateUserFields = (input: {
           comments.getUserMetadataById({ session, userId: value })
         )
         if (metaResult._tag === 'Failure' || !metaResult.success) return undefined
-        return [fieldName, withIdToString({ ...metaResult.success }, value)] as const
+        return [fieldName, withHydratedId({ ...metaResult.success }, value)] as const
       })
     )
     return overlay === undefined ? record : { ...record, ...overlay }
@@ -455,10 +446,96 @@ const hydrateRelationshipFields = (input: {
           parentId: String(value),
           columns: rowResult.success,
         })
-        return [field, withIdToString(columns, String(value))] as const
+        return [field, withHydratedId(columns, String(value))] as const
       })
     )
     return overlay === undefined ? record : { ...record, ...overlay }
+  })
+
+/**
+ * The pre-update row with its user and relationship fields shaped as the
+ * record's are, so `{{trigger.data.previousRecord.<rel>.<column>}}` reads the
+ * same way as `{{trigger.data.record.<rel>.<column>}}`. A field the update left
+ * unchanged reuses the record's hydrated value instead of being looked up a
+ * second time (the hydrators skip a value that is already an object); only a
+ * field the update moved costs a lookup of its own.
+ */
+const hydratePreviousRecord = (input: {
+  readonly app: App
+  readonly tableName: string
+  readonly record: Readonly<Record<string, unknown>>
+  readonly hydratedRecord: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>>
+  readonly userId: string | undefined
+}): Effect.Effect<Record<string, unknown>, never, CommentRepository | DataSourceRepository> =>
+  Effect.gen(function* () {
+    const { app, tableName, record, hydratedRecord, previousRecord, userId } = input
+    const hydratable = [
+      ...singleUserFieldNames(app, tableName),
+      ...singleRelationshipFields(app, tableName).map(({ field }) => field),
+    ]
+    const unchanged = hydratable
+      .filter((field) => previousRecord[field] === record[field])
+      .map((field) => [field, hydratedRecord[field]] as const)
+    const seeded = { ...previousRecord, ...Object.fromEntries(unchanged) }
+    const withUsers = yield* hydrateUserFields({ app, tableName, record: seeded, userId })
+    return yield* hydrateRelationshipFields({ app, tableName, record: withUsers })
+  })
+
+/**
+ * The trigger data every matching run receives: the row after the event and,
+ * on an update, the row before it, both with their user and relationship
+ * fields hydrated.
+ */
+const buildRecordTriggerData = (input: {
+  readonly app: App
+  readonly tableName: string
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>> | undefined
+  readonly userId?: string | undefined
+}): Effect.Effect<
+  {
+    readonly record: Record<string, unknown>
+    readonly previousRecord?: Record<string, unknown>
+  },
+  never,
+  CommentRepository | DataSourceRepository
+> =>
+  Effect.gen(function* () {
+    const { app, tableName, record, previousRecord, userId } = input
+    // [internal ref]: hydrate single-user `user`-typed fields so action templates can
+    // read `{{trigger.data.record.<userField>.email}}` / `.name` / `.id`.
+    const userHydratedRecord = yield* hydrateUserFields({
+      app,
+      tableName,
+      record: { ...record },
+      userId,
+    })
+
+    // GAP-J1: hydrate single many-to-one `relationship` fields so action
+    // templates can read `{{trigger.data.record.<rel>.<column>}}` (the related
+    // row's columns) rather than the bare FK id.
+    const hydratedRecord = yield* hydrateRelationshipFields({
+      app,
+      tableName,
+      record: userHydratedRecord,
+    })
+
+    // The row before an update, shaped the same way. A create or delete has
+    // no previous row, and its runs carry no `previousRecord` key at all.
+    return previousRecord === undefined
+      ? { record: hydratedRecord }
+      : {
+          record: hydratedRecord,
+          previousRecord: yield* hydratePreviousRecord({
+            app,
+            tableName,
+            record,
+            hydratedRecord,
+            previousRecord,
+            userId,
+          }),
+        }
   })
 
 /**
@@ -490,15 +567,11 @@ const readableRecords = (
 }
 
 /**
- * Fire all record-triggered automations matching the given event.
- *
- * Matching applies, in order: (table, event) tuple, then `watchFields` for
- * update events (suppress when none of the listed columns changed), then
- * the optional `condition` group (evaluated against the post-mutation
- * record). See `findMatchingRecordAutomations` for the predicate details.
- *
- * Errors are absorbed at the boundary: a record-create endpoint returns 201
- * regardless of automation outcome (the run row records the failure).
+ * Fire every record-triggered automation matching the event: the (table, event)
+ * tuple, then `watchFields` on an update, then the optional `condition` group
+ * against the post-mutation record (and the pre-mutation one on an update).
+ * Errors are absorbed at the boundary: the record endpoint answers regardless of
+ * the automation outcome, and the run row records the failure.
  */
 export const triggerRecordEventAutomations = (
   input: TriggerRecordEventInput
@@ -515,6 +588,7 @@ export const triggerRecordEventAutomations = (
     const { record, previousRecord } = readableRecords(input)
     // Entry point: one read of the operational pauses per record event.
     const pausedNames = yield* loadPausedAutomationNames
+    const templates = yield* TemplateEngine
     const matching = findMatchingRecordAutomations({
       app,
       tableName,
@@ -522,21 +596,11 @@ export const triggerRecordEventAutomations = (
       record,
       previousRecord,
       pausedNames,
+      templates,
     })
     if (matching.length === 0) return
 
-    // [internal ref]: hydrate single-user `user`-typed fields so action templates can
-    // read `{{trigger.data.record.<userField>.email}}` / `.name` / `.id`.
-    const userHydratedRecord = yield* hydrateUserFields({ app, tableName, record, userId })
-
-    // GAP-J1: hydrate single many-to-one `relationship` fields so action
-    // templates can read `{{trigger.data.record.<rel>.<column>}}` (the related
-    // row's columns) rather than the bare FK id.
-    const hydratedRecord = yield* hydrateRelationshipFields({
-      app,
-      tableName,
-      record: userHydratedRecord,
-    })
+    const triggerData = yield* buildRecordTriggerData({ ...input, record, previousRecord })
 
     yield* Effect.forEach(
       matching,
@@ -545,7 +609,7 @@ export const triggerRecordEventAutomations = (
           automation,
           app,
           processEnv,
-          triggerData: { record: hydratedRecord } as unknown as TriggerData,
+          triggerData: triggerData as TriggerData,
           userId,
           recordEventDepth: input.depth ?? 0,
         }),

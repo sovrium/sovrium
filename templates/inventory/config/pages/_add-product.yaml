@@ -6,26 +6,4 @@ props:
   id: add-product-dialog
   title: Add product
   description: Give it a unit cost and a reorder point so it is valued and flagged from its first movement.
-children:
-  - type: form
-    dataSource:
-      table: products
-    fields:
-      - { field: name, label: Product }
-      - { field: sku, label: SKU }
-      - { field: category, label: Category }
-      - { field: supplier, label: Supplier }
-      - { field: unit_cost, label: Unit cost }
-      - { field: unit_price, label: Unit price }
-      - { field: reorder_at, label: Reorder at }
-      - { field: barcode, label: Barcode }
-    action:
-      type: crud
-      operation: create
-      table: products
-      submitLabel: Add product
-      onSuccess:
-        navigate: /
-        toast:
-          message: Product added
-          variant: success
+formRef: add-product

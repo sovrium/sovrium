@@ -151,6 +151,10 @@ export const AUTH_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
  * of truth: `src/infrastructure/database/drizzle/schema/*.ts`. Denylists
  * strip webhook secrets, raw file bytes, embedding vectors, and password
  * hashes.
+ *
+ * NEVER registered: `connection_tokens` and `connection_app_tokens`. They hold
+ * OAuth access and refresh tokens; no tool reads them, with or without a
+ * denylist. Connections are read through the admin read tools instead.
  */
 export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   {
@@ -177,6 +181,52 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     name: 'automation_run_steps',
     denylistFields: [],
     description: 'Per-step execution detail (input/output/error) within a single automation run.',
+  },
+  {
+    schema: 'system',
+    name: 'automation_approval_requests',
+    // The action payload is the record write an agent proposed — the field
+    // values it would set, which can be anyone's personal or banking data. The
+    // approver-facing message is written to be shown and stays.
+    denylistFields: ['actionPayload'],
+    description:
+      'Approval requests raised by automations awaiting a human decision: who asked, the message, the decision, who decided and when. The proposed action payload is denylisted.',
+  },
+  {
+    schema: 'system',
+    name: 'automation_pauses',
+    denylistFields: [],
+    description:
+      'Paused automations, one row per paused automation: who paused it, when, and why (an operator, or the platform after repeated failures).',
+  },
+  {
+    schema: 'system',
+    name: 'form_submissions',
+    // The share token is a live credential for the share link; the IP address,
+    // its hash and the user agent identify the submitter's device. The body —
+    // `data` for a form, `submittedData` for a share link — and the guest's
+    // email are personal data, read only through the admin submission read
+    // with `reveal`, behind its own rule. The row's identity — its form,
+    // status and when — is what a raw read needs; none of those seven is.
+    denylistFields: [
+      'shareToken',
+      'ipAddress',
+      'submitterIpHash',
+      'userAgent',
+      'data',
+      'submittedData',
+      'guestEmail',
+    ],
+    description:
+      'Form submissions: form or page name, status and when. The submitted body, guest email, share token, IP address, IP hash and user agent are denylisted.',
+  },
+  {
+    schema: 'system',
+    name: 'links',
+    // A password-gated link's hash is an offline verifier for its password.
+    denylistFields: ['passwordHash'],
+    description:
+      'Short links: slug, destination, targets, validity window, click cap and status. The password hash of a password-gated link is denylisted.',
   },
   {
     schema: 'system',
@@ -297,10 +347,9 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     // is precisely the property digest-at-rest exists to provide. A fast hash
     // over a high-entropy secret is safe to STORE, not safe to SHOW.
     //
-    // `system.links` is deliberately absent from this registry, so registering
-    // this table is a departure from the nearest precedent — and the right one.
-    // A link row holds a plaintext slug that is public by design; a share row
-    // holds the digest of a secret. Different rows, different answer.
+    // `system.links` sits in this registry too, with its own password hash
+    // denylisted: a link row's slug is public by design, but its password hash
+    // is the same kind of offline verifier as this digest.
     denylistFields: ['tokenHash'],
     description:
       'Revocable public share links over the design system (ADR-022 A3). Metadata only: id, app, who minted it, when, and when it was revoked. The secret digest column is denylisted.',

@@ -22,6 +22,24 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
+# All optional: the app boots and serves the API the same without any of them.
+# The first two switch on the signed task webhook and the signed call out when
+# a task is done (config/automations/); the last two mirror each new task into
+# a Linear team (library/recipe/record-to-linear-issue.yaml).
+env:
+  - key: TASK_WEBHOOK_SECRET
+    description: Shared secret that signs the task webhook in and the done-task call out.
+    required: false
+  - key: TASK_EVENTS_URL
+    description: Address that receives a signed call each time a task is marked done.
+    required: false
+  - key: LINEAR_API_KEY
+    description: API key of your Linear workspace, to mirror each new task as an issue.
+    required: false
+  - key: LINEAR_TEAM_ID
+    description: Id of the Linear team the mirrored issues are created in.
+    required: false
+
 design:
   $ref: ./config/design.yaml
 
@@ -35,3 +53,13 @@ pages:
 # The page's footer carries its own "Built with Sovrium" line, so the engine's
 # badge is switched off.
 badge: false
+
+connections:
+  - $ref: ./library/connection/linear.yaml
+
+# A signed webhook that files a task, a signed call out when one is done, and
+# the library recipe that mirrors each new task into Linear.
+automations:
+  - $ref: ./config/automations/task-intake.yaml
+  - $ref: ./config/automations/task-done-call-out.yaml
+  - $ref: ./library/recipe/record-to-linear-issue.yaml

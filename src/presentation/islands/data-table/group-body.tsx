@@ -22,7 +22,7 @@ import { rowIdOf } from './row-identity'
 import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableColumnDef, DataTableRow } from './island/table-features'
-import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 import type { ReactElement } from 'react'
 
 /**
@@ -34,7 +34,7 @@ import type { ReactElement } from 'react'
  * nested one does. There is no separate un-nested code path to drift.
  */
 function resolveGroupLevels(
-  groupBy: DataTableGroupBy,
+  groupBy: ViewGroupBy,
   fieldMeta: FieldMetaMap | undefined
 ): readonly GroupLevel[] {
   const declared = [
@@ -312,7 +312,7 @@ export function GroupedTableBodyRows({
   readonly allColumns: readonly DataTableColumnDef[]
   readonly borderClass: string
   readonly ctx: DataRowContext
-  readonly groupBy: DataTableGroupBy
+  readonly groupBy: ViewGroupBy
   readonly collapsedGroups: ReadonlyArray<string>
   readonly onToggleGroupCollapsed?: (pathKey: string) => void
   readonly groupCounts?: Readonly<Record<string, number>>

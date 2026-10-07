@@ -6,8 +6,7 @@
  */
 
 /**
- * Pure vector-math + BLOB-serialization helpers for the SQLite RAG repository
- *.
+ * Pure vector-math + BLOB-serialization helpers for the SQLite RAG repository.
  *
  * SQLite has no pgvector equivalent, so embedding vectors are stored as raw
  * BLOBs (a `Float32Array` serialized to bytes) and cosine similarity is

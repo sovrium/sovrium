@@ -76,7 +76,7 @@ export const aiMessages = systemTable(
      * Delivery status of the message. `complete` for buffered (non-streaming)
      * turns and fully-streamed responses; `incomplete` when a streamed
      * assistant response was interrupted before the terminal `[DONE]` marker
-     *. User messages are always `complete`.
+     * User messages are always `complete`.
      */
     status: text('status').notNull().default('complete'),
     toolCalls: text('tool_calls', { mode: 'json' }),
@@ -268,7 +268,7 @@ export const aiToolCalls = systemTable(
  * AI Facts Table
  *
  * Persistent learned facts extracted from agent conversations
- *. Each row is an atomic fact scoped by
+ * Each row is an atomic fact scoped by
  * `namespace` (declared on the agent's `memory.facts.namespace`),
  * `agentName`, and `userId` so facts never leak across namespaces or users.
  *
@@ -310,7 +310,6 @@ export const aiFacts = systemTable(
  * monitoring can attribute an action to either a chat user (`actor_type =
  * 'user'`, written per completed `/api/ai/chat` turn) or a non-human agent
  * (`actor_type = 'agent'`, written when an agent executes an action —
- * [internal ref]).
  *
  * The optional `userEmail` column carries explicit user attribution for
  * chat-driven record mutations.
@@ -339,7 +338,7 @@ export const aiActivityLogs = systemTable(
 
 /**
  * AI Compute Status Table — sqlite-core mirror of `schema/ai.ts`
- * `ai_compute_status` ([internal ref] Phase 2, design §3 Option A).
+ * `ai_compute_status` (the real-AI-provider rule for AI-compute fields, design §3 Option A).
  *
  * The observable refinement signal for AI-compute fields. Keyed by
  * `(app_id, table_name, record_id, field_name)`. Plain columns only — fully

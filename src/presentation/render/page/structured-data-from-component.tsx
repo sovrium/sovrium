@@ -128,7 +128,6 @@ export function StructuredDataFromComponent({
   return (
     <script
       type="application/ld+json"
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: serializeJsonForScript(jsonLd, 2),
       }}

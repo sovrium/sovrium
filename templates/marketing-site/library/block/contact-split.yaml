@@ -1,0 +1,83 @@
+# sovrium-library: block/contact-split@0.30.0
+name: contact-split
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: grid
+        props:
+          className: grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-20
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-4
+            children:
+              - type: flex
+                props:
+                  className: flex flex-col max-w-2xl gap-4
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+                    content: 'Talk to [a person]'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-lg text-pretty text-foreground-muted sm:text-xl
+                    content: Say who answers and how fast.
+              - type: description-list
+                layout: rows
+                dividers: false
+                items:
+                  - term: Email
+                    detail: '[contact@example.com]'
+                  - term: Phone
+                    detail: '[+33 0 00 00 00 00]'
+                  - term: Address
+                    detail: '[Street, city]'
+                props:
+                  className: mt-6
+          - type: card
+            props:
+              className: flex flex-col gap-4 p-6 sm:p-8
+            children:
+              - type: form
+                props:
+                  className: '!border-0 !bg-transparent !p-0'
+                classes:
+                  parts:
+                    submit: h-10 px-4
+                endpoint:
+                  url: /api/forms/contact/submissions
+                  method: POST
+                  submitLabel: Send message
+                  onSuccess:
+                    type: toast
+                    variant: success
+                    message: Message sent. We will reply soon.
+                  onError:
+                    type: toast
+                    variant: destructive
+                    message: The message could not be sent. Try again.
+                fields:
+                  - field: name
+                    control: text
+                    label: Name
+                  - field: email
+                    control: email
+                    label: Email
+                  - field: message
+                    control: textarea
+                    label: Message
+                    placeholder: What do you need?
+              - type: text
+                element: p
+                props:
+                  className: text-sm text-foreground-subtle
+                content: '[Reply time]'

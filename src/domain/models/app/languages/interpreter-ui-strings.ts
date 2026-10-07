@@ -57,6 +57,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'datatable.search': { en: 'Search...', fr: 'Rechercher…' },
   /** The toolbar search box's accessible name, when the author declares no placeholder. */
   'datatable.searchLabel': { en: 'Search', fr: 'Rechercher' },
+  /** The name field a passkeys list draws on each row to rename a key. */
+  'datatable.passkeyName': { en: 'Passkey name', fr: 'Nom de la clé d’accès' },
 
   // ---- Data table: pager ----
   'datatable.pagination.range': { en: '{from}–{to} of {total}', fr: '{from}–{to} sur {total}' },
@@ -84,6 +86,25 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'form.clear': { en: 'Clear', fr: 'Effacer' },
   /** The edit form's Clear control, accessible name. */
   'form.clearNamed': { en: 'Clear {label}', fr: 'Effacer {label}' },
+  /** A hosted form's save-and-resume action, beside its submit (`saveAndResume`). */
+  'form.saveForLater': { en: 'Save and continue later', fr: 'Enregistrer et continuer plus tard' },
+  'form.saveForLaterEmail': { en: 'Your email address', fr: 'Votre adresse e-mail' },
+  'form.saveForLaterSend': { en: 'Send me the link', fr: "M'envoyer le lien" },
+  'form.saveForLaterSent': {
+    en: 'Your answers are saved. A link to continue has been sent to your email address.',
+    fr: 'Vos réponses sont enregistrées. Un lien pour continuer a été envoyé à votre adresse e-mail.',
+  },
+  'form.saveForLaterFailed': {
+    en: 'Your answers could not be saved. Check the email address and try again.',
+    fr: "Vos réponses n'ont pas pu être enregistrées. Vérifiez l'adresse e-mail et réessayez.",
+  },
+  /** A resume link that is expired, already used or unknown — never which one. */
+  'form.resumeUnavailable': {
+    en: 'Your saved answers are no longer available.',
+    fr: 'Vos réponses enregistrées ne sont plus disponibles.',
+  },
+  /** The private edit link shown after a submission (`editAfterSubmit`). */
+  'form.editAnswers': { en: 'Edit your answers', fr: 'Modifier vos réponses' },
 
   // ---- Comments ----
   'comments.write': { en: 'Write a comment', fr: 'Écrire un commentaire' },
@@ -167,6 +188,22 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'dialog.close': { en: 'Close', fr: 'Fermer' },
   /** A dialog holding a form: the Cancel beside the form's submit. */
   'dialog.cancel': { en: 'Cancel', fr: 'Annuler' },
+
+  // ---- Two-step enrolment: the scan screen and the recovery codes ----
+  'twoFactor.qrTitle': {
+    en: 'QR code for your authenticator app',
+    fr: 'QR code pour votre application d’authentification',
+  },
+  'twoFactor.keyHint': { en: 'Or enter this key:', fr: 'Ou saisissez cette clé :' },
+  'twoFactor.code': { en: 'Verification code', fr: 'Code de vérification' },
+  'twoFactor.verify': { en: 'Verify', fr: 'Vérifier' },
+  'twoFactor.recoveryCodes': { en: 'Recovery codes', fr: 'Codes de récupération' },
+  'twoFactor.codesSaved': { en: 'I have saved these codes', fr: 'J’ai enregistré ces codes' },
+  'twoFactor.done': { en: 'Done', fr: 'Terminé' },
+
+  // ---- Passkeys: the one-button forms ----
+  'passkey.add': { en: 'Add a passkey', fr: 'Ajouter une clé d’accès' },
+  'passkey.signIn': { en: 'Sign in with a passkey', fr: 'Se connecter avec une clé d’accès' },
 
   // ---- Command palette: the create-record dialog ----
   /** The dialog's heading and accessible name. */

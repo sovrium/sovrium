@@ -6,17 +6,12 @@
  */
 
 import { Effect } from 'effect'
+import { batchRestoreProgram, upsertProgram } from '@/application/use-cases/tables/batch-operations'
 import {
-  markUserAuthoredAiFieldsForRecords,
-  type AiComputeBatchWrite,
-} from '@/application/use-cases/ai-compute/enqueue-refinement'
-import {
-  batchCreateProgram,
-  batchUpdateProgram,
-  batchDeleteProgram,
-  batchRestoreProgram,
-  upsertProgram,
-} from '@/application/use-cases/tables/batch-operations'
+  batchCreateWithSideEffects,
+  batchDeleteWithSideEffects,
+  batchUpdateWithSideEffects,
+} from '@/application/use-cases/tables/record-batch-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   batchCreateRecordsRequestSchema,
@@ -38,13 +33,11 @@ import {
   hasDeletePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { runTableProgram, provideTableLive } from '@/infrastructure/layers/table-layer'
-import { logError } from '@/infrastructure/logging/logger'
-import { runEffect } from '@/presentation/api/runtime'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { notFound, payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runEffect, runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { validateRequest } from '@/presentation/api/runtime/validate-request'
 import {
   checkViewerPermission,
@@ -82,8 +75,6 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
-/* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
-
 /**
  * Read the request body for a SIZE PRE-GUARD, without throwing on a body that
  * is not JSON.
@@ -119,7 +110,7 @@ async function handleBatchRestore(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   // Authorization check BEFORE validation. Restore reuses the canonical DELETE
   // role gate, exactly as the single-record path does (`handleRestoreRecord`):
@@ -152,7 +143,8 @@ async function handleBatchRestore(c: Context, app: App) {
   const rowGateError = await enforceRestoreGate({ c, table, session, tableName, ids, guard })
   if (rowGateError) return rowGateError
 
-  const programResult = await runTableProgram(
+  const programResult = await runOnRequest(
+    c,
     batchRestoreProgram(session, tableName, result.data.ids, app)
   )
 
@@ -186,7 +178,7 @@ async function resolveBatchMutationAuth(input: {
   // envelope per S1 anti-enumeration.
   const { c, app, tableName, session, table, ids, op, canonicalCheck, changes } = input
   const { userRole, userGroups } = input
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   if (guard) {
     return enforceBulkMutationGate({
@@ -222,8 +214,7 @@ async function resolveBatchMutationAuth(input: {
  * the per-row predicate check, or `undefined` for non-row-level tables.
  *
  * PARITY WITH THE SINGLE-RECORD PATH IS THE CONTRACT, and it is a three-part
- * contract — this gate used to satisfy none of it, and each omission is its own
- * defect. `checkCreateGate` (`../record/record-write-handlers.ts`) is the
+ * contract, and omitting any part is its own defect. `checkCreateGate` (`../record/record-write-handlers.ts`) is the
  * reference implementation:
  *
  *  1. INHERITANCE. `app.tables` is the resolution set. Without it a table
@@ -254,7 +245,7 @@ async function resolveBatchCreateAuth(input: {
 }): Promise<Response | undefined> {
   const { c, app, tableName, userRole, userGroups, session, records } = input
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
 
   if (guard) {
     return enforceBulkCreateGate({
@@ -275,30 +266,6 @@ async function resolveBatchCreateAuth(input: {
   }
   return undefined
 }
-
-/**
- * Merge the [internal ref] Phase 2 deterministic `ai-*` baseline into each row of a
- * batch create, mirroring the single-record path in
- * `../record/record-write-handlers.ts`.
- *
- * Postgres computes the baseline in a synchronous BEFORE trigger, so it lands
- * whichever route inserted the row. SQLite has no procedural language, so the
- * merge is an in-process CALL — and only the single-record handler made it,
- * leaving a batch-created row with every `ai-*` column NULL and nothing queued
- * to fill it later. No-op on Postgres, and on tables with no AI-compute fields.
- */
-const withAiComputeBaseline = (
-  table: ReturnType<NonNullable<App['tables']>['find']>,
-  records: readonly { readonly fields: Record<string, unknown> }[]
-): ReadonlyArray<Record<string, unknown>> =>
-  records.map((record) =>
-    table && isSqliteRuntime()
-      ? {
-          ...record.fields,
-          ...applyAiComputeBaseline({ table, op: 'insert', incoming: record.fields }),
-        }
-      : record.fields
-  )
 
 /**
  * Handle batch create endpoint
@@ -355,16 +322,12 @@ async function handleBatchCreate(c: Context, app: App) {
     (await validateBulkFieldValues(c, app, result.data.records))
   if (fieldGuard) return fieldGuard
 
-  const flatRecordsData = withAiComputeBaseline(table, result.data.records)
-
-  // Execute batch create with returnRecords parameter and app for numeric coercion
-  const program = batchCreateProgram({
-    session,
-    tableName,
-    recordsData: flatRecordsData,
+  // The batch create and its side effects (`record-batch-orchestration.ts`).
+  const program = batchCreateWithSideEffects({
+    ...{ session, tableName, app, linkReader: getLinkReader(c) },
+    rows: result.data.records.map((record) => record.fields),
     returnRecords: result.data.returnRecords,
-    app,
-    linkReader: getLinkReader(c),
+    isSqlite: isSqliteRuntime(),
   })
 
   // Field-level read filtering on the records returned; a caller who may not
@@ -374,26 +337,8 @@ async function handleBatchCreate(c: Context, app: App) {
     Effect.map(batchCreateAnswer(readsTable, { app, tableName, userRole, userGroups }))
   )
 
-  return runEffect(c, provideTableLive(filteredProgram), batchCreateRecordsResponseSchema, 201)
+  return runEffect(c, provideDomain(c, filteredProgram), batchCreateRecordsResponseSchema, 201)
 }
-
-/**
- * [internal ref] Phase 2: after a successful batch update, stop reporting any AI column
- * the user wrote by hand as a failed computed fallback.
- *
- * Signalled from the handler rather than from the shared program: `recordsData`
- * here already pairs each id with exactly what the user sent, while the batch
- * programs are also reached by callers that carry no user-supplied field map at
- * all. Written as a pipeable so the handler stays inside its line budget.
- */
-const signalUserAuthoredAiFields =
-  (app: App, tableName: string, records: readonly AiComputeBatchWrite[]) =>
-  <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    program.pipe(
-      Effect.tap(() =>
-        Effect.forkDetach(markUserAuthoredAiFieldsForRecords({ app, tableName, records }))
-      )
-    )
 
 /**
  * Handle batch update endpoint. Authorization is row-level scoping when the
@@ -451,29 +396,25 @@ async function handleBatchUpdate(c: Context, app: App) {
     id: record.id,
     fields: record.fields,
   }))
-  // Execute batch update with field-level read filtering on response
-  const filteredProgram = batchUpdateProgram({
-    session,
-    tableName,
-    recordsData,
+  // The batch update and its side effects, with field-level read filtering on the response
+  const filteredProgram = batchUpdateWithSideEffects({
+    ...{ session, tableName, app, linkReader: getLinkReader(c) },
+    records: recordsData,
     returnRecords: result.data.returnRecords,
-    app,
-    linkReader: getLinkReader(c),
   }).pipe(
-    signalUserAuthoredAiFields(app, tableName, recordsData),
     Effect.map((response) =>
       applyBatchReadFiltering(response, { app, tableName, userRole, userGroups }, 'updated')
     )
   )
 
-  return runEffect(c, provideTableLive(filteredProgram), batchUpdateRecordsResponseSchema)
+  return runEffect(c, provideDomain(c, filteredProgram), batchUpdateRecordsResponseSchema)
 }
 
 /**
  * Handle batch delete endpoint
  *
  * Shared handler for both batch-delete route variants. The `permanent` flag is
- * read from the request BODY, where the Zod request schema validates it. It was
+ * read from the request BODY, where the request schema schema validates it. It was
  * also readable from a `?permanent=true` query string; that spelling is gone,
  * so a hard delete is now declared in exactly one place.
  */
@@ -524,16 +465,11 @@ async function handleBatchDelete(c: Context, app: App) {
   // is destroyed.
   const permanent = result.data.permanent === true
   if (permanent && !isAdminEquivalent(userRole, app)) return notFound(c)
-  const program = batchDeleteProgram(session, tableName, result.data.ids, { permanent, app })
-  const tappedProgram = program.pipe(
-    Effect.tapError((error) =>
-      Effect.sync(() => {
-        logError(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
-      })
-    )
-  )
-
-  return runEffect(c, provideTableLive(tappedProgram), batchDeleteRecordsResponseSchema)
+  const program = batchDeleteWithSideEffects({
+    ...{ session, tableName, app, permanent },
+    ids: result.data.ids,
+  })
+  return runEffect(c, provideDomain(c, program), batchDeleteRecordsResponseSchema)
 }
 
 /**
@@ -606,7 +542,7 @@ async function handleUpsert(c: Context, app: App) {
     userGroups,
   })
 
-  return runEffect(c, provideTableLive(filteredProgram), upsertRecordsResponseSchema)
+  return runEffect(c, provideDomain(c, filteredProgram), upsertRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
@@ -624,5 +560,3 @@ export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: 
       .post('/api/tables/:tableId/records/upsert', (c) => handleUpsert(c, resolveApp()))
   )
 }
-
-/* eslint-enable drizzle/enforce-delete-with-where */

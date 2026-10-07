@@ -34,10 +34,9 @@
  * fast-refresh `only-export-components` rule).
  */
 
-import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
-import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import {
   optionColor,
+  optionLabel,
   optionValue,
   type SelectOptionLike,
 } from '@/domain/models/app/tables/select-option'
@@ -46,10 +45,6 @@ import {
   computeArrayChipsWrapClasses,
   computeCodeInlineClasses,
   computeCountBadgeClasses,
-  computeFormulaReadonlyClasses,
-  computeGeolocationClasses,
-  computeGeolocationCoordClasses,
-  computeGeolocationPinClasses,
   computeJsonPreviewClasses,
   computeLinkedRecordPillClasses,
   computeLinkedRecordWrapClasses,
@@ -58,13 +53,13 @@ import {
   computeUserNameClasses,
   computeUserPillClasses,
 } from '../../design/cell-affordances-default-classes'
+import { cn } from '../../design/class-merge'
 import {
   resolveOptionChipPaint,
   type BadgeForm,
   type OptionChipPaint,
 } from '../../design/option-chip-paint'
 import { readsAsList } from '../runtime/cell-value-semantics'
-import { resolvePageTimezone } from '../runtime/page-timezone'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { FieldDisplayMeta } from '../hooks/use-inline-editing'
 
@@ -127,6 +122,18 @@ function resolveChipPaint(
   // outline-and-dot form `design.badgeForm` may pick — is decided in ONE place
   // for the grid, the list and the board (`option-chip-paint.ts`).
   return resolveOptionChipPaint(match ? optionColor(match) : undefined, form, 'grid')
+}
+
+/**
+ * The words a chip prints for one stored value: its option's label, resolved
+ * in the page language on the server, else the value itself. A label still
+ * written as a `$t:` key reached the browser unresolved, and printing the key
+ * would be worse than printing the value.
+ */
+function optionText(display: string, options: readonly SelectOptionLike[] | undefined): string {
+  const match = options?.find((option) => optionValue(option) === display)
+  const label = match === undefined ? display : optionLabel(match)
+  return label.startsWith('$t:') ? display : label
 }
 
 /** Common renderer signature consumed by the dispatch map. */
@@ -223,15 +230,12 @@ export function LinkedRecordPillCell({ value }: { value: unknown }): React.React
  * one value chosen from a declared option list — and since the three selection
  * types converged on one option grammar there is nothing left to tell apart.
  *
- * When the matching option declares a `color`, the pill paints that hex as its
- * fill and carries the foreground and border the platform derived from it. When
- * it declares none, the neutral chrome renders exactly as it did before colour
- * existed.
+ * A matching option's `color` paints the fill, with the foreground and border
+ * derived from it; an option without one keeps the neutral chrome.
  *
- * The pill shows the stored VALUE rather than the option's `label`: the label
- * may be a `$t:` translation key, and the island has no catalog to resolve it
- * against (the server-rendered form path does, via `form-field-resolver.ts`).
- * Painting a raw `$t:` key into a grid cell would be worse than not translating.
+ * The pill shows the option's `label`, which the server resolved in the page
+ * language before the options reached the island (`option-labels.ts`), and
+ * never the stored value an option labels — see {@link optionText}.
  */
 export function StatusPillCell({
   value,
@@ -243,16 +247,13 @@ export function StatusPillCell({
   if (isMissing(value)) return EMPTY_VALUE
 
   const display = String(value)
-  const paint = resolveChipPaint(
-    display,
-    fieldOptions?.selectOptions,
-    fieldOptions?.display?.badgeForm
-  )
+  const { selectOptions, display: displayMeta } = fieldOptions ?? {}
+  const paint = resolveChipPaint(display, selectOptions, displayMeta?.badgeForm)
 
   return (
     <span
       data-component-type="badge"
-      className={computeStatusPillClasses()}
+      className={cn(computeStatusPillClasses(), displayMeta?.chipClassName)}
       style={paint?.style}
     >
       {paint?.dot && (
@@ -262,154 +263,7 @@ export function StatusPillCell({
           style={paint.dot.style}
         />
       )}
-      {display}
-    </span>
-  )
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// FORMULA read-only (kind-dispatched)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * A date the API sends as text: `YYYY-MM-DD`, or an ISO instant. A formula's
- * date result reaches the island over JSON, so it is a STRING, never a `Date`.
- */
-const ISO_DATE_VALUE =
-  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/
-
-/** A `Date`, or a string the API sends a date as. */
-const readsAsDate = (value: unknown): boolean =>
-  value instanceof Date || (typeof value === 'string' && ISO_DATE_VALUE.test(value))
-
-/** A formula error value: `#DIV/0!`, `#REF!`, … */
-const readsAsError = (value: unknown): boolean =>
-  typeof value === 'string' && value.startsWith('#') && value.endsWith('!')
-
-/** A number, or a string that parses as one. */
-const readsAsNumber = (value: unknown): boolean =>
-  typeof value === 'number' || (typeof value === 'string' && !Number.isNaN(Number(value)))
-
-/** True when the formula's author declared its result as text. */
-const declaresText = (fieldOptions: CellFieldOptions | undefined): boolean =>
-  fieldOptions?.display?.resultType === 'text'
-
-/**
- * The kind a formula result renders as. Without a declared kind the value is
- * sniffed — but a formula its author declared `resultType: 'text'` is never
- * read as a date, so `DATETIME_FORMAT(x, 'YYYY-MM-DD')` prints what it built.
- */
-const detectFormulaKind = (
-  value: unknown,
-  fieldOptions: CellFieldOptions | undefined
-): 'number' | 'text' | 'date' | 'error' => {
-  const declared = fieldOptions?.formulaKind
-  if (declared) return declared
-  if (readsAsError(value)) return 'error'
-  if (readsAsNumber(value)) return 'number'
-  return !declaresText(fieldOptions) && readsAsDate(value) ? 'date' : 'text'
-}
-
-/** A value naming a calendar day only: `YYYY-MM-DD`, or a UTC-midnight instant. */
-const namesCalendarDay = (value: unknown, parsed: Date): boolean =>
-  (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) ||
-  parsed.getTime() % 86_400_000 === 0
-
-/**
- * A date-valued formula result in the page's language. A calendar day keeps
- * its own day for every reader; an instant carrying a time of day is placed on
- * its day in the zone the grid already uses for instants — the field's, else
- * the page's.
- */
-function formatFormulaDate(value: unknown, fieldOptions: CellFieldOptions | undefined): string {
-  const parsed = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(parsed.getTime())) return String(value)
-  const locale = fieldOptions?.locale
-  if (namesCalendarDay(value, parsed)) return formatCalendarDate(parsed, locale) ?? String(value)
-  const timeZone = fieldOptions?.timeZone ?? resolvePageTimezone()
-  return formatInstantDay(parsed, usableLocale(locale ?? 'en-US'), timeZone)
-}
-
-/** An instant's day, in `timeZone` — the runtime's own zone when that one is unknown. */
-function formatInstantDay(instant: Date, locale: string, timeZone: string | undefined): string {
-  try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone }).format(instant)
-  } catch {
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(instant)
-  }
-}
-
-/**
- * Render a formula-field readout. Kind comes from the schema if declared,
- * else inferred from the value shape (numeric / error sigil / Date / else).
- */
-export function FormulaReadonlyCell({
-  value,
-  fieldOptions,
-}: {
-  value: unknown
-  fieldOptions?: CellFieldOptions
-}): React.ReactNode {
-  if (isMissing(value)) return EMPTY_VALUE
-  const kind = detectFormulaKind(value, fieldOptions)
-  // A date result arrives over JSON as a STRING, so it is the string that is
-  // formatted — as a calendar date in the page's language, never the raw
-  // instant and never in the browser's own language.
-  const display = kind === 'date' ? formatFormulaDate(value, fieldOptions) : String(value)
-  return <span className={computeFormulaReadonlyClasses({ kind })}>{display}</span>
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// GEOLOCATION (pin + lat,lng)
-// ──────────────────────────────────────────────────────────────────────────────
-
-interface LatLng {
-  readonly lat: number
-  readonly lng: number
-}
-
-const parseObjectGeoloc = (obj: Record<string, unknown>): LatLng | undefined => {
-  const lat = typeof obj['lat'] === 'number' ? obj['lat'] : Number(obj['lat'])
-  const lng = typeof obj['lng'] === 'number' ? obj['lng'] : Number(obj['lng'])
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return undefined
-  return { lat, lng }
-}
-
-const parseStringGeoloc = (s: string): LatLng | undefined => {
-  const parts = s.split(',').map((p) => Number(p.trim()))
-  if (parts.length !== 2) return undefined
-  const [lat, lng] = parts
-  if (lat === undefined || lng === undefined) return undefined
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return undefined
-  return { lat, lng }
-}
-
-const parseGeoloc = (value: unknown): LatLng | undefined => {
-  if (isMissing(value)) return undefined
-  if (typeof value === 'object') return parseObjectGeoloc(value as Record<string, unknown>)
-  if (typeof value === 'string') return parseStringGeoloc(value)
-  return undefined
-}
-
-/**
- * Render a geolocation cell as a bordered chip: pin glyph + "lat, lng" pair
- * formatted to 4 decimals in mono / tabular-nums so a column of coords
- * aligns at the decimal point.
- */
-export function GeolocationCell({ value }: { value: unknown }): React.ReactNode {
-  const coords = parseGeoloc(value)
-  if (!coords) return EMPTY_VALUE
-  return (
-    <span className={computeGeolocationClasses()}>
-      <span
-        aria-hidden="true"
-        className={computeGeolocationPinClasses()}
-      >
-        ◉
-      </span>
-      <span className={computeGeolocationCoordClasses()}>
-        {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-      </span>
+      {optionText(display, selectOptions)}
     </span>
   )
 }
@@ -490,7 +344,7 @@ export function ArrayChipsCell({
           className={computeArrayChipClasses()}
           style={resolveChipPaint(item, fieldOptions?.selectOptions)?.style}
         >
-          {item}
+          {optionText(item, fieldOptions?.selectOptions)}
         </span>
       ))}
     </span>

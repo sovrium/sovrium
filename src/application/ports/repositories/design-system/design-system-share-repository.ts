@@ -21,7 +21,7 @@ export class DesignSystemShareDatabaseError extends Data.TaggedError(
  * main job: the plaintext exists only inside the mint use case, and the digest
  * exists only inside the repository. A field absent from the record cannot be
  * serialised into a list response by accident, which is the leak
- * `[internal ref]` exists to catch.
+ * an admin design system spec exists to catch.
  */
 export interface DesignSystemShareRecord {
   readonly id: string

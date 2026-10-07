@@ -195,10 +195,10 @@ export type AuthStrategy = Schema.Schema.Type<typeof AuthStrategySchema>
  * [{ type: 'emailAndPassword', minPasswordLength: 12 }, { type: 'oauth', providers: ['google'] }]
  * ```
  */
-export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema)
+export const AuthStrategiesSchema = Schema.Array(AuthStrategySchema)
   .annotate({
     description:
-      'Ways a person can sign in — email and password, a magic link, a one-time code, or an external provider. At least one is required, and each way may appear only once.',
+      'Ways a person can sign in — email and password, a magic link, a one-time code, or an external provider. Each way may appear only once. May be empty or omitted when auth.sso declares at least one identity provider (an SSO-only app); otherwise at least one is required.',
   })
   .pipe(
     Schema.check(
@@ -213,7 +213,8 @@ export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema)
     ),
     Schema.annotate({
       title: 'Auth Strategies',
-      description: 'Array of authentication strategies. At least one required, no duplicates.',
+      description:
+        'Array of authentication strategies, no duplicates. At least one is required unless auth.sso declares an identity provider.',
       examples: [
         [{ type: 'emailAndPassword' as const }],
         [

@@ -37,7 +37,7 @@ Every 4xx and 5xx response uses one JSON shape, so a single decoder covers all o
 }
 ```
 
-`code` is drawn from a stable enum of twenty-three values. Fifteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT`, `DATABASE_ERROR` and `QUOTA_EXCEEDED`. Eight more name a situation whose repair differs from the nearest general code — which is the whole reason they exist.
+`code` is drawn from a stable enum of twenty-four values. Sixteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT`, `DATABASE_ERROR` and `QUOTA_EXCEEDED`. Eight more name a situation whose repair differs from the nearest general code — which is the whole reason they exist.
 
 | Code                         | Status | What it means, and what to do about it                                         |
 | ---------------------------- | ------ | ------------------------------------------------------------------------------ |
@@ -86,23 +86,24 @@ Every 404 the API answers is `{ success: false, error: "Not Found", message, cod
 
 ### The status map
 
-| Status | `code`                | Meaning                                                                       |
-| ------ | --------------------- | ----------------------------------------------------------------------------- |
-| `400`  | `VALIDATION_ERROR`    | Validation failure — `errors[]` only when a field is named                    |
-| `400`  | `BAD_REQUEST`         | Malformed request                                                             |
-| `401`  | `UNAUTHORIZED`        | No session, or an expired one                                                 |
-| `403`  | `FORBIDDEN`           | Authenticated and denied — rare, see above                                    |
-| `404`  | `NOT_FOUND`           | Absent, or an access denial wearing the same answer                           |
-| `405`  | `METHOD_NOT_ALLOWED`  | The verb is not one this route accepts; `allowed` lists those that are        |
-| `409`  | `CONFLICT`            | A unique collision, single or batch, or a stale optimistic write              |
-| `413`  | `PAYLOAD_TOO_LARGE`   | The batch payload exceeds the hard limit                                      |
-| `429`  | `RATE_LIMITED`        | Rate limit exceeded                                                           |
-| `500`  | `INTERNAL_ERROR`      | Unexpected server error, details redacted                                     |
-| `500`  | `DATABASE_ERROR`      | A query failed. Distinguished from the generic 500 so a client can retry once |
-| `502`  | `BAD_GATEWAY`         | An upstream answered badly. Retrying may work                                 |
-| `503`  | `SERVICE_UNAVAILABLE` | The service is temporarily down. Wait and retry                               |
-| `504`  | `GATEWAY_TIMEOUT`     | An upstream did not answer in time                                            |
-| `507`  | `QUOTA_EXCEEDED`      | Storing this would exceed the total-storage cap                               |
+| Status | `code`                   | Meaning                                                                       |
+| ------ | ------------------------ | ----------------------------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`       | Validation failure — `errors[]` only when a field is named                    |
+| `400`  | `BAD_REQUEST`            | Malformed request                                                             |
+| `401`  | `UNAUTHORIZED`           | No session, or an expired one                                                 |
+| `403`  | `FORBIDDEN`              | Authenticated and denied — rare, see above                                    |
+| `404`  | `NOT_FOUND`              | Absent, or an access denial wearing the same answer                           |
+| `405`  | `METHOD_NOT_ALLOWED`     | The verb is not one this route accepts; `allowed` lists those that are        |
+| `409`  | `CONFLICT`               | A unique collision, single or batch, or a stale optimistic write              |
+| `413`  | `PAYLOAD_TOO_LARGE`      | The batch payload exceeds the hard limit                                      |
+| `415`  | `UNSUPPORTED_MEDIA_TYPE` | The body is not declared `application/json`. Send it with that `Content-Type` |
+| `429`  | `RATE_LIMITED`           | Rate limit exceeded                                                           |
+| `500`  | `INTERNAL_ERROR`         | Unexpected server error, details redacted                                     |
+| `500`  | `DATABASE_ERROR`         | A query failed. Distinguished from the generic 500 so a client can retry once |
+| `502`  | `BAD_GATEWAY`            | An upstream answered badly. Retrying may work                                 |
+| `503`  | `SERVICE_UNAVAILABLE`    | The service is temporarily down. Wait and retry                               |
+| `504`  | `GATEWAY_TIMEOUT`        | An upstream did not answer in time                                            |
+| `507`  | `QUOTA_EXCEEDED`         | Storing this would exceed the total-storage cap                               |
 
 **`errors[]` is optional on a validation failure, not guaranteed.** It appears when the failure attaches to a field of the request and is omitted when the refusal is about a query parameter instead. On the record-list routes an out-of-range `limit` or `offset` and an unknown `timezone` answer `400` with the message alone. A field name the table does not have is not a validation failure there: in `filter`, `sort`, `groupBy` or `aggregate` it answers the same `404` as a field the caller may not read, and in `fields` it selects nothing. The shape follows the handler rather than the status, so decode `errors[]` as optional everywhere and rely on `message`, which is always present.
 

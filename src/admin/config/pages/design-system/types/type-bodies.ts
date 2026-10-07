@@ -84,6 +84,7 @@ import spacer from './spacer'
 import specimen from './specimen'
 import spinner from './spinner'
 import splitPane from './split-pane'
+import stepper from './stepper'
 import swatch from './swatch'
 import aSwitch from './switch'
 import table from './table'
@@ -121,21 +122,26 @@ const GENERIC_TYPES = ['audio', 'icon', 'iframe', 'scroll-area', 'video'] as con
  * refused too and is listed above only because it ALSO has one appearance of
  * its own the day a console can hold it.
  *
- * These two are here rather than absent because absence is not a third answer.
+ * These are here rather than absent because absence is not a third answer.
  * A type in neither list draws its derived variant sections and stops — and
  * `graph` and `matrix` publish no variant axis, so "and stops" was the whole
  * page: no drawing, no reason, nothing for a reader to act on. That is the
  * fall-through `[internal ref]` exists to catch, and naming them here
  * is what turns it into a stated refusal.
  *
- * Why they are refused at all is the catalogue's to say, not this file's: both
- * read a nodes-and-edges envelope, the platform's specimen fixture publishes
- * rows, and the one graph an instance holds is the operator's own access map.
+ * Why they are refused at all is the catalogue's to say, not this file's:
+ * `graph` and `matrix` read a nodes-and-edges envelope, the platform's specimen
+ * fixture publishes rows, and the one graph an instance holds is the
+ * operator's own access map.
+ * `map` and `tree` meet the same wall from another side — a location, a
+ * parent — and `file-preview` needs a signed file of yours; `signature-pad` is
+ * refused because its Sign button is a write path of its own.
+ *
  * The sentence a reader sees comes from the catalogue record itself
  * (`catalog-specimens.ts`), bound through `$record.refusalReason`, so the
  * console cannot drift into inventing its own.
  */
-const REPORTED_TYPES = ['graph', 'matrix'] as const
+const REPORTED_TYPES = ['graph', 'matrix', 'map', 'tree', 'file-preview', 'signature-pad'] as const
 
 /** Type name → its authored body. */
 export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
@@ -163,6 +169,7 @@ export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   tabs,
   text,
   timeline,
+  stepper,
   'alert-dialog': alertDialog,
   badge,
   breadcrumb,

@@ -1,0 +1,70 @@
+# Every weekday at half past seven, the purchasing inbox hears how many
+# products sit under their reorder point and which one is closest to running
+# out — before anyone opens the app.
+#
+# The steps read the catalogue once and then work on that list in memory: a
+# `data` step counts it, another sorts it by stock on hand, a third keeps the
+# first. Nothing is written; the run history keeps each morning's figures.
+#
+# Change `to` to your own inbox; it needs SMTP configured (see .env.example).
+name: low-stock-digest
+label: Low stock — morning digest
+description: Email purchasing the products under their reorder point, the most urgent first.
+trigger:
+  type: cron
+  expression: '30 7 * * 1-5'
+  timezone: Europe/Paris
+actions:
+  # `stock_state` is the product's computed state. It is empty while stock is
+  # above the reorder point, so an active product with a state is one to
+  # reorder or one already out of stock.
+  - name: underReorder
+    type: record
+    operator: list
+    props:
+      table: products
+      filter:
+        logic: and
+        conditions:
+          - { field: status, operator: equals, value: Active }
+          - { field: stock_state, operator: isNotEmpty }
+  - name: stopWhenNone
+    type: filter
+    operator: continue
+    props:
+      condition:
+        conditions:
+          - field: '{{steps.underReorder.records}}'
+            operator: isNotEmpty
+      onFalse: stop
+  - name: howMany
+    type: data
+    operator: aggregate
+    props:
+      input: '{{steps.underReorder.records}}'
+      function: count
+  - name: lowestFirst
+    type: data
+    operator: sort
+    props:
+      input: '{{steps.underReorder.records}}'
+      field: stock_on_hand
+      direction: asc
+  - name: mostUrgent
+    type: data
+    operator: limit
+    props:
+      input: '{{steps.lowestFirst.result}}'
+      count: 1
+  - name: emailPurchasing
+    type: email
+    operator: send
+    props:
+      to: purchasing@example.com
+      subject: '{{steps.howMany.result}} products to reorder'
+      body: |
+        <p>{{steps.howMany.result}} products are under their reorder point.</p>
+        <p>Closest to running out: <strong>{{steps.mostUrgent.result.0.name}}</strong>
+        ({{steps.mostUrgent.result.0.sku}}), {{steps.mostUrgent.result.0.stock_on_hand}} left
+        against a reorder point of {{steps.mostUrgent.result.0.reorder_at}}.</p>
+        <p>The Reorder list tab of Products has every one of them.</p>

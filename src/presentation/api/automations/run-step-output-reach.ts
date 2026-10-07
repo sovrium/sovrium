@@ -32,6 +32,7 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { withheldStep } from './run-nested-steps'
 import { visibleStepCount, type JudgedRun } from './run-step-reach'
 import type { Reader } from './run-record-reach'
 import type {
@@ -107,13 +108,6 @@ const verdictFor = async (
 const isWhole = (verdict: Verdict): boolean =>
   verdict.triggerVisible && verdict.visibleSteps >= verdict.stepCount
 
-/** A step with its output, logs and error withheld; its name, status and timings kept. */
-const withheld = <T extends { readonly output: unknown; readonly logs?: unknown }>(step: T): T => {
-  const { logs: _logs, ...rest } = step
-  // eslint-disable-next-line unicorn/no-null -- runDetailSchema declares a step's output and error nullable
-  return { ...rest, output: null, error: null } as unknown as T
-}
-
 /**
  * The runs of a list as the signed-in caller of this request may see them:
  * each one's trigger data and own error judged as {@link runDetailAsSeenByCaller}
@@ -136,9 +130,7 @@ export const runsAsSeenByCaller = <
       const verdict = await verdictFor(c, app, caller, judged)
       return {
         ...body,
-        // eslint-disable-next-line unicorn/no-null -- the run schemas declare these nullable
         triggerData: verdict.triggerVisible ? body.triggerData : null,
-        // eslint-disable-next-line unicorn/no-null -- the run schemas declare these nullable
         ...(isWhole(verdict) ? {} : { error: null }),
       }
     })
@@ -170,14 +162,12 @@ export const runDetailAsSeenByCaller = async <
   if (caller === 'whole') return detail
   const verdict = await verdictFor(c, app, caller, judged)
   const steps = detail.steps.map((step, index) =>
-    index < verdict.visibleSteps ? step : withheld(step)
+    index < verdict.visibleSteps ? step : withheldStep(step)
   )
   return {
     ...detail,
     steps,
-    // eslint-disable-next-line unicorn/no-null -- the run schemas declare these nullable
     triggerData: verdict.triggerVisible ? detail.triggerData : null,
-    // eslint-disable-next-line unicorn/no-null -- the run schemas declare these nullable
     ...(isWhole(verdict) ? {} : { error: null }),
   }
 }
@@ -218,12 +208,10 @@ export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
     input.approvals.map(async (approval) => {
       if (input.readsEveryRun || approval.message === null) return approval
       const loaded = await loadRequestRun(c, approval.runId)
-      // eslint-disable-next-line unicorn/no-null -- the approvals schema declares a message nullable
       if (loaded === undefined) return { ...approval, message: null }
       const caller = await callerOfRun(c, app, { readsEveryRun: false, run: loaded.run })
       if (caller === 'whole') return approval
       const verdict = await verdictFor(c, app, caller, loaded.judged)
-      // eslint-disable-next-line unicorn/no-null -- the approvals schema declares a message nullable
       return verdict.visibleSteps > approval.stepIndex ? approval : { ...approval, message: null }
     })
   )

@@ -1,0 +1,24 @@
+# sovrium-library: recipe/record-to-teams-channel@0.30.0
+# Every new announcement is also posted in your company's Microsoft Teams
+# channel, by title, for the people who live in Teams more than on Home. Set
+# the Microsoft variables and the team and channel ids (see `.env.example`)
+# and connect the account from the admin console to turn it on.
+name: record-to-teams-channel
+trigger:
+  type: record
+  table: posts
+  events:
+    - create
+actions:
+  - name: announce
+    type: connection
+    operator: call
+    props:
+      connection: microsoft-365
+      operation: post-channel-message
+      params:
+        team_id: $env.TEAMS_TEAM_ID
+        channel_id: $env.TEAMS_CHANNEL_ID
+        body:
+          contentType: text
+          content: 'New announcement on the intranet: {{trigger.data.record.title}}'

@@ -62,18 +62,15 @@ import { DesignZonesSchema } from './zones'
  * console's Foundations page reads: what colour the app is, what its tokens
  * are, how those tokens are applied, and what the words around them say.
  *
- * ## Why there is no token BLOCK any more
+ * ## Why there is no token BLOCK
  *
- * There used to be one, in two positions, holding eleven members named after
- * CSS PROPERTIES — `borderRadius`, `shadows`, `fonts` — beside a `scales` key
- * holding seven further ladders that nothing read. Thirty declarable positions
- * for twenty purposes, several of them reachable two ways.
- *
- * Naming a key after the CSS property makes the technique look like the point,
- * which is how a system ends up with eleven shadows and no levels. Every member
- * is now a direct key of `design`, named for what it decides. A config written
+ * Every member is a direct key of `design`, named for what it decides — not a
+ * member of a token block named after a CSS PROPERTY (`borderRadius`,
+ * `shadows`, `fonts`). Naming a key after the CSS property makes the technique
+ * look like the point, which is how a system ends up with eleven shadows and no
+ * levels. A config written
  * against a removed spelling is REFUSED by name, with the destination key in
- * the message — see `removed-keys.ts`..
+ * the message — see `removed-keys.ts`.
  *
  * ## The three inert font fields
  *
@@ -81,7 +78,7 @@ import { DesignZonesSchema } from './zones'
  * None of them reaches the CSS variable layer; `typeScale.steps` is where those
  * three quantities take effect. Recorded rather than papered over, because a
  * design system that documents a value the renderer discards is worse than no
- * design system..
+ * design system.
  */
 export const DesignSchema = Schema.Struct({
   // ── Band A: colour ─────────────────────────────────────────────────────────

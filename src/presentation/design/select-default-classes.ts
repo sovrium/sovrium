@@ -209,10 +209,19 @@ export const computeSelectItemClasses = (): string =>
 
 /**
  * Compute the default className for the trigger's chevron icon. Muted
- * foreground tone so the icon recedes versus the value text.
+ * foreground tone so the icon recedes versus the value text. The chevron turns
+ * while the popup is open — keyed on the trigger's `data-popup-open`, the same
+ * attribute a nav menu's chevron turns on — so it carries the state rather
+ * than decorating it. The turn lands on the `svg` itself, which is what a
+ * reader of its computed `rotate` sees.
  */
 export const computeSelectIconClasses = (): string =>
-  ['ml-2', `text-[${v('sv-fg-subtle', T.fgSubtle)}]`].join(' ')
+  [
+    'ml-2',
+    `text-[${v('sv-fg-subtle', T.fgSubtle)}]`,
+    '[&>svg]:transition-transform',
+    '[[data-popup-open]_&>svg]:rotate-180',
+  ].join(' ')
 
 /**
  * Compute the default className for the selected-item indicator (checkmark).

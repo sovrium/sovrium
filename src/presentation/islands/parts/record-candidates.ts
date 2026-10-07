@@ -22,7 +22,7 @@
  * permission-filtered read of the related table.
  */
 
-import { buildSortParam, toApiConditions } from '../hooks/use-records-query'
+import { buildSortParam, toApiConditions } from '../runtime/records-api'
 import type { ListboxCandidate } from './option-listbox'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
@@ -142,7 +142,6 @@ export async function fetchCandidatePage(args: {
     credentials: 'include',
   })
   if (!res.ok) {
-    // eslint-disable-next-line functional/no-throw-statements -- The search hook reports a failed load distinctly from an empty one.
     throw new Error(`Failed to load ${relatedTable} candidates: ${res.status}`)
   }
   const body = (await res.json()) as RecordsPageBody

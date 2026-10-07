@@ -19,7 +19,7 @@ sovrium init my-automations --template automation-recipes
 
 ## What's inside
 
-A small studio's lead intake, automated by four recipes that run inside the app:
+A small studio's lead intake, automated by six recipes that run inside the app:
 
 1. **Webhook → record** (`capture-lead-from-webhook`) — a POST carrying the bearer token
    becomes a lead. Without the token it is refused and writes nothing.
@@ -31,10 +31,21 @@ A small studio's lead intake, automated by four recipes that run inside the app:
 4. **Failure → alert** (`alert-on-failure`) — a run that failed after its last retry is
    written to the activity log with its error. Sovrium itself emails the operators; this
    recipe does not send a second email.
+5. **Manual → sub-automation** (`review-recent-leads`) — the **Review latest leads** button
+   on Activity. With no lead it stops at once, as a success; otherwise it calls recipe 6 and
+   waits for its answer.
+6. **Sub-automation** (`score-leads`) — started only by another automation: it loops over
+   the ten latest leads and logs each with its tier through `log-lead-review`, one step
+   declared once under `actions:` in `app.yaml` and placed with `$ref`.
+
+Optional: a lead that arrives with a `message` gets a two-sentence summary written into it.
+It is the `record-to-mistral-summary` recipe from the Sovrium library (`sovrium library add
+recipe/record-to-mistral-summary`); set `MISTRAL_API_KEY` to turn it on — without it the app
+runs exactly the same.
 
 The pages:
 
-- **Recipes** (`/`, public) — the four recipes, each as its trigger, its steps and the lines
+- **Recipes** (`/`, public) — the first four recipes, each as its trigger, its steps and the lines
   of configuration that declare it, and a way to sign in.
 - **Activity** — every run, newest first, with its recipe, its outcome and one line of why,
   and four figures above: runs in the log, succeeded, succeeded after a retry, failed after
@@ -72,7 +83,7 @@ LEADS_WEBHOOK_TOKEN=choose-a-long-random-token sovrium start app.yaml
 The week holds 17 runs: 15 succeeded, 1 succeeded after a retry (lead #7, Liam Carver) and 1
 failed after 3 attempts (lead #6, Sofia Ricci: the mailbox rejected the sender).
 
-1. Open `/` without signing in: the four recipes and their declarations.
+1. Open `/` without signing in: the first four recipes and their declarations.
 2. Sign in as **maelle.kerlo@kerlo.example** (admin) with the password you chose; you land
    on **Activity**. Find the Retried and the Failed run, and open the failed one with
    `/activity?record=12`: 3 attempts, and the error word for word.
@@ -87,7 +98,10 @@ failed after 3 attempts (lead #6, Sofia Ricci: the mailbox rejected the sender).
 
    The lead appears on **Leads**, and the run at the top of **Activity**.
 
-4. Sign in as **jules.morvan@kerlo.example** (member): he reads the runs and the leads, but
+4. Press **Review latest leads** on Activity: eight lines, one per lead, land at the top of
+   the list, and the admin console's Runs page shows the two runs — the manual one and the
+   one it called.
+5. Sign in as **jules.morvan@kerlo.example** (member): he reads the runs and the leads, but
    only an admin deletes one. Both are demo accounts.
 
 ## Deploy
@@ -97,6 +111,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

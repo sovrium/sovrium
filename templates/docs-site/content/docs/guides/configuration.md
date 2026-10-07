@@ -49,6 +49,8 @@ codeBlock:
 | `filter`          | Which files are left out — `draft: true` by default here      |
 
 ::: callout type="tip"
-**Point "Edit this page" at your repository.** Replace the address in
+**Point "Edit this page" at your repository.**
+
+Replace the address in
 `editUrl` with your own, and every page links to its source file.
 :::

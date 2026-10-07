@@ -13,24 +13,15 @@ import {
   isAdminEquivalent,
   isAssignableRole,
 } from '@/domain/models/app/auth/roles'
-import {
-  deleteCredentialAccountForUser,
-  deletePendingInvitationsForUser,
-  deleteInvitationToken,
-  findInvitationToken,
-  findUserByEmail,
-  findUserById,
-  insertCredentialAccount,
-  insertInvitationToken,
-  markUserEmailVerified,
-  userHasCredentialPassword,
-} from '@/infrastructure/auth/better-auth/invitation-queries'
-import { inheritScopeAssignments } from '@/infrastructure/auth/better-auth/invitation-scope-queries'
 import { logError } from '@/infrastructure/logging/logger'
+import type {
+  InvitationAuthEngine,
+  InvitationMailer,
+  InvitationServices,
+  InvitationStore,
+} from '@/application/ports/contracts/invitation-services'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
-import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 
 /**
  * Default invitation token lifetime: 72 hours.
@@ -193,9 +184,6 @@ const validateInviteInput = (
   return { email, name, role }
 }
 
-type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
-type EmailHandlers = Readonly<ReturnType<typeof createEmailHandlers>>
-
 /**
  * Create or reuse a Better Auth user record for an invited email.
  *
@@ -211,7 +199,7 @@ type EmailHandlers = Readonly<ReturnType<typeof createEmailHandlers>>
  * fully-onboarded user and we surface 422 to the caller.
  */
 const findOrCreateInvitedUser = async (
-  authInstance: AuthInstance,
+  { store, engine }: InvitationServices,
   input: { readonly email: string; readonly name: string; readonly role: string }
 ): Promise<
   | {
@@ -220,10 +208,10 @@ const findOrCreateInvitedUser = async (
     }
   | InviteUserFailure
 > => {
-  const existing = await findUserByEmail(input.email)
+  const existing = await store.findUserByEmail(input.email)
 
   if (existing) {
-    if (await userHasCredentialPassword(existing.id)) {
+    if (await store.userHasCredentialPassword(existing.id)) {
       return {
         status: 'already-onboarded',
         message:
@@ -231,7 +219,7 @@ const findOrCreateInvitedUser = async (
       }
     }
     // Pending user — clear any stale invitation tokens and re-issue.
-    await deletePendingInvitationsForUser(existing.id)
+    await store.deletePendingInvitationsForUser(existing.id)
     return { outcome: 'ready', user: existing }
   }
 
@@ -242,7 +230,7 @@ const findOrCreateInvitedUser = async (
   // user cannot log in until the customer accepts the invitation and sets
   // their own password.
   const throwaway = `${crypto.randomUUID()}${crypto.randomUUID()}`.slice(0, 100)
-  const createdUserId = await createPlaceholderUser(authInstance, input, throwaway)
+  const createdUserId = await createPlaceholderUser(engine, input, throwaway)
   if (!createdUserId) {
     return { status: 'internal-error', message: 'Failed to create invited user record' }
   }
@@ -250,7 +238,7 @@ const findOrCreateInvitedUser = async (
   // Better Auth's admin.createUser linked a credential account using the
   // throwaway password. Strip it so the user cannot accidentally sign in
   // with anything we generated — the invitation flow is the only path.
-  await deleteCredentialAccountForUser(createdUserId)
+  await store.deleteCredentialAccountForUser(createdUserId)
 
   return {
     outcome: 'ready',
@@ -259,31 +247,18 @@ const findOrCreateInvitedUser = async (
 }
 
 /**
- * Call Better Auth's admin.createUser API to provision a placeholder user.
+ * Ask the auth engine to provision a placeholder user.
  *
- * Returns the new user's id, or `undefined` when Better Auth refused the
- * request. The role string is widened at the call boundary because Better
- * Auth's plugin types insist on its closed `'user' | 'admin'` union while
- * Sovrium permits custom roles via `auth.roles[]`.
+ * Returns the new user's id, or `undefined` when the engine refused the
+ * request (the refusal is logged here, where its cause is still in scope).
  */
 const createPlaceholderUser = async (
-  authInstance: AuthInstance,
+  engine: InvitationAuthEngine,
   input: { readonly email: string; readonly name: string; readonly role: string },
   throwawayPassword: string
 ): Promise<string | undefined> => {
   try {
-    const createResult = await authInstance.api.createUser({
-      body: {
-        email: input.email,
-        name: input.name,
-        role: input.role as 'user' | 'admin',
-        password: throwawayPassword,
-      },
-    })
-    if ('user' in createResult && createResult.user?.id) {
-      return createResult.user.id
-    }
-    return undefined
+    return await engine.createUser({ ...input, password: throwawayPassword })
   } catch (error) {
     logError('[admin-invitation] Better Auth createUser failed', error)
     return undefined
@@ -300,18 +275,23 @@ const createPlaceholderUser = async (
  * own result union; the error is logged here where the cause is still in scope.
  */
 const persistInvitation = async (
-  token: string,
-  userId: string,
-  expiresAt: Readonly<Date>,
-  invitedBy: string | undefined
+  store: InvitationStore,
+  row: {
+    readonly token: string
+    readonly userId: string
+    readonly expiresAt: Readonly<Date>
+    readonly invitedBy: string | undefined
+  }
 ): Promise<boolean> =>
-  insertInvitationToken({ id: crypto.randomUUID(), token, userId, expiresAt, invitedBy }).then(
-    () => true,
-    (error: unknown) => {
-      logError('[admin-invitation] Failed to persist invitation token', error)
-      return false
-    }
-  )
+  store
+    .insertInvitationToken({ id: crypto.randomUUID(), ...row, expiresAt: row.expiresAt as Date })
+    .then(
+      () => true,
+      (error: unknown) => {
+        logError('[admin-invitation] Failed to persist invitation token', error)
+        return false
+      }
+    )
 
 /**
  * Issue an admin invitation: create or reuse the user, generate and store a
@@ -322,9 +302,9 @@ const persistInvitation = async (
  * `Location` header for tooling (CI, automation) when needed.
  */
 export const inviteUser = async (params: {
-  readonly authInstance: AuthInstance
+  readonly services: InvitationServices
   readonly authConfig: Auth | undefined
-  readonly emailHandlers: EmailHandlers
+  readonly emailHandlers: InvitationMailer
   readonly baseURL: string
   readonly inviterName: string
   /**
@@ -355,7 +335,7 @@ export const inviteUser = async (params: {
     return validation
   }
 
-  const findOrCreate = await findOrCreateInvitedUser(params.authInstance, validation)
+  const findOrCreate = await findOrCreateInvitedUser(params.services, validation)
   if ('status' in findOrCreate) {
     return findOrCreate
   }
@@ -371,7 +351,7 @@ export const inviteUser = async (params: {
     !isAdminEquivalent(params.inviterRole, params.app)
   ) {
     // eslint-disable-next-line functional/no-expression-statements -- scope inheritance is a side effect
-    await inheritScopeAssignments({
+    await params.services.store.inheritScopeAssignments({
       inviterId: params.inviterId,
       inviteeId: user.id,
       role: validation.role,
@@ -380,19 +360,17 @@ export const inviteUser = async (params: {
 
   const token = generateInvitationToken()
   const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))
-
-  if (!(await persistInvitation(token, user.id, expiresAt, params.inviterId))) {
+  const row = { token, userId: user.id, expiresAt, invitedBy: params.inviterId }
+  if (!(await persistInvitation(params.services.store, row))) {
     return { status: 'internal-error', message: 'Failed to persist invitation token' }
   }
-
-  const acceptUrl = buildAcceptInvitationUrl(params.baseURL, token)
 
   // Fire-and-forget — the email handler swallows errors internally. We
   // await so that test fixtures observing mailpit don't race the response.
   await params.emailHandlers.invitation({
     email: user.email,
     name: user.name,
-    url: acceptUrl,
+    url: buildAcceptInvitationUrl(params.baseURL, token),
     inviterName: params.inviterName,
   })
 
@@ -457,35 +435,31 @@ const validateAcceptInput = (
  * which case the stale verification row is also removed best-effort.
  */
 const resolveTokenUser = async (
+  store: InvitationStore,
   rowUserId: string,
   rowId: string
 ): Promise<
   { readonly id: string; readonly email: string; readonly name: string } | AcceptInvitationFailure
 > => {
-  const user = await findUserById(rowUserId)
+  const user = await store.findUserById(rowUserId)
   if (!user) {
     // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await deleteInvitationToken(rowId).catch(() => undefined)
+    await store.deleteInvitationToken(rowId).catch(() => undefined)
     return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
   }
   return user
 }
 
 /**
- * Hash a plain-text password using Better Auth's configured hasher.
- *
- * `auth.$context.password.hash` matches whatever Better Auth uses for
- * `/sign-up/email` (scrypt by default; configurable via
- * `emailAndPassword.password.hash`). Reusing it guarantees the credential
- * row we link is verifiable by Better Auth's standard sign-in flow.
+ * Hash a plain-text password with the auth engine's configured hasher, so the
+ * credential row the flow links is verifiable by the engine's own sign-in.
  */
-const hashWithAuthContext = async (
-  authInstance: AuthInstance,
+const hashWithAuthEngine = async (
+  engine: InvitationAuthEngine,
   password: string
 ): Promise<string | undefined> => {
   try {
-    const ctx = await authInstance.$context
-    return await ctx.password.hash(password)
+    return await engine.hashPassword(password)
   } catch (error) {
     logError('[admin-invitation] Failed to hash password', error)
     return undefined
@@ -498,26 +472,28 @@ const hashWithAuthContext = async (
  * can short-circuit without re-implementing error handling.
  */
 const linkPassword = async (
-  authInstance: AuthInstance,
+  { store, engine }: InvitationServices,
   userId: string,
   password: string
 ): Promise<AcceptInvitationFailure | undefined> => {
-  const hashed = await hashWithAuthContext(authInstance, password)
+  const hashed = await hashWithAuthEngine(engine, password)
   if (!hashed) {
     return { status: 'internal-error', message: 'Failed to set password' }
   }
 
-  const linkResult = await insertCredentialAccount({
-    id: crypto.randomUUID(),
-    userId,
-    hashedPassword: hashed,
-  }).then(
-    () => 'ok' as const,
-    (error: unknown) => {
-      logError('[admin-invitation] Failed to link credential account', error)
-      return 'failed' as const
-    }
-  )
+  const linkResult = await store
+    .insertCredentialAccount({
+      id: crypto.randomUUID(),
+      userId,
+      hashedPassword: hashed,
+    })
+    .then(
+      () => 'ok' as const,
+      (error: unknown) => {
+        logError('[admin-invitation] Failed to link credential account', error)
+        return 'failed' as const
+      }
+    )
   if (linkResult === 'failed') {
     return { status: 'internal-error', message: 'Failed to set password' }
   }
@@ -531,13 +507,14 @@ const linkPassword = async (
  * already-set password.
  */
 const finalizeAcceptedInvitation = async (
+  store: InvitationStore,
   userId: string,
   invitationRowId: string
 ): Promise<void> => {
   // eslint-disable-next-line functional/no-expression-statements -- best-effort verification flag
-  await markUserEmailVerified(userId).catch(() => undefined)
+  await store.markUserEmailVerified(userId).catch(() => undefined)
   // eslint-disable-next-line functional/no-expression-statements -- best-effort token consumption
-  await deleteInvitationToken(invitationRowId).catch(() => undefined)
+  await store.deleteInvitationToken(invitationRowId).catch(() => undefined)
 }
 
 /**
@@ -550,7 +527,7 @@ const finalizeAcceptedInvitation = async (
  * cookie); this function focuses purely on the token + password setup.
  */
 export const acceptInvitation = async (params: {
-  readonly authInstance: AuthInstance
+  readonly services: InvitationServices
   readonly authConfig: Auth | undefined
   readonly body: { readonly token?: unknown; readonly password?: unknown }
 }): Promise<AcceptInvitationResult> => {
@@ -559,18 +536,18 @@ export const acceptInvitation = async (params: {
     return validated
   }
 
-  const row = await findInvitationToken(validated.token)
+  const row = await params.services.store.findInvitationToken(validated.token)
   if (!row) {
     return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
   }
 
   if (row.expiresAt.getTime() <= Date.now()) {
     // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await deleteInvitationToken(row.id).catch(() => undefined)
+    await params.services.store.deleteInvitationToken(row.id).catch(() => undefined)
     return { status: 'expired-token', message: 'Invitation token has expired' }
   }
 
-  const userOrFailure = await resolveTokenUser(row.userId, row.id)
+  const userOrFailure = await resolveTokenUser(params.services.store, row.userId, row.id)
   if ('status' in userOrFailure) {
     return userOrFailure
   }
@@ -578,15 +555,15 @@ export const acceptInvitation = async (params: {
 
   // If a credential row already exists (race condition with a parallel
   // accept) we treat the token as consumed and return the same response.
-  if (await userHasCredentialPassword(user.id)) {
+  if (await params.services.store.userHasCredentialPassword(user.id)) {
     // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
-    await deleteInvitationToken(row.id).catch(() => undefined)
+    await params.services.store.deleteInvitationToken(row.id).catch(() => undefined)
     return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
   }
 
-  const linkFailure = await linkPassword(params.authInstance, user.id, validated.password)
+  const linkFailure = await linkPassword(params.services, user.id, validated.password)
   if (linkFailure) return linkFailure
 
-  await finalizeAcceptedInvitation(user.id, row.id)
+  await finalizeAcceptedInvitation(params.services.store, user.id, row.id)
   return { status: 'accepted', user }
 }

@@ -16,6 +16,8 @@ export { GalleryTypeLiteral, galleryFields } from './gallery'
 export { FormTypeLiteral, formFields } from './form'
 export { ListTypeLiteral, listFields } from './list'
 export { FilterBarTypeLiteral, FilterFieldKindSchema, filterBarFields } from './filter-bar'
+export { MapTypeLiteral, mapFields } from './map'
+export { TreeTypeLiteral, treeFields } from './tree'
 
 // Re-export sub-schemas from data component types
 export * from './table/schema'

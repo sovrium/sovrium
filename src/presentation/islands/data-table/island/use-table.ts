@@ -111,10 +111,9 @@ function buildTableOptions(params: UseDataTableInstanceParams) {
     onColumnVisibilityChange: params.setColumnVisibility,
     onColumnOrderChange: params.setColumnOrder,
     onColumnSizingChange: params.setColumnSizing,
-    // Column resize: live update during drag.
-    // TanStack Table emits `columnSizing` change events on each pointer move;
-    // the orchestrator debounces the PATCH to the user-preferences endpoint
-    // so a single drag does not produce dozens of writes.
+    // Column resize: live update during drag. TanStack Table emits
+    // `columnSizing` change events on each pointer move; the width lasts for
+    // the reader's visit and is stored nowhere.
     enableColumnResizing: true,
     columnResizeMode: 'onChange' as const,
     enableRowSelection: selectionEnabled,

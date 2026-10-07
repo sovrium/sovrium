@@ -12,7 +12,7 @@ import type { TableRecord } from '../runtime/types'
 /**
  * FullCalendar event shape consumed by the calendar component's `events` prop.
  *
- * We hand-roll the type rather than import `EventInput` from `@fullcalendar/core`
+ * We hand-roll the type rather than import `EventInput` from `@fullcalendar/react`
  * to keep this module free of FullCalendar runtime imports — the calendar
  * island lazy-loads the FullCalendar bundle, but this mapper runs eagerly
  * during prop preparation.
@@ -23,10 +23,10 @@ export interface CalendarEvent {
   readonly start: string
   readonly end?: string
   readonly allDay?: boolean
-  readonly backgroundColor?: string
-  readonly borderColor?: string
-  /** Label tone, derived to meet WCAG AA against `backgroundColor`. */
-  readonly textColor?: string
+  /** The event's fill — FullCalendar 7 paints the chip and its border from it. */
+  readonly color?: string
+  /** Label tone, derived to meet WCAG AA against `color`. */
+  readonly contrastColor?: string
   /**
    * FullCalendar's per-event render mode.
    *
@@ -74,7 +74,7 @@ const COLOR_PALETTE: readonly string[] = [
  * The colour overlay for one record's `colorField` value: the author's declared
  * option colour when the field declares one, otherwise the hashed fallback.
  *
- * `textColor` is DERIVED against the fill rather than assumed ([internal ref] A7
+ * `contrastColor` is DERIVED against the fill rather than assumed ([internal ref] A7
  * ruling 3) — an author may declare a fill anywhere in sRGB, and FullCalendar's
  * built-in white event text is unreadable over a pale one.
  */
@@ -85,12 +85,7 @@ function colorOverlayFor(
   if (!value) return {}
   const colors = resolveRecordColor(value, optionColors, COLOR_PALETTE)
   if (!colors) return {}
-  return {
-    backgroundColor: colors.fill,
-    borderColor: colors.border,
-    textColor: colors.foreground,
-    display: 'block',
-  }
+  return { color: colors.fill, contrastColor: colors.foreground, display: 'block' }
 }
 
 function readString(record: TableRecord, field: string | undefined): string | undefined {

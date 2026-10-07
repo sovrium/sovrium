@@ -5,12 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-refresh/only-export-components -- This module pairs
-   the SSR-only `FormRuntimeMount` React component with the constants and
-   helper that build its payload (`FORM_RUNTIME_SCRIPT`,
-   `buildFormRuntimeConfig`, `FormRuntimeConfig`). The component is server-
-   rendered only and never participates in client-side HMR, so the same
-   pattern as `form-renderer.tsx` and `form-field-elements.tsx` applies. */
+/* eslint-disable react-refresh/only-export-components -- This module pairs the
+   SSR-only `FormRuntimeMount` with the constants and helper that build its payload.
+   It is server-rendered only and never takes part in client-side HMR, as in
+   `form-renderer.tsx` and `form-field-elements.tsx`. */
 
 /**
  * Form Runtime — inline JavaScript that powers post-submit behavior on
@@ -33,14 +31,11 @@
  *        - `reset` — clear inputs except `preserveFields`. On multi-step
  *          forms, return to step 1.
  *        - `toast` — render a transient toast and leave the form populated.
- *        - `message` — render an inline message and leave the form
- *          populated.
+ *        - `message` — render an inline message, leave the form populated.
  *   4. On HTTP error, render the configured `onError` UI plus the inline
  *      field errors echoed back by the server when available.
- *   5. Drive multi-step navigation (Next button → advance active step)
- *      well enough for the foundation specs. Richer multi-step features
- *      (validation gating, jumpTo, goToWhen) are owned by the dedicated
- *      `multi-step.spec.ts` flow.
+ *   5. Drive multi-step navigation (Next button → advance active step).
+ *   6. Announce a record written to `submitTo.table` to the rest of the page.
  *
  * The script is delivered as a string that the form renderer drops into
  * a `<script>` element on the standalone form page. It reads its
@@ -83,12 +78,15 @@ import {
   runtimeConditionsConfig,
   type RuntimeConditionsConfig,
 } from './form-runtime-conditions'
+import { FORM_RUNTIME_EDIT_LINK_SCRIPT } from './form-runtime-edit-link'
 import { FORM_RUNTIME_FIELD_ERRORS_SCRIPT } from './form-runtime-field-errors'
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
 import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
 import { FORM_RUNTIME_ONE_QUESTION_SCRIPT } from './form-runtime-one-question'
 import { FORM_RUNTIME_RATING_SCRIPT } from './form-runtime-rating'
+import { FORM_RUNTIME_RECORD_WRITTEN_SCRIPT } from './form-runtime-record-written'
+import { FORM_RUNTIME_SAVE_BAR_SCRIPT } from './form-runtime-save-bar'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -103,7 +101,7 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
   readonly onError?: FormOnError
   readonly multiStep: boolean
   readonly stepIds: ReadonlyArray<string>
-  /** [internal ref]..051: enable Typeform-style one-question runtime. */
+  /** Enable Typeform-style one-question runtime. */
   readonly oneQuestion: boolean
   /**
    * The runtime's own messages (`form.requiredNamed`, `form.submissionFailed`)
@@ -111,6 +109,8 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
    * runtime is written in.
    */
   readonly strings?: Readonly<Record<string, string>>
+  /** `submitTo.table`, announced on success (`form-runtime-record-written.ts`). */
+  readonly table?: string
 }
 
 /**
@@ -137,7 +137,7 @@ export function buildFormRuntimeConfig(
   const onError =
     form.onError !== undefined ? resolveOnErrorText(form.onError, languages, activeLang) : undefined
   const strings = resolveInterpreterStringOverrides(
-    ['form.requiredNamed', 'form.submissionFailed'],
+    ['form.requiredNamed', 'form.submissionFailed', 'form.editAnswers'],
     resolveDocumentLang(languages, activeLang),
     languages
   )
@@ -149,6 +149,7 @@ export function buildFormRuntimeConfig(
     stepIds: isMultiStep ? form.steps!.map((step) => step.id) : [],
     oneQuestion: isOneQuestion,
     ...(strings !== undefined ? { strings } : {}),
+    ...(form.submitTo.table !== undefined ? { table: form.submitTo.table } : {}),
     ...runtimeConditionsConfig(form),
   }
 }
@@ -156,18 +157,15 @@ export function buildFormRuntimeConfig(
 /**
  * Inline runtime. Wrapped in an IIFE so it neither leaks identifiers nor
  * collides with any host-page globals when the form is embedded. Uses
- * only ECMAScript features supported by every evergreen browser.
- *
- * The string is intentionally compact — it ships verbatim on every form
- * page, gzipped to ~1.5 KB. Code style matches the project's no-semi
- * Prettier config so future edits don't introduce noise.
+ * only ECMAScript features supported by every evergreen browser. Compact on
+ * purpose: it ships verbatim on every form page (~1.5 KB gzipped).
  *
  * Because the string ships to the browser verbatim, its inline comments
  * describe behavior only and carry no internal spec ids — those belong in
  * TypeScript comments like this one, which the build strips. The mapping
  * lives here instead: the `$record.<column>` interpolation covered below
- * is specified by [internal ref], and the "unresolved refs collapse to the
- * empty string" rule by [internal ref].
+ * is specified by a forms spec, and the "unresolved refs collapse to the
+ * empty string" rule by a forms spec.
  */
 export const FORM_RUNTIME_SCRIPT = `(function () {
   // Prefer the config and form beside THIS script, so two embedded forms on one page each bind their own.
@@ -185,11 +183,7 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   var sel = 'form[data-form-name="' + formName + '"]', form = scope.querySelector(sel) || document.querySelector(sel)
   if (!form || form.hasAttribute('${FORM_RUNTIME_MARK}')) return // bind once, however often this runs
   form.setAttribute('${FORM_RUNTIME_MARK}', '')
-  // The runtime owns validation end-to-end: it inspects each input via
-  // checkValidity() and renders inline error markers. Disabling native
-  // validation here (rather than in the SSR markup) keeps the no-JS
-  // fallback honest — without a runtime, the browser still surfaces its
-  // built-in popup tooltips on submit.
+  // The runtime owns validation; set here, not in the markup, so no-JS keeps native tooltips.
   form.setAttribute('novalidate', '')
   // The runtime's own messages in the page language, resolved on the server;
   // absent where they read as the English written here.
@@ -205,20 +199,16 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   function namedInputs() {
     return form.querySelectorAll(INPUT_SELECTOR)
   }
-  // Defensive DOM removal helper — every cleanup site needed the same
-  // null-guarded \`parentNode.removeChild\` dance. Centralising it kills
-  // 5+ inline duplicates and saves bytes on the wire.
+  // The one null-guarded removal every cleanup site shares.
   function removeIfPresent(el) {
     if (el && el.parentNode) el.parentNode.removeChild(el)
   }
   var initialValues = collectInitialValues(form)
-
 ${FORM_RUNTIME_MULTI_STEP_SCRIPT}
 ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
 ${FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT}
 ${FORM_RUNTIME_CONDITIONS_SCRIPT}
-
-${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}
+${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}
   function validateForm() {
     var inputs = namedInputs()
     var firstError = null
@@ -278,9 +268,9 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}
 
   // ---- onSuccess interpolation ----------------------------------------------
   // Substitutes the submit-time template variables against the submission
-  // response: \`$submission.id\` (ledger row), \`$record.id\` (bound row), and
-  // \`$record.<column>\` (any submitter-supplied bound-table column).
-  // Unresolved refs collapse to '' (never the literal token).
+  // response: \`$submission.id\` (ledger row), \`$record.id\` (bound row),
+  // \`$record.<column>\` (any submitter-supplied bound-table column), and
+  // \`$form.<field>\` (what was typed). Unresolved refs collapse to ''.
   // When \`encode\` is set (URL contexts) each substituted VALUE is
   // percent-encoded so a value like an email's \`@\` rides safely in a query
   // string; the surrounding template text is left untouched.
@@ -291,7 +281,7 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}
   function interpolate(template, response, encode) {
     if (typeof template !== 'string') return ''
     var record = Object.assign({}, response.record || {}, { id: response.linkedRecordId })
-    var scopes = { submission: { id: response.submissionId }, record: record }
+    var scopes = { submission: { id: response.submissionId }, record: record, form: response.form }
     function scopeOf(ns) {
       return Object.prototype.hasOwnProperty.call(scopes, ns) ? scopes[ns] : undefined
     }
@@ -426,7 +416,7 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}
   // ---- File-input handling (sliced into form-runtime-file-handlers.ts) ----
 ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
 ${FORM_RUNTIME_AUDIO_RECORDER_SCRIPT}
-${FORM_RUNTIME_RATING_SCRIPT}
+${FORM_RUNTIME_RATING_SCRIPT}${FORM_RUNTIME_RECORD_WRITTEN_SCRIPT}${FORM_RUNTIME_SAVE_BAR_SCRIPT}
   // ---- Submit interception ---------------------------------------------------
   function collectInitialValues(formEl) {
     var snapshot = {}
@@ -449,13 +439,15 @@ ${FORM_RUNTIME_RATING_SCRIPT}
       renderOnError(result.body && result.body.message)
       return
     }
+    announceRecordWritten(result.body)
     applyOnSuccess({
       submissionId: result.body.submissionId || '',
       linkedRecordId: result.body.linkedRecordId || '',
-      // Submitter-supplied bound-table columns, for $record.<column>
-      // interpolation. Absent on table-less forms.
+      // Bound-table columns for $record.<column> (absent on table-less forms).
       record: result.body.record || {},
+      form: snapshotValues(),
     })
+    renderEditLink(result.body.editUrl)
   }
 
   form.addEventListener('submit', function (event) {
@@ -531,13 +523,9 @@ export function FormRuntimeMount({
       <script
         type="application/json"
         data-form-config="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR config emission
         dangerouslySetInnerHTML={{ __html: configJson }}
       />
-      <script
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
-        dangerouslySetInnerHTML={{ __html: FORM_RUNTIME_SCRIPT }}
-      />
+      <script dangerouslySetInnerHTML={{ __html: FORM_RUNTIME_SCRIPT }} />
     </>
   )
 }

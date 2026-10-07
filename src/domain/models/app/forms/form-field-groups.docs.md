@@ -29,7 +29,7 @@ forms:
 
 <!-- sovrium:options FormFieldGroupSchema -->
 
-`label` and `fields` are both required, and `fields` needs at least one entry. `visibleWhen` gates the whole section and takes the same shape and operators as a field's own rule.
+`label` and `fields` are both required, and `fields` needs at least one entry. An optional `description` draws one line of guidance under the label, above the group's fields, as a page form's section does. `visibleWhen` gates the whole section and takes the same shape and operators as a field's own rule.
 
 `fieldGroups` is itself optional. Omit it and the form renders its fields top to bottom with no headings, which is right for a form short enough not to need signposting. Declared, the array must hold at least one group.
 

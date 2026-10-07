@@ -9,12 +9,11 @@ import { type ReactElement } from 'react'
 import { oauthSubmitLabel } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
-  authSkeletonFormProps,
-  buildAuthWrapperStyle,
   resolveOnSuccessRedirect,
   type AuthFormAction,
   type AuthFormRenderContext,
-} from './auth-form-renderer'
+} from './auth-form-action'
+import { authSkeletonFormProps, buildAuthWrapperStyle } from './auth-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 
 /**
@@ -30,7 +29,7 @@ import type { ElementProps } from './html-element-renderer'
  * Like the credential skeleton, it cannot start anything on its own — the
  * social sign-in answers JSON, which only the island reads — so the form is
  * drawn `method="post"` and its button `disabled` until the island renders its
- * live one. A press before the script ran used to fall back to a GET.
+ * live one. Otherwise a press before the script ran would fall back to a GET.
  */
 function renderOAuthSkeleton(config: {
   readonly props: ElementProps
@@ -74,10 +73,9 @@ function renderOAuthSkeleton(config: {
  *
  * The action's `onSuccess` destination rides along as Better Auth's
  * `callbackURL`, the field it stores against the OAuth state and redirects to
- * once the provider comes back. It used to be stamped onto the `<form>` as
- * `data-redirect`, which no island, route or script ever read — and which could
- * never have worked, because the destination has to survive a round trip to the
- * provider and markup on a form nobody submits cannot. That attribute is gone.
+ * once the provider comes back. It is not stamped onto the `<form>` (say, as
+ * `data-redirect`): the destination has to survive a round trip to the
+ * provider, and markup on a form nobody submits cannot.
  *
  * The `<form>` stays as the host for the author's `props` (`id`, `className`,
  * `data-testid`) — `#login-form` and `#oauth-form` resolve to it.

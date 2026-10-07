@@ -6,8 +6,7 @@
  */
 
 /**
- * Standalone `code` COMPONENT SSR syntax-highlight pass
- * ([internal ref]..033).
+ * Standalone `code` COMPONENT SSR syntax-highlight pass.
  *
  * The `code` component renderer is synchronous (it runs inside `renderToString`),
  * but Shiki is async (it dynamically `import()`s grammars/themes). This mirrors
@@ -27,7 +26,7 @@
  *    Every highlighted fragment passes through the single canonical
  *    `sanitizeRichTextHTML` (security rule S2 — one sanitiser, `class` kept on
  *    pre/code/span, `style` dropped), so the token contract survives and no
- * inline style can leak.
+ *    inline style can leak.
  *
  * The Copy button and `.relative` wrapper are siblings of the placeholder
  * `<pre>`, so replacing only the `<pre>…</pre>` preserves them. A page with no

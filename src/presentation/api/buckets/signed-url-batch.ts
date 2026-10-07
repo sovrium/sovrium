@@ -6,16 +6,24 @@
  */
 
 import {
-  buildSignedUrl,
+  constraintRefusalMessage,
   constraintsForSign,
-  fileExists,
-  refuseUnlessSignable,
+} from '@/application/use-cases/buckets/signed-upload-constraints'
+import {
   resolveExpiresIn,
   resolveSignBucket,
+} from '@/application/use-cases/buckets/signed-url-minting'
+import {
+  buildSignedUrl,
+  fileExists,
+  objectStoredAt,
+  refuseUnlessSignable,
 } from '@/presentation/api/buckets/signed-urls'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
+import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import type { UploadConstraints } from '@/application/use-cases/buckets/signed-upload-constraints'
 import type { App } from '@/domain/models/app'
-import type { UploadConstraints } from '@/presentation/api/buckets/signed-urls'
+import type { Bucket } from '@/domain/models/app/buckets'
 import type { Context } from 'hono'
 
 /** Largest batch the `/sign/batch` endpoint accepts. */
@@ -41,6 +49,7 @@ type BatchResult =
       readonly expiresAt: string
     }
   | { readonly path: string; readonly error: 'not_found' }
+  | { readonly path: string; readonly error: 'conflict' }
 
 /** The signing operation an entry asks for: download unless it says `upload`. */
 function operationOf(entry: unknown): 'download' | 'upload' {
@@ -70,8 +79,11 @@ function batchOperations(files: unknown): readonly ('download' | 'upload')[] {
  * refuses the whole batch exactly as the single form refuses one file, so a
  * batch never signs more than one-at-a-time requests could, and a refusal
  * says nothing about which files exist. Download entries whose file does not
- * exist are returned with `error: 'not_found'`; upload entries are always
- * signed and carry their HMAC-bound `contentType` / `maxSize`.
+ * exist are returned with `error: 'not_found'`; upload entries carry their
+ * HMAC-bound `contentType` / `maxSize`, clamped to the bucket exactly as the
+ * single form clamps them, and an upload entry whose path already holds an
+ * object is returned with `error: 'conflict'` — a signed upload writes a new
+ * object, never over a stored one.
  */
 export function createHandleBatchSign(app: App) {
   return async (c: Context) => {
@@ -98,7 +110,7 @@ export function createHandleBatchSign(app: App) {
       )
     }
 
-    const results = await signBatchEntries(c, bucketName, files as readonly BatchFileRequest[])
+    const results = await signBatchEntries(c, bucket, files as readonly BatchFileRequest[])
     if (typeof results === 'string') {
       return c.json(storageErrorBody(results, 'BAD_REQUEST'), 400)
     }
@@ -111,7 +123,7 @@ interface ResolvedBatchEntry {
   readonly path: string
   readonly operation: 'download' | 'upload'
   readonly expiresInSeconds: number | undefined
-  readonly constraints: UploadConstraints | undefined | 'invalid'
+  readonly constraints: UploadConstraints | undefined | 'invalid' | 'type-not-allowed'
 }
 
 /**
@@ -133,29 +145,39 @@ function pathOf(entry: unknown): string | undefined {
  */
 async function signBatchEntries(
   c: Context,
-  bucket: string,
+  bucketConfig: Bucket,
   files: readonly BatchFileRequest[]
 ): Promise<readonly BatchResult[] | string> {
   if (files.some((file) => pathOf(file) === undefined)) return 'Missing path'
+  const bucket = bucketConfig.name
+  const signer = { bucket: bucketConfig, uploadedBy: getSessionContext(c)?.userId }
   const resolved: readonly ResolvedBatchEntry[] = files.map((file) => {
     const operation = operationOf(file)
     return {
       path: pathOf(file) as string,
       operation,
       expiresInSeconds: resolveExpiresIn(file.expiresIn),
-      constraints: constraintsForSign(operation, file),
+      constraints: constraintsForSign(operation, file, signer),
     }
   })
   if (resolved.some((entry) => entry.expiresInSeconds === undefined)) {
     return 'Invalid expiresIn value'
   }
-  if (resolved.some((entry) => entry.constraints === 'invalid')) return 'Invalid maxSize value'
+  // The first refusal in the order the single form checks them: a malformed
+  // `maxSize` before a type the bucket does not accept.
+  const refusal = (['invalid', 'type-not-allowed'] as const).find((reason) =>
+    resolved.some((entry) => entry.constraints === reason)
+  )
+  if (refusal !== undefined) return constraintRefusalMessage(refusal)
 
   return Promise.all(
     resolved.map(async ({ path, operation, expiresInSeconds, constraints }) => {
-      // Download entries must reference an existing file; upload entries do not.
+      // Download entries must reference an existing file; upload entries must not.
       if (operation === 'download' && !(await fileExists(c, path, bucket))) {
         return { path, error: 'not_found' } as const
+      }
+      if (operation === 'upload' && (await objectStoredAt(c, path, bucket))) {
+        return { path, error: 'conflict' } as const
       }
       const { signedUrl, expiresAt } = buildSignedUrl({
         c,

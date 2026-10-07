@@ -149,6 +149,15 @@ fields:
     name: created_at
     type: created-at
 
+views:
+  # The register as the Register page shows it: by category, tag order.
+  - id: register_by_category
+    name: Register by category
+    sorts:
+      - { field: asset_tag, direction: asc }
+    groupBy:
+      field: category
+
 # Everyone signed in reads the register, and a member registers and updates
 # assets (hands one over, moves it, marks it counted). Only an admin deletes
 # one: retiring an asset is a status, deleting it erases its history.

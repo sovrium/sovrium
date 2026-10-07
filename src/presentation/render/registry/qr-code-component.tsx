@@ -12,8 +12,7 @@ import type { QrCodeSpec } from '@/presentation/render/resolve/qr-code-resolver'
 import type { ReactElement } from 'react'
 
 /**
- * Renderer for `{ type: 'qr-code' }` — a scannable symbol rendered inline
- *.
+ * Renderer for `{ type: 'qr-code' }` — a scannable symbol rendered inline.
  *
  * SSR-ONLY, DELIBERATELY — it emits NO `data-island` marker, matching `marquee`,
  * `toc` and `theme-toggle`. A QR is a deterministic function of its payload, so
@@ -21,7 +20,7 @@ import type { ReactElement } from 'react'
  * whose whole job may be to be printed. Keeping it script-free is also what
  * makes it correct with JavaScript disabled and printable from the browser's own
  * print dialog. A later "make it interactive" change would quietly destroy that
- * property, which is why [internal ref] pins it.
+ * property, which is why a pages media spec pins it.
  *
  * Registered through `media-components.ts` — it belongs with the media family
  * (it is a static rendering of a value) but needs its own `.tsx` file for the
@@ -119,7 +118,6 @@ export const qrCodeComponent: ComponentRenderer = (
     ...(accessibleName === undefined ? {} : { title: accessibleName }),
   })
 
-  // eslint-disable-next-line unicorn/no-null -- a renderer's documented "nothing to render" return
   if (resolved.kind === 'nothing-to-encode') return null
 
   // A page must not 500 because one component's string was too long, so the
@@ -143,7 +141,7 @@ export const qrCodeComponent: ComponentRenderer = (
       data-testid={dataTestId}
       data-component-type={componentType}
       data-qr-value={resolved.payload}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; the markup is deterministic output of a pure domain encoder, never user HTML
+      // eslint-disable-next-line sovrium/require-sanitized-html -- SVG the QR encoder generates from the payload; no raw string is spliced in
       dangerouslySetInnerHTML={{ __html: resolved.svg }}
     />
   )

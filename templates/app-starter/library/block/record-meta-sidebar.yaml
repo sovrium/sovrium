@@ -1,0 +1,33 @@
+# sovrium-library: block/record-meta-sidebar@0.30.0
+name: record-meta-sidebar
+type: container
+element: section
+props:
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+  aria-label: Details
+children:
+  - type: text
+    element: h2
+    props:
+      className: text-md font-semibold text-foreground
+    content: Details
+  - type: description-list
+    items:
+      - term: 'Status'
+        field: status
+      - term: 'Client'
+        field: client
+      - term: 'Budget'
+        field: budget
+      - term: 'Due'
+        field: due_date
+  - type: flex
+    props:
+      className: flex flex-col gap-1 border-t border-border pt-3 text-sm text-foreground-muted
+    children:
+      - type: text
+        element: p
+        content: Created $record.createdAt
+      - type: text
+        element: p
+        content: Updated $record.updatedAt

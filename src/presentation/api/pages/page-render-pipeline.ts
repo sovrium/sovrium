@@ -11,8 +11,8 @@
  * Extracted verbatim from `page-routes.ts`, which now holds only route
  * REGISTRATION (which URLs are mounted, and in which order). This module holds
  * the orthogonal concern — how a matched path becomes an HTTP response: session
- * extraction, the preview flag, the shared-view anti-enumeration gate, the
- * page-output cache, and the request-edge tracing wrapper.
+ * extraction, the preview flag, the page-output cache, and the request-edge
+ * tracing wrapper.
  *
  * The dependency now runs strictly one way (`page-routes.ts` → this file). It
  * previously did not: `HonoAppConfig` lived in `page-routes.ts`, so this file
@@ -28,12 +28,6 @@
 import { Data, Effect } from 'effect'
 import { type Context } from 'hono'
 import { PageCache, type CachedPage } from '@/application/ports/services/page-cache'
-import { getUserAccessRoles, tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import {
-  isSharedViewAccessDenied,
-  type SharedViewReader,
-} from '@/domain/models/app/pages/page-shared-view-guard'
 import { runDomainPromise, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import {
   recordPageCacheOutcome,
@@ -50,16 +44,20 @@ import {
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
 import { readTableAsCaller } from './caller-table-reader'
+import { fileUrlSigner } from './file-url-signer'
 import {
   CACHED_PAGE_CACHE_CONTROL,
   buildPageCacheKey,
   decidePageCache,
+  REVALIDATED_PAGE_CACHE_CONTROL,
 } from './page-cache-decision'
 import { isPartialEligible, pagePartialOf } from './page-partial'
+import { sendRevalidatedPage } from './page-revalidation'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type {
   PageRenderResult,
   ReadTableAsCaller,
+  SignFileUrl,
 } from '@/application/ports/services/page-renderer'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
@@ -67,11 +65,11 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
  * Status served by the rendered error page.
  *
  * Declared once and interpolated into BOTH the log line and the response so the
- * two can never drift. The `→ 500` was previously hard-coded into every log
- * message here and in `createHonoApp`'s `.onError`; in the latter the response
- * status later became variable (an `HTTPException` carries its own), leaving the
- * log permanently claiming 500 for what the wire reported as a 504 — the exact
- * mismatch that made the 2026-07-25 production incident unreadable from logs.
+ * two can never drift. A `→ 500` hard-coded into a log message drifts as soon
+ * as the response status becomes variable (in `createHonoApp`'s `.onError` an
+ * `HTTPException` carries its own), leaving the log claiming 500 for what the
+ * wire reported as a 504 — a mismatch that makes a production incident
+ * unreadable from logs.
  */
 export const ERROR_PAGE_STATUS = 500
 
@@ -124,7 +122,7 @@ export interface PageRequestContext {
   readonly session?: SessionInfo
   readonly cookies?: Readonly<Record<string, string>>
   readonly previewMode?: boolean
-  /** [internal ref]: request query string for embedded `$query` prefill. */
+  /** [internal ref] / a forms spec: request query string for embedded `$query` prefill. */
   readonly requestQuery?: Readonly<Record<string, string>>
   /**
    * G1: the scheme + host this request arrived on, feeding `$app.origin`. Never
@@ -144,7 +142,7 @@ export interface PageRequestContext {
     rowsKey: string
   ) => Promise<readonly Record<string, unknown>[]>
   /**
-   * [internal ref]: server-side single-record reader for a page-level `{ system }`
+   * server-side single-record reader for a page-level `{ system }`
    * binding. Attached by the same funnels and for the same reason as the rows
    * reader above — a page NAMED by its record must read it before the document
    * ships, as the caller.
@@ -154,7 +152,7 @@ export interface PageRequestContext {
     recordKey: string | undefined
   ) => Promise<Readonly<Record<string, unknown>> | undefined>
   /**
-   * The `/:lang/` URL-prefix locale ([internal ref]..039), when the request
+   * The `/:lang/` URL-prefix locale, when the request
    * carried one. `detectedLanguage` above collapses the URL prefix and the
    * browser `Accept-Language` guess into one value; this keeps the URL prefix
    * distinguishable, because only IT outranks a page's own `meta.lang`.
@@ -166,6 +164,7 @@ export interface PageRequestContext {
    * supplied by a route: {@link renderWithCache} attaches it beside the readers.
    */
   readonly readTableAsCaller?: ReadTableAsCaller
+  readonly signFileUrl?: SignFileUrl // the `file-preview` signer, attached beside the readers
 }
 
 /**
@@ -218,58 +217,12 @@ function sendResolved(
   // Past every gate above: a partial is the same answer, cut down — never a
   // way around a redirect, a 401 or a 404.
   const partial = partialEligible && isPartialRequest(c) ? pagePartialOf(resolved.html) : undefined
-  if (partial !== undefined) return c.html(partial.body, 200, { ...headers, ...partial.headers })
-  return c.html(resolved.html, 200, headers)
-}
-
-/**
- * PG-03 / [internal ref] — shared-view anti-enumeration.
- *
- * Returns a 404 Response when `?userView=<id>` is present in the URL AND the
- * matched page binds a data-table the session cannot read. Returns
- * `undefined` to let render proceed normally.
- *
- * Extracted from {@link renderWithCache} so the cache path keeps its
- * cyclomatic complexity below the per-function cap.
- */
-async function checkSharedViewGate(
-  config: HonoAppConfig,
-  path: string,
-  reqCtx: PageRequestContext,
-
-  c: Context
-): Promise<Response | undefined> {
-  const userViewParam = c.req.query('userView')
-  if (userViewParam === undefined || userViewParam === '') return undefined
-  const denied = isSharedViewAccessDenied(
-    config.app,
-    path,
-    `userView=${encodeURIComponent(userViewParam)}`,
-    await sharedViewReaderOf(config, reqCtx.session, c)
-  )
-  if (!denied) return undefined
-  return c.html(await config.renderNotFoundPage(config.app, reqCtx.detectedLanguage), 404)
-}
-
-/**
- * The reader of a shared-view link as the records route sees her on each table:
- * her role, her groups and — on a table with row-level rules, and only there —
- * the roles her assignments give her (`tableEffectiveRoles`). Her assignments
- * are read only when the app has such a table.
- */
-async function sharedViewReaderOf(
-  config: HonoAppConfig,
-  session: SessionInfo | undefined,
-
-  c: Context
-): Promise<SharedViewReader | undefined> {
-  if (session === undefined) return undefined
-  const base = { role: session.role, effectiveRoles: session.effectiveRoles }
-  const scoped = (config.app.tables ?? []).some((table) => table.rowLevelPermissions !== undefined)
-  if (!scoped || isGuestSession(session.userId)) return base
-  const accessRoles = await runDomainPromise(c, getUserAccessRoles(session.userId))
-  const caller = { role: session.role, groups: session.groups ?? [], accessRoles }
-  return { ...base, rolesForTable: (table) => tableEffectiveRoles(table, caller) }
+  const body = partial?.body ?? resolved.html
+  const sent = { ...headers, ...partial?.headers }
+  // A page reading record data is revalidated on every visit — see
+  // `page-revalidation.ts` for the tag and the 304.
+  if (cacheControl === REVALIDATED_PAGE_CACHE_CONTROL) return sendRevalidatedPage(c, body, sent)
+  return c.html(body, 200, sent)
 }
 
 /**
@@ -323,31 +276,22 @@ export async function renderWithCache(
 ): Promise<Response | undefined> {
   const { app, renderPage } = config
 
-  // PG-03 / [internal ref] — shared-view anti-enumeration. Applied
-  // here (rather than per-route) so every page surface — language
-  // subdirectories, the catch-all, the homepage — observes the same gate.
-  const gateResponse = await checkSharedViewGate(config, path, reqCtx, c)
-  if (gateResponse !== undefined) return gateResponse
-
-  // P3: the renderer's server-side rows reader, built HERE because this is the
-  // one funnel every page surface passes through AND the only place holding the
-  // request. Attaching it per route would mean the same three lines at four
-  // construction sites, each free to forget the cookie.
+  // P3: the renderer's request-bound readers (and the file signer), built HERE:
+  // the one funnel every page passes through and the only place holding the request.
   const renderCtx: PageRequestContext = {
     ...reqCtx,
     fetchSystemRows: systemRowsFetcher(c),
-    // [internal ref]: the SINGLE-RECORD sibling. A page bound to a `{ system }`
+    // The SINGLE-RECORD sibling. A page bound to a `{ system }`
     // detail endpoint is NAMED by its record, so it must be read before the
     // document ships — as the caller, and 404ing when there is none.
     fetchSystemRecord: systemRecordFetcher(c),
-    // G1: the address this request arrived on, which only the live request
-    // knows. `resolveRequestBaseUrl` is the shared resolver every surface that
-    // PRINTS this instance's address already uses, so a page and a sitemap
-    // entry cannot disagree about what the instance is called.
+    // G1: the address this request arrived on — the shared resolver every
+    // surface printing this instance's address uses, so none can disagree.
     requestOrigin: resolveRequestBaseUrl(c),
-    // A grid's payload carries only what the table API answers its reader —
-    // computed by that API's own programs, which the renderer cannot reach.
+    // A grid's payload carries only what the table API answers its reader; a
+    // `file-preview` draws its file through an address signed for this caller.
     readTableAsCaller,
+    signFileUrl: fileUrlSigner(app, reqCtx.session),
   }
 
   const decision = decidePageCache(app, path, reqCtx)
@@ -428,8 +372,7 @@ export function resolvePreviewMode(
 }
 
 /**
- * Render a page through the request-edge tracing wrapper
- *.
+ * Render a page through the request-edge tracing wrapper.
  *
  * `runRequestEffect` opens the ROOT `http.server <METHOD> <route>` span (and the
  * in-span request log that auto-correlates to it); the SSR render runs as a CHILD

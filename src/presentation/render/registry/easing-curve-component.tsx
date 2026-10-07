@@ -21,7 +21,7 @@
  * (`resolveEasingCurve` → `bezierControlPoints`). A table of four hand-drawn
  * paths would satisfy "a curve appeared" and would go silently wrong the first
  * time an app declared an easing of its own — which is the transcription defect
- * this component exists to remove. `[internal ref]` recovers
+ * this component exists to remove. A pages design primitives spec recovers
  * the ratios back out of the emitted `d` and compares them to the token's own
  * value, so a tabulated path fails rather than passing quietly.
  *

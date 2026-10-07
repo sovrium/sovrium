@@ -61,6 +61,15 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   // structure plus an empty `data-island="split-pane"` enhancement marker that
   // hydrates drag-to-resize in place.
   'split-pane',
+  // `stepper` — every step body is server-rendered; an empty enhancement
+  // marker moves between them, so without this entry Continue does nothing.
+  'stepper',
+  // `signature-pad` — an unsigned field mounts the pad; a signed one renders its
+  // reading only, so the island is fetched for nothing on a signed page.
+  'signature-pad',
+  // `tree` and `map` read their rows from the records API in the browser.
+  'tree',
+  'map',
   'kanban',
   'calendar',
   'gallery',
@@ -142,12 +151,11 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   // BUILD the bundle, not what mounts) and it is the safe direction: the
   // opposite miss is a page-scoped search box that never becomes a search.
   //
-  // The registry KEY was renamed to `search-input` to follow the type, which is
-  // why this needs no `TYPE_TO_ISLAND_KEY` translation. It needed one while the
-  // type was spelled `pageSearch` and the key `page-search`; renaming the key
-  // removed the split instead of describing it, and emptied that table. The
-  // island FILE is still `search/page-search-island.tsx` — file names are
-  // load-bearing for the payload ceilings and never move.
+  // The registry KEY is `search-input`, the same spelling as the type, which is
+  // why this needs no `TYPE_TO_ISLAND_KEY` translation: a key spelled
+  // differently from its type would need one. The island FILE is
+  // `search/page-search-island.tsx` — file names are load-bearing for the
+  // payload ceilings and never move.
   'search-input',
   // `comments` (PG-01 / PG-02), in BOTH of its displays. `display: 'thread'`
   // hydrates the paged list + form + edit/delete through the comment-thread
@@ -163,7 +171,7 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * True for a `dialog` that opted OUT of hydration (`hydrate: false`) — the
- * zero-JavaScript overlay this type absorbed when `modal` was retired.
+ * zero-JavaScript overlay form of this type (there is no separate `modal`).
  *
  * This is the RENDER contract: such a dialog is opened and closed entirely by
  * the always-present click enhancer in `page-body-scripts.tsx`

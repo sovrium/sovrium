@@ -34,7 +34,6 @@ export const withDriverErrorMessages =
           ])
           return outcome instanceof Promise
             ? outcome.catch((error: unknown) => {
-                // eslint-disable-next-line functional/no-throw-statements -- re-raise the same error with its message restored; a transparent pass-through
                 throw withCauseInMessage(error)
               })
             : outcome

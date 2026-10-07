@@ -44,26 +44,7 @@ components:
               id: add-contact-dialog
               title: Add contact
               description: An email already on file is refused, so one person keeps one record.
-            children:
-              - type: form
-                dataSource:
-                  table: contacts
-                fields:
-                  - field: name
-                  - field: email
-                  - field: company
-                  - field: title
-                  - field: status
-                action:
-                  type: crud
-                  operation: create
-                  table: contacts
-                  submitLabel: Add contact
-                  onSuccess:
-                    navigate: /contacts
-                    toast:
-                      message: Contact added
-                      variant: success
+            formRef: add-contact
           - type: container
             props:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
@@ -71,6 +52,7 @@ components:
               # Bound to the table itself, not a read-only view, so a rep who may
               # create contacts also gets the grid's trailing "+ New row".
               - type: table
+                readOnly: true
                 dataSource:
                   table: contacts
                   sort:

@@ -33,7 +33,6 @@ import type { BunPlugin } from 'bun'
  *   - dev/runtime build   → `server/route-setup/static-assets.ts`
  * - packaging/binary → `[internal ref]`
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 export const codemirrorDedupePlugin: BunPlugin = {
   name: 'codemirror-single-instance',
   setup(build) {

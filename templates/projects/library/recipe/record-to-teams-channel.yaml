@@ -1,0 +1,23 @@
+# sovrium-library: recipe/record-to-teams-channel@0.30.0
+# Every new project is announced in your team's Microsoft Teams channel, by
+# name. Set the Microsoft variables and the team and channel ids (see
+# `.env.example`) and connect the account from the admin console to turn it on.
+name: record-to-teams-channel
+trigger:
+  type: record
+  table: projects
+  events:
+    - create
+actions:
+  - name: announce
+    type: connection
+    operator: call
+    props:
+      connection: microsoft-365
+      operation: post-channel-message
+      params:
+        team_id: $env.TEAMS_TEAM_ID
+        channel_id: $env.TEAMS_CHANNEL_ID
+        body:
+          contentType: text
+          content: 'New in projects: {{trigger.data.record.name}}'

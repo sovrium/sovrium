@@ -1,0 +1,29 @@
+# sovrium-library: block/tabs-segmented@0.30.0
+name: tabs-segmented
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: toggle-group
+    toggleType: single
+    orientation: horizontal
+    options:
+      - label: Week
+        value: week
+      - label: Month
+        value: month
+      - label: Quarter
+        value: quarter
+    props:
+      aria-label: Period
+      defaultValue:
+        - week
+  - type: container
+    props:
+      className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle mt-6 h-32
+    children:
+      - type: text
+        element: span
+        props:
+          className: font-mono text-sm text-foreground-subtle
+        content: '[The view for the chosen period]'

@@ -7,21 +7,15 @@
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/translation-resolver'
-import { withEmptyOption } from '@/domain/models/app/pages/select-empty-option'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeTabsFillPanelClasses,
   computeTabsFillShellClasses,
   type TabsLayout,
 } from '@/presentation/design/tabs-fill-default-classes'
-import {
-  renderNativeSelect,
-  renderSsrSelectPlaceholder,
-} from '@/presentation/render/elements/native-select'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { LAZY_PANEL_PARAM_KEY } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { buildAccordionItems } from './island-accordion-items'
-import { localizeChildLabel } from './island-child-label'
 import { asRecord, baseProps, controlLabel, pickFromComponent } from './island-form-props'
 import { renderSsrNavItem } from './island-nav-ssr'
 import {
@@ -32,59 +26,10 @@ import {
   stripAddressedPanelContent,
 } from './island-tabs-ssr'
 import { recordPickerComponent } from './record-picker-component'
+import { selectComponent } from './select-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { ElemProps, RawProps } from './island-form-props'
 import type { SsrNavItem } from './island-nav-ssr'
-import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
-
-/**
- * `emptyOption` is folded into `options` HERE rather than in either renderer, so
- * the platform `<select>` and the themed island receive one list and cannot
- * disagree about what is in it — and so the declaration itself never reaches the
- * island props, where it would be a second, contradictory way to say the same
- * thing.
- *
- * Its label is NOT run through `$t:`, deliberately: `substitutePropsTranslationTokens`
- * covers `props` and never a component's top-level fields, so the sibling
- * `options[].label` captions are not translated either. Translating this one row
- * and not the rest would be the odder of the two behaviours; widening `$t:` to
- * top-level option captions is its own story.
- */
-function buildSelectProps(
-  rawProps: RawProps,
-  elementProps: ElemProps,
-  component?: unknown,
-  designStyles?: ComponentDesignResolution
-) {
-  const c = asRecord(component)
-  return {
-    options: withEmptyOption(
-      pickFromComponent(c, rawProps, 'options'),
-      pickFromComponent(c, rawProps, 'emptyOption')
-    ),
-    placeholder: rawProps?.placeholder,
-    multiple: pickFromComponent(c, rawProps, 'multiple'),
-    // `native` selects the PLATFORM control. Read here rather than in
-    // the renderer so the single lookup contract documented above keeps covering
-    // every top-level field of the select schema.
-    native: pickFromComponent(c, rawProps, 'native'),
-    searchable: pickFromComponent(c, rawProps, 'searchable'),
-    // `searchPlaceholder` overrides the generic `placeholder` inside the
-    // combobox search input. `allowCustomValue` opts the combobox into
-    // free-form input (typed values not in the option list are accepted).
-    searchPlaceholder: pickFromComponent(c, rawProps, 'searchPlaceholder'),
-    allowCustomValue: pickFromComponent(c, rawProps, 'allowCustomValue'),
-    defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
-    disabled: rawProps?.disabled,
-    label: rawProps?.label ?? rawProps?.fieldLabel,
-    // `publishes` marks the control as a shared-filter PUBLISHER. Like every
-    // other form-control field it is a sibling of `props` at the component top
-    // level, so it must be read through `pickFromComponent` — `rawProps` never
-    // carries it, and reading it there would leave the declaration inert.
-    publishes: pickFromComponent(c, rawProps, 'publishes'),
-    ...baseProps(elementProps, designStyles),
-  }
-}
 
 function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, component?: unknown) {
   const c = asRecord(component)
@@ -101,37 +46,7 @@ function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, compone
 /** Form, navigation, and interactive island components */
 export const islandFormComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   'record-picker': recordPickerComponent,
-  select: ({ rawProps, elementProps, component, designStyles, currentLang, languages }) => {
-    const built = buildSelectProps(rawProps, elementProps, component, designStyles)
-    // The caption is read off `rawProps`, which the props translation pass never
-    // reaches, so a `$t:` label is resolved HERE — once, on the way into the
-    // props both the platform control and the island serialise, so neither the
-    // SSR document nor the hydrated island prints the key.
-    const selectProps =
-      typeof built.label === 'string'
-        ? { ...built, label: localizeChildLabel(built.label, currentLang, languages) }
-        : built
-    // The PLATFORM control: the same element this renderer already
-    // produced below, left enabled and emitted with NO island marker — so
-    // nothing replaces it and the page ships no component code for it.
-    // `selectProps` already carries `id` / `className` / `data-testid` through
-    // `baseProps`, so only `name` (a `rawProps`-only field) has to be threaded.
-    if (selectProps.native === true) {
-      return renderNativeSelect(selectProps, rawProps?.name as string | undefined)
-    }
-    return (
-      <div
-        id={elementProps.id as string | undefined}
-        data-island="select"
-        data-component-type={hostComponentType(elementProps)}
-        data-island-props={JSON.stringify(selectProps)}
-        data-testid={elementProps['data-testid'] as string | undefined}
-      >
-        {renderSsrSelectPlaceholder(selectProps)}
-      </div>
-    )
-  },
-
+  select: selectComponent,
   accordion: ({ component, elementProps, currentLang, languages }) => {
     // `accordionType`, `defaultOpen`, and `children` are top-level schema
     // properties (siblings of `props`), not inside `props`, so read from
@@ -166,7 +81,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     // The tabs schema places `tabsOrientation` and `defaultTab` at the top
     // level (siblings of `props`/`children`), not inside `props`, so we read
     // them from `component` rather than `rawProps`. Items are derived from
-    // `children` — each `tab-panel` contributes one tab..
+    // `children` — each `tab-panel` contributes one tab.
     //
     // PG-04 (PATTERN-REGRESSION): `renderedChildren` carries the pre-rendered
     // SSR ReactElements for each tab-panel — `buildTabsItems` falls back to
@@ -188,7 +103,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     // attached by `resolveTabsLazyPanels` before that binding was substituted
     // away. Present only on a tab set the author made an ADDRESS, which is what
     // makes deferring its unopened panels free of the three costs
-    // `[internal ref]` priced — see that resolver.
+    // A pages tabs spec priced — see that resolver.
     //
     // Read through the resolver's own constant rather than by repeating the
     // string: the writer spreads a computed key, so a literal here is a second
@@ -201,9 +116,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       // The addressed panel's markup is DROPPED here: it is already in the
       // document below, and the island reads it back through the `ssrHtml`
       // capture rather than being handed a second, escaped copy of it
-      //. On an ADDRESSED tab set every panel's markup is
+      // On an ADDRESSED tab set every panel's markup is
       // dropped — the unopened ones are fetched by address on activation
-      //, so a reader of one lens pays for one lens.
+      // So a reader of one lens pays for one lens.
       items: stripAddressedPanelContent(items, addressed?.id, lazyParam !== undefined),
       defaultTab,
       lazyParam,
@@ -217,7 +132,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     }
     return (
       // The `data-island` host is deliberately LAYOUT-NEUTRAL, and that is the
-      // whole fix behind [internal ref]. The island mounts `Tabs.Root`
+      // whole fix behind a pages tabs spec. The island mounts `Tabs.Root`
       // as this element's single child carrying the same split classes from
       // `computeTabsRootClasses`, so when the host carried them too the real
       // tab set became a non-growing item of a clone of its own layout and
@@ -275,7 +190,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
             // reserves no horizontal gutter, and this half
             // has to say so too: a `p-4` left here would paint the body 16px in
             // before hydration and flush after it, which is the repaint
-            // [internal ref] exists to forbid.
+            // A pages tabs spec exists to forbid.
             className={
               resolveClasses(
                 tabsOrientation === 'vertical' ? 'min-w-0 py-4' : 'py-4',
@@ -297,7 +212,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
                 // `computeTabsFillPanelClasses` does on `<Tabs.Panel>` one
                 // element up, at the depth the island leaves this one at.
                 className={computeTabsFillPanelClasses(layout) || undefined}
-                // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only HTML passthrough; one-shot during server render
+                // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
                 dangerouslySetInnerHTML={{ __html: addressed.html }}
               />
             ) : (
@@ -523,7 +438,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       (navMenuComp && Array.isArray(navMenuComp.navItems)
         ? (navMenuComp.navItems as readonly SsrNavItem[])
         : undefined) ?? (rawProps?.navItems as readonly SsrNavItem[] | undefined)
-    // [internal ref] (round-4): `openOnHover` + `triggerClassName` are top-level schema
+    // The navbar dropdown capability set (round-4): `openOnHover` + `triggerClassName` are top-level schema
     // fields (siblings of `navItems`). Serialize them into the island props so the
     // hydrated NavMenuIsland opens on hover and applies the
     // authored trigger override. `triggerClassName` is ALSO
@@ -531,7 +446,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     const openOnHover = navMenuComp?.openOnHover
     const triggerClassName = navMenuComp?.triggerClassName
     // Schema-level navItems can carry `$t:` tokens in label/description/href
-    //; resolve them against the active language BEFORE
+    // Resolve them against the active language BEFORE
     // serialization so both the SSR fallback and the hydrated island show the
     // translated strings.
     const navItems = resolveTranslationTokensDeep(rawNavItems, currentLang, languages) as
@@ -593,11 +508,10 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR placeholder; one-shot during server render before island hydration
         style={{ maxHeight: scrollAreaHeight ?? '400px', overflow: 'auto' }}
         id={elementProps.id as string | undefined}
         className={elementProps.className as string | undefined}
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only HTML passthrough; one-shot during server render
+        // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
         dangerouslySetInnerHTML={{ __html: childrenHtml }}
       />
     )

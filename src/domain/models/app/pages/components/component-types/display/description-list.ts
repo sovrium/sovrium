@@ -39,7 +39,7 @@
  * no runtime behind it would be a control that visibly does nothing.
  *
  * Source: [internal ref]
- * Specs: [internal ref] … 005, plus this type's own REGRESSION rollup
+ * Specs: the design system component description list specs, plus this type's own REGRESSION rollup
  */
 
 import { Schema } from 'effect'
@@ -74,16 +74,18 @@ const DescriptionActionSchema = Schema.Struct({
   description: 'A link drawn in the row’s third column',
 })
 
-/** One term-and-detail pair. */
-const DescriptionItemSchema = Schema.Struct({
-  term: Schema.String.pipe(
-    Schema.annotate({
-      title: 'Term',
-      description: 'What the fact is called — the `<dt>`',
-      examples: ['Client', 'Amount'],
-    }),
-    Schema.check(Schema.isMinLength(1))
-  ),
+const DescriptionTermSchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Term',
+    description: 'What the fact is called — the `<dt>`',
+    examples: ['Client', 'Amount'],
+  }),
+  Schema.check(Schema.isMinLength(1))
+)
+
+/** One term-and-detail pair whose detail is written as text. */
+const DescriptionTextItemSchema = Schema.Struct({
+  term: DescriptionTermSchema,
   detail: Schema.String.pipe(
     Schema.annotate({
       title: 'Detail',
@@ -94,9 +96,45 @@ const DescriptionItemSchema = Schema.Struct({
   ),
   action: Schema.optional(DescriptionActionSchema),
 }).annotate({
+  identifier: 'DescriptionListTextItem',
+  title: 'Description List Text Item',
+  description: 'A term and its detail written as text',
+})
+
+/**
+ * One term whose detail is a field of the bound record drawn BY ITS TYPE: a
+ * date in the page language, a select or status as its chip, a checkbox as Yes
+ * or No, an empty value as "Not set".
+ * `detail: $record.<field>` prints the raw value as text; this is the
+ * record-page form.
+ */
+const DescriptionFieldItemSchema = Schema.Struct({
+  term: DescriptionTermSchema,
+  field: Schema.String.pipe(
+    Schema.annotate({
+      title: 'Field',
+      description:
+        'A field of the bound record drawn as the detail by its type — a date in the page language, a select or status as its chip, a checkbox as Yes or No, an empty value as "Not set"',
+      examples: ['owner', 'due_date', 'status'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  action: Schema.optional(DescriptionActionSchema),
+}).annotate({
+  identifier: 'DescriptionListFieldItem',
+  title: 'Description List Field Item',
+  description: 'A term whose detail is a field of the bound record, drawn by its type',
+})
+
+/** One term-and-detail pair: a text detail, or a record field drawn by its type. */
+const DescriptionItemSchema = Schema.Union([
+  DescriptionTextItemSchema,
+  DescriptionFieldItemSchema,
+]).annotate({
   identifier: 'DescriptionListItem',
   title: 'Description List Item',
-  description: 'One term-and-detail pair',
+  description:
+    'One term-and-detail pair: `detail` written as text, or `field` naming a field of the bound record drawn by its type',
 })
 
 export const descriptionListFields = {

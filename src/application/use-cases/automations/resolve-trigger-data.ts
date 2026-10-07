@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isTemplateHelper, renderTemplate } from '@/infrastructure/templates/template-engine'
 import { mapStringsDeep } from './value-walker'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 
 /**
  * Trigger data accessible to a running automation through `{{trigger.data.X}}`
@@ -23,8 +23,7 @@ export interface TriggerData {
   readonly query?: Readonly<Record<string, unknown>>
   /**
    * HTTP method of the request that fired the webhook trigger. Surfaced for
-   * `{{trigger.data.method}}` templating in webhook handlers
-   *.
+   * `{{trigger.data.method}}` templating in webhook handlers.
    */
   readonly method?: string
   /**
@@ -68,8 +67,7 @@ export interface TriggerData {
    * Marks a cron-triggered run that was invoked ON DEMAND ("run now") through
    * the trigger endpoint rather than by the background scheduler. Surfaces at
    * `{{trigger.data.invokedOnDemand}}` so handler templates / audit logs can
-   * distinguish an operator-initiated run from a scheduled fire
-   *.
+   * distinguish an operator-initiated run from a scheduled fire.
    */
   readonly invokedOnDemand?: boolean
   /**
@@ -162,20 +160,21 @@ export const lookupPath = (context: Readonly<Record<string, unknown>>, path: str
  * Resolve template references in a single string against the automation
  * context.
  *
- * Substitution is owned entirely by the Handlebars engine in
- * `infrastructure/templates/template-engine.ts`: helper calls
- * (`{{uppercase trigger.data.body.x}}`, `{{add a b}}`) and bare path lookups
- * (`{{trigger.data.body.foo}}`) alike. Unknown paths render as the empty
- * string, which is the contract the webhook/trigger specs depend on.
+ * Substitution is owned entirely by the template engine (the
+ * {@link TemplateRenderer} the run read from the `TemplateEngine` port): helper
+ * calls (`{{uppercase trigger.data.body.x}}`, `{{add a b}}`) and bare path
+ * lookups (`{{trigger.data.body.foo}}`) alike. Unknown paths render as the
+ * empty string, which is the contract the webhook/trigger specs depend on.
  */
 export const resolveTriggerInString = (
   input: string,
-  context: Readonly<Record<string, unknown>>
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): string => {
   // Fast path: no `{{...}}` at all → return as-is. Avoids paying the
   // compile/regex cost on the (overwhelmingly common) literal-string case.
   if (!input.includes('{{')) return input
-  return renderTemplate(input, context)
+  return templates.render(input, context)
 }
 
 /**
@@ -183,7 +182,8 @@ export const resolveTriggerInString = (
  * rather than a path. Unknown paths are NOT helpers: they still resolve to
  * `undefined` where a caller looks the path up.
  */
-export const isTemplateHelperName = (name: string): boolean => isTemplateHelper(name)
+export const isTemplateHelperName = (name: string, templates: TemplateRenderer): boolean =>
+  templates.isHelper(name)
 
 /**
  * Recursively walk a value and resolve `{{path.to.value}}` references in
@@ -192,8 +192,9 @@ export const isTemplateHelperName = (name: string): boolean => isTemplateHelper(
  */
 export const resolveTriggerInValue = (
   value: unknown,
-  context: Readonly<Record<string, unknown>>
-): unknown => mapStringsDeep(value, (s) => resolveTriggerInString(s, context))
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
+): unknown => mapStringsDeep(value, (s) => resolveTriggerInString(s, context, templates))
 
 /**
  * Build the substitution context an action sees during a run.

@@ -9,16 +9,11 @@
  * The declarations that VALIDATE and then reach nothing, and the notice that
  * says where their value now takes effect.
  *
- * ## Why this survived [internal ref]
+ * ## Why it has its own file
  *
- * It used to live in `design-normalization.ts`, beside the mirror that made the
- * two token positions agree — not because the two were related, but because
- * both ran at the decode boundary. [internal ref] deleted that module with the alias,
- * and this went with it by accident: an unrelated, still-true diagnostic
- * silently lost because it shared a file with something else.
- *
- * It has its own file now, so the next thing to be deleted for its own reasons
- * cannot take it along.
+ * A diagnostic that shares a file with unrelated code merely because both run
+ * at the decode boundary can be silently lost when that code is deleted for its
+ * own reasons. In its own file, nothing else can take it along.
  *
  * ## Superseded, not deprecated
  *

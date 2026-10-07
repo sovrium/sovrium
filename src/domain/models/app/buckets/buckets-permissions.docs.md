@@ -29,15 +29,19 @@ buckets:
 
 Every one of the five is enforced at request time. They split across two gates, and the split is visible only in what an **omitted** entry falls back to.
 
-| Operation    | Gate           | Governs                       | When omitted                                             |
-| ------------ | -------------- | ----------------------------- | -------------------------------------------------------- |
-| `upload`     | File routes    | Writing a new file            | A session is required                                    |
-| `download`   | File routes    | Reading a file back out       | Served to anyone on a public bucket; otherwise a session |
-| `delete`     | File routes    | Removing a file from storage  | A session is required                                    |
-| `sign`       | Signing routes | Minting a signed download URL | Admin only                                               |
-| `signUpload` | Signing routes | Minting a signed upload URL   | Admin only                                               |
+| Operation    | Gate           | Governs                       | When omitted                                                                                   |
+| ------------ | -------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `upload`     | File routes    | Writing a new file            | A session is required; replacing an existing file at its key: the file's uploader, or an admin |
+| `download`   | File routes    | Reading a file back out       | Served to anyone on a public bucket; otherwise a session                                       |
+| `delete`     | File routes    | Removing a file from storage  | The file's uploader, or an admin                                                               |
+| `sign`       | Signing routes | Minting a signed download URL | Admin only                                                                                     |
+| `signUpload` | Signing routes | Minting a signed upload URL   | Admin only                                                                                     |
 
-The consequence worth internalising: **signing is admin-only until you say otherwise, while the three file operations are open to any signed-in caller until you say otherwise.** A bucket whose download links a member should be able to hand out needs `sign` written down, because silence there means no. A bucket only an editor should be able to write to needs `upload` written down, because silence there means yes.
+The consequence worth internalising: **signing is admin-only until you say otherwise, while uploading and downloading are open to any signed-in caller until you say otherwise.** A bucket whose download links a member should be able to hand out needs `sign` written down, because silence there means no. A bucket only an editor should be able to write to needs `upload` written down, because silence there means yes.
+
+Removing or replacing a file is judged per file, not per bucket. When `delete` is omitted, a file can be deleted only by the person who uploaded it, or by an admin; when `upload` is omitted, the same rule decides who may upload over an existing file at its key (`path`). A file that records no uploader — one stored before uploaders were recorded, or by a form, an automation or `sovrium seed` with nobody signed in — is an admin's alone. Anyone else is answered exactly as for a key that does not exist (`404`), so the refusal never says whose file sits there. A declared value keeps its declared meaning: `delete: 'authenticated'` lets any signed-in caller delete any file in the bucket, and a role list lets those roles do so. Replacing a file never changes who uploaded it: under a declared `upload`, a caller the grant names may write new bytes at an existing key, but the file stays its first uploader's, so the one who replaced it cannot then delete it under the uploader rule, and its first uploader still can.
+
+> **Upgrading.** Earlier releases let any signed-in caller delete or replace any file in a bucket declaring no `delete` / `upload`. To keep that, declare `delete: 'authenticated'` (and `upload: 'authenticated'` for replacing files).
 
 Omitting the whole block applies every fallback above at once.
 

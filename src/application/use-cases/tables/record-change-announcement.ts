@@ -26,9 +26,9 @@ import type { AnnouncedRowChange } from '@/domain/models/app/tables/realtime-ann
  * (the records and batch routes, the bulk forms, a form submission, an
  * automation step, an MCP tool, the seed) reaches the database through one of
  * those programs. So a change is announced because it was WRITTEN, not because
- * the route that wrote it remembered to announce it — which is how a batch, an
- * upsert, a restore, a form, an automation and a cascade all used to write rows
- * a live grid never heard of.
+ * the route that wrote it remembered to announce it — otherwise a batch, an
+ * upsert, a restore, a form, an automation or a cascade can write rows a live
+ * grid never hears of.
  *
  * The repositories report each row they commit (cascaded children included)
  * to the collector this scope installs; when the write is over — however it

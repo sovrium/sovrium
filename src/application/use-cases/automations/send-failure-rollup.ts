@@ -40,6 +40,7 @@ import { summariseRunError } from '@/domain/models/app/automations/failure-summa
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /** One automation in the roll-up email. */
@@ -84,7 +85,6 @@ const withRecovery = (
             name: group.name,
             extraFailures: group.extraFailures,
             lastError: group.lastError,
-            // eslint-disable-next-line unicorn/no-null -- the route's contract is `null` for "not recovered"
             recoveredAt: recovered === undefined ? null : recovered.toISOString(),
           }))
         )
@@ -121,7 +121,7 @@ export const sendFailureRollup = (
 ): Effect.Effect<
   FailureRollupResult,
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository
+  AutomationRunOutcomeRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const hourStart = new Date(now.getTime() - FAILURE_ALERT_WINDOW_MS)

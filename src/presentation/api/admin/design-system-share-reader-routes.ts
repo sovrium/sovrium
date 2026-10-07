@@ -18,7 +18,7 @@
  *
  * ─── A PLATFORM ROUTE WITH A DATABASE LOOKUP ────────────────────────────────
  *
- * Structurally the `/l/{slug}` shape [internal ref] D1 authorised, and registered in
+ * Structurally the `/l/{slug}` shape the links-are-records design authorised, and registered in
  * the same slot for the same reason: AFTER static assets, so a real shipped
  * file always wins, and BEFORE `setupPageRoutes`, whose `/:lang/*` route would
  * otherwise match `/s/...` and render a terminal 404 instead of calling
@@ -55,29 +55,29 @@
  * the last place a write should be reachable.
  */
 
-import { Effect } from 'effect'
 import { buildDesignSystem } from '@/application/use-cases/admin/design-system'
 import { renderDesignSystemMarkdown } from '@/application/use-cases/admin/design-system-markdown'
 import { resolveDesignSystemShare } from '@/application/use-cases/admin/design-system-share'
 import { designSystemDocumentSchema } from '@/domain/models/api/admin/design-system'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { renderDesignSystemShareDocument } from '../../render/page/design-system-share-document'
 import type { DesignSystemShareRepository } from '@/application/ports/repositories/design-system/design-system-share-repository'
 import type { App } from '@/domain/models/app'
+import type { Effect } from 'effect'
 import type { Context, Hono } from 'hono'
 
 /**
  * Run a share program to a `Result`, never throwing into the Hono handler.
  *
  * Reads `DesignSystemShareRepository` off the request's domain services rather
- * than building a layer here (W5b, standing rule E1). The layer it used to
- * build — `Layer.provide(DesignSystemShareRepositoryLive, DatabaseLive)` — was
- * constructed on EVERY request; the port is now in the app layer, so it is
+ * than building a layer here (standing rule E1). A local
+ * `Layer.provide(DesignSystemShareRepositoryLive, DatabaseLive)` would be
+ * constructed on EVERY request; the port is in the app layer, so it is
  * resolved once at boot and this function only discharges the requirement.
  */
 const runReader = <A, E>(c: Context, program: Effect.Effect<A, E, DesignSystemShareRepository>) =>
-  Effect.runPromise(Effect.result(provideDomain(c, program)))
+  runOnRequest(c, program)
 
 /**
  * The palette the share document paints itself with.

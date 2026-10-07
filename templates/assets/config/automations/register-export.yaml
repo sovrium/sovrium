@@ -1,0 +1,42 @@
+# On the first of each month, the register as it stands is written to a CSV
+# file: the tag, the name, where it sits, what it cost and when it was bought —
+# what an accountant needs for the fixed-asset ledger, and a dated record of
+# what the firm owned that month.
+#
+# The file goes to the app's storage under `exports/`, one per month, so each
+# copy stays beside the last one and a backup of the storage carries them all.
+# The run history names the file and its size.
+name: register-export
+label: Asset register — monthly CSV
+description: Write the register to a dated CSV file in storage on the first of each month.
+trigger:
+  type: cron
+  expression: '0 7 1 * *'
+  timezone: Europe/Paris
+actions:
+  - name: register
+    type: record
+    operator: list
+    props:
+      table: assets
+      sort:
+        - { field: asset_tag, direction: asc }
+  # `columns` picks and orders what the accountant sees, under her headings;
+  # the rest of each record stays out of the file.
+  - name: csv
+    type: file
+    operator: generateCsv
+    props:
+      data: '{{steps.register.records}}'
+      filename: 'asset-register-{{formatDate (now) "yyyy-MM"}}.csv'
+      destination: 'exports/asset-register-{{formatDate (now) "yyyy-MM"}}.csv'
+      columns:
+        - { field: asset_tag, header: Tag }
+        - { field: name, header: Asset }
+        - { field: category, header: Category }
+        - { field: status, header: Status }
+        - { field: serial, header: Serial number }
+        - { field: location_name, header: Location }
+        - { field: purchased_on, header: Purchased on }
+        - { field: value, header: Value }
+        - { field: warranty_end, header: Warranty ends }

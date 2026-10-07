@@ -6,11 +6,13 @@
  */
 
 import { type ReactElement } from 'react'
+import { cn } from '@/presentation/design/class-merge'
 import { resolveLucideIcon } from '@/presentation/render/elements/lucide-resolver'
 import {
   SIDEBAR_DRAWER_ROOT_ATTRIBUTE,
   SidebarDrawerFrame,
 } from '@/presentation/render/registry/sidebar-drawer'
+import { DOCS_NAV_FRAME_CLASSES } from './docs-frame'
 import {
   bucketByGroup,
   type DocsNavTab,
@@ -64,14 +66,18 @@ interface DocsSidebarNavProps {
   readonly nav: CollectionNavData
   /** Accessible name of the menu button that opens the navigation below `lg`. */
   readonly menuLabel: string
+  /** `markdown.classes` by part: `sidebar`, `navGroupLabel`, `navLink` (current state folded in). */
+  readonly parts?: Readonly<Record<string, string>> | undefined
 }
+
+type Parts = DocsSidebarNavProps['parts']
 
 const ENTRY_BASE_CLASS =
   'block rounded-md px-3 py-1.5 text-md transition-colors duration-150 border-l-2'
 const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-border-strong bg-background-overlay font-medium text-foreground`
 const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-foreground-muted hover:bg-background-overlay/60 hover:text-foreground`
 
-const renderEntry = (entry: CollectionNavEntry): Readonly<ReactElement> => (
+const renderEntry = (entry: CollectionNavEntry, parts: Parts): Readonly<ReactElement> => (
   <li
     key={entry.slug}
     data-current={entry.isCurrent ? 'true' : undefined}
@@ -79,7 +85,10 @@ const renderEntry = (entry: CollectionNavEntry): Readonly<ReactElement> => (
     <a
       href={entry.href}
       aria-current={entry.isCurrent ? 'page' : undefined}
-      className={entry.isCurrent ? ENTRY_ACTIVE_CLASS : ENTRY_INACTIVE_CLASS}
+      className={cn(
+        entry.isCurrent ? ENTRY_ACTIVE_CLASS : ENTRY_INACTIVE_CLASS,
+        parts?.['navLink']
+      )}
     >
       {entry.label}
     </a>
@@ -98,26 +107,32 @@ const groupIsActive = (group: NavGroup): boolean => group.entries.some((entry) =
   not enter the heading outline either, keeping the single-h1 invariant intact.
   Display text is the resolved label (groupLabels override or humanized key).
 */
+/** An expanded section: a top rule, suppressed on the first one. */
+const SECTION_GROUP_CLASS = 'border-border mb-6 border-t pt-6 first:border-t-0 first:pt-0'
+
 const GROUP_LABEL_CLASS =
   'mb-2 px-3 text-sm font-semibold tracking-wide text-foreground-subtle uppercase'
 
 const renderGroup = (
   group: NavGroup,
   index: number,
-  collapsed: boolean
+  collapsed: boolean,
+  parts: Parts
 ): Readonly<ReactElement> => {
+  const entries = group.entries.map((entry) => renderEntry(entry, parts))
+  const labelClass = cn(GROUP_LABEL_CLASS, parts?.['navGroupLabel'])
   if (group.name === undefined) {
     return (
       <ul
         key={`flat-${index}`}
         className="space-y-0.5"
       >
-        {group.entries.map(renderEntry)}
+        {entries}
       </ul>
     )
   }
 
-  const list = <ul className="space-y-0.5">{group.entries.map(renderEntry)}</ul>
+  const list = <ul className="space-y-0.5">{entries}</ul>
 
   // Collapsed mode: native <details>/<summary> — zero JS, only the active
   // group's <details> is `open` so a long docs tree stays scannable.
@@ -126,11 +141,11 @@ const renderGroup = (
       <details
         key={group.name}
         data-nav-group={group.name}
-        className="mb-3 [&>summary]:list-none"
+        className={cn('mb-3 [&>summary]:list-none', parts?.['navGroup'])}
         open={groupIsActive(group) ? true : undefined}
       >
         <summary
-          className={`${GROUP_LABEL_CLASS} flex cursor-pointer items-center justify-between [&::-webkit-details-marker]:hidden`}
+          className={`${labelClass} flex cursor-pointer items-center justify-between [&::-webkit-details-marker]:hidden`}
         >
           <span className="flex min-w-0 items-center gap-2">
             {renderSectionIcon(group.icon)}
@@ -154,9 +169,9 @@ const renderGroup = (
     <section
       key={group.name}
       data-nav-group={group.name}
-      className="border-border mb-6 border-t pt-6 first:border-t-0 first:pt-0"
+      className={cn(SECTION_GROUP_CLASS, parts?.['navGroup'])}
     >
-      <p className={`${GROUP_LABEL_CLASS} flex items-center gap-2`}>
+      <p className={`${labelClass} flex items-center gap-2`}>
         {renderSectionIcon(group.icon)}
         {group.label}
       </p>
@@ -172,8 +187,7 @@ const renderGroup = (
 // measured against the live rendered header and revisited if the header's row
 // heights change. The height budget subtracts the same 6.5rem so the sidebar
 // fills to the viewport bottom.
-const NAV_WRAPPER_CLASS =
-  'border-border shrink-0 overflow-y-auto text-md lg:sticky lg:top-[6.5rem] lg:h-[calc(100dvh-6.5rem)] lg:w-60 lg:self-start lg:border-r lg:py-8 lg:pr-4'
+const NAV_WRAPPER_CLASS = `border-border shrink-0 overflow-y-auto text-md ${DOCS_NAV_FRAME_CLASSES} lg:border-r lg:py-8 lg:pr-4`
 
 /**
  * Resolve the active tab for a set of groups: the tab owning the current
@@ -213,7 +227,11 @@ const resolveActiveZone = (
  * above it is `display: contents`, so the `nav` is a flex item of the docs row
  * exactly as it was before — sticky, full height.
  */
-export function DocsSidebarNav({ nav, menuLabel }: DocsSidebarNavProps): Readonly<ReactElement> {
+export function DocsSidebarNav({
+  nav,
+  menuLabel,
+  parts,
+}: DocsSidebarNavProps): Readonly<ReactElement> {
   return (
     <div
       {...{ [SIDEBAR_DRAWER_ROOT_ATTRIBUTE]: '' }}
@@ -223,14 +241,16 @@ export function DocsSidebarNav({ nav, menuLabel }: DocsSidebarNavProps): Readonl
       <SidebarDrawerFrame
         below="lg"
         label={menuLabel}
+        triggerClassName={parts?.['menuButton']}
       >
-        {renderDocsNav(nav)}
+        {renderDocsNav(nav, parts)}
       </SidebarDrawerFrame>
     </div>
   )
 }
 
-function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
+function renderDocsNav(nav: CollectionNavData, parts: Parts): Readonly<ReactElement> {
+  const navClass = cn(NAV_WRAPPER_CLASS, parts?.['sidebar'])
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
   // Zone filtering applies only to a collection that DECLARES its tabs
@@ -244,9 +264,9 @@ function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
         data-component="docs-sidebar-nav"
         data-component-type="sidebar"
         aria-label="Documentation"
-        className={NAV_WRAPPER_CLASS}
+        className={navClass}
       >
-        {groups.map((group, index) => renderGroup(group, index, collapsed))}
+        {groups.map((group, index) => renderGroup(group, index, collapsed, parts))}
       </nav>
     )
   }
@@ -260,9 +280,9 @@ function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
       data-component-type="sidebar"
       data-docs-active-zone={zone}
       aria-label="Documentation"
-      className={NAV_WRAPPER_CLASS}
+      className={navClass}
     >
-      {zoneGroups.map((group, index) => renderGroup(group, index, false))}
+      {zoneGroups.map((group, index) => renderGroup(group, index, false, parts))}
     </nav>
   )
 }

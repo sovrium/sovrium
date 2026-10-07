@@ -60,6 +60,8 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 /** Mutable per-request counter box. Mutation is the point of this seam. */
 interface CounterBox {
   count: number
+  /** Rows the database handed back to the process (see {@link recordDbRowsReturned}). */
+  rows: number
 }
 
 const storage = new AsyncLocalStorage<CounterBox>()
@@ -73,8 +75,26 @@ const storage = new AsyncLocalStorage<CounterBox>()
 export const recordDbQueryIssued = (): void => {
   const box = storage.getStore()
   if (box !== undefined) {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the one sanctioned mutation: synchronous increment of the request-scoped box
     box.count += 1
+  }
+}
+
+/**
+ * Record `rows` rows returned by the database against the current request's
+ * box — the second half of the seam, read by `X-Sovrium-Db-Rows`.
+ *
+ * The statement count cannot tell "read one page" from "read the whole table":
+ * both are one `SELECT`. What differs is how many rows come back, so the
+ * raw-SQL funnel every record read goes through (`executeRaw`,
+ * `database/sql/dialect-execute.ts`) reports each result's length here. Rows
+ * read through the query builder (sessions, roles, Better Auth) are not
+ * counted: they are a constant per request and say nothing about a table's
+ * size. A no-op outside a counted request, like {@link recordDbQueryIssued}.
+ */
+export const recordDbRowsReturned = (rows: number): void => {
+  const box = storage.getStore()
+  if (box !== undefined) {
+    box.rows += rows
   }
 }
 
@@ -86,15 +106,14 @@ export const currentDbQueryCount = (): number => storage.getStore()?.count ?? 0
 
 /**
  * Run `body` under a fresh query-count box and return its value together with
- * the number of DB statements issued while it ran. The header middleware wraps
+ * the number of DB statements issued (and rows returned) while it ran. The header middleware wraps
  * `next()` in this, unconditionally — only header EMISSION is env-gated, so
  * the span attribute and histogram keep working regardless.
  */
 export const withDbQueryCount = async <A>(
   body: () => Promise<A>
-): Promise<{ readonly value: A; readonly count: number }> => {
-  // eslint-disable-next-line functional/prefer-immutable-types -- the box exists to be incremented synchronously from Drizzle's logQuery callback
-  const box: CounterBox = { count: 0 }
+): Promise<{ readonly value: A; readonly count: number; readonly rows: number }> => {
+  const box: CounterBox = { count: 0, rows: 0 }
   const value = await storage.run(box, body)
-  return { value, count: box.count }
+  return { value, count: box.count, rows: box.rows }
 }

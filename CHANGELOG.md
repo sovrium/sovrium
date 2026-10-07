@@ -1,3 +1,232 @@
+## [0.31.0](https://github.com/sovrium/sovrium/compare/v0.30.0...v0.31.0) (2026-10-07)
+
+### BREAKING CHANGES
+
+- **forms**: stop creating records from the page form; add a record through forms and formRef
+- **forms**: the page form works on data in the app; adding a record goes through forms and formRef
+- **pages**: read data components through a table view
+- **pages**: views are declared on the table; data components bind a view or the table
+
+### Features
+
+- **pages**: a component template can hold the page's own components in a slot
+- **pages**: a kanban drop can open a drawer or fill a field
+- **pages**: a button or a list row can fill a form field
+- **library**: the sidebar shell block takes the page as its slot
+- **pages**: a KPI can show the ratio of two counts
+- **pages**: lists, boards, KPIs and charts follow refreshMode
+- **automations**: a connection operation sends a file as a field
+- **pages**: a list can render nothing when its binding is empty
+- **forms**: endpoint form fields declare required and length rules
+- **automations**: a webhook signature layout can be spelled out
+- **pages**: drag a timeline bar's ends to resize it
+- **pages**: add the edit-operations caller capability
+- **forms**: lay out a hosted form with side labels and a sticky submit bar
+- **forms**: draw a hosted form field group's description under its label
+- **languages**: translate the two-step enrolment screens and the passkey controls
+- **pages**: draw a data table declared readOnly as a reading
+- **design**: notice a prose part spaced with the my-\* shorthand on validate
+- **library**: a recipe filing new Google Calendar events into a table
+- **pages**: draw the stepper rail's done, current and upcoming steps apart
+- **mcp**: expose roles, form analytics and design-system share and specimen reads as MCP tools
+- **library**: redesign the record drawer block with previous, next and the full-page link
+- **library**: add the dashboard, settings and record page blocks
+- **library**: add the auth page blocks
+- **pages**: style a list's shell through its list part
+- **forms**: show the submitted values on a form's success page
+- **pages**: style a docs page's row, sidebar sections, menu button, last-updated line and page actions by name, and measure its whole column
+- **pages**: style a calendar's events, days, day numbers, weekday headers and toolbar by name
+- **pages**: style a gallery's grid, cards, covers and card bodies by name, and lay the featured card out as a 1.25 / 1 grid
+- **pages**: a list's metadata entry takes classes of its own
+- **pages**: style a rich-text field's prose, and any prose's lists and tables, by name
+- **pages**: style a form's title, fields, button and errors, and a language switcher's link, by name
+- **pages**: style a code block's frame and file bar by name
+- **pages**: style a written table's header, rows and cells by name, and draw each column through tableColumns
+- **pages**: run two-step, invitation, API key and session methods from an auth form
+- **auth**: let an invitee decline an invitation from its link
+- **pages**: run account methods from a grid row
+- **pages**: name an account list by its label and mark the reader's current session in it
+- **pages**: draw a table's records as pins on a map
+- **pages**: nest a table's records in a tree by their parent
+- **pages**: step through a table's rows from a record drawer
+- **pages**: sign a record once with a signature pad
+- **pages**: put form labels beside their controls and pin a save bar
+- **pages**: preview a stored file in place through an address signed for the reader
+- **pages**: read a table as two-line items on a phone
+- **pages**: draw a record's rating as stars named by its value
+- **pages**: fold a chart's smallest categories into one named category
+- **pages**: draw a description list entry from a record field by its type
+- **pages**: draw a stepper that walks a task step by step
+- **pages**: end a derived breadcrumb with the record's own name
+- **pages**: ask for a typed confirmation before an alert dialog confirms
+- **pages**: bind tables and lists to account lists, and print an invitation from its link
+- **auth**: serve the reader's account lists and refuse revoking another person's session
+- **auth**: strip the signer from her signatures when her account is erased
+- **mcp**: accept ISO instants for time filters on SQLite
+- **pages**: measure the docs frame and restyle its parts by name
+- **pages**: style one component's parts by name with classes
+- **mcp**: expose people and access admin reads as MCP tools
+- **server**: refuse to start with a malformed MAP_TILES_URL
+- **pages**: read graphs and matrices from the app's own tables
+- **tables**: store signature fields once and refuse a record filed under itself
+- **mcp**: expose configuration, console and design-system admin reads as MCP tools
+- **mcp**: validate internal list filters by column type and page the tool-call log
+- **mcp**: expose form and submission admin reads as MCP tools
+- **pages**: lay an edit form out as a main column and an aside, and drop a form's header
+- **mcp**: expose agent conversation admin reads as MCP tools
+- **pages**: truncate a table column, tone a cell rule and pick a column's chip form
+- **mcp**: expose bucket admin reads as MCP tools
+- **pages**: give a calendar month view's day cells a minimum height
+- **pages**: colour an aggregate chart's series and drop slice labels
+- **mcp**: order, filter and page the internal table list tools
+- **mcp**: expose link and connection admin reads as MCP tools
+- **pages**: size a KPI's value per breakpoint and give it a tone
+- **pages**: lead a gallery grid with a featured first card
+- **cli**: warn about deprecated config keys before they are removed
+- **pages**: stack a list row's title above its details with itemLayout
+- **pages**: let kanban columns fill the board and give named columns a fixed width
+- **mcp**: expose admin automation reads as MCP tools
+- **pages**: allow AI answer crawlers and refuse AI training crawlers in robots.txt
+- **forms**: save a form for later and edit a submission after sending it
+- **forms**: compute calculation fields in the browser and on the server
+- **automations**: verify timestamped HMAC webhook signatures under any header
+- **connections**: send an operation body as written, raw or multipart-related
+- **pages**: group an edit form's fields into titled sections
+- **library**: let a block ship the form it embeds
+- **auth**: provision users and groups over SCIM
+- **library**: add a Google Drive upload and a Calendly booking recipe
+- **auth**: register and sign in with a passkey
+- **email**: send through Brevo, Resend or Amazon SES instead of SMTP
+- **auth**: sign in through an OpenID Connect or SAML identity provider declared in the config
+- **library**: add messaging and developer connections and recipes
+- **library**: add sales and support connections and recipes
+- **library**: add Yousign, PayFit, Odoo and Swan connections
+- **library**: add Google Docs and Drive sharing operations and a document recipe
+- **tables**: accept the search query on the aggregate read
+- **cli**: add sovrium backup and sovrium restore
+- **cli**: write one JSON Schema file per top-level key beside the full schema
+- **cli**: report every configuration mistake in one run
+- **tables**: add an aggregate read so KPI and chart components ask one question instead of loading records
+
+### Bug Fixes
+
+- **cli**: accept the app-starter and marketing-site templates in sovrium init
+- **ai**: the unconfigured assistant notice names the variables to set
+- **automations**: keep upload request headers out of the run record
+- **automations**: a file parameter only reads files the automation already holds
+- **automations**: refuse an hmac-timestamp layout that reads the timestamp and the signature from one entry
+- **automations**: a connection file that cannot be fetched fails the call instead of sending an empty part
+- **mcp**: run the create and delete tools through the same write as the records API
+- **pages**: a search list renders wherever it is placed
+- **api**: retire the unimplemented user update route
+- **tables**: option chips and table-bound forms show option labels
+- **auth**: a custom role's bare landing URL lands its holders
+- **tables**: a data table honours its data source limit
+- **tables**: refuse a batch update that would make a record its own ancestor
+- **forms**: make the file picker refuse what the upload would refuse
+- **pages**: show an edit form's success toast after its document POST
+- **automations**: the run detail shows the steps run inside a path or a loop
+- **pages**: a form carries the className it declares
+- **pages**: a dialog whose trigger a record rule hides starts closed
+- **mcp**: fire webhooks and automations on an MCP record update
+- **pages**: rows of a table-bound container draw no list marker
+- **automations**: records written inside a path, a loop or a script start record automations
+- **pages**: a page-level single binding without param binds the first readable record
+- **automations**: actions inside a path or a loop read each other's outputs and can stop the run
+- **i18n**: a translation key followed by more text resolves and keeps the rest
+- **automations**: a trigger relationship or user field reads as its id in code input and nested steps
+- **automations**: a record update names its row by id or filter and reports what it changed
+- **pages**: a sidebar entry whose href is a translation key is marked current
+- **pages**: a sidebar drawer stays folded after a client-side page swap
+- **pages**: honour a public view's grant on every component bound to it
+- **mcp**: require a passkey session for admin MCP tools when administrators must use passkeys
+- **admin**: count users per declared role in the users overview
+- **mcp**: keep tool answers and personal values out of the MCP call log for admin tools
+- **account**: erase a person's own MCP call log entries
+- **auth**: answer an invitation from the query key its page declares
+- **pages**: draw no more gallery cards than the binding's limit
+- **pages**: format a record's createdAt and updatedAt in a record-field
+- **automations**: honour an automation's trigger permission on every road that starts it by name
+- **pages**: expose a page record's createdAt and updatedAt
+- **tables**: draw a badgeForm chip on formula columns and keep its tone on the chip
+- **pages**: format a record field by its type when no format is declared
+- **pages**: draw aggregated area charts as areas and fit a chart to the height it is given
+- **forms**: draw form section titles as headings
+- **pages**: keep a named list a list when empty, and style it through its list part
+- **auth**: ask the reader to confirm they copied a new API key before closing it
+- **forms**: refresh the page's grids and close the dialog after an embedded form writes a record
+- **pages**: bind account lists wherever they sit on a page
+- **pages**: sanitize every record-sourced HTML render
+- **admin**: count the latest writes in the tables overview regardless of database clock skew
+- **mcp**: answer internal table times as ISO instants and match them to the millisecond
+- **pages**: let a visibility condition read the page's invitation
+- **auth**: give sign-in forms the right autofill hints and a success page
+- **cli**: let library add wire into an empty inline list
+- **auth**: document the decline-invitation endpoint
+- **auth**: honour the configured magic-link lifetime
+- **pages**: send an invitation page as private and never from a shared cache
+- **automations**: ignore buttons hidden from the caller when a page press names an automation
+- **ai**: let the chat start an automation only for a caller the trigger admits
+- **pages**: a coloured aggregate bar chart keeps its month axis and value format
+- **tables**: a column's tone reaches a formula's text, a truncated file keeps its icon on the line, and a text column draws as a chip
+- **admin**: hold the viewer tier out of the transform cache purge and apply bucket limits to console uploads
+- **automations**: redact webhook verification secrets in the automations list
+- **buckets**: keep the first uploader when a stored file is replaced
+- **automations**: refuse every .localhost name as loopback in outbound requests
+- **pages**: never serve an invitation page from the page cache
+- **tables**: name a grid's rating cell by its value out of the maximum, as the stars elsewhere are
+- **pages**: print nothing for an empty list metadata value
+- **pages**: a responsive value outside its class table yields no class instead of throwing
+- **server**: name the cause when the authentication module fails to load
+- **cli**: print the installer's status glyphs correctly under dash
+- **automations**: mint upload links that write catalogued files into the private system bucket and never overwrite a stored key
+- **account**: delete the bytes of every file the erasure removed from the catalogue, including one stored during the purge
+- **forms**: check a form's upload type and size on the server, attribute a signed-in upload to its submitter, and keep the redirect on this site
+- **admin**: answer the read-only console tier on every operational write the way a stranger is answered
+- **tables**: neutralise spreadsheet formulas in the CSV import error report
+- **pages**: keep an action button disabled until the page's script can handle it
+- **mcp**: refuse internals tools at call time when they are not exposed
+- **auth**: limit every sign-in, verification and change-email route that sends mail per client address
+- **auth**: compiled binaries start apps that declare authentication
+- **tables**: write a leading quote before text cells that a spreadsheet would run as a formula, on every CSV export
+- **pages**: turn the select chevron while its list is open
+- **buckets**: stop serving resized copies of a replaced attachment
+- **theming**: paint a code block's dark theme in its own colours
+- **cli**: look up a config key whose name contains a colon in sovrium docs
+- **pages**: refuse a preview value outside its option's closed set
+- **admin**: find records of every table in the console global search
+- **ai**: show and decide an agent's approvals only to the roles that may trigger it
+- **automations**: refuse a page press of a paused or disabled automation and record who pressed it
+- **buckets**: record who uploaded each file, let only the uploader or an admin delete or replace it, and erase a user's files with the account
+- **auth**: run the SCIM audit entries on the audit repository they need
+- **automations**: check every redirect hop and IPv6 spelling of an outbound address, and stop reading unbounded response bodies
+- **server**: read the insecure-posture flags by value, warn when BASE_URL hides a public bind, and cap request bodies, analytics fields and image decodes
+- **cli**: refuse to install or update when the published checksum cannot be verified
+- **automations**: run page-bound automations only under the page's access rule and refuse every other trigger through the page endpoint
+- **cli**: name the refused translation or prop key in the validation report
+- **auth**: bind single sign-on accounts to a verified email and keep sign-in returns inside the app
+- **auth**: honour allowSignUp false on social providers and email one-time codes
+- **build**: retire the SOVRIUM_HYDRATION placeholder that overwrote client.js
+- **api**: answer 404 on the analytics endpoints of an app without analytics
+- **pages**: keep a dialog visible when it is reopened while closing
+- **pages**: keep a view-bound KPI or chart on the view's records
+- **api**: answer 415 with its own error code
+- **tables**: delete a replaced attachment on every update path
+- **docs**: strip internal test and story references from the manual's behaviour sections
+- **desktop**: open sovrium:// links in the desktop app on every platform
+- **tables**: store a record and its links in one transaction, and check the edit token inside the write
+- **automations**: hand update runs the row before the change as previousRecord
+- **api**: refuse requests from a caller whose role grants nothing, and close six other authorization gaps
+- **search**: serve and build page search from an installed binary
+- **pages**: serve pages that read table data with a revalidating cache header
+- **assets**: keep returning visitors working after an upgrade
+
+### Performance Improvements
+
+- **tables**: build the batch upsert plan in one pass
+- **tables**: update a batch of records in one statement
+- **tables**: group listings in the database instead of loading the whole table
+
 ## [0.30.0](https://github.com/sovrium/sovrium/compare/v0.29.1...v0.30.0) (2026-10-05)
 
 ### BREAKING CHANGES

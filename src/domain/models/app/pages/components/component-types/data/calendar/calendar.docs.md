@@ -2,7 +2,7 @@
 
 > The `calendar` component — a month, week or day view of date-bearing records.
 
-A calendar places each record on the date its `dateField` names. The field mappings sit at the top level; only click handling and the time-grid settings live under `calendarEvent` and `calendarInteraction`.
+A calendar places each record on the date its `dateField` names. The field mappings sit at the top level; only click handling and the time-grid settings live under `calendarEvent` and `calendarInteraction`. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `dateField` and the other mappings stay on the calendar either way.
 
 <!-- sovrium:options type:calendar depth=3 -->
 
@@ -49,6 +49,14 @@ A calendar writes four words itself: the button that returns to the current peri
 ## On a phone
 
 Below the small breakpoint, a calendar in month view reads as an agenda: the month's events stacked in date order under their day, each title in full, with no sideways scroll — seven day columns at phone width leave a title too little room to be read. The toolbar still pages from month to month, and a click on an event does what it does on the grid. Week and day views are unchanged. The view switch offers the agenda as a view of its own, in the month's place: `Agenda` reads pressed while the agenda is drawn, the month grid is not offered at phone width, and Week or Day take over from it. A wider screen offers Month and no Agenda.
+
+## Day height
+
+`dayMinHeight` sets the least height of a day cell in the month view, per breakpoint, in `px` or `rem`: `dayMinHeight: { mobile: 64px, md: 90px }`. Every cell in a week still grows to its busiest day; this sets the floor, so a quiet month keeps reading as a grid.
+
+## Styling a calendar by part
+
+A calendar's inner elements take classes by part through `classes`: `event` (each event chip), `day` (each day cell of the month grid), `dayNumber` (the date in a day cell), `columnHeader` (each weekday heading) and `toolbar` (the bar holding the period's title and its controls). `classes: { parts: { event: 'bg-background-raised text-foreground' } }` draws the month's events as quiet chips rather than in their colour.
 
 ## A field the reader may not read
 

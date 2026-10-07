@@ -27,6 +27,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["sovrium"]
+      }
+    },
     "updater": {
       "endpoints": ["https://sovrium.com/desktop/latest.json"],
       "pubkey": "",

@@ -16,7 +16,7 @@ import {
 import { wrapDatabaseError } from '../statement/error-handling'
 
 /**
- * [internal ref]: writing and reading a native `many-to-many` relationship field.
+ * Writing and reading a native `many-to-many` relationship field.
  *
  * A many-to-many field creates no column on the base table — the link lives in
  * an auto-generated junction table `<sourceTable>_<relatedTable>` with INTEGER
@@ -38,7 +38,7 @@ import { wrapDatabaseError } from '../statement/error-handling'
  *
  * The width is config-bounded (one query per many-to-many FIELD on the table;
  * `sourceIds` is already collapsed into a single `IN (...)` per field), but
- * "config-bounded" is exactly what the 2026-07-25 pool-exhaustion incident
+ * "config-bounded" is exactly what a production pool-exhaustion incident
  * proved is not a safety argument on the shared pool: there, the widening
  * dimension was also just configuration. A table with several many-to-many
  * fields, listed concurrently, would otherwise take an arbitrary share of
@@ -101,7 +101,7 @@ const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>
 /**
  * Write a record's junction rows on an OPEN transaction, one statement after
  * the other — for a caller that must commit or roll back the links together
- * with the record itself (a batch create).
+ * with the record itself (a single or batch create, an update).
  */
 export const writeManyToManyLinksInTransaction = (
   tx: Parameters<typeof executeRaw>[0],
@@ -111,28 +111,6 @@ export const writeManyToManyLinksInTransaction = (
     (prev, statement) => prev.then(() => executeRaw(tx, statement)),
     Promise.resolve(undefined)
   )
-
-/**
- * Write the junction rows for a record's many-to-many fields. Runs in one
- * transaction, sequentially (SQLite drives a single connection per tx). A no-op
- * when there are no links.
- */
-export const linkManyToMany = (input: LinkManyToManyInput): Effect.Effect<void, DatabaseError> => {
-  const statements = buildLinkStatements(input)
-  if (statements.length === 0) return Effect.void
-  return Effect.tryPromise({
-    // Chain the INSERTs sequentially (SQLite drives a single connection per tx)
-    // as a promise fold — no imperative statements.
-    try: () =>
-      db.transaction((tx) =>
-        statements.reduce<Promise<unknown>>(
-          (prev, statement) => prev.then(() => executeRaw(tx, statement)),
-          Promise.resolve(undefined)
-        )
-      ),
-    catch: wrapDatabaseError(`Failed to link many-to-many records for ${input.sourceTable}`),
-  })
-}
 
 /** A single DELETE of the junction row that pairs `aTable` (aId) with `bTable` (bId). */
 const junctionDelete = (
@@ -146,15 +124,9 @@ const junctionDelete = (
   return sql`DELETE FROM ${sql.identifier(junction)} WHERE ${sql.identifier(aCol)} = ${coerceId(aId)} AND ${sql.identifier(bCol)} = ${coerceId(bId)}`
 }
 
-/**
- * Remove the named junction rows of a source record (own junction + reciprocal
- * mirror), in one transaction. The inverse of {@link linkManyToMany}: a pair
- * that is not linked is a no-op. A no-op when there is nothing to remove.
- */
-export const unlinkManyToMany = (
-  input: LinkManyToManyInput
-): Effect.Effect<void, DatabaseError> => {
-  const statements = input.links.flatMap((link) =>
+/** Every junction DELETE for a source record (own junction + reciprocal mirror). */
+const buildUnlinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>[] =>
+  input.links.flatMap((link) =>
     link.relatedIds.flatMap((relatedId) => {
       const own = junctionDelete(input.sourceTable, link.relatedTable, input.sourceId, relatedId)
       return link.hasReciprocal
@@ -162,18 +134,20 @@ export const unlinkManyToMany = (
         : [own]
     })
   )
-  if (statements.length === 0) return Effect.void
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction((tx) =>
-        statements.reduce<Promise<unknown>>(
-          (prev, statement) => prev.then(() => executeRaw(tx, statement)),
-          Promise.resolve(undefined)
-        )
-      ),
-    catch: wrapDatabaseError(`Failed to unlink many-to-many records for ${input.sourceTable}`),
-  })
-}
+
+/**
+ * Remove a record's named junction rows on an OPEN transaction — the inverse of
+ * {@link writeManyToManyLinksInTransaction}, for a write that must commit or
+ * roll back the removal together with the record itself.
+ */
+export const removeManyToManyLinksInTransaction = (
+  tx: Parameters<typeof executeRaw>[0],
+  input: LinkManyToManyInput
+): Promise<unknown> =>
+  buildUnlinkStatements(input).reduce<Promise<unknown>>(
+    (prev, statement) => prev.then(() => executeRaw(tx, statement)),
+    Promise.resolve(undefined)
+  )
 
 /** A many-to-many field to resolve for a set of source records. */
 export interface ManyToManyReadField {

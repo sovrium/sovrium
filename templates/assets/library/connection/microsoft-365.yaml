@@ -1,0 +1,154 @@
+# sovrium-library: connection/microsoft-365@0.30.0
+name: microsoft-365
+type: oauth2
+label: Microsoft 365
+description: 'Microsoft Graph, connected with OAuth'
+props:
+  provider: microsoft
+  clientId: $env.MICROSOFT_CLIENT_ID
+  clientSecret: $env.MICROSOFT_CLIENT_SECRET
+  scopes:
+    - offline_access
+    - User.Read
+    - Mail.Send
+    - Mail.Read
+    - Calendars.ReadWrite
+    - Files.Read
+    - User.Read.All
+    - Team.ReadBasic.All
+    - Channel.ReadBasic.All
+    - ChannelMessage.Send
+    - ChatMessage.Send
+  pkce: S256
+baseUrl: https://graph.microsoft.com/v1.0
+operations:
+  - name: get-me
+    method: GET
+    path: /me
+    summary: Retrieve the profile of the connected user
+  - name: send-mail
+    method: POST
+    path: /me/sendMail
+    summary: Send an email from the connected mailbox
+    params:
+      message:
+        in: body
+        type: object
+        required: true
+        description: '{ subject, body: { contentType, content }, toRecipients }'
+      saveToSentItems:
+        in: body
+        type: boolean
+  - name: list-messages
+    method: GET
+    path: /me/messages
+    summary: List the messages of the connected mailbox
+    params:
+      $top:
+        in: query
+        type: integer
+      $filter:
+        in: query
+        type: string
+      $select:
+        in: query
+        type: string
+  - name: list-events
+    method: GET
+    path: /me/events
+    summary: List the events of the connected calendar
+    params:
+      $top:
+        in: query
+        type: integer
+      $filter:
+        in: query
+        type: string
+  - name: create-event
+    method: POST
+    path: /me/events
+    summary: Create an event in the connected calendar
+    params:
+      subject:
+        in: body
+        type: string
+        required: true
+      body:
+        in: body
+        type: object
+      start:
+        in: body
+        type: object
+        required: true
+        description: '{ dateTime, timeZone }'
+      end:
+        in: body
+        type: object
+        required: true
+        description: '{ dateTime, timeZone }'
+      attendees:
+        in: body
+        type: array
+  - name: list-drive-items
+    method: GET
+    path: /me/drive/root/children
+    summary: List the files at the root of the connected OneDrive
+  - name: list-users
+    method: GET
+    path: /users
+    summary: List the users of the organization
+    params:
+      $top:
+        in: query
+        type: integer
+      $filter:
+        in: query
+        type: string
+  - name: post-channel-message
+    method: POST
+    path: '/teams/{team_id}/channels/{channel_id}/messages'
+    summary: Post a message to a Teams channel
+    params:
+      team_id:
+        in: path
+        type: string
+        required: true
+      channel_id:
+        in: path
+        type: string
+        required: true
+      body:
+        in: body
+        type: object
+        required: true
+        description: '{ contentType: text or html, content }'
+  - name: list-joined-teams
+    method: GET
+    path: /me/joinedTeams
+    summary: List the Teams teams the connected user is a member of
+  - name: list-channels
+    method: GET
+    path: '/teams/{team_id}/channels'
+    summary: List the channels of a Teams team
+    params:
+      team_id:
+        in: path
+        type: string
+        required: true
+      $filter:
+        in: query
+        type: string
+  - name: post-chat-message
+    method: POST
+    path: '/chats/{chat_id}/messages'
+    summary: 'Send a message in a Teams chat, one-to-one or group'
+    params:
+      chat_id:
+        in: path
+        type: string
+        required: true
+      body:
+        in: body
+        type: object
+        required: true
+        description: '{ contentType: text or html, content }'

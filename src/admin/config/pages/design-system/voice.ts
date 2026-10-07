@@ -342,7 +342,7 @@ const toneSection = (): PageComponent =>
                 'error, success, destructive \u2014 speaks in the voice above. Declare a tone to ' +
                 'set a register per moment.',
               configKey: 'design.voice.tone',
-              href: '/en/docs/design',
+              href: 'https://sovrium.com/en/docs/design',
             }),
           ],
         },

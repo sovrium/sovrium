@@ -21,7 +21,7 @@ import type { ComponentRenderer, DispatchableComponentType } from './component-d
  *
  * These components render media content and embedded elements. Each variant
  * gets a prestyled default className from
- * `interactive-content-default-classes.ts` ([internal ref], prestyled-by-default)
+ * `interactive-content-default-classes.ts` (the prestyled-islands rule, prestyled-by-default)
  * so a bare schema-author `{ type: 'image', src: '...' }` renders with the
  * canonical Sovrium surface chrome (radius / border / object-fit) without
  * the author spelling any classes.

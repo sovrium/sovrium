@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { buildComponentUnion } from '../pages/components/component-types'
-import { ComponentChildrenSchema } from './children'
+import { ComponentChildrenSchema, ComponentSlotSchema } from './children'
 import { ComponentGuidanceSchema } from './guidance'
 import { ComponentReferenceNameSchema } from './reference'
 
@@ -49,7 +49,8 @@ export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotate
  *
  * Optional properties:
  * - props: Component properties (may contain $variable placeholders)
- * - children: Nested child components
+ * - children: Nested child components, or `$children` — the slot a placing
+ *   reference fills with the page's own components (see `ComponentSlotSchema`)
  * - content: Text content (may contain $variable placeholders)
  * - guidance: What it is, when to reach for it, and the misuse to refuse
  *
@@ -77,7 +78,15 @@ export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotate
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Discriminated union with recursive children requires any
 export const ComponentTemplateSchema: Schema.Codec<any, any, never> = buildComponentUnion(
   {
-    children: Schema.optional(ComponentChildrenSchema),
+    // `$children` here makes the template's root itself the slot: the template
+    // is then a frame — its own type, props and classes — around the page's
+    // components, with nothing of its own inside.
+    children: Schema.optional(
+      Schema.Union([ComponentChildrenSchema, ComponentSlotSchema]).annotate({
+        description:
+          "The template's child elements — components or text strings, with `$variable` placeholders — or `$children`, which makes the template's root its slot: a frame around the page components a placement passes as `children`.",
+      })
+    ),
   },
   {
     name: ComponentTemplateNameSchema,

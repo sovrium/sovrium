@@ -21,7 +21,8 @@
  * automation's last error, which the run store has already redacted.
  */
 
-import { Cause, Data, Effect } from 'effect'
+import { Cause, Effect } from 'effect'
+import { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import { BootLedgerRepository } from '@/application/ports/repositories/admin/boot-ledger-repository'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
@@ -36,7 +37,6 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { coerceTimestampToMs } from '@/domain/kernel/time/time-series-bucketing'
 import { deriveConnectionStatus } from '@/domain/models/app/admin/connection-status'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
-import { countAuditEntriesByAction } from '@/infrastructure/audit-log/drizzle-store'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
@@ -98,7 +98,6 @@ const orZero =
 /** An error as the summary prints it — see `summariseRunError` — or null when there is none. */
 const summarisedLastError = (error: string | undefined): string | null => {
   const line = error === undefined ? '' : summariseRunError(error, LAST_ERROR_MAX_LENGTH)
-  // eslint-disable-next-line unicorn/no-null -- the wire contract spells "no error" as null
   return line === '' ? null : line
 }
 
@@ -107,7 +106,6 @@ export const AUTOMATIONS_ZERO: Automations = {
   failures: 0,
   timedOut: 0,
   interrupted: 0,
-  // eslint-disable-next-line unicorn/no-null -- "nothing ran" is null on the wire
   successRate: null,
   topFailing: [],
 }
@@ -141,7 +139,6 @@ export const automationsBlock = (
       failures,
       timedOut: sum((tally) => tally.timedOut),
       interrupted: sum((tally) => tally.interrupted),
-      // eslint-disable-next-line unicorn/no-null -- "nothing ran" is null on the wire
       successRate: runs === 0 ? null : (runs - failures) / runs,
       topFailing,
     }
@@ -310,22 +307,17 @@ export const versionChangesBlock = (
     Effect.withSpan('notifications.weekly-digest.version-changes')
   )
 
-/** The audit store could not be read; the block reports zero entries instead. */
-class AuditErrorsReadError extends Data.TaggedError('AuditErrorsReadError')<{
-  readonly cause: unknown
-}> {}
-
 /** Error and critical audit entries of the period, by action, most first. */
-export const auditErrorsBlock = (window: DigestWindow): Effect.Effect<AuditErrors, never, Logger> =>
-  Effect.tryPromise({
-    try: () =>
-      countAuditEntriesByAction({
-        since: window.from,
-        until: window.to,
-        severities: ERROR_SEVERITIES,
-        limit: TOP_FAILING_LIMIT,
-      }),
-    catch: (cause) => new AuditErrorsReadError({ cause }),
+export const auditErrorsBlock = (
+  window: DigestWindow
+): Effect.Effect<AuditErrors, never, AuditLogRepository | Logger> =>
+  Effect.gen(function* () {
+    return yield* (yield* AuditLogRepository).countByAction({
+      since: window.from,
+      until: window.to,
+      severities: ERROR_SEVERITIES,
+      limit: TOP_FAILING_LIMIT,
+    })
   }).pipe(
     orZero('audit-errors', [] as AuditErrors),
     Effect.withSpan('notifications.weekly-digest.audit-errors')

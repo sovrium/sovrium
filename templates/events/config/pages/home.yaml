@@ -46,7 +46,7 @@ components:
     element: section
     props:
       aria-label: Events
-      className: flex w-full list-none flex-col gap-3 bg-background px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4 [&>li]:list-none
+      className: flex w-full list-none flex-col gap-3 bg-background px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4
     dataSource:
       table: events
       filter:

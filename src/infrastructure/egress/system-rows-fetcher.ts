@@ -66,7 +66,6 @@ const LOOPBACK_READ_TIMEOUT_MS = 8000
  * which the resolver treats as an empty collection — the page renders.
  */
 export function systemRowsFetcher(
-  // eslint-disable-next-line functional/prefer-immutable-types
   c: Context
 ): (endpoint: string, rowsKey: string) => Promise<readonly Record<string, unknown>[]> {
   return async (endpoint, rowsKey) => {
@@ -88,7 +87,7 @@ export function systemRowsFetcher(
  * works.
  *
  * A page bound to `dataSource: { system }` is NAMED by its record — the console
- * link deep-dive prints the OPERATOR's `links.title` — and before [internal ref]
+ * link deep-dive prints the OPERATOR's `links[].title` — and before the page-level system-record resolution rule
  * that record was fetched by an island after the document had already shipped.
  * So the heading was the literal `$record.title` for a crawler, and stayed that
  * way forever for a reader with no scripting.
@@ -99,7 +98,6 @@ export function systemRowsFetcher(
  * there for this caller, and telling them apart would disclose which (S1).
  */
 export function systemRecordFetcher(
-  // eslint-disable-next-line functional/prefer-immutable-types
   c: Context
 ): (
   endpoint: string,
@@ -134,11 +132,7 @@ export function systemRecordFetcher(
  *    The 3xx surfaces as a non-2xx answer, which both readers treat as "no
  *    data".
  */
-async function readOwnApi(
-  // eslint-disable-next-line functional/prefer-immutable-types
-  c: Context,
-  endpoint: string
-): Promise<Response | undefined> {
+async function readOwnApi(c: Context, endpoint: string): Promise<Response | undefined> {
   const base = new URL(resolveLoopbackOrigin(c) ?? c.req.url)
   const target = new URL(endpoint, base)
   if (target.origin !== base.origin) return undefined
@@ -173,10 +167,7 @@ const BORROWED_HEADERS = [
   'cf-connecting-ip',
 ] as const
 
-function borrowedIdentityHeaders(
-  // eslint-disable-next-line functional/prefer-immutable-types
-  c: Context
-): Readonly<Record<string, string>> {
+function borrowedIdentityHeaders(c: Context): Readonly<Record<string, string>> {
   return Object.fromEntries(
     BORROWED_HEADERS.flatMap((name) => {
       const value = c.req.header(name)

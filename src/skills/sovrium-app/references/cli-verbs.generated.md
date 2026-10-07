@@ -4,13 +4,14 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (22), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (24), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
 | Verb | Usage | Purpose |
 | --- | --- | --- |
 | `admin` | `sovrium admin create <email> [config] [options]` | Create an admin user |
+| `backup` | `sovrium backup [config] [options]` | Write database, key, config and uploads to one archive |
 | `build` | `sovrium build [config] [options]` | Build static site files |
 | `changelog` | `sovrium changelog [<version>] [--list] [--since <version>] [--format md\|json]` | Read the release notes this binary carries |
 | `design-system` | `sovrium design-system [config] [options]` | Export the design system as an agent brief or DTCG JSON |
@@ -22,6 +23,7 @@ Every verb the `sovrium` binary dispatches (22), with its usage line and what it
 | `migrate` | `sovrium migrate [config] [options]` | Bring the database schema forward, without booting |
 | `reload` | `sovrium reload [options]` | Hot-reload config without downtime |
 | `restart` | `sovrium restart [config]` | Restart the running server |
+| `restore` | `sovrium restore <file> [options]` | Put a backup back (never over a running server) |
 | `schema` | `sovrium schema [options]` | Print JSON Schema to stdout |
 | `secret` | `sovrium secret generate [scope]` | Print fresh secrets as .env lines; Persist $SOVRIUM_ENCRYPTION_KEY to the data dir |
 | `seed` | `sovrium seed [config] [options]` | Load seed/<table>.yaml data into the tables |
@@ -29,6 +31,6 @@ Every verb the `sovrium` binary dispatches (22), with its usage line and what it
 | `start` | `sovrium start [config] [options]` | Start the server (default command) |
 | `stop` | `sovrium stop` | Stop the running server |
 | `types` | `sovrium types [options]` | Emit sovrium.d.ts + tsconfig.json for a .ts config |
-| `update` | `sovrium update` | Update to the latest version |
+| `update` | `sovrium update [--insecure-skip-checksum]` | Update to the latest version |
 | `validate` | `sovrium validate <config>` | Validate a config file against AppSchema |
 | `version` | `sovrium version` | Show version number |

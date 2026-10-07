@@ -268,7 +268,7 @@ const buildTempTableDDL = (
     `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
     `CREATE TABLE ${tempTableName}`
   )
-  // Defense-in-depth ([internal ref] fix #2): building the temp table under the live
+  // Defense-in-depth (the idempotent schema re-initialisation rule fix #2): building the temp table under the live
   // constraint names collides with the still-present live table's same-named
   // backing index; `finalizeTableRecreation` restores the names after the swap.
   const scopedConstraints = scopeConstraintNames(

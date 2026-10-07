@@ -118,6 +118,10 @@ Every derived ancestor links to its own path prefix, and not every prefix is a p
 
 At `/automations/runs/42` that renders **Automations › Run › 42**, with `Automations` linking to `/automations`, `Run` as text with no link, and `42` as the current page. The segment stays in the trail because it still tells the reader where they are; only the dead link goes. Name the segment as it appears in the URL, not its label: `labels` still applies to it. Like `labels`, `unlinked` requires `derive` and is refused at startup without it — on an enumerated trail, leave `href` off the item instead.
 
+### Naming the current page
+
+The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly — `currentLabel: $record.title` turns `Orders / 42` into `Orders / Acme — spring order` — and, like `labels` and `home`, requires `derive`.
+
 ## `command-palette`
 
 The keyboard-first way into everything a page can reach: one overlay, one input, results from the sources the page declares.

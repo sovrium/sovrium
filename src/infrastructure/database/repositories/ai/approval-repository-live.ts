@@ -55,7 +55,6 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
     wrap(async () => {
       // `run_id` is null for agent approvals (migration 0006 made it nullable);
       // `step_index` is 0. Column mapping preserved verbatim from approval-db.ts.
-      // eslint-disable-next-line functional/no-expression-statements -- DB side effect
       await db.insert(automationApprovalRequests).values({
         id: record.id,
         stepIndex: 0,
@@ -74,7 +73,6 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
 
   updateApprovalRow: (record) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements -- DB side effect
       await db
         .update(automationApprovalRequests)
         .set({

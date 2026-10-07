@@ -10,13 +10,13 @@
 <h3 align="center">One Config. Complete App. Full Control.</h3>
 
 <p align="center">
-  The open-source alternative to Airtable, Retool, and Notion.<br />
+  The source-available alternative to Airtable, Retool, and Notion.<br />
   Self-hosted. Configuration-driven. No vendor lock-in.
 </p>
 
 <p align="center">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-blue" alt="License" /></a>
-  <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun_1.3-f472b6" alt="Bun" /></a>
+  <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun_1.4-f472b6" alt="Bun" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-6.0-3178c6" alt="TypeScript" /></a>
 </p>
 
@@ -142,10 +142,14 @@ files **you own** and **version in Git**.
 **Sovrium is** a self-hosted platform for internal tools, CRMs, admin panels,
 content sites, and APIs, driven by configuration.
 
-**Sovrium is not** a SaaS product, a hosted service, or a code framework you
-build on. You write configuration, not application code.
+**Sovrium is not** a code framework you build on. You write configuration, not
+application code.
 
-What it covers: 49 table field types, a Records REST API and matching UI,
+Sovrium runs on your own machine or server. Sovrium Cloud is the optional
+managed hosting for teams that would rather not run it themselves.
+
+What it covers: table field types for text, numbers, dates, selections,
+relations, media, users and AI, a Records REST API and matching UI,
 authentication and RBAC, pages and a full component library, forms, theming,
 internationalization, automations, AI fields and agents, analytics, file
 buckets, and an operational admin console. The
@@ -189,18 +193,20 @@ docker pull ghcr.io/sovrium/sovrium:latest
 ### 2. Scaffold, validate, run
 
 ```bash
-sovrium init --template crud --output ./my-app
+sovrium init --template crm --output ./my-app
 cd my-app
 
 sovrium validate app.yaml
-# → Valid configuration: my-app
+# → Valid configuration: kestrel-crm
 
 sovrium start app.yaml --watch
 # → http://localhost:3000   (--watch hot-reloads on config changes)
 ```
 
-Add `--typescript` to `sovrium init` to scaffold a typed `app.ts` instead of
-`app.yaml`, with the declaration and `tsconfig.json` already written.
+`sovrium init` with no `--template` scaffolds a blank starter instead, and
+`sovrium init ./my-app --typescript` makes that starter a typed `app.ts` with the
+declaration and `tsconfig.json` already written. (`--typescript` cannot be
+combined with `--template`: a template ships its own config.)
 
 `sovrium build app.yaml` exports a static site to `./dist` for content sites
 that need no server.
@@ -215,14 +221,10 @@ A fresh instance has no admin user. Pick one of the three bootstrap paths in
 **This repository is a filtered mirror of a private development monorepo.** The
 test suite, CI workflows, lint configuration, and internal tooling are excluded
 by an allowlist in the release pipeline, so you will not find them here. They
-exist:
-
-|                  |                                                                          |
-| ---------------- | ------------------------------------------------------------------------ |
-| Spec files       | 908                                                                      |
-| End-to-end tests | 7,933 (6,902 `@spec` + 1,031 `@regression`); 32 are tracked placeholders |
-| Unit test files  | 826, ~10,300 test cases                                                  |
-| User stories     | 894, tracing 7,426 spec IDs                                              |
+exist: more than 1,000 Playwright spec files holding more than 11,000 end-to-end
+tests, traced to more than 1,000 user stories, plus co-located unit tests for
+the domain model and the tooling. A small number of specs are still tracked
+`test.fixme()` placeholders.
 
 Every acceptance criterion is one `@spec` test carrying the ID of the user story
 it satisfies, and each spec file also has one `@regression` test that replays
@@ -281,15 +283,14 @@ documentation entry point for driving Sovrium with a coding agent.
 ## Status
 
 Sovrium is a **feature-complete MVP** under active production hardening. Every
-domain listed above is implemented, with 7,901 of 7,933 end-to-end tests written
-and 32 tracked `test.fixme()` placeholders remaining. The outstanding work is a
-handful of forms-submission extras: save-and-resume, edit-after-submit,
-calculation fields, payment fields, CAPTCHA, and a moderation queue.
+domain listed above is implemented; a small number of specs, scattered across
+domains, are still tracked `test.fixme()` placeholders.
 
 "Implemented" means the behavior is built and locked by a spec. That is a
 distinct bar from long-term production hardening, which continues as the
-platform matures. The figures above are generated, not asserted; see
-[How Sovrium Is Built](https://sovrium.com/en/docs/how-sovrium-is-built).
+platform matures. See
+[How Sovrium Is Built](https://sovrium.com/en/docs/how-sovrium-is-built) for how
+the suite is organised and gated.
 
 ---
 
@@ -328,15 +329,16 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 ## License
 
-[BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
-offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **October 5, 2030**. A move to **full open source sooner** is
-under active evaluation. Commercial hosting licenses: license@sovrium.com.
+Sovrium is source-available under the
+[Business Source License 1.1](LICENSE.md): free for internal and non-commercial
+use; it prevents offering Sovrium as a competing hosted service. Commercial
+hosting licenses: license@sovrium.com.
 
-The **engine is free forever** in self-hosted mode (no license keys, no feature
-gating). What's paid is the companionship around it: **Sovrium Cloud** (managed
-hosting + a hosted visual/AI config editor), **Sovrium Partner** (implementation
-& migration), and **Sovrium Academy** (training), never sovereignty itself.
+The Sovrium engine, the desktop app and local AI editing with your own key are free; Sovrium Cloud sells managed hosting, collaborative and managed-AI editing — the hosted config-editing plane — because the line is whose compute runs it, and the self-hosted product never ships a visual or AI config editor.
+
+**Sovrium Partner** (implementation & migration) and **Sovrium Academy**
+(training) are the other paid services around the engine, never sovereignty
+itself.
 
 ---
 

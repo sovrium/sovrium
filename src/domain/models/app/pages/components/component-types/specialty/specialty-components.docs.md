@@ -33,6 +33,8 @@ The switcher never prints the app's `fallback` language. When one is declared it
 
 Whichever variant it draws, the switcher's outer element carries `data-component-type="language-switcher"` and the HTML attributes given in `props`, `className` among them. No element inside it carries the name.
 
+The `toggle` variant's link takes classes by part, `link`, through `classes`: `classes: { parts: { link: 'h-8' } }` gives the toggle the height of the controls beside it in a header. Its keyboard focus ring stays whatever the classes say.
+
 ## `file-upload`
 
 A file selector with optional drag-and-drop.
@@ -54,6 +56,8 @@ Uploaded files land in a bucket, which is also where the size and type policy is
 ```
 
 A label that is not a key is rendered exactly as written, so a literal stays a literal.
+
+Pointed at `/api/account/avatar`, a `file-upload` sets the signed-in visitor's own profile picture; **Profile Avatars** gives the whole account-page control, with an `avatar` that shows the picture and a button that removes it.
 
 ## `number-input`
 

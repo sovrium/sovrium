@@ -24,7 +24,7 @@ export interface BatchValidationError extends Error {
 }
 
 /**
- * One record's many-to-many links in a batch create ([internal ref]: a many-to-many
+ * One record's many-to-many links in a batch create (the many-to-many junction-write rule: a many-to-many
  * field has no base column, so its values travel beside the record's fields).
  */
 export interface BatchCreateLink {

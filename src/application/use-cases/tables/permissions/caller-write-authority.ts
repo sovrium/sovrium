@@ -39,6 +39,7 @@ import {
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import {
   createAllowed,
@@ -79,9 +80,6 @@ export interface CallerIdentity {
   readonly ctx: CurrentUserContext
 }
 
-/** The role the records API would see, `member` when the account names none. */
-const DEFAULT_ROLE = 'member'
-
 /**
  * Who the caller is, for the read and write decisions alike — or `undefined`
  * when there is no caller to act as: an account that no longer exists or has
@@ -102,7 +100,9 @@ export const loadCallerIdentity = (
     // outright rather than guessing one — a guess could only widen access.
     const roleLookup = yield* Effect.result(auth.getUserRole(userId))
     if (roleLookup._tag === 'Failure') return undefined
-    const role = roleLookup.success ?? DEFAULT_ROLE
+    // The role the records API would see: an absent, empty or undeclared one
+    // grants nothing (`toGrantingRole`), never the `member` default.
+    const role = toGrantingRole(roleLookup.success, app)
     const groups = yield* getUserGroups(userId)
     // The records route's own lookup: fails closed, and logs the fault.
     const accessRoles = yield* getUserAccessRoles(userId)

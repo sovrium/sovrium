@@ -35,10 +35,7 @@ contentDir:
       policies: Policies
 
 markdown:
-  layout: docs
-  toc:
-    maxDepth: 2
-    position: sidebar
+  $ref: ./_reading-frame.yaml
 
 # The first component renders above the article, the rest below it.
 components:

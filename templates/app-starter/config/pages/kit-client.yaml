@@ -1,0 +1,32 @@
+name: kit-client
+path: /kit/clients/:id
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Client · App starter'
+  description: 'One client, its facts and its discussion.'
+dataSource:
+  table: clients
+  mode: single
+  param: id
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: mx-auto flex w-full max-w-360 flex-col gap-1 px-4 pt-6 sm:px-8 sm:pt-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: '$record.name'
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: 'The client’s facts, by type, and its discussion.'
+  - component: dl-rows
+  - component: dl-stacked
+  - component: comments-feed

@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- AiError/AiConfigError tagged classes are mutable by Data.TaggedError design */
-
 import { Effect, Layer, Stream } from 'effect'
 import {
   AiService,
@@ -278,9 +276,7 @@ const parseChatResponse = async (
   signal: AbortSignal | undefined
 ): Promise<ChatReply> => {
   const payload = await response.json().catch((bodyErr: unknown) => {
-    // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
     if (signal?.aborted === true) throw timeoutError(input.timeoutMs)
-    // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
     throw new AiProviderError({
       statusCode: 502,
       message: `AI provider returned a malformed JSON response: ${
@@ -295,7 +291,6 @@ const parseChatResponse = async (
   // malformed reply. Only a response with neither textual content NOR tool
   // calls is rejected as malformed.
   if (typeof content !== 'string' && toolCalls === undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
     throw new AiProviderError({
       statusCode: 502,
       message: 'AI provider returned a malformed chat-completion response',
@@ -318,7 +313,7 @@ const parseChatResponse = async (
  * seen a partial answer, and re-running would splice two generations together.
  *
  * Deliberately skipped when the caller supplied its own `timeoutMs`. That
- * deadline is a promise about total latency ([internal ref] turns it
+ * deadline is a promise about total latency (an AI chat error spec turns it
  * into a 504), and silently spending three of them would break it.
  */
 const retryTransientChat = (
@@ -368,7 +363,6 @@ const callChatCompletions = (
           // Read the body as text best-effort so the error message carries the
           // provider's own diagnostic — invaluable when debugging E2E specs.
           const body = await response.text().catch(() => '')
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: response.status,
             message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -407,10 +401,8 @@ const sendStreamingRequest = async (
     `${conn.baseUrl}/chat/completions`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${conn.apiKey}`,
-      },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${conn.apiKey}` },
       body: JSON.stringify(buildRequestBody(model, conn.defaults, input, { stream: true })),
     },
     STREAM_HEADERS_TIMEOUT_MS
@@ -422,14 +414,12 @@ const responseToStream = async (
 ): Promise<Stream.Stream<ChatChunk, AiError>> => {
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
     throw new AiProviderError({
       statusCode: response.status,
       message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
     })
   }
   if (response.body === null) {
-    // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
     throw new AiProviderError({
       statusCode: 502,
       message: 'AI provider returned a streaming response with no body',

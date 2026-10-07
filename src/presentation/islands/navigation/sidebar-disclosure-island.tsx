@@ -6,12 +6,8 @@
  */
 
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
-import {
-  computeSidebarDisclosureListClasses,
-  computeSidebarDisclosureStateClasses,
-  computeSidebarDisclosureToggleClasses,
-  computeSidebarSubEntryClasses,
-} from '@/presentation/design/sidebar-default-classes'
+import { computeSidebarSubEntryClasses } from '@/presentation/design/sidebar-default-classes'
+import { TOGGLE_CLASS, LIST_CLASS, STATE_CLASS } from './sidebar-disclosure-classes'
 import { ChildBadge, Chevron, ToggleRow } from './sidebar-disclosure-parts'
 import { useSidebarDisclosure, type FetchState } from './use-sidebar-disclosure'
 import type {
@@ -36,18 +32,9 @@ import type { ProjectedEntry } from './sidebar-entry-projection'
  * disclosures must not cost ten requests to a reader who opens none, and
  * re-opening one is not a reason to ask the server a second time.
  *
- * Every class below comes from `utils/recipes/sidebar-default-classes` — the
- * same module the server-rendered half calls. It sits in `presentation-util`
- * because `eslint-plugin-boundaries` forbids an island from reaching
- * `presentation-component`, which is why these strings used to be a hand-copy
- * kept in step by a comment. They are not a hand-copy any more.
+ * Every class comes from `design/sidebar-default-classes` — the same module
+ * the server-rendered half calls — through `sidebar-disclosure-classes.ts`.
  */
-
-const TOGGLE_CLASS = computeSidebarDisclosureToggleClasses()
-
-const LIST_CLASS = computeSidebarDisclosureListClasses()
-
-const STATE_CLASS = computeSidebarDisclosureStateClasses()
 
 /** The toggle: a small target beside the link, never a wrapper around it. */
 function DisclosureToggle({

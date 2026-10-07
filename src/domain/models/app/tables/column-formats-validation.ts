@@ -62,7 +62,7 @@ type FieldDeclaration = {
  * Scheme-less input (`example.com`) is REJECTED — `new URL()` throws without a
  * scheme. That strictness is deliberate and preserved verbatim from the records
  * path, where it is the established behaviour that
- * [internal ref] assert against (`'not-a-valid-url'`).
+ * an API tables records create spec assert against (`'not-a-valid-url'`).
  * A `url` column's value ends up in an `href`; a scheme-less one renders as a
  * RELATIVE link and silently resolves against the current origin, so accepting
  * it would store a value that looks fine and navigates wrong. Loosening here

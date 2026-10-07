@@ -41,11 +41,9 @@ const TS_LIB_FILES = RAW_TS_LIB_FILES as unknown as Readonly<Record<string, stri
  * Marked as a let-initialized lazy `Map` rather than evaluated eagerly so
  * tests that don't touch the validator never pay the read cost.
  */
-// eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- module-scope lazy memoization cache; Map is mutated once on first read
 let TS_LIB_CONTENTS_CACHE: Map<string, string> | undefined
 
 const getTsLibContents = (): ReadonlyMap<string, string> => {
-  // eslint-disable-next-line functional/no-expression-statements -- memoization cache write
   TS_LIB_CONTENTS_CACHE ??= new Map(
     Object.entries(TS_LIB_FILES).map(([name, path]) => [name, readFileSync(path, 'utf-8')])
   )
@@ -103,18 +101,18 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
 // NOT: `Buffer`, `console`, `URL`, `URLSearchParams`, `setTimeout`,
 // `clearTimeout` and `crypto`.
 //
-// That list used to be just `Buffer`, because `COMPILER_OPTIONS` left
-// `lib` unset and a bare `target: ES2020` makes tsc load
-// `lib.es2020.full.d.ts` — which pulls in `lib.dom.d.ts`. A code action
-// does not run in a DOM, so that default silently declared the ENTIRE DOM
-// surface (`document`, `window`, `fetch`, `localStorage`, `alert`, …) to
-// operator code that cannot reach any of it. Each of those names
-// type-checked cleanly at boot and threw `ReferenceError` at request time
-// — the "declared but ungranted" failure mode, unbounded. `lib` is now
-// pinned to `lib.es2020.d.ts` (see COMPILER_OPTIONS) so the ambient
-// surface is exactly ES2020 plus what this prelude spells out.
+// The list has to be complete because `lib` is pinned. With `lib` unset, a
+// bare `target: ES2020` makes tsc load `lib.es2020.full.d.ts` — which pulls
+// in `lib.dom.d.ts`. A code action does not run in a DOM, so that default
+// would silently declare the ENTIRE DOM surface (`document`, `window`,
+// `fetch`, `localStorage`, `alert`, …) to operator code that cannot reach
+// any of it. Each of those names would type-check cleanly at boot and throw
+// `ReferenceError` at request time — the "declared but ungranted" failure
+// mode, unbounded. `lib` is therefore pinned to `lib.es2020.d.ts` (see
+// COMPILER_OPTIONS) so the ambient surface is exactly ES2020 plus what this
+// prelude spells out.
 //
-// The consequence is that adding a global is now always a deliberate act:
+// The consequence is that adding a global is always a deliberate act:
 // anything outside ES2020 must be declared here, and `Sandbox Globals
 // Drift` fails the build if a declaration and a grant disagree.
 //
@@ -464,7 +462,6 @@ const buildVirtualFile = (entry: CodeActionEntry): VirtualFile => ({
  * synthetic prelude. Failures surface BEFORE `tsc` runs, giving a
  * domain-specific error message instead of a raw type-checker diagnostic.
  */
-/* eslint-disable functional/prefer-immutable-types -- TSValidationError is upstream-mutable */
 const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | undefined => {
   const sourceFile = ts.createSourceFile(
     `__signature-check__-${entry.automationId}-${String(entry.actionIndex)}.ts`,
@@ -516,12 +513,10 @@ const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | u
   }
   return undefined
 }
-/* eslint-enable functional/prefer-immutable-types */
 
 // `ts.CompilerOptions` is a third-party mutable type that the CompilerHost
 // API requires by reference. Treating it as Readonly here would force casts
 // at every call site without real safety improvement.
-// eslint-disable-next-line functional/prefer-immutable-types -- ts API requires mutable CompilerOptions
 const COMPILER_OPTIONS: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2020,
   // Pinned DELIBERATELY. Without an explicit `lib`, `target: ES2020` makes
@@ -577,7 +572,6 @@ const lookupTsLibContent = (fileName: string): string | undefined => {
  * would require casts on every call site without changing the
  * underlying behavior.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- ts API requires mutable CompilerHost
 const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost => {
   const fileMap: ReadonlyMap<string, string> = new Map(files.map((f) => [f.path, f.content]))
   const realHost = ts.createCompilerHost(COMPILER_OPTIONS, true)
@@ -616,7 +610,6 @@ const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost =>
  * `Readonly` would require casts at every call site without changing
  * runtime behavior.
  */
-/* eslint-disable functional/prefer-immutable-types -- ts.Diagnostic / TSValidationError are upstream-mutable */
 const diagnosticToError = (
   diagnostic: ts.Diagnostic,
   files: ReadonlyArray<VirtualFile>
@@ -636,7 +629,6 @@ const diagnosticToError = (
     message: explainUnresolvedName(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
   })
 }
-/* eslint-enable functional/prefer-immutable-types */
 
 /**
  * Live TypeScriptValidator implementation. Runs `ts.createProgram`

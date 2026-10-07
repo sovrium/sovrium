@@ -34,6 +34,7 @@ import type {
 // Better Auth schema (sqlite-core mirror)
 export * from './schema-sqlite/auth-tables'
 export * from './schema-sqlite/auth-oauth-resource-tables'
+export * from './schema-sqlite/auth-passkey-tables'
 
 // System / application tables (sqlite-core mirrors)
 export * from './schema-sqlite/activity-log'
@@ -57,7 +58,6 @@ export * from './schema-sqlite/record-comments'
 export * from './schema-sqlite/search'
 export * from './schema-sqlite/storage'
 export * from './schema-sqlite/user-access'
-export * from './schema-sqlite/user-views'
 export * from './schema-sqlite/webhook'
 
 // Better Auth inferred types (kept alongside the public surface, mirroring

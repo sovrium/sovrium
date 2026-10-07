@@ -49,27 +49,33 @@ Create the first admin with `sovrium admin create <email>`. Never paste a real c
 ```bash
 BASE=http://localhost:3000   # the URL sovrium start printed
 
-# Anonymous: expect 401 or 404 on a private table, 200 on a public one
+# Anonymous: expect 401 on a private table, 200 on one that grants read: all
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/tables/contacts/records"
 
+# Keep the session cookie in a private, throwaway file
+JAR="$(mktemp)" && chmod 600 "$JAR"
+
 # Sign in as a test user and keep the session cookie
-curl -s -c /tmp/sovrium.jar -H 'content-type: application/json' \
+curl -s -c "$JAR" -H 'content-type: application/json' \
   -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" \
   "$BASE/api/auth/sign-in/email" > /dev/null
 
 # Read as that user
-curl -s -b /tmp/sovrium.jar "$BASE/api/tables/contacts/records?limit=5"
+curl -s -b "$JAR" "$BASE/api/tables/contacts/records?limit=5"
 
 # Or with an API key
 curl -s -H "x-api-key: $SOVRIUM_API_KEY" "$BASE/api/tables/contacts/records?limit=5"
 
 # Create, then read back
-curl -s -b /tmp/sovrium.jar -H 'content-type: application/json' \
+curl -s -b "$JAR" -H 'content-type: application/json' \
   -d '{"fields":{"email":"ada@example.com","name":"Ada Lovelace"}}' \
   "$BASE/api/tables/contacts/records"
 
 # The OpenAPI document, as an admin
 curl -s -H "x-api-key: $SOVRIUM_ADMIN_API_KEY" "$BASE/api/openapi.json" -o app.openapi.json
+
+# Done: delete the session cookie
+rm -f "$JAR"
 ```
 
 ## Reading a surprising answer
@@ -78,7 +84,7 @@ curl -s -H "x-api-key: $SOVRIUM_ADMIN_API_KEY" "$BASE/api/openapi.json" -o app.o
 | ------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `404` on a table you just added       | The server has not restarted onto the new config, or the caller may not read it | Check what `sovrium start --watch` printed; retry as admin           |
 | `404` for one role, `200` for another | Permissions working as written                                                  | Compare with the permissions you intended                            |
-| `401`                                 | No session or key was sent                                                      | Re-run sign-in; check the cookie jar path                            |
+| `401`                                 | No session or key was sent                                                      | Re-run sign-in; check `$JAR` still exists                            |
 | `400` with a field name               | Value fails the field's type or a required field is missing                     | Read the message; check `sovrium docs config tables[].fields[].type` |
 | `409` on create                       | A unique field already holds that value                                         | Use a different value, or the upsert endpoint                        |
 | A key missing from the JSON           | Field-level read permission hides it from this caller                           | Expected; test with the role that should see it                      |

@@ -5,12 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
- * This file's inline `onClick` handlers toggle a two-state confirmation flag.
- * Re-render cost is dominated by the state transition itself, not by the
- * handler identity, so memoization adds code without removing work.
- */
-
 import { useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 

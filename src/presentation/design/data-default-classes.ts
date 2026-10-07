@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computers for the data-cluster surfaces
- *: the data-table shell + header row + body row + status badge,
+ * the data-table shell + header row + body row + status badge,
  * the kanban column + card, and the chart shell. These are the outer-chrome
  * subparts that the `ui-kit-data` cluster snapshot showcases — the "schema
  * author's preview" of what a populated data display looks like.
@@ -87,7 +87,7 @@
  *                             footer, toolbar chrome, filter dropdowns,
  *                             column reorder UI, settings dialog: ALL live
  *                             inside `src/presentation/islands/data-table/`
- * and have their own [internal ref] follow-up tracked
+ *                             and have their own the prestyled-islands rule follow-up tracked
  *                             separately. Restyling them needs the island-
  *                             side bundle to ship the var-fallback
  *                             registrations rather than an SSR-side helper.
@@ -130,8 +130,8 @@ import {
  *
  * A data table is a dense reading surface and the grid is what separates header
  * from body, so the header still needs no larger, heavier or uppercased
- * treatment to read as chrome. What changed is which row that argument shrinks.
- * The two used to share ONE 11px step; a table is read for its values, so the
+ * treatment to read as chrome. That argument does not justify shrinking the
+ * values to the header's 11px step: a table is read for its values, so the
  * values take the larger rung and the header keeps the smaller one.
  */
 const TABLE_TEXT = 'text-sm'

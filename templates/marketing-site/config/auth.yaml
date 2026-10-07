@@ -1,0 +1,8 @@
+# One owner, and no sign-up: the site is public, the admin is yours. The owner
+# account comes from AUTH_ADMIN_EMAIL and AUTH_ADMIN_PASSWORD on first start;
+# sign in at /login to read the contact messages in the admin.
+allowSignUp: false
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

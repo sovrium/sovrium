@@ -1,0 +1,64 @@
+# sovrium-library: block/table-with-actions@0.30.0
+name: table-with-actions
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Invoices]'
+      - type: table
+        dataSource:
+          table: projects
+          sort:
+            - field: due_date
+              direction: desc
+        columns:
+          - field: title
+            label: '[Reference]'
+          - field: client
+            label: '[Client]'
+          - field: budget
+            label: '[Amount]'
+            align: right
+          - field: due_date
+            label: '[Date]'
+            format: short-date
+          - type: actions
+            label: ''
+            actions:
+              - label: Delete
+                icon: trash-2
+                action:
+                  type: crud
+                  operation: delete
+                  table: projects
+                  confirm: true
+                  confirmMessage: Delete this record? This cannot be undone.
+        selection:
+          mode: multiple
+        bulkActions:
+          - label: Delete
+            icon: trash-2
+            action:
+              type: crud
+              operation: delete
+              table: projects
+            confirm: 'Delete {count} records? This cannot be undone.'
+        toolbar:
+          search: true
+          export: true
+        pagination:
+          pageSize: 25
+        emptyMessage: No record yet. Create one to see it here.

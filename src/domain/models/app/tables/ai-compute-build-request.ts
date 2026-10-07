@@ -6,8 +6,7 @@
  */
 
 /**
- * Shared per-kind AI chat-request builders for AI-compute refinement
- * ([internal ref] Phase 2, design §4).
+ * Shared per-kind AI chat-request builders for AI-compute refinement.
  *
  * SINGLE SOURCE OF TRUTH for prompt construction. Both refinement invocation
  * paths converge here:

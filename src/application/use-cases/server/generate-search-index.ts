@@ -8,8 +8,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Data, Effect } from 'effect'
+import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import { logDebug } from '@/infrastructure/logging'
-import { resolvePackagePath } from '@/infrastructure/process/package-paths'
 
 /**
  * `generateSearchIndex` — pure Application use-case that materializes the
@@ -415,69 +415,34 @@ const buildIndex = (pages: readonly PageTokens[]): SearchIndex => {
 // ── Runtime IIFE (compiled from shared matcher) ──────────────────────────────
 
 /**
- * Build the client-side runtime IIFE for `<outputDir>/sovrium-search/runtime.js`.
+ * Read the client-side runtime IIFE for `<outputDir>/sovrium-search/runtime.js`.
  *
- * Compiles {@link ../../presentation/islands/page-search/runtime-entry.ts}
- * (which imports the shared `matcher` module) to a single self-executing
- * browser-targeted script. This makes the vanilla-JS runtime and the React
- * `page-search-island` share ONE source of truth for tokenization + ranked
- * lookup — they can never diverge.
+ * The script is compiled from
+ * {@link ../../presentation/islands/page-search/runtime-entry.ts} (which
+ * imports the shared `matcher` module), so the vanilla-JS runtime and the
+ * React `page-search-island` share ONE source of truth for tokenization +
+ * ranked lookup — they can never diverge.
  *
- * ## TODO: standalone-binary embedding (compiled mode)
- *
- * In dev/`bun start`, `resolvePackagePath('src', 'presentation', 'islands',
- * 'page-search', 'runtime-entry.ts')` resolves to an on-disk file that
- * `Bun.build` can consume directly.
- *
- * In **compiled-binary mode** (`bun build --compile`), `SOVRIUM_PACKAGE_ROOT`
- * points at the binary's directory which does NOT ship `src/` — so this call
- * will fail. The follow-up is to either:
- *
- *   1. Pre-compile the IIFE at build time and embed the resulting JS string
- *      via `import runtimeJs from './runtime.iife.js' with { type: 'file' }`,
- *      then read it from disk and skip the `Bun.build` step in compiled mode.
- *   2. Add `runtime-entry.ts` + `matcher.ts` to a binary-embed asset list
- *      (parallel to `scripts/build/generate-embedded-runtime-assets.ts`) so
- *      `Bun.build` can find them in the `$bunfs/...` virtual filesystem.
- *
- * Option (1) is preferred — it sidesteps `Bun.build` at runtime entirely and
- * keeps the cold-boot path tight. Tracked as a binary-packaging follow-up;
- * the page-search feature itself ships safely in dev / `bun start` today.
+ * WHERE THE BYTES COME FROM is the `StaticSiteGenerator` port's business: the
+ * compiled binary reads the copy embedded at compile time (an installed
+ * executable has no `src/` beside it, so compiling here at run time failed
+ * there — `start` gave up on the index and `build` exited 1), the npm bundle
+ * reads its prebuilt `dist/` copy, and a source checkout compiles the entry on
+ * the fly. See `src/infrastructure/assets/page-search-runtime.ts`.
  */
-const buildRuntimeJs = (): Effect.Effect<string, GenerateSearchIndexError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const entrypoint = resolvePackagePath(
-        'src',
-        'presentation',
-        'islands',
-        'page-search',
-        'runtime-entry.ts'
-      )
-      const result = await Bun.build({
-        entrypoints: [entrypoint],
-        target: 'browser',
-        format: 'iife',
-        minify: false,
-      })
-      if (!result.success) {
-        const errors = result.logs.map((l) => l.message).join('\n')
-        // eslint-disable-next-line functional/no-throw-statements
-        throw new Error(`runtime.js build failed:\n${errors}`)
-      }
-      const output = result.outputs[0]
-      if (!output) {
-        // eslint-disable-next-line functional/no-throw-statements
-        throw new Error('runtime.js build produced no output')
-      }
-      return output.text()
-    },
-    catch: (cause) =>
-      new GenerateSearchIndexError({
-        cause,
-        message: 'Failed to build sovrium-search runtime.js from shared matcher',
-      }),
-  })
+const readRuntimeJs = (): Effect.Effect<string, GenerateSearchIndexError, StaticSiteGenerator> =>
+  Effect.gen(function* () {
+    const ssg = yield* StaticSiteGenerator
+    return yield* ssg.readPageSearchRuntime
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new GenerateSearchIndexError({
+          cause,
+          message: 'Failed to read the sovrium-search runtime.js',
+        })
+    )
+  )
 
 // ── Public use-case ──────────────────────────────────────────────────────────
 
@@ -531,7 +496,7 @@ const writeTextFile = (filePath: string, contents: string) =>
 
 export const generateSearchIndex = (
   input: GenerateSearchIndexInput
-): Effect.Effect<GenerateSearchIndexResult, GenerateSearchIndexError> =>
+): Effect.Effect<GenerateSearchIndexResult, GenerateSearchIndexError, StaticSiteGenerator> =>
   Effect.gen(function* () {
     logDebug(
       `[search-index] indexing ${input.publicPagePaths.length} public pages from ${input.inputDir}`
@@ -555,7 +520,7 @@ export const generateSearchIndex = (
     const runtimePath = path.join(searchDir, 'runtime.js')
 
     yield* writeJsonFile(indexPath, searchIndex)
-    const runtimeJs = yield* buildRuntimeJs()
+    const runtimeJs = yield* readRuntimeJs()
     yield* writeTextFile(runtimePath, runtimeJs)
 
     logDebug(`[search-index] wrote ${pages.length} page records to ${indexPath}`)

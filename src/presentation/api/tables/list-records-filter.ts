@@ -49,10 +49,10 @@ export function parseFilter(
   c: Context,
   app: App,
   tableName: string,
-  caller: Readonly<{ userRole: string; userGroups: readonly string[] }>
+  caller: Readonly<{ userRole: string; userGroups: readonly string[]; param?: string }>
 ): FilterResult {
   const { userRole, userGroups } = caller
-  const parsed = parseFilterInput(c, app, tableName)
+  const parsed = parseRequestFilter(c, app, tableName, caller.param ?? 'filter')
   if (parsed.error) return parsed
 
   const denied = validateFilterParam(parsed.value, { app, tableName, userRole, userGroups, c })
@@ -94,18 +94,23 @@ function refuseNonBooleanOperand(
   }
 }
 
-/** Shape the request into a filter, without permission checking. */
-function parseFilterInput(c: Context, app: App, tableName: string): FilterResult {
-  const filterByFormula = c.req.query('filterByFormula')
+/**
+ * Shape the request into a filter, without permission checking. `param` names
+ * the query parameter holding it — `filter`, or a ratio side on the aggregate
+ * read, which takes the same grammar; `filterByFormula` only stands for `filter`.
+ */
+function parseRequestFilter(c: Context, app: App, tableName: string, param: string): FilterResult {
+  const filterByFormula = param === 'filter' ? c.req.query('filterByFormula') : undefined
+  if (!filterByFormula) return parseFilterInput(c, app, tableName, param)
+  const parsedFormula = parseFormulaToFilter(filterByFormula)
+  return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
+}
 
-  if (filterByFormula) {
-    const parsedFormula = parseFormulaToFilter(filterByFormula)
-    return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
-  }
-
+/** Shape the `param` query parameter into a filter, without permission checking. */
+function parseFilterInput(c: Context, app: App, tableName: string, param: string): FilterResult {
   const fields = app.tables?.find((table) => table.name === tableName)?.fields ?? []
   const parsedFilterResult = parseFilterParameter({
-    filterParam: c.req.query('filter'),
+    filterParam: c.req.query(param),
     c,
     fieldTypeOf: (name) => fields.find((field) => field.name === name)?.type,
   })
@@ -152,7 +157,7 @@ function parseFilterInput(c: Context, app: App, tableName: string): FilterResult
     }
   }
 
-  // [internal ref]: a relative date token in a value names a day of THIS request,
+  // A relative date token in a value names a day of THIS request,
   // resolved here rather than left to the database's own date parser.
   return {
     error: false,

@@ -99,7 +99,6 @@ export type RealtimeGrantHookDeps = {
 }
 
 /** A non-empty string field of the request body. */
-// eslint-disable-next-line functional/prefer-immutable-types
 const bodyString = (ctx: AuthMiddlewareCtx, field: string): string | undefined => {
   const value = (ctx.body as Record<string, unknown> | undefined)?.[field]
   return typeof value === 'string' && value !== '' ? value : undefined
@@ -123,7 +122,6 @@ interface RowReader {
   }) => Promise<readonly unknown[]>
 }
 
-// eslint-disable-next-line functional/prefer-immutable-types
 const rowReader = (ctx: AuthMiddlewareCtx): RowReader =>
   (ctx.context as unknown as { readonly adapter: RowReader }).adapter
 
@@ -134,7 +132,6 @@ const stringColumn = (row: unknown, column: 'id' | 'userId'): string | undefined
 }
 
 /** The account a `remove-member` names, by its email or by its membership id. */
-// eslint-disable-next-line functional/prefer-immutable-types
 const readRemovedMember = async (ctx: AuthMiddlewareCtx): Promise<readonly string[]> => {
   const named = bodyString(ctx, 'memberIdOrEmail')
   if (named === undefined) return []
@@ -155,7 +152,6 @@ const readRemovedMember = async (ctx: AuthMiddlewareCtx): Promise<readonly strin
 }
 
 /** Every member of the group a group-wide change names. */
-// eslint-disable-next-line functional/prefer-immutable-types
 const readGroupMembers = async (ctx: AuthMiddlewareCtx): Promise<readonly string[]> => {
   const teamId = bodyString(ctx, 'teamId')
   if (teamId === undefined) return []
@@ -173,7 +169,6 @@ const readGroupMembers = async (ctx: AuthMiddlewareCtx): Promise<readonly string
 /** The read a `before` hook runs for the request, when its after hook will need one. */
 const beforeRead = (
   path: string
-  // eslint-disable-next-line functional/prefer-immutable-types
 ): ((ctx: AuthMiddlewareCtx) => Promise<readonly string[]>) | undefined => {
   if (path === REMOVE_MEMBER) return readRemovedMember
   if (GROUP_CHANGES.has(path)) return readGroupMembers
@@ -186,20 +181,15 @@ const beforeRead = (
  * remember the accounts it affects while the rows naming them still exist. A
  * read that fails leaves the periodic grant re-check as the bound.
  */
-export async function applyRealtimeGrantBeforeHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
-  ctx: AuthMiddlewareCtx
-): Promise<void> {
+export async function applyRealtimeGrantBeforeHooks(ctx: AuthMiddlewareCtx): Promise<void> {
   const read = beforeRead(ctx.path)
   const key = requestKey(ctx)
   if (read === undefined || key === undefined) return
   const affected = await read(ctx).catch((): readonly string[] => [])
-  // eslint-disable-next-line functional/no-expression-statements -- request-scoped hand-over from the before hook to the after hook of the same dispatch
   if (affected.length > 0) affectedBeforeRun.set(key, affected)
 }
 
 /** The accounts whose grant a succeeded request changed, if it is one this module follows. */
-// eslint-disable-next-line functional/prefer-immutable-types
 const grantChangedFor = (ctx: AuthMiddlewareCtx): readonly string[] => {
   if (TARGET_IN_BODY.has(ctx.path)) {
     const target = readTargetUserId(ctx)
@@ -218,7 +208,6 @@ const grantChangedFor = (ctx: AuthMiddlewareCtx): readonly string[] => {
  * succeeded, close that account's live realtime connections.
  */
 export async function applyRealtimeGrantAfterHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   deps?: RealtimeGrantHookDeps
 ): Promise<void> {
@@ -244,6 +233,5 @@ export const closeEndedSessionConnections = async (
   const sessionId = stringColumn(session, 'id')
   if (sessionId === undefined) return
   const close = deps?.closeSessionConnections ?? closeSessionConnections
-  // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect of this hook
   close(sessionId)
 }

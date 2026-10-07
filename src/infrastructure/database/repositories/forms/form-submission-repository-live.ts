@@ -18,6 +18,7 @@ import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { FormSubmissionAccessQueries } from './form-submission-access-repository-live'
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
 
@@ -48,7 +49,7 @@ interface TopLevelInsertInput {
   readonly linkedRecordId?: string
   /**
    * SHA-256(salt + raw IP) as 64 hex chars, over a salt derived from the
-   * install's root secret and stable across restarts. [internal ref]
+   * install's root secret and stable across restarts. A forms spec
    * + S5: raw IP is NEVER persisted on the top-level forms write path —
    * the hash lands in `submitter_ip_hash` and the legacy `ip_address`
    * column stays NULL.
@@ -56,6 +57,8 @@ interface TopLevelInsertInput {
   readonly submitterIpHash?: string
   readonly userAgent?: string
   readonly submitterUserId?: string
+  readonly guestEmail?: string
+  readonly accessTokenHash?: string
 }
 
 const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
@@ -69,6 +72,8 @@ const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
   ...(input.submitterIpHash !== undefined ? { submitterIpHash: input.submitterIpHash } : {}),
   ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
   ...(input.submitterUserId !== undefined ? { submitterUserId: input.submitterUserId } : {}),
+  ...(input.guestEmail !== undefined ? { guestEmail: input.guestEmail } : {}),
+  ...(input.accessTokenHash !== undefined ? { accessTokenHash: input.accessTokenHash } : {}),
 })
 
 /**
@@ -77,7 +82,6 @@ const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
  * when the row is missing — should never happen, but the renderer must
  * stay robust against unexpected driver behaviour.
  */
-/* eslint-disable unicorn/no-null -- public API contract: linkedRecord* are nullable text columns */
 const shapeTopLevelRow = (
   row: Readonly<typeof formSubmissions.$inferSelect> | undefined,
   input: Readonly<TopLevelInsertInput>
@@ -103,7 +107,6 @@ const shapeTopLevelRow = (
     linkedRecordId: row.linkedRecordId ?? null,
   }
 }
-/* eslint-enable unicorn/no-null */
 
 type ReserveInput = Readonly<
   TopLevelInsertInput & {
@@ -163,7 +166,7 @@ const reserveInsertSql = (input: ReserveInput) => {
     input.linkedRecordTable === undefined ? sql.raw('NULL') : sql`${input.linkedRecordTable}`
   const linkedId =
     input.linkedRecordId === undefined ? sql.raw('NULL') : sql`${input.linkedRecordId}`
-  // [internal ref] + S5: raw IP never lands in `ip_address` on the top-level
+  // A forms spec + S5: raw IP never lands in `ip_address` on the top-level
   // forms path — the hash goes to `submitter_ip_hash` instead.
   const ipHash =
     input.submitterIpHash === undefined ? sql.raw('NULL') : sql`${input.submitterIpHash}`
@@ -220,9 +223,8 @@ const reserveSlotRaw = async (
     // Transaction-scoped advisory lock keyed on the form name. `hashtextextended`
     // maps the name to a bigint lock key; the lock blocks concurrent
     // reservations for the SAME form and is released automatically on commit.
-    // eslint-disable-next-line functional/no-expression-statements
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.formName}, 0))`)
-    const rows = (await tx.execute(reserveInsertSql(input))) as unknown as ReadonlyArray<
+    const rows = (await tx.execute(reserveInsertSql(input))) as ReadonlyArray<
       typeof formSubmissions.$inferSelect
     >
     return rows[0]
@@ -321,4 +323,6 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
         .where(eq(submissions.id, id))
         .then(() => undefined)
     }),
+
+  ...FormSubmissionAccessQueries,
 })

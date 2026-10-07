@@ -11,7 +11,7 @@ import { listMentionableUsersProgram } from '@/application/use-cases/tables/comm
 import { NotFoundError } from '@/domain/errors'
 import { mentionableUsersResponseSchema } from '@/domain/models/api/tables/comments'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { requireSession } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffect } from '@/presentation/api/runtime/run-effect'
@@ -70,5 +70,5 @@ export async function handleListMentionable(c: Context, app: App): Promise<Respo
     return { users }
   })
 
-  return runEffect(c, provideTableLive(program), mentionableUsersResponseSchema)
+  return runEffect(c, provideDomain(c, program), mentionableUsersResponseSchema)
 }

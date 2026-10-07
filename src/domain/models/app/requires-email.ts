@@ -74,15 +74,14 @@ export const collectActionTypes = (
  *
  * ── WHY BARE `emailAndPassword` IS NOT ON THAT LIST ────────────────────────
  *
- * It used to be, and the warning it produced had outlived its subject.
- * Passwords are the credential there; email is only ever a convenience, and
+ * A warning for it would have no subject. Passwords are the credential there; email is only ever a convenience, and
  * Sovrium already PRUNES the recovery affordances that would need a transport
  * when there is none — the forgot-password and reset-password routes are not
  * mounted and the recovery link is absent from the sign-in card. Nothing in the
  * running app is degraded, so there is nothing for the operator to act on. A
  * warning that survives the condition it described is noise, and the boot
  * banner is where noise costs the most: it trains an operator to skim the ⚠
- * block. Pinned by [internal ref] (silence) against [internal ref]
+ * block. Pinned by a CLI log warnings spec (silence) against a CLI log warnings spec
  * (a `magicLink` app still warns).
  *
  * The NAME still reads true under the narrowing: an app that sends a courtesy

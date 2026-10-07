@@ -27,12 +27,9 @@
  * deploying to any of those has one in their repository root for reasons that have
  * nothing to do with Sovrium. Probing it would load a manifest and refuse with
  * `Validation failed: Unknown property 'repository'` instead of the clean usage
- * message the user needs. This was not hypothetical — it is how the case was
- * found: Sovrium's own repository root carried exactly such a manifest until the
- * one-click PaaS deploy surface was retired (those buttons pointed at mirror
- * paths that were never published, so they had always 404'd). The manifest is
- * gone from THIS repository; the reason to decline the name is not, because it
- * was never about us — every Heroku, Scalingo or Render user has one. A filename
+ * message the user needs. This is not hypothetical — Sovrium's own repository
+ * root once carried exactly such a manifest — and the reason to decline the
+ * name is not about us: every Heroku, Scalingo or Render user has one. A filename
  * we cannot claim unambiguously is worth less as a convenience than it costs as a
  * confusing refusal, so implicit discovery declines to guess and explicit naming
  * stays the way to load JSON.

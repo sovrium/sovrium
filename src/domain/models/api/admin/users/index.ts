@@ -7,3 +7,4 @@
 
 export * from './directory'
 export * from './overview'
+export * from './roles'

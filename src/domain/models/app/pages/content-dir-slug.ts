@@ -10,7 +10,7 @@
  * captured against its page pattern. Consumed by BOTH the presentation-layer
  * markdown-page resolver (HTML article route + collection-nav) and the
  * infrastructure-layer per-page `.md` export route
- *. It lives in the `pages` slug, beside
+ * It lives in the `pages` slug, beside
  * the `ContentDir` model it reads, and the derivation is a pure function of
  * that model (`ContentDir.slugFrom`) plus plain route-param strings, with no
  * I/O — so both callers reach it.
@@ -49,8 +49,7 @@ const stripLeadingSlash = (value: string): string =>
  * The `:lang` segment is a LANGUAGE PREFIX, not a content slug — a bilingual
  * collection route `/:lang/:slug` must map `/en/getting-started` to the
  * `getting-started` slug, NOT `en`. The `lang` route param is therefore
- * excluded from slug derivation ([internal ref] /
- * [internal ref]).
+ * excluded from slug derivation.
  *
  * Returns `undefined` when no content-bearing segment was captured so callers
  * can fall through (render an empty shell, or 404 the `.md` twin).

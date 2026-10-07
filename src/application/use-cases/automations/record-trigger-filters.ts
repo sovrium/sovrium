@@ -8,6 +8,7 @@
 import { transformRecord } from '@/application/use-cases/tables/record-transformer'
 import { COMPARATORS } from '@/domain/models/app/automations/comparison-operators'
 import { resolveTriggerInString } from './resolve-trigger-data'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 import type { ConditionGroup } from '@/domain/models/app/automations/conditions'
 
@@ -28,11 +29,21 @@ import type { ConditionGroup } from '@/domain/models/app/automations/conditions'
  * comparators.
  *
  * Condition `field` may be either a literal column name or a template
- * variable. Two template shapes are supported, matching the spec authoring
+ * variable. The template shapes supported match the spec authoring
  * conventions in `record.spec.ts`:
- *   - `{{record.<field>}}`            ← preferred (record-trigger context)
- *   - `{{trigger.data.record.<field>}}` ← canonical engine context
+ *   - `{{record.<field>}}`                    ← preferred (record-trigger context)
+ *   - `{{trigger.data.record.<field>}}`         ← canonical engine context
+ *   - `{{trigger.data.previousRecord.<field>}}` ← the row before an update
+ *     (also `{{previousRecord.<field>}}`); empty on create and delete, where
+ *     there is no previous row
  */
+
+/** The row after the event, and the row before it when the event is an update. */
+interface ConditionRows {
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>> | undefined
+  readonly templates: TemplateRenderer
+}
 
 /**
  * Resolve a condition's `field` against the record context. A template
@@ -40,9 +51,11 @@ import type { ConditionGroup } from '@/domain/models/app/automations/conditions'
  * is read as a column lookup — same semantic as the action-handler filter
  * in `record.ts`'s `extractIdFromFilter`.
  */
-const resolveLhs = (field: string, record: Readonly<Record<string, unknown>>): unknown => {
-  const ctx = { record, trigger: { data: { record } } }
-  const resolved = resolveTriggerInString(field, ctx)
+const resolveLhs = (field: string, rows: ConditionRows): unknown => {
+  const { record, previousRecord, templates } = rows
+  const data = previousRecord === undefined ? { record } : { record, previousRecord }
+  const ctx = { ...data, trigger: { data } }
+  const resolved = resolveTriggerInString(field, ctx, templates)
   return resolved === field ? record[field] : resolved
 }
 
@@ -50,31 +63,36 @@ const evaluateOne = (
   field: string,
   operator: string,
   expected: unknown,
-  record: Readonly<Record<string, unknown>>
+  rows: ConditionRows
 ): boolean => {
   const compare = COMPARATORS[operator]
   // Unknown operator: fail closed. A future migration spec can extend
   // operator coverage; until then, an unrecognised operator should NOT
   // silently become "true" — that would over-fire the trigger.
   if (compare === undefined) return false
-  return compare(resolveLhs(field, record), expected)
+  return compare(resolveLhs(field, rows), expected)
 }
 
 /**
- * Evaluate a ConditionGroup against the given record.
+ * Evaluate a ConditionGroup against the row after the event and, for an
+ * update, the row before it — so a condition can name a transition ("now paid,
+ * and not paid before") rather than only a state.
  *
  * Logic defaults to `and` (all conditions must match), matching the schema's
  * documented default. `or` short-circuits on the first match.
  */
 export const evaluateRecordTriggerCondition = (
+  templates: TemplateRenderer,
   group: ConditionGroup,
-  record: Readonly<Record<string, unknown>>
+  record: Readonly<Record<string, unknown>>,
+  previousRecord?: Readonly<Record<string, unknown>>
 ): boolean => {
+  const rows: ConditionRows = { record, previousRecord, templates }
   const logic = group.logic ?? 'and'
   if (logic === 'or') {
-    return group.conditions.some((c) => evaluateOne(c.field, c.operator, c.value, record))
+    return group.conditions.some((c) => evaluateOne(c.field, c.operator, c.value, rows))
   }
-  return group.conditions.every((c) => evaluateOne(c.field, c.operator, c.value, record))
+  return group.conditions.every((c) => evaluateOne(c.field, c.operator, c.value, rows))
 }
 
 /**

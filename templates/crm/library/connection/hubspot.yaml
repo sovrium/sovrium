@@ -1,0 +1,22 @@
+# sovrium-library: connection/hubspot@0.30.0
+name: hubspot
+type: bearer
+label: HubSpot
+description: 'HubSpot CRM API, authenticated with a private app token'
+props:
+  token: $env.HUBSPOT_ACCESS_TOKEN
+baseUrl: https://api.hubapi.com/crm
+operations:
+  - name: post-v3-objects-contacts
+    method: POST
+    path: /v3/objects/contacts
+    summary: Create a contact
+    params:
+      associations:
+        in: body
+        type: array
+        required: true
+      properties:
+        in: body
+        type: object
+        required: true

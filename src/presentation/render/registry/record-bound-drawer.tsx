@@ -207,8 +207,7 @@ function relatedCallerOf(
 }
 
 /**
- * A `drawer` carrying a `dataSource` — the record-detail/edit surface
- *.
+ * A `drawer` carrying a `dataSource` — the record-detail/edit surface.
  *
  * `id`, `dataSource`, `recordFields`, `actions`, `role` and `canEdit` are
  * SCHEMA top-level fields (siblings of `props`), read from `component`. The
@@ -279,6 +278,8 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
     // section the caller may not read is absent, not emptied.
     related: resolveRelatedSections(comp['related'], tables, relatedCallerOf(rawProps, session)),
     deepLink: deepLinkProp(rawProps),
+    // Previous / Next through the opening list, and the record's own page.
+    navigation: comp['navigation'],
     // The author's class reaches the surface the reader sees — the host is a
     // hidden marker, and the surface is portaled out of it.
     className: authorClassName(rawProps),

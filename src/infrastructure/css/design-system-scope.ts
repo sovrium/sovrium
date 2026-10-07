@@ -11,21 +11,21 @@
  *
  * Exactly one host does: Sovrium's own `/_admin` console, whose design-system
  * section draws the operator's system FLAT in the console document ([internal ref]
- * A2). Until 2026-09-02 that was an `<iframe>` — two documents, two
- * stylesheets, no shared cascade — and the console's stylesheet identity could
- * therefore be a CONSTANT. Flattening makes the console's CSS depend on the
- * operator's theme, so the identity has to move with it.
+ * A2), not in an `<iframe>`. An iframe would mean two documents, two
+ * stylesheets and no shared cascade, so the console's stylesheet identity could
+ * be a CONSTANT. Drawing flat makes the console's CSS depend on the operator's
+ * theme, so the identity has to move with it.
  *
  * ─── WHAT THIS STOPPED MEANING, AND WHY IT IS STILL HERE ──────────────────
  *
- * It was, until `[internal ref]`, the ONE channel by which the operator's tokens
+ * It was, until the console design-cascade rule, the ONE channel by which the operator's tokens
  * reached the console document at all — everything outside a
  * `[data-design-app-scope]` subtree was Sovrium's. That is no longer true: the
  * operator's `design` now cascades onto the console chrome itself, so `:root`
  * carries those same tokens and the scoped block largely RESTATES them.
  *
  * It is deliberately not deleted in that change. It is still what the
- * design-system specimens address (`[internal ref]`, `-002`), it still
+ * design-system specimens address (the admin design system specs), it still
  * carries the operator's own `components[]` classes into the candidate corpus —
  * which the chrome cascade does not, since the chrome draws none of them — and
  * it is still an input to the console's stylesheet identity and to

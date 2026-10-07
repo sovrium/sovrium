@@ -7,6 +7,10 @@
 
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
+  aggregateRecordsQuerySchema,
+  aggregateRecordsResponseSchema,
+} from '@/domain/models/api/tables/aggregate'
+import {
   createCommentResponseSchema,
   getCommentResponseSchema,
   getRecordHistoryResponseSchema,
@@ -62,6 +66,21 @@ const routes: readonly RouteSpec[] = [
       200: effectJsonResponse(listRecordsResponseSchema, 'List of records'),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Table not found'),
+    },
+  },
+  {
+    method: 'get',
+    pathTemplate: '/api/tables/{tableSlug}/aggregate',
+    summary: 'Aggregate records',
+    description:
+      'Returns figures computed over every record the filter matches — the count, and any sum, average, minimum or maximum named — optionally one group per value of a field or per calendar bucket of a date. Never returns records. A field the caller may not read answers 404; a grouping wider than 500 groups answers 400.',
+    operationIdBase: 'aggregateRecords',
+    parameters: effectParameters(aggregateRecordsQuerySchema, 'query'),
+    responses: {
+      200: effectJsonResponse(aggregateRecordsResponseSchema, 'Aggregated figures'),
+      400: errorResponse('Grouping too wide, or an interval on a field that holds no date'),
+      401: errorResponse('Unauthorized'),
+      404: errorResponse('Table or field not found'),
     },
   },
   {

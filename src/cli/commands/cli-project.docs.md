@@ -2,7 +2,7 @@
 
 > Scaffold a project, build it to static files, print its schema, check a config before you ship it, and write the types for a TypeScript config.
 
-Five commands operate on a project rather than on a running server. Each answers `--help` with its own option list, which is the authoritative one; what follows is what the options are _for_.
+Five commands operate on a project rather than on a running server. Each answers `--help` with its own option list, which is the authoritative one; what follows is what the options are _for_. Two more move a whole install — `sovrium backup` writes the database, the key, the config and the uploads to one archive, and `sovrium restore` puts it back; see **Back Up and Restore**.
 
 ## `sovrium init`
 
@@ -135,7 +135,7 @@ Build options come from `SOVRIUM_` environment variables rather than flags, beca
 
 With `SOVRIUM_GENERATE_SITEMAP=true` the build also reads the database it runs against (`DATABASE_URL`) for the records of each collection page an anonymous visitor could open, lists them in `sitemap.xml` exactly as the running server's `/sitemap.xml` does, and writes each listed record's page as its own HTML file — `blog/pricing-change.html` for `/blog/pricing-change` — so a static host answers every address the sitemap advertises. Past 5 000 addresses it writes `sitemap-1.xml`, `sitemap-2.xml`, … beside an index. The rules that decide which records are listed are in **SEO & Crawlers**.
 
-Every script a built page loads is written beside the pages, under the name the page asks for — `assets/client.js`, `assets/scroll-animation.js` and so on — so a static host answers each `<script src>` in the output. A build carries no development tooling: the live-reload client that `sovrium start` adds to its pages in local development is neither loaded by a built page nor written to the output, whatever `NODE_ENV` is set to.
+Every script a built page loads is written beside the pages, under the name the page asks for — `assets/client.js`, `assets/scroll-animation.js` and so on — together with every module those scripts import, under `assets/client-chunks/`, so a static host answers each `<script src>` in the output and each file it loads in turn. A build carries no development tooling: the live-reload client that `sovrium start` adds to its pages in local development is neither loaded by a built page nor written to the output, whatever `NODE_ENV` is set to.
 
 ## `sovrium schema`
 
@@ -151,6 +151,8 @@ sovrium schema --output app.schema.json
 ```
 
 The document is self-contained, with a top-level `$schema` declaration, so any JSON-Schema-aware editor or validator consumes it as-is.
+
+`--output <dir>/<name>.json` also writes, beside it, `<name>.index.json` — the same schema with each top-level key pointing at its own file — and `<name>/<key>.json`, one schema per top-level key, sharing their definitions through `<name>/_defs.json`. Point a `$ref` partial that holds one section, such as a `tables.yaml`, at the file for its key. The full file is unchanged, and printing to stdout writes nothing.
 
 ## `sovrium validate`
 

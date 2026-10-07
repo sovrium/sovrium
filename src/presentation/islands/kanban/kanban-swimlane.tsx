@@ -99,7 +99,6 @@ export function KanbanSwimlane({
             aria-expanded={expanded}
             aria-controls={bodyId}
             className={computeKanbanSwimlaneToggleClasses()}
-            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one closure per lane over its own value; React Compiler not yet enabled in Bun
             onClick={() => onToggle(lane.value)}
           >
             <LaneChevron expanded={expanded} />

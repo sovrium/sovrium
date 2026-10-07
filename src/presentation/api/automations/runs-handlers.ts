@@ -15,7 +15,7 @@
  * sibling `:name/runs/:id/replay` route in `./index.ts` is the name-bearing
  * counterpart.
  *
- * Used by [internal ref], and 007 (replay + cancel) which
+ * Used by an API automation runs spec, and 007 (replay + cancel) which
  * post to `/api/automations/runs/:id/...` directly.
  */
 
@@ -37,9 +37,12 @@ import {
   type ReadableRun,
   type RunAccess,
 } from '@/application/use-cases/automations/run-access'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { forbidden, notFound, requireSession } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
+import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { resolveApprovalCaller } from './approvals-handlers'
 import type { App } from '@/domain/models/app'
@@ -70,11 +73,44 @@ export const gateReadableRun = async (
 }
 
 /**
+ * The run `id` when the signed-in caller may ACT on it — replay or cancel it.
+ *
+ * Reading a run and acting on it are two gates. An admin acts on every run. The
+ * person who started it by hand acts on it while she may still start that
+ * automation by hand (`mayRunManualAutomation`): a replay is a new start under
+ * her name, so a role she has since lost is not borrowed from the day the run
+ * began. An approver a request names reads the run so she can decide on the
+ * REQUEST, through approve and reject; she does not act on the run. Every
+ * refusal is the 404 an unknown id gets.
+ */
+export const gateActionableRun = async (
+  c: Context,
+  app: App,
+  id: string
+): Promise<Gated<ReadableRun>> => {
+  const gate = await gateReadableRun(c, app, id)
+  if (!gate.ok || gate.value.readsEveryRun) return gate
+  const refused: Gated<ReadableRun> = { ok: false, response: notFound(c, 'Run not found') }
+  const starter = handStarterOf(gate.value.run, getSessionContext(c)?.userId)
+  // A run with no declared automation behind it — an MCP action template's
+  // synthesised one-step run — has no manual trigger to re-check: admin only.
+  const automation = app.automations?.find((a) => a.name === gate.value.run.automationName)
+  if (starter === undefined || automation === undefined) return refused
+  const role = await runRequestEffect(c, Effect.result(provideDomain(c, getUserRole(starter))))
+  if (role._tag === 'Failure') return { ok: false, response: toErrorResponse(c, role.failure) }
+  return mayRunManualAutomation(automation, app, role.success) ? gate : refused
+}
+
+/** The caller's id when she started `run` by hand, `undefined` otherwise. */
+const handStarterOf = (run: ReadableRun['run'], userId: string | undefined): string | undefined =>
+  userId !== undefined && run.startedByHand && run.triggeredByUserId === userId ? userId : undefined
+
+/**
  * The trigger data a replay body carries, when it carries one — or the refusal
  * when the caller may not supply it.
  *
  * Replaying a run with its OWN payload is acting on the run, so whoever may
- * read the run may do it. Replaying it with a NEW payload is starting the
+ * act on the run may do it. Replaying it with a NEW payload is starting the
  * automation over with input nobody checked: no manual trigger's input schema,
  * no filter or approval the original already passed (a replay skips the steps
  * that ran — an approval granted for 100 EUR would be reused for 100 000). Only
@@ -139,7 +175,7 @@ const replayErrorResponse = (c: Context, error: ReplayAutomationRunError) => {
  *
  * Name-less variant of the replay endpoint. Resolves the automation name
  * from the persisted run row, then delegates to the same replay flow as
- * the `:name`-bearing endpoint. [internal ref].
+ * the `:name`-bearing endpoint.
  *
  * Response shape includes both `id` and `runId` so callers can use either
  * field. `status: 'accepted'` indicates the replay was queued (the
@@ -153,7 +189,7 @@ export async function handleReplayRunById(c: Context, app: App) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
 
-  const gate = await gateReadableRun(c, app, id)
+  const gate = await gateActionableRun(c, app, id)
   if (!gate.ok) return gate.response
   const name = gate.value.run.automationName
 
@@ -207,7 +243,6 @@ const CANCELLABLE_RUN_STATUSES: ReadonlySet<string> = new Set([
  * in-memory AbortController so the run loop's post-loop finaliser sees
  * the cancellation flag and forces the terminal status to `'cancelled'`
  * (regardless of whatever the action loop produced before the abort).
- * [internal ref].
  *
  * Two-pronged update keeps the contract robust:
  *   1. DB row updated synchronously so a follow-up `GET /runs/:id` reads
@@ -226,8 +261,8 @@ export async function handleCancelRun(c: Context, app: App) {
   if (id === undefined) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
-  // BEFORE the abort: a caller who may not read the run must not stop it.
-  const gate = await gateReadableRun(c, app, id)
+  // BEFORE the abort: a caller who may not act on the run must not stop it.
+  const gate = await gateActionableRun(c, app, id)
   if (!gate.ok) return gate.response
   const current = gate.value.run.status
   if (!CANCELLABLE_RUN_STATUSES.has(current)) {
@@ -239,7 +274,6 @@ export async function handleCancelRun(c: Context, app: App) {
   // no controller is registered (i.e. the run already terminated). We
   // ignore the boolean return — a missing controller is normal for runs
   // that already completed; the DB UPDATE below is the durable signal.
-  // eslint-disable-next-line functional/no-expression-statements -- presentation-layer side-effect dispatch into the scheduler registry
   signalCancellation(id)
 
   const program = Effect.gen(function* () {
@@ -287,7 +321,7 @@ const resolveApprovalErrorResponse = (c: Context, error: ResolveApprovalError) =
  * run (its downstream actions execute); rejecting terminates it (the remaining
  * actions never run).
  *
- * WHO MAY RESOLVE ([internal ref], superseding [internal ref]'s capability-token posture):
+ * WHO MAY RESOLVE (THE NAMED-APPROVER RULE, superseding the approval-pause design's capability-token posture):
  *   - No session → the canonical 401, before anything is read. This holds for an
  *     app with no `app.auth` too: nobody can be an approver there.
  *   - A signed-in caller the request does not name (`all-admins` → an

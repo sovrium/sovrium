@@ -23,7 +23,7 @@
  * (action-executor) and `renderToast` (the shipped island toast) are reused.
  */
 
-import { applyFetchSuccessEffects } from '../runtime/action-executor'
+import { applyFetchSuccessEffects } from '../runtime/fetch-action-effects'
 import { renderToast } from '../runtime/toast'
 import type {
   FetchSuccessResponse,

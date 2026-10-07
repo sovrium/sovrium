@@ -7,7 +7,7 @@
 
 /**
  * Full-text index shapes for the command-palette record search
- * — the SQL that both the
+ * (the pages command search hardening requirement, [internal ref]) — the SQL that both the
  * boot-time reconciler and the runtime query are generated from.
  *
  * One module because the two sides must emit BYTE-IDENTICAL expressions. On

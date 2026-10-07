@@ -26,18 +26,21 @@ export interface CleanupProcess {
 
 const nodeProcess: CleanupProcess = {
   on: (signal, handler) => {
-    // eslint-disable-next-line functional/no-expression-statements -- register a process signal handler
     process.on(signal, handler)
   },
 }
 
 /**
- * The single property `server.ts` bolts onto the Hono app so the reload
- * handler can refresh the `X-Sovrium-Config` header hash (see the middleware
- * that closes over `currentConfigHash` in `server.ts`).
+ * The setter each composed Hono app registers so the reload handler can
+ * refresh its `X-Sovrium-Config` header hash (the middleware in
+ * `compose-hono-app.ts` closes over the current hash). Keyed weakly by the
+ * app, so a replaced app and its setter are collected together.
  */
-interface ConfigHashCarrier {
-  readonly __setConfigHash?: (hash: string) => void
+const configHashSetters = new WeakMap<object, (hash: string) => void>()
+
+/** Register the setter the reload signal calls for `app`. */
+export const attachConfigHashSetter = (app: object, setter: (hash: string) => void): void => {
+  configHashSetters.set(app, setter)
 }
 
 /**
@@ -123,7 +126,7 @@ export const createLockFileCleanupController = (
   // Re-read config and update the X-Sovrium-Config response header hash.
   // Use the SYNCHRONOUS readFileSync so the setter runs atomically inside the
   // signal-handler tick — guarantees the new hash is observable to the next
-  // HTTP request without an awaited microtask gap ([internal ref] was flaky
+  // HTTP request without an awaited microtask gap (a CLI server spec was flaky
   // under load when the async readFile yielded back to the event loop and a
   // concurrent fetch was serviced with the still-old closure value).
   //
@@ -136,7 +139,7 @@ export const createLockFileCleanupController = (
     try {
       const content = readFileSync(target.configPath, 'utf-8')
       const newHash = computeConfigHash(content)
-      const setter = (target.app as unknown as ConfigHashCarrier).__setConfigHash
+      const setter = configHashSetters.get(target.app)
       if (setter) setter(newHash)
     } catch {
       // Ignore errors during reload (header refresh is best-effort).
@@ -145,10 +148,8 @@ export const createLockFileCleanupController = (
 
   return {
     register: (app, configPath) => {
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- replace the reload target on a --watch reload
       targetState.set('target', { app, configPath })
       if (flags.get('installed') === true) return
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- install-once guard
       flags.set('installed', true)
       host.on('SIGTERM', cleanupLockFileSync)
       host.on('SIGINT', cleanupLockFileSync)

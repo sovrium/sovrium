@@ -42,7 +42,6 @@ export function useChartSystemRecords(system: ChartSystemSource | undefined) {
       const res = await fetch(buildSystemQueryUrl(system), { credentials: 'include' })
       if (!res.ok) {
         const body = await res.text()
-        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw new Error(`Failed to fetch chart system rows: ${String(res.status)} ${body}`)
       }
 

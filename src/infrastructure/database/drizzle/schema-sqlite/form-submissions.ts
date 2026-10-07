@@ -47,6 +47,10 @@ export const formSubmissions = systemTable(
     userAgent: text('user_agent'),
     linkedRecordTable: text('linked_record_table'),
     linkedRecordId: text('linked_record_id'),
+    // SHA-256 of the single private token a top-level row is reached by: the
+    // resume link of a `draft`, or the edit link of a submission whose form
+    // declares `editAfterSubmit`. The raw token is never stored.
+    accessTokenHash: text('access_token_hash'),
     // Common audit columns (apply to both shapes)
     guestEmail: text('guest_email'),
     ipAddress: text('ip_address'),
@@ -62,6 +66,7 @@ export const formSubmissions = systemTable(
     // Audit H5: top-level-forms read path is `WHERE form_name = $1
     // ORDER BY submitted_at DESC`, served by this composite index.
     index('form_submissions_formName_submitted_idx').on(table.formName, table.submittedAt),
+    index('form_submissions_accessTokenHash_idx').on(table.accessTokenHash),
   ]
 )
 

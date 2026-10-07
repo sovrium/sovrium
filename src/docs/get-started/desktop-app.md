@@ -28,6 +28,8 @@ The app opens on a list of starting points. Every one of them makes a folder on 
 - **A folder you already have**, holding an `app.yaml`.
 - **An address** — a configuration published at an `https` URL. Sovrium downloads that one document and builds a new project around it. Nothing is run, a configuration written as TypeScript is refused outright, and where the file came from is recorded beside it. This is `sovrium init --from-url`, described in **Project Commands**.
 
+A link can start the same way. The installer registers the app for `sovrium://` links on macOS, Windows and Linux, so clicking `sovrium://new?template=crm` in a browser, or `sovrium://new?url=https://…` for an address, opens the app, whether it was already running or not. The app always asks before it does anything, then lets you choose the folder. A link that asks for anything other than a new project, names a template it does not recognise, or points at an address that is not `https` is refused with a message saying why.
+
 Once a project is open the app starts the engine, waits until it answers, and shows your app in the window. The first run takes longer than the ones after it, because the database is created then.
 
 ## Where things live

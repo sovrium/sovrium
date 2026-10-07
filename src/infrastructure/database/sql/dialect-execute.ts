@@ -6,6 +6,7 @@
  */
 
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { recordDbRowsReturned } from '@/infrastructure/telemetry/db-query-counter'
 import { extractRows } from './sql-utils'
 import type { SQL } from 'drizzle-orm'
 
@@ -50,9 +51,21 @@ export interface RawSqlRunner {
   readonly all?: (query: Readonly<SQL>) => Promise<unknown> | unknown
 }
 
+/** Report a result's length to the per-request row count, then hand it on. */
+const counted = (
+  rows: ReadonlyArray<Record<string, unknown>>
+): ReadonlyArray<Record<string, unknown>> => {
+  recordDbRowsReturned(rows.length)
+  return rows
+}
+
 /**
  * Execute a raw Drizzle `sql` query against either dialect and return a
  * normalized rows array.
+ *
+ * Every result's length is reported to the per-request row count
+ * (`X-Sovrium-Db-Rows`), which is how a read that loads a whole table is told
+ * apart from one that reads a page: both cost one statement.
  *
  * @param runner - the `db` facade or a `tx` transaction handle
  * @param query  - a Drizzle `sql` template query
@@ -66,19 +79,17 @@ export const executeRaw = async (
 
   if (dialect === 'postgres') {
     if (typeof runner.execute !== 'function') {
-      // eslint-disable-next-line functional/no-throw-statements -- defensive: a Postgres dialect must be driven by a handle exposing execute()
       throw new TypeError('executeRaw: PostgreSQL runner is missing an execute() method')
     }
-    return extractRows(await runner.execute(query))
+    return counted(extractRows(await runner.execute(query)))
   }
 
   // SQLite — bun-sqlite exposes .all() (row-returning) for every statement,
   // including RETURNING clauses. There is no .execute().
   if (typeof runner.all !== 'function') {
-    // eslint-disable-next-line functional/no-throw-statements -- defensive: a SQLite dialect must be driven by a handle exposing all()
     throw new TypeError('executeRaw: SQLite runner is missing an all() method')
   }
-  return extractRows(await runner.all(query))
+  return counted(extractRows(await runner.all(query)))
 }
 
 /**
@@ -93,4 +104,4 @@ export const executeRaw = async (
 export const executeRawTyped = async <T = Record<string, unknown>>(
   runner: Readonly<RawSqlRunner>,
   query: Readonly<SQL>
-): Promise<readonly T[]> => (await executeRaw(runner, query)) as unknown as readonly T[]
+): Promise<readonly T[]> => (await executeRaw(runner, query)) as readonly T[]

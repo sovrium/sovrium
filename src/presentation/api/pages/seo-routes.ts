@@ -7,18 +7,21 @@
 
 import { type Context, type Hono } from 'hono'
 import {
+  generateLlmsFullTxtContent,
+  generateLlmsTxtContent,
+} from '@/application/use-cases/server/llms-txt-content'
+import { generateRobotsContent } from '@/application/use-cases/server/robots-content'
+import {
   generateSitemapChildContent,
   generateSitemapContent,
-  generateRobotsContent,
-  generateLlmsTxtContent,
-  generateLlmsFullTxtContent,
-  type HreflangConfig,
-} from '@/application/use-cases/server/static-content-generators'
+} from '@/application/use-cases/server/sitemap-content'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
   resolveRequestBaseUrl,
   trustedForwarding,
 } from '../../../domain/kernel/url/request-base-url'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
+import type { HreflangConfig } from '@/application/use-cases/server/static-content-generators'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -94,7 +97,7 @@ const respondWithLlmsIndex = async (
   language: string | undefined
 ): Promise<Response> => {
   const baseUrl = resolveLlmsBaseUrl((name) => c.req.header(name))
-  const body = await generateLlmsTxtContent(app, baseUrl, language)
+  const body = await runDomainPromise(c, generateLlmsTxtContent(app, baseUrl, language))
   return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 }
 
@@ -104,7 +107,7 @@ const respondWithLlmsFull = async (
   app: App,
   language: string | undefined
 ): Promise<Response> => {
-  const body = await generateLlmsFullTxtContent(app, language)
+  const body = await runDomainPromise(c, generateLlmsFullTxtContent(app, language))
   return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 }
 
@@ -136,9 +139,7 @@ const createSitemapCache = () => {
     const hit = entries.get(key)
     if (hit !== undefined && hit.expiresAt > now) return hit.xml
     const xml = await compute()
-    // eslint-disable-next-line functional/immutable-data -- the memo's own store, bounded below
     if (entries.size >= SITEMAP_CACHE_MAX_ENTRIES) entries.clear()
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the memo's own store
     entries.set(key, { expiresAt: now + SITEMAP_CACHE_TTL_MS, xml })
     return xml
   }
@@ -171,7 +172,7 @@ const setupSitemapRoutes = (
     .get('/sitemap.xml', async (c) => {
       const baseUrl = resolveRequestBaseUrl(c)
       const xml = await cached(`${baseUrl}#0`, () =>
-        generateSitemapContent(pages, baseUrl, sitemapOptions)
+        runDomainPromise(c, generateSitemapContent(pages, baseUrl, sitemapOptions))
       )
       return c.body(xml ?? '', 200, xmlHeaders)
     })
@@ -179,7 +180,7 @@ const setupSitemapRoutes = (
       const index = Number(/\d+/.exec(c.req.param('file'))?.[0] ?? '0')
       const baseUrl = resolveRequestBaseUrl(c)
       const xml = await cached(`${baseUrl}#${String(index)}`, () =>
-        generateSitemapChildContent(pages, baseUrl, index, sitemapOptions)
+        runDomainPromise(c, generateSitemapChildContent(pages, baseUrl, index, sitemapOptions))
       )
       return xml === undefined ? c.notFound() : c.body(xml, 200, xmlHeaders)
     })

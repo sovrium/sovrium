@@ -25,9 +25,9 @@
  * source rather than three copies against each other. Regenerate with
  * `bun run build:default-design`.
  *
- * This module used to be a THIRD copy. Two constraints forced it, and both are
- * still true of the module — they are simply no longer paid in duplicated
- * VALUES, because the projection is derived:
+ * Two constraints make this module a separate projection rather than a reuse of
+ * an existing surface — they are not paid in duplicated VALUES, because the
+ * projection is derived:
  *
  *  - **Layering.** The export is an application-layer projection. It may not
  *    import `src/presentation/**`, so the `TOKENS` catalog is out of reach; and
@@ -94,7 +94,7 @@ export const INHERITED_DURATION_TOKENS = GENERATED_INHERITED_DURATION_TOKENS
  * ─── IT IS DELIBERATELY NOT IN THE EXPORT ──────────────────────────────────
  *
  * Unlike every other table here, this one is NOT merged into the DTCG document.
- * `[internal ref]` asserts the document has no `shadow` group on
+ * An admin design system spec asserts the document has no `shadow` group on
  * purpose: DTCG's `shadow` type wants a decomposed
  * `{color, offsetX, offsetY, blur, spread}`, and parsing an arbitrary
  * `box-shadow` back into that shape fails precisely on the multi-layer values
@@ -123,20 +123,15 @@ export const INHERITED_SHADOW_TOKENS = GENERATED_INHERITED_SHADOW_TOKENS
 /**
  * The three easing curves every Sovrium app MOVES ON, declared or not.
  *
- * ─── THIS TABLE'S ABSENCE WAS ARGUED FOR, AND THE ARGUMENT WAS WRONG ───────
+ * ─── WHY THIS TABLE EXISTS ──────────────────────────────────────────────────
  *
- * The Foundations panel used to say these curves "are not published as tokens,
- * so there is nothing here to override". Both halves are false, and the error is
- * worth recording because it was reasoned rather than mistyped:
- * `default-theme-layer.ts` declares all three `--ease-*`, and a recipe animates
- * with one of them — `specialty-ssr-default-classes.ts`, twice, as
- * `ease-[var(--sv-ease-default, …)]` on a real transition. (It was three sites
- * across two files when this was written; the island half went with the
- * ai-chat send button, which is the shared button recipe now. Recount rather
- * than trusting the number: `grep -rn "sv-ease-default" src/presentation
- * --include="*-default-classes.ts"`.) So every Sovrium
- * surface moves on a curve its operator could not see, under a sentence telling
- * them there was nothing to look at.
+ * It is tempting to say these curves "are not published as tokens, so there is
+ * nothing here to override". Both halves are false: `default-theme-layer.ts`
+ * declares all three `--ease-*`, and recipes animate with them — e.g.
+ * `ease-[var(--sv-ease-default, …)]` on a real transition (recount rather than
+ * trusting any number: `grep -rn "sv-ease-default" src/presentation
+ * --include="*-default-classes.ts"`). Without this table every Sovrium surface
+ * would move on a curve its operator could not see.
  *
  * ─── SAME SHAPE AS THE ELEVATION RAMP, AND NOT THE SAME BOUND ──────────────
  *
@@ -144,11 +139,9 @@ export const INHERITED_SHADOW_TOKENS = GENERATED_INHERITED_SHADOW_TOKENS
  * redefining one keeps the other two rather than dropping to a section showing
  * one curve where it ships three.
  *
- * ─── THIS PARAGRAPH USED TO SAY THE OPPOSITE, AND IT WAS WRONG ─────────────
+ * ─── AN EASING HAS A DTCG FORM ─────────────────────────────────────────────
  *
- * It read: *"An easing has no DTCG form at all … publishing an inherited one as
- * a token would invent a type DTCG does not have."* Both halves are false. DTCG
- * has a `cubicBezier` type, it is a four-number array, and
+ * DTCG has a `cubicBezier` type, it is a four-number array, and
  * `design-system-foundation-motion.ts` already parses those four numbers out of
  * these very strings in order to DRAW the curve. All three values below are
  * `cubic-bezier(...)`, so all three have a faithful form.
@@ -157,8 +150,7 @@ export const INHERITED_SHADOW_TOKENS = GENERATED_INHERITED_SHADOW_TOKENS
  * well as the Foundations surface: it is projected into the document's `easing`
  * token group by `parseCubicBezierValue`. What still reaches `unmappable` is a
  * declared curve that cannot parse — a CSS keyword such as `ease-in-out`, which
- * a four-number array genuinely cannot carry. That is the real bound, and it is
- * narrower than the one this comment used to claim.
+ * a four-number array genuinely cannot carry. That is the real bound.
  */
 export const INHERITED_EASING_TOKENS = GENERATED_INHERITED_EASING_TOKENS
 
@@ -187,24 +179,17 @@ export const INHERITED_FONT_TOKENS = GENERATED_INHERITED_FONT_TOKENS
  * The type ladder in force when an app declares none, as `[utility, size,
  * leading]` in px.
  *
- * ─── IT IS SOVRIUM'S LADDER NOW, NOT TAILWIND'S ────────────────────────────
+ * ─── IT IS SOVRIUM'S LADDER, NOT TAILWIND'S ────────────────────────────────
  *
- * Until 2026-09-09 these rows were a hand-written copy of TAILWIND's defaults,
- * which was the honest thing to publish: the platform ladder emitted
- * `--font-size-*`, a namespace no utility reads, so `text-base` really did
- * resolve to Tailwind's `1rem` and an operator asking "what size is my text"
- * had to be told a third party's answer.
+ * The ladder emits `--text-*` — Tailwind's own font-size namespace — so every
+ * rung here is a Sovrium value (a ladder emitting a namespace no utility reads
+ * would leave `text-base` on Tailwind's `1rem`), and this table is an
+ * inherited-token table like every other one on this page. All twelve rungs are
+ * published, because all twelve are ours to answer for.
  *
- * The ladder now emits `--text-*` — Tailwind's own font-size namespace — so
- * every rung here is a Sovrium value, and this table is an inherited-token
- * table like every other one on this page rather than the exception it used to
- * be. All twelve rungs are published, not five, because all twelve are now ours
- * to answer for.
- *
- * The rows still render UNDER the sentence stating the app declares no type
- * scale, behind the `data-design-platform-step` hook: the absence and the
- * answer belong in the same breath. What changed is that the answer is no
- * longer borrowed.
+ * The rows render UNDER the sentence stating the app declares no type scale,
+ * behind the `data-design-platform-step` hook: the absence and the answer
+ * belong in the same breath.
  *
  * ─── AND UNLIKE THE SHADOW RAMP, THIS COPY HAS A REAL GATE ─────────────────
  *
@@ -270,9 +255,8 @@ export const INHERITED_BREAKPOINT_TOKENS = GENERATED_INHERITED_BREAKPOINT_TOKENS
  * the same indirection; every name absent from this map is its own property.
  *
  * This is the subset of `COLOR_TO_SV_TOKEN` whose slot name differs. It is not
- * a copy of that map any more: both are emitted from the same source, and the
- * layering constraint that used to force the duplication (a domain service may
- * not import `src/infrastructure/css`) is satisfied by the source living in
- * `src/domain/models/app/design/`.
+ * a copy of that map: both are emitted from the same source, and the layering
+ * constraint (a domain service may not import `src/infrastructure/css`) is
+ * satisfied by the source living in `src/domain/models/app/design/`.
  */
 export const ROLE_COLOR_PROPERTY = GENERATED_ROLE_COLOR_PROPERTY

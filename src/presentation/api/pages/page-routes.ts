@@ -20,6 +20,7 @@ import { isProduction as isProductionEnv } from '@/infrastructure/process/env'
 import { applyCredentialedPageIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/vary'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
+import { applyFormFlash } from './form-flash-middleware'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import {
   ERROR_PAGE_STATUS,
@@ -180,7 +181,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
         return await renderRoot()
       }
 
-      // [internal ref] — placed AFTER the guard above and BEFORE the
+      // Placed AFTER the guard above and BEFORE the
       // branch below so it covers BOTH outcomes. A monolingual app (or
       // `detectBrowser: false`) never reaches here and emits no `Vary`, which is
       // correct: neither of its branches reads the header.
@@ -214,20 +215,20 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
 /**
  * Handle the bare `/:lang` route (no trailing slash).
  *
- * [internal ref]: a language-prefixed root requested WITHOUT a trailing
+ * A language-prefixed root requested WITHOUT a trailing
  * slash (e.g. `/en`) permanently redirects (301) to its canonical
  * trailing-slash form (`/en/`), which is the surface the language homepage
  * route serves. This keeps a single canonical URL per language root for SEO
  * and avoids the language homepage being reachable under two distinct paths.
  *
- * [internal ref]: the redirect fires ONLY when the single path segment is a
+ * The redirect fires ONLY when the single path segment is a
  * configured app language. A non-language single segment (e.g. `/about`) is
  * passed through to the catch-all via `next()` so ordinary top-level pages are
  * untouched by the trailing-slash rule.
  */
 function handleBareLanguageRoute(config: HonoAppConfig) {
   const { app } = config
-  return async (c: Readonly<Context>, next: () => Promise<void>) => {
+  return async (c: Context, next: () => Promise<void>) => {
     const urlLanguage = validateLanguageSubdirectory(app, c.req.path)
     if (urlLanguage === undefined) {
       return next()
@@ -241,7 +242,7 @@ function handleBareLanguageRoute(config: HonoAppConfig) {
  */
 function handleLanguageHomepageRoute(config: HonoAppConfig) {
   const { app, renderNotFoundPage, renderErrorPage } = config
-  return async (c: Readonly<Context>) => {
+  return async (c: Context) => {
     try {
       const { path } = c.req
       const session = await extractSession(config, c.req.raw.headers)
@@ -250,7 +251,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       // On exact `/:lang/` matches, the URL prefix is authoritative for locale —
       // it must beat the browser Accept-Language so `/en/` never renders French,
       // and it is passed on as `urlLanguage` so it also beats a page's own
-      // `meta.lang` ([internal ref]..039).
+      // `meta.lang`.
       const urlLanguage = validateLanguageSubdirectory(app, path)
       const base = {
         session,
@@ -293,7 +294,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
  */
 function handleLanguagePageRoute(config: HonoAppConfig) {
   const { app, renderNotFoundPage, renderErrorPage } = config
-  return async (c: Readonly<Context>) => {
+  return async (c: Context) => {
     const { path } = c.req
     const session = await extractSession(config, c.req.raw.headers)
     const cookies = getCookie(c)
@@ -301,7 +302,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     // On exact `/:lang/...` matches, the URL prefix is authoritative for locale —
     // it must beat the browser Accept-Language so `/en/...` never renders French,
     // and it is passed on as `urlLanguage` so it also beats a page's own
-    // `meta.lang` ([internal ref]..039).
+    // `meta.lang`.
     const urlLanguage = validateLanguageSubdirectory(app, path)
     const base = {
       session,
@@ -455,7 +456,6 @@ export function setupTestErrorRoute(
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       return c.html(renderNotFoundPage(app, detectedLanguage, requestedPath(c.req.url)), 404)
     }
-    // eslint-disable-next-line functional/no-throw-statements
     throw new Error('Test error')
   })
 }
@@ -493,9 +493,8 @@ export function setupPageRoutes(
 ): Readonly<Hono> {
   return setupDynamicPageRoutes(
     setupLanguageRoutes(
-      // [internal ref]: trailing-slash normalization + the unprefixed-path language
-      // fallback. Registered AFTER the `contentDir.index` 301 (whose shipped
-      // placement is the precedent for this slot) and BEFORE the language
+      // trailing-slash normalization + the unprefixed-path language fallback.
+      // AFTER the `contentDir.index` 301 and BEFORE the language
       // routes: `/:lang/*` is terminal — it 404s rather than calling `next()` —
       // so a canonicalizing catch-all mounted after it would be dead code for
       // every two-plus-segment path, and `/manifesto/` matches it with
@@ -503,18 +502,16 @@ export function setupPageRoutes(
       // Mounted here rather than at the `server.ts` redirect position because
       // `/_admin` is registered INSIDE this function and would be shadowed.
       setupUrlCanonicalizationRoutes(
-        // [internal ref]: the server-mode 301 that
+        // The pages layout markdown pages requirement: the server-mode 301 that
         // sends a `contentDir.index` article's slugged URL (`/docs/introduction`)
         // to the collection base path (`/docs`). Registered AFTER the `.md` export
         // route (so the index article's `.md`/`Accept` twins still serve raw
         // markdown 200) and BEFORE the language + catch-all routes. Falls through
         // (`next()`) for every non-index request.
         setupContentDirIndexRedirectRoutes(
-          // [internal ref]: the per-page `.md` export twin is
-          // registered BEFORE the language routes and the dynamic-page catch-all
-          // (`*`) — a `.md` path matches no page pattern and would otherwise 404
-          // through the catch-all. It falls through (`next()`) for every non-export
-          // request, so ordinary page resolution is untouched.
+          // The per-page `.md` export twin is registered BEFORE the language routes and
+          // the catch-all (`*`), where a `.md` path matches no page and would 404. It
+          // falls through (`next()`) for every other request.
           setupMarkdownExportRoutes(
             // [internal ref] / founder decision D1: the embedded-console mount
             // (`/_admin`, unless `admin: false` or `SOVRIUM_ADMIN=off` take it
@@ -526,11 +523,13 @@ export function setupPageRoutes(
             setupAdminMountRoutes(
               setupRssFeedRoute(
                 setupTestErrorRoute(
-                  // The per-address ceiling for requests that carry a
-                  // credential, ahead of every route below that looks a
-                  // session up (pages, `.md` twins, the console). Static
-                  // assets were served before this point.
-                  setupHomepageRoute(applyCredentialedPageIpCeiling(honoApp as Hono), config),
+                  // The per-address ceiling for requests that carry a credential,
+                  // ahead of every route that looks a session up; then a form's
+                  // carried toast, drawn on the page its POST lands on.
+                  setupHomepageRoute(
+                    applyFormFlash(applyCredentialedPageIpCeiling(honoApp as Hono)),
+                    config
+                  ),
                   config
                 ),
                 config

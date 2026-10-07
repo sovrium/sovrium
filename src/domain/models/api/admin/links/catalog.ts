@@ -17,7 +17,7 @@
  * compute them (`/api/analytics/{overview,referrers,devices,campaigns,events}`)
  * with `?event_type=link_click[&event_name={slug}]`. A `/api/admin/links/overview`
  * or `/api/admin/links/:slug/clicks` would be a second aggregation path over the
- * same rows, and the two would eventually disagree. D6.
+ * same rows, and the two would eventually disagree.
  *
  * Source story: [internal ref]
  *
@@ -39,7 +39,7 @@ import { adminEnvelopeSchema } from '../envelope/admin-envelope'
  * Load-bearing rather than informational: it is what the console gates its Edit
  * and Delete affordances on. A `config` link is declared in a file the console
  * may not write, so its mutation endpoints answer 409 — and painting a control
- * the backend will refuse is a defect, not a cosmetic issue ([internal ref] D2).
+ * the backend will refuse is a defect, not a cosmetic issue.
  */
 export const linkSourceSchema = Schema.Literals(['config', 'db']).annotate({
   description:
@@ -69,7 +69,7 @@ export const linkStateSchema = Schema.Literals([
 /**
  * A link as the catalog presents it.
  *
- * NOTE what is absent: no `password`, and no hash of one. [internal ref] D5 makes that a
+ * NOTE what is absent: no `password`, and no hash of one. The links-are-records design makes that a
  * condition of the console's authorisation rather than an implementation detail —
  * the payload is the boundary the operator's browser, proxy and error tracker all
  * see, so masking in the UI would not be redaction.

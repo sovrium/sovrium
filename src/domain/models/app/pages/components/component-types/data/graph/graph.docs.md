@@ -16,6 +16,10 @@ Declaring **both** `columns` and `lanes` is the one combination refused outright
 
 The same binding a `matrix` takes, for the same reason: a graph is two collections that address each other by id. `endpoint` is required; `nodesKey` and `edgesKey` default to `nodes` and `edges`, and `query` merges static parameters into every request. Because the read runs as the visitor, they only ever see the part of the graph they could have read themselves.
 
+### Reading from the app's tables
+
+A graph can also read its nodes and edges from the app's own tables, with the same `nodes` and `edges` lists a `matrix` takes: each node entry names a table or one of its views, the `kind` its rows carry and the field that labels them, with optional `groupField`, `stateField` and a `stateMap` translating that field's values into the states the drawing knows; each edge entry is a link table or a relationship field written `<table>.<field>`. A relationship that points back at its own table — a task that depends on another task — draws as edges between nodes of one kind. Node ids, access and views follow the matrix's rules: an id is `<table>:<row id>` unless `idField` names another, a node from a table the visitor may not read is not drawn (and neither is any edge to it), and a view whose filters hold an `or` group, `startsWith` or `endsWith` makes the graph unavailable.
+
 ## How a node is drawn
 
 Two things about a node are legible before its name is: its **shape** and its **weight**. Neither is yours to configure, and both come from the endpoint — so this holds whichever layout placed the node.
@@ -76,7 +80,7 @@ With `selection` declared, every node is focusable in reading order and `Enter` 
 
 ## Accessibility and rendering
 
-The same contract as a matrix, for the same reason. A graph always renders an **accessible twin** — a real table listing every node drawn, its kind, the column or lane it sits in, and the nodes it reaches. Nothing switches it off. Under `lanes` that last column earns its place twice over: because each step's edge runs to the next one, the nodes a step reaches **are** the rest of its chain, so the table states the running order in words without anyone having to see a line.
+The same contract as a matrix, for the same reason. A graph always renders an **accessible twin** — a real table listing every node drawn, its kind, the column or lane it sits in, and the nodes it reaches, each led by the edge's kind when it has one (`depends Ledger`). Nothing switches it off. Under `lanes` that last column earns its place twice over: because each step's edge runs to the next one, the nodes a step reaches **are** the rest of its chain, so the table states the running order in words without anyone having to see a line.
 
 `label` set makes the drawing one named figure with `role="img"`; omitted, the drawing is hidden from assistive technology. The twin renders either way. `legend` draws the key **inside** the drawing, so it is hidden exactly when the drawing is — a key to a figure nobody is being shown is noise, and the twin names every kind in words anyway.
 

@@ -87,13 +87,12 @@ export interface AddressedTabPanel {
  *
  * ## Why a panel holding an island is NOT excluded
  *
- * It used to be: any content carrying a `data-island` marker fell back to the
- * skeleton, because the island client would discover that nested marker, mount
- * it, and the tabs island would wipe it on its own first render. The exclusion
- * cost far more than it bought — the region the author named and the prose the
- * server composed AROUND the island went with it, so a lens whose body happened
- * to hold a figure silently required JavaScript while its siblings did not
- *.
+ * Excluding it — falling back to the skeleton for any content carrying a
+ * `data-island` marker, because the island client would discover that nested
+ * marker, mount it, and the tabs island would wipe it on its own first render —
+ * costs far more than it buys: the region the author named and the prose the
+ * server composed AROUND the island go with it, so a lens whose body happens to
+ * hold a figure would silently require JavaScript while its siblings do not.
  *
  * The collision is resolved where it actually lives instead: `mountIslandsWithin`
  * skips a marker that is no longer connected to the document, so the nested
@@ -120,7 +119,7 @@ export function resolveAddressedPanel(
  * That panel is already in the document as markup a reader and a crawler can
  * see; serialising it a second time into `data-island-props` bought the island
  * nothing and cost the response a whole extra copy of the page's largest panel,
- * HTML- and JSON-escaped (`[internal ref]` — measured at 116 629 B of a
+ * HTML- and JSON-escaped (a pages tabs spec — measured at 116 629 B of a
  * 266 588 B response on its own fixture, and roughly +66 000 B per address on
  * the operator console's organisation page).
  *
@@ -133,7 +132,7 @@ export function resolveAddressedPanel(
  * On a tab set the author made an ADDRESS — `defaultTab` bound to a declared
  * `page.query` property — the unaddressed panels are dropped too, and the
  * island asks the server for one when the reader opens it
- *. A reader of one lens then pays for one lens instead
+ * A reader of one lens then pays for one lens instead
  * of for all of them; on the operator console's five-lens organisation page the
  * props blob was 74 512 B, 49 531 B of it a Map nobody had opened.
  *

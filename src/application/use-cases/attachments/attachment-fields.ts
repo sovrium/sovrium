@@ -26,6 +26,8 @@ import type { App } from '@/domain/models/app'
 export interface AttachmentScope {
   readonly app: App
   readonly tableName: string
+  /** The signed-in person writing the record — the uploader of any file it stores. */
+  readonly writerId?: string
 }
 
 /**

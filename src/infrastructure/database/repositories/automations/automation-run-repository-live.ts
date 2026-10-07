@@ -55,10 +55,8 @@ const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
  * `.nullable()` for these timestamps — they are never `undefined`, only
  * present-or-null.
  */
-const toIso = (
-  value: Readonly<Date> | null | undefined
-  // eslint-disable-next-line unicorn/no-null -- API contract uses null for missing timestamps
-): string | null => (value instanceof Date ? value.toISOString() : null)
+const toIso = (value: Readonly<Date> | null | undefined): string | null =>
+  value instanceof Date ? value.toISOString() : null
 
 /**
  * Map a raw Drizzle row to the public `PersistedRun` shape, joining the
@@ -97,6 +95,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   error: row.error,
   logs: row.logs,
   reads: row.reads,
+  nested: row.nested,
 })
 
 /**
@@ -129,6 +128,7 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
     ...(step.error !== undefined ? { error: step.error } : {}),
     ...(step.logs !== undefined ? { logs: step.logs as object } : {}),
     ...(step.reads !== undefined ? { reads: step.reads as object } : {}),
+    ...(step.nested !== undefined ? { nested: step.nested as object } : {}),
   }))
 
 /**
@@ -162,7 +162,6 @@ const insertRunRefs = async (
       .map((ref) => ({ runId, tableName: ref.tableName, recordId: ref.recordId })),
   ]
   if (rows.length === 0) return
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
   await db.insert(automationRunRefs).values(rows).onConflictDoNothing()
 }
 
@@ -186,10 +185,7 @@ const readableByFilters = (readableBy: RunReaderScope | undefined): ReadonlyArra
         ) as SQL,
       ]
 
-/**
- * Build the SQL filter list for {@link listAllRuns}. Spreads optional
- * conditions immutably so the result is a frozen ReadonlyArray<SQL>.
- */
+/** Build the SQL filter list for {@link listAllRuns}. */
 const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
   const nameFilter: ReadonlyArray<SQL> =
     options.automationName !== undefined
@@ -316,13 +312,11 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         })
         .returning()
       if (!runRow) {
-        // eslint-disable-next-line functional/no-throw-statements -- the wrap() catch adapter requires a throw to map to AutomationRunDatabaseError
         throw new Error('Failed to insert automation_run row')
       }
 
       const steps = input.steps ?? []
       if (steps.length > 0) {
-        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(runRow.id, steps))
       }
       await insertRunRefs(runRow.id, input)
@@ -394,7 +388,6 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       // atomically with the terminal status.
       const steps = input.steps ?? []
       if (steps.length > 0) {
-        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
       }
       await insertRunRefs(updated.id, input)

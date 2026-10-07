@@ -25,6 +25,7 @@
  */
 
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
+import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -50,7 +51,7 @@ export const noopDb: DataSourceDb = {
 }
 
 /**
- * [internal ref]: overlay user_access roles onto the
+ * [internal ref] / a pages collection spec: overlay user_access roles onto the
  * session. Mirrors `mergeRoles` in `row-level-guard.ts`. Always returns a
  * fresh SessionInfo with `effectiveRoles` populated (deduped union of the
  * Better Auth role + all user_access roles); the original `role` field is
@@ -70,7 +71,7 @@ async function overlayUserAccessRoles(
 }
 
 /**
- * [internal ref]: overlay `system.user_access` roles
+ * [internal ref] / a pages collection spec: overlay `system.user_access` roles
  * onto the request session before any access check fires, mirroring the
  * table-level Z-3 pattern in `row-level-guard.ts`. A user with Better
  * Auth role `member` but a `user_access` row of `role: 'engineer'`
@@ -107,6 +108,46 @@ export function stripAuthActionsIfUnconfigured(
     }
     return component
   })
+}
+
+/** The sign-in strategies that draw no email field: a passkey, a provider, single sign-on. */
+const FIELDLESS_STRATEGIES: ReadonlySet<string> = new Set(['passkey', 'oauth', 'sso'])
+
+/** Whether a node is a sign-in form whose email field a passkey can fill. */
+const isEmailSignIn = (component: Component): boolean => {
+  const action = component.action as
+    { readonly type?: string; readonly method?: string; readonly strategy?: string } | undefined
+  return (
+    action?.type === 'auth' &&
+    (action.method ?? 'login') === 'login' &&
+    !FIELDLESS_STRATEGIES.has(action.strategy ?? '')
+  )
+}
+
+type ChildNode = NonNullable<Component['children']>[number]
+
+/**
+ * Marks every sign-in form of an app offering passkeys, at any depth, so its
+ * email field asks the browser for passkey autofill (`username webauthn`). The
+ * mark rides the action — the auth-form renderer is the one reader — and an app
+ * without passkeys gets its tree back untouched.
+ */
+export function markPasskeyAutofill(components: Page['components'], app: App): Page['components'] {
+  if (!components || !isCapabilityMet(app, 'auth.passkeys')) return components
+  const mark = (component: Component): Component => {
+    const children = component.children?.map((child: ChildNode) =>
+      typeof child === 'string' || 'component' in child || '$ref' in child
+        ? child
+        : mark(child as Component)
+    )
+    const marked = isEmailSignIn(component)
+      ? { ...component, action: { ...component.action, _passkeyAutofill: true } }
+      : component
+    return (children === undefined ? marked : { ...marked, children }) as Component
+  }
+  return components.map((item) =>
+    'component' in item || '$ref' in item ? item : mark(item as Component)
+  )
 }
 
 /**

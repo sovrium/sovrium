@@ -26,6 +26,7 @@
  */
 
 import { executeFetchAction } from '@/presentation/islands/runtime/action-executor'
+import { checkEndpointFormRules } from '@/presentation/islands/runtime/endpoint-form-validation'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
 /** A toast response as the endpoint config carries it. */
@@ -102,6 +103,7 @@ function submitEndpointForm(
 ): void {
   const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
   if (!config) return
+  if (!checkEndpointFormRules(form)) return
   const body = {
     ...(Object.fromEntries(new FormData(form)) as Record<string, unknown>),
     ...readSwitchValues(form),
@@ -121,31 +123,10 @@ function submitEndpointForm(
 }
 
 /**
- * The marker on a submit the server drew disabled because this runtime had not
- * run yet (`renderEndpointForm`): until the submit handler below exists, a press
- * would fall back to the browser's own submit.
- */
-const AWAITING_SCRIPT = 'data-awaits-script'
-
-/**
- * Enable every awaiting submit on the page. Runs at boot and after every later
- * render inserts markup — a refreshed region, a console page swapped in by the
- * SPA navigation, a panel an island fills with server markup. The submit
- * handler is delegated, so it already covers those forms; only their drawn
- * disabled state needs this. The query is cheap and, once every submit is
- * enabled, matches nothing.
- */
-function enableAwaitingSubmits(): void {
-  document.querySelectorAll(`[${AWAITING_SCRIPT}]`).forEach((submit) => {
-    submit.removeAttribute('disabled')
-    submit.removeAttribute(AWAITING_SCRIPT)
-  })
-}
-
-/**
  * Bind every endpoint-bound form on the document (`form[data-action-type=
- * "endpoint"]`) and every switch inside one, by delegation, then enable the
- * submits the server drew disabled until this ran.
+ * "endpoint"]`) and every switch inside one, by delegation. The submits the
+ * server drew disabled until this ran are enabled by the runtime's shared
+ * `setupAwaitingScriptControls` pass, once every handler is bound.
  */
 export function setupEndpointFormHandlers(
   dispatchToast: (response: EndpointToastResponse | undefined) => void
@@ -159,6 +140,4 @@ export function setupEndpointFormHandlers(
     event.preventDefault()
     submitEndpointForm(form, dispatchToast)
   })
-  enableAwaitingSubmits()
-  new MutationObserver(enableAwaitingSubmits).observe(document, { childList: true, subtree: true })
 }

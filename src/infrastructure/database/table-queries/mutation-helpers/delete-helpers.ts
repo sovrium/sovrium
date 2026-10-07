@@ -252,7 +252,6 @@ export async function executeSoftDelete(
 
     return result.length > 0
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
@@ -274,7 +273,6 @@ export async function executeHardDelete(
     )
     return result.length > 0
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
@@ -290,7 +288,6 @@ export async function checkDeletedAtColumn(
   try {
     return await columnExists(tx, databaseTableName(tableName), 'deleted_at')
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to check columns for ${tableName}`, error)
   }
 }

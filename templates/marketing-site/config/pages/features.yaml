@@ -1,0 +1,12 @@
+name: features
+path: /features
+meta:
+  title: 'Features · [Product]'
+  description: '[What the product does, feature by feature.]'
+components:
+  - component: navbar-simple
+  - component: header-centered
+  - component: feature-alternating
+  - component: feature-list-icons
+  - component: cta-split
+  - component: footer-simple

@@ -17,6 +17,11 @@
  * call then refused — so the rule lives here and nowhere else.
  */
 
+import {
+  evaluatePermission,
+  OPEN_WHEN_UNDECLARED,
+  permits,
+} from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import type { App } from '@/domain/models/app'
 
@@ -69,7 +74,7 @@ const referencedConnectionName = (
  * Actions without a `connection` prop (state, record, log, etc.) are
  * ignored — they neither relax nor tighten the gate.
  *
- * Specs [internal ref] trigger automations
+ * Specs the automation connection specs trigger automations
  * with `scope: 'user'` connections as a regular `createAuthenticatedUser`
  * (member) and assert the run executes (or fails on the action's
  * no-token branch) rather than 403'ing at the trigger gate.
@@ -133,3 +138,38 @@ export const mayRunManualAutomation = (
   if (userRole === undefined) return false
   return userRole === requiredManualTriggerRole(automation, app) || isAdminEquivalent(userRole, app)
 }
+
+/**
+ * Whether a declared `permissions.trigger` lets a caller holding `userRole`
+ * start the automation by name. Undeclared, it admits; an admin-equivalent
+ * caller satisfies any role list. It only ever NARROWS: a caller it admits
+ * still has to pass {@link mayRunManualAutomation}.
+ */
+export const triggerPermissionAdmits = (
+  automation: Automation,
+  app: App,
+  userRole: string | undefined
+): boolean =>
+  userRole !== undefined &&
+  permits(
+    evaluatePermission(
+      automation.permissions?.trigger,
+      { role: userRole, adminEquivalent: isAdminEquivalent(userRole, app) },
+      { whenUndeclared: OPEN_WHEN_UNDECLARED, adminOverride: 'admin-outranks-role-list' }
+    )
+  )
+
+/**
+ * Whether a caller may start a manual automation BY NAME — the direct trigger
+ * route, the MCP tool, the AI chat — and therefore whether the automation
+ * listing shows it to her. Both gates, in order: the declared
+ * `permissions.trigger`, then the manual trigger's own role rule.
+ */
+export const mayStartAutomationByName = (
+  automation: Automation,
+  app: App,
+  userRole: string | undefined
+): boolean =>
+  automation.trigger.type === 'manual' &&
+  triggerPermissionAdmits(automation, app, userRole) &&
+  mayRunManualAutomation(automation, app, userRole)

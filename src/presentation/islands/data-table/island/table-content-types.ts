@@ -11,10 +11,10 @@ import type { SummaryAggregations } from '../summary-aggregate'
 import type { DataTableColumnDef, DataTableInstance } from './table-features'
 import type {
   DataTableColumn,
-  DataTableGroupBy,
   DataTableLayout,
   DataTableSummaryItem,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 
 export interface TableContentProps {
   readonly table: DataTableInstance
@@ -61,7 +61,7 @@ export interface TableContentProps {
   /** Active search string (TanStack `globalFilter`); echoed by `noMatchMessage`. */
   readonly globalFilter?: string
   readonly selectionMode?: 'none' | 'single' | 'multiple'
-  readonly groupByConfig?: DataTableGroupBy
+  readonly groupByConfig?: ViewGroupBy
   /**
    * Whole-view record count per group PATH (`?groupBy=`), computed over the same
    * filtered table the page is drawn from — so a group header's number describes

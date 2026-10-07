@@ -34,6 +34,14 @@ from `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD`, the demo member and viewer fr
 The one page, at `/`, gives the command, the call and the tables. The reference of every
 endpoint (`/api/scalar`) and the admin console (`/_admin`) open for an admin.
 
+Three optional automations sit beside the API. Set `TASK_WEBHOOK_SECRET` and another system
+can file a task with a signed `POST` to `/api/automations/task-intake/webhook` (the steps are
+in [`config/automations/task-intake.yaml`](./config/automations/task-intake.yaml)); set
+`TASK_EVENTS_URL` too and each task marked done is announced there, signed the same way. Set
+`LINEAR_API_KEY` and `LINEAR_TEAM_ID` and each new task is mirrored as a Linear issue, through
+the `record-to-linear-issue` recipe from the Sovrium library (`sovrium library add
+recipe/record-to-linear-issue`). Without them the app runs exactly the same.
+
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
 application code. Replace the tables in `config/tables/`, the backlog in `seed/`.
 
@@ -112,6 +120,12 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)).
+
+> **The demo accounts are for trying the app, not for running it.** The seed gives every
+> account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and
+> their addresses are published in this README. Before anyone else can reach the app, choose
+> a long password or skip the seed, and change or delete the demo admin. Sign-up is already
+> closed (`allowSignUp: false`), so nobody can add an account of their own.
 
 ## About this repository
 

@@ -9,9 +9,7 @@ import { type ReactElement } from 'react'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
-// NOTE ([internal ref] cleanup): `renderContent` was removed because no consumer
-// referenced it through either re-export path. Restore from git history if
-// a generic-content renderer is needed.
+// NOTE: there is no generic `renderContent` renderer; no consumer needs one.
 
 /**
  * Renders paragraph element

@@ -6,11 +6,16 @@
  */
 
 import { type ReactElement } from 'react'
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
+  resolveInterpreterStringOverrides,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
+import {
+  authFieldErrorId,
   authPendingLabel,
   authSubmitLabel,
   defaultAuthFields,
+  withAuthFieldHints,
   type AuthFormField,
 } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
@@ -22,69 +27,19 @@ import {
 } from '../../design/forms-default-classes'
 import { computeInputDefaultClasses } from '../../design/input-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import {
+  resolveOnSuccessRedirect,
+  successPageOf,
+  type AuthFieldOverride,
+  type AuthFormAction,
+  type AuthFormRenderContext,
+} from './auth-form-action'
 import { buildResolvedFieldDefs } from './crud-form/crud-form-field-resolver'
 import type { ResolvedFieldDef } from './crud-form/crud-form-types'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
-
-/** Per-field label/placeholder override declared on an auth action. */
-export type AuthFieldOverride = {
-  readonly name: string
-  readonly label?: string
-  readonly placeholder?: string
-}
-
-/**
- * Auth action shape for form rendering
- */
-export type AuthFormAction = {
-  readonly type: string
-  readonly method?: string
-  readonly strategy?: string
-  readonly provider?: string
-  /** Custom submit-button label (supports `$t:key`). Overrides the built-in. */
-  readonly submitLabel?: string
-  /** Custom in-flight (pending) submit-button label (supports `$t:key`). */
-  readonly pendingLabel?: string
-  /** Per-field label/placeholder overrides (each supports `$t:key`). */
-  readonly fields?: readonly AuthFieldOverride[]
-  readonly onSuccess?: {
-    /**
-     * Post-login redirect mode. `'role-landing'` sends the user to `auth.landingPath`, where the per-role
-     * landing resolver redirects each role to its own `defaultLanding`.
-     * Other/undefined values fall back to the explicit `navigate` path.
-     */
-    readonly type?: string
-    readonly navigate?: string
-    readonly toast?: { readonly message?: string; readonly variant?: string }
-  }
-  readonly onError?: {
-    readonly toast?: { readonly message?: string; readonly variant?: string }
-  }
-}
-
-/**
- * Bundle of optional inputs threaded from the section renderer into
- * {@link renderAuthForm}: the bound table + component (for table-backed field
- * resolution) and the active page language + app translations (for `$t:key`
- * localization of submit/field labels). Bundled into one object to keep the
- * renderer parameter count under the ESLint `max-params` ceiling.
- */
-export interface AuthFormRenderContext {
-  readonly tables?: Tables
-  readonly component?: Component
-  readonly lang?: string
-  readonly languages?: Languages
-  /**
-   * App-level `auth.landingPath`. When the
-   * form's `onSuccess.type === 'role-landing'`, the post-login redirect target
-   * resolves to this path; the existing per-role landing resolver
-   * (render-page.tsx → resolveLandingPath) then routes each role onward.
-   */
-  readonly landingPath?: string
-}
 
 /**
  * Picks the native input type for an auth-form field.
@@ -169,23 +124,6 @@ function applyFieldOverrides(
 }
 
 /**
- * Resolves the post-login redirect target for an auth form.
- *
- * `onSuccess.type === 'role-landing'` sends
- * the user to `auth.landingPath`; the per-role landing resolver then routes
- * each role to its own `defaultLanding`. When `landingPath` is not configured
- * the mode degrades gracefully to no redirect. Any other `onSuccess` shape
- * uses the explicit `navigate` path unchanged.
- */
-export function resolveOnSuccessRedirect(
-  action: AuthFormAction,
-  landingPath?: string
-): string | undefined {
-  if (action.onSuccess?.type === 'role-landing') return landingPath
-  return action.onSuccess?.navigate
-}
-
-/**
  * Resolve the submit + in-flight (pending) button labels for an auth form.
  *
  * Each honors its action-level override (localized via `$t:key`) and otherwise
@@ -222,15 +160,21 @@ function buildIslandPropsJson(config: {
   readonly testId: unknown
   readonly id: unknown
   readonly redirectUrl: string | undefined
+  readonly uiStrings?: Readonly<Record<string, string>>
 }): string {
   return JSON.stringify({
     method: config.method,
     strategy: config.action.strategy,
+    factor: config.action.factor,
+    trustDevice: config.action.trustDevice,
+    tokenParam: config.action._invitationParam,
+    uiStrings: config.uiStrings,
     fields: config.fields,
     submitLabel: config.submitLabel,
     pendingLabel: config.pendingLabel,
     redirectUrl: config.redirectUrl,
     successToast: config.action.onSuccess?.toast,
+    successPage: successPageOf(config.action),
     errorToast: config.action.onError?.toast,
     'data-testid': config.testId,
     id: config.id,
@@ -295,7 +239,7 @@ function buildFormDataAttrs(
  * containing a `<label>`-associated input and an empty inline-error slot.
  *
  * The wrapper carries `data-field="<name>"` so specs can scope a field's error
- * region; the inline-error `<div id="<name>-error">` is hidden until the island
+ * region; the inline-error `<div id={field.errorId}>` (unique per form) is hidden until the island
  * populates it with a validation message.
  *
  * Inline errors deliberately do NOT carry `role="alert"` — only the form-level
@@ -303,12 +247,7 @@ function buildFormDataAttrs(
  * exactly one element (the summary) under Playwright strict mode.
  */
 function renderAuthFormField(field: AuthFormField): ReactElement {
-  const autoComplete =
-    field.inputType === 'email'
-      ? 'email'
-      : field.inputType === 'password'
-        ? 'new-password'
-        : undefined
+  const errorId = authFieldErrorId(field)
   return (
     <div
       data-field={field.name}
@@ -320,20 +259,18 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
           type={field.inputType}
           data-component-type="input"
           name={field.name}
-          autoComplete={autoComplete}
+          autoComplete={field.autoComplete}
+          inputMode={field.inputMode}
           aria-invalid="false"
-          aria-describedby={`${field.name}-error`}
-          // SSR skeleton renders the 'default' state (aria-invalid="false"); the
-          // island re-applies computeInputDefaultClasses with the 'error' state
-          // once a field fails validation. Sharing the recipe keeps the SSR paint
-          // and the hydrated control byte-identical and on the design-system
-          // auth-layout look (full-width + bordered + focus ring).
+          aria-describedby={errorId}
+          // The 'default' state; the island re-applies the recipe with 'error' on a
+          // failed field, so the SSR paint and the hydrated control stay identical.
           className={computeInputDefaultClasses({ state: 'default' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
         />
       </label>
       <div
-        id={`${field.name}-error`}
+        id={errorId}
         hidden
       />
     </div>
@@ -373,23 +310,18 @@ function renderAuthFormSkeleton(config: {
     <form
       {...authSkeletonFormProps(props)}
       {...formDataAttrs}
-      // className LAST so the layout class survives the `{...props}` spread —
-      // a `props.className` key (even empty/undefined) would otherwise clobber
-      // an earlier `className=`, stripping the full-width flex stack. Author
-      // className is merged in, not lost.
+      // className LAST so the layout class survives the `{...props}` spread (an
+      // empty `props.className` would clobber it); the author's className is merged.
       className={resolveClasses(computeFormLayoutClasses(), props.className as string | undefined)}
     >
       {fields.map((field) => renderAuthFormField(field))}
-      {/* Summary error banner — populated by the island on submit */}
       <div
         data-testid="error-summary"
         role="alert"
         hidden
       />
-      {/* Form-level result slot — empty + `hidden` here so it reserves no
-          layout gap and hydrates byte-identically to the island's empty state.
-          The island paints an operator-grade error/success banner (with
-          role="alert"/"status") into this slot on submit, client-side. */}
+      {/* Result slot — empty + hidden, as the island's empty state; the island
+          paints its error/success banner here on submit. */}
       <div
         data-error=""
         hidden
@@ -426,11 +358,15 @@ export function renderAuthForm(
   const { tables, component, lang, languages, landingPath } = context
   const method = action.method ?? 'login'
   const redirectUrl = resolveOnSuccessRedirect(action, landingPath)
-  // Submit + in-flight labels (action overrides win, else localized built-ins).
   const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
-  // Resolve the base field set, then layer action-level overrides + localization.
-  const baseFields = resolveAuthFormFields(method, tables, component, action.strategy)
-  const fields = applyFieldOverrides(baseFields, action.fields, context)
+  // The base field set (a second-factor step names its code by `factor`), then overrides.
+  const variant = action.strategy ?? action.factor
+  const baseFields = resolveAuthFormFields(method, tables, component, variant)
+  const fields = withAuthFieldHints(applyFieldOverrides(baseFields, action.fields, context), {
+    method,
+    ...(variant !== undefined && { variant }),
+    ...(action._passkeyAutofill === true && { passkeyAutofill: true }),
+  })
   const islandProps = buildIslandPropsJson({
     method,
     action,
@@ -440,6 +376,10 @@ export function renderAuthForm(
     testId: props['data-testid'],
     id: props.id,
     redirectUrl,
+    // The enrolment screens after `enableTwoFactor` speak the page language.
+    ...(method === 'enableTwoFactor' && {
+      uiStrings: resolveInterpreterStringOverrides(['twoFactor.'], lang, languages),
+    }),
   })
   const formDataAttrs = buildFormDataAttrs(method, action, redirectUrl)
   const wrapperStyle = buildAuthWrapperStyle(props.style)

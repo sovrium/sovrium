@@ -1,0 +1,35 @@
+# The Request time off dialog opens this form. It never asks for the
+# person: the server stamps whoever is signed in as the requester.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 2
+name: request-time-off
+title: Request time off
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: time_off_requests
+display:
+  submitLabel: Send request
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /time-off
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: type
+    label: Type
+  - kind: table-field
+    column: start_date
+    label: From
+  - kind: table-field
+    column: end_date
+    label: To
+  - kind: table-field
+    column: note
+    label: Note for the approver

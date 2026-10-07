@@ -6,7 +6,9 @@
  */
 
 import { isAuthoredValueReference } from '../authored-references'
+import { hydratedFieldIdOf } from '../hydrated-field-reference'
 import { lookupPath, resolveTriggerInString, resolveTriggerInValue } from '../resolve-trigger-data'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 
 /** A string that is exactly one `{{ path.to.value }}` reference — no helper, no text. */
 const SINGLE_REFERENCE = /^\s*\{\{\s*([\w.]+)\s*\}\}\s*$/
@@ -29,7 +31,8 @@ const detachedCopy = (found: object): unknown => {
 /**
  * The value a lone `{{path}}` names, when it is one rendering would lose: a
  * list, an object, a number or a boolean arrives as itself (`{{step.records}}`
- * is the array, not its text) — a list or an object as a detached copy. A
+ * is the array, not its text) — a list or an object as a detached copy, and a
+ * hydrated relationship or user field as the id it stores. A
  * string, an absent path or a helper name (`{{now}}`) answers `undefined`, and
  * the caller renders as before.
  */
@@ -37,6 +40,10 @@ const referencedValue = (value: string, context: Readonly<Record<string, unknown
   const reference = SINGLE_REFERENCE.exec(value)
   if (reference === null) return undefined
   const found = lookupPath(context, reference[1] as string)
+  // A trigger's relationship or user field, referenced whole, is the id it
+  // stores — the value its rendering and a trigger condition read.
+  const hydratedId = hydratedFieldIdOf(found)
+  if (hydratedId !== undefined) return hydratedId
   if (typeof found === 'object' && found !== null) return detachedCopy(found)
   return typeof found === 'number' || typeof found === 'boolean' ? found : undefined
 }
@@ -119,16 +126,17 @@ const reTypeRenderedValue = (original: string, rendered: string): unknown => {
  */
 export const resolveCodeInputData = (
   rawInputData: Readonly<Record<string, unknown>>,
-  context: Readonly<Record<string, unknown>>
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
 ): Readonly<Record<string, unknown>> =>
   Object.fromEntries(
     Object.entries(rawInputData).map(([key, value]) => {
       if (typeof value === 'string') {
         const referenced = referencedValue(value, context)
         if (referenced !== undefined) return [key, referenced] as const
-        const rendered = resolveTriggerInString(value, context)
+        const rendered = resolveTriggerInString(value, context, templates)
         return [key, reTypeRenderedValue(value, rendered)] as const
       }
-      return [key, resolveTriggerInValue(value, context)] as const
+      return [key, resolveTriggerInValue(value, context, templates)] as const
     })
   )

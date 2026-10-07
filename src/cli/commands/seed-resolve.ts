@@ -96,7 +96,6 @@ export interface SeedResolveContext {
 const resolveAccountId = (context: SeedResolveContext, email: string): string => {
   const id = context.accounts.get(email.toLowerCase())
   if (id === undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedResolutionError(`no account has the email "${email}".`)
   }
   return id
@@ -132,7 +131,6 @@ const foldSequential = <T, R>(
 const uploadAsset = async (seedDir: string, filename: string, bucket: string): Promise<string> => {
   const source = Bun.file(`${seedDir}/assets/${filename}`)
   if (!(await source.exists())) {
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedResolutionError(`asset "${filename}" not found in ${seedDir}/assets`)
   }
   const key = buildUploadStorageKey(filename)
@@ -199,7 +197,6 @@ const resolveReferenceId = async (
   const planned = context.plan.tables.find((candidate) => candidate.name === table)
   const record = planned?.records.find((candidate) => candidate.key === key)
   if (!planned || !record) {
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedResolutionError(
       `cannot resolve @${table}.${key} — no seed file declares a row keyed "${key}" in "${table}".`
     )
@@ -208,7 +205,6 @@ const resolveReferenceId = async (
   const columns = identifyingColumns(planned, findConfig(context.tables, table), record.fields)
   const existing = await findExistingId(table, columns)
   if (existing === undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedResolutionError(
       `cannot resolve @${table}.${key} — "${table}" was not written by this run ` +
         `(skipped by --mode if-empty, or outside --table) and no existing row matches that ` +

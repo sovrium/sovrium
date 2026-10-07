@@ -65,7 +65,7 @@
  *
  * ─── AND `preview.subject.type` MEETS THE SAME THREE TESTS ───────────────
  *
- * [internal ref]'s `preview` names a type the engine draws its own catalogue specimen
+ * the data-first Configuration section design's `preview` names a type the engine draws its own catalogue specimen
  * for, exactly as `specimen.subject.type` does, so it is run through the SAME
  * function rather than through a copy of it. That matters most for the third
  * test: a preview IS a preview frame, so [internal ref] A3 clause 2 applies to it
@@ -197,8 +197,7 @@ const resolvableEasingNames = (app: AppForDesignConsoleValidation): ReadonlySet<
  * table, and one that fired on none would let an unresolvable easing reach the
  * page as an empty box — the failure this whole module exists to prevent.
  *
- * This read a retired console-only spelling as a second accepted form until
- * that type was deleted. Should another type ever plot a curve, it joins the
+ * Should another type ever plot a curve, it joins the
  * disjunction here rather than growing a gate of its own.
  */
 const plotsAnEasingCurve = (node: Readonly<Record<string, unknown>>): boolean =>

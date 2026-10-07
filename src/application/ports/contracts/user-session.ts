@@ -23,4 +23,6 @@ export interface UserSession {
   readonly userAgent: string | null
   readonly impersonatedBy: string | null
   readonly activeOrganizationId: string | null
+  /** How the session was opened: `passkey`, or `null` for every other way in. */
+  readonly signInMethod: string | null
 }

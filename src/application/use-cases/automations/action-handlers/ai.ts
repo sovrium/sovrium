@@ -189,10 +189,9 @@ export const aiErrorOutcome = (envelope: AiErrorEnvelope): ActionOutcome => ({
  * `{ category }`, `ai/extract` → the parsed object's own fields at the TOP
  * level, etc.).
  *
- * `ai/extract` is spelled out because this doc used to claim a `{ data }`
- * wrapper. It never had one: the handler spreads the parsed object straight
- * into `output`, and every config reading `{{steps.X.<field>}}` depends on
- * that. The doc was the thing that was wrong, not the code.
+ * `ai/extract` is spelled out because a `{ data }` wrapper is easy to assume.
+ * There is none: the handler spreads the parsed object straight into
+ * `output`, and every config reading `{{steps.X.<field>}}` depends on that.
  */
 export const runAiChat = (
   input: ChatInput

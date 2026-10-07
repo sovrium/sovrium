@@ -1,0 +1,44 @@
+# The Add person dialog on the Directory opens this form. Only HR (admins)
+# may add people, so the form itself is gated to admins too.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 1
+name: add-person
+title: Add person
+access:
+  require: [admin]
+  redirectTo: /sign-in
+submitTo:
+  table: employees
+display:
+  submitLabel: Add person
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: name
+    label: Name
+  - kind: table-field
+    column: email
+    label: Email
+  - kind: table-field
+    column: title
+    label: Role
+  - kind: table-field
+    column: team
+    label: Team
+  - kind: table-field
+    column: start_date
+    label: Since
+  - kind: table-field
+    column: salary
+    label: Salary
+  - kind: table-field
+    column: allowance_days
+    label: Time off per year (days)

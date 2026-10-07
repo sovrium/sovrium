@@ -5,17 +5,12 @@
 Form controls are the individual inputs a form is built from. They sit inside a `form`, or stand alone inside any container.
 
 ```yaml
-tables:
-  - name: signups
-    fields:
-      - { name: email, type: email }
-      - { name: plan, type: single-select, options: [free, pro] }
 pages:
   - name: Signup
     path: /signup
     components:
       - type: form
-        action: { type: crud, operation: create, table: signups }
+        endpoint: { url: /api/signups, method: POST, submitLabel: Sign up }
         children:
           - { type: input, inputType: email, props: { name: email } }
           - { type: select, options: [{ label: Free, value: free }], props: { name: plan } }
@@ -23,7 +18,7 @@ pages:
 
 **For most controls, `name` is a `props` entry rather than a schema field.** `input`, `textarea`, `select`, `checkbox`, `radio-group`, `switch` and the toggles do not declare `name` in their schemas; it passes through the free-form `props` bag unvalidated, so a typo submits under the wrong key rather than failing validation.
 
-Four controls do declare it — `input-group`, `rich-text-editor`, `code-editor` and `date-range-picker` — because each keeps a hidden input of its own and has to know what to key it by. Writing `name` at the top level of one of those is validated; writing it in their `props` is not. Where you can, prefer the `fields` array of a `form` that declares a `dataSource` either way: its `field` **is** validated against the bound table.
+Four controls do declare it — `input-group`, `rich-text-editor`, `code-editor` and `date-range-picker` — because each keeps a hidden input of its own and has to know what to key it by. Writing `name` at the top level of one of those is validated; writing it in their `props` is not. Where you can, prefer the `fields` of a form bound to a table either way — a `forms[]` entry, or a page `form` that edits a record through `dataSource`: each field **is** validated against the bound table.
 
 ## `input`
 

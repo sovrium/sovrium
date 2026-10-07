@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  aggregateRecordsQuerySchema,
+  aggregateRecordsResponseSchema,
+} from '@/domain/models/api/tables/aggregate'
 import { commentSchema, recordHistoryEntrySchema } from '@/domain/models/api/tables/comments'
 import { listRecordsQuerySchema } from '@/domain/models/api/tables/params'
 import {
@@ -148,12 +152,16 @@ export const records = defineSection({
         'aggregations',
         'includeDeleted',
         'trash',
+        'aggregate read',
       ],
       order: 2424,
       sidebarLabel: 'Grouping & Saved Views',
       body: recordsGroupingViewsBody,
-      documents: [],
-      stories: ['US-RECORDS-API-FILTERING-SORTING-VIEWS-GROUPING'],
+      documents: [aggregateRecordsQuerySchema, aggregateRecordsResponseSchema],
+      stories: [
+        'US-RECORDS-API-FILTERING-SORTING-VIEWS-GROUPING',
+        'US-RECORDS-API-FILTERING-SORTING-AGGREGATE-READ',
+      ],
     }),
     defineArticle({
       slug: 'records-batch',
@@ -283,15 +291,8 @@ export const records = defineSection({
       slug: 'runtime-customization',
       title: 'Runtime Data Customization',
       description:
-        'What end users can change about a view without a developer changing the config, and the boundary that stops personalisation from widening access.',
-      keywords: [
-        'sovrium',
-        'runtime views',
-        'saved views',
-        'column visibility',
-        'toolbar',
-        'personalisation',
-      ],
+        'What a reader can change about what she sees for the length of a visit, without a developer changing the config, and the boundary that stops it from widening access.',
+      keywords: ['sovrium', 'runtime filters', 'runtime sort', 'search', 'toolbar', 'export'],
       order: 2480,
       sidebarLabel: 'Runtime Customization',
       body: runtimeCustomizationBody,

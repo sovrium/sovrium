@@ -16,7 +16,9 @@ import { resolveChildTranslation } from '../i18n/translation-handler'
 import { SIDEBAR_DRAWER_ROOT_ATTRIBUTE, SidebarDrawerFrame } from './sidebar-drawer'
 import { renderSidebarGroups } from './sidebar-groups'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { SidebarI18n } from './sidebar-entry'
 import type { SidebarGroup } from '@/domain/models/app/pages/components/component-types/layout/sidebar'
+import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 
 /** The sidebar keys this renderer reads off the component, all optional. */
 interface SidebarKeys {
@@ -66,6 +68,13 @@ const namedBoxProps = (
 ): Record<string, unknown> =>
   drawer === undefined ? unnamedProps : { ...unnamedProps, 'data-component-type': 'container' }
 
+/** The language and the author's part classes every row of the navigation reads. */
+const sidebarContext = (
+  currentLang: string | undefined,
+  languages: SidebarI18n['languages'],
+  designStyles: ComponentDesignResolution | undefined
+): SidebarI18n => ({ currentLang, languages, parts: designStyles?.parts })
+
 /**
  * `sidebar` — a layout box, plus (when declared) the `groups` navigation
  * landmark. The groups render BEFORE any authored children so a sidebar that
@@ -85,6 +94,7 @@ export const renderSidebarComponent: ComponentRenderer = ({
   component,
   currentLang,
   languages,
+  designStyles,
 }): ReactElement | null => {
   const { groups, trackNavigation, rail, drawer } = (component ?? {}) as SidebarKeys
   const railBelow = rail?.below
@@ -96,16 +106,12 @@ export const renderSidebarComponent: ComponentRenderer = ({
   const { 'data-component-type': componentType, ...unnamedProps } = elementProps
   const children = hasGroups
     ? [
-        renderSidebarGroups(
-          groups,
-          { currentLang, languages },
-          {
-            trackNavigation: trackNavigation === true,
-            rail: railBelow,
-            drawer: drawerBelow,
-            componentType: componentType as string | undefined,
-          }
-        ),
+        renderSidebarGroups(groups, sidebarContext(currentLang, languages, designStyles), {
+          trackNavigation: trackNavigation === true,
+          rail: railBelow,
+          drawer: drawerBelow,
+          componentType: componentType as string | undefined,
+        }),
         ...renderedChildren,
       ]
     : renderedChildren

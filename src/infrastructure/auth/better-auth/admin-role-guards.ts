@@ -6,7 +6,7 @@
  */
 
 import { APIError } from 'better-auth/api'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 // eslint-disable-next-line boundaries/dependencies -- Better Auth owns the write to `user.role`, so its `before` hook is the ONLY point where an unassignable role or a last-admin demotion can be rejected before the row changes. Same justification as the trigger-auth-event bridge in `auth.ts`: the guard has to live inside the auth library's lifecycle, and the application-layer use case is the read contract it consults.
 import { countActiveAdmins } from '@/application/use-cases/auth/count-admins'
 // eslint-disable-next-line boundaries/dependencies -- see countActiveAdmins above: the current role of the mutation target can only be read from inside the Better Auth `before` hook.
@@ -31,6 +31,7 @@ import {
   roleSegments,
   unassignableRoleMessage,
 } from '@/domain/models/app/auth/roles/role-write-validation'
+import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import {
   endpointSucceeded,
@@ -39,6 +40,7 @@ import {
   sessionUserId,
   type AuthMiddlewareCtx,
 } from './hook-context'
+import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 
@@ -119,7 +121,6 @@ const pendingRoleWrites = new WeakMap<object, PendingRoleWrite>()
  * `body.data.role`, NOT `body.role` — reading the wrong key silently skips
  * validation on that endpoint.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 const readRoleField = (ctx: AuthMiddlewareCtx, path: string): unknown => {
   const body = ctx.body as { role?: unknown; data?: { role?: unknown } } | undefined
   return path === '/admin/update-user' ? body?.data?.role : body?.role
@@ -135,16 +136,19 @@ const readRoleField = (ctx: AuthMiddlewareCtx, path: string): unknown => {
  * one as this path gets. The hook is a plain `async` callback inside the auth
  * library's own lifecycle: there is no Hono context to read the server's
  * resolved services from, and no surrounding fiber to attach to. So this is the
- * one place that binds the repository, and `AuthRepositoryLive` is a
- * `Layer.succeed` over a constant service object, which makes binding it per
- * call free.
+ * one place that binds the repositories, and `AuthRepositoryLive` and
+ * `AuditLogRepositoryLive` (the act records write through the audit funnel) are
+ * each a `Layer.succeed` over a constant service object, which makes binding
+ * them per call free.
  *
  * Both programs fold their own failure into `undefined` before they arrive, so
  * nothing here can reject.
  */
+const AuthHookLayer = Layer.mergeAll(AuthRepositoryLive, AuditLogRepositoryLive)
+
 export const runAuthHookProgram = <A>(
-  program: Effect.Effect<A, never, AuthRepository>
-): Promise<A> => Effect.runPromise(Effect.provide(program, AuthRepositoryLive))
+  program: Effect.Effect<A, never, AuthRepository | AuditLogRepository>
+): Promise<A> => Effect.runPromise(Effect.provide(program, AuthHookLayer))
 
 /**
  * The bridge for the restoring write. Unlike the reads it CAN reject: a
@@ -191,7 +195,6 @@ const impersonationRecorder = (deps?: AuthHookDeps) =>
  * nothing they cannot read from `/admin/list-users`, and it makes the rejection
  * self-explanatory instead of a bare 400.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 async function validateAssignableRole(ctx: AuthMiddlewareCtx, app: AdminRoleResolvable) {
   // No role in the payload — nothing to validate. Better Auth still enforces
   // its own required-field rules (a bare `{}` on set-role stays a 400). Any
@@ -199,7 +202,6 @@ async function validateAssignableRole(ctx: AuthMiddlewareCtx, app: AdminRoleReso
   // it verbatim (an array joined with `,`), and Sovrium reads it whole.
   const invalid = findUnassignableRoleSegment(readRoleField(ctx, ctx.path), app)
   if (invalid === undefined) return
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('BAD_REQUEST', { message: unassignableRoleMessage(invalid, app) })
 }
 
@@ -221,7 +223,6 @@ async function validateAssignableRole(ctx: AuthMiddlewareCtx, app: AdminRoleReso
  * also where a change that stood is put on the audit trail.
  */
 async function guardLastAdmin(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AuthHookDeps
@@ -238,13 +239,11 @@ async function guardLastAdmin(
 
   // A failed count skips the guard rather than blocking role management.
   if (demotes && isLastAdmin(await adminCounter(deps)(adminRoleNamesFor(app)))) {
-    // eslint-disable-next-line functional/no-throw-statements
     throw new APIError('CONFLICT', { message: lastAdminRemovalMessage(app) })
   }
 
   const key = requestKey(ctx)
   if (key === undefined) return
-  // eslint-disable-next-line functional/no-expression-statements -- request-scoped hand-over from the before hook to the after hook of the same dispatch
   pendingRoleWrites.set(key, { userId, previousRole, nextRole, demotes })
 }
 
@@ -268,7 +267,6 @@ async function guardLastAdmin(
  * `[internal ref]`.
  */
 async function guardImpersonationTarget(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AuthHookDeps
@@ -278,7 +276,6 @@ async function guardImpersonationTarget(
   const targetRole = await roleReader(deps)(userId)
   if (targetRole === undefined) return
   if (!roleSegments(targetRole).some((segment) => isAdminTier(segment, app))) return
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('FORBIDDEN', { message: 'You cannot impersonate admins' })
 }
 
@@ -290,7 +287,6 @@ async function guardImpersonationTarget(
  * malformation.
  */
 export async function applyAdminRoleGuards(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AuthHookDeps
@@ -323,7 +319,6 @@ export async function applyAdminRoleGuards(
  * the context by the time the endpoint ran.
  */
 async function settleRoleWrite(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AuthHookDeps
@@ -339,7 +334,6 @@ async function settleRoleWrite(
     leavesNoAdmin(await adminCounter(deps)(adminRoleNamesFor(app)))
   ) {
     await roleRestorer(deps)(pending.userId, pending.previousRole)
-    // eslint-disable-next-line functional/no-throw-statements
     throw new APIError('CONFLICT', { message: lastAdminRemovalMessage(app) })
   }
 
@@ -353,7 +347,6 @@ async function settleRoleWrite(
  * Record an impersonation that started: the caller is the admin, the body's
  * `userId` the account now being acted as.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 async function recordImpersonationStart(ctx: AuthMiddlewareCtx, deps?: AuthHookDeps) {
   if (!endpointSucceeded(ctx.context.returned)) return
   const adminId = sessionUserId(ctx.context.session)
@@ -368,7 +361,6 @@ async function recordImpersonationStart(ctx: AuthMiddlewareCtx, deps?: AuthHookD
  * admin is the session's `impersonatedBy`. The entry is attributed to the
  * admin, never to that account.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 async function recordImpersonationStop(ctx: AuthMiddlewareCtx, deps?: AuthHookDeps) {
   if (!endpointSucceeded(ctx.context.returned)) return
   const session = ctx.context.session as
@@ -385,7 +377,6 @@ async function recordImpersonationStop(ctx: AuthMiddlewareCtx, deps?: AuthHookDe
  * branch first checks that the endpoint succeeded.
  */
 export async function applyAdminRoleAfterHooks(
-  // eslint-disable-next-line functional/prefer-immutable-types
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable,
   deps?: AuthHookDeps

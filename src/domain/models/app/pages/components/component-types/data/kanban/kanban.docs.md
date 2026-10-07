@@ -2,11 +2,30 @@
 
 > The `kanban` component — records grouped into columns by a field value, with drag-and-drop between them — and the colour rules the record views share.
 
-A board places each record in the column its grouping field names, and lets a reader drag it into another.
+A board places each record in the column its grouping field names, and lets a reader drag it into another. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `kanbanGroupBy` is the board's own: it says which field becomes its columns, whether the records come from a view or from the table. A board is never a mode of a grid — to show the same records as a grid and as a board, declare a `table` and a `kanban`.
 
 <!-- sovrium:options type:kanban depth=3 -->
 
 `kanbanGroupBy: { field }` names the field whose values become the columns. `drag` is `{ enabled, persistAction }` — whether cards move, and what saves the move. `persistAction` must be a `crud` action, `{ type: crud, operation: update, table }`: it is the only type a drop runs.
+
+`drag.onDrop` asks for what a column needs once a card has landed in it: the amount when a deal is won, the reason when it is lost. Each entry is `{ when: { value }, action }`, where `value` is a column as the grouping field spells it and `action` is `{ action: openDrawer, component }` or a `fill` action. The move is saved first; once the save succeeds, the first entry naming the column the card landed in runs, with the moved card as `$record` — `openDrawer` opens that record in the named drawer, as a card click does, and `fill` writes one of its values into a form on the page. A drop into a column no entry names runs nothing else, and a move that fails to save runs no entry. A drawer an entry names stays closed until a drop opens it.
+
+```yaml
+- type: kanban
+  dataSource: { table: deals }
+  kanbanGroupBy: { field: stage }
+  drag:
+    persistAction: { type: crud, operation: update, table: deals }
+    onDrop:
+      - when: { value: Won }
+        action: { action: openDrawer, component: deal-won }
+- type: drawer
+  id: deal-won
+  props: { title: Deal won }
+  children:
+    - type: form
+      dataSource: { table: deals, mode: single, param: id }
+```
 
 `kanbanGroupBy.collapsed` lists the column values that start folded, for example `kanbanGroupBy: { field: status, collapsed: [done] }`. A folded column keeps its heading and record count, hides its cards, and carries a disclosure control the reader clicks to expand it — the column counterpart of `swimlanes.collapsed`. Columns fold on a board without `swimlanes`; a board that declares both axes keeps every column open.
 
@@ -38,6 +57,10 @@ The card takes `children` for its body — record components bound to the card's
 **Relationships print their label where the card shows text.** In a card's `children` content and in a footer item, a relationship field that declares `displayField` prints the related record's label — `$record.company` reads `Acme Robotics`, not `1`. Wherever the value builds an address — an `onClick` `path`, a `url`, an `href` — the same `$record.company` keeps the record's id, because a link built from a label would not resolve. A relationship that declares no `displayField` prints its id everywhere.
 
 **A top-level `colorField` has no effect on a kanban.** It is accepted and then ignored; the board reads `card.colorField`. This is the one place the three record views do not spell the key the same way.
+
+### Column widths
+
+By default every column takes the same readable width and the board scrolls sideways. `kanbanGroupBy.columnSizing: fill` lets the columns share the board's width from the `md` breakpoint up instead, so a five-stage pipeline fits a desktop screen. `kanbanGroupBy.columnWidths` gives named columns a fixed width from `md` up, in `px` or `rem` — the narrow closing columns of a pipeline, which hold few cards: `columnWidths: { Won: 6rem, Lost: 6rem }`. Below `md`, columns keep their fixed width whatever you declare.
 
 ## Swimlanes — the second axis
 

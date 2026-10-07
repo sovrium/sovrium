@@ -37,5 +37,9 @@ fields:
     column: brief
     label: Brief
   - kind: table-field
+    column: destination
+    label: Link to promote
+    helpText: Optional. Once the piece is scheduled, a tracked short link to it is made for you.
+  - kind: table-field
     column: status
     hidden: true

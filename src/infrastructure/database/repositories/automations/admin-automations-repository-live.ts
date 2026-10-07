@@ -126,6 +126,7 @@ const listAdminRunsImpl = async (
       durationMs: automationRuns.durationMs,
       error: automationRuns.error,
       createdAt: automationRuns.createdAt,
+      valuesErasedAt: automationRuns.valuesErasedAt,
     })
     .from(automationRuns)
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
@@ -183,6 +184,7 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
           durationMs: automationRuns.durationMs,
           error: automationRuns.error,
           createdAt: automationRuns.createdAt,
+          valuesErasedAt: automationRuns.valuesErasedAt,
         })
         .from(automationRuns)
         .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))

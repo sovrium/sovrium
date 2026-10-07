@@ -34,7 +34,6 @@ function toEntry(row: {
   return {
     id: String(row.id),
     name: String(row.name ?? ''),
-    // eslint-disable-next-line unicorn/no-null -- public wire contract: `image` is nullable, and JSON drops `undefined` entirely
     image: row.image ?? null,
   }
 }

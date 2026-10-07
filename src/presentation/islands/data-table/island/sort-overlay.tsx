@@ -37,8 +37,8 @@ import type { SortRow } from './use-ui-state'
  * | `<select>` direction        | combobox  | "Direction"     |
  * | `<button>` commit           | button    | "Add sort"      |
  *
- * NOTE: the panel is purely client-side. Saved views (Cycle 5) will
- * serialise the `activeSorts` array verbatim (matches `FilterRow` shape).
+ * NOTE: the panel is purely client-side and transient: the order it sets
+ * lasts for the reader's visit and is stored nowhere.
  */
 interface SortOverlayProps {
   readonly tableFields: readonly string[]

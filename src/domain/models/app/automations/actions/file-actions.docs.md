@@ -6,16 +6,20 @@ File actions operate against the app's configured storage, whether that is the l
 
 ## Storage
 
-| Operator   | Props                             | Does                       |
-| ---------- | --------------------------------- | -------------------------- |
-| `upload`   | `source`, `path?`, `contentType?` | Uploads a file to storage  |
-| `download` | `key`                             | Downloads a stored file    |
-| `delete`   | `key`                             | Deletes a stored file      |
-| `copy`     | `sourceKey`, `destinationKey`     | Copies a stored file       |
-| `move`     | `sourceKey`, `destinationKey`     | Moves or renames a file    |
-| `list`     | `prefix`, `limit?`                | Lists files under a prefix |
+| Operator   | Props                                         | Does                       |
+| ---------- | --------------------------------------------- | -------------------------- |
+| `upload`   | `source`, `path?`, `contentType?`, `headers?` | Uploads a file to storage  |
+| `download` | `key`                                         | Downloads a stored file    |
+| `delete`   | `key`                                         | Deletes a stored file      |
+| `copy`     | `sourceKey`, `destinationKey`                 | Copies a stored file       |
+| `move`     | `sourceKey`, `destinationKey`                 | Moves or renames a file    |
+| `list`     | `prefix`, `limit?`                            | Lists files under a prefix |
 
 A copy or a move keeps the source's bucket: a file uploaded through a bucket stays reachable through that bucket's API, and by `ai/transcribe` with `bucket`, under its new key. A file that belongs to no bucket stays in none.
+
+An `upload` `source` is a storage key, a `data:` URI or an `http(s)` URL. A URL may not point at a private, loopback or link-local address, and neither may any redirect it answers with: every hop is checked before it is requested, up to five are followed, and a refused one makes the step's output carry `error: invalid_outbound_url_<reason>` with nothing stored. A remote file is read up to 100 MiB; a larger one is not stored. Host names are not resolved before the check.
+
+A URL that needs credentials takes `headers`, whose values read template variables and `$env` secrets — for example `headers: { X-API-KEY: $env.MESSAGING_API_KEY }` to store a message attachment a messaging API serves only to its key. The headers go with the download and with a redirect to the same origin; a redirect to another origin is followed without them. Every header value is treated as a secret, whether it is a literal, a template or an `$env` reference: it never appears in the step's output, the run detail or the admin run detail. Headers are sent to the source as you write it, a plain `http://` URL included — use an `https://` source so they are not sent in clear.
 
 ## Metadata and access
 
@@ -24,7 +28,9 @@ A copy or a move keeps the source's bucket: a file uploaded through a bucket sta
 | `getMetadata` | `key`                                             | Reads size, content type and the rest           |
 | `signUrl`     | `key`, `expiresIn?`, `operation?`, `contentType?` | Mints a time-limited URL for download or upload |
 
-`contentType` binds the content type of an upload URL, and is ignored for a download.
+An upload URL points at the app itself and writes into the private `system` bucket: the file is catalogued there with no uploader, the bound content type and the deployment's file size limit apply, and a key that already holds a file is refused, both when the URL is minted and when it is used.
+It is an absolute URL when `BASE_URL` is set and a path from the site root otherwise, and its `expiresIn` is held between one minute and seven days.
+`contentType` is ignored for a download.
 
 ## Generation
 
@@ -53,6 +59,8 @@ A copy or a move keeps the source's bucket: a file uploaded through a bucket sta
 `skipRows` drops that many leading non-blank lines and nothing else, so it strips a preamble without changing the shape of the output: the first line that survives is still read as the header, and rows stay keyed by header name.
 
 `delimiter` is one of comma, semicolon, tab or pipe. Omitted, it is auto-detected by counting candidates **outside quoted fields** in the first surviving line, so a semicolon-delimited export whose header legitimately contains a comma still reads correctly. Pass `columns` to map explicitly instead, each entry taking a `name` plus either a `header` name or a zero-based `index`.
+
+`generateCsv` quotes a value that carries the active delimiter, a quote or a line break. A text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet opening the file reads it as text rather than running it as a formula; number cells are written unchanged. A value is a number when the data hands it over as one; a number that a template rendered into text is text.
 
 ## Spreadsheets — a closed subset
 

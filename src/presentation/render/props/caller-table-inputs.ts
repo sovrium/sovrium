@@ -12,11 +12,10 @@
  * readable with "view source" — it must say no more than the table API says
  * the same reader. The data-source pass stamps that API's own answer onto the
  * grid as `props._callerTable` (`withCallerTableView`, `data-source-modes.ts`):
- * the views `GET /api/tables/:t/views` lists her, each masked to the fields she
- * may read, and the map `GET /api/tables/:t/permissions` answers her. This
+ * the map `GET /api/tables/:t/permissions` answers her (and, for a grid bound
+ * to a view, that view as `GET /api/tables/:t/views/:v` answers her). This
  * module is the ONE place the grid's inputs are narrowed to it:
  *
- *  - `tableViews`: only the views she may open, as masked;
  *  - `tablePermissions`: her permission map, in place of the table's block;
  *  - `tableFields` / `fieldMeta`: only the fields her map lets her read;
  *  - each `fieldMeta` entry on a field her map does not let her write is
@@ -28,20 +27,19 @@
  *
  * Every per-reader field decision reads the map's `fields`, which is the
  * records API's own read and write predicates — so a surface that later needs
- * the same narrowing (the row-expand drawer, the related-records drawer, the
- * create form's field list) takes it from {@link readableFieldsOf} /
+ * the same narrowing (the row-expand drawer, the related-records drawer, an
+ * edit form's field list) takes it from {@link readableFieldsOf} /
  * {@link writableFieldsOf} rather than from a check of its own.
  *
  * Without a stamp — no auth configured, or a render outside the page route
  * funnel (the operator console's mounted surfaces, a unit test) — the grid
- * keeps every view and field the table declares, and carries no permissions
+ * keeps every field the table declares, and carries no permissions
  * at all: nothing in the island reads them. A static build passes through that
  * funnel and is stamped as the anonymous visitor.
  */
 
-import { resolveDataTableViews } from './resolve-data-table-views'
 import { narrowToBoundView, resolveBoundView } from './view-binding-inputs'
-import type { TypeSpecificResolvedInputs } from './type-specific-props-builder'
+import type { TypeSpecificResolvedInputs } from './resolve-type-specific-inputs'
 import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
@@ -65,6 +63,21 @@ export function readableFieldsOf(
 }
 
 /**
+ * The fields a component's reader may read: for one reading through a view,
+ * the view's columns as its route serves them to her
+ * ({@link boundViewFieldsOf}) — the view's grant, not the table's — otherwise
+ * those her permission map lets her read.
+ */
+export function readableFieldsForComponent(
+  table: Tables[number],
+  component: Component,
+  callerTable: CallerTableView
+): readonly string[] {
+  if (resolveBoundView(component, table) === undefined) return readableFieldsOf(table, callerTable)
+  return boundViewFieldsOf(table, callerTable) ?? table.fields.map((f) => f.name)
+}
+
+/**
  * The fields of `table` the reader `component` was stamped for may read, or
  * `undefined` (every field) without a stamp — for a list the server derives
  * from the table's declaration, such as a calendar's day-valued fields.
@@ -74,7 +87,9 @@ export function readableFieldSetOf(
   component: Component
 ): ReadonlySet<string> | undefined {
   const callerTable = callerTableOf(component)
-  return callerTable === undefined ? undefined : new Set(readableFieldsOf(table, callerTable))
+  return callerTable === undefined
+    ? undefined
+    : new Set(readableFieldsForComponent(table, component, callerTable))
 }
 
 /** The fields the reader may write — the records API's own write predicate. */
@@ -82,26 +97,6 @@ export function writableFieldsOf(callerTable: CallerTableView): readonly string[
   return Object.entries(callerTable.permissionMap?.fields ?? {})
     .filter(([, access]) => access.write)
     .map(([name]) => name)
-}
-
-/**
- * The views the reader may open, in the table's declared order, each as the API
- * masked it. A SQL-backed view (one with a `query`) is skipped exactly as
- * {@link resolveDataTableViews} skips it — the masked definition no longer says
- * which ones those are, so the declaration is asked.
- */
-function openableViews(
-  table: Tables[number],
-  callerTable: CallerTableView
-): ReadonlyArray<Record<string, unknown>> {
-  const sqlBacked = new Set(
-    (table.views ?? [])
-      .filter((view) => 'query' in view && Boolean((view as { readonly query?: unknown }).query))
-      .map((view) => String(view.id))
-  )
-  return (callerTable.views as ReadonlyArray<Record<string, unknown>>).filter(
-    (view) => !sqlBacked.has(String(view['id']))
-  )
 }
 
 /**
@@ -131,7 +126,6 @@ export function narrowToCaller(
               ])
           ),
     dataTablePermissions: callerTable.permissionMap,
-    dataTableViews: resolveDataTableViews(openableViews(table, callerTable)),
   }
 }
 
@@ -237,6 +231,21 @@ export function withCallerWritableColumns<C>(
       ? { ...column, editable: false }
       : column
   })
+}
+
+/**
+ * A grid declared `readOnly` is a reading for every reader: no column opens an
+ * editor, whatever its own `editable` says. Presentation only — the records
+ * API answers exactly as before.
+ */
+export function withoutInlineEditing<C>(
+  columns: readonly C[] | undefined
+): readonly C[] | undefined {
+  return columns?.map((column) =>
+    typeof (column as { readonly field?: unknown }).field === 'string'
+      ? { ...column, editable: false }
+      : column
+  )
 }
 
 /** The binding each alternate view of a grid cannot be drawn without. */

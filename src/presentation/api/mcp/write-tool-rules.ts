@@ -63,6 +63,12 @@ export interface WriteRuleInput {
   readonly userGroups: readonly string[]
   /** The caller is a visitor who is not signed in (her session's identity says so). */
   readonly signedOut: boolean
+  /**
+   * The caller's user id — every authenticated MCP credential names a user row —
+   * recorded as the uploader of any inline file a create stores, as the
+   * records API records its writer. Absent only on the fail-closed fallback.
+   */
+  readonly writerId: string | undefined
   readonly domainContext: DomainContext
 }
 
@@ -102,6 +108,7 @@ export const applyCreateRules = (
           role: input.userRole,
           groups: input.userGroups,
           signedOut: input.signedOut,
+          id: input.writerId,
         })
       )
     )

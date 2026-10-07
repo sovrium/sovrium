@@ -9,16 +9,16 @@
  * Boot-time repair of `default`-bound stored attachment URLs.
  *
  * ── What is being repaired ────────────────────────────────────────────────
- * `enrichAttachmentMetadata` (the record-create write path) used to persist a
- * hardcoded `/api/buckets/default/files/<key>` into every `single-attachment`
+ * Older releases of `enrichAttachmentMetadata` (the record-create write path)
+ * persisted a hardcoded `/api/buckets/default/files/<key>` into every `single-attachment`
  * column declaring `storeMetadata: true`, whatever bucket the column declared.
  * It wrote bad DATA rather than computing a bad response — the read enricher
  * deliberately leaves a `storeMetadata` object untouched (it carries no `key`),
  * so the API echoes the stored value verbatim and fixing the write path alone
  * repairs nothing already on disk.
  *
- * Then the implicit `default` bucket itself was retired: it became the built-in
- * `system` bucket, and a `/api/buckets/default/...` URL now answers 404. So a
+ * There is no implicit `default` bucket either: the built-in bucket is
+ * `system`, and a `/api/buckets/default/...` URL answers 404. So a
  * column that declares NO bucket is repaired too, onto `system` — unless the app
  * declares an ordinary bucket named `default`, in which case such a URL may be
  * right and is left alone.
@@ -175,7 +175,7 @@ const collectTableTargets = (
  * Every bucket-bound `storeMetadata` column across the app's tables.
  *
  * Exported for direct unit assertion of the PHYSICAL relation it resolves:
- * `[internal ref]` cannot prove that on its own, because
+ * A migration attachment URL backfill spec cannot prove that on its own, because
  * a generated view carries INSTEAD OF UPDATE triggers, so an UPDATE
  * mis-targeted at the view would still land on the base table's rows.
  */
@@ -206,9 +206,7 @@ const repairTarget = async (target: Readonly<RepairTarget>): Promise<number> => 
     return rebound === undefined ? [] : [{ id: row['row_id'], value: rebound }]
   })
 
-  // eslint-disable-next-line functional/no-loop-statements -- sequential per-row rewrite
   for (const repair of repairs) {
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await executeRaw(
       db,
       sql`UPDATE ${sql.identifier(relation)}
@@ -235,11 +233,8 @@ export const runAttachmentUrlBackfill = async (app: Readonly<App>): Promise<void
   // Sequential, not `Promise.all`: SQLite serializes writers anyway, and a
   // fan-out over an unbounded number of declared columns would contend for the
   // Postgres pool during boot.
-  // eslint-disable-next-line functional/no-let -- accumulator for the sequential loop below
   let repaired = 0
-  // eslint-disable-next-line functional/no-loop-statements -- sequential per-target repair
   for (const target of targets) {
-    // eslint-disable-next-line functional/no-expression-statements -- accumulate repaired-row count
     repaired += await repairTarget(target).catch((error: unknown) => {
       logError(
         `[attachment-url-backfill] repair of ${target.relation}.${target.column} failed (non-fatal)`,

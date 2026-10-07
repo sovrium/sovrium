@@ -14,9 +14,8 @@
  * how the parity target behaves and what keeps one aggregate vocabulary rather
  * than two that can drift.
  *
- * Grouping is also a RUNTIME state (the toolbar's Group menu, and saved views
- * carry `groupBy`), so a grid can be grouped by a reader with no static
- * `groupBy` block at all — which is why nothing here consults one.
+ * The grouping comes from the view the grid is bound to and reaches this
+ * module as data — which is why nothing here consults a config block.
  *
  * ## Scope: the groups follow the page, the numbers follow the view
  *

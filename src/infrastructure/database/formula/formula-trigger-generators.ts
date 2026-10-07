@@ -97,7 +97,7 @@ export const generateVolatileFormulaTriggerFunction = (
       const qualifiedFormula = qualifyColumnReferences(translatedFormula, fields, 't')
       // Cast numeric `/` division operands so integer division does not truncate
       // (`t.total_minutes / 60` → `CAST(t.total_minutes AS NUMERIC) / 60`) —
-      // [internal ref]. Runs AFTER qualification so it
+      // Runs AFTER qualification so it
       // matches the already-aliased references.
       const castFormula = pinFormulaClock(
         castFormulaDivisionOperands(qualifiedFormula, fields, 't'),
@@ -288,7 +288,6 @@ EXECUTE FUNCTION ${functionName}();
  * Create volatile formula triggers for a table
  * Helper function to create both trigger function and trigger in one call
  */
-/* eslint-disable functional/no-expression-statements */
 export const createVolatileFormulaTriggers = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   tableName: string,
@@ -306,4 +305,3 @@ export const createVolatileFormulaTriggers = async (
   await tx.unsafe(`DROP TRIGGER IF EXISTS trigger_compute_${tableName}_formulas ON ${tableName}`)
   await tx.unsafe(trigger)
 }
-/* eslint-enable functional/no-expression-statements */

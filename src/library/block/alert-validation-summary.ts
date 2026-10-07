@@ -45,10 +45,12 @@ export const entry = defineLibraryEntry({
                   children: [
                     {
                       type: 'text',
-                      props: {
-                        format: 'markdown',
-                        className:
-                          'text-sm [&_a]:underline [&_a]:underline-offset-4 [&_ul]:list-disc [&_ul]:pl-5',
+                      props: { format: 'markdown', className: 'text-sm' },
+                      classes: {
+                        parts: {
+                          link: 'underline underline-offset-4',
+                          list: 'list-disc pl-5',
+                        },
                       },
                       content: [
                         '- [Legal name is required](#legal-name)',

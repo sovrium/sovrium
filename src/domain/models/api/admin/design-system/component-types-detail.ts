@@ -95,7 +95,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   //                                       type's own union, which one
   //                                       `$param.type` page cannot satisfy for
   //                                       85 different types
-  // state markers on every cell breaks `[internal ref]`, which
+  //   state markers on every cell   breaks an admin design system spec, which
   //                                 pins each state at `toHaveCount(1)`; the
   //                                 builder avoids that with an outer-row-INDEX
   //                                 condition config has no operator for —
@@ -103,9 +103,9 @@ export const componentTypeDetailSchema = Schema.Struct({
   //                                 rather than leaving the reading end to
   //                                 guess the first row from its variant's name
   //
-  // ─── ADMITTED UNDER [internal ref], ON `snippet`'S TERMS EXACTLY ───────────────
+  // ─── ADMITTED UNDER THE FACTS-NOT-STRINGS RULE, ON `snippet`'S TERMS EXACTLY ───────────────
   //
-  // [internal ref] refuses a field embedding a choice belonging to the console — a
+  // The facts-not-strings rule refuses a field embedding a choice belonging to the console — a
   // word, a sentence, a label, a reading order — and admits a fact the console
   // cannot compute or a MECHANICAL projection of a payload the response already
   // describes. This is the second, and more plainly so than `snippet`: a cross
@@ -135,7 +135,7 @@ export const componentTypeDetailSchema = Schema.Struct({
     description:
       'Every variant of this type drawn in every state its category draws, FLAT — variants outer, states inner, each axis in its own published order. The one shape a config page can render the matrix from: a nested binding replaces the outer row with the inner, so a cell beneath it can name one axis but never both, while the cell’s identifier is composed from both. EMPTY — never absent — when either axis is empty, which is the product rather than a special case.',
   }),
-  // ─── [internal ref]: A CATALOGUED TYPE HAS A PAGE, DRAWABLE OR NOT ──────────────
+  // ─── the kit-card usage-count design: A CATALOGUED TYPE HAS A PAGE, DRAWABLE OR NOT ──────────────
   //
   // The same two fields the summary row carries, for the same reason and read
   // the same way: a page documenting a type the catalogue REPORTS rather than
@@ -191,8 +191,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // of them can be painted. So a type whose specimen the catalogue refuses
   // reports four states, passes a `stateCount gt 0` gate, and draws four cells
   // each holding the same refusal sentence — a heading over four apologies,
-  // which is the block the 2026-09-16 review asked to be dropped rather than
-  // explained.
+  // a block better dropped than explained.
   //
   // Published rather than derived on the page for the ordinary reason the two
   // counts above are: `visibility.record` compares one field against a scalar.
@@ -322,7 +321,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   }),
   // ─── THE REMAINDER, AND WHY IT IS A FACT RATHER THAN A CHOICE ────────────
   //
-  // [internal ref] refuses a field embedding a choice belonging to the console and
+  // The facts-not-strings rule refuses a field embedding a choice belonging to the console and
   // admits a fact the console cannot compute. "Show the first six" is a
   // CHOICE — how many chips fit is a design decision, and it stays in config,
   // which is why the cap arrives as `?routesLimit=` rather than being written
@@ -356,9 +355,9 @@ export const componentTypeDetailSchema = Schema.Struct({
     description:
       'How many OTHER catalogued types share this type’s category. `0` — never absent — for the only type in its category, which is the gate for that empty state.',
   }),
-  // ─── ADMITTED UNDER [internal ref], AND THE TEST IS WORTH RESTATING ─────────────
+  // ─── ADMITTED UNDER THE FACTS-NOT-STRINGS RULE, AND THE TEST IS WORTH RESTATING ─────────────
   //
-  // [internal ref] refuses a field that embeds a choice belonging to the console — a
+  // The facts-not-strings rule refuses a field that embeds a choice belonging to the console — a
   // word, a sentence, a label, a reading order — and admits a fact the console
   // cannot compute or a MECHANICAL SERIALIZATION of a payload the response
   // already describes. This is the second: `specimenSnippet` walks the drawn
@@ -393,7 +392,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // So the projection that the builder did in code arrives as a field, and the
   // page stamps it where the builder stamped it.
   //
-  // Admitted under [internal ref] on the same footing as `snippet` beside it, and by
+  // Admitted under the facts-not-strings rule on the same footing as `snippet` beside it, and by
   // the same test: `JSON.stringify` over the specimen's own props makes no
   // editorial choice anywhere — no word, no sentence, no reading order. It is a
   // mechanical serialization of a payload this response already describes.

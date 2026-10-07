@@ -6,6 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { CssLengthSchema } from '../../../../../css-length'
+import { responsiveValue } from '../../../responsive'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
@@ -38,9 +40,9 @@ export const calendarFields = {
    * hashing the value onto a fixed fallback palette. A grid's `rowColorField`
    * does not — it fills only from a declared option colour. Both behaviours are
    * deliberate (a surface that painted before the option-colour amendment keeps
-   * painting; one that never did does not start), and the difference used to be
-   * stated nowhere, so an author naming one column on both surfaces got colour
-   * in one and not the other with nothing to explain it.
+   * painting; one that never did does not start), and the difference is stated
+   * here so an author naming one column on both surfaces, and getting colour in
+   * one and not the other, has something to explain it.
    *
    * Two consequences of the hash worth knowing: the colour is a function of the
    * VALUE and not of the record set, so it is stable as rows come and go; and
@@ -62,6 +64,18 @@ export const calendarFields = {
   ),
   calendarEvent: Schema.optional(CalendarEventConfigSchema),
   calendarInteraction: Schema.optional(CalendarInteractionSchema),
+  /**
+   * The least height a day cell of the month view takes, per breakpoint if
+   * needed. Every cell of a row grows to its busiest day either way; this sets
+   * the floor, so a quiet month still reads as a grid rather than a strip —
+   * and a phone can take a lower floor than a desktop.
+   */
+  dayMinHeight: Schema.optional(
+    responsiveValue(
+      CssLengthSchema.annotate({ description: 'A height in px or rem' }),
+      'The least height of a day cell in the month view'
+    )
+  ),
 } as const
 
 // Re-export all sub-schemas

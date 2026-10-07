@@ -28,7 +28,7 @@ import type { ReactElement } from 'react'
  *
  * A link here is discovered at HTML-PARSE time, so the chunk fetch runs BESIDE
  * the entry rather than behind it and the entry's own `import()` finds the
- * module already in the map. Measured by mutation on 2026-09-02: with these
+ * module already in the map. Measured by mutation: with these
  * links 17/17 of `[internal ref]`
  * pass, with them suppressed 7/17.
  *

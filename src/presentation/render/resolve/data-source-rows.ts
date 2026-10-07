@@ -25,6 +25,7 @@ import {
 } from '@/presentation/render/registry/system-detail-mode'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { desugarSystemSourceRef } from './data-source-contracts'
+import { emptyListMarkers } from './empty-list-markers'
 import { resolveListIslandInputs } from './list-island-inputs'
 import {
   expandRepeat,
@@ -33,6 +34,7 @@ import {
   type RecordScope,
 } from './record-repeat-expansion'
 import {
+  RECORD_VALUE_TYPES,
   injectRecordFieldValue,
   substituteRecordInComponent,
   substituteRecordInContent,
@@ -49,7 +51,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 /**
  * Variant of `substituteRecordInComponent` used by the collection-page
  * resolver to substitute the parent collection record's fields into the
- * page's components ([internal ref] — Category & Tag
+ * page's components (the pages access publishing requirement — Category & Tag
  * Patterns).
  *
  * The key difference from `substituteRecordInComponent`: when a component
@@ -71,12 +73,10 @@ export function substituteRecordInCollectionTemplate(
   tableName?: string,
   scope?: RecordScope
 ): Component {
-  // A `record-field` needs the bound record's raw value injected, exactly as it
-  // does under a component-level single-mode dataSource. Without this branch the
-  // component renders an empty region on every collection page — the shape every
-  // slug-routed detail page actually uses — while `$record.*` interpolation on
-  // the same page resolves normally, so the binding looks healthy.
-  if (component.type === 'record-field') {
+  // A `record-field` (or a field-bound control) needs the bound record's raw
+  // value injected, as under a single-mode dataSource. Without this it renders
+  // empty on every collection page while `$record.*` resolves normally.
+  if (RECORD_VALUE_TYPES.has(component.type)) {
     return injectRecordFieldValue(component, record, tableName)
   }
 
@@ -90,7 +90,7 @@ export function substituteRecordInCollectionTemplate(
     resolvedContent.forcePlainText
   )
   const baseContent = json ?? resolvedContent.content
-  const templatePatch = buildRecordTemplatePatch(component, record)
+  const templatePatch = buildRecordTemplatePatch(component, record, tableName)
 
   if (component.dataSource) {
     return {
@@ -146,8 +146,8 @@ export type RowSubstitutionDepth = 'deep' | 'stop-at-nested-binding'
 /**
  * The element each expanded row is wrapped in.
  *
- * `'li'` is the historical synthesis and stays the default: a data-bound LIST
- * renders `<ul>`, and its rows are list items.
+ * By default a data-bound LIST (`<ul>`) wraps its rows in `'li'`; any other
+ * host in `'div'`, as an `<li>` outside a list paints a bullet beside each row.
  *
  * `'div'` exists for a row template nested inside another one, and the reason is
  * the HTML PARSER rather than taste. An `<li>` start tag closes any open `<li>`
@@ -183,15 +183,11 @@ function paginationMarkers(
   }
 }
 
-/** A data-bound component with no row to draw: no template, and a list's empty message. */
+/** A data-bound component with no row to draw: no template, and a list's empty-state markers. */
 function withNoRows(
   component: Component,
   paginationProps: Readonly<Record<string, unknown>>
 ): Component {
-  const { listDisplay } = component as {
-    readonly listDisplay?: { readonly emptyMessage?: unknown }
-  }
-  const emptyMessage = listDisplay?.emptyMessage
   return {
     ...component,
     children: [],
@@ -199,9 +195,7 @@ function withNoRows(
       ...(component.props ?? {}),
       _dataSourceBound: true,
       ...paginationProps,
-      ...(component.type === 'list' && typeof emptyMessage === 'string'
-        ? { _listEmptyMessage: emptyMessage }
-        : {}),
+      ...emptyListMarkers(component),
     },
   } as Component
 }
@@ -212,7 +206,7 @@ export function expandDataSourceChildren(
   paginationMeta?: PaginationMeta,
   expansion: RowExpansionOptions = {}
 ): Component {
-  const { substitution = 'deep', rowWrapper = 'li' } = expansion
+  const { substitution = 'deep', rowWrapper = component.type === 'list' ? 'li' : 'div' } = expansion
   const paginationProps = paginationMarkers(component, paginationMeta)
 
   if (!component.children || component.children.length === 0) {
@@ -229,9 +223,9 @@ export function expandDataSourceChildren(
     const kept = filterChildrenForRecord(component.children!, record)
 
     // A record that gated away EVERY child of its template gets no row element
-    // at all. The per-row filter reaches the children and used to stop one
-    // element short of the wrapper, so such a record still produced an `<li>`
-    // holding nothing — and no config could prevent it, because `rowWrapper` is
+    // at all. The per-row filter reaches the children; stopping one element
+    // short of the wrapper would leave such a record an `<li>` holding nothing
+    // — and no config could prevent it, because `rowWrapper` is
     // chosen here and has no node an author could hang a predicate on.
     //
     // The rule is stated on the FILTERED CHILDREN rather than on the predicate:
@@ -382,7 +376,7 @@ export function stampNestedIslands(
   // all share, as `expandDataSourceChildren` does.
   const children = host.children as
     ReadonlyArray<Component | ComponentReference | string> | undefined
-  if (!children || children.length === 0) return host
+  if (!Array.isArray(children) || children.length === 0) return host
   const stamped = children.map((child) => stampNestedChild(child, ctx))
   return stamped.some((child, index) => child !== children[index])
     ? ({ ...host, children: stamped } as Component)
@@ -469,6 +463,6 @@ export function stampTemplateIslands(
   if (components === undefined || components.length === 0) return components
   const stamped = components.map((template) => stampNestedChild(template as Component, ctx))
   return stamped.some((template, index) => template !== components[index])
-    ? (stamped as unknown as App['components'])
+    ? (stamped as App['components'])
     : components
 }

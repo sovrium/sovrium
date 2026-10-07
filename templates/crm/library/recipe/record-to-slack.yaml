@@ -1,0 +1,17 @@
+# sovrium-library: recipe/record-to-slack@0.30.0
+name: record-to-slack
+trigger:
+  type: record
+  table: deals
+  events:
+    - create
+actions:
+  - name: announce
+    type: connection
+    operator: call
+    props:
+      connection: slack
+      operation: post-message
+      params:
+        channel: sales
+        text: 'New in deals: {{trigger.data.record.name}}'

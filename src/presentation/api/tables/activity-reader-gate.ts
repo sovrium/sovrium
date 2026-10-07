@@ -151,7 +151,7 @@ function planRule(app: App, table: Table, guard: RowLevelGuardContext): TablePla
 /** The plan for one table (see {@link TablePlan}). */
 async function planTable(c: Context, app: App, table: Table): Promise<TablePlan> {
   const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(session, { userRole, userGroups }, table, app)
+  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   if (checkGetReadGate({ c, app, table, userRole, userGroups, guard })) return REFUSED
   if (!guard || !table.rowLevelPermissions?.read?.when || guard.current.isUnrestricted) return ALL
   return planRule(app, table, guard)
@@ -237,7 +237,6 @@ export function projectActivityActor<A extends EntryActor>(
   app: App,
   actor: A | null
 ): A | PublicActor | null {
-  // eslint-disable-next-line unicorn/no-null -- the wire names a system-logged entry's actor `null`
   if (actor === null) return null
   if (readerIsAdmin(c, app) || actor.id === getTableContext(c).session.userId) return actor
   return { id: actor.id, name: actor.name }

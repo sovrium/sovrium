@@ -121,7 +121,6 @@ const settleBatch = async (
     batch.map((run) => sql`${run.id}`),
     sql`, `
   )
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
   await executeRaw(
     tx,
     sql`DELETE FROM ${systemTableRef('automation_run_refs')} WHERE table_name = '' AND run_id IN (${ids})`

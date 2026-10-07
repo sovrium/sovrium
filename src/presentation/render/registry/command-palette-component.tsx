@@ -87,7 +87,6 @@ function renderSearchPalette(search: PaletteSearch): ReactElement {
       <script
         type="application/json"
         data-command-palette-config="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR config emission
         dangerouslySetInnerHTML={{ __html: configJson }}
       />
       <div
@@ -364,22 +363,18 @@ export const commandPaletteComponent: ComponentRenderer = (
     strings: paletteStrings(config),
   }
   // `serializeJsonForScript` escapes `<` so a value containing `</script>`
-  // cannot break out of the JSON config `<script>` block. This escape used to
-  // live here as a local one-off; it is now the shared serializer every
-  // script-body emission in src/ uses.
+  // cannot break out of the JSON config `<script>` block. It is the shared
+  // serializer every script-body emission in src/ uses, not a local one-off.
   const paletteConfigJson = serializeJsonForScript(paletteConfig)
   return (
     <>
       <script
         type="application/json"
         data-command-palette-config="true"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR config emission
         dangerouslySetInnerHTML={{ __html: paletteConfigJson }}
       />
-      <script
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
-        dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_RUNTIME }}
-      />
+      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
+      <script dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_RUNTIME }} />
     </>
   )
 }

@@ -14,9 +14,9 @@ import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
  * The single root secret every cryptographic purpose in Sovrium derives from.
  *
  * Sovrium's headline promise is that a fresh install runs with an empty
- * environment. That used to be false: the server refused to boot without
- * `SOVRIUM_ENCRYPTION_KEY`, which broke unattended deploys outright and pushed
- * local setups onto a publicly-known constant. The whole of `src/` is
+ * environment. Refusing to boot without `SOVRIUM_ENCRYPTION_KEY` would break
+ * unattended deploys outright and push local setups onto a publicly-known
+ * constant. The whole of `src/` is
  * mirrored to a public repository and compiled into every shipped binary, so a
  * built-in default key would have made the encryption decorative.
  *
@@ -107,8 +107,8 @@ export const classifyKeyReadError = (cause: unknown): 'absent' | 'unreadable' =>
  * Every other failure — EACCES on a key owned by another uid, EIO on failing
  * storage, EISDIR where a directory shadows the path — THROWS.
  *
- * That distinction is the entire job of this function, and it used to be a bare
- * `catch { return undefined }`. Returning `undefined` here does not mean "no
+ * That distinction is the entire job of this function, which is why it is not
+ * a bare `catch { return undefined }`. Returning `undefined` here does not mean "no
  * key"; it means "generate one", and `generateAndPersist` then writes OVER the
  * file it could not read. Every OAuth token, connection credential and
  * automation secret encrypted under the old key becomes permanently
@@ -129,7 +129,6 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
     return contents.length > 0 ? contents : undefined
   } catch (cause) {
     if (classifyKeyReadError(cause) === 'absent') return undefined
-    // eslint-disable-next-line functional/no-throw-statements -- fail-loud: generating a replacement key would silently orphan every secret encrypted under the unreadable one
     throw new Error(unreadableMessage(keyFilePath, cause), { cause })
   }
 }
@@ -139,7 +138,7 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
  *
  * It names the path it could not write AND the env var that removes the need to
  * write anything at all — an operator hitting this on a read-only container
- * filesystem needs both halves to act. Asserted by [internal ref].
+ * filesystem needs both halves to act. Asserted by a CLI zeroconf spec.
  */
 const unwritableMessage = (keyFilePath: string, cause: unknown): string =>
   `Sovrium could not write its encryption key to ${keyFilePath} ` +
@@ -163,7 +162,6 @@ const unwritableMessage = (keyFilePath: string, cause: unknown): string =>
  */
 const writeKeyFileAtomically = (keyFilePath: string, contents: string): void => {
   const tempPath = `${keyFilePath}.${randomBytes(6).toString('hex')}.tmp`
-  // eslint-disable-next-line functional/no-expression-statements -- filesystem provisioning; mirrors writeLockFile's mkdir-then-write precedent
   mkdirSync(dirname(keyFilePath), { recursive: true })
   writeFileSync(tempPath, contents, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
   // `mode` on writeFileSync applies only on creation and is masked by umask,
@@ -177,7 +175,6 @@ const generateAndPersist = (keyFilePath: string): string => {
   try {
     writeKeyFileAtomically(keyFilePath, `${generated}\n`)
   } catch (cause) {
-    // eslint-disable-next-line functional/no-throw-statements -- fail-loud: a process-local key would silently orphan every token it wrote
     throw new Error(unwritableMessage(keyFilePath, cause), { cause })
   }
   return generated
@@ -196,7 +193,6 @@ const resolve = (): RootSecretResolution => {
   return { secret: generateAndPersist(keyFilePath), source: 'generated', keyFilePath }
 }
 
-// eslint-disable-next-line functional/no-let -- one-shot process-lifetime memo; resolution must stay lazy so importing this module provisions nothing
 let cached: RootSecretResolution | undefined
 
 /**
@@ -212,7 +208,6 @@ let cached: RootSecretResolution | undefined
  */
 export const provisionRootSecret = (): RootSecretResolution => {
   if (cached !== undefined) return cached
-  // eslint-disable-next-line functional/no-expression-statements -- memo assignment
   cached = resolve()
   return cached
 }
@@ -230,7 +225,7 @@ export const deriveSubkey = (purpose: string, length = 32): Buffer =>
 /**
  * Human-readable provenance for the startup banner.
  *
- * The three phrasings are a CONTRACT, not cosmetics: [internal ref]
+ * The three phrasings are a CONTRACT, not cosmetics: a CLI zeroconf spec
  * distinguish a generated secret from a read one from a supplied one purely by
  * this wording, and that distinction is what lets an operator tell "my key is
  * being regenerated on every restart" from "my key is stable" without reading

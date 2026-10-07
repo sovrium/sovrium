@@ -103,13 +103,47 @@ const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitCon
     // `false` the endpoint 401s before reaching here, so the limiter simply
     // never becomes the binding constraint — and it is already in place on the
     // day someone flips the env var, which is the point.
-    // Spec: [internal ref].
     '/api/auth/oauth2/register': {
       windowMs,
       maxRequests: 20,
     },
+    // Every route that mails an address the caller names. Better Auth's own
+    // limiter is off (`buildRateLimitConfig`), and that silences its plugins'
+    // per-route rules too, so these rows restore the budgets the dependency's
+    // authors chose: 5 for magic links (the plugin's default), 3 for one-time
+    // codes (the plugin's default) and for verification resends and email
+    // changes (Better Auth's built-in rule). The request past the budget is
+    // refused here, before Better Auth runs, so it sends nothing. The unit test
+    // beside this file enumerates the vendored routes that send mail and fails
+    // when one has no row and no recorded reason to go without.
+    '/api/auth/sign-in/magic-link': { windowMs, maxRequests: 5 },
+    '/api/auth/email-otp/send-verification-otp': { windowMs, maxRequests: 3 },
+    '/api/auth/email-otp/request-password-reset': { windowMs, maxRequests: 3 },
+    // Deprecated upstream in favour of the route above, but still served.
+    '/api/auth/forget-password/email-otp': { windowMs, maxRequests: 3 },
+    '/api/auth/send-verification-email': { windowMs, maxRequests: 3 },
+    // Mails the NEW address, which the signed-in caller chooses freely.
+    '/api/auth/change-email': { windowMs, maxRequests: 3 },
+    // Sovrium's own invitation route. A non-admin role granted `canInvite` can
+    // mail any address through it, and the admin limiter (10 per SECOND) is no
+    // budget for mail.
+    '/api/auth/admin/invite-user': { windowMs, maxRequests: 10 },
+    // Re-mails a pending invitation. Admin-equivalent only, but an admin
+    // session (or a stolen one) must not turn it into an unmetered mail cannon
+    // aimed at one inbox. A ROUTE PATTERN, not an exact path: the middleware
+    // mounts each key with Hono's own matching and records against the key, so
+    // the budget is per client address across every invitation.
+    '/api/admin/invitations/:id/resend': { windowMs, maxRequests: 10 },
   }
 }
+
+/**
+ * The paths the auth rate-limit middleware is mounted on: exactly the keys of
+ * the budget table, so a route cannot carry a budget without being guarded,
+ * or be guarded without a budget.
+ */
+export const getAuthRateLimitedPaths = (): readonly string[] =>
+  Object.keys(getAuthRateLimitConfigs())
 
 const getAuthRateLimitKey = (endpoint: string, ip: string): string => `${endpoint}:${ip}`
 

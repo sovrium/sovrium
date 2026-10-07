@@ -51,7 +51,7 @@ const upgradeFormReferencedAttachments = (
 }
 
 /**
- * [internal ref] (slug-management): Normalize the table-
+ * the pages access publishing requirement (slug-management): Normalize the table-
  * level `unique: [{ fields: [...] }]` sugar into the existing primitives
  * so constraint-sync and index-sync handle persistence without a new
  * code path:

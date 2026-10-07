@@ -20,13 +20,12 @@
  *
  * ## Why the command exists
  *
- * Migrating and booting used to be the same action: the only entry point was
- * `sovrium start`, and the generated Procfile carries nothing else. That
- * coupling is invisible until a boot cannot complete — and when v0.23.0 could
- * not boot over a v0.22.2 Postgres database, the one command an
- * operator could run was the one that would not run. Both production databases
- * were repaired by executing Sovrium's own `runMigrations` over a database
- * tunnel from a laptop.
+ * Without it, migrating and booting are the same action: `sovrium start` is the
+ * only entry point, and the generated Procfile carries nothing else. That
+ * coupling is invisible until a boot cannot complete — when v0.23.0 could not
+ * boot over a v0.22.2 Postgres database, the one command an operator could run
+ * was the one that would not run, and the databases had to be repaired by
+ * executing Sovrium's own `runMigrations` over a database tunnel from a laptop.
  *
  * This command does NOT fix that ordering defect and must not be offered as its
  * remedy. It makes a broken upgrade survivable, which is a different
@@ -46,7 +45,7 @@
  * sits as an ARGUMENT EXPRESSION at `src/index.ts:123`, so it performs database
  * I/O while the program value is built, before any Effect runs. That is the
  * exact v0.23.0 mechanism. Every database import below is dynamic, and
- * `[internal ref]` pins the property behaviourally by running the command with
+ * a CLI migrate spec pins the property behaviourally by running the command with
  * `DATABASE_URL` and nothing else.
  */
 
@@ -115,9 +114,7 @@ const describeFailure = (error: unknown): string =>
 /** Print a refusal to stderr and exit 1. */
 const fail = (headline: string, detail: readonly string[], guidance: string): never => {
   printFailure({ headline, detail, guidance })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
-  // eslint-disable-next-line functional/no-throw-statements -- unreachable; narrows the return type to `never`
   throw new Error('unreachable')
 }
 
@@ -125,18 +122,18 @@ const fail = (headline: string, detail: readonly string[], guidance: string): ne
  * `--check`: report where the database stands, and refuse if it cannot be
  * upgraded.
  *
- * Covers BOTH machines. [internal ref]'s own table names "a type coercion over
+ * Covers BOTH machines. The two-machine `sovrium migrate` design's own table names "a type coercion over
  * populated rows" as Layer B's failure class, so a `--check` that printed
  * "Safe to migrate." while such a coercion would abort the boot would be
- * under-reporting — the thing [internal ref] classes as a defect rather than a
+ * under-reporting — the thing the two-machine `sovrium migrate` design classes as a defect rather than a
  * limitation.
  *
  * ## On the "no config in reach" caveat
  *
- * [internal ref] flags that `runCheck` takes no `App` and asks for the Layer-B section
+ * the assert-data-not-exit-codes rule for upgrades flags that `runCheck` takes no `App` and asks for the Layer-B section
  * to be conditional on a config resolving. Measured rather than assumed: the
  * COMMAND already requires one. `handleMigrateCommand` calls `requireApp`
- * before dispatching to any mode, and `[internal ref]` pins that a `migrate`
+ * before dispatching to any mode, and a CLI migrate spec pins that a `migrate`
  * invocation with no discoverable config refuses with
  * `Error: File not found: ./app.yaml` before opening a connection. So an
  * operator down a database tunnel with no config never reaches this function at
@@ -172,7 +169,6 @@ const runCheck = async (app: App, options: MigrateRunOptions): Promise<void> => 
     )
   }
 
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(0)
 }
 
@@ -201,7 +197,6 @@ const runDryRun = async (app: App, options: MigrateRunOptions): Promise<void> =>
     )
   }
 
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(0)
 }
 
@@ -228,7 +223,6 @@ const runApply = async (app: App, options: MigrateRunOptions): Promise<void> => 
     appliedBlock(before, after),
     configTablesBlock((app.tables ?? []).map((table) => table.name)),
   ])
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(0)
 }
 
@@ -254,7 +248,7 @@ export const handleMigrateCommand = async (options: MigrateCommandOptions): Prom
   const { app, authoredTableIds } = await requireApp(configFile)
 
   // Every mode now reads `app`: `--check` covers the dynamic tables too
-  // ([internal ref]'s Layer B), read-only. It still creates nothing — describing a
+  // (the two-machine `sovrium migrate` design's Layer B), read-only. It still creates nothing — describing a
   // table is exactly what the mode promises to do without building it.
   const runOptions: MigrateRunOptions = {
     allowDestructive: options.allowDestructive,

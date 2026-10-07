@@ -15,8 +15,9 @@ import {
 /**
  * Fetches records for the gallery component in a single page.
  *
- * Galleries display all records up-front as a card grid; the shared records
- * query requests a large single page rather than paginating client-side. With a
+ * Galleries display their records up-front as a card grid, in a single page:
+ * no more than the binding's `limit`, the first ones in its sort order, and
+ * the whole set when it declares none. With a
  * `dataSource.system` binding the rows come from a named read endpoint instead
  * of the DB-table records API. The gallery's row→card mapping stays in the
  * gallery components — this hook only owns the fetch.
@@ -28,6 +29,7 @@ export function useGalleryRecords(dataSource: RecordsDataSource | undefined) {
     useLazySharedFilter(
       { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
       buildFilterParam(dataSource?.filter)
-    )
+    ),
+    true
   )
 }

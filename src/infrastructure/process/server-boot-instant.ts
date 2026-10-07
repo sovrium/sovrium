@@ -27,12 +27,10 @@
  * Sovrium runs one server per process.
  */
 
-// eslint-disable-next-line functional/no-let -- the boot instant is not knowable until a server starts, and each boot the harness performs inside one process re-publishes it
 let bootInstantMs: number = Date.now()
 
 /** Record that a server is starting now, and return the instant recorded. */
 export const publishServerBootInstant = (): Readonly<Date> => {
-  // eslint-disable-next-line functional/no-expression-statements -- publishing the instant is the point
   bootInstantMs = Date.now()
   return new Date(bootInstantMs)
 }

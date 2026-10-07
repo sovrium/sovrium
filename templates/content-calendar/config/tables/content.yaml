@@ -135,6 +135,17 @@ fields:
     type: formula
     formula: "CASE WHEN publish_at IS NOT NULL AND status IN ('Idea', 'Draft', 'Review') AND substr(CAST(publish_at AS TEXT), 1, 10) < CAST(CURRENT_DATE AS TEXT) THEN 'Late' ELSE '' END"
     resultType: string
+  # The page the piece points readers to — an article, a sign-up, a video.
+  # Optional; a piece with one gets a tracked short link when it is scheduled.
+  - id: 19
+    name: destination
+    type: url
+  # The tracked short link to `destination`, minted when the piece moves to
+  # Scheduled (config/automations/mint-tracked-link.yaml). Share this one: every
+  # click on it is counted on the admin console's Links page, by channel.
+  - id: 20
+    name: tracked_link
+    type: url
 
 views:
   # Everything not yet out: the count beside Pipeline in the sidebar.
@@ -143,6 +154,13 @@ views:
     filters:
       and:
         - { field: status, operator: notEquals, value: Published }
+  # The plan as the Content page shows it: by campaign, earliest date first.
+  - id: by_campaign
+    name: By campaign
+    sorts:
+      - { field: publish_at, direction: asc }
+    groupBy:
+      field: campaign
 
 # Everyone on the team plans and writes; only an admin deletes a piece.
 permissions:

@@ -83,6 +83,8 @@ Draws one option of one type, set to the value you name — so a setting can be 
 
 All three parts of `subject` are required. `subject.type` is a catalogued type name, or `$param.<name>` naming a segment of the host page's path, or `$record.<field>` naming a column of the row the preview is expanded from. `subject.option` is a path in the dotted grammar the component-type options endpoint publishes, with `[]` for an array level. `subject.value` is a string, a number or a boolean; a string is coerced against the option's own kind, so a row template carrying `$record.value` draws the same thing a literal `2` would.
 
+A subject the catalogue can answer is checked when the config is read. An option path the type does not publish is refused, naming the paths it does publish. For an option with a closed set of values — `badge.variant` accepts `status` and `contrast` — a value outside that set is refused too, naming the values it accepts; an open option such as a string or a number has no set to be outside of. A deferred part (`$param.` or `$record.`) is a fact about the request or the row, so it is not checked.
+
 ```yaml
 components:
   - type: preview

@@ -9,12 +9,11 @@
  * Two synchronous inline `<head>` scripts, and the predicates that decide which
  * of them a page needs.
  *
- * They used to be ONE script behind ONE gate, and that was the defect: the
- * mobile sidebar drawer toggle travelled inside the command palette's
- * open-capture, so a page with a sidebar and no palette had no burger at all —
- * on a viewport where the sidebar is hidden, that is a page with no navigation.
- * They are unrelated behaviours with unrelated triggers, so they are now two
- * scripts on two gates.
+ * They are not ONE script behind ONE gate: if the mobile sidebar drawer toggle
+ * travelled inside the command palette's open-capture, a page with a sidebar
+ * and no palette would have no burger at all — on a viewport where the sidebar
+ * is hidden, that is a page with no navigation. They are unrelated behaviours
+ * with unrelated triggers, so they are two scripts on two gates.
  */
 
 import { isNavigationSidebar } from '@/presentation/render/registry/search-palette-mode'
@@ -82,7 +81,7 @@ export function hasDrawerSidebar(
 
 /**
  * Synchronous inline open-capture for the ⌘K command palette
- *. Emitted in `<head>` so it runs during HTML parse —
+ * Emitted in `<head>` so it runs during HTML parse —
  * BEFORE `islands.js` downloads — and captures a `⌘K` / `Ctrl+K` press (or a
  * search-affordance click) that lands before the palette island hydrates
  * (e.g. right after an in-app navigation). It records the intent in

@@ -55,7 +55,7 @@ const OPTION_COLOR_HEX = /^#[0-9a-fA-F]{6}$/
  * object `{ value, label?, color? }` with a stable `value`, an optional display
  * `label`, and an optional `color`. The `label` may be a `$t:` translation key
  * resolved at render time (
- * AC [internal ref] and the tables selection field-type stories).
+ * AC a forms spec and the tables selection field-type stories).
  *
  * `color` is the author's own datum, not platform ornament, so it is admitted
  * under [internal ref] A7 ruling 1. It renders as a **fill**; the platform derives the

@@ -29,6 +29,19 @@ export interface TopLevelFormSubmissionRow {
 }
 
 /**
+ * A top-level row reached by its private token (a draft's resume link, or a
+ * submission's edit link), with what those two links need to decide.
+ */
+export interface AccessibleFormSubmissionRow {
+  readonly id: string
+  readonly status: string
+  readonly data: Record<string, unknown>
+  readonly submittedAt: Date
+  readonly linkedRecordId: string | null
+  readonly submitterUserId: string | null
+}
+
+/**
  * Form Submission Repository Port.
  *
  * Backs `system.form_submissions` — supports two coexisting submission
@@ -71,12 +84,16 @@ export class FormSubmissionRepository extends Context.Service<
       /**
        * SHA-256(salt + submitter IP) as 64 hex chars, over a salt derived from
        * the install's root secret and stable across restarts. The top-level
-       * forms write path NEVER receives a raw IP — [internal ref]
+       * forms write path NEVER receives a raw IP
        * + S5 GDPR-erasure require hash-on-write at the submission boundary.
        */
       readonly submitterIpHash?: string
       readonly userAgent?: string
       readonly submitterUserId?: string
+      /** The address a draft's resume link was mailed to. */
+      readonly guestEmail?: string
+      /** SHA-256 of the row's private token; the token itself is never stored. */
+      readonly accessTokenHash?: string
     }) => Effect.Effect<TopLevelFormSubmissionRow, FormSubmissionDatabaseError>
     /**
      * Count non-deleted top-level submissions for `formName` whose status is
@@ -126,6 +143,40 @@ export class FormSubmissionRepository extends Context.Service<
       readonly id: string
       readonly status: string
       readonly statusReason?: string | null
+    }) => Effect.Effect<void, FormSubmissionDatabaseError>
+    /** Attach the digest of a submission's edit-link token to its row. */
+    readonly setAccessTokenHash: (input: {
+      readonly id: string
+      readonly accessTokenHash: string
+    }) => Effect.Effect<void, FormSubmissionDatabaseError>
+    /** The live row of `formName` stored under `accessTokenHash`, if any. */
+    readonly findByAccessToken: (input: {
+      readonly formName: string
+      readonly accessTokenHash: string
+    }) => Effect.Effect<AccessibleFormSubmissionRow | undefined, FormSubmissionDatabaseError>
+    /** Hard-delete one row (a consumed or expired draft holds personal data). */
+    readonly deleteById: (input: {
+      readonly id: string
+    }) => Effect.Effect<void, FormSubmissionDatabaseError>
+    /**
+     * Hard-delete the drafts of `formName` saved before `savedBefore` — their
+     * resume links have expired. Answers how many went.
+     */
+    readonly deleteDraftsSavedBefore: (input: {
+      readonly formName: string
+      readonly savedBefore: Date
+    }) => Effect.Effect<number, FormSubmissionDatabaseError>
+    /**
+     * Hard-delete every draft of a form NOT in `formNames` — a form removed, or
+     * one no longer declaring `saveAndResume`, whose links can reopen nothing.
+     */
+    readonly deleteDraftsOutside: (input: {
+      readonly formNames: readonly string[]
+    }) => Effect.Effect<number, FormSubmissionDatabaseError>
+    /** Replace a row's stored answers (an edit through the edit link). */
+    readonly updateData: (input: {
+      readonly id: string
+      readonly data: Record<string, unknown>
     }) => Effect.Effect<void, FormSubmissionDatabaseError>
   }
 >()('FormSubmissionRepository') {}

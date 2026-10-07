@@ -47,10 +47,10 @@ interface MigrationSet {
 // `with { type: 'file' }` imports return a path string at runtime, but TS types
 // them as the imported module's content (JSON/config shape). Cast through
 // `unknown` to recover the true runtime type.
-const MIGRATIONS = RAW_MIGRATIONS as unknown as Readonly<Record<EmbeddedDialect, MigrationSet>>
+const MIGRATIONS = RAW_MIGRATIONS as Readonly<Record<EmbeddedDialect, MigrationSet>>
 const TEMPLATES = RAW_TEMPLATES as unknown as Readonly<Record<string, string>>
-const SAMPLES = RAW_SAMPLES as unknown as Readonly<Record<string, string>>
-const BRAND_MARKS = RAW_BRAND_MARKS as unknown as Readonly<Record<string, string>>
+const SAMPLES = RAW_SAMPLES as Readonly<Record<string, string>>
+const BRAND_MARKS = RAW_BRAND_MARKS as Readonly<Record<string, string>>
 
 /**
  * Materialize a dialect's embedded migration files into a fresh temp directory
@@ -72,7 +72,6 @@ export const materializeMigrations = async (dialect: EmbeddedDialect): Promise<s
 
   await Promise.all(
     Object.entries(set.migrations).map(async ([folder, embeddedPath]) => {
-      // eslint-disable-next-line functional/no-expression-statements -- fs side-effect
       await mkdir(join(root, folder), { recursive: true })
       return writeFile(join(root, folder, 'migration.sql'), await Bun.file(embeddedPath).bytes())
     })

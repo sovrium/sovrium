@@ -1,0 +1,46 @@
+# sovrium-library: block/gallery-cards@0.30.0
+name: gallery-cards
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Projects]'
+      - type: gallery
+        dataSource:
+          table: projects
+        layout: grid
+        gridColumns:
+          mobile: 1
+          sm: 2
+          lg: 3
+        emptyMessage: No project yet. Create one to see its card here.
+        galleryCard:
+          coverImage: $record.cover
+          aspectRatio: 16:10
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-md font-semibold text-foreground
+              content: $record.title
+            - type: text
+              element: p
+              props:
+                className: text-sm text-foreground-subtle
+              content: $record.client
+          onClick:
+            type: navigate
+            path: /projects/$record.id

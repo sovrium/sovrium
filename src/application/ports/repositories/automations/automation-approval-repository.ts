@@ -89,7 +89,7 @@ export class AutomationApprovalRepository extends Context.Service<
     /**
      * Insert a `pending` approval row for an automation step.
      *
-     * `runId` links the pending row to the paused run so
+     * `runId` links the pending row to the paused run (the approval-pause design / RESUME-004) so
      * the run-scoped resolution endpoint can locate and resume it; it is omitted
      * (column left null) when no run row was persisted, as for agent rows.
      * `timeoutSeconds` / `expiresAt` are likewise omitted when the action

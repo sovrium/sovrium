@@ -45,15 +45,12 @@ export interface EmbeddedBehaviourStory {
 // `with { type: 'file' }` imports return a path string at runtime while TS
 // types them as the imported module's shape. Cast through `unknown` to recover
 // the true runtime type — the same recovery `embedded-static-assets.ts` makes.
-const DOCS = RAW_DOCS as unknown as Readonly<Record<string, string>>
-const BEHAVIOUR = RAW_BEHAVIOUR as unknown as Readonly<
-  Record<string, readonly EmbeddedBehaviourStory[]>
->
+const DOCS = RAW_DOCS as Readonly<Record<string, string>>
+const BEHAVIOUR = RAW_BEHAVIOUR as Readonly<Record<string, readonly EmbeddedBehaviourStory[]>>
 
 /** Every documentation file the binary ships, by repo-relative path. */
 export const embeddedDocPaths = (): readonly string[] => Object.keys(DOCS).toSorted()
 
-// eslint-disable-next-line functional/no-let -- one-shot module-level memo for the value→keys index; built on the first read that needs it rather than on import, so a caller whose key already resolves never pays for it
 let keysByEmbeddedValue:
   Readonly<Partial<Record<string, readonly (readonly [string, string])[]>>> | undefined
 
@@ -72,7 +69,6 @@ let keysByEmbeddedValue:
  */
 const keysForEmbeddedValue = (embeddedValue: string): readonly (readonly [string, string])[] => {
   if (keysByEmbeddedValue === undefined) {
-    // eslint-disable-next-line functional/no-expression-statements -- module-level memo assignment
     keysByEmbeddedValue = Object.groupBy(Object.entries(DOCS), ([, value]) => value)
   }
   return keysByEmbeddedValue[embeddedValue] ?? []
@@ -114,7 +110,6 @@ export const readEmbeddedDoc = async (reference: string): Promise<string> => {
       : `No embedded documentation at '${reference}'. The manual ships ` +
         `${Object.keys(DOCS).length} file(s); regenerate with \`bun run build:docs\` if a ` +
         'fragment was added or moved.'
-  // eslint-disable-next-line functional/no-throw-statements -- refusal by name: an unresolvable reference means the manifest and the payload have diverged, and answering with an empty string would render a blank article instead
   throw new Error(message)
 }
 

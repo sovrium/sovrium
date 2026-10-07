@@ -12,8 +12,8 @@
  * dialog island alone, so it ships inside that island's chunk.
  */
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef } from 'react'
-import type { ReactElement } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import type { MouseEvent, ReactElement } from 'react'
 
 /** Base UI dismissal reasons blocked for alert-dialogs (confirmation must be explicit). */
 const ALERT_DIALOG_BLOCKED_REASONS = new Set([
@@ -52,10 +52,7 @@ function hasExternalTrigger(id: string | undefined): boolean {
  * any `interactions.click.modal` naming this id, drawn yet or not), with the
  * drawn-trigger check as the fallback for a dialog the server did not judge.
  */
-export function computeInitialOpen(
-  hasOpener: boolean | undefined,
-  id: string | undefined
-): boolean {
+function computeInitialOpen(hasOpener: boolean | undefined, id: string | undefined): boolean {
   return !(hasOpener === true || hasExternalTrigger(id))
 }
 
@@ -68,17 +65,111 @@ export function computeInitialOpen(
  * registry (not domain state) exactly once.
  */
 function consumePendingOpen(id: string): boolean {
-  const pending = (window as unknown as { __sovriumOpenModals?: Record<string, boolean> })
-    .__sovriumOpenModals
+  const pending = (window as { __sovriumOpenModals?: Record<string, boolean> }).__sovriumOpenModals
   if (!pending?.[id]) return false
   Reflect.deleteProperty(pending, id)
   return true
 }
 
-export function useExternalOpenTrigger(
-  id: string | undefined,
-  setOpen: (open: boolean) => void
-): void {
+/**
+ * The dialog's open state, with a reopen that lands while a close is settling
+ * held back until that close has finished.
+ *
+ * Base UI finishes a close in a second commit: once the exit transition is
+ * over it unmounts the panel and writes `mounted: false` into its store. A
+ * reopen arriving in that window — a keyboard reader pressing Enter on the
+ * opener right after Escape — is flushed into the same commit, and the store
+ * is left with `mounted: false` while `open` is true. The panel then stays
+ * `hidden` while the rest of the page is made inert: nothing on screen, and
+ * nothing that accepts a key. So a reopen requested during a close is recorded
+ * and replayed one frame after `onOpenChangeComplete(false)` reports the close
+ * done.
+ *
+ * "Closing" starts only from a COMMITTED open state: Base UI reports the end of
+ * a close only for a panel that was open, so closing a dialog that never opened
+ * must not wait for a report that will never come.
+ *
+ * It mounts open or closed per `computeInitialOpen`, and is the state the
+ * external trigger (`useExternalOpenTrigger`) opens.
+ */
+export function useDialogOpenState(
+  hasOpener: boolean | undefined,
+  id: string | undefined
+): {
+  readonly open: boolean
+  readonly setOpen: (open: boolean) => void
+  readonly onOpenChangeComplete: (open: boolean) => void
+  /** Closes the dialog when a hosted form's Cancel (`data-dialog-cancel`) is pressed. */
+  readonly onCancel: (event: MouseEvent<HTMLDivElement>) => void
+} {
+  const [open, setOpenState] = useState(() => computeInitialOpen(hasOpener, id))
+  const committedOpen = useRef(open)
+  const closing = useRef(false)
+  const reopenRequested = useRef(false)
+  useLayoutEffect(() => {
+    committedOpen.current = open
+  }, [open])
+  const setOpen = useCallback((next: boolean): void => {
+    if (next && closing.current) {
+      reopenRequested.current = true
+      return
+    }
+    if (!next) {
+      reopenRequested.current = false
+      if (committedOpen.current) closing.current = true
+    }
+    setOpenState(next)
+  }, [])
+  const onOpenChangeComplete = useCallback(
+    (isOpen: boolean): void => {
+      if (isOpen) return
+      closing.current = false
+      if (!reopenRequested.current) return
+      reopenRequested.current = false
+      requestAnimationFrame(() => setOpen(true))
+    },
+    [setOpen]
+  )
+  const onCancel = useCallback(
+    (event: MouseEvent<HTMLDivElement>): void => {
+      if ((event.target as Element).closest('[data-dialog-cancel]') !== null) setOpen(false)
+    },
+    [setOpen]
+  )
+  useExternalOpenTrigger(id, setOpen)
+  useCloseOnHostedWrite(id, setOpen)
+  return { open, setOpen, onOpenChangeComplete, onCancel }
+}
+
+/**
+ * Close when a form inside this dialog has written its record
+ * (`sovrium:crud-success`), or when a `data-dialog-cancel` control inside a
+ * NESTED island is pressed — that island is its own React root, so the panel's
+ * `onCancel` never hears it. Capture phase: the island may re-render the
+ * control away before the click bubbles back up.
+ */
+function useCloseOnHostedWrite(id: string | undefined, setOpen: (open: boolean) => void): void {
+  useEffect(() => {
+    if (!id) return undefined
+    const inPanel = (target: EventTarget | null): boolean =>
+      (target as Element | null)?.closest?.('[role="dialog"]')?.id === id
+    const onWrite = (event: Event): void => {
+      if (inPanel(event.target)) setOpen(false)
+    }
+    const onClick = (event: Event): void => {
+      const cancel = (event.target as Element | null)?.closest?.('[data-dialog-cancel]')
+      if (cancel && inPanel(cancel)) setOpen(false)
+    }
+    document.addEventListener('sovrium:crud-success', onWrite)
+    document.addEventListener('click', onClick, true)
+    return () => {
+      document.removeEventListener('sovrium:crud-success', onWrite)
+      document.removeEventListener('click', onClick, true)
+    }
+  }, [id, setOpen])
+}
+
+function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
   useEffect(() => {
     if (!id) return
     // Replay a trigger click that landed BEFORE this (lazy) island hydrated.

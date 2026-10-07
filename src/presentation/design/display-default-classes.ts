@@ -7,7 +7,7 @@
 
 /**
  * Prestyled-by-default class computers for the display-category surfaces
- *: empty-state, list-item rows, the `card` bubble variant,
+ * empty-state, list-item rows, the `card` bubble variant,
  * static-table chrome, and the structural timeline container. These are the
  * SSR-rendered display schemas under
  * `src/domain/models/app/pages/components/component-types/display/` that
@@ -337,8 +337,8 @@ export type StaticTableCellKind = 'header' | 'data'
 
 /**
  * Row padding comes from the density token, not from a literal. The token's
- * default IS the `5px` that used to be typed here, so this reads identically
- * until an author declares `design.density` — at which point it follows, which
+ * default IS `5px`, so this reads like a `5px` literal until an author
+ * declares `design.density` — at which point it follows, which
  * a literal never could.
  */
 const STATIC_TABLE_CELL_LAYOUT_BASE = 'px-2 py-(--sv-density-row-y) text-left'
@@ -500,7 +500,7 @@ export const computeAvatarImageClasses = ({ shape }: { readonly shape: AvatarSha
  *
  * Applied to every member after the first. A group drawn as a plain row is the
  * thing this variant is not, and the pull-back is the only fact that separates
- * them — which is why `[internal ref]` measures it
+ * them — which is why a design system component avatar spec measures it
  * rather than looking at the picture. The ring paints the page ground between
  * two overlapping discs so the seam reads as depth rather than as a collision.
  */
@@ -671,7 +671,7 @@ export const computeDescriptionTermClasses = ({
  * truth it is declared and empty.
  *
  * `withAction` turns the cell into a row of its own so the link sits at its far
- * edge, which is where the retired third grid column used to put it. It is off
+ * edge, where a trailing action column would sit. It is off
  * by default because most rows carry no action, and a cell that became a flex
  * container unconditionally would change how every detail's own content lays
  * out for the benefit of the few that do.
@@ -704,9 +704,9 @@ export const computeDescriptionEmptyClasses = (): string =>
  * something.
  *
  * Both parameters are accepted and unread, and that is the point rather than an
- * oversight. The link used to be a grid cell of the row and drew its own
- * segment of the row's rule; now that it sits INSIDE the `<dd>`, the pair around
- * it draws that rule and a border here would read as a permanent underline on a
+ * oversight. The link is not a grid cell of the row drawing its own segment of
+ * the row's rule; it sits INSIDE the `<dd>`, so the pair around it draws that
+ * rule and a border here would read as a permanent underline on a
  * link that underlines on hover. The shape of the call is kept so every
  * description-list recipe is asked the same two questions, and so the answer
  * `border-b-0` is a declaration a reader can see rather than an omission.

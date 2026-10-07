@@ -1,0 +1,11 @@
+name: kit-shell-sidebar
+path: /kit/shell-sidebar
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Sidebar shell · App starter'
+  description: 'An application frame with a side menu.'
+components:
+  - $ref: ./_nav.yaml
+  - component: shell-sidebar

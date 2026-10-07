@@ -122,6 +122,15 @@ fields:
     name: updated_at
     type: updated-at
 
+views:
+  # The catalogue as the Products page shows it: by category, A to Z.
+  - id: by_category
+    name: By category
+    sorts:
+      - { field: name, direction: asc }
+    groupBy:
+      field: category
+
 aiAccess:
   description: >-
     The product catalogue. Use this when the user asks about products, SKUs,

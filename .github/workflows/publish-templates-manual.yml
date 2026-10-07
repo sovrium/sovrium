@@ -31,6 +31,9 @@ on:
         required: false
         default: false
 
+# Nothing at the top level; the one job states its own block.
+permissions: {}
+
 jobs:
   publish-templates:
     name: Publish template repositories (manual)
@@ -38,13 +41,29 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Dispatch inputs travel through `env:` and are validated before anything
+      # uses them — never an expression inside `run:`, the expression-injection shape.
+      - name: Validate inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::'${VERSION}' is not a release version (expected e.g. 0.13.0, no leading v)"
+            exit 1
+          fi
+          if [ -n "${ONLY}" ] && ! printf '%s' "${ONLY}" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
+            echo "::error::'${ONLY}' is not a template slug"
+            exit 1
+          fi
+
       - name: Checkout tagged tree
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: v${{ inputs.version }}
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
@@ -54,9 +73,13 @@ jobs:
       - name: Publish template repositories
         env:
           GH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          ONLY: ${{ inputs.only }}
+          CREATE: ${{ inputs.create }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          set -- --version "${{ inputs.version }}"
-          if [ -n "${{ inputs.only }}" ]; then set -- "$@" --only "${{ inputs.only }}"; fi
-          if [ "${{ inputs.create }}" = "true" ]; then set -- "$@" --create; fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then set -- "$@" --dry-run; fi
+          set -- --version "${VERSION}"
+          if [ -n "${ONLY}" ]; then set -- "$@" --only "${ONLY}"; fi
+          if [ "${CREATE}" = "true" ]; then set -- "$@" --create; fi
+          if [ "${DRY_RUN}" = "true" ]; then set -- "$@" --dry-run; fi
           bun run scripts/build/publish-template-repos.ts "$@"

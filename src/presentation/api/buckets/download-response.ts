@@ -20,25 +20,13 @@
  * concern rather than a property of the read.
  */
 
+import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
 import { logError } from '@/infrastructure/logging/logger'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
 import type { StorageError } from '@/application/ports/services/storage-service'
 import type { ImageTransformFailure } from '@/infrastructure/storage/apply-image-transform'
 import type { Context } from 'hono'
-
-/**
- * Build a safe Content-Disposition header value for a filename.
- * ASCII-only names use the simple `filename=` parameter; names with non-ASCII
- * characters use RFC 5987 `filename*=UTF-8''<percent-encoded>` to avoid
- * TypeError from raw multi-byte characters in header values.
- */
-function buildContentDisposition(filename: string): string {
-  if (/^[\x20-\x7E]*$/.test(filename)) {
-    return `attachment; filename="${filename}"`
-  }
-  return `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
-}
 
 /** Long-lived cache lifetime for transformed image responses: one year. */
 export const TRANSFORM_CACHE_CONTROL = 'public, max-age=31536000, immutable'
@@ -85,7 +73,10 @@ function stripUuidPrefix(key: string): string {
  * An undecodable stored file, or an encoder this build does not carry, is a
  * `400`: the caller asked for something this file or this machine cannot
  * produce, and saying so is the entire reason the silent passthrough was
- * removed. Anything else is a genuine server fault and reports as `500`.
+ * removed. A source whose header declares more pixels than the pipeline will
+ * decode is a `422`: the request is well-formed, this file cannot honour it,
+ * and the original still downloads untouched. Anything else is a genuine server
+ * fault and reports as `500`.
  */
 export function transformFailureResponse(
   c: Context,
@@ -96,6 +87,15 @@ export function transformFailureResponse(
     return c.json(
       storageErrorBody(`Image transform failed: ${failure.message}`, 'TRANSFORM_ERROR'),
       500
+    )
+  }
+  if (failure.reason === 'too-large') {
+    return c.json(
+      storageErrorBody(
+        `Stored image is too large to transform: ${failure.message}. Download the original instead.`,
+        'VALIDATION_ERROR'
+      ),
+      422
     )
   }
   const error =

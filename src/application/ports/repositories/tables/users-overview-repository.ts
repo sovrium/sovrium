@@ -23,6 +23,8 @@ import type { Effect } from 'effect'
  *     created on/after a date (`COUNT(DISTINCT user_id)`).
  *   - `listSessionRowsSince`   — every `auth.session` `{ createdAt }` row
  *     created on/after a date.
+ *   - `listPendingInviteeIds`  — the account ids an unaccepted invitation
+ *     provisioned (expired or not).
  *
  * Implementation lives in the infrastructure layer
  * (users-overview-repository-live.ts). This port must not import infrastructure
@@ -32,11 +34,13 @@ import type { Effect } from 'effect'
 
 /**
  * A raw `auth.user` row needed by the overview. `role` is the raw column value
- * (NULL / unknown is classified to `member` by the use case); `createdAt` is the
- * dialect-native timestamp shape (PG returns `Date`; SQLite's drizzle adapter
- * usually returns `Date` too, but a raw bigint may slip through the cast).
+ * (the use case counts a NULL or unassignable value apart, never as a role);
+ * `createdAt` is the dialect-native timestamp shape (PG returns `Date`; SQLite's
+ * drizzle adapter usually returns `Date` too, but a raw bigint may slip through
+ * the cast).
  */
 export interface UserOverviewRow {
+  readonly id: string
   readonly role: string | null
   readonly createdAt: Date | string | number
 }
@@ -59,18 +63,27 @@ export class UsersOverviewDatabaseError extends Data.TaggedError('UsersOverviewD
  * Users Overview Repository Port.
  *
  * Methods map to a single raw read each; all orchestration (dense-series
- * bucketing, role classification/serialization, audit emit) lives in the use
+ * bucketing, per-role counting, invitation exclusion, audit emit) lives in the use
  * case.
  */
 export class UsersOverviewRepository extends Context.Service<
   UsersOverviewRepository,
   {
     /**
-     * Load every `auth.user` `{ role, createdAt }` row (no filter — the table is
-     * small and a full scan feeds both `totals.users`, `by_role`, and the
-     * in-period signup bucketing in a single read).
+     * Load every `auth.user` `{ id, role, createdAt }` row (no filter — the
+     * table is small and a full scan feeds `totals.users`, `roles`,
+     * `without_role`, `invited` and the in-period signup bucketing in a single
+     * read).
      */
     readonly listUserRows: Effect.Effect<readonly UserOverviewRow[], UsersOverviewDatabaseError>
+
+    /**
+     * The account ids provisioned by an invitation nobody has accepted yet,
+     * expired invitations included (an expired, unaccepted account still
+     * cannot sign in). Backs `totals.invited` and keeps those accounts out of
+     * every other count.
+     */
+    readonly listPendingInviteeIds: Effect.Effect<readonly string[], UsersOverviewDatabaseError>
 
     /**
      * Count distinct `user_id`s with an `auth.session` row created on/after

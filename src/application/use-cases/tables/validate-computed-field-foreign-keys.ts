@@ -16,8 +16,8 @@ import {
  * Refuse a config whose `count` / `rollup` fields traverse a one-to-many whose
  * foreign key cannot be determined.
  *
- * Such a config used to validate clean and then fail on EVERY read and write of
- * the table, because the generated SQL named a column that does not exist. A
+ * Unchecked, such a config validates clean and then fails on EVERY read and
+ * write of the table, because the generated SQL names a column that does not exist. A
  * green validation followed by a permanently broken table is the worst of both
  * worlds: the author has no signal, and the failure surfaces far from its cause.
  *

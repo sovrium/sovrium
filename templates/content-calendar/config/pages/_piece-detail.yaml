@@ -21,3 +21,5 @@ recordFields:
   - { name: content_type, type: single-select, label: Type }
   - { name: brief, type: long-text, label: Brief }
   - { name: asset_names, type: single-line-text, label: Files }
+  - { name: destination, type: url, label: Promotes }
+  - { name: tracked_link, type: url, label: Tracked link }

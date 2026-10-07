@@ -6,82 +6,33 @@
  */
 
 import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
-import { declaredFieldLabel } from '@/presentation/design/field-display'
 import { resolveLiftedTranslationTokens } from '../i18n/translation-handler'
-import { resolveCalendarDateInputs } from './calendar-date-fields'
-import { callerTableOf, forReader, withCallerWritableColumns } from './caller-table-inputs'
+import {
+  callerTableOf,
+  withCallerWritableColumns,
+  withoutInlineEditing,
+} from './caller-table-inputs'
 import { dataTableInterpreterStrings } from './data-table-interpreter-strings'
 import { buildEmptyStateElementProps } from './empty-state-copy-builder'
-import { resolveKanbanFooterFieldMeta, withGridBadgeForm } from './option-badge-paints'
+import { layoutIntentProps } from './layout-intent-props'
+import { withResolvedOptionLabels } from './option-labels'
 import { withRelatedCreateGates } from './related-create-gates'
-import {
-  resolveFigureFieldContext,
-  type ChartCategoryOptionInput,
-} from './resolve-chart-field-context'
-import { resolveDataTableViews, type ResolvedDataTableView } from './resolve-data-table-views'
-import { resolveFieldDisplayMeta, resolveFieldEditMeta } from './resolve-field-cell-meta'
-import {
-  resolveFieldOptionColors,
-  resolveKanbanColumnColors,
-  resolveKanbanColumnOptions,
-  resolveKanbanSwimlaneOptions,
-} from './resolve-option-colors'
+import { timelineResizeFields } from './timeline-resize-fields'
 import { isViewBoundSource } from './view-binding-inputs'
-import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { TypeSpecificResolvedInputs } from './resolve-type-specific-inputs'
 import type { Languages } from '@/domain/models/app/languages'
 import type {
   Component,
   ComponentOfType,
   ComponentType,
 } from '@/domain/models/app/pages/components'
-import type { Tables } from '@/domain/models/app/tables'
-import type { BadgeForm } from '@/presentation/design/option-chip-paint'
-
-/**
- * Pre-resolved inputs that some component types need lifted to the top-level
- * element props (resolved from `app.tables` by the caller).
- */
-export type TypeSpecificResolvedInputs = {
-  readonly dataTableTableFields: readonly string[] | undefined
-  readonly dataTableFieldMeta: Record<string, unknown> | undefined
-  readonly dataTablePermissions: unknown
-  readonly dataTableViews: ReadonlyArray<ResolvedDataTableView> | undefined
-  readonly kanbanColumnOptions: readonly string[] | undefined
-  readonly kanbanColumnColors: Readonly<Record<string, string>> | undefined
-  /**
-   * The lane axis' declared options, resolved from `swimlanes.field`. Carries
-   * the same weight `kanbanColumnOptions` does for the column axis: without it
-   * a lane can only appear where the data already puts one, which makes both
-   * the declared-order rule and `showEmpty` unexpressible.
-   */
-  readonly kanbanSwimlaneOptions: readonly string[] | undefined
-  /**
-   * `optionValue → #RRGGBB` for the field a record view's `colorField` names,
-   * so a kanban card / calendar event / timeline bar can paint the colour its
-   * AUTHOR declared instead of one the platform invented ([internal ref] A7 ruling 1).
-   *
-   * Resolved here rather than in the island because `app.tables` is a
-   * server-side input: the islands receive records, never the field schema.
-   * Absent when the component declares no `colorField`, or when the named
-   * field's options declare no colour — the surface then keeps whatever it
-   * does today (ruling 5: an opt-in, never a repaint).
-   */
-  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
-  /** A chart's category options and a chart or KPI's plotted-field currency — see
-   * `resolve-chart-field-context.ts`. Absent for every other component type. */
-  readonly categoryOptions?: readonly ChartCategoryOptionInput[]
-  readonly valueCurrency?: CurrencyDisplayOptions
-  /** A calendar's day-valued fields, and its fields declaring a `timeZone`. */
-  readonly dateOnlyFields?: readonly string[]
-  readonly fieldTimeZones?: Readonly<Record<string, string>>
-}
 
 /**
  * Builder inputs, parameterised by the component branch the builder handles.
  *
  * `C` defaults to the whole union for the caller, which holds a component it
  * has not narrowed; each {@link TYPE_BUILDERS} entry receives its own branch,
- * so `component.views` resolves on the data-table entry and `component.xAxis`
+ * so `component.columns` resolves on the data-table entry and `component.xAxis`
  * does not.
  */
 type BuilderArgs<C extends Component = Component> = {
@@ -115,291 +66,14 @@ function liftTimelineGanttProps(componentProps: Component['props']): Record<stri
   }
 }
 
-const EMPTY_RESOLVED: TypeSpecificResolvedInputs = {
-  dataTableTableFields: undefined,
-  dataTableFieldMeta: undefined,
-  dataTablePermissions: undefined,
-  dataTableViews: undefined,
-  kanbanColumnOptions: undefined,
-  kanbanColumnColors: undefined,
-  kanbanSwimlaneOptions: undefined,
-  colorFieldColors: undefined,
-}
-
-/**
- * Resolve the table referenced by a component's `dataSource` from `app.tables`.
- *
- * Exported for `resolve-record-drawer-fields.ts`, which needs the identical
- * `dataSource → app.tables` lookup and must not grow a second copy of it.
- */
-export function resolveSourceTable(
-  component: Component,
-  tables: Tables | undefined
-): Tables[number] | undefined {
-  if (!tables || !('dataSource' in component) || !component.dataSource) return undefined
-  const sourceTable = (component.dataSource as { readonly table: string }).table
-  return tables.find((t) => t.name === sourceTable)
-}
-
-/**
- * Resolve the field-name list, field metadata (type/options/required/display),
- * permissions, and normalised views the data-table island needs from
- * `app.tables`.
- */
-/**
- * Extract the client-side config of a `type: 'button'` field: what the button
- * says, what it dispatches, and which rows show it. Returns an empty overlay
- * for every other field type so the caller can spread it unconditionally.
- */
-function resolveButtonFieldMeta(field: Tables[number]['fields'][number]): Record<string, unknown> {
-  if (field.type !== 'button') return {}
-  const button = field as unknown as {
-    readonly label: string
-    readonly action: string
-    readonly url?: string
-    readonly automation?: string
-    readonly visibleWhen?: Readonly<Record<string, unknown>>
-  }
-  return {
-    button: {
-      label: button.label,
-      action: button.action,
-      ...(button.url === undefined ? {} : { url: button.url }),
-      ...(button.automation === undefined ? {} : { automation: button.automation }),
-      ...(button.visibleWhen === undefined ? {} : { visibleWhen: button.visibleWhen }),
-    },
-  }
-}
-
-/**
- * The field vocabulary of a grid bound to a SYSTEM read endpoint.
- *
- * A system source has no `dataSource.table`, so there is no `app.tables` entry
- * to resolve a field list from — and the filter builder's Field select is
- * populated from exactly that list. The result was an empty select under a live
- * "Add filter" button on every system-source grid, at any data volume: the
- * operator could commit a filter that narrowed nothing, and the grid answered
- * with the same rows.
- *
- * The author's DECLARED COLUMNS are the field vocabulary in that case — they
- * are what the header row already shows, so offering them is offering what the
- * operator can see. Each column's `label` rides along as its display name for
- * the same reason: a Field select naming `automationName` where the header says
- * `Automatisation` asks the operator to translate.
- *
- * Only the fields and their labels are derived. Types, options, permissions and
- * views stay absent — an endpoint row has no declared type, and inventing one
- * would put type-specific operators in front of values that may not match.
- */
-function resolveSystemSourceColumnInputs(component: Component): TypeSpecificResolvedInputs {
-  const source = 'dataSource' in component ? component.dataSource : undefined
-  if (!source || !(typeof source === 'object' && 'system' in source)) return EMPTY_RESOLVED
-
-  const columns = ('columns' in component ? component.columns : undefined) as
-    ReadonlyArray<{ readonly field?: unknown; readonly label?: unknown }> | undefined
-  const declared = (columns ?? []).filter(
-    (column): column is { readonly field: string; readonly label?: string } =>
-      typeof column.field === 'string' && column.field.length > 0
-  )
-  if (declared.length === 0) return EMPTY_RESOLVED
-
-  return {
-    ...EMPTY_RESOLVED,
-    dataTableTableFields: declared.map((column) => column.field),
-    dataTableFieldMeta: Object.fromEntries(
-      declared.map((column) => [
-        column.field,
-        typeof column.label === 'string' ? { label: column.label } : {},
-      ])
-    ),
-  }
-}
-
-function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInputs {
-  return {
-    ...EMPTY_RESOLVED,
-    dataTableTableFields: table.fields.map((f) => f.name),
-    dataTableFieldMeta: Object.fromEntries(
-      table.fields.map((f) => {
-        const field = f as Readonly<Record<string, unknown>>
-        const display = resolveFieldDisplayMeta(field)
-        const edit = resolveFieldEditMeta(field)
-        return [
-          f.name,
-          {
-            type: f.type,
-            // The field's external display name, which titles its auto-generated
-            // column header in place of the raw `name`. Read through the shared
-            // reader so a `button` field's `label` — its own caption — is not
-            // mistaken for one.
-            ...(declaredFieldLabel(field) === undefined
-              ? {}
-              : { label: declaredFieldLabel(field) }),
-            ...('options' in f && f.options ? { options: f.options } : {}),
-            ...('required' in f && f.required ? { required: true } : {}),
-            ...(display ? { display } : {}),
-            ...(edit ? { edit } : {}),
-            ...resolveButtonFieldMeta(f),
-          },
-        ]
-      })
-    ),
-    dataTableViews: resolveDataTableViews(
-      table.views as ReadonlyArray<Record<string, unknown>> | undefined
-    ),
-  }
-}
-
-/**
- * The field a record view colours its records BY, per surface.
- *
- * Each surface is read at the spelling its own renderer reads, so the resolved
- * colour map and the value it is looked up with can never come from two
- * different fields:
- *  - kanban paints from `card.colorField` (`kanban/card-resolvers.ts`);
- *  - calendar from the top-level `colorField` (`calendar/record-to-event.ts`);
- *  - data-timeline from `props.colorField` (`timeline/timeline-compute.ts`);
- *  - data-table from `rowColorField` (`data-table/row-color.ts`), the grid's
- *    own spelling of the same idea — a fourth spelling, deliberately, because
- *    a grid already has a `colorField`-shaped decision per COLUMN and reusing
- *    the bare name there would read as "colour the cells".
- */
-function resolveRecordViewColorField(type: string, component: Component): string | undefined {
-  const c = component as {
-    readonly colorField?: string
-    readonly rowColorField?: string
-    readonly card?: { readonly colorField?: string }
-    readonly props?: { readonly colorField?: string }
-  }
-  if (type === 'kanban') return c.card?.colorField
-  if (type === 'timeline') return c.props?.colorField
-  if (type === 'table') return c.rowColorField
-  return c.colorField
-}
-
-/**
- * The kanban board's four table-derived inputs: both axes' declared options,
- * the column axis' option colours, and the card's `colorField` palette.
- *
- * Its own function so {@link resolveTypeSpecificInputs} stays inside the
- * complexity cap — the board is the only component type needing four of these,
- * and the second axis is what tipped it over.
- */
-function resolveKanbanInputs(
-  component: Component,
-  tables: Tables | undefined,
-  form: BadgeForm | undefined
-): TypeSpecificResolvedInputs {
-  const table = resolveSourceTable(component, tables)
-  if (!table) return EMPTY_RESOLVED
-  return {
-    ...EMPTY_RESOLVED,
-    dataTableFieldMeta: resolveKanbanFooterFieldMeta(
-      resolveDataTableInputs(table).dataTableFieldMeta,
-      table,
-      component,
-      form
-    ),
-    kanbanColumnOptions: resolveKanbanColumnOptions(table, component),
-    kanbanColumnColors: resolveKanbanColumnColors(table, component),
-    kanbanSwimlaneOptions: resolveKanbanSwimlaneOptions(table, component),
-    colorFieldColors: resolveFieldOptionColors(
-      table,
-      resolveRecordViewColorField('kanban', component)
-    ),
-  }
-}
-
-/** A calendar's or a timeline's colour palette, and a calendar's day-valued fields. */
-function resolveRecordViewInputs(
-  type: 'calendar' | 'timeline',
-  component: Component,
-  tables: Tables | undefined
-): TypeSpecificResolvedInputs {
-  const table = resolveSourceTable(component, tables)
-  if (!table) return EMPTY_RESOLVED
-  return {
-    ...EMPTY_RESOLVED,
-    colorFieldColors: resolveFieldOptionColors(table, resolveRecordViewColorField(type, component)),
-    ...resolveCalendarDateInputs(table, component),
-  }
-}
-
-/** A chart's or a KPI's field context (`resolve-chart-field-context.ts`). */
-function resolveFigureInputs(
-  type: 'chart' | 'kpi',
-  component: Component,
-  tables: Tables | undefined
-): TypeSpecificResolvedInputs {
-  const table = resolveSourceTable(component, tables)
-  if (!table) return EMPTY_RESOLVED
-  // `Component` is still `any` (see `component.ts`); naming the branch here is
-  // what makes a renamed chart or KPI key fail the typecheck in the resolver.
-  const figure =
-    type === 'chart'
-      ? { type, component: component as ComponentOfType<'chart'> }
-      : { type, component: component as ComponentOfType<'kpi'> }
-  return { ...EMPTY_RESOLVED, ...resolveFigureFieldContext(figure, table) }
-}
-
-/**
- * Resolve the type-specific inputs (from `app.tables`) that the element-props
- * builder lifts to the top level for data-table and kanban components.
- *
- * These properties live on the Component object (not in `component.props`) and
- * need forwarding to the island placeholder renderer. For all other types the
- * empty resolved bundle is returned.
- *
- * @param type - The component type literal
- * @param component - The (variable-substituted) component
- * @param tables - The app's tables (used to resolve the referenced table)
- * @returns The resolved inputs consumed by `buildTypeSpecificElementProps`
- */
-export function resolveTypeSpecificInputs(
-  type: string,
-  component: Component,
-  tables: Tables | undefined,
-  badgeForm?: BadgeForm
-): TypeSpecificResolvedInputs {
-  if (type === 'table') {
-    const table = resolveSourceTable(component, tables)
-    if (!table) return resolveSystemSourceColumnInputs(component)
-    return {
-      // Narrowed to what this grid's READER may see of the table — her views, her
-      // permission map, her fields, or a bound view's columns as its route serves
-      // them to her — in ONE place: `caller-table-inputs.ts`.
-      ...withGridBadgeForm(forReader(resolveDataTableInputs(table), table, component), badgeForm),
-      // Same resolver, same slot as the three record views — the grid is the
-      // fourth surface in the `colorField` family, not a second mechanism.
-      colorFieldColors: resolveFieldOptionColors(
-        table,
-        resolveRecordViewColorField(type, component)
-      ),
-    }
-  }
-
-  if (type === 'kanban') return resolveKanbanInputs(component, tables, badgeForm)
-
-  if (type === 'chart' || type === 'kpi') return resolveFigureInputs(type, component, tables)
-
-  if (type === 'calendar' || type === 'timeline') {
-    return resolveRecordViewInputs(type, component, tables)
-  }
-
-  return EMPTY_RESOLVED
-}
-
 /**
  * Per-type element-props builder. Each entry receives the base element props
  * (already carrying `data-component-type`) and returns the type-specific
  * element props forwarded to the island/component renderer.
  *
- * Behaviour MUST stay byte-identical to the previous nested ternary: the same
- * keys, in the same order, with the same source expressions.
- *
  * Keyed by `ComponentType` rather than by bare `string`, so each entry's
  * `component` is that ONE branch of the schema: the data-table entry may read
- * `views` and `autoSave` and may NOT read `chartType`. That is the whole reason
+ * `columns` and `autoSave` and may NOT read `chartType`. That is the whole reason
  * this table is typed — every drift between a component's schema and the props
  * this file forwards to its island is now a compile error rather than a prop
  * that silently never arrives.
@@ -416,19 +90,34 @@ export function resolveTypeSpecificInputs(
  * line. Each is still read off `component` by name, so they are forwarded
  * exactly as verbatim as they read here.
  */
-const gridDrawingProps = (component: {
-  readonly rowHeight?: unknown
-  readonly layout?: unknown
-  readonly striped?: unknown
-  readonly bordered?: unknown
-  readonly showRowNumbers?: unknown
-}): Record<string, unknown> => ({
+type GridDrawingKey = 'rowHeight' | 'layout' | 'phoneLayout' | 'striped' | 'bordered'
+const gridDrawingProps = (
+  component: Partial<Record<GridDrawingKey | 'showRowNumbers', unknown>>
+): Record<string, unknown> => ({
   rowHeight: component.rowHeight,
   layout: component.layout,
+  phoneLayout: component.phoneLayout,
   striped: component.striped,
   bordered: component.bordered,
   showRowNumbers: component.showRowNumbers,
 })
+
+/** A bound grid, as the read-only gate reads it. */
+type GridWriteInput = ComponentOfType<'table'>
+
+/**
+ * A grid declared `readOnly` is a reading for every reader: no create, no
+ * import, no add-row line and no editor. Presentation only — the records API
+ * answers as before. Otherwise the caller's own write gate stands.
+ */
+const readOnlyOr = (component: GridWriteInput, gate: boolean | undefined): boolean | undefined =>
+  component.readOnly === true ? false : gate
+
+/** The grid's columns, with no inline editor where the grid or the reader forbids one. */
+const gridColumns = (component: GridWriteInput) =>
+  component.readOnly === true
+    ? withoutInlineEditing(component.columns)
+    : withCallerWritableColumns(component.columns, callerTableOf(component))
 
 const TYPE_BUILDERS: {
   readonly [K in ComponentType]?: (args: BuilderArgs<ComponentOfType<K>>) => Record<string, unknown>
@@ -452,27 +141,18 @@ const TYPE_BUILDERS: {
     return {
       ...baseElementPropsWithType,
       dataSource: component.dataSource,
-      // Read-only switch for a grid reading through a view: no create, edit,
-      // import, saved views or live refresh (`view-binding-inputs.ts`).
+      // A grid reading through a view offers no export and no live refresh
+      // (`view-binding-inputs.ts`); writes stay gated by the table's grants.
       isViewBound: isViewBoundSource(component.dataSource),
+      readOnly: component.readOnly,
       // No inline input on a field the reader may not write (`caller-table-inputs.ts`).
-      columns: withCallerWritableColumns(component.columns, callerTableOf(component)),
+      columns: gridColumns(component),
       selection: component.selection,
       pagination: component.pagination,
       search: component.search,
-      groupBy: component.groupBy,
+      // The grouping is the bound view's, never the component's own.
+      groupBy: resolved.dataTableGroupBy,
       summary: component.summary,
-      // View-type switcher. `views` is the ordered
-      // set the toolbar offers, `viewLabels` their localizable accessible names,
-      // and the two bindings are what the non-grid views need in order to render.
-      views: component.views,
-      // Forwarded raw: `$t:` tokens in `viewLabels` are resolved for every
-      // lifted field at once, at this builder's single exit. It used to resolve
-      // its own tokens here, which is why the switcher could be bilingual while
-      // a kpi `label` next to it could not — see `buildTypeSpecificElementProps`.
-      viewLabels: component.viewLabels,
-      kanbanGroupBy: component.kanbanGroupBy,
-      dateField: component.dateField,
       toolbar: component.toolbar,
       bulkActions: component.bulkActions,
       ...gridDrawingProps(component),
@@ -486,27 +166,27 @@ const TYPE_BUILDERS: {
       onRowClick: component.onRowClick,
       autoSave: component.autoSave,
       tableFields: resolved.dataTableTableFields,
+      // Option chips read their label in the page language (`option-labels.ts`).
       fieldMeta: withRelatedCreateGates(
-        resolved.dataTableFieldMeta,
+        withResolvedOptionLabels(resolved.dataTableFieldMeta, languages, currentLang),
         (componentProps as { _canCreateRelated?: Readonly<Record<string, boolean>> } | undefined)
           ?._canCreateRelated
       ),
       tablePermissions: resolved.dataTablePermissions,
-      tableViews: resolved.dataTableViews,
       // Render-time create-permission gate, stamped
       // into `props._canCreate` by the data-source resolver where the session role
       // is known. Forwarded to the island so the toolbar offers the "Nouvel
       // enregistrement" create affordance only when the current role may create.
       // Absent (undefined) when auth is not configured → the island defaults to
       // offering it (full-access model).
-      canCreate: (componentProps as { _canCreate?: boolean } | undefined)?._canCreate,
+      canCreate: readOnlyOr(component, (componentProps as { _canCreate?: boolean })?._canCreate),
       // Render-time update-permission gate, stamped by
       // the same data-source resolver. It is the permission-derived DEFAULT for a
       // column's `editable` — the one `ColumnSchema.editable` has always been
       // annotated with ("default: from table permissions"). An explicit `editable`
       // on the column still wins in both directions; absent (auth not configured,
       // or the table declares no `update` grant) the grid stays read-only.
-      canUpdate: (componentProps as { _canUpdate?: boolean } | undefined)?._canUpdate,
+      canUpdate: readOnlyOr(component, (componentProps as { _canUpdate?: boolean })?._canUpdate),
       // The grid's interpreter-provided strings in the page language.
       ...dataTableInterpreterStrings(currentLang, languages),
     }
@@ -567,6 +247,7 @@ const TYPE_BUILDERS: {
     chartAggregate: component.chartAggregate,
     categoryOptions: resolved.categoryOptions,
     valueCurrency: resolved.valueCurrency,
+    aggregateRead: resolved.aggregateRead,
     emptyMessage: component.emptyMessage,
     // Optional NAMED empty-state region: forwarded
     // so a system-bound chart with zero rows renders an accessible `role="region"`
@@ -581,6 +262,7 @@ const TYPE_BUILDERS: {
     kpiAggregate: component.kpiAggregate,
     kpiFormat: component.kpiFormat,
     valueCurrency: resolved.valueCurrency,
+    aggregateRead: resolved.aggregateRead,
     icon: component.icon,
     trend: component.trend,
     thresholds: component.thresholds,
@@ -609,6 +291,7 @@ const TYPE_BUILDERS: {
     colorFieldColors: resolved.colorFieldColors,
     defaultZoom: componentProps?.defaultZoom,
     ...liftTimelineGanttProps(componentProps),
+    resizeFields: timelineResizeFields(component),
     // `props.emptyMessage` only. The former `component.emptyMessage ?? …` read a
     // top-level key `timelineFields` does not declare, so its left operand
     // was always `undefined` and the expression always collapsed to this one.
@@ -657,7 +340,7 @@ const TYPE_BUILDERS: {
  * them were walked by `substitutePropsTranslationTokens`, which only ever sees
  * `component.props` and has already run by the time we get here. A lifted
  * string therefore reached the DOM with its `$t:` token intact unless its own
- * entry above happened to resolve one, and only `viewLabels` did. That made an
+ * entry above happened to resolve one, and only a few did. That made an
  * author's token resolve or not depending on whether the field they wrote it in
  * was typed or freeform — a distinction they cannot see from the config.
  *
@@ -676,7 +359,7 @@ const TYPE_BUILDERS: {
  * writes are props that renderer never looks at.
  * `resolveComponentTranslationTokens` covers that route, upstream of this one.
  * What still lands here and nowhere else are the strings resolved from
- * `app.tables`: field labels, view names, the kanban axes.
+ * `app.tables`: field labels and the kanban axes.
  *
  * Interpreter strings (`newRecordLabel`, `saveLabel`, `cancelLabel`) are a
  * different mechanism — they resolve a bare catalog key, not a `$t:` token —
@@ -701,5 +384,6 @@ export function buildTypeSpecificElementProps(
   const builder = TYPE_BUILDERS[type as ComponentType] as
     ((args: BuilderArgs) => Record<string, unknown>) | undefined
   const lifted = builder ? builder(args) : args.baseElementPropsWithType
-  return resolveLiftedTranslationTokens(lifted, args.currentLang, args.languages)
+  const withIntent = { ...lifted, ...layoutIntentProps(type, args.component) }
+  return resolveLiftedTranslationTokens(withIntent, args.currentLang, args.languages)
 }

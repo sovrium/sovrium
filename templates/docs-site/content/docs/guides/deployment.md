@@ -46,6 +46,8 @@ CMD ["start", "app.yaml"]
 3. Commit. The next build or restart publishes it, with its new date.
 
 ::: callout type="warning"
-**Set `BASE_URL` in production.** Without it, the sitemap and the links in
+**Set `BASE_URL` in production.**
+
+Without it, the sitemap and the links in
 link previews point at `localhost`.
 :::

@@ -81,7 +81,6 @@ export const NOT_FOUND_RESPONSE = (c: Context): Response => notFound(c)
  * omission of the key is deliberate (`handleListTrash` ignores `?q=`).
  */
 export const EMPTY_LIST_RESPONSE = (c: Context): Response =>
-  // eslint-disable-next-line unicorn/no-null -- the API envelope canonically distinguishes an explicit `null` ("no term applied") from an ABSENT key ("this branch does not search"); `undefined` erases that distinction on the wire, since JSON.stringify drops the key
   c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 }, appliedQuery: null }, 200)
 
 /**

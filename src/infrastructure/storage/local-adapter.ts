@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { constants } from 'node:fs'
 import { access, mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -30,7 +28,6 @@ const resolveStoragePath = (directory: string, key: string): string => {
   const base = resolve(directory)
   const target = resolve(directory, key)
   if (!target.startsWith(base + '/') && target !== base) {
-    // eslint-disable-next-line functional/no-throw-statements -- Security boundary: path traversal must throw to prevent file access outside storage
     throw new Error(`Path traversal detected: key "${key}" escapes storage directory`)
   }
   return target
@@ -55,6 +52,20 @@ export const localDownload = async (directory: string, key: string): Promise<Uin
 export const localDelete = async (directory: string, key: string): Promise<void> => {
   const filePath = resolveStoragePath(directory, key)
   await unlink(filePath)
+}
+
+/**
+ * {@link localDelete} for a caller that only needs the file GONE — erasure
+ * removing the bytes of an object whose catalog row it already deleted. A file
+ * that is not there is the outcome asked for, not a failure; any other error
+ * (permissions, an unreadable disk) still rejects.
+ */
+export const localDeleteIfPresent = async (directory: string, key: string): Promise<void> => {
+  try {
+    await localDelete(directory, key)
+  } catch (error) {
+    if ((error as { readonly code?: unknown }).code !== 'ENOENT') throw error
+  }
 }
 
 export const localList = async (directory: string, prefix: string): Promise<readonly string[]> => {

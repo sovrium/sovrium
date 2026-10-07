@@ -13,6 +13,7 @@ import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { ContextWithSession } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context, Next } from 'hono'
 
 // ============================================================================
@@ -106,7 +107,7 @@ export function validateTable(appOrResolver: App | (() => App)) {
       )
     }
 
-    // [internal ref]: resolve the live App per-request so a table added by a schema
+    // Resolve the live App per-request so a table added by a schema
     // publish (which swaps the live App without a restart) is found here.
     const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
@@ -184,24 +185,22 @@ export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
  * gates can evaluate `group:<name>` table permissions with most-permissive-wins
  * semantics.
  *
- * @param getUserRoleFn - Optional function to resolve user role (for unit tests).
- *   Defaults to the real getUserRole from application layer.
- * @param getUserGroupsFn - Optional function to resolve user group names (for
- *   unit tests). Defaults to the real getUserGroups from application layer.
+ * THE ROLE IS NORMALISED HERE, ONCE, against the app's role vocabulary: a
+ * stored role that is absent, empty or not declared by the app becomes
+ * `NO_GRANT_ROLE`, so no evaluator downstream ever sees `''` or an unknown
+ * string — both of which would otherwise take the open bare-table default.
+ *
+ * @param resolveApp - The live app whose role vocabulary judges the stored
+ *   role. Omitted, only an absent or empty role is closed.
  * @returns Hono middleware function
  */
-export function enrichUserRole(
-  getUserRoleFn?: (userId: string) => Promise<string>,
-  getUserGroupsFn?: (userId: string) => Promise<readonly string[]>
-) {
+export function enrichUserRole(resolveApp?: () => AdminRoleResolvable) {
   return async (c: Context, next: Next) => {
-    // Resolved per request, not once at mount: without an injected override
-    // both reads run on the services THIS request carries, so the role and
-    // group lookups share its fiber and its span.
-    const resolveRole =
-      getUserRoleFn ?? ((userId: string) => runDomainPromise(c, getUserRole(userId)))
-    const resolveGroups =
-      getUserGroupsFn ?? ((userId: string) => runDomainPromise(c, getUserGroups(userId)))
+    // Resolved per request, not once at mount: both reads run on the services
+    // THIS request carries, so the role and group lookups share its fiber and
+    // its span.
+    const resolveRole = (userId: string) => runDomainPromise(c, getUserRole(userId, resolveApp?.()))
+    const resolveGroups = (userId: string) => runDomainPromise(c, getUserGroups(userId))
 
     const { session } = (c as ContextWithSession).var
 
@@ -215,7 +214,7 @@ export function enrichUserRole(
 
     // PG-02 guest-comment exemption: `requireAuthOrGuestComment` stashes a
     // synthetic session with `userId: 'guest'` and already populates
-    // `userRole: 'guest'` + `userGroups: []` on the context. Skip the DB
+    // `userRole: SIGNED_OUT_VISITOR_ROLE` + `userGroups: []`. Skip the DB
     // lookups so a guest visitor doesn't hit auth tables on every comment
     // submission — and so `resolveRole('guest')` does not fail on a
     // user-not-found.

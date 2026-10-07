@@ -22,7 +22,7 @@ import { Schema } from 'effect'
  * remains available regardless — the opt-out only excludes the form from
  * cross-submission aggregates and the global event stream.
  *
- * ([internal ref]..127) for the admin
+ * See the forms analytics and responses requirement for the admin
  * surface that consumes per-form aggregates.
  */
 export const FormAnalyticsSchema = Schema.Struct({

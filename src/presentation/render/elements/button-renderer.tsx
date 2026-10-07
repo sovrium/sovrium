@@ -12,23 +12,33 @@ import {
   buildAutomationDataAttributes,
   buildClickDataAttributes,
   buildFetchDataAttributes,
+  buildFillDataAttributes,
   buildToastDataAttributes,
   buildRecordContext,
   isAuthAction,
   isAutomationAction,
   isCrudDeleteAction,
   isFetchAction,
+  isFillAction,
   isToastAction,
   resolveInputDataRecordVars,
-  type AuthButtonAction,
   type AutomationAction,
-  type FetchAction,
 } from './button-action-builders'
 import { renderCrudDeleteButton } from './crud-form/crud-form-renderer'
 import { renderSpinnerMark } from './spinner-mark'
 import type { ElementProps } from './html-element-renderer'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Tables } from '@/domain/models/app/tables'
+
+/**
+ * Only the client runtime dispatches an action button, and that runtime is a
+ * lazily imported chunk that can land after the page is on screen: a press
+ * before it ran did nothing at all — no confirm, no request. So the button is
+ * drawn disabled and marked until the runtime enables it
+ * (`islands/runtime/awaiting-script-controls.ts`). A button the author drew
+ * disabled is left as authored: the runtime would otherwise enable it.
+ */
+const AWAITING_SCRIPT_ATTRS = { disabled: true, 'data-awaits-script': '' } as const
 
 /**
  * Render an action-bearing button: strips the synthetic `label` prop and the
@@ -38,10 +48,9 @@ import type { Tables } from '@/domain/models/app/tables'
  * one-liner.
  *
  * The marker strip goes through `omitInternalMarkers` rather than naming keys:
- * this function used to destructure `_record` and `_dataSourceBound` only, so a
- * button inside a read-only CRUD form still put `_readOnly` on the element and
- * React still warned. Naming keys here means re-finding this function every time
- * the resolve pipeline gains a marker.
+ * destructuring only `_record` and `_dataSourceBound` would leave `_readOnly` on
+ * a button inside a read-only CRUD form, and React would warn. Naming keys here
+ * means re-finding this function every time the resolve pipeline gains a marker.
  */
 function renderActionButton(
   props: ElementProps,
@@ -71,6 +80,7 @@ function renderActionButton(
       {...restProps}
       {...actionAttrs}
       {...(confirmLabel ? { 'data-confirm-label': confirmLabel } : {})}
+      {...(restProps.disabled ? {} : AWAITING_SCRIPT_ATTRS)}
     >
       {buttonContent}
     </button>
@@ -86,31 +96,6 @@ type RenderButtonOptions = {
   readonly tables?: Tables
   readonly routeParams?: RouteParams
   readonly loading?: boolean
-}
-
-/**
- * Renders an auth-action button (e.g. logout) with data attributes for
- * client-side handling.
- */
-function renderAuthButton(
-  props: ElementProps,
-  content: string | undefined,
-  children: readonly React.ReactNode[],
-  action: AuthButtonAction
-): ReactElement {
-  return renderActionButton(props, content, children, buildAuthDataAttributes(action))
-}
-
-/**
- * Renders a fetch action button with data attributes for client-side handling
- */
-function renderFetchButton(
-  props: ElementProps,
-  content: string | undefined,
-  children: readonly React.ReactNode[],
-  action: FetchAction
-): ReactElement {
-  return renderActionButton(props, content, children, buildFetchDataAttributes(action))
 }
 
 /**
@@ -135,6 +120,25 @@ function renderAutomationButton(opts: {
     children,
     buildAutomationDataAttributes(action, resolvedInputData)
   )
+}
+
+/**
+ * The data attributes of an action the client runtime runs from the button
+ * alone — auth (logout), fetch, toast and fill — or `undefined` for any other.
+ * A fill's `value` is resolved here against the record the button is drawn for
+ * (the row of a list template, or the page's bound record and route).
+ */
+function clientActionAttributes(
+  action: unknown,
+  props: ElementProps,
+  routeParams: RouteParams | undefined
+): Record<string, string> | undefined {
+  if (isAuthAction(action)) return buildAuthDataAttributes(action)
+  if (isFetchAction(action)) return buildFetchDataAttributes(action)
+  if (isToastAction(action)) return buildToastDataAttributes(action)
+  if (!isFillAction(action)) return undefined
+  const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
+  return buildFillDataAttributes(action, buildRecordContext(boundRecord, routeParams))
 }
 
 /**
@@ -167,39 +171,19 @@ function renderLoadingButton(
 }
 
 /**
- * Renders button element with click interactions
+ * The action-less button: its click interactions ride in data attributes for
+ * the client runtime, and `loading` swaps in the spinner variant.
  */
-// eslint-disable-next-line complexity -- dispatches across 7 action types (crud-delete/automation/auth/fetch/navigate/loading/default); each branch is a one-liner. Threshold is 10; renderButton exceeds it after the GAP-H2 'auth' branch was added.
-export function renderButton({
+function renderPlainButton({
   props,
   content,
   children,
   interactions,
-  action,
-  tables,
-  routeParams,
   loading,
-}: RenderButtonOptions): ReactElement {
-  if (isCrudDeleteAction(action)) {
-    return renderCrudDeleteButton({ props, content, action, tables, routeParams })
-  }
-
-  if (isAutomationAction(action)) {
-    return renderAutomationButton({ props, content, children, action, routeParams })
-  }
-
-  if (isAuthAction(action)) {
-    return renderAuthButton(props, content, children, action)
-  }
-
-  if (isFetchAction(action)) {
-    return renderFetchButton(props, content, children, action)
-  }
-
-  if (isToastAction(action)) {
-    return renderActionButton(props, content, children, buildToastDataAttributes(action))
-  }
-
+}: Pick<
+  RenderButtonOptions,
+  'props' | 'content' | 'children' | 'interactions' | 'loading'
+>): ReactElement {
   const interactionsTyped = interactions as
     | {
         click?: {
@@ -239,4 +223,25 @@ export function renderButton({
   }
 
   return <button {...buttonProps}>{buttonContent}</button>
+}
+
+/**
+ * Renders button element with click interactions
+ */
+export function renderButton(options: RenderButtonOptions): ReactElement {
+  const { props, content, children, action, tables, routeParams } = options
+  if (isCrudDeleteAction(action)) {
+    return renderCrudDeleteButton({ props, content, action, tables, routeParams })
+  }
+
+  if (isAutomationAction(action)) {
+    return renderAutomationButton({ props, content, children, action, routeParams })
+  }
+
+  const clientAttrs = clientActionAttributes(action, props, routeParams)
+  if (clientAttrs !== undefined) {
+    return renderActionButton(props, content, children, clientAttrs)
+  }
+
+  return renderPlainButton(options)
 }

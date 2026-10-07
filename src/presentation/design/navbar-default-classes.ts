@@ -42,28 +42,27 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
 
 /**
- * The leading class sits AFTER the font-size class, and the order is now
+ * The leading class sits AFTER the font-size class, and the order is
  * load-bearing rather than merely intentional.
  *
  * tailwind-merge puts `text-*` and `leading-*` in conflicting groups — correctly,
  * because a Tailwind v4 type rung sets BOTH font-size and line-height — so
  * whichever comes last wins and the other is dropped. With the leading first,
- * routing this recipe through `resolveClasses` silently deleted it and the badge
- * fell back to the inherited line-height.
+ * routing this recipe through `resolveClasses` would silently delete it and the
+ * badge would fall back to the inherited line-height.
  *
- * That conflict used to be a FALSE POSITIVE, because the size was spelled
- * `text-[0.6875rem]`, an arbitrary value that sets font-size only. It is real
- * now: `text-xs` is a named rung of the platform ladder and carries
- * `--text-xs--line-height` with it, so `leading-[14px]` genuinely has to come
- * after to win. The ordering did not change; what it protects did.
+ * The conflict is real: `text-xs` is a named rung of the platform ladder and
+ * carries `--text-xs--line-height` with it (unlike an arbitrary
+ * `text-[0.6875rem]`, which sets font-size only), so `leading-[14px]` genuinely
+ * has to come after to win.
  *
- * This is the ONLY recipe in `src/presentation/` that carried a same-property
- * duplicate; every other `compute*` recipe is already merge-stable.
+ * This is the ONLY recipe in `src/presentation/` with a same-property
+ * duplicate; every other `compute*` recipe is merge-stable.
  */
 const BADGE_LAYOUT = [
-  // The horizontal padding reads `--sv-density-gap`, whose default is the `7px`
-  // that used to be typed here — so the shipped badge is unchanged and an
-  // authored `design.density` now reaches it. The type step deliberately does
+  // The horizontal padding reads `--sv-density-gap`, whose default is `7px` —
+  // so the default badge matches a `7px` literal and an authored
+  // `design.density` reaches it. The type step deliberately does
   // NOT move to `--sv-density-text`: that token is the dense SECONDARY text of
   // a data row, and a nav badge is chrome with a step of its own.
   'inline-flex items-center gap-1 px-(--sv-density-gap) py-0.5 font-medium whitespace-nowrap',

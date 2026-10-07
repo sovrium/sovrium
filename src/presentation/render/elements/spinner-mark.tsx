@@ -8,9 +8,9 @@
 /**
  * The house spinner mark: one open arc, drawn once.
  *
- * It used to be the stock two-part spinner — a 4px ring at 25% opacity with a
- * filled quarter-wedge riding over it — which is a heavier mark than anything
- * else the system draws and reads as a solid disc at 16px. The reference draws
+ * Not the stock two-part spinner — a 4px ring at 25% opacity with a filled
+ * quarter-wedge riding over it — which is a heavier mark than anything else the
+ * system draws and reads as a solid disc at 16px. The reference draws
  * a spinner as a single stroked arc, which is why this one is a `path` and not
  * a `circle` plus a fill.
  *
@@ -35,7 +35,7 @@
  * They are presentation attributes, so ANY CSS rule beats them — which is how
  * the `spinner` component scales: it passes `size-full` and the mark fills
  * whatever box the author sized, while the button passes nothing and keeps
- * the 16px it has always drawn., written
+ * the 16px it has always drawn. See an admin design system spec, written
  * precisely because reusing a mark pinned at 16 would paint a three-rung size
  * ladder identically.
  */

@@ -13,6 +13,7 @@ import {
   isColumnDropId,
 } from './collision-detection'
 import { persistKanbanDrop, showErrorToast } from './persist-drop'
+import { runDropHook } from './run-drop-hook'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanDrag } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { DragEndEvent, UniqueIdentifier } from '@dnd-kit/core'
@@ -115,13 +116,16 @@ function reorderWithinCell(input: ReorderInput): readonly TableRecord[] | undefi
  *
  * On a board that cannot persist, the local paint IS the move: the function
  * returns before the request rather than issuing one it would have to ignore.
+ *
+ * Once the write answers OK, the board's drop hook for the new column runs on
+ * the moved record (`run-drop-hook.ts`); a failed write reverts and runs none.
  */
 function moveToCell(
   params: KanbanDragHandlerParams,
   activeId: string,
   updates: Readonly<Record<string, string>>
 ): void {
-  const { localRecords, setLocalRecords, drag, tableName, persist } = params
+  const { localRecords, setLocalRecords, drag, tableName, persist, groupByField } = params
   const previous = localRecords
   const next = localRecords.map((r) =>
     String(r['id'] ?? '') === activeId ? { ...r, ...updates } : r
@@ -132,7 +136,13 @@ function moveToCell(
     if (!result.ok) {
       setLocalRecords(previous)
       showErrorToast(drag)
+      return
     }
+    // A hook answers to the column a card was dropped INTO: a lane-only move
+    // keeps its column and asks nothing.
+    const column = updates[groupByField]
+    const moved = next.find((r) => String(r['id'] ?? '') === activeId)
+    if (column !== undefined && moved !== undefined) runDropHook(drag, column, moved, tableName)
   })
 }
 

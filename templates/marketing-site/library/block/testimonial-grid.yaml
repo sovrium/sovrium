@@ -1,0 +1,113 @@
+# sovrium-library: block/testimonial-grid@0.30.0
+name: testimonial-grid
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: text
+        element: h2
+        props:
+          className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1] sm:text-4xl'
+        content: '[What customers say]'
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 gap-4 md:grid-cols-2 lg:grid-cols-3
+        children:
+          - type: card
+            props:
+              className: flex flex-col justify-between gap-6 p-6 sm:p-8
+            children:
+              - type: text
+                element: blockquote
+                props:
+                  className: text-md leading-relaxed text-foreground
+                content: '“[A specific sentence from customer 1: what they did, what changed.]”'
+              - type: flex
+                props:
+                  className: flex items-center gap-3
+                children:
+                  - type: avatar
+                    label: '[Full name]'
+                    initials: AB
+                    size: md
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-0.5 text-left
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Full name]'
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[Role, organisation]'
+          - type: card
+            props:
+              className: flex flex-col justify-between gap-6 p-6 sm:p-8
+            children:
+              - type: text
+                element: blockquote
+                props:
+                  className: text-md leading-relaxed text-foreground
+                content: '“[A specific sentence from customer 2: what they did, what changed.]”'
+              - type: flex
+                props:
+                  className: flex items-center gap-3
+                children:
+                  - type: avatar
+                    label: '[Full name]'
+                    initials: AB
+                    size: md
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-0.5 text-left
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Full name]'
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[Role, organisation]'
+          - type: card
+            props:
+              className: flex flex-col justify-between gap-6 p-6 sm:p-8
+            children:
+              - type: text
+                element: blockquote
+                props:
+                  className: text-md leading-relaxed text-foreground
+                content: '“[A specific sentence from customer 3: what they did, what changed.]”'
+              - type: flex
+                props:
+                  className: flex items-center gap-3
+                children:
+                  - type: avatar
+                    label: '[Full name]'
+                    initials: AB
+                    size: md
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-0.5 text-left
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Full name]'
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[Role, organisation]'

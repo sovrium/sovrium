@@ -59,7 +59,6 @@ export const loadSchemaFromFile = async (
         yield* renderStderr(`  sovrium ${command} <config.json>`)
       })
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -73,7 +72,6 @@ export const loadSchemaFromFile = async (
         yield* renderStderr('Supported formats: .json, .yaml, .yml, .ts')
       })
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -94,7 +92,6 @@ export const loadSchemaFromFile = async (
         yield* renderStderr(`Details: ${error instanceof Error ? error.message : String(error)}`)
       })
     )
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 }
@@ -134,7 +131,6 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
     try {
       return parseJsonContent(trimmedValue)
     } catch (error) {
-      // eslint-disable-next-line functional/no-throw-statements
       throw new Error(
         `Invalid JSON in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error }
@@ -151,7 +147,6 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
   try {
     return parseYamlContent(trimmedValue)
   } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
       `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }
@@ -181,7 +176,6 @@ const showNoConfigError = (command: string): never => {
       yield* renderStderr("Run 'sovrium init' to scaffold a new project.")
     })
   )
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -207,7 +201,6 @@ const showConfigFileEscapedError = (value: string, projectDir: string): never =>
       yield* renderStderr('To run a config elsewhere, point SOVRIUM_PROJECT_DIR at its folder.')
     })
   )
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -248,7 +241,7 @@ export interface ResolvedAppSchema {
  * auto-discovery → refusal. Auto-discovery is LAST so every invocation that
  * resolves today keeps resolving to exactly what it resolves to now; moving it
  * earlier would silently change what an existing `APP_SCHEMA` invocation boots,
- * which is why `[internal ref]` exists purely as a control on this order.
+ * which is why a CLI commands start spec exists purely as a control on this order.
  */
 export const resolveAppSchema = async (
   command: string,
@@ -278,14 +271,13 @@ export const resolveAppSchema = async (
       return { app: await parseSchemaFromEnv(appSchemaEnv) }
     } catch (error) {
       printStderr(`Error: ${error instanceof Error ? error.message : String(error)}`)
-      // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
   }
 
-  // Auto-discovery, LAST. Placed after both env vars on purpose: every
-  // invocation that resolves today keeps resolving to exactly what it resolves
-  // to now, so this step only fires on the path that used to error and exit.
+  // Auto-discovery, LAST. Placed after both env vars on purpose: an explicit
+  // source always wins, so this step only fires when nothing else named a
+  // config and the command would otherwise error and exit.
   //
   // Reusing `loadSchemaFromFile` means a discovered-but-broken config produces
   // the identical `Failed to parse YAML file` / ParseError output as an

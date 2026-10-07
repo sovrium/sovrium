@@ -17,7 +17,7 @@
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
 import { logDebug } from '@/infrastructure/logging'
-import { generateLlmsFullTxtContent, generateLlmsTxtContent } from './static-content-generators'
+import { generateLlmsFullTxtContent, generateLlmsTxtContent } from './llms-txt-content'
 import type { GenerateStaticOptions } from './generate-static'
 import type { FileSystemLike } from './generate-static-helpers'
 import type { App } from '@/domain/models/app'
@@ -43,11 +43,12 @@ function writeLlmsFullFile(app: App, target: LlmsLocaleTarget, context: LlmsWrit
   return Effect.suspend(() =>
     app.llms?.full !== false
       ? Effect.gen(function* () {
-          const full = yield* Effect.tryPromise({
-            try: () => generateLlmsFullTxtContent(app, target.language),
-            catch: (error) =>
-              new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error }),
-          })
+          const full = yield* generateLlmsFullTxtContent(app, target.language).pipe(
+            Effect.mapError(
+              (error) =>
+                new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error })
+            )
+          )
           yield* Effect.tryPromise({
             try: () => context.fs.writeFile(`${context.outputDir}/${name}`, full, 'utf-8'),
             catch: (error) =>
@@ -67,11 +68,12 @@ function writeLlmsPair(app: App, target: LlmsLocaleTarget, context: LlmsWriteCon
   const name = `${target.prefix}llms.txt`
   return Effect.gen(function* () {
     yield* ensureLocaleDirectory(target, context)
-    const llms = yield* Effect.tryPromise({
-      try: () => generateLlmsTxtContent(app, context.baseUrl, target.language),
-      catch: (error) =>
-        new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error }),
-    })
+    const llms = yield* generateLlmsTxtContent(app, context.baseUrl, target.language).pipe(
+      Effect.mapError(
+        (error) =>
+          new StaticGenerationError({ message: `Failed to generate ${name}`, cause: error })
+      )
+    )
     yield* Effect.tryPromise({
       try: () => context.fs.writeFile(`${context.outputDir}/${name}`, llms, 'utf-8'),
       catch: (error) =>

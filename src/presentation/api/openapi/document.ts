@@ -107,7 +107,6 @@ const assertNoDanglingRefs = (document: unknown, declared: ReadonlySet<string>):
     // and vanish from every generated client — the same silent-loss shape as a
     // name collision, reached from the opposite direction. No caller can recover,
     // and shipping the document IS the failure being prevented.
-    // eslint-disable-next-line functional/no-throw-statements -- see above
     throw new Error(
       `OpenAPI document references undeclared component(s): ${missing.toSorted().join(', ')}. ` +
         'A schema was referenced by name but never registered — check its `identifier` ' +
@@ -195,7 +194,6 @@ export const getOpenAPIDocument = (appConfig?: App) => {
     return cached
   }
   const document = buildDocument(appConfig)
-  // eslint-disable-next-line functional/no-expression-statements -- memoization cache write
   documentCache.set(cacheKey, document)
   return document
 }

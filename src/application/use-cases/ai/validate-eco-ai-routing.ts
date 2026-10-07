@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { LocalAiProbe } from '@/application/ports/services/local-ai-probe'
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import {
   parseAiProviderPrecedence,
@@ -31,16 +32,15 @@ import type { App } from '@/domain/models/app'
  * gate returns early for an app with no AI surface at all. What makes the
  * refusal a service to the operator rather than an obstruction is precisely
  * that the config declares something only a model can answer
- * ([internal ref] against [internal ref]).
+ * (an AI eco routing spec against an AI eco routing spec).
  *
- * `probeOllama` is injected (the real fetch-based probe lives in
- * `@/infrastructure/ai/ollama-reachability`) so this use-case stays unit-testable.
+ * The reachability probe is the `LocalAiProbe` port, so a test provides one
+ * answer with `Effect.provideService` instead of reaching the network.
  */
 export const validateEcoAiRouting = (
   app: Readonly<App>,
-  processEnv: Readonly<Record<string, string | undefined>>,
-  probeOllama: (baseUrl: string | undefined) => Promise<boolean>
-): Effect.Effect<void, AppValidationError> =>
+  processEnv: Readonly<Record<string, string | undefined>>
+): Effect.Effect<void, AppValidationError, LocalAiProbe> =>
   Effect.gen(function* () {
     if (!appRequiresAi(app)) return
 
@@ -56,8 +56,8 @@ export const validateEcoAiRouting = (
       )
     }
 
-    // effect-promise: total -- the probe wraps its whole `fetch` in a try/catch returning `false`; unreachability is its RESULT, which is exactly what this validation branches on.
-    const reachable = yield* Effect.promise(() => probeOllama(ollamaBaseUrl))
+    // Unreachability is the probe's RESULT, which is exactly what this validation branches on.
+    const reachable = yield* (yield* LocalAiProbe).isReachable(ollamaBaseUrl)
     if (!reachable) {
       return yield* Effect.fail(
         new AppValidationError(

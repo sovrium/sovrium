@@ -90,10 +90,9 @@ export function parseComponentStyle(
 /**
  * Maps component types to the bare marker class written onto the element.
  *
- * These names are INERT. This comment used to say `button` maps to `btn`
- * "because the CSS components layer uses `.btn`" — it no longer does.
- * `component-layer-generators.ts` retired `.card`, `.badge`, `.btn` and its
- * variants; `.btn-icon` is the only button rule left. Nothing paints from these
+ * These names are INERT. `button` maps to `btn`, but no CSS components rule
+ * paints `.btn`: `component-layer-generators.ts` carries no `.card`, `.badge`,
+ * `.btn` or variant rules; `.btn-icon` is the only button rule. Nothing paints from these
  * markers, and nothing is supposed to: the paint comes from the recipes
  * (`computeButtonDefaultClasses` and friends), which resolve to arbitrary-value
  * utilities.
@@ -187,12 +186,11 @@ export function buildFinalClassName(config: BuildClassNameConfig): string | unde
   // Don't add scroll animation class to initial className - it will be added by scroll-animation.js
   const scrollClass = undefined
 
-  // Three precedence layers, not one flat join. The array order used to BE the
-  // precedence — later fragments were assumed to win at the Tailwind cascade —
-  // which is false for same-property conflicts, because Tailwind v4 emits
-  // utilities in its own order rather than in the order this function
-  // concatenated them. `resolveClasses` drops the loser instead, so the winner
-  // is decided here.
+  // Three precedence layers, not one flat join. Array order cannot BE the
+  // precedence — assuming later fragments win at the Tailwind cascade is false
+  // for same-property conflicts, because Tailwind v4 emits utilities in its own
+  // order rather than in the order this function concatenates them.
+  // `resolveClasses` drops the loser instead, so the winner is decided here.
   //
   // The split preserves the array's original ordering semantics exactly:
   // everything BEFORE `customClass` is the recipe, `customClass` is the author,

@@ -5,16 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". The two are not interchangeable here — swapping them turns
-   every clear gesture into a silent no-op. */
-
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One picker is mounted per open cell and torn down on commit or cancel; its
-   handlers close over that cell's draft selection and search term. */
-
 import { useCandidateSearch } from '../../parts/use-candidate-search'
 import { usePickerCreate } from '../../parts/use-picker-create'
 import { readsAsList } from '../../runtime/cell-value-semantics'

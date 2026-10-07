@@ -15,12 +15,12 @@ import type { Effect } from 'effect'
  * behind a `user` field picker. One raw query concern: read a bounded, ordered
  * page of pickable accounts, optionally narrowed by a search term.
  *
- * The route that consumes this used to hold the live `db` handle and build the
- * query inline. It was the ONLY file under `src/presentation/` importing the raw
- * handle: every other route reaches its data through a port and provides a
- * `…RepositoryLive` Layer at the composition seam. ESLint permitted the import
- * (an API route is a composition root), but permission is not precedent — a lone
- * exception is what a boundary looks like just before it stops being one.
+ * The consuming route goes through this port rather than holding the live `db`
+ * handle and building the query inline, like every other route: each reaches its
+ * data through a port and provides a `…RepositoryLive` Layer at the composition
+ * seam. ESLint would permit the raw import (an API route is a composition root),
+ * but permission is not precedent — a lone exception is what a boundary looks
+ * like just before it stops being one.
  *
  * Implementation lives in the infrastructure layer
  * (`auth/user-directory-repository-live.ts`). The row/input types below are

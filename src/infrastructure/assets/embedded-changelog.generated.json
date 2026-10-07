@@ -3,6 +3,897 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.31.0",
+      "date": "2026-10-07",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.30.0...v0.31.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "forms",
+              "text": "stop creating records from the page form; add a record through forms and formRef"
+            },
+            {
+              "scope": "forms",
+              "text": "the page form works on data in the app; adding a record goes through forms and formRef"
+            },
+            {
+              "scope": "pages",
+              "text": "read data components through a table view"
+            },
+            {
+              "scope": "pages",
+              "text": "views are declared on the table; data components bind a view or the table"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "a component template can hold the page's own components in a slot"
+            },
+            {
+              "scope": "pages",
+              "text": "a kanban drop can open a drawer or fill a field"
+            },
+            {
+              "scope": "pages",
+              "text": "a button or a list row can fill a form field"
+            },
+            {
+              "scope": "library",
+              "text": "the sidebar shell block takes the page as its slot"
+            },
+            {
+              "scope": "pages",
+              "text": "a KPI can show the ratio of two counts"
+            },
+            {
+              "scope": "pages",
+              "text": "lists, boards, KPIs and charts follow refreshMode"
+            },
+            {
+              "scope": "automations",
+              "text": "a connection operation sends a file as a field"
+            },
+            {
+              "scope": "pages",
+              "text": "a list can render nothing when its binding is empty"
+            },
+            {
+              "scope": "forms",
+              "text": "endpoint form fields declare required and length rules"
+            },
+            {
+              "scope": "automations",
+              "text": "a webhook signature layout can be spelled out"
+            },
+            {
+              "scope": "pages",
+              "text": "drag a timeline bar's ends to resize it"
+            },
+            {
+              "scope": "pages",
+              "text": "add the edit-operations caller capability"
+            },
+            {
+              "scope": "forms",
+              "text": "lay out a hosted form with side labels and a sticky submit bar"
+            },
+            {
+              "scope": "forms",
+              "text": "draw a hosted form field group's description under its label"
+            },
+            {
+              "scope": "languages",
+              "text": "translate the two-step enrolment screens and the passkey controls"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a data table declared readOnly as a reading"
+            },
+            {
+              "scope": "design",
+              "text": "notice a prose part spaced with the my-\\* shorthand on validate"
+            },
+            {
+              "scope": "library",
+              "text": "a recipe filing new Google Calendar events into a table"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the stepper rail's done, current and upcoming steps apart"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose roles, form analytics and design-system share and specimen reads as MCP tools"
+            },
+            {
+              "scope": "library",
+              "text": "redesign the record drawer block with previous, next and the full-page link"
+            },
+            {
+              "scope": "library",
+              "text": "add the dashboard, settings and record page blocks"
+            },
+            {
+              "scope": "library",
+              "text": "add the auth page blocks"
+            },
+            {
+              "scope": "pages",
+              "text": "style a list's shell through its list part"
+            },
+            {
+              "scope": "forms",
+              "text": "show the submitted values on a form's success page"
+            },
+            {
+              "scope": "pages",
+              "text": "style a docs page's row, sidebar sections, menu button, last-updated line and page actions by name, and measure its whole column"
+            },
+            {
+              "scope": "pages",
+              "text": "style a calendar's events, days, day numbers, weekday headers and toolbar by name"
+            },
+            {
+              "scope": "pages",
+              "text": "style a gallery's grid, cards, covers and card bodies by name, and lay the featured card out as a 1.25 / 1 grid"
+            },
+            {
+              "scope": "pages",
+              "text": "a list's metadata entry takes classes of its own"
+            },
+            {
+              "scope": "pages",
+              "text": "style a rich-text field's prose, and any prose's lists and tables, by name"
+            },
+            {
+              "scope": "pages",
+              "text": "style a form's title, fields, button and errors, and a language switcher's link, by name"
+            },
+            {
+              "scope": "pages",
+              "text": "style a code block's frame and file bar by name"
+            },
+            {
+              "scope": "pages",
+              "text": "style a written table's header, rows and cells by name, and draw each column through tableColumns"
+            },
+            {
+              "scope": "pages",
+              "text": "run two-step, invitation, API key and session methods from an auth form"
+            },
+            {
+              "scope": "auth",
+              "text": "let an invitee decline an invitation from its link"
+            },
+            {
+              "scope": "pages",
+              "text": "run account methods from a grid row"
+            },
+            {
+              "scope": "pages",
+              "text": "name an account list by its label and mark the reader's current session in it"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a table's records as pins on a map"
+            },
+            {
+              "scope": "pages",
+              "text": "nest a table's records in a tree by their parent"
+            },
+            {
+              "scope": "pages",
+              "text": "step through a table's rows from a record drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "sign a record once with a signature pad"
+            },
+            {
+              "scope": "pages",
+              "text": "put form labels beside their controls and pin a save bar"
+            },
+            {
+              "scope": "pages",
+              "text": "preview a stored file in place through an address signed for the reader"
+            },
+            {
+              "scope": "pages",
+              "text": "read a table as two-line items on a phone"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a record's rating as stars named by its value"
+            },
+            {
+              "scope": "pages",
+              "text": "fold a chart's smallest categories into one named category"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a description list entry from a record field by its type"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a stepper that walks a task step by step"
+            },
+            {
+              "scope": "pages",
+              "text": "end a derived breadcrumb with the record's own name"
+            },
+            {
+              "scope": "pages",
+              "text": "ask for a typed confirmation before an alert dialog confirms"
+            },
+            {
+              "scope": "pages",
+              "text": "bind tables and lists to account lists, and print an invitation from its link"
+            },
+            {
+              "scope": "auth",
+              "text": "serve the reader's account lists and refuse revoking another person's session"
+            },
+            {
+              "scope": "auth",
+              "text": "strip the signer from her signatures when her account is erased"
+            },
+            {
+              "scope": "mcp",
+              "text": "accept ISO instants for time filters on SQLite"
+            },
+            {
+              "scope": "pages",
+              "text": "measure the docs frame and restyle its parts by name"
+            },
+            {
+              "scope": "pages",
+              "text": "style one component's parts by name with classes"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose people and access admin reads as MCP tools"
+            },
+            {
+              "scope": "server",
+              "text": "refuse to start with a malformed MAP_TILES_URL"
+            },
+            {
+              "scope": "pages",
+              "text": "read graphs and matrices from the app's own tables"
+            },
+            {
+              "scope": "tables",
+              "text": "store signature fields once and refuse a record filed under itself"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose configuration, console and design-system admin reads as MCP tools"
+            },
+            {
+              "scope": "mcp",
+              "text": "validate internal list filters by column type and page the tool-call log"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose form and submission admin reads as MCP tools"
+            },
+            {
+              "scope": "pages",
+              "text": "lay an edit form out as a main column and an aside, and drop a form's header"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose agent conversation admin reads as MCP tools"
+            },
+            {
+              "scope": "pages",
+              "text": "truncate a table column, tone a cell rule and pick a column's chip form"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose bucket admin reads as MCP tools"
+            },
+            {
+              "scope": "pages",
+              "text": "give a calendar month view's day cells a minimum height"
+            },
+            {
+              "scope": "pages",
+              "text": "colour an aggregate chart's series and drop slice labels"
+            },
+            {
+              "scope": "mcp",
+              "text": "order, filter and page the internal table list tools"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose link and connection admin reads as MCP tools"
+            },
+            {
+              "scope": "pages",
+              "text": "size a KPI's value per breakpoint and give it a tone"
+            },
+            {
+              "scope": "pages",
+              "text": "lead a gallery grid with a featured first card"
+            },
+            {
+              "scope": "cli",
+              "text": "warn about deprecated config keys before they are removed"
+            },
+            {
+              "scope": "pages",
+              "text": "stack a list row's title above its details with itemLayout"
+            },
+            {
+              "scope": "pages",
+              "text": "let kanban columns fill the board and give named columns a fixed width"
+            },
+            {
+              "scope": "mcp",
+              "text": "expose admin automation reads as MCP tools"
+            },
+            {
+              "scope": "pages",
+              "text": "allow AI answer crawlers and refuse AI training crawlers in robots.txt"
+            },
+            {
+              "scope": "forms",
+              "text": "save a form for later and edit a submission after sending it"
+            },
+            {
+              "scope": "forms",
+              "text": "compute calculation fields in the browser and on the server"
+            },
+            {
+              "scope": "automations",
+              "text": "verify timestamped HMAC webhook signatures under any header"
+            },
+            {
+              "scope": "connections",
+              "text": "send an operation body as written, raw or multipart-related"
+            },
+            {
+              "scope": "pages",
+              "text": "group an edit form's fields into titled sections"
+            },
+            {
+              "scope": "library",
+              "text": "let a block ship the form it embeds"
+            },
+            {
+              "scope": "auth",
+              "text": "provision users and groups over SCIM"
+            },
+            {
+              "scope": "library",
+              "text": "add a Google Drive upload and a Calendly booking recipe"
+            },
+            {
+              "scope": "auth",
+              "text": "register and sign in with a passkey"
+            },
+            {
+              "scope": "email",
+              "text": "send through Brevo, Resend or Amazon SES instead of SMTP"
+            },
+            {
+              "scope": "auth",
+              "text": "sign in through an OpenID Connect or SAML identity provider declared in the config"
+            },
+            {
+              "scope": "library",
+              "text": "add messaging and developer connections and recipes"
+            },
+            {
+              "scope": "library",
+              "text": "add sales and support connections and recipes"
+            },
+            {
+              "scope": "library",
+              "text": "add Yousign, PayFit, Odoo and Swan connections"
+            },
+            {
+              "scope": "library",
+              "text": "add Google Docs and Drive sharing operations and a document recipe"
+            },
+            {
+              "scope": "tables",
+              "text": "accept the search query on the aggregate read"
+            },
+            {
+              "scope": "cli",
+              "text": "add sovrium backup and sovrium restore"
+            },
+            {
+              "scope": "cli",
+              "text": "write one JSON Schema file per top-level key beside the full schema"
+            },
+            {
+              "scope": "cli",
+              "text": "report every configuration mistake in one run"
+            },
+            {
+              "scope": "tables",
+              "text": "add an aggregate read so KPI and chart components ask one question instead of loading records"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "accept the app-starter and marketing-site templates in sovrium init"
+            },
+            {
+              "scope": "ai",
+              "text": "the unconfigured assistant notice names the variables to set"
+            },
+            {
+              "scope": "automations",
+              "text": "keep upload request headers out of the run record"
+            },
+            {
+              "scope": "automations",
+              "text": "a file parameter only reads files the automation already holds"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse an hmac-timestamp layout that reads the timestamp and the signature from one entry"
+            },
+            {
+              "scope": "automations",
+              "text": "a connection file that cannot be fetched fails the call instead of sending an empty part"
+            },
+            {
+              "scope": "mcp",
+              "text": "run the create and delete tools through the same write as the records API"
+            },
+            {
+              "scope": "pages",
+              "text": "a search list renders wherever it is placed"
+            },
+            {
+              "scope": "api",
+              "text": "retire the unimplemented user update route"
+            },
+            {
+              "scope": "tables",
+              "text": "option chips and table-bound forms show option labels"
+            },
+            {
+              "scope": "auth",
+              "text": "a custom role's bare landing URL lands its holders"
+            },
+            {
+              "scope": "tables",
+              "text": "a data table honours its data source limit"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a batch update that would make a record its own ancestor"
+            },
+            {
+              "scope": "forms",
+              "text": "make the file picker refuse what the upload would refuse"
+            },
+            {
+              "scope": "pages",
+              "text": "show an edit form's success toast after its document POST"
+            },
+            {
+              "scope": "automations",
+              "text": "the run detail shows the steps run inside a path or a loop"
+            },
+            {
+              "scope": "pages",
+              "text": "a form carries the className it declares"
+            },
+            {
+              "scope": "pages",
+              "text": "a dialog whose trigger a record rule hides starts closed"
+            },
+            {
+              "scope": "mcp",
+              "text": "fire webhooks and automations on an MCP record update"
+            },
+            {
+              "scope": "pages",
+              "text": "rows of a table-bound container draw no list marker"
+            },
+            {
+              "scope": "automations",
+              "text": "records written inside a path, a loop or a script start record automations"
+            },
+            {
+              "scope": "pages",
+              "text": "a page-level single binding without param binds the first readable record"
+            },
+            {
+              "scope": "automations",
+              "text": "actions inside a path or a loop read each other's outputs and can stop the run"
+            },
+            {
+              "scope": "i18n",
+              "text": "a translation key followed by more text resolves and keeps the rest"
+            },
+            {
+              "scope": "automations",
+              "text": "a trigger relationship or user field reads as its id in code input and nested steps"
+            },
+            {
+              "scope": "automations",
+              "text": "a record update names its row by id or filter and reports what it changed"
+            },
+            {
+              "scope": "pages",
+              "text": "a sidebar entry whose href is a translation key is marked current"
+            },
+            {
+              "scope": "pages",
+              "text": "a sidebar drawer stays folded after a client-side page swap"
+            },
+            {
+              "scope": "pages",
+              "text": "honour a public view's grant on every component bound to it"
+            },
+            {
+              "scope": "mcp",
+              "text": "require a passkey session for admin MCP tools when administrators must use passkeys"
+            },
+            {
+              "scope": "admin",
+              "text": "count users per declared role in the users overview"
+            },
+            {
+              "scope": "mcp",
+              "text": "keep tool answers and personal values out of the MCP call log for admin tools"
+            },
+            {
+              "scope": "account",
+              "text": "erase a person's own MCP call log entries"
+            },
+            {
+              "scope": "auth",
+              "text": "answer an invitation from the query key its page declares"
+            },
+            {
+              "scope": "pages",
+              "text": "draw no more gallery cards than the binding's limit"
+            },
+            {
+              "scope": "pages",
+              "text": "format a record's createdAt and updatedAt in a record-field"
+            },
+            {
+              "scope": "automations",
+              "text": "honour an automation's trigger permission on every road that starts it by name"
+            },
+            {
+              "scope": "pages",
+              "text": "expose a page record's createdAt and updatedAt"
+            },
+            {
+              "scope": "tables",
+              "text": "draw a badgeForm chip on formula columns and keep its tone on the chip"
+            },
+            {
+              "scope": "pages",
+              "text": "format a record field by its type when no format is declared"
+            },
+            {
+              "scope": "pages",
+              "text": "draw aggregated area charts as areas and fit a chart to the height it is given"
+            },
+            {
+              "scope": "forms",
+              "text": "draw form section titles as headings"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a named list a list when empty, and style it through its list part"
+            },
+            {
+              "scope": "auth",
+              "text": "ask the reader to confirm they copied a new API key before closing it"
+            },
+            {
+              "scope": "forms",
+              "text": "refresh the page's grids and close the dialog after an embedded form writes a record"
+            },
+            {
+              "scope": "pages",
+              "text": "bind account lists wherever they sit on a page"
+            },
+            {
+              "scope": "pages",
+              "text": "sanitize every record-sourced HTML render"
+            },
+            {
+              "scope": "admin",
+              "text": "count the latest writes in the tables overview regardless of database clock skew"
+            },
+            {
+              "scope": "mcp",
+              "text": "answer internal table times as ISO instants and match them to the millisecond"
+            },
+            {
+              "scope": "pages",
+              "text": "let a visibility condition read the page's invitation"
+            },
+            {
+              "scope": "auth",
+              "text": "give sign-in forms the right autofill hints and a success page"
+            },
+            {
+              "scope": "cli",
+              "text": "let library add wire into an empty inline list"
+            },
+            {
+              "scope": "auth",
+              "text": "document the decline-invitation endpoint"
+            },
+            {
+              "scope": "auth",
+              "text": "honour the configured magic-link lifetime"
+            },
+            {
+              "scope": "pages",
+              "text": "send an invitation page as private and never from a shared cache"
+            },
+            {
+              "scope": "automations",
+              "text": "ignore buttons hidden from the caller when a page press names an automation"
+            },
+            {
+              "scope": "ai",
+              "text": "let the chat start an automation only for a caller the trigger admits"
+            },
+            {
+              "scope": "pages",
+              "text": "a coloured aggregate bar chart keeps its month axis and value format"
+            },
+            {
+              "scope": "tables",
+              "text": "a column's tone reaches a formula's text, a truncated file keeps its icon on the line, and a text column draws as a chip"
+            },
+            {
+              "scope": "admin",
+              "text": "hold the viewer tier out of the transform cache purge and apply bucket limits to console uploads"
+            },
+            {
+              "scope": "automations",
+              "text": "redact webhook verification secrets in the automations list"
+            },
+            {
+              "scope": "buckets",
+              "text": "keep the first uploader when a stored file is replaced"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse every .localhost name as loopback in outbound requests"
+            },
+            {
+              "scope": "pages",
+              "text": "never serve an invitation page from the page cache"
+            },
+            {
+              "scope": "tables",
+              "text": "name a grid's rating cell by its value out of the maximum, as the stars elsewhere are"
+            },
+            {
+              "scope": "pages",
+              "text": "print nothing for an empty list metadata value"
+            },
+            {
+              "scope": "pages",
+              "text": "a responsive value outside its class table yields no class instead of throwing"
+            },
+            {
+              "scope": "server",
+              "text": "name the cause when the authentication module fails to load"
+            },
+            {
+              "scope": "cli",
+              "text": "print the installer's status glyphs correctly under dash"
+            },
+            {
+              "scope": "automations",
+              "text": "mint upload links that write catalogued files into the private system bucket and never overwrite a stored key"
+            },
+            {
+              "scope": "account",
+              "text": "delete the bytes of every file the erasure removed from the catalogue, including one stored during the purge"
+            },
+            {
+              "scope": "forms",
+              "text": "check a form's upload type and size on the server, attribute a signed-in upload to its submitter, and keep the redirect on this site"
+            },
+            {
+              "scope": "admin",
+              "text": "answer the read-only console tier on every operational write the way a stranger is answered"
+            },
+            {
+              "scope": "tables",
+              "text": "neutralise spreadsheet formulas in the CSV import error report"
+            },
+            {
+              "scope": "pages",
+              "text": "keep an action button disabled until the page's script can handle it"
+            },
+            {
+              "scope": "mcp",
+              "text": "refuse internals tools at call time when they are not exposed"
+            },
+            {
+              "scope": "auth",
+              "text": "limit every sign-in, verification and change-email route that sends mail per client address"
+            },
+            {
+              "scope": "auth",
+              "text": "compiled binaries start apps that declare authentication"
+            },
+            {
+              "scope": "tables",
+              "text": "write a leading quote before text cells that a spreadsheet would run as a formula, on every CSV export"
+            },
+            {
+              "scope": "pages",
+              "text": "turn the select chevron while its list is open"
+            },
+            {
+              "scope": "buckets",
+              "text": "stop serving resized copies of a replaced attachment"
+            },
+            {
+              "scope": "theming",
+              "text": "paint a code block's dark theme in its own colours"
+            },
+            {
+              "scope": "cli",
+              "text": "look up a config key whose name contains a colon in sovrium docs"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a preview value outside its option's closed set"
+            },
+            {
+              "scope": "admin",
+              "text": "find records of every table in the console global search"
+            },
+            {
+              "scope": "ai",
+              "text": "show and decide an agent's approvals only to the roles that may trigger it"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a page press of a paused or disabled automation and record who pressed it"
+            },
+            {
+              "scope": "buckets",
+              "text": "record who uploaded each file, let only the uploader or an admin delete or replace it, and erase a user's files with the account"
+            },
+            {
+              "scope": "auth",
+              "text": "run the SCIM audit entries on the audit repository they need"
+            },
+            {
+              "scope": "automations",
+              "text": "check every redirect hop and IPv6 spelling of an outbound address, and stop reading unbounded response bodies"
+            },
+            {
+              "scope": "server",
+              "text": "read the insecure-posture flags by value, warn when BASE_URL hides a public bind, and cap request bodies, analytics fields and image decodes"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse to install or update when the published checksum cannot be verified"
+            },
+            {
+              "scope": "automations",
+              "text": "run page-bound automations only under the page's access rule and refuse every other trigger through the page endpoint"
+            },
+            {
+              "scope": "cli",
+              "text": "name the refused translation or prop key in the validation report"
+            },
+            {
+              "scope": "auth",
+              "text": "bind single sign-on accounts to a verified email and keep sign-in returns inside the app"
+            },
+            {
+              "scope": "auth",
+              "text": "honour allowSignUp false on social providers and email one-time codes"
+            },
+            {
+              "scope": "build",
+              "text": "retire the SOVRIUM_HYDRATION placeholder that overwrote client.js"
+            },
+            {
+              "scope": "api",
+              "text": "answer 404 on the analytics endpoints of an app without analytics"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a dialog visible when it is reopened while closing"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a view-bound KPI or chart on the view's records"
+            },
+            {
+              "scope": "api",
+              "text": "answer 415 with its own error code"
+            },
+            {
+              "scope": "tables",
+              "text": "delete a replaced attachment on every update path"
+            },
+            {
+              "scope": "docs",
+              "text": "strip internal test and story references from the manual's behaviour sections"
+            },
+            {
+              "scope": "desktop",
+              "text": "open sovrium:// links in the desktop app on every platform"
+            },
+            {
+              "scope": "tables",
+              "text": "store a record and its links in one transaction, and check the edit token inside the write"
+            },
+            {
+              "scope": "automations",
+              "text": "hand update runs the row before the change as previousRecord"
+            },
+            {
+              "scope": "api",
+              "text": "refuse requests from a caller whose role grants nothing, and close six other authorization gaps"
+            },
+            {
+              "scope": "search",
+              "text": "serve and build page search from an installed binary"
+            },
+            {
+              "scope": "pages",
+              "text": "serve pages that read table data with a revalidating cache header"
+            },
+            {
+              "scope": "assets",
+              "text": "keep returning visitors working after an upgrade"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "build the batch upsert plan in one pass"
+            },
+            {
+              "scope": "tables",
+              "text": "update a batch of records in one statement"
+            },
+            {
+              "scope": "tables",
+              "text": "group listings in the database instead of loading the whole table"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.30.0",
       "date": "2026-10-05",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.29.1...v0.30.0",

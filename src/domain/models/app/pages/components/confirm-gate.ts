@@ -10,10 +10,9 @@ import { Schema } from 'effect'
 /**
  * Shared confirmation-gate vocabulary.
  *
- * Historically a component `confirm` was a single STRING — the destructive-confirm
- * prompt shown in an inline `alertdialog` whose accessible name IS that string and
- * whose confirm affordance re-uses the triggering element's own label. That string
- * form is preserved verbatim for backward compatibility.
+ * The STRING form of a component `confirm` is the destructive-confirm prompt shown
+ * in an inline `alertdialog` whose accessible name IS that string and whose
+ * confirm affordance re-uses the triggering element's own label.
  *
  * The OBJECT form widens the gate to the richer destructive-confirm vocabulary the
  * admin RGPD erasure (and any equivalently serious gesture) needs:

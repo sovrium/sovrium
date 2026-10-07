@@ -39,7 +39,7 @@ import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table
  * oversight. Compiling a stylesheet is the single most expensive step of a
  * boot, so pre-flighting it would pay that cost twice on every successful
  * restart to save it on the rare failing one — and the rollback already returns
- * the operator a working port when it fails. `[internal ref]` covers the
+ * the operator a working port when it fails. A CLI start watch spec covers the
  * hot half of the same question, where a stylesheet failure never reaches a
  * stop at all because `design` is not a restart key.
  *

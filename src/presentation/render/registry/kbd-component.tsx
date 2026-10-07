@@ -80,7 +80,7 @@ const renderKeys = (
  * interposed a joining character would put a stray glyph beside `Esc`.
  */
 export const kbdComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
-  const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
+  const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const keys = Array.isArray(source['keys'])
     ? (source['keys'] as readonly unknown[]).filter((key): key is string => typeof key === 'string')
     : []

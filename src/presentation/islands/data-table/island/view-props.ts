@@ -5,33 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { AlternateViewProps } from './alternate-view'
 import type { TableContentProps } from './table-content'
 import type { DataTableColumnDef, DataTableInstance } from './table-features'
 import type { DataTableToolbarBarProps } from './toolbar/toolbar-bar'
 import type { SaveIndicatorSettings } from './use-island-setup'
 import type { useDataTableUiState } from './use-ui-state'
-import type { ViewsMenuEntry } from './views-menu'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
-import type { RowDensity } from '../../hooks/use-table-preferences'
 import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../body'
 import type { SummaryAggregations } from '../summary-aggregate'
 import type {
   DataTableBulkAction,
   DataTableColumn,
-  DataTableGroupBy,
   DataTableLayout,
   DataTablePagination,
   ComponentSearch,
   DataTableSelection,
   DataTableSummaryItem,
   DataTableToolbar,
-  DataTableKanbanGroupBy,
-  DataTableViewLabels,
-  DataTableViewType,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 
 /**
  * The full prop surface the island hands to its view.
@@ -69,7 +63,7 @@ export interface DataTableViewProps {
   readonly isLoadingMore?: boolean
   /** Fetch the next page and append it to the rows already shown. */
   readonly onLoadMore?: () => void
-  readonly groupByConfig?: DataTableGroupBy
+  readonly groupByConfig?: ViewGroupBy
   /** Whole-view record count per group value backing the group headers. */
   readonly groupCounts?: Readonly<Record<string, number>>
   /** Whole-view aggregations per group value backing the per-group summaries. */
@@ -99,6 +93,8 @@ export interface DataTableViewProps {
    * rendered, at the natural height of its rows.
    */
   readonly layout?: DataTableLayout
+  /** `rows` draws each row as a two-line item below the `sm` breakpoint. */
+  readonly phoneLayout?: 'scroll' | 'rows'
   readonly cellClass: string
   readonly borderClass: string
   readonly emptyMessage: string
@@ -171,10 +167,6 @@ export interface DataTableViewProps {
    * `{endpoint}?format=csv` instead of the DB-table records-export dropdown.
    */
   readonly systemExportEndpoint?: string
-  readonly currentDensity: RowDensity
-  readonly onSelectDensity: (density: RowDensity) => void
-  readonly onResetPreferences?: () => void
-  readonly activeViewName?: string
   readonly onBulkExecute: (action: DataTableBulkAction) => void
   /** Realtime conflict surfaced when a concurrent edit overwrote displayed values. */
   readonly conflict?: DetectedConflict
@@ -186,29 +178,6 @@ export interface DataTableViewProps {
    */
   readonly connectionStatus?: RealtimeConnectionState
   readonly ui: ReturnType<typeof useDataTableUiState>
-  /**
-   * Saved-views surface (PG-03 / [internal ref]..022). The orchestrator
-   * resolves these from `useSavedViews` + the schema's `app.tables[i].views[]`
-   * and hands the merged shape down for the toolbar's Views menu + dialogs.
-   */
-  readonly viewsEnabled: boolean
-  readonly viewEntries: ReadonlyArray<ViewsMenuEntry>
-  readonly canSaveCurrentView: boolean
-  readonly isViewModified: boolean
-  readonly onSelectView: (entry: ViewsMenuEntry) => void
-  readonly onSaveNewView: (name: string) => Promise<void>
-  readonly onSaveModifiedView: () => void
-  readonly onConfirmDeleteView: () => Promise<void>
-  /**
-   * View-type switcher config. `views` is
-   * the ordered set the toolbar offers; the two per-view bindings are what the
-   * non-grid views need to render, and validation guarantees each is present
-   * whenever its view type is listed.
-   */
-  readonly views: readonly DataTableViewType[]
-  readonly viewLabels?: DataTableViewLabels
-  readonly kanbanGroupBy?: DataTableKanbanGroupBy
-  readonly dateField?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +216,7 @@ export interface StatusBannersProps {
 }
 
 /**
- * The record and saved-view dialogs.
+ * The create-record dialog.
  *
  * The CSV import dialog shares this bag but renders from its own component, so
  * that it keeps its position as the container's LAST child: these are
@@ -264,8 +233,6 @@ export interface ViewDialogsProps {
   readonly onSubmitCreate: (values: Record<string, string>) => void
   readonly tableName: string
   readonly ui: ReturnType<typeof useDataTableUiState>
-  readonly onSaveNewView: (name: string) => Promise<void>
-  readonly onConfirmDeleteView: () => Promise<void>
 }
 
 /** The runtime filter-builder and multi-sort panels. */
@@ -275,17 +242,10 @@ export interface GridPanelsProps {
   readonly ui: ReturnType<typeof useDataTableUiState>
 }
 
-/** The rows themselves — or the alternate view that replaces them — plus the footer. */
+/** The rows themselves, plus the footer. */
 export interface GridBodyProps {
-  /**
-   * The grid and the alternate views are mutually exclusive: a switch REPLACES
-   * the table rather than rendering a second surface beside it. Pagination
-   * belongs to the grid, so it goes with it.
-   */
-  readonly showGrid: boolean
-  /** Present only while a non-grid view type is active. */
-  readonly alternate?: AlternateViewProps
   readonly grid: TableContentProps
+  readonly phoneLayout?: 'scroll' | 'rows'
   readonly table: DataTableInstance
   readonly totalRecords: number
   readonly paginationConfig?: DataTablePagination

@@ -6,8 +6,8 @@
  */
 
 /*
- * The four Action variants the browser resolves on its own — `filter`,
- * `navigate`, `toast` and `openDrawer`. None of them invokes an engine
+ * The five Action variants the browser resolves on its own — `filter`,
+ * `navigate`, `toast`, `openDrawer` and `fill`. None of them invokes an engine
  * operation, which is what separates them from the variants in
  * `action-operations.ts` and from the arbitrary HTTP call in `action-fetch.ts`.
  */
@@ -212,6 +212,77 @@ export const OpenDrawerActionSchema = Schema.Struct({
     'Opens a referenced drawer component (record-detail quick-edit pattern). Discriminated by the `action: openDrawer` literal (not `type`).',
 })
 
+/**
+ * Fill action - writes a value into a form control on the same page.
+ *
+ * The composer pattern: a list of reusable scripts beside a message form, where
+ * clicking a script puts its text into the message box. `target` names the
+ * component (by its `props.id`) that holds the control: a `form`, in which case
+ * `field` names the control by its field name, or a standalone `input` /
+ * `textarea`, in which case `field` is omitted. `value` is a literal, a
+ * `$record.<field>` read from the record the trigger belongs to (the clicked
+ * list item, the row a button is drawn in, the card a board dropped), or a
+ * template mixing both. `mode: replace` (the default) overwrites what the
+ * control holds; `append` adds the value after it.
+ *
+ * Nothing is sent: the control changes as if the reader had typed, and the
+ * form submits it the way it submits anything else.
+ *
+ * @example
+ * ```yaml
+ * # A script list beside a message composer
+ * onRowClick:
+ *   type: fill
+ *   target: composer
+ *   field: body
+ *   value: $record.content
+ *   mode: append
+ * ```
+ */
+export const FillActionSchema = Schema.Struct({
+  type: Schema.Literal('fill').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
+  /** Component id (`props.id`) of the form or standalone control to write into. */
+  target: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The `props.id` of the component on this page holding the control to fill: a `form`, or a standalone `input` or `textarea`.',
+      examples: ['composer', 'reply-box'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  /** Field name of the control inside a target form. */
+  field: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'When `target` is a form, the field whose control is filled, by its field name. Omitted when `target` is itself an `input` or `textarea`.',
+        examples: ['body', 'notes'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+  /** The text written into the control. */
+  value: Schema.String.annotate({
+    description:
+      'The text written into the control: a literal, a `$record.<field>` read from the record the trigger belongs to, or a template mixing both.',
+    examples: ['$record.content', 'Hello $record.first_name,'],
+  }),
+  /** Whether the value replaces the control's text or is added after it. */
+  mode: Schema.optional(
+    Schema.Literals(['replace', 'append']).annotate({
+      description:
+        '`replace` overwrites what the control holds; `append` adds the value after it, exactly as written, and leaves the cursor at the end.',
+      defaultNote: 'replace',
+    })
+  ),
+}).annotate({
+  title: 'Fill Action',
+  description:
+    'Writes a value into a form control on the same page, as if the reader had typed it. Nothing is sent until the form is submitted.',
+})
+
 /** @public */
 export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
 /** @public */
@@ -220,3 +291,5 @@ export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 export type ToastAction = Schema.Schema.Type<typeof ToastActionSchema>
 /** @public */
 export type OpenDrawerAction = Schema.Schema.Type<typeof OpenDrawerActionSchema>
+/** @public */
+export type FillAction = Schema.Schema.Type<typeof FillActionSchema>

@@ -1,0 +1,21 @@
+# The newsletter sign-up under the essays. Readers need no account; the
+# address lands in `subscribers`, and the form's own route takes it — the
+# sign-up block on the index posts there. A second sign-up with the same
+# address is refused by the table's unique rule.
+id: 3
+name: newsletter
+title: Get the next essay by email
+access:
+  require: all
+submitTo:
+  table: subscribers
+display:
+  submitLabel: Subscribe
+onSuccess:
+  type: message
+  message: You are subscribed. The next essay arrives by email.
+fields:
+  - kind: table-field
+    column: email
+    required: true
+    label: Email

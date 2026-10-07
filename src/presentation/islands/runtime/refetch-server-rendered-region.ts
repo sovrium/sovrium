@@ -155,7 +155,7 @@ async function fetchRenderedPage(): Promise<Document | undefined> {
  * on a region that carries no marker.
  */
 function swapRegion(swap: RegionSwap): void {
-  // eslint-disable-next-line functional/immutable-data, no-param-reassign -- refreshing a region IS a DOM mutation
+  // eslint-disable-next-line no-param-reassign -- refreshing a region IS a DOM mutation
   swap.live.innerHTML = swap.fresh.innerHTML
   hydrateSessionBindings(swap.live)
 }

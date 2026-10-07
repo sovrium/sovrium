@@ -68,7 +68,6 @@ export const ensureOrganization = async (appName: string): Promise<string> => {
 
   if (existing.length > 0) return SOVRIUM_ORGANIZATION_ID
 
-  // eslint-disable-next-line functional/no-expression-statements -- idempotent organization seeding
   await db
     .insert(organizations)
     .values({
@@ -104,7 +103,6 @@ export const ensureTeamsFromGroups = async (groupNames: readonly string[]): Prom
   if (missing.length === 0) return
 
   const now = new Date()
-  // eslint-disable-next-line functional/no-expression-statements -- idempotent team seeding
   await db
     .insert(teams)
     .values(
@@ -153,7 +151,6 @@ export const ensureMembership = async (userId: string): Promise<void> => {
 
   const role = memberCount.length === 0 ? 'owner' : 'member'
 
-  // eslint-disable-next-line functional/no-expression-statements -- idempotent membership seeding
   await db
     .insert(members)
     .values({

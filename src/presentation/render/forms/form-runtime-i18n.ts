@@ -65,7 +65,7 @@ export function resolveOnSuccessText(
           }),
         }
       : {}),
-  } as unknown as FormOnSuccess
+  } as FormOnSuccess
 }
 
 /**
@@ -86,5 +86,5 @@ export function resolveOnErrorText(
     ...(typeof message === 'string'
       ? { message: resolveText(message, languages, '', activeLang) }
       : {}),
-  } as unknown as FormOnError
+  } as FormOnError
 }

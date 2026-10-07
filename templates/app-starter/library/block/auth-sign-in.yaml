@@ -1,0 +1,99 @@
+# sovrium-library: block/auth-sign-in@0.30.0
+name: auth-sign-in
+type: container
+element: main
+props:
+  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+children:
+  - type: container
+    props:
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2 text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: layers
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: $app.label
+      - type: flex
+        props:
+          className: flex flex-col gap-1.5
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: Sign in
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: Welcome back. Use the email you signed up with.
+      - type: form
+        action:
+          type: auth
+          method: login
+          strategy: email
+          submitLabel: Sign in
+          onSuccess: &onSuccess
+            navigate: /
+      - type: link
+        props:
+          href: /reset-password
+          className: self-start text-md text-foreground-muted underline underline-offset-4
+        content: Forgot password?
+      - type: flex
+        props:
+          className: flex flex-col gap-3 border-t border-border pt-6 empty:hidden
+        children:
+          - type: form
+            action:
+              type: auth
+              method: login
+              strategy: passkey
+              onSuccess: *onSuccess
+            visibility:
+              declares: auth.passkeys
+          - type: form
+            action:
+              type: auth
+              method: login
+              strategy: oauth
+              provider: google
+              onSuccess: *onSuccess
+            visibility:
+              declares: auth.oauth
+          - type: link
+            props:
+              href: /magic-link
+              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-background-raised text-base font-medium text-foreground hover:bg-background-subtle
+            content: Email me a sign-in link
+            visibility:
+              declares: auth.magicLink
+          - type: link
+            props:
+              href: /sso
+              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-background-raised text-base font-medium text-foreground hover:bg-background-subtle
+            content: Use single sign-on
+            visibility:
+              declares: auth.sso
+      - type: flex
+        props:
+          className: flex flex-wrap gap-1 text-md text-foreground-muted
+        children:
+          - type: text
+            element: span
+            content: No account yet?
+          - type: link
+            props:
+              href: /sign-up
+              className: font-medium text-foreground underline underline-offset-4
+            content: Create one
+        visibility:
+          declares: auth.signUp

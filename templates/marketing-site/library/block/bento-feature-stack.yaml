@@ -1,0 +1,134 @@
+# sovrium-library: block/bento-feature-stack@0.30.0
+name: bento-feature-stack
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col max-w-2xl gap-4
+        children:
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: container
+                props:
+                  className: size-1.5 rounded-sm bg-primary
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Eyebrow]'
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: 'One headline proof, three supporting ones'
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 gap-4 lg:grid-cols-2
+        children:
+          - type: card
+            props:
+              className: flex flex-col gap-4 p-6 sm:p-8
+            children:
+              - type: container
+                props:
+                  className: 'flex w-full items-center justify-center rounded-lg border border-border bg-background-inset aspect-[4/3]'
+                  role: img
+                  aria-label: Visual for the headline proof
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: visual
+              - type: text
+                element: h3
+                props:
+                  className: text-xl font-semibold text-foreground mt-2
+                content: '[Headline proof]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: Two sentences that explain what the visual shows.
+          - type: flex
+            props:
+              className: flex flex-col gap-4
+            children:
+              - type: card
+                props:
+                  className: flex flex-1 items-start gap-4 p-6 sm:p-8
+                children:
+                  - type: icon
+                    props:
+                      name: zap
+                      size: 22
+                      className: flex-none text-foreground
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Supporting proof]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'One sentence, specific to the reader.'
+              - type: card
+                props:
+                  className: flex flex-1 items-start gap-4 p-6 sm:p-8
+                children:
+                  - type: icon
+                    props:
+                      name: lock
+                      size: 22
+                      className: flex-none text-foreground
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Supporting proof]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'One sentence, specific to the reader.'
+              - type: card
+                props:
+                  className: flex flex-1 items-start gap-4 p-6 sm:p-8
+                children:
+                  - type: icon
+                    props:
+                      name: chart-column
+                      size: 22
+                      className: flex-none text-foreground
+                  - type: flex
+                    props:
+                      className: flex flex-col gap-1
+                    children:
+                      - type: text
+                        element: h4
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Supporting proof]'
+                      - type: text
+                        element: p
+                        props:
+                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                        content: 'One sentence, specific to the reader.'

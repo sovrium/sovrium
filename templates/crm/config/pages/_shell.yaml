@@ -32,9 +32,17 @@ children:
     # Sidebar clicks swap only the main region; revisited views open from cache.
     clientSideNavigation: true
     props:
-      # Row metrics tuned to a five-entry navigation: 32px rows, 13.5px labels,
-      # and the current page on the accent's quiet ground.
-      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_nav]:gap-0.5 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3.5 [&_h2]:pb-1.5 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:leading-[14px] [&_h2]:tracking-wider
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1
+    # Row metrics tuned to a five-entry navigation: 32px rows, 13.5px labels,
+    # and the current page on the accent's quiet ground. Each key names a part
+    # the sidebar draws, so the look survives a change to its markup.
+    classes:
+      parts:
+        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-foreground-muted
+        groupLabel: px-2.5 pt-0 pb-1.5 font-mono text-[10.5px] leading-[14px] tracking-wider
+      states:
+        current:
+          link: bg-primary-subtle font-medium text-primary-subtle-foreground
     groups:
       - landmark: Workspace
         items:

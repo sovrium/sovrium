@@ -28,7 +28,12 @@ import {
   shouldInjectAnalytics,
 } from '@/presentation/render/page/analytics-helpers'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
+import { ClientScriptPathsContext } from '@/presentation/render/page/client-script-paths'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
+import {
+  CORE_RUNTIME_FEATURES,
+  hasInteractiveFeatures,
+} from '@/presentation/render/page/page-interactivity'
 import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
@@ -55,6 +60,61 @@ export interface IslandBuilder {
     readonly entryFile: string
     readonly preloads: Readonly<Record<string, readonly string[]>>
   }>
+  /**
+   * Stable client-script path → the content-hashed path the document should
+   * reference instead (`/assets/client.js` → `/assets/client-<hash>.js`). A path
+   * absent from the map is emitted under its stable name.
+   */
+  readonly clientScriptPaths?: () => Promise<Readonly<Record<string, string>>>
+  /**
+   * Client runtime feature → the `/assets/client-chunks/…` hrefs a page loading
+   * that feature declares as `modulepreload`.
+   */
+  readonly clientRuntimePreloads?: () => Promise<Readonly<Record<string, readonly string[]>>>
+}
+
+/** No hashed names known: every client script keeps its stable path. */
+const NO_HASHED_SCRIPT_PATHS: Readonly<Record<string, string>> = {}
+
+/**
+ * The hashed client-script paths for this document. Never rejects: a failure
+ * degrades to the stable names, which the server still answers.
+ */
+export async function resolveClientScriptPaths(
+  islandBuilder?: IslandBuilder
+): Promise<Readonly<Record<string, string>>> {
+  if (islandBuilder?.clientScriptPaths === undefined) return NO_HASHED_SCRIPT_PATHS
+  try {
+    return await islandBuilder.clientScriptPaths()
+  } catch (error) {
+    logError('[RENDER] Failed to resolve hashed client script paths', error)
+    return NO_HASHED_SCRIPT_PATHS
+  }
+}
+
+/**
+ * The `modulepreload` hrefs for the client runtime features this page loads.
+ *
+ * The loader imports each feature's chunk only once it runs, which is after
+ * parsing; a link in `<head>` starts that fetch at parse time instead, so the
+ * feature initializes before `load`, as a static import would. Empty for a
+ * page that loads no client runtime. Never rejects: a failure degrades to no
+ * links, and the loader still imports the chunk on its own.
+ */
+async function resolveClientRuntimePreloadHrefs(
+  page: Page,
+  components: App['components'],
+  islandBuilder?: IslandBuilder
+): Promise<readonly string[]> {
+  if (islandBuilder?.clientRuntimePreloads === undefined) return []
+  if (!hasInteractiveFeatures(page, components)) return []
+  try {
+    const preloads = await islandBuilder.clientRuntimePreloads()
+    return [...new Set(CORE_RUNTIME_FEATURES.flatMap((feature) => preloads[feature] ?? []))]
+  } catch (error) {
+    logError('[RENDER] Failed to resolve client runtime preloads', error)
+    return []
+  }
 }
 
 /**
@@ -134,7 +194,7 @@ function selfNeedsIslands(s: Component): boolean {
  * Checks whether a resolved page needs the island runtime by walking each
  * component (children AND referenced `app.components` templates, via
  * `someComponentInTree`) against `selfNeedsIslands`. A page with
- * `presence: true` (Wave-6) always needs the runtime so the page-level
+ * `presence: true` always needs the runtime so the page-level
  * `presence-indicator` island bundle is built.
  *
  * Mirrors `hasIslandComponents` in `dynamic-page.tsx` (both sites must agree:
@@ -199,8 +259,25 @@ function pagePreloadIslandTypes(page: Page, components: App['components']): read
  * page, which is the defect this whole line of work removed from the runtime
  * path. See `@/infrastructure/assets/island-preload-manifest` for why only
  * these two types are preloaded at all.
+ *
+ * The hrefs also carry the client runtime's feature chunks when the page loads
+ * that runtime ({@link resolveClientRuntimePreloadHrefs}), first, so one list
+ * of `modulepreload` links covers every module the page imports lazily.
  */
 export async function resolveIslandAssets(
+  page: Page,
+  components: App['components'],
+  islandBuilder?: IslandBuilder
+): Promise<{ readonly entryFile: string | undefined; readonly preloadHrefs: readonly string[] }> {
+  const [islands, clientHrefs] = await Promise.all([
+    resolveIslandBundle(page, components, islandBuilder),
+    resolveClientRuntimePreloadHrefs(page, components, islandBuilder),
+  ])
+  return { entryFile: islands.entryFile, preloadHrefs: [...clientHrefs, ...islands.preloadHrefs] }
+}
+
+/** The island entry and its preload hrefs, when the page mounts islands. */
+async function resolveIslandBundle(
   page: Page,
   components: App['components'],
   islandBuilder?: IslandBuilder
@@ -233,9 +310,11 @@ interface RenderPageHtmlInput {
   readonly page: Page
   readonly routeParams: Readonly<Record<string, string>>
   readonly detectedLanguage: string | undefined
-  /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+  /** The `/:lang/` URL-prefix locale, when present. */
   readonly urlLanguage: string | undefined
   readonly islandEntryFile: string | undefined
+  /** Stable client-script path → hashed path (see `IslandBuilder.clientScriptPaths`). */
+  readonly clientScriptPaths: Readonly<Record<string, string>>
   /** `<link rel="modulepreload">` hrefs for the islands this page mounts. */
   readonly islandPreloadHrefs: readonly string[]
   readonly resolvedSidebar: readonly ResolvedSidebarSection[] | undefined
@@ -271,6 +350,7 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
     detectedLanguage,
     urlLanguage,
     islandEntryFile,
+    clientScriptPaths,
     islandPreloadHrefs,
     resolvedSidebar,
     markdownPayload,
@@ -280,35 +360,35 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
   const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
   const sessionTimeout = extractSessionTimeout(app.analytics)
   const html = renderToString(
-    <DynamicPage
-      page={page}
-      badgePlacement={resolveBadge(app.badge)}
-      demoNoticeEnabled={!isOperatorConsoleApp(app)}
-      components={appComponents}
-      // One position. This used to read `app.design?.theme ?? app.theme`, and
-      // the fallback was load-bearing: reading only the alias left an app that
-      // had moved its block with no tokens at all in its head, so the no-FOUC
-      // colour-scheme bootstrap emitted nothing and the dark cascade — a class
-      // on `<html>`, not a media query — stayed unreachable for an app written
-      // the way the docs asked for. There is nothing left to fall back to.
-      design={app.design}
-      languages={app.languages}
-      tables={app.tables}
-      buckets={app.buckets}
-      landingPath={app.auth?.landingPath}
-      detectedLanguage={detectedLanguage}
-      urlLanguage={urlLanguage}
-      routeParams={routeParams}
-      builtInAnalyticsEnabled={injectAnalytics}
-      builtInAnalyticsSessionTimeout={sessionTimeout}
-      islandEntryFile={islandEntryFile}
-      islandPreloadHrefs={islandPreloadHrefs}
-      resolvedSidebar={resolvedSidebar}
-      markdownPayload={markdownPayload}
-      session={session}
-      cssHref={getVersionedCssPath(app)}
-      feedTitle={resolveFeedTitle(app, page)}
-    />
+    <ClientScriptPathsContext.Provider value={clientScriptPaths}>
+      <DynamicPage
+        page={page}
+        badgePlacement={resolveBadge(app.badge)}
+        demoNoticeEnabled={!isOperatorConsoleApp(app)}
+        components={appComponents}
+        // One position, `app.design`, with no fallback to an alias: the no-FOUC
+        // colour-scheme bootstrap reads its tokens from here, and without them
+        // the dark cascade — a class on `<html>`, not a media query — would be
+        // unreachable.
+        design={app.design}
+        languages={app.languages}
+        tables={app.tables}
+        buckets={app.buckets}
+        landingPath={app.auth?.landingPath}
+        detectedLanguage={detectedLanguage}
+        urlLanguage={urlLanguage}
+        routeParams={routeParams}
+        builtInAnalyticsEnabled={injectAnalytics}
+        builtInAnalyticsSessionTimeout={sessionTimeout}
+        islandEntryFile={islandEntryFile}
+        islandPreloadHrefs={islandPreloadHrefs}
+        resolvedSidebar={resolvedSidebar}
+        markdownPayload={markdownPayload}
+        session={session}
+        cssHref={getVersionedCssPath(app)}
+        feedTitle={resolveFeedTitle(app, page)}
+      />
+    </ClientScriptPathsContext.Provider>
   )
   return `<!DOCTYPE html>\n${html}`
 }

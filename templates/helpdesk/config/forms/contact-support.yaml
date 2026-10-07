@@ -1,7 +1,13 @@
 # The public ticket form. It renders on the home page (config/pages/home.yaml)
-# and needs no account; its title and description are the page's heading. A submission becomes a New ticket, which starts
+# and needs no account; its title and description are the page's heading. A
+# submission becomes a New ticket, which starts
 # config/automations/when-a-ticket-arrives.yaml: the due time is set and the
-# requester gets a copy by email.
+# team's inbox is told.
+#
+# Nobody else is emailed on submission. The email address here is typed by
+# whoever fills the form, and nothing proves it is theirs: mailing a copy to it
+# would let a stranger make your domain send their words to any address. The
+# requester hears from a person, who replies once they have read the ticket.
 #
 # The honeypot silently drops naive bots. Every form also answers at
 # `/forms/contact-support`.

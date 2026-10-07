@@ -27,18 +27,10 @@
  * keeps `?resourceType=table` (table-level readbacks) independently
  * addressable from `?resourceType=table.record` (per-record actions).
  *
- * HISTORICAL NOTE: this header, and several sibling modules and specs, used to
- * cite "audit-log story §305" for a stricter claim — that EVERY `table.*`
- * action carries the singular `table`. That citation was dangling and the claim
- * was wrong. The story it pointed at
- * was deleted in
- * `a76f3608c`; it had 275 lines and no numbered sections, so there was never a
- * §305 to read. Its "Action namespace catalog" table grouped actions by
- * CATEGORY ("categories are derived from the first dot-segment") — not by
- * `resource.type` — and the two actions it listed under `table`
- * (`table.permissions.changed`, `table.index.rebuilt`) have never existed in
- * this catalog. This module is the authority; there is no external rule to
- * defer to.
+ * There is NO rule that EVERY `table.*` action carries the singular `table`:
+ * no external story defines one, and categories derived from the first
+ * dot-segment are not the same thing as `resource.type`. This module is the
+ * authority; there is no external rule to defer to.
  *
  * This module is the authoritative source for what `(action, resource.type)`
  * pairs are legitimate. Handlers MUST resolve `resource.type` via
@@ -80,7 +72,7 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   'account.deletion.purged': 'user',
   // Admin config readbacks
   'config.version.queried': 'config',
-  // Config-reflection readbacks authorised by [internal ref] amendment A1 (2026-08-14):
+  // Config-reflection readbacks authorised by [internal ref] amendment A1:
   // the App-schema explorer and the env viewer. Both key on the singular
   // `config` resource type — the running configuration is the one entity these
   // reads target, exactly as `config.version.queried` does.
@@ -127,8 +119,8 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // caller identity threaded into the run is never persisted alongside it.
   'table.record.button.invoked': 'table.record',
   // Admin buckets readbacks — every `bucket.*` action shares the singular
-  // resource type per the audit-log story (added in [internal ref] Lane B merge).
-  // `bucket.files.queried` (the per-bucket file browser, [internal ref])
+  // resource type per the audit-log story.
+  // `bucket.files.queried` (the per-bucket file browser, the admin buckets files requirement)
   // keys on `bucket` too: the file enumeration is a read OF a bucket, so the
   // resource is the bucket — `/api/admin/audit-log?resourceType=bucket` returns
   // every bucket-domain action (list, overview, files) with one filter.
@@ -141,7 +133,7 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // is the bucket. `/api/admin/audit-log?resourceType=bucket` thus returns the
   // upload alongside list/overview/files with one filter.
   'bucket.file.uploaded': 'bucket',
-  // Admin forms readbacks ([internal ref] Lane B — drain-admin-forms).
+  // Admin forms readbacks.
   // `form.*` actions key on the singular resource type `form`.
   'form.list.queried': 'form',
   'form.detail.queried': 'form',
@@ -160,7 +152,7 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // keys on `form.submission` (it returns submission rows).
   'form.analytics.queried': 'form',
   'form.export.queried': 'form.submission',
-  // Admin users overview readback. The
+  // Admin users overview readback (the admin users overview requirement / ADM-1). The
   // overview endpoint keys on the singular resource type `user` per the
   // single-role-per-user contract; sibling per-user CRUD endpoints (story
   // `admin-user-management.md`) share the same compound-free type.
@@ -202,11 +194,19 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   'user.banned': 'user',
   'user.unbanned': 'user',
   'user.password.set': 'user',
-  // Admin automations readbacks ([internal ref] Lane B — drain-admin-automations).
+  // SCIM provisioning writes, made by the identity provider (actor
+  // `{ id: null, type: 'system', role: 'system' }`, `metadata.source: 'scim'`).
+  // A read records nothing.
+  'scim.user.created': 'user',
+  'scim.user.updated': 'user',
+  'scim.user.deactivated': 'user',
+  'scim.user.reactivated': 'user',
+  'scim.group.members.updated': 'group',
+  // Admin automations readbacks.
   // The overview endpoint keys on the singular resource type `automation`
   // (story §6.2 — every `automation.*` action shares the singular type).
   'automation.overview.queried': 'automation',
-  // Runs list/detail endpoints (story [internal ref]). Runs
+  // Runs list/detail endpoints. Runs
   // are a sub-resource of automation, so the canonical type is the dotted
   // compound `automation.run` (singular). Both list and detail share the
   // same compound type so admin UIs can group run-class entries with one
@@ -340,6 +340,11 @@ export const AUDIT_ACTIONS = {
   USER_IMPERSONATION_STARTED: 'user.impersonation.started',
   USER_IMPERSONATION_STOPPED: 'user.impersonation.stopped',
   USER_BANNED: 'user.banned',
+  SCIM_USER_CREATED: 'scim.user.created',
+  SCIM_USER_UPDATED: 'scim.user.updated',
+  SCIM_USER_DEACTIVATED: 'scim.user.deactivated',
+  SCIM_USER_REACTIVATED: 'scim.user.reactivated',
+  SCIM_GROUP_MEMBERS_UPDATED: 'scim.group.members.updated',
   USER_UNBANNED: 'user.unbanned',
   USER_PASSWORD_SET: 'user.password.set',
   AUTOMATION_OVERVIEW_QUERIED: 'automation.overview.queried',

@@ -46,8 +46,8 @@ import type { FieldMetaMap } from '../../hooks/use-inline-editing'
  * | `<select>` value (enum)  | combobox  | "Value"         |
  * | `<input>` value (free)   | textbox   | "Value"         |
  *
- * NOTE: the panel is purely client-side. Saved views (Cycle 5) will
- * serialise the `activeFilters` + `filterConjunction` state verbatim.
+ * NOTE: the panel is purely client-side and transient: the rows it narrows
+ * last for the reader's visit and are stored nowhere.
  */
 interface FilterOverlayProps {
   readonly tableFields: readonly string[]

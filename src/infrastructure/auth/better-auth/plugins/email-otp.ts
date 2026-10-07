@@ -13,6 +13,7 @@ import type { Auth } from '@/domain/models/app/auth'
  *
  * The email OTP plugin is enabled when `auth.emailTemplates.emailOtp` is present,
  * allowing users to receive one-time codes via email for verification flows.
+ * `auth.allowSignUp: false` is honoured: an unknown address gets no code.
  */
 export const buildEmailOtpPlugin = (
   sendVerificationOTP: (data: {
@@ -27,6 +28,9 @@ export const buildEmailOtpPlugin = (
         emailOTP({
           sendVerificationOTP: async ({ email, otp, type }) =>
             sendVerificationOTP({ email, otp, type }),
+          // `allowSignUp: false`: a sign-in code is never sent to, and never
+          // creates, an address with no account.
+          disableSignUp: authConfig.allowSignUp === false,
         }),
       ]
     : []

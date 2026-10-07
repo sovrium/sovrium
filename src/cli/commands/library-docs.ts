@@ -154,6 +154,10 @@ const operationRows = (
           ]),
       ]
 
+/** Whether the entry ships a form beside its fragment (a block that places one with `formRef`). */
+const shipsForms = (entry: LibraryEntry): boolean =>
+  entry.kind === 'block' && entry.forms !== undefined
+
 /** One entry's article body, below the title and summary the renderer adds. */
 const articleBody = (
   catalogue: CatalogueApi,
@@ -171,6 +175,12 @@ const articleBody = (
     '',
     `This writes \`library/${entry.kind}/${entry.slug}.yaml\` beside your config and adds one \`- $ref:\` line under \`${key}\` in \`app.yaml\`. The fragment is yours to edit afterwards. Preview the change first with \`--dry-run\`, and see every detail with \`sovrium library show ${id}\`.`,
     '',
+    ...(shipsForms(entry)
+      ? [
+          `The block places a form with \`formRef\`, so it also writes that form to \`library/form/${entry.slug}.yaml\` and adds its \`- $ref:\` line under \`forms\`. Both files carry the same \`sovrium-library:\` line.`,
+          '',
+        ]
+      : []),
     ...(entry.requires.length === 0
       ? []
       : [

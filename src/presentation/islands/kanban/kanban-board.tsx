@@ -9,6 +9,7 @@ import { DndContext, type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/c
 import { useId } from 'react'
 import { computeKanbanBoardClasses } from '@/presentation/design/kanban-default-classes'
 import { kanbanCollisionDetection } from './collision-detection'
+import { kanbanColumnPlacement } from './column-sizing'
 import { KanbanColumn } from './kanban-column'
 import { KanbanSwimlaneGrid } from './kanban-swimlane-grid'
 import { SettledDropTarget } from './settled-drop-target'
@@ -19,6 +20,7 @@ import type { KanbanGrid } from './group-lanes'
 import type { KanbanColumnData } from './group-records'
 import type {
   KanbanCard,
+  KanbanGroupBy,
   KanbanSwimlanes,
 } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
@@ -35,11 +37,12 @@ interface KanbanBoardProps {
   readonly grid: KanbanGrid | undefined
   readonly swimlanes: KanbanSwimlanes | undefined
   /**
-   * `kanbanGroupBy.collapsed` — the column values that start folded. Declaring
-   * it is what makes every column of a single-axis board foldable; a board that
-   * declares none keeps plain headings, exactly as before.
+   * `kanbanGroupBy`, read for three keys: `collapsed` — the column values that
+   * start folded (declaring it is what makes every column of a single-axis board
+   * foldable; a board that declares none keeps plain headings, exactly as
+   * before) — and `columnSizing` / `columnWidths`, the columns' widths.
    */
-  readonly collapsedColumns: readonly string[] | undefined
+  readonly groupBy: KanbanGroupBy | undefined
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
   /**
@@ -63,12 +66,14 @@ function KanbanColumnRow({
   emptyColumnMessage,
   collapsedColumns,
   idPrefix,
+  groupBy,
 }: {
   readonly columns: readonly KanbanColumnData[]
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
   readonly collapsedColumns: readonly string[] | undefined
   readonly idPrefix: string
+  readonly groupBy: KanbanGroupBy | undefined
 }): ReactElement {
   const [folded, toggle] = useFoldedValues(collapsedColumns)
   const foldable = collapsedColumns !== undefined
@@ -83,6 +88,7 @@ function KanbanColumnRow({
           expanded={foldable ? !folded.has(column.value) : undefined}
           onToggle={foldable ? toggle : undefined}
           idPrefix={idPrefix}
+          placement={kanbanColumnPlacement(groupBy, column.value)}
         />
       ))}
     </div>
@@ -104,7 +110,7 @@ export function KanbanBoard({
   columns,
   grid,
   swimlanes,
-  collapsedColumns,
+  groupBy,
   card,
   emptyColumnMessage,
   onDragEnd,
@@ -144,8 +150,9 @@ export function KanbanBoard({
           columns={columns}
           card={card}
           emptyColumnMessage={emptyColumnMessage}
-          collapsedColumns={collapsedColumns}
+          collapsedColumns={groupBy?.collapsed}
           idPrefix={idPrefix}
+          groupBy={groupBy}
         />
       )}
     </DndContext>

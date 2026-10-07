@@ -33,21 +33,88 @@ export const AuthActionSchema = Schema.Struct({
     'resetPassword',
     'setNewPassword',
     'verifyEmail',
+    'registerPasskey',
+    // Second factor: the sign-in step after a password, and the enrolment and
+    // removal a security page offers
+    'verifyTwoFactor',
+    'enableTwoFactor',
+    'disableTwoFactor',
+    // Invitations, from the invitee's side (token read from the page address)
+    // and from the inviter's side (one pending invitation, by `target`)
+    'acceptInvitation',
+    'declineInvitation',
+    'resendInvitation',
+    'revokeInvitation',
+    // The reader's own credentials and sessions, one item by `target`
+    'createApiKey',
+    'revokeApiKey',
+    'renamePasskey',
+    'removePasskey',
+    'revokeSession',
+    'revokeOtherSessions',
+    // A member's role, set by someone allowed to administer accounts
+    'setRole',
   ]).annotate({
     description:
-      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET).',
+      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET). The account methods act on the signed-in reader’s own sessions, passkeys and API keys; `setRole`, `resendInvitation` and `revokeInvitation` need the administer-accounts capability.',
   }),
   /** Auth strategy */
   strategy: Schema.optional(
-    Schema.Literals(['email', 'magicLink', 'oauth']).annotate({
-      description: 'Authentication strategy to use',
+    Schema.Literals(['email', 'magicLink', 'oauth', 'sso', 'passkey']).annotate({
+      description:
+        'Authentication strategy to use. sso renders one button per auth.sso provider (or the one named by provider) and, when a provider lists domains, an email field that routes to the provider owning the domain. passkey renders a passkey sign-in button.',
     })
   ),
-  /** OAuth provider name (required when strategy is oauth) */
+  /** OAuth provider name (required when strategy is oauth), or an auth.sso id */
   provider: Schema.optional(
     Schema.String.annotate({
-      description: 'OAuth provider name (e.g., google, github)',
-      examples: ['google', 'github', 'discord'],
+      description:
+        'OAuth provider name when strategy is oauth (e.g. google, github), or the id of one auth.sso provider when strategy is sso.',
+      examples: ['google', 'github', 'okta'],
+    })
+  ),
+  /**
+   * The ONE item an item-level method acts on — a session, a passkey, an API
+   * key, a member or an invitation — by id. Almost always `$record.id`, read
+   * from the row the button sits in. Required by `revokeSession`,
+   * `renamePasskey`, `removePasskey`, `revokeApiKey`, `setRole`,
+   * `resendInvitation` and `revokeInvitation`; inert on every other method.
+   *
+   * The id is checked against the reader server-side: a session, passkey or
+   * key that is not the reader's own, or a member the reader may not
+   * administer, answers 404 exactly like one that does not exist.
+   */
+  target: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Id of the one session, passkey, API key, member or invitation an item-level method acts on — usually $record.id from the row the action sits in. An id the reader may not act on answers as if it did not exist.',
+        examples: ['$record.id'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+  /**
+   * Which second factor `verifyTwoFactor` checks. `totp` (default) is the
+   * authenticator-app code, `backupCode` one of the recovery codes shown at
+   * enrolment. No code is sent by mail, so there is no `email` factor.
+   */
+  factor: Schema.optional(
+    Schema.Literals(['totp', 'backupCode']).annotate({
+      description:
+        'Second factor `verifyTwoFactor` checks: totp (authenticator code, default) or backupCode (a recovery code). Inert on every other method.',
+    })
+  ),
+  /**
+   * Whether a successful `verifyTwoFactor` marks this browser as trusted, so
+   * the second step is skipped on it for the trust period the two-factor
+   * config sets. The form shows it as a "Trust this device" checkbox; this
+   * key only decides whether that checkbox is offered.
+   */
+  trustDevice: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Offer "Trust this device" on the two-factor step, so a successful code skips the step on this browser for the configured trust period (default: false). Inert on every other method.',
     })
   ),
   /**

@@ -39,7 +39,7 @@ import { EMBEDDED_SKILLS as RAW_SKILLS } from './embedded-skills.generated'
 // `with { type: 'file' }` imports return a path string at runtime while TS types
 // them as the imported module's shape. Cast through `unknown` to recover the
 // true runtime type — the same recovery `embedded-docs.ts` makes.
-const SKILLS = RAW_SKILLS as unknown as Readonly<Record<string, Readonly<Record<string, string>>>>
+const SKILLS = RAW_SKILLS as Readonly<Record<string, Readonly<Record<string, string>>>>
 
 /** The name, description and metadata a skill's frontmatter declares, plus its body. */
 export interface EmbeddedSkillFrontmatter {
@@ -69,7 +69,6 @@ export const readEmbeddedSkillFile = async (name: string, relPath: string): Prom
   const embedded = SKILLS[name]?.[relPath]
   if (embedded === undefined) {
     const known = SKILLS[name] === undefined ? embeddedSkillNames() : embeddedSkillFiles(name)
-    // eslint-disable-next-line functional/no-throw-statements -- refusal by name: an unknown key means the caller and the payload have diverged
     throw new Error(
       `No embedded skill file '${name}/${relPath}'. Known: ${known.join(', ')}. ` +
         'Regenerate with `bun run build:skills` if a skill file was added or moved.'
@@ -98,7 +97,6 @@ export const readEmbeddedSkillFrontmatter = async (
     typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
   const { name: declared, description, metadata } = record
   if (match === null || typeof declared !== 'string' || typeof description !== 'string') {
-    // eslint-disable-next-line functional/no-throw-statements -- a SKILL.md no host can read is a payload defect, not an empty answer
     throw new Error(
       `Embedded skill '${name}' has no readable frontmatter: SKILL.md must open with a ` +
         '`---` block declaring `name` and `description`.'

@@ -1,0 +1,31 @@
+# sovrium-library: recipe/record-to-linear-issue@0.30.0
+# Escalation to engineering: every ticket filed as a Bug report becomes an
+# issue in your Linear team, titled with its subject. The trigger condition is
+# the one change from the library recipe — without it every question and
+# billing ticket would land in the engineers' backlog too.
+# Set LINEAR_API_KEY and LINEAR_TEAM_ID (see `.env.example`) to turn it on.
+name: record-to-linear-issue
+trigger:
+  type: record
+  table: tickets
+  events:
+    - create
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.category}}'
+        operator: equals
+        value: Bug report
+actions:
+  - name: issue
+    type: connection
+    operator: call
+    props:
+      connection: linear
+      operation: graphql
+      params:
+        query: 'mutation IssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }'
+        variables:
+          input:
+            teamId: $env.LINEAR_TEAM_ID
+            title: '{{trigger.data.record.subject}}'
+            description: '{{trigger.data.record.details}}'

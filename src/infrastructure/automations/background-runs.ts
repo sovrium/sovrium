@@ -5,11 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/immutable-data, functional/prefer-immutable-types, functional/no-expression-statements, drizzle/enforce-delete-with-where -- the set of in-flight background runs is process state that must mutate in place, like the run scheduler's queues (`run/scheduler.ts`); `Set.delete` is not a SQL delete */
-
 /**
  * The automation runs a write started in the BACKGROUND, held so a shutdown
- * can wait for them ([internal ref], standing rule E3).
+ * can wait for them (the chained-run shutdown and cross-automation cycle rule, standing rule E3).
  *
  * A record an automation step writes starts the record automations of its
  * table, and that dispatch does not wait (`run/record-event-channel.ts`

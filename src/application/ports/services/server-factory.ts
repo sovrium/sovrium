@@ -118,7 +118,7 @@ export interface ServerFactoryConfig {
       readonly detectedLanguage?: string
       readonly session?: SessionInfo
       readonly cookies?: Readonly<Record<string, string>>
-      /** [internal ref]..039: the `/:lang/` URL-prefix locale, when present. */
+      /** The `/:lang/` URL-prefix locale, when present. */
       readonly urlLanguage?: string
     }
   ) => PageRenderResult | Promise<PageRenderResult>
@@ -129,7 +129,7 @@ export interface ServerFactoryConfig {
   ) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   /**
-   * RSS feed renderer ([internal ref] — [internal ref]).
+   * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
    * Optional so callers (eg. SSG) that don't yet wire RSS through still
    * compile — the Hono `/feed.xml` route 404s when undefined.
@@ -220,8 +220,7 @@ export class ServerFactory extends Context.Service<
      *   starting the instance, so the boot-ledger capture is skipped —
      *   `build`'s case, and the only caller that sets it. A `start` omits it
      *   and gets its row. It is about the command, not about any one server:
-     *   the flag that used to mark an individual server as throwaway is gone
-     *   along with the throwaway servers themselves (`buildRenderApp`).
+     *   there are no throwaway servers to flag individually.
      * @param options.authoredTableIds - The ids the author WROTE, as the decode
      *   returned them beside the config; only a name change under one of these
      *   is a table rename. Omitted, a rename is refused as a populated drop.
@@ -269,8 +268,6 @@ export class ServerFactory extends Context.Service<
      * `runDeferredMaintenance` are the caller's to run once, ahead of the
      * render pass, and they must be: a `dataSource`-bound page needs its table
      * to exist before anything renders.
-     *
-     * [internal ref].
      */
     readonly buildRenderApp: (
       config: RenderAppConfig

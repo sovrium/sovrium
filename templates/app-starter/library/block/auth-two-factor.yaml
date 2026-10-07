@@ -1,0 +1,78 @@
+# sovrium-library: block/auth-two-factor@0.30.0
+name: auth-two-factor
+type: container
+element: main
+props:
+  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+children:
+  - type: container
+    props:
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+    children:
+      - type: flex
+        props:
+          className: flex items-center gap-2 text-sm font-semibold text-foreground
+        children:
+          - type: icon
+            props:
+              name: layers
+              size: 14
+              className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+          - type: text
+            element: span
+            content: $app.label
+      - type: flex
+        props:
+          className: flex flex-col gap-1.5
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: Enter your code
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: Open your authenticator app and type the six-digit code for $app.label.
+      - type: form
+        action:
+          type: auth
+          method: verifyTwoFactor
+          factor: totp
+          trustDevice: true
+          submitLabel: Verify
+          onSuccess: &onSuccess
+            navigate: /
+      - type: button
+        variant: ghost
+        label: Use a recovery code instead
+        props:
+          aria-controls: auth-two-factor-recovery
+          className: self-start px-0
+        interactions:
+          click:
+            toggleElement: '#auth-two-factor-recovery'
+      - type: container
+        props:
+          id: auth-two-factor-recovery
+          style:
+            display: none
+          className: flex flex-col gap-3
+        children:
+          - type: form
+            action:
+              type: auth
+              method: verifyTwoFactor
+              factor: backupCode
+              submitLabel: Verify recovery code
+              onSuccess: *onSuccess
+      - type: flex
+        props:
+          className: flex flex-wrap gap-1 text-md text-foreground-muted
+        children:
+          - type: link
+            props:
+              href: /sign-in
+              className: font-medium text-foreground underline underline-offset-4
+            content: Back to sign in

@@ -6,6 +6,7 @@
  */
 
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   buildFilterParam,
   useRecordsPagesQuery,
@@ -32,9 +33,12 @@ export type ListRecordsDataSource = RecordsDataSource
  * With a `dataSource.system` binding the rows come from a named read endpoint
  * instead of the DB-table records API, paged the same way. The list's row→item
  * mapping stays in the list/search renderers — this hook only owns the fetch.
+ *
+ * A `dataSource.refreshMode` reads the pages again on its interval or on a
+ * change to the table (`useLiveRefresh`).
  */
 export function useListRecords(dataSource: ListRecordsDataSource | undefined): RecordsPages {
-  return useRecordsPagesQuery(
+  const pages = useRecordsPagesQuery(
     'list',
     dataSource,
     useLazySharedFilter(
@@ -42,4 +46,6 @@ export function useListRecords(dataSource: ListRecordsDataSource | undefined): R
       buildFilterParam(dataSource?.filter)
     )
   )
+  useLiveRefresh(dataSource, pages.retry)
+  return pages
 }

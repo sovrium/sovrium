@@ -121,4 +121,38 @@ export const drawerFields = {
         "Lists of records from other tables that point at the record the drawer opened, each drawn as its own section below the record's fields.",
     })
   ),
+  /**
+   * Moving on from the opened record without closing the drawer.
+   *
+   * `siblings` adds Previous and Next buttons that step through the rows of the
+   * list or grid the drawer was opened from, in that list's current order and
+   * filter — the address follows (`?record=<id>`), so each step is a link.
+   * `fullPage` adds "Open full page", a link to the record's own page, for the
+   * reader who needs more than a drawer holds.
+   */
+  navigation: Schema.optional(
+    Schema.Struct({
+      siblings: Schema.optional(
+        Schema.Boolean.annotate({
+          description:
+            'Draw Previous and Next, stepping through the rows of the table the drawer was opened from, in its current order, filter and page (default: false)',
+        })
+      ),
+      fullPage: Schema.optional(
+        Schema.String.pipe(
+          Schema.annotate({
+            description:
+              'Path of the record’s own page, drawn as an "Open full page" link. Accepts $record.<field>, typically $record.id.',
+            examples: ['/orders/$record.id'],
+          }),
+          Schema.check(Schema.isMinLength(1))
+        )
+      ),
+    }).annotate({
+      identifier: 'RecordDrawerNavigation',
+      title: 'Record Drawer Navigation',
+      description:
+        'Previous and Next through the list the drawer was opened from, and a link to the record’s full page',
+    })
+  ),
 } as const

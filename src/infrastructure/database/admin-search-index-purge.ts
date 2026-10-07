@@ -6,7 +6,7 @@
  */
 
 /**
- * One-shot boot purge of `_admin_search_index` ([internal ref] R3).
+ * One-shot boot purge of `_admin_search_index`.
  *
  * ── Why narrowing the indexer is not enough ───────────────────────────────
  * `rebuildIndex` (admin-search-repository-live.ts) is UPSERT-ONLY — there is no
@@ -32,7 +32,7 @@
  * terms — `_admin_search_index` is a DERIVED CACHE, rebuilt from live sources by
  * the lazy `rebuildIndex` the first time anyone searches, so it has no business
  * surviving a process restart at all. (It also incidentally closes the GDPR
- * residue noted in [internal ref] R5, where an erased user's e-mail persisted in the
+ * residue noted in the server-side admin list search design, where an erased user's e-mail persisted in the
  * index because the rebuild never deleted. Incidental coverage is not a
  * contract — that gap keeps its own follow-up.)
  *
@@ -72,7 +72,6 @@ import { executeRaw } from './sql/dialect-execute'
  */
 export const runAdminSearchIndexPurge = async (): Promise<void> => {
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- the DELETE is the effect; `executeRaw` resolves to a (here empty) row array that has nothing to bind
     await executeRaw(db, sql`DELETE FROM ${adminSearchContentTableRef()}`)
     logDebug('[admin-search] index purged at boot — the next search rebuilds it from live sources')
   } catch (error) {

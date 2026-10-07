@@ -1,0 +1,11 @@
+name: projects
+path: /projects
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Projects · App starter
+  description: Every project, each one click from its details.
+components:
+  - $ref: ./_nav.yaml
+  - component: drawer-record

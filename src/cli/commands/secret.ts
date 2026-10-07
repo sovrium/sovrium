@@ -91,7 +91,6 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
 
 const failWith = (message: string): never => {
   printStderr(message)
-  // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
   process.exit(1)
 }
 
@@ -105,7 +104,6 @@ const failWith = (message: string): never => {
  */
 const writeKeyFile = (keyFilePath: string, value: string): string | undefined => {
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- filesystem provisioning
     mkdirSync(dirname(keyFilePath), { recursive: true })
     writeFileSync(keyFilePath, `${value}\n`, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
     // `mode` applies only on creation and is masked by umask, so the bits are
@@ -186,7 +184,6 @@ export const handleSecretCommand = async (subcommand?: string, scope?: string): 
     printStderr(
       'Error: Unknown secret subcommand\n\nUsage:\n  sovrium secret generate [auth|encryption|all]   Print fresh secret(s) as .env lines\n  sovrium secret adopt                            Persist $SOVRIUM_ENCRYPTION_KEY to the data dir'
     )
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 
@@ -196,7 +193,6 @@ export const handleSecretCommand = async (subcommand?: string, scope?: string): 
     printStderr(
       `Error: Unknown secret scope "${scope ?? ''}".\n\nValid scopes: auth, encryption, all (default).`
     )
-    // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
 

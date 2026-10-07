@@ -31,7 +31,7 @@
  *
  * ─── WHY `appJson` IS A STRING, AND WHY THAT IS NOT A RENDERED STRING ───────
  *
- * [internal ref] refuses a field that embeds a choice belonging to the console. A
+ * the facts-not-strings rule refuses a field that embeds a choice belonging to the console. A
  * pretty-printed serialization of an object the platform already publishes is
  * the admitted other half of that rule: it carries no word, no sentence, no
  * label and no ordering meant to be read, and a caller could recompute it
@@ -166,3 +166,17 @@ export const configReflectionResponseSchema = Schema.Struct({
 
 /** @public */
 export type ConfigReflectionResponse = typeof configReflectionResponseSchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/config/declarations`.
+ *
+ * `family` is the closed {@link configDeclarationFamilySchema}: an unknown
+ * value is refused (400 `INVALID_FAMILY`) rather than answered with an empty
+ * tree an operator would read as "this instance declares nothing".
+ */
+export const configDeclarationsQuerySchema = Schema.Struct({
+  family: optionalField(configDeclarationFamilySchema),
+}).annotate({ identifier: 'ConfigDeclarationsQuery' })
+
+/** @public */
+export type ConfigDeclarationsQuery = typeof configDeclarationsQuerySchema.Type

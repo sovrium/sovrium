@@ -146,7 +146,6 @@ export function useSlashMenu({
   const [state, setState] = useState<SlashQueryState>(CLOSED)
   // A ref so the keydown handler reads up-to-date values without re-binding.
   const stateRef = useRef(state)
-  // eslint-disable-next-line functional/immutable-data -- React ref pattern: refs are designed to be mutated
   stateRef.current = state
 
   useSlashQueryTracking(editor, setState)

@@ -9,20 +9,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
-import { copyDirectory } from '@/infrastructure/filesystem/copy-directory'
+import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import { logDebug } from '@/infrastructure/logging'
-import {
-  formatHtmlWithPrettier,
-  generateClientHydrationScript,
-  generateRobotsContent,
-  generateSitemapDocuments,
-  type HreflangConfig,
-} from './static-content-generators'
-import {
-  injectHydrationScript,
-  isGitHubPagesUrl,
-  rewriteBasePathInHtml,
-} from './static-url-rewriter'
+import { generateRobotsContent } from './robots-content'
+import { generateSitemapDocuments } from './sitemap-content'
+import { formatHtmlWithPrettier, type HreflangConfig } from './static-content-generators'
+import { rewriteBasePathInHtml } from './static-url-rewriter'
 import * as translationReplacer from './translation-replacer'
 import type { GenerateStaticOptions } from './generate-static'
 import type { CollectionRecordIndex } from './sitemap-record-fan-out'
@@ -110,33 +102,6 @@ export function writeCssFile(
 }
 
 /**
- * Generate client-side hydration script if enabled
- *
- * @param outputDir - Output directory path
- * @param enabled - Whether hydration is enabled
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- */
-export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: FileSystemLike) {
-  return Effect.suspend(() =>
-    enabled
-      ? Effect.gen(function* () {
-          logDebug('Generating client-side hydration script...')
-          const clientJS = generateClientHydrationScript()
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/assets/client.js`, clientJS, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write client.js',
-                cause: error,
-              }),
-          })
-          return ['assets/client.js'] as const
-        })
-      : Effect.succeed([] as readonly string[])
-  ).pipe(Effect.withSpan('server.generate-hydration-files'))
-}
-
-/**
  * Resolve whether `publicDir` is a real directory on disk.
  *
  * Mirrors `collectPublicDirPhases` (server mode): a missing or non-directory
@@ -171,7 +136,7 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
             return [] as readonly string[]
           }
           logDebug(`Copying assets from ${publicDir}...`)
-          return yield* copyDirectory(publicDir!, outputDir)
+          return yield* (yield* StaticSiteGenerator).copyDirectory(publicDir!, outputDir)
         })
       : Effect.succeed([] as readonly string[])
   ).pipe(Effect.withSpan('server.copy-public-assets'))
@@ -242,42 +207,25 @@ export function formatHtmlFiles(
  * @param config.outputDir - Output directory path
  * @param config.options - Static generation options
  * @param config.fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- * @param config.path - Path module (Node.js path or Bun's equivalent)
  */
 export function applyHtmlOptimizations(config: {
   readonly generatedFiles: readonly string[]
   readonly outputDir: string
   readonly options: GenerateStaticOptions
   readonly fs: FileSystemLike
-  readonly path: PathModuleLike
 }) {
-  return Effect.gen(function* () {
-    // Step 1: Apply base path rewriting if basePath is configured
-    yield* Effect.suspend(() =>
-      config.options.basePath !== undefined && config.options.basePath !== ''
-        ? rewriteBasePathInHtml(
-            config.generatedFiles,
-            config.outputDir,
-            config.options.basePath!,
-            config.options.baseUrl,
-            config.fs
-          )
-        : Effect.void
-    )
-
-    // Step 2: Inject hydration script into HTML if enabled
-    yield* Effect.suspend(() =>
-      (config.options.hydration ?? false)
-        ? injectHydrationScript(
-            config.generatedFiles,
-            config.outputDir,
-            config.options.basePath || '',
-            config.fs,
-            config.path
-          )
-        : Effect.void
-    )
-  }).pipe(
+  // Base-path rewriting is the only HTML transformation left; it runs when basePath is set.
+  return Effect.suspend(() =>
+    config.options.basePath !== undefined && config.options.basePath !== ''
+      ? rewriteBasePathInHtml(
+          config.generatedFiles,
+          config.outputDir,
+          config.options.basePath!,
+          config.options.baseUrl,
+          config.fs
+        )
+      : Effect.void
+  ).pipe(
     Effect.withSpan('server.apply-html-optimizations', {
       attributes: { outputDir: config.outputDir },
     })
@@ -334,19 +282,23 @@ export function generateSitemapFile(
           const languages = app.languages && options.languages ? options.languages : undefined
           const hreflangConfig = buildHreflangConfig(app, options)
 
-          const documents = yield* Effect.tryPromise({
-            try: () =>
-              generateSitemapDocuments(pages, options.baseUrl || 'https://example.com', {
-                ...(languages !== undefined ? { languages } : {}),
-                ...(hreflangConfig !== undefined ? { hreflangConfig } : {}),
-                collectionRecords,
-              }),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to generate sitemap.xml',
-                cause: error,
-              }),
-          })
+          const documents = yield* generateSitemapDocuments(
+            pages,
+            options.baseUrl || 'https://example.com',
+            {
+              ...(languages !== undefined ? { languages } : {}),
+              ...(hreflangConfig !== undefined ? { hreflangConfig } : {}),
+              collectionRecords,
+            }
+          ).pipe(
+            Effect.mapError(
+              (error) =>
+                new StaticGenerationError({
+                  message: 'Failed to generate sitemap.xml',
+                  cause: error,
+                })
+            )
+          )
           yield* writeSitemapDocument(fs, outputDir, 'sitemap.xml', documents.sitemap)
           const childFiles = documents.children.map((_, index) => `sitemap-${index + 1}.xml`)
           // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem writes on a dedicated process, no shared database pool connection is held.
@@ -399,54 +351,4 @@ export function generateRobotsFile(
   ).pipe(Effect.withSpan('server.generate-robots-file'))
 }
 
-/**
- * Generate GitHub Pages specific files
- */
-export function generateGitHubPagesFiles(
-  outputDir: string,
-  options: GenerateStaticOptions,
-  fs: FileSystemLike
-) {
-  return Effect.gen(function* () {
-    // Create .nojekyll file
-    const nojekyllFiles = yield* Effect.suspend(() =>
-      options.deployment === 'github-pages'
-        ? Effect.gen(function* () {
-            logDebug('Creating .nojekyll file for GitHub Pages...')
-            yield* Effect.tryPromise({
-              try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
-              catch: (error) =>
-                new StaticGenerationError({
-                  message: 'Failed to write .nojekyll',
-                  cause: error,
-                }),
-            })
-            return ['.nojekyll'] as const
-          })
-        : Effect.succeed([] as readonly string[])
-    )
-
-    // Generate CNAME file for custom domains
-    const cnameFiles = yield* Effect.suspend(() =>
-      options.deployment === 'github-pages' &&
-      options.baseUrl !== undefined &&
-      !isGitHubPagesUrl(options.baseUrl)
-        ? Effect.gen(function* () {
-            const domain = new URL(options.baseUrl!).hostname
-            logDebug(`Creating CNAME file for custom domain: ${domain}...`)
-            yield* Effect.tryPromise({
-              try: () => fs.writeFile(`${outputDir}/CNAME`, domain, 'utf-8'),
-              catch: (error) =>
-                new StaticGenerationError({
-                  message: 'Failed to write CNAME',
-                  cause: error,
-                }),
-            })
-            return ['CNAME'] as const
-          })
-        : Effect.succeed([] as readonly string[])
-    )
-
-    return [...nojekyllFiles, ...cnameFiles] as readonly string[]
-  }).pipe(Effect.withSpan('server.generate-git-hub-pages-files', { attributes: { outputDir } }))
-}
+export { generateGitHubPagesFiles } from './generate-github-pages-files'

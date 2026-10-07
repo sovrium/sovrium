@@ -42,12 +42,12 @@ import { PLATFORM_TYPE_LADDER } from '@/domain/models/app/design/inherited-token
 import { buildDesignSystem } from './design-system'
 import { imageryLines, markMisuseLines } from './design-system-brand-facet'
 import { renderDesignSystemMarkdown } from './design-system-markdown'
-import { flattenDesignTokens } from './design-system-schema'
 import {
   colourProjection,
   discardedDeclarations,
   typographyProjection,
 } from './design-system-token-projection'
+import { flattenDesignTokens } from './design-system-token-rows'
 import type { FlatTokenRow } from '@/domain/models/api/admin/design-system/component-types'
 import type {
   DesignSystemExportRow,
@@ -178,7 +178,7 @@ export const typeLadderFacet = (): TypeLadderResponse => {
 }
 
 export const designTokenFacet = (app: App, group?: string): DesignTokenFacetResponse => {
-  const document = buildDesignSystem(app) as unknown as Readonly<Record<string, unknown>>
+  const document = buildDesignSystem(app) as Readonly<Record<string, unknown>>
   const { design } = app
   const every = [
     ...withDarkCounterpart(flattenDesignTokens(document, app), design),
@@ -454,7 +454,7 @@ const EXCERPT_LINES = 8
  * ─── THE SIZE IS THE WIRE FORM; THE EXCERPT IS THE READABLE ONE ────────────
  *
  * `bytes` and `lines` always measure the SERVED text — that is the whole point
- * of the ledger, and `[internal ref]` re-derives both from the
+ * of the ledger, and an admin design system facets spec re-derives both from the
  * endpoint's own response.
  *
  * The excerpt is a separate question, and for the JSON export it has to be.

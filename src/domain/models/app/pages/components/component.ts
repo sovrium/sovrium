@@ -6,7 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { ComponentReferenceSchema, type ComponentReference } from '../../components/reference'
+import {
+  buildComponentReferenceSchema,
+  type ComponentReference,
+  type ComponentReferenceChildrenSchema,
+} from '../../components/reference'
 import { buildComponentUnion, ComponentTypeSchema, type ComponentUnion } from './component-types'
 
 export { ComponentTypeSchema }
@@ -41,6 +45,43 @@ interface PageChildren {
  * non-distributed `Union & PageChildren` would not narrow.
  */
 type WithPageChildren<T> = T extends unknown ? T & PageChildren : never
+
+/**
+ * One member of a page node's `children`: a page component or a reference. The
+ * identifier is set ONCE, on this instance, so the JSON Schema rendering names
+ * one definition however many lists hold it.
+ */
+const PageComponentItemMember = Schema.suspend(() => PageComponentItemSchema).pipe(
+  Schema.annotate({
+    identifier: 'PageComponentItem',
+  })
+)
+
+/**
+ * The member list a page node's `children` holds — page components, references
+ * and text. Two consumers hold it: a direct component's `children`, and a
+ * reference's `children`, which fill the template's `$children` slot. Built per
+ * consumer so each carries its own description.
+ */
+const pageChildItems = (): ComponentReferenceChildrenSchema =>
+  Schema.Array(Schema.Union([PageComponentItemMember, Schema.String]))
+
+/**
+ * A placement of a component template on a page, in any of its four forms,
+ * with the page components that fill the template's `$children` slot.
+ *
+ * The one instance of {@link buildComponentReferenceSchema} the AppSchema
+ * decodes — built here because the slot's members are page components.
+ *
+ * @example
+ * ```typescript
+ * const reference = {
+ *   component: 'app-shell',
+ *   children: [{ type: 'text', element: 'h1', content: 'Invoices' }],
+ * }
+ * ```
+ */
+export const ComponentReferenceSchema = buildComponentReferenceSchema(pageChildItems())
 
 /**
  * Page component item - either a direct component or a component reference
@@ -87,7 +128,11 @@ export const PageComponentItemSchema = Schema.Union([
       identifier: 'PageComponent',
     })
   ),
-  ComponentReferenceSchema,
+  Schema.suspend(() => ComponentReferenceSchema).pipe(
+    Schema.annotate({
+      identifier: 'ComponentReference',
+    })
+  ),
 ]).annotate({
   title: 'Page Component Item',
   description:
@@ -143,16 +188,7 @@ export const PageComponentItemSchema = Schema.Union([
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended types requires any for circular reference resolution; see the `Component` docblock for the measured cost of narrowing this
 export const ComponentSchema: Schema.Codec<any, any, never> = buildComponentUnion({
   children: Schema.optional(
-    Schema.Array(
-      Schema.Union([
-        Schema.suspend(() => PageComponentItemSchema).pipe(
-          Schema.annotate({
-            identifier: 'PageComponentItem',
-          })
-        ),
-        Schema.String,
-      ])
-    ).pipe(
+    pageChildItems().pipe(
       Schema.annotate({
         identifier: 'Children',
         title: 'Child Components',

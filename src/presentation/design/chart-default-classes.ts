@@ -112,12 +112,12 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 // resolves its own height ({@link computeChartBodyClasses}) and the card sizes
 // to it, or the frame's padding plus the legend overflow the card.
 //
-// The three single-series canvases used to be the exception: they measured this
-// element directly and appended their own `h-80`, which after the 1px border and
-// `py-2.5` left a 298px plot where the shell's body measures 288. Two bar charts
-// over the same rows at the same width therefore drew plot areas 10px apart —
-// a step nobody configured, and visible the moment two charts sat in one column.
-// There is now one height in the chart subtree, and it is `CHART_BODY`.
+// No canvas is an exception. One that measured this element directly and
+// appended its own `h-80` would, after the 1px border and `py-2.5`, get a 298px
+// plot where the shell's body measures 288 — two bar charts over the same rows
+// at the same width drawing plot areas 10px apart, a step nobody configured and
+// visible the moment two charts sit in one column. There is one height in the
+// chart subtree, and it is `CHART_BODY`.
 const CHART_SHELL = [
   'relative w-full',
   'border',
@@ -178,7 +178,7 @@ const CHART_BODY_BESIDE = 'relative aspect-[2/1] min-h-40 min-w-0 flex-1'
  * height is not something the operator declares (there is no `height` key on
  * `chart`), so it is the engine's to keep consistent, and a second constant on
  * the other canvas is how two charts over the same rows came to disagree by
- * 10px. [internal ref] pins the invariant.
+ * 10px. A pages chart spec pins the invariant.
  *
  * `beside` selects the flex-item form used when the legend is placed to the
  * left or the right; the default is the stacked form, where the body spans the

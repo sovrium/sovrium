@@ -8,27 +8,33 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
-import { authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
   parseAggregationResult,
-  buildOrderByClause,
   buildPageClause,
   buildSelectListClause,
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
   checkAuthorshipColumns,
   type FilterNode,
-  type OrderByAppView,
-  type OrderByPrimaryKey,
 } from '../query-helpers/aggregation-helpers'
 import { maskedRelation, type LookupReadMaskSpec } from '../query-helpers/lookup-read-mask'
+import {
+  buildOrderByClause,
+  type OrderByAppView,
+  type OrderByPrimaryKey,
+} from '../query-helpers/order-by-helpers'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
 import { tableIdentifier } from '../statement/validation'
+import {
+  buildAuthorshipJoins,
+  buildAuthorshipSelectFields,
+  transformRowWithAuthorship,
+} from './crud-authorship'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
@@ -145,7 +151,6 @@ const runAggregationsInTx = (
     readonly aggregate: AggregationSpec
     readonly lookupMasks?: readonly LookupReadMaskSpec[]
   },
-  // eslint-disable-next-line functional/prefer-immutable-types -- receives the shared `wrapDatabaseError` factory, which returns a mutable Error subclass; same rationale as the file-level disable in `shared/error-handling.ts`
   onFailure: (error: unknown) => DatabaseError
 ): Effect.Effect<AggregationResult, DatabaseError> =>
   Effect.gen(function* () {
@@ -155,6 +160,7 @@ const runAggregationsInTx = (
     const aggregationSelects = buildAggregationSelects(aggregate)
     if (aggregationSelects.length === 0) return {}
 
+    // sql-literal: identifier -- aggregate columns pass validateColumnName
     const selectClause = sql.raw(aggregationSelects.join(', '))
     const relation = yield* maskedRelation(tx, tableName, lookupMasks)
     const rows = yield* Effect.tryPromise({
@@ -207,122 +213,6 @@ export function computeAggregations(config: {
 }
 
 /**
- * Build SELECT field list for authorship columns
- */
-function buildAuthorshipSelectFields(authorshipColumns: {
-  readonly hasCreatedBy: boolean
-  readonly hasUpdatedBy: boolean
-  readonly hasDeletedBy: boolean
-}): readonly string[] {
-  const createdByFields = authorshipColumns.hasCreatedBy
-    ? [
-        'created_by_user.id AS "createdByUserId"',
-        'created_by_user.name AS "createdByUserName"',
-        'created_by_user.email AS "createdByUserEmail"',
-      ]
-    : []
-
-  const updatedByFields = authorshipColumns.hasUpdatedBy
-    ? [
-        'updated_by_user.id AS "updatedByUserId"',
-        'updated_by_user.name AS "updatedByUserName"',
-        'updated_by_user.email AS "updatedByUserEmail"',
-      ]
-    : []
-
-  const deletedByFields = authorshipColumns.hasDeletedBy
-    ? [
-        'deleted_by_user.id AS "deletedByUserId"',
-        'deleted_by_user.name AS "deletedByUserName"',
-        'deleted_by_user.email AS "deletedByUserEmail"',
-      ]
-    : []
-
-  return ['t.*', ...createdByFields, ...updatedByFields, ...deletedByFields]
-}
-
-/**
- * Build query with conditional JOINs for authorship tables
- */
-function buildAuthorshipJoins(
-  baseQuery: Readonly<ReturnType<typeof sql>>,
-  authorshipColumns: {
-    readonly hasCreatedBy: boolean
-    readonly hasUpdatedBy: boolean
-    readonly hasDeletedBy: boolean
-  }
-): Readonly<ReturnType<typeof sql>> {
-  const authUser = authUserTableRef()
-  const queryWithCreatedBy = authorshipColumns.hasCreatedBy
-    ? sql`${baseQuery} LEFT JOIN ${authUser} created_by_user ON t.created_by = created_by_user.id`
-    : baseQuery
-
-  const queryWithUpdatedBy = authorshipColumns.hasUpdatedBy
-    ? sql`${queryWithCreatedBy} LEFT JOIN ${authUser} updated_by_user ON t.updated_by = updated_by_user.id`
-    : queryWithCreatedBy
-
-  const queryWithDeletedBy = authorshipColumns.hasDeletedBy
-    ? sql`${queryWithUpdatedBy} LEFT JOIN ${authUser} deleted_by_user ON t.deleted_by = deleted_by_user.id`
-    : queryWithUpdatedBy
-
-  return queryWithDeletedBy
-}
-
-/**
- * Transform row data to include user objects for authorship fields
- */
-function transformRowWithAuthorship(
-  row: Readonly<Record<string, unknown>>
-): Readonly<Record<string, unknown>> {
-  const {
-    createdByUserId,
-    createdByUserName,
-    createdByUserEmail,
-    updatedByUserId,
-    updatedByUserName,
-    updatedByUserEmail,
-    deletedByUserId,
-    deletedByUserName,
-    deletedByUserEmail,
-    ...recordFields
-  } = row
-
-  const createdByUser =
-    createdByUserId !== null && createdByUserId !== undefined
-      ? {
-          id: createdByUserId as string,
-          name: createdByUserName as string | undefined,
-          email: createdByUserEmail as string | undefined,
-        }
-      : undefined
-
-  const updatedByUser =
-    updatedByUserId !== null && updatedByUserId !== undefined
-      ? {
-          id: updatedByUserId as string,
-          name: updatedByUserName as string | undefined,
-          email: updatedByUserEmail as string | undefined,
-        }
-      : undefined
-
-  const deletedByUser =
-    deletedByUserId !== null && deletedByUserId !== undefined
-      ? {
-          id: deletedByUserId as string,
-          name: deletedByUserName as string | undefined,
-          email: deletedByUserEmail as string | undefined,
-        }
-      : undefined
-
-  return {
-    ...recordFields,
-    ...(createdByUser ? { created_by_user: createdByUser } : {}),
-    ...(updatedByUser ? { updated_by_user: updatedByUser } : {}),
-    ...(deletedByUser ? { deleted_by_user: deletedByUser } : {}),
-  }
-}
-
-/**
  * List soft-deleted records from a table
  *
  * Returns all accessible soft-deleted records (Permissions applied via application layer).
@@ -359,6 +249,7 @@ export function listTrash(config: {
           const authorshipColumns = yield* checkAuthorshipColumns(tx, tableName)
 
           const selectFields = buildAuthorshipSelectFields(authorshipColumns)
+          // sql-literal: identifier -- fixed authorship column list
           const selectClause = sql.raw(selectFields.join(', '))
           // A lookup the reader may not read is evaluated as empty wherever the
           // filter or the sort names it, as the live list does.
@@ -426,7 +317,6 @@ export function getRecord(
             catch: onFailure,
           })
 
-          // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
           return rows[0] ?? null
         }),
       onFailure

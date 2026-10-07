@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useContext, type CSSProperties, type MouseEvent, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
@@ -26,16 +27,15 @@ import {
   type CardChildClasses,
 } from '../kanban/card-template'
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { CardClickTarget } from './card-click-target'
+import { featuredCardClasses } from './featured-card-classes'
+import { GalleryClassesContext } from './gallery-classes-context'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 import type { GalleryCard } from '@/domain/models/app/pages/components/component-types/data/gallery'
-import type { CSSProperties, KeyboardEvent, MouseEvent, ReactElement } from 'react'
 
 /** A card that opens a record: the pointer and the hover border say so. */
 const CLICKABLE_CARD_CLASSES = 'cursor-pointer hover:border-primary'
-
-/** The link a navigating card wraps its content in: a block, in the card's own colours. */
-const GALLERY_CARD_LINK_CLASSES = 'block text-inherit no-underline'
 
 /** The gallery's classes for the record components a card slot draws. */
 const CARD_CHILD_CLASSES: CardChildClasses = {
@@ -150,10 +150,9 @@ function GalleryCardBody({
   readonly record: TableRecord
   readonly coverImageSrc: string | undefined
 }): ReactElement {
+  const pieces = useContext(GalleryClassesContext)
   const boxStyle = coverBoxStyle(card.aspectRatio)
-  const boxClasses = boxStyle
-    ? computeGalleryImageClasses()
-    : `${computeGalleryImageClasses()} ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`
+  const boxClasses = `${pieces?.cover ?? computeGalleryImageClasses()}${boxStyle ? '' : ` ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`}`
   return (
     <>
       {coverImageSrc && (
@@ -170,7 +169,7 @@ function GalleryCardBody({
           />
         </div>
       )}
-      <div className={GALLERY_CARD_BODY_CLASSES}>
+      <div className={pieces?.body ?? GALLERY_CARD_BODY_CLASSES}>
         {card.children?.map((child, index) =>
           renderCardChild(child, record, index, CARD_CHILD_CLASSES)
         )}
@@ -293,48 +292,6 @@ function CardBody({
   )
 }
 
-/** Enter or Space on a card that opens a drawer opens it, as a click does. */
-function buildDrawerKeyHandler(open: () => void): (e: KeyboardEvent<HTMLDivElement>) => void {
-  return (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return
-    e.preventDefault()
-    open()
-  }
-}
-
-/** The card's content, wrapped in what its click does: a link, a drawer opener, or nothing. */
-function CardClickTarget({
-  navigatePath,
-  openDrawer,
-  body,
-}: {
-  readonly navigatePath: string | undefined
-  readonly openDrawer: (() => void) | undefined
-  readonly body: ReactElement
-}): ReactElement {
-  if (navigatePath) {
-    return (
-      <a
-        href={navigatePath}
-        className={GALLERY_CARD_LINK_CLASSES}
-      >
-        {body}
-      </a>
-    )
-  }
-  if (!openDrawer) return body
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={openDrawer}
-      onKeyDown={buildDrawerKeyHandler(openDrawer)}
-    >
-      {body}
-    </div>
-  )
-}
-
 /**
  * Render a single card.
  *
@@ -348,11 +305,15 @@ export function GalleryCardView({
   record,
   card,
   table,
+  featured = false,
 }: {
   readonly record: TableRecord
   readonly card?: GalleryCard
   readonly table?: string
+  /** `featured: first` on the gallery's first card: two columns wide, cover beside body (md up). */
+  readonly featured?: boolean
 }): ReactElement {
+  const pieces = useContext(GalleryClassesContext)
   const { navigatePath, openDrawer, coverImageSrc } = resolveCardData(card, record, table)
   const clickable = navigatePath !== undefined || openDrawer !== undefined
   const body = (
@@ -368,12 +329,14 @@ export function GalleryCardView({
       data-role="gallery-card"
       data-component-type="card"
       data-clickable={clickable ? 'true' : undefined}
-      className={`${computeGalleryCardClasses()} ${clickable ? CLICKABLE_CARD_CLASSES : ''}`}
+      data-featured={featured ? '' : undefined}
+      className={`${pieces?.card ?? computeGalleryCardClasses()} ${clickable ? CLICKABLE_CARD_CLASSES : ''}${featuredCardClasses(featured, clickable)}`}
     >
       <CardClickTarget
         navigatePath={navigatePath}
         openDrawer={openDrawer}
         body={body}
+        featured={featured}
       />
       {card ? (
         <HoverOverlay

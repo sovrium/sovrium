@@ -47,7 +47,6 @@ export interface ShutdownProcess {
 
 const nodeProcess: ShutdownProcess = {
   on: (signal, handler) => {
-    // eslint-disable-next-line functional/no-expression-statements -- register a process signal handler
     process.on(signal, handler)
   },
   onStdinClose: (handler) => {
@@ -58,14 +57,11 @@ const nodeProcess: ShutdownProcess = {
     // `resume()` is load-bearing: a paused stream never reaches EOF, so
     // without it the handler is registered and simply never fires. Nothing in
     // `sovrium start` reads stdin, so putting it in flowing mode costs nothing.
-    /* eslint-disable functional/no-expression-statements -- attach stream listeners */
     process.stdin.on('end', handler)
     process.stdin.on('close', handler)
     process.stdin.resume()
-    /* eslint-enable functional/no-expression-statements */
   },
   exit: (code) => {
-    // eslint-disable-next-line functional/no-expression-statements -- terminate the process
     process.exit(code)
   },
   schedule: (handler, ms) => setTimeout(handler, ms),
@@ -108,7 +104,6 @@ const beginShutdown = (
 
   const target = targetState.get('server')
   const stopped = target ? Effect.runPromise(target.stop) : Promise.resolve()
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget: the continuations end the process
   void stopped.then(
     () => {
       host.exit(0)
@@ -168,7 +163,6 @@ export const createShutdownController = (
       host.exit(1)
       return
     }
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- set-once guard
     flags.set('signalled', true)
     beginShutdown(host, targetState, `received ${signal}`)
   }
@@ -184,20 +178,16 @@ export const createShutdownController = (
    */
   const onStdinClose = (): void => {
     if (flags.get('stdinClosed') === true || flags.get('signalled') === true) return
-    /* eslint-disable functional/no-expression-statements, functional/immutable-data -- set-once guards */
     flags.set('stdinClosed', true)
     flags.set('signalled', true)
-    /* eslint-enable functional/no-expression-statements, functional/immutable-data */
     beginShutdown(host, targetState, 'stdin closed')
   }
 
   return {
     install: (server) =>
       Effect.sync(() => {
-        // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- replace the stop target on a --watch reload
         targetState.set('server', server)
         if (flags.get('installed') === true) return
-        // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- install-once guard
         flags.set('installed', true)
         host.on('SIGINT', onSignal('SIGINT'))
         host.on('SIGTERM', onSignal('SIGTERM'))

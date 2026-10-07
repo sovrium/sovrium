@@ -29,9 +29,7 @@
  * it is deliberately not part of the user-authored `app/` schema. `models/` has
  * exactly four children (`app/`, `api/<slug>/`, `process-env/`, `seed/`) and an
  * internal runtime record fits none of them, so `process-env/` was CHOSEN as
- * the closest home rather than derived. It carried its own
- * `models/system/index.ts` barrel until the W2 layout wave retired that
- * one-file directory.
+ * the closest home rather than derived.
  */
 
 import { Data, Schema } from 'effect'

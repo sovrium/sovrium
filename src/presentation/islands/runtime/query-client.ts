@@ -29,7 +29,6 @@ export function createIslandQueryClient(): QueryClient {
 }
 
 /** The page's one client, created on first use. */
-// eslint-disable-next-line functional/no-let -- the lazily created, resettable page singleton
 let pageQueryClient: QueryClient | undefined
 
 /**
@@ -116,5 +115,4 @@ export const READ_ONCE_QUERY_OPTIONS = {
 export const nullable =
   <T>(read: () => Promise<T | undefined>) =>
   async (): Promise<T | null> =>
-    // eslint-disable-next-line unicorn/no-null -- `null` is the only absent value TanStack will hold; `undefined` is rejected as a missing return
     (await read()) ?? null

@@ -1,0 +1,17 @@
+name: home
+path: /
+meta:
+  title: $t:meta.home.title
+  description: $t:meta.home.description
+components:
+  - component: banner-top
+  - component: navbar-flyout
+  - component: hero-with-screenshot
+  - component: logos-marquee
+  - component: feature-grid
+  - component: bento-feature-stack
+  - component: stats-row
+  - component: stats-from-table
+  - component: testimonial-grid
+  - component: cta-banner
+  - component: footer-columns

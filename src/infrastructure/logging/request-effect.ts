@@ -50,5 +50,5 @@ export {
   // `server/domain-runtime` directly is the edge this facade exists to avoid.
   runOnDomain,
 } from '@/infrastructure/server/domain-runtime'
-export type { DomainContext } from '@/infrastructure/server/domain-runtime'
+export type { DomainContext, DomainServices } from '@/infrastructure/server/domain-runtime'
 export { runRequestEffect } from '@/infrastructure/server/run-request-effect'

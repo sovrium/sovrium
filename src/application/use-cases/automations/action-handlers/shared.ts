@@ -5,29 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect } from 'effect'
 import {
   findMultiSelectSelectionOverflows,
   findUndeclaredMultiSelectValues,
 } from '@/domain/models/app/tables/multi-select-values-validation'
-import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
-import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
-import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
-import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
-import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
-import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
-import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
-import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import type { AiService } from '@/application/ports/services/ai-service'
-import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
-import type { ServerOrigin } from '@/application/ports/services/server-origin'
-import type { SpeechService } from '@/application/ports/services/speech-service'
-import type { StorageService } from '@/application/ports/services/storage-service'
+import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
+import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
+import type { Effect } from 'effect'
 
 /** One log entry a step wrote — see {@link ActionOutcome.logs}. */
 export interface StepLogEntry {
@@ -36,21 +22,10 @@ export interface StepLogEntry {
 }
 
 /**
- * Outcome of executing a single automation action.
- *
- * `error` carries an unredacted message; the caller is responsible for
- * redacting before persisting to run-history.
- *
- * `output` carries data the action wants to surface in the webhook response
- * under `actions.<name>` — used by data-returning operators like `state:get`
- * or `state:list`. Optional; absent for void operators (set, delete).
- *
- * `responseOverride` is a side-channel for actions that need to shape the
- * synchronous trigger response WITHOUT polluting `output` (which gets
- * persisted to `system.automation_runs.steps[].output` and shallow-merged
- * into `lastOutput`). Currently set only by `webhook/response`; the webhook
- * dispatcher reads `result.responseOverride` to override the default sync
- * body. Persisted nowhere — purely an in-memory plumbing field.
+ * Outcome of executing a single automation action. `error` is unredacted (the
+ * caller redacts before persisting); `output` is what later steps read as
+ * `{{<name>.*}}`. `responseOverride` shapes the synchronous trigger response
+ * without polluting `output` (`webhook/response`, `flow/stop`); never persisted.
  */
 export interface ActionOutcome {
   readonly status: 'success' | 'failure' | 'filtered'
@@ -97,6 +72,13 @@ export interface ActionOutcome {
    * `output`; persisted on the step and read by the erasure index.
    */
   readonly reads?: readonly StepRead[]
+  /**
+   * Set by `path` and `loop`: the outputs their nested actions produced, by
+   * step name, which later steps of the run read as `{{<step>.*}}`.
+   */
+  readonly nestedOutputs?: Readonly<Record<string, Record<string, unknown>>>
+  /** Set by `path` and `loop`: the steps they ran, recorded like top-level ones. */
+  readonly nestedSteps?: NestedStepRuns
 }
 
 /**
@@ -184,19 +166,17 @@ export interface ActionRunContext {
   /** Resolved env lookup for `$env.X` substitution + sandbox `context.env`. */
   readonly envLookup: Readonly<Record<string, string>>
   /**
-   * Invoke a reusable action template declared at `app.actions[]` by name.
-   * Used by the `code/runTypescript` sandbox's callable
-   * `context.actions.ref('<name>', vars)` proxy method. Looks up the
-   * template in the app-level registry, substitutes its `$vars` with
-   * `vars` (shallow-merged over the template's declared variable
-   * defaults), dispatches the resulting concrete action through the
-   * same handler pipeline used by top-level steps, and returns the
-   * handler's `ActionOutcome.output`. Templates whose `action` is
-   * itself `type: 'code'` may recursively invoke other templates;
-   * cycle detection rejects with a descriptive error.
-   *
-   * Optional so non-code handlers don't need to thread it. The runtime
-   * always supplies it for code actions.
+   * The template engine the run read from the `TemplateEngine` port, for a
+   * handler that renders its own props (`resolveOwnProp`, the code action's
+   * `inputData`).
+   */
+  readonly templates: TemplateRenderer
+  /**
+   * Invoke a reusable action template declared at `app.actions[]` by name —
+   * the code sandbox's `context.actions.ref('<name>', vars)`. `vars` are
+   * shallow-merged over the declared variable defaults, the action dispatched
+   * through the top-level handler pipeline, and its `output` returned; a
+   * template cycle rejects with a descriptive error.
    */
   readonly invokeTemplate?: (
     name: string,
@@ -204,18 +184,10 @@ export interface ActionRunContext {
   ) => Promise<unknown>
 
   /**
-   * Invoke a native action type directly without declaring a template.
-   * Used by the `code/runTypescript` sandbox's
-   * `context.actions.<actionType>.<operator>(props)` proxy, and by the
-   * `loop` and `path` handlers for their nested actions. Synthesises a
-   * concrete action with the supplied `props`, which are final (see
-   * {@link propsFinal}), dispatches through the same handler pipeline as
-   * templates and top-level steps, and returns the handler's
-   * `ActionOutcome.output`. Threads the same cycle-detection stack as
-   * `invokeTemplate` so a native action whose handler is itself a code
-   * action invoking a template stays cycle-safe.
-   *
-   * Optional for the same reason as `invokeTemplate`.
+   * Invoke a native action directly — the code sandbox's
+   * `context.actions.<actionType>.<operator>(props)`. The `props` are final
+   * (see {@link propsFinal}); resolves with the handler's `output`. Threads
+   * `invokeTemplate`'s cycle-detection stack.
    */
   readonly invokeNativeAction?: (
     type: string,
@@ -256,7 +228,7 @@ export interface ActionRunContext {
    * through by `dispatchWithRetry` (run-automation.ts): 1 on the initial
    * call, 2 on the first retry, etc. Surfaced to the code-action sandbox
    * as `context.run.attempt` so authors can short-circuit on retry — see
-   * [internal ref]. Optional so handlers that don't care about
+   * Optional so handlers that don't care about
    * retries can ignore it; the runtime always provides a value (defaults
    * to 1 when called outside the retry loop).
    */
@@ -279,7 +251,21 @@ export interface ActionRunContext {
    * without dispatching.
    */
   readonly recordEvents?: RecordEventChannel
+
+  /**
+   * Run one action of a `path` or a `loop` as a step of the run, reading
+   * `previousSteps`; resolves with its whole outcome (a stop, a filter halt
+   * and a failure included) and its step record, not only its `output`.
+   */
+  readonly runNestedStep?: NestedStepInvoker
 }
+
+/** See {@link ActionRunContext.runNestedStep}; the `props` are final. */
+export type NestedStepInvoker = (input: {
+  readonly action: Readonly<Record<string, unknown>>
+  readonly props: Readonly<Record<string, unknown>>
+  readonly previousSteps: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+}) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
 /** One write an automation step made, as the record triggers read it. */
 export interface RecordWriteEvent {
@@ -347,26 +333,7 @@ export type ActionHandler = (
   app: App,
   automation: AutomationContext,
   runContext?: ActionRunContext
-) => Effect.Effect<
-  ActionOutcome,
-  never,
-  | TableRepository
-  | DataSourceRepository
-  | AutomationStateRepository
-  | AutomationDigestRepository
-  | AutomationApprovalRepository
-  | AuthRepository
-  | ConnectionRepository
-  | ConnectionTokenRepository
-  | AiService
-  | AiEmbeddingRepository
-  | StorageService
-  | ImageTransformService
-  | SpeechService
-  | AnalyticsRepository
-  | LinkRepository
-  | ServerOrigin
->
+) => Effect.Effect<ActionOutcome, never, StepRequirements>
 
 /**
  * The first `multi-select` contract violation in an automation's record
@@ -495,53 +462,4 @@ export const itemLoopOutcome = (input: {
     : { status: 'success', output }
 }
 
-/**
- * Tagged failure raised when an action body cannot be serialised — most
- * commonly because the YAML payload contains a circular reference or a
- * `BigInt`, both of which throw from `JSON.stringify` synchronously. The
- * tag lets callers `catch`/`either` against this specific failure
- * instead of merging it into a generic `Error` bucket on the Effect
- * channel, while `cause` preserves the original throwable for
- * log-level diagnostics.
- */
-export class BodySerializationError extends Data.TaggedError('BodySerializationError')<{
-  readonly message: string
-  readonly cause: unknown
-}> {}
-
-/**
- * Serialise an action's `props.body` to the on-the-wire string form.
- *
- * Bodies in YAML config are intentionally polymorphic — Slack, Discord,
- * PagerDuty, and custom consumers all expect different payload shapes —
- * so there is no single Effect Schema we can validate against. We pass
- * strings through verbatim (caller already chose the wire format) and
- * `JSON.stringify` everything else.
- *
- * Wrapped in `Effect.try` so that pathological inputs (circular
- * references, BigInt values) surface as a typed `BodySerializationError`
- * the caller can convert to a graceful `{ status: 'failure', error }`
- * outcome — instead of crashing the surrounding `Effect.gen` as a
- * defect.
- *
- * Callers that want to treat `null` like an absent body (webhook) should
- * normalise upstream; this helper passes `null` through to JSON.stringify
- * (which yields the literal string `"null"`).
- */
-export const serializeActionBody = (
-  rawBody: unknown
-): Effect.Effect<string | undefined, BodySerializationError> => {
-  if (rawBody === undefined || typeof rawBody === 'string') {
-    return Effect.succeed(rawBody)
-  }
-  return Effect.try({
-    // Schema would be ceremonial here: props.body is intentionally
-    // polymorphic user-supplied YAML (no single shape applies).
-    try: () => JSON.stringify(rawBody),
-    catch: (cause) =>
-      new BodySerializationError({
-        message: `failed to serialise body: ${cause instanceof Error ? cause.message : String(cause)}`,
-        cause,
-      }),
-  }).pipe(Effect.withSpan('automations.serialize-action-body'))
-}
+export { BodySerializationError, serializeActionBody } from './action-body-serialization'

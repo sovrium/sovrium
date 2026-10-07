@@ -59,8 +59,9 @@ import {
 } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { agentNotFound } from '@/presentation/api/runtime/agent-lookup'
+import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -125,7 +126,7 @@ const needsRole = (permissions: readonly PermissionValue[]): boolean =>
  * a role — see {@link needsRole}.
  */
 const isPermitted = async (
-  c: Readonly<Context>,
+  c: Context,
   permission: PermissionValue,
   app: AdminRoleResolvable | undefined
 ): Promise<boolean> => {
@@ -139,18 +140,17 @@ const isPermitted = async (
  *
  * This is the whole reason the batch form exists. Every permission in the batch
  * belongs to the same request and therefore the same `session.userId`, so
- * evaluating them one at a time asked the `user` table for the same row as many
- * times as there were entries — and the agent collection did it through a raw
- * `Promise.all`, making it a simultaneous pooled fan-out as wide as the app's
- * agent list. Ten declared agents is the entire ten-connection pool, which is
- * the mechanism of the 2026-07-25 production 504
- *.
+ * evaluating them one at a time would ask the `user` table for the same row as
+ * many times as there are entries — and through a raw `Promise.all`, a
+ * simultaneous pooled fan-out as wide as the app's agent list. Ten declared
+ * agents is the entire ten-connection pool, which is the mechanism of a
+ * production 504.
  *
- * Bounding the fan-out would have been the lesser fix: N reads of one row keyed
- * by one id is not work that needed a width, it is one read written N times.
+ * Bounding the fan-out would be the lesser fix: N reads of one row keyed by one
+ * id is not work that needs a width, it is one read written N times.
  */
 const evaluateAll = async (
-  c: Readonly<Context>,
+  c: Context,
   permissions: readonly PermissionValue[],
   app: AdminRoleResolvable | undefined
 ): Promise<readonly boolean[]> => {
@@ -168,17 +168,30 @@ const triggerGrantOf = (agent: Agent): PermissionValue =>
 
 /** May this request's caller invoke or read back this agent? */
 export const mayTriggerAgent = (
-  c: Readonly<Context>,
+  c: Context,
   agent: Agent,
   app: AdminRoleResolvable | undefined
 ): Promise<boolean> => isPermitted(c, triggerGrantOf(agent), app)
+
+/**
+ * May this request's caller reach the agent the app declares as `name`? `false`
+ * for a name it never declared, so a caller cannot tell the two apart.
+ */
+export const mayTriggerAgentNamed = async (
+  c: Readonly<Context>,
+  app: App | undefined,
+  name: string
+): Promise<boolean> => {
+  const agent = findAgent(app, name)
+  return agent !== undefined && (await mayTriggerAgent(c, agent, app))
+}
 
 /**
  * May this request's caller reach each of these agents? One verdict per agent,
  * in order, for ONE role lookup total — see {@link evaluateAll}.
  */
 export const mayTriggerAgents = (
-  c: Readonly<Context>,
+  c: Context,
   agents: readonly Agent[],
   app: AdminRoleResolvable | undefined
 ): Promise<readonly boolean[]> => evaluateAll(c, agents.map(triggerGrantOf), app)
@@ -194,11 +207,11 @@ export const mayTriggerAgents = (
  * enumeration oracle back again; and the two limiters RECORD the attempt they
  * admit, so a gate placed after them would let a refused caller burn a
  * legitimate agent's whole per-minute window — a denial of service reachable by
- * someone the gate had just refused ([internal ref] measures exactly
+ * someone the gate had just refused (an AI agent perms spec measures exactly
  * that ordering).
  */
 export const checkTriggerPermission = async (
-  c: Readonly<Context>,
+  c: Context,
   agent: Agent,
   app: AdminRoleResolvable | undefined
 ): Promise<Response | undefined> =>
@@ -215,7 +228,7 @@ export const checkTriggerPermission = async (
  * gate still see only the agents they may individually trigger.
  */
 export const checkAgentListPermission = async (
-  c: Readonly<Context>,
+  c: Context,
   app: AdminRoleResolvable | undefined
 ): Promise<Response | undefined> =>
   (await isPermitted(c, UNDECLARED_TRIGGER, app)) ? undefined : agentNotFound(c)

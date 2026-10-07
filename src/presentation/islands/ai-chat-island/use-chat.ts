@@ -91,7 +91,6 @@ async function sendChatTurn(args: {
  */
 async function typeOut(text: string, onDelta: (partial: string) => void): Promise<void> {
   const STEP = 24
-  // eslint-disable-next-line functional/no-loop-statements -- progressive reveal pump
   for (let end = STEP; end < text.length; end += STEP) {
     onDelta(text.slice(0, end))
     await new Promise((resolve) => setTimeout(resolve, 12))
@@ -226,7 +225,6 @@ export function useChat(props: AiChatIslandProps): UseChatResult {
     (text: string): void => {
       const trimmed = text.trim()
       if (trimmed.length === 0) return
-      // eslint-disable-next-line functional/immutable-data -- React ref mutation is idiomatic
       lastMessageRef.current = trimmed
       void runTurn(trimmed)
     },

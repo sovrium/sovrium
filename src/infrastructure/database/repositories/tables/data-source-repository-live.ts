@@ -17,12 +17,16 @@ import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-f
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import {
+  isMissingUserAccessTable,
+  toRecordIdList,
+  userAccessTableSql,
+} from '@/infrastructure/database/sql/user-access-rows'
 import { readManyToMany } from '@/infrastructure/database/table-queries'
 import {
   emptyValueCondition,
   nonEmptyValueCondition,
 } from '@/infrastructure/database/table-queries/filter-operators'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SQL } from 'drizzle-orm'
@@ -58,7 +62,7 @@ const DATA_SOURCE_OPERATOR_MAP: Readonly<Record<string, string>> = {
  * to binding changes no result: strings, numbers, booleans and `null` bind as
  * themselves (a bound `null` compares the way the `NULL` literal did — never
  * true), and every other shape binds as its JSON encoding, which is precisely
- * the string `formatSqlValue` used to quote.
+ * the string `formatSqlValue` would quote.
  */
 const bindValue = (value: unknown): Readonly<SQL> => {
   if (
@@ -102,7 +106,7 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
   }
 
   // `isEmpty` / `isNotEmpty` take no value: the records API's own rule
-  // (NULL, empty text, an empty list — [internal ref]), so a server-drawn list and
+  // (NULL, empty text, an empty list — the `isEmpty`/`isNotEmpty` data-source filter design), so a server-drawn list and
   // a grid over the same data source never disagree about emptiness.
   if (operator === 'isEmpty') return emptyValueCondition(field)
   if (operator === 'isNotEmpty') return nonEmptyValueCondition(field)
@@ -111,6 +115,7 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
   // never as caller text; an unrecognised operator falls through to `=`.
   const sqlOp = DATA_SOURCE_OPERATOR_MAP[operator]
   if (sqlOp) {
+    // sql-literal: keyword -- `sqlOp` comes from the closed DATA_SOURCE_OPERATOR_MAP
     return sql`${field} ${sql.raw(sqlOp)} ${bindValue(value)}`
   }
 
@@ -160,6 +165,7 @@ function buildLimitClause(pageSize?: number, page?: number): Readonly<SQL> | und
   if (!pageSize || pageSize <= 0) return undefined
   const size = Math.floor(pageSize)
   const offset = Math.floor(((page ?? 1) - 1) * size)
+  // sql-literal: number -- both operands are floored integers
   return sql`LIMIT ${sql.raw(String(size))} OFFSET ${sql.raw(String(offset))}`
 }
 
@@ -209,18 +215,18 @@ export function buildWhereClause(
 /**
  * Run a built query string against the ACTIVE database connection.
  *
- * This used to read `process.env.DATABASE_URL` itself and return `[]` when the
- * variable was unset. That gate silently emptied every read this repository
- * performs — collection-page slug lookups, page `dataSources`, the row-level
- * `user_access` overlays — on the shipped zero-config default, where
+ * This does not read `process.env.DATABASE_URL` itself and return `[]` when the
+ * variable is unset. Such a gate would silently empty every read this
+ * repository performs — collection-page slug lookups, page `dataSources`, the
+ * row-level `user_access` overlays — on the shipped zero-config default, where
  * `DATABASE_URL` is deliberately absent and the engine runs on SQLite. Nothing
- * threw and nothing logged, so a collection page simply 404'd as though the row
- * did not exist.
+ * would throw and nothing would log, so a collection page would simply 404 as
+ * though the row did not exist.
  *
  * `db` resolves the dialect-appropriate client (Postgres over `bun:sql`, SQLite
  * over `bun:sqlite`) and memoizes it, so there is no environment variable to
- * consult here and no per-query connection to open and close — the previous
- * implementation built and tore down a fresh `SQL` pool on every single read.
+ * consult here and no per-query connection to open and close — no fresh `SQL`
+ * pool is built and torn down per read.
  * `executeRaw` picks `.execute()` or `.all()` for the active dialect and
  * normalizes both to a rows array.
  */
@@ -229,80 +235,12 @@ export function buildWhereClause(
  *
  * Every query in this repository goes through here. The fragment stays intact
  * all the way to the driver, so `${value}` holes are bound parameters
- * (`$1` / `?`) rather than SQL text. A string-taking sibling used to exist for
- * the list/count builders and had to launder its argument back through
- * `sql.raw`, discarding any distinction between identifier, literal and
- * operator; it was removed when those builders were converted to bind.
+ * (`$1` / `?`) rather than SQL text. There is deliberately no string-taking
+ * sibling: it would have to launder its argument back through `sql.raw`,
+ * discarding any distinction between identifier, literal and operator.
  */
 async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
-  return (await executeRaw(db, query)) as unknown as T
-}
-
-/**
- * Qualified reference to the engine-managed `user_access` table, as a `SQL`
- * fragment.
- *
- * Postgres keeps it in the dedicated `system` schema; SQLite has no schemas, so
- * the namespace is a flat name prefix (`system_user_access`) — see
- * `schema/user-access-table.ts`, which emits exactly these two names.
- *
- * Both arms render character-for-character what the previous string form did
- * (`"system"."user_access"` / `"system_user_access"`), which is what keeps
- * `isMissingUserAccessTable` working: that guard matches on the driver's error
- * text, and the driver quotes the name back exactly as the statement spelled it.
- */
-const userAccessTableSql = (): Readonly<SQL> =>
-  isSqliteRuntime()
-    ? sql`${sql.identifier('system_user_access')}`
-    : sql`${sql.identifier('system')}.${sql.identifier('user_access')}`
-
-/** Every message in an error's transitive `cause` chain, outermost first. */
-const causeChainMessages = (error: unknown, depth = 0): readonly string[] => {
-  if (depth >= 6 || error === null || typeof error !== 'object') return []
-  const node = error as { readonly message?: unknown; readonly cause?: unknown }
-  const own = typeof node.message === 'string' ? [node.message] : []
-  return [...own, ...causeChainMessages(node.cause, depth + 1)]
-}
-
-/**
- * Whether `error` means the `user_access` table has not been created — the
- * normal state for an app that declares no `auth.scopeTables`.
- *
- * Two things this has to survive:
- *
- *   - Dialect phrasing. Postgres says `relation "system.user_access" does not
- *     exist`; SQLite says `no such table: system_user_access`. Matching only the
- *     Postgres wording let every SQLite miss escape as a genuine failure.
- *   - Driver wrapping. These reads now go through Drizzle rather than a raw
- *     `sql.unsafe()`, and Drizzle rethrows as `DrizzleQueryError` with the real
- *     driver error on `cause` — so the whole chain is walked instead of only the
- *     outermost message. (Measured 2026-07-26: `bun:sqlite` surfaces
- *     `SQLiteError` unwrapped, but relying on that would make the guard depend
- *     on an implementation detail of one driver.)
- */
-const isMissingUserAccessTable = (error: unknown): boolean =>
-  causeChainMessages(error).some(
-    (message) =>
-      /relation .*user_access.* does not exist/i.test(message) ||
-      /no such table:.*user_access/i.test(message)
-  )
-
-/**
- * Normalize a stored `record_ids` cell into a list of record ids.
- *
- * Postgres stores it as a native `TEXT[]` and the driver hands back a JS array.
- * SQLite has no array type, so the column is TEXT holding a JSON array (see the
- * SQLite DDL in `schema/user-access-table.ts`) and must be parsed.
- */
-const toRecordIdList = (value: unknown): readonly string[] => {
-  if (Array.isArray(value)) return value as readonly string[]
-  if (typeof value !== 'string') return []
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? (parsed as readonly string[]) : []
-  } catch {
-    return []
-  }
+  return (await executeRaw(db, query)) as T
 }
 
 // ============================================================================
@@ -342,7 +280,7 @@ const toRecordIdList = (value: unknown): readonly string[] => {
  *
  * Note this docstring once claimed every OTHER runtime query path in `src/`
  * binds its values. That was wrong; at least two others still escape a value at
- * runtime — `table-queries/query-helpers/aggregation-helpers.ts`
+ * runtime — `table-queries/query-helpers/order-by-helpers.ts`
  * (`buildSingleSelectCaseExpression`, a runtime ORDER BY) and
  * `repositories/automations/automation-digest-repository-live.ts` (a JSONB sort
  * key). No uniqueness claim is made here.
@@ -422,7 +360,6 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         if (isMissingUserAccessTable(error)) {
           return [] as readonly string[]
         }
-        /* eslint-disable-next-line functional/no-throw-statements */
         throw error
       }
     }),
@@ -453,7 +390,6 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         if (isMissingUserAccessTable(error)) {
           return [] as readonly string[]
         }
-        /* eslint-disable-next-line functional/no-throw-statements */
         throw error
       }
     }),
@@ -511,7 +447,6 @@ const readUserAccessRows = (
       return await executeSqlQuery<UserAccessRow[]>(query)
     } catch (error) {
       if (isMissingUserAccessTable(error)) return [] as readonly UserAccessRow[]
-      /* eslint-disable-next-line functional/no-throw-statements */
       throw error
     }
   })

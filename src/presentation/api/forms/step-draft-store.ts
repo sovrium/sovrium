@@ -36,7 +36,6 @@ const drafts = new Map<string, Record<string, Record<string, unknown>>>()
  */
 export function generateDraftSessionId(): string {
   const bytes = new Uint8Array(16)
-  // eslint-disable-next-line functional/no-expression-statements -- crypto API mutates the buffer in place
   crypto.getRandomValues(bytes)
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -65,7 +64,6 @@ export function mergeDraft(
   const existingForSession = drafts.get(sessionId) ?? {}
   const existingForForm = existingForSession[formName] ?? {}
   const merged: Record<string, unknown> = { ...existingForForm, ...values }
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- module-local mutable Map, mirrors webhook-rate-limit.ts pattern
   drafts.set(sessionId, { ...existingForSession, [formName]: merged })
 }
 
@@ -89,7 +87,6 @@ export function replaceDraft(
   values: Readonly<Record<string, unknown>>
 ): void {
   const existingForSession = drafts.get(sessionId) ?? {}
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- module-local mutable Map, mirrors webhook-rate-limit.ts pattern
   drafts.set(sessionId, { ...existingForSession, [formName]: { ...values } })
 }
 

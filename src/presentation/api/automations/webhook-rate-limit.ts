@@ -48,7 +48,6 @@ export const isRateLimited = (
     const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
     return { limited: true, retryAfter }
   }
-  // eslint-disable-next-line functional/no-expression-statements -- record the attempt in the shared limiter's mutable store
   limiter.record(key, { windowMs, maxRequests: config.maxRequests })
   return { limited: false, retryAfter: 0 }
 }

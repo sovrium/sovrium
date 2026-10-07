@@ -41,6 +41,7 @@ export { createTaggedError } from './create-tagged-error'
 
 export { DatabaseError } from './database-error'
 export { NotFoundError } from './not-found-error'
+export { StaleWriteError } from './stale-write-error'
 export { ForbiddenError } from './forbidden-error'
 export { UniqueConstraintViolationError } from './unique-constraint-violation-error'
 export { ForeignKeyViolationError } from './foreign-key-violation-error'

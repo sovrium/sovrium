@@ -32,7 +32,7 @@ export const ContainerElementSchema = Schema.Literals([
 
 /**
  * Render this container's children once per element of an array the BOUND
- * RECORD already carries ([internal ref] and [internal ref] CAP-6/7).
+ * RECORD already carries.
  *
  * --- WHY A KEY OF ITS OWN, AND NOT A THIRD `dataSource` ARM ----------------
  *

@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- AiProviderError tagged class is mutable by Data.TaggedError design */
-
 import { Effect } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
 import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
@@ -14,7 +12,7 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import type { AiError, EmbedInput, EmbedReply } from '@/application/ports/services/ai-service'
 
 /**
- * Embedding generation helpers for the RAG pipeline ([internal ref]-*).
+ * Embedding generation helpers for the RAG pipeline (the AI RAG requirement-*).
  *
  * Two wire formats are supported, mirroring the chat path:
  *  - OpenAI-compatible cloud providers: `POST {baseUrl}/embeddings` with
@@ -104,6 +102,7 @@ export const embedOpenAi = (
           `${conn.baseUrl.replace(/\/+$/, '')}/embeddings`,
           {
             method: 'POST',
+            redirect: 'follow',
             headers: {
               'Content-Type': 'application/json',
               ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
@@ -114,7 +113,6 @@ export const embedOpenAi = (
         )
         if (!response.ok) {
           const body = await response.text().catch(() => '')
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: response.status,
             message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -123,7 +121,6 @@ export const embedOpenAi = (
         const payload = (await response.json()) as OpenAiEmbeddingPayload
         const embedding = payload.data?.[0]?.embedding
         if (embedding === undefined) {
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: 502,
             message: 'AI provider returned a malformed embedding response',
@@ -150,6 +147,7 @@ export const embedOllama = (
           `${conn.baseUrl.replace(/\/+$/, '')}/api/embeddings`,
           {
             method: 'POST',
+            redirect: 'follow',
             headers: {
               'Content-Type': 'application/json',
               ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
@@ -160,7 +158,6 @@ export const embedOllama = (
         )
         if (!response.ok) {
           const body = await response.text().catch(() => '')
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: response.status,
             message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -168,7 +165,6 @@ export const embedOllama = (
         }
         const payload = (await response.json()) as OllamaEmbeddingPayload
         if (payload.embedding === undefined) {
-          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
           throw new AiProviderError({
             statusCode: 502,
             message: 'AI provider returned a malformed embedding response',

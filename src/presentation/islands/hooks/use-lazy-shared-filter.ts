@@ -54,13 +54,11 @@ export function useLazySharedFilter(
     void import('../runtime/shared-filter-channel').then((channel) => {
       if (!subscription.live) return
       setState((previous) => ({ ...previous, channel }))
-      // eslint-disable-next-line functional/immutable-data -- the teardown handle is known only once the channel module has arrived
       subscription.stop = channel.subscribeSharedFilter(bindTo, (update) =>
         setState((previous) => ({ ...previous, published: update(previous.published) }))
       )
     })
     return () => {
-      // eslint-disable-next-line functional/immutable-data -- a module arriving after unmount must not subscribe
       subscription.live = false
       subscription.stop()
     }

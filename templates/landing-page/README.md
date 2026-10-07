@@ -30,6 +30,11 @@ A request lands in the `demo_requests` table, which only the owner reads, in the
 `AUTH_ADMIN_PASSWORD`. Each language shares with its own PNG card (`public/og-en.png`,
 `public/og-fr.png`); the site follows the system's light or dark scheme.
 
+Optional: each request also becomes a lead in your Pipedrive. It is the
+`form-to-pipedrive-lead` recipe from the Sovrium library (`sovrium library add
+recipe/form-to-pipedrive-lead`); set `PIPEDRIVE_API_TOKEN` to turn it on — without it the app
+runs exactly the same.
+
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
 application code. The words are in `config/languages.yaml`; rename the product there.
 

@@ -58,13 +58,14 @@
  */
 
 import { Effect, Layer as LayerModule, ManagedRuntime } from 'effect'
-import { ApprovalLayer } from '@/application/use-cases/agents/approval'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
+import { AdminSearchRepositoryLive } from '@/infrastructure/database/repositories/admin-search-repository-live'
 import { AiActivityLogRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-activity-log-repository-live'
 import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-facts-repository-live'
 import { AiMemoryRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-memory-repository-live'
+import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
 import { createAppLayer } from '@/infrastructure/layers/app-layer'
@@ -84,7 +85,7 @@ import type { Context as HonoContext } from 'hono'
  * better-auth laziness probe) for a resource none of them owns. Composing here
  * keeps the insertion to this file.
  *
- * They are scoped layers (W4 / standing rule E3): `Effect.acquireRelease` over
+ * They are scoped layers (standing rule E3): `Effect.acquireRelease` over
  * a `pg` `Client`, released when this runtime is disposed. Nothing yields them
  * — they are subscriptions, not services a request consumes — but a layer has
  * to provide something to be nameable in a merged list, so each reports whether
@@ -128,7 +129,9 @@ const domainLayerFor = (app: App | undefined) =>
     DynamicRecordRepositoryLive,
     // The agent-approval mirror, reached from the cron-driven schedule runner
     // as well as from the approval routes.
-    ApprovalLayer,
+    ApprovalRepositoryLive,
+    // The operator console's global search index (`GET /api/admin/search`).
+    AdminSearchRepositoryLive,
     makeAiComputeListenerLayer(app),
     makeAiKnowledgeListenerLayer(app)
   )
@@ -172,7 +175,6 @@ export type DomainContext = Context.Context<DomainServices>
 // TEXT, and a local alias is exactly the case
 // that lever cannot see — the same disable `observability-runtime.ts` carries on
 // its `ObsRuntime` alias, for the same reason.
-// eslint-disable-next-line functional/prefer-immutable-types -- DomainRuntime is an alias
 export const createDomainRuntime = (app?: App): DomainRuntime =>
   ManagedRuntime.make(domainLayerFor(app))
 
@@ -191,17 +193,14 @@ export const createDomainRuntime = (app?: App): DomainRuntime =>
  * logged with its cause and carries a written reason — and a scope finalizer is
  * precisely the kind of failure nothing else would ever report: the pg `LISTEN`
  * sockets, the cron registry and the database clients all release here, so a
- * connection that refuses to close used to leave no trace at all in either
- * caller. The log is the trace; the two paragraphs above are the reason.
+ * connection that refuses to close would otherwise leave no trace at all in
+ * either caller. The log is the trace; the two paragraphs above are the reason.
  *
  * Absorbing INSIDE the thunk rather than with `Effect.ignore` is what keeps the
  * `Effect.promise` honest: the promise genuinely cannot reject, so the marker
  * below is a fact rather than a claim about the callee.
  */
-export const disposeDomainRuntime = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- DomainRuntime is an alias
-  runtime: DomainRuntime
-): Effect.Effect<void, never> =>
+export const disposeDomainRuntime = (runtime: DomainRuntime): Effect.Effect<void, never> =>
   // effect-promise: total -- the `.catch` below handles every rejection and returns, so the thunk cannot reject.
   Effect.promise(() =>
     runtime.dispose().catch((cause: unknown) => {
@@ -220,6 +219,9 @@ export const disposeDomainRuntime = (
  * which is the same vector the Better Auth instance travels on.
  */
 const DOMAIN_CONTEXT_VAR = 'sovriumDomainContext'
+
+/** The one member of a request context the domain services are read through. */
+export type DomainContextCarrier = { readonly get: (key: string) => unknown }
 
 /**
  * A box around the context.
@@ -246,7 +248,6 @@ interface DomainContextBox {
  */
 export const domainContextMiddleware = (context: DomainContext) => {
   const box: DomainContextBox = { context }
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is inherently mutable
   return async (c: HonoContext, next: () => Promise<void>): Promise<void> => {
     c.set(DOMAIN_CONTEXT_VAR, box)
     return next()
@@ -263,18 +264,17 @@ export const domainContextMiddleware = (context: DomainContext) => {
  * typecheck anywhere. That is the intended shape: the key is an implementation
  * detail and this function is the contract.
  *
+ * It reads one variable, so it asks only for the `get` that reads it: a Hono
+ * `Context` qualifies, and so does a handler's structural slice of one.
+ *
  * @throws When no server published them — a handler reached outside a booted
  *   server (a unit harness, the static build). Loud on purpose: the alternative
  *   is a missing-service defect thrown from somewhere inside the program, with
  *   nothing naming the actual mistake.
  */
-export const requireDomainContext = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is inherently mutable
-  c: HonoContext
-): DomainContext => {
+export const requireDomainContext = (c: DomainContextCarrier): DomainContext => {
   const box = c.get(DOMAIN_CONTEXT_VAR) as DomainContextBox | undefined
   if (box === undefined) {
-    // eslint-disable-next-line functional/no-throw-statements -- see the doc comment: a silent miss becomes an unattributable defect
     throw new Error(
       'No domain services on this request. `createHonoApp` publishes them from the runtime `createServer` owns; a handler running outside a booted server cannot use `provideDomain`.'
     )
@@ -316,7 +316,6 @@ export const requireDomainContext = (
  * `unsafeEffectTypeAssertion` gate exists to refuse.
  */
 export const provideDomain = <A, E, R extends DomainServices>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is inherently mutable
   c: HonoContext,
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, Exclude<R, DomainServices>> =>
@@ -358,7 +357,6 @@ export const runOnDomain = <A, E>(
  * for instance, which holds the context directly.
  */
 export const runDomainPromise = <A, E>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is inherently mutable
-  c: HonoContext,
+  c: DomainContextCarrier,
   program: Effect.Effect<A, E, DomainServices>
 ): Promise<A> => Effect.runPromise(Effect.provide(program, requireDomainContext(c)))

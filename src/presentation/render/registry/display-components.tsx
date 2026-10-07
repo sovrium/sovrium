@@ -6,7 +6,7 @@
  */
 
 /**
- * Display-category component renderers ([internal ref] prestyled defaults).
+ * Display-category component renderers (the prestyled-islands rule prestyled defaults).
  *
  * This file gathers the renderers for the bare-`<div>`-fallback display
  * schemas that gained prestyled-by-default chrome in the

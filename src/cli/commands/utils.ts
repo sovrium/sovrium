@@ -15,7 +15,7 @@ import { printJournalWarning } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { computeConfigHash } from '@/infrastructure/server/lock-file'
 import type { ConfigChangeVerdict } from '@/application/use-cases/config/classify-config-change'
-import type { StartOptions } from '@/application/use-cases/server/start-server'
+import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { App, AppEncoded } from '@/domain/models/app'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
@@ -44,7 +44,6 @@ export const lazyImportCli = () => import('@/cli/runtime/schema-loader')
  */
 const waitForPortRelease = async (port: number, hostname: string, maxMs = 2000): Promise<void> => {
   const deadline = Date.now() + maxMs
-  // eslint-disable-next-line functional/no-loop-statements
   while (Date.now() < deadline) {
     try {
       const probe = Bun.serve({ port, hostname, fetch: () => new Response() })
@@ -54,7 +53,6 @@ const waitForPortRelease = async (port: number, hostname: string, maxMs = 2000):
       const code = (error as { readonly code?: string } | null)?.code
       // Any non-EADDRINUSE error: give up probing and let start() surface it.
       if (code !== 'EADDRINUSE') return
-      // eslint-disable-next-line functional/no-expression-statements
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
   }
@@ -87,10 +85,9 @@ export interface ReloadSuccess {
  *
  * The three are mutually exclusive and exhaustive, and each maps to exactly one
  * sentence (see `describeReloadFailure` in `start.ts`). Making this a value
- * rather than a comment is the whole fix: the message used to be a constant
- * printed on every path, so "the previous server is still serving" was emitted
- * over a dead port and the operator went looking for the fault in their
- * browser.
+ * rather than a comment is the point: a constant message printed on every path
+ * would emit "the previous server is still serving" over a dead port and send
+ * the operator looking for the fault in their browser.
  */
 export type ReloadServerState =
   /** Nothing was stopped — the pre-flight refused the save, or it never got that far. */
@@ -109,10 +106,10 @@ export interface ReloadFailure {
   /**
    * The files the attempt READ, even though it failed.
    *
-   * The watched set used to be re-derived only from a successful reload, so a
-   * save that introduced a `$ref` and then failed left that file unwatched —
-   * and the file it left unwatched was the one the operator was about to edit,
-   * because it was the one that was wrong. Empty only when the load itself
+   * Re-deriving the watched set only from a successful reload would leave a
+   * file unwatched when a save introduces a `$ref` and then fails — and that
+   * file is the one the operator is about to edit, because it is the one that
+   * is wrong. Empty only when the load itself
    * failed and there is nothing to report.
    */
   readonly files: ReadonlyArray<string>
@@ -202,18 +199,15 @@ export const resolveConfigAnchor = async (
  * Whether a config declares a page-scoped `search-input`, and therefore wants the
  * search artifacts materialized.
  *
- * The cast is the point of the wrapper. `hasPageSearchComponent` takes the
- * decoded `App` while the reload path holds the encoded `AppEncoded`; the
- * predicate only reads `.pages` and `.components`, which are shape-compatible
- * across the two, so the cast is safe — but it does not belong at a call site.
+ * The reload path holds the encoded `AppEncoded`; `hasPageSearchComponent`
+ * reads only `.pages` and `.components` as an untyped tree, so it takes the
+ * authored config as it is.
  *
  * The BOOT path no longer comes through here: `startServer` asks the same
  * question of the already-decoded `App` (`resolveEffectivePublicDir` in
  * `application/use-cases/server/start-server.ts`) and needs no cast at all.
  */
-const needsSearchIndex = (rawApp: AppEncoded): boolean =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AppEncoded vs App; the predicate only reads .pages/.components
-  hasPageSearchComponent(rawApp as any)
+const needsSearchIndex = (rawApp: AppEncoded): boolean => hasPageSearchComponent(rawApp)
 
 /**
  * Build the page-search index for a config, reporting failures to `onError`.
@@ -240,7 +234,6 @@ const buildSearchIndex = async (
   // `await`, not `return`: the indexer resolves with a value this function
   // deliberately does not surface, and returning `.catch(onError)` directly
   // would widen the result to `boolean | void`.
-  // eslint-disable-next-line functional/no-expression-statements -- CLI side effect: emit the search artifacts
   await prebuildSearchIndex(rawApp, searchDir).catch(onError)
 }
 
@@ -317,11 +310,11 @@ const restartServer = async (
     await waitForPortRelease(boundPort, hostname)
   }
 
-  // `configHash`/`configPath` are threaded through DELIBERATELY. They used to
-  // be passed only on `handleStartCommand`'s boot call, so the middleware that
-  // emits `X-Sovrium-Config` was never mounted on a reloaded app and the header
-  // vanished after the first save — the response that identifies which config a
-  // server is running went silent exactly when it had something new to say.
+  // `configHash`/`configPath` are threaded through DELIBERATELY. Passed only on
+  // `handleStartCommand`'s boot call, the middleware that emits
+  // `X-Sovrium-Config` would never be mounted on a reloaded app and the header
+  // would vanish after the first save — the response that identifies which
+  // config a server is running going silent exactly when it has something new to say.
   const booted = await bootOrFail(start, rawApp, { ...options, ...rebind, reload: true, ...anchor })
   if ('server' in booted) return { booted: true, server: booted.server }
 

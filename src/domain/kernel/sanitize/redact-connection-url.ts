@@ -25,11 +25,11 @@
  * wrong**: nothing about a scheme-refusal can be caused by its content.
  *
  * Deleting the URL instead of redacting it would trade a security bug for a
- * usability bug. `[internal ref]` exists to stop exactly that.
+ * usability bug. An API DB provider spec exists to stop exactly that.
  *
  * ─── WHY NOT `new URL` ──────────────────────────────────────────────────────
  *
- * Measured, all three ([internal ref] D4) — a `new URL` + `u.password = '***'`
+ * Measured, all three — a `new URL` + `u.password = '***'`
  * redactor is not merely clumsy here, it is WRONG:
  *
  *  - `new URL('jdbc:postgresql://admin:pw@h/app')` parses as `protocol=jdbc:`
@@ -63,7 +63,7 @@
  * Fixed-width redaction placeholder.
  *
  * Deliberately the same three characters as `REDACTION_PLACEHOLDER`
- * (`src/domain/models/api/admin/config/schema.ts`) — [internal ref] requires the
+ * (`src/domain/models/api/admin/config/schema.ts`) — the DATABASE_URL redaction rule requires the
  * existing spelling rather than a second one — but re-declared instead of
  * imported, for two reasons:
  *

@@ -181,7 +181,7 @@ const validateSort = (
 /**
  * Resolve and CLAMP the requested limit. A non-integer / out-of-range value is
  * an error so the model learns its args were invalid; a valid value is clamped
- * to `MAX_QUERY_ROWS` (the server-side hard cap, [internal ref]).
+ * to `MAX_QUERY_ROWS` (the server-side hard cap, an AI chat tool spec).
  *
  * The tool schema advertises 1..100; values above that are clamped (not
  * rejected) so an over-eager `limit: 1000` still returns the capped 100 rows

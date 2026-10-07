@@ -17,8 +17,6 @@
  * never silently rewrites what the record holds.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- a field's onChange closes over its name; transient surface, rendered only while the drawer is open */
-
 import { fieldDescribedBy } from '@/presentation/design/field-display'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
 import { useAccountChoices, type DrawerChoice } from './record-drawer-choices'

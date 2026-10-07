@@ -13,8 +13,7 @@
  * (`route-setup/auth-route-utils.ts`), the AI chat limiter
  * (`presentation/api/routes/ai/chat-rate-limit.ts`), the per-agent limiters
  * (`agents/agent-rate-limit.ts`, `agents/agent-limits.ts`), the webhook
- * limiter (`automations/webhook-rate-limit.ts`), the shared-views and
- * command-search limiters, the MCP dual-window limiter
+ * limiter (`automations/webhook-rate-limit.ts`), the command-search limiter, the MCP dual-window limiter
  * (`route-setup/mcp/rate-limit.ts`), the form anti-spam limiter
  * (`infrastructure/forms/form-rate-limiter.ts`), and the telemetry report
  * budget (`infrastructure/telemetry/error-reporter.ts`).
@@ -133,16 +132,10 @@ export interface SlidingWindowLimiter {
  * Forget every key of `state` with no timestamp inside `windowMs` of `at`, and
  * return how many were forgotten. See {@link SlidingWindowLimiter.prune}.
  */
-const pruneStaleKeys = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- the limiter's own mutable state
-  state: Map<string, number[]>,
-  windowMs: number,
-  at: number
-): number => {
+const pruneStaleKeys = (state: Map<string, number[]>, windowMs: number, at: number): number => {
   const stale = [...state.entries()]
     .filter(([, history]) => history.every((timestamp) => at - timestamp >= windowMs))
     .map(([key]) => key)
-  // eslint-disable-next-line functional/immutable-data, drizzle/enforce-delete-with-where -- Rate limiting requires mutable state; `state` is a Map, not a Drizzle table
   stale.forEach((key) => state.delete(key))
   return stale.length
 }
@@ -152,11 +145,7 @@ const pruneStaleKeys = (
  * and when the map was last swept against it. See
  * {@link createSlidingWindowLimiter} for why it exists.
  */
-const createSweep = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- the limiter's own mutable state
-  state: Map<string, number[]>
-) => {
-  // eslint-disable-next-line functional/prefer-immutable-types -- the sweep clock is this limiter's own state
+const createSweep = (state: Map<string, number[]>) => {
   const clock: { at: number | undefined; longestWindowMs: number } = {
     at: undefined,
     longestWindowMs: 0,
@@ -164,19 +153,53 @@ const createSweep = (
   return {
     observe: (windowMs: number): void => {
       if (windowMs <= clock.longestWindowMs) return
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- see above
       clock.longestWindowMs = windowMs
     },
     runIfDue: (at: number): void => {
       if (clock.at !== undefined && at - clock.at < clock.longestWindowMs) return
       if (clock.at !== undefined) {
-        // eslint-disable-next-line functional/no-expression-statements -- amortised eviction of keys with no request left in the window
         pruneStaleKeys(state, clock.longestWindowMs, at)
       }
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- see above
       clock.at = at
     },
   } as const
+}
+
+/**
+ * Every limiter this module has built, held weakly so a limiter its owner drops
+ * (one built inside a per-boot route factory) is still collected. Read only by
+ * {@link resetRateLimitersForTests}.
+ */
+const liveLimiters = new Set<WeakRef<SlidingWindowLimiter>>()
+
+/**
+ * TEST HARNESS ONLY — drop the recorded history of every sliding-window
+ * limiter in the process.
+ *
+ * Most limiters are module-level, so their history outlives a server: a test
+ * harness that boots several servers inside one process (the in-process E2E
+ * mode) would otherwise carry one boot's sign-ins into the next and answer 429
+ * on a fresh server. The harness calls this once per boot, beside its page and
+ * CSS cache resets. No route, middleware or use-case calls it, and nothing in
+ * a deployed server should: a production process boots one server and keeps
+ * its limits for its whole life.
+ */
+export const resetRateLimitersForTests = (): void => {
+  const entries = [...liveLimiters]
+  entries.forEach((ref) => {
+    const limiter = ref.deref()
+    if (limiter === undefined) {
+      liveLimiters.delete(ref)
+      return
+    }
+    limiter.clear()
+  })
+}
+
+/** Enrol a freshly built limiter for {@link resetRateLimitersForTests}, and hand it back. */
+const enrol = (limiter: SlidingWindowLimiter): SlidingWindowLimiter => {
+  liveLimiters.add(new WeakRef(limiter))
+  return limiter
 }
 
 /**
@@ -213,7 +236,6 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
     const recent = getRecent(key, config.windowMs, at)
     sweep.runIfDue(at)
     const updated = [...recent, at]
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
     state.set(key, updated)
     return updated
   }
@@ -231,7 +253,7 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
     return Math.max(minSeconds, Math.ceil(Math.max(0, resetTime - at) / 1000))
   }
 
-  return {
+  return enrol({
     getRecent,
     isExceeded: (key, config, now) =>
       getRecent(key, config.windowMs, now).length >= config.maxRequests,
@@ -248,7 +270,6 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
     },
     prune: (windowMs, now) => pruneStaleKeys(state, windowMs, now ?? Date.now()),
     size: () => state.size,
-    // eslint-disable-next-line functional/immutable-data -- Rate limiting requires mutable state
     clear: () => state.clear(),
-  }
+  })
 }

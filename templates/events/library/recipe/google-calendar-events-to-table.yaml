@@ -1,0 +1,41 @@
+# sovrium-library: recipe/google-calendar-events-to-table@0.30.0
+name: google-calendar-events-to-table
+trigger:
+  type: cron
+  expression: 0 * * * *
+actions:
+  - name: fetch
+    type: connection
+    operator: call
+    props:
+      connection: google
+      operation: list-events
+      params:
+        calendarId: primary
+        singleEvents: true
+        orderBy: startTime
+      paginate: all
+  - name: fresh
+    type: state
+    operator: filterNew
+    props:
+      input: '{{steps.fetch.data}}'
+      key: id
+      namespace: google-calendar
+  - name: fileEach
+    type: loop
+    operator: each
+    props:
+      items: '{{steps.fresh.items}}'
+      actions:
+        - name: fileEvent
+          type: record
+          operator: create
+          props:
+            table: calendar_events
+            data:
+              google_id: '{{loop.item.id}}'
+              title: '{{loop.item.summary}}'
+              starts_at: '{{loop.item.start.dateTime}}'
+              ends_at: '{{loop.item.end.dateTime}}'
+              link: '{{loop.item.htmlLink}}'

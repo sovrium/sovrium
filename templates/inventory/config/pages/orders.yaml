@@ -54,42 +54,40 @@ components:
                   - { name: placed_at, label: Placed, kind: date }
               # The three open statuses share the width; each folded column
               # takes only what its heading needs.
-              - type: container
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Shipped]]:flex-[0_0_9.5rem]! md:[&_[data-column=Cancelled]]:flex-[0_0_9.5rem]!'
-                children:
-                  - type: kanban
-                    dataSource:
-                      table: orders
-                      bindTo: orders-filter
-                      sharedFilter: {}
-                      sort:
-                        - { field: placed_at, direction: desc }
-                    kanbanGroupBy:
-                      field: status
-                      # Shipped and Cancelled are done with; they start folded.
-                      collapsed: [Shipped, Cancelled]
-                    drag:
-                      enabled: true
-                      persistAction:
-                        type: crud
-                        operation: update
-                        table: orders
-                    emptyColumnMessage: No order in this status. Drag one here as the order moves on.
-                    card:
-                      children:
-                        - type: text
-                          element: h3
-                          props:
-                            className: text-[13px] font-medium leading-[18px] text-foreground
-                          content: '#$record.order_number · $record.customer'
-                        - type: text
-                          element: p
-                          props:
-                            className: text-xs text-foreground-muted
-                          content: $record.card_summary
-                      footer:
-                        - { field: total, format: currency }
-                        - { field: placed_at, format: short-date }
-                        - { field: fulfilment, format: badge }
-                        - { field: owner, format: avatar }
+              - type: kanban
+                dataSource:
+                  table: orders
+                  bindTo: orders-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: placed_at, direction: desc }
+                kanbanGroupBy:
+                  field: status
+                  # Shipped and Cancelled are done with; they start folded.
+                  collapsed: [Shipped, Cancelled]
+                  columnSizing: fill
+                  columnWidths: { Shipped: 9.5rem, Cancelled: 9.5rem }
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: orders
+                emptyColumnMessage: No order in this status. Drag one here as the order moves on.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-[18px] text-foreground
+                      content: '#$record.order_number · $record.customer'
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.card_summary
+                  footer:
+                    - { field: total, format: currency }
+                    - { field: placed_at, format: short-date }
+                    - { field: fulfilment, format: badge }
+                    - { field: owner, format: avatar }

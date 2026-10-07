@@ -26,7 +26,7 @@
  * column simply doesn't exist — `data-source-resolver-live` would error.
  * To stay defensive we sort by `published_at` only when the rss page's
  * collection table declares the field; otherwise we fall back to the
- * primary key (insert order). The convention is [internal ref] —
+ * primary key (insert order). The convention is a pages publishing spec —
  * tables that participate in publishing already declare `published_at`,
  * but rss-only tables (eg. release notes) shouldn't crash the feed.
  */
@@ -89,7 +89,7 @@ async function readMarkdownFeedSource(path: string): Promise<string | undefined>
 /**
  * Render the RSS feed for a single `markdown: { file }` page (no DB collection)
  * — the changelog convention where each `## ` heading is one feed entry
- *. Returns `undefined` (→ 404) when the page has no
+ * Returns `undefined` (→ 404) when the page has no
  * `markdown.file`, the file is missing/unreadable, or it has zero `## ` sections.
  */
 async function renderMarkdownRssFeed(

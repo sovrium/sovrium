@@ -1,6 +1,6 @@
 # Templates & Examples
 
-> Start from a working app — the nineteen example configurations shipped with Sovrium, from single-capability starters to complete business apps, and the `sovrium init` templates that scaffold them.
+> Start from a working app — every example configuration shipped with Sovrium, from single-capability starters to complete business apps, and the `sovrium init` templates that scaffold them.
 
 The fastest way to learn Sovrium is to start from a working app. Sovrium ships a set of example configurations — each a complete, runnable project that composes real features (tables, auth, pages, design, i18n, automations) into a single config tree. The same examples double as `sovrium init` templates, so you can scaffold any of them into a new directory and start iterating immediately.
 
@@ -14,6 +14,8 @@ Every example is a **directory** with an `app.yaml` entry point. Anything beyond
 - **docs-site** — documentation website showcasing markdown pages: real `.md` files under `content/docs/`, a `contentDir` collection, a frontmatter sidebar, previous/next chrome, a table of contents, and highlighted code. No tables, no auth.
 - **api-only** — headless API mode with tables and auth, no pages. Demonstrates Sovrium as a backend.
 - **mcp-server** — headless MCP server exposing tables to an AI client through per-entity `aiAccess`, no pages.
+- **app-starter** — the pages most business apps grow from, made of library blocks: every way in (password, emailed link, passkey, two-step, single sign-on, invitations), a dashboard on one period selector, settings and profile pages, and records that open in a side panel and on their own page.
+- **marketing-site** — a marketing website — home, features, pricing, about, a blog, a guide, a contact page and a 404 — every section a library block installed with `sovrium library add`.
 
 ## Business apps — complete, runnable systems
 

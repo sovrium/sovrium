@@ -10,7 +10,7 @@
  *
  * ## Why a table rather than an alias
  *
- * [internal ref] deletes the token block instead of aliasing it. That is the right
+ * the single-design-schema rule deletes the token block instead of aliasing it. That is the right
  * trade only if the author is TOLD where the value went: a bare
  * `Unknown property 'theme'` names the offence and not the remedy, and sends a
  * reader to the published schema to work out that `borderRadius` is now

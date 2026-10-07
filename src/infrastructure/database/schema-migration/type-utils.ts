@@ -203,10 +203,10 @@ const resolveUsingClause = (
   // refuses to cast text to a timestamp automatically ("column cannot be cast
   // automatically") and would fail the boot.
   //
-  // The `timestamptz` arm is LOAD-BEARING and easy to lose: this branch used to
-  // test `normalizedTarget === 'timestamp'` alone and still fired for a
-  // TIMESTAMPTZ target, purely because `normalizeDataType` collapsed the two.
-  // Now that they normalize apart, the target set must name both explicitly.
+  // The `timestamptz` arm is LOAD-BEARING and easy to lose: `normalizeDataType`
+  // keeps `timestamp` and `timestamptz` apart, so a test of
+  // `normalizedTarget === 'timestamp'` alone would miss a TIMESTAMPTZ target.
+  // The target set must name both explicitly.
   if (normalizedExisting === 'text' && TEXT_CASTABLE_TIMESTAMP_TARGETS.has(normalizedTarget)) {
     return ` USING ${columnName}::TIMESTAMPTZ`
   }

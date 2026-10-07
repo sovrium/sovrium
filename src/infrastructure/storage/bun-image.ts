@@ -100,9 +100,49 @@ export interface ImagePipelineOptions {
  * height)` throws — so a height-only resize has to name both dimensions, which
  * means computing the other one from the source metadata first.
  */
-const resolveHeightOnlyWidth = async (input: Uint8Array, height: number): Promise<number> => {
-  const meta = await readSourceImageMetadata(input)
-  return Math.max(1, Math.round((meta.width * height) / meta.height))
+const resolveHeightOnlyWidth = (meta: SourceImageMetadata, height: number): number =>
+  Math.max(1, Math.round((meta.width * height) / meta.height))
+
+/**
+ * Largest source, in pixels, the pipeline agrees to decode: 50 million, about
+ * 200 MB of RGBA once decoded.
+ *
+ * The cost of an image is not its file size but the buffer a decoder allocates
+ * from the dimensions its HEADER declares — a few-hundred-byte PNG can declare
+ * 16000x16000, a gigabyte of pixels. `metadata()` reads only the header, so the
+ * check runs before any decode and refuses such a file without allocating for
+ * it. 50 Mpx still admits every camera and phone photo in ordinary use.
+ */
+const MAX_SOURCE_IMAGE_PIXELS = 50_000_000
+
+/** `error.code` of the refusal below, beside `Bun.Image`'s own `ERR_IMAGE_*` codes. */
+export const IMAGE_TOO_LARGE_CODE = 'ERR_IMAGE_TOO_LARGE'
+
+/**
+ * A source whose declared dimensions exceed {@link MAX_SOURCE_IMAGE_PIXELS}.
+ * Carries a `code` like `Bun.Image`'s own errors, so callers branch on it the
+ * same way, and a message naming the declared size and the limit.
+ */
+class ImageTooLargeError extends Error {
+  readonly code = IMAGE_TOO_LARGE_CODE
+
+  constructor(
+    readonly width: number,
+    readonly height: number
+  ) {
+    super(
+      `the image is ${width}x${height} (${width * height} pixels), above the ` +
+        `${MAX_SOURCE_IMAGE_PIXELS}-pixel limit for transforms`
+    )
+    this.name = 'ImageTooLargeError'
+  }
+}
+
+/** Refuse a source whose header declares more pixels than the pipeline decodes. */
+const assertDecodableSize = (meta: SourceImageMetadata): void => {
+  if (meta.width * meta.height > MAX_SOURCE_IMAGE_PIXELS) {
+    throw new ImageTooLargeError(meta.width, meta.height)
+  }
 }
 
 /** Default fit for a two-dimension resize: preserve the aspect ratio. */
@@ -117,18 +157,18 @@ const DEFAULT_FIT: ImageFit = 'inside'
  *   already been applied when deriving that width
  * - both — the requested box under the requested `fit`
  */
-const applyResize = async (
+const applyResize = (
   image: Bun.Image,
-  input: Uint8Array,
+  meta: SourceImageMetadata,
   options: ImagePipelineOptions
-): Promise<Bun.Image> => {
+): Bun.Image => {
   const { width, height } = options
   const fit = options.fit ?? DEFAULT_FIT
 
   if (width === undefined && height === undefined) return image
   if (height === undefined) return image.resize(width as number)
   if (width === undefined) {
-    return image.resize(await resolveHeightOnlyWidth(input, height), height, { fit: 'fill' })
+    return image.resize(resolveHeightOnlyWidth(meta, height), height, { fit: 'fill' })
   }
   return image.resize(width, height, { fit })
 }
@@ -162,16 +202,21 @@ const applyEncoder = (
  * Decode, transform and re-encode `input`.
  *
  * Rejects — never returns the input — when the bytes are not a decodable
- * image, or when the requested encoder is unavailable on this machine. The
+ * image, when the header declares more than {@link MAX_SOURCE_IMAGE_PIXELS}
+ * pixels ({@link ImageTooLargeError}, checked before decoding), or when the
+ * requested encoder is unavailable on this machine. The
  * rejection carries `Bun.Image`'s own `error.code` (`ERR_IMAGE_DECODE_FAILED`,
- * `ERR_IMAGE_UNKNOWN_FORMAT`, `ERR_IMAGE_FORMAT_UNSUPPORTED`, …), which callers
+ * `ERR_IMAGE_UNKNOWN_FORMAT`, `ERR_IMAGE_FORMAT_UNSUPPORTED`, …, or
+ * `ERR_IMAGE_TOO_LARGE`), which callers
  * branch on rather than parsing the message.
  */
 export const runImagePipeline = async (
   input: Uint8Array,
   options: ImagePipelineOptions
 ): Promise<Uint8Array> => {
-  const resized = await applyResize(new Bun.Image(input), input, options)
+  const meta = await readSourceImageMetadata(input)
+  assertDecodableSize(meta)
+  const resized = applyResize(new Bun.Image(input), meta, options)
   const encoded = applyEncoder(resized, options.outputFormat, options.quality)
   return await encoded.bytes()
 }

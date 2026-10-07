@@ -64,7 +64,6 @@ interface CachedReachability {
   readonly result: Promise<boolean>
 }
 
-// eslint-disable-next-line functional/no-let -- process-local memo; surviving across requests is the entire point
 let cached: CachedReachability | undefined
 
 /**
@@ -95,7 +94,6 @@ export const getCachedOllamaReachable = (baseUrl: string | undefined): Promise<b
   // `probeOllamaReachable` resolves `false` on every failure mode rather than
   // rejecting, so a stored promise can never become an unhandled rejection.
   const result = probeOllamaReachable(baseUrl)
-  // eslint-disable-next-line functional/no-expression-statements -- writing the memo is the point
   cached = { baseUrl, expiresAt: now + OLLAMA_REACHABILITY_TTL_MS, result }
   return result
 }

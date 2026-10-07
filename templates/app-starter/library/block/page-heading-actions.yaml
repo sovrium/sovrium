@@ -1,0 +1,95 @@
+# sovrium-library: block/page-heading-actions@0.30.0
+name: page-heading-actions
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8 flex flex-col gap-4
+children:
+  - type: breadcrumb
+    breadcrumbItems:
+      - label: Clients
+        href: /clients
+      - label: Atelier Nord
+        href: /clients/atelier-nord
+      - label: INV-0142
+  - type: flex
+    props:
+      className: flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-2
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-semibold tracking-tight text-foreground
+            content: Invoice INV-0142
+          - type: flex
+            props:
+              className: flex flex-wrap items-center gap-4
+            children:
+              - type: flex
+                props:
+                  className: flex items-center gap-1.5
+                children:
+                  - type: icon
+                    props:
+                      name: users
+                      size: 14
+                      className: text-foreground-subtle
+                  - type: text
+                    element: span
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: Atelier Nord
+              - type: flex
+                props:
+                  className: flex items-center gap-1.5
+                children:
+                  - type: icon
+                    props:
+                      name: calendar
+                      size: 14
+                      className: text-foreground-subtle
+                  - type: text
+                    element: span
+                    props:
+                      className: text-sm text-foreground-subtle
+                    content: Due 12 Oct 2026
+              - type: badge
+                badgeVariant: outline
+                content: Paid
+      - type: flex
+        props:
+          className: flex flex-wrap items-center gap-2
+        children:
+          - type: link
+            props:
+              href: /invoices/inv-0142.pdf
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-8 px-3 text-base'
+            content: Download PDF
+          - type: dropdown-menu
+            triggerLabel: More actions
+            menuItems:
+              - label: Edit
+                icon: pencil
+                action:
+                  type: navigate
+                  path: /invoices/inv-0142/edit
+              - label: Duplicate
+                icon: copy
+                action:
+                  type: navigate
+                  path: /invoices/new?from=inv-0142
+              - separator: true
+              - label: Delete
+                icon: trash-2
+                action:
+                  type: navigate
+                  path: /invoices/inv-0142/delete
+                variant: destructive
+          - type: link
+            props:
+              href: /invoices/inv-0142/remind
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-8 px-3 text-base'
+            content: Send reminder

@@ -139,7 +139,7 @@ export function markDrawerFieldAccess(
   session: SessionInfo | undefined
 ): readonly Component[] {
   const mark = (component: Component): Component => {
-    const record = component as unknown as Readonly<Record<string, unknown>>
+    const record = component as Readonly<Record<string, unknown>>
     const { children } = record
     const withChildren = Array.isArray(children)
       ? {
@@ -151,12 +151,12 @@ export function markDrawerFieldAccess(
       : record
     const tableName = drawerTable(record)
     const access = tableName === undefined ? undefined : fieldAccessFor(app, tableName, session)
-    if (access === undefined) return withChildren as unknown as Component
+    if (access === undefined) return withChildren as Component
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
     return {
       ...withChildren,
       props: { ...props, [DRAWER_FIELD_ACCESS_KEY]: access },
-    } as unknown as Component
+    } as Component
   }
   return components.map(mark)
 }

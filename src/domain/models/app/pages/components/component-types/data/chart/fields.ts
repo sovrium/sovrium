@@ -69,6 +69,18 @@ export const chartFields = {
   legend: Schema.optional(ChartLegendSchema),
   tooltip: Schema.optional(ChartTooltipSchema),
   chartAggregate: Schema.optional(ChartAggregateSchema),
+  /**
+   * Whether a pie or donut writes each slice's label on the ring. Turn it off
+   * when a legend beside the chart already names every slice, or when a small
+   * chart has no room for them. Bar, line and area charts carry their labels on
+   * their axes, which `xAxis` and `yAxis` already control.
+   */
+  dataLabels: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Whether a pie or donut chart writes each slice's label on the ring (default: true). Turn it off when the legend already names every slice.",
+    })
+  ),
   emptyMessage: Schema.optional(
     Schema.String.annotate({
       description: 'Message displayed when the chart data source returns no records',

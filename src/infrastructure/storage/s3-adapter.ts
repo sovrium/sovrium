@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { Data, Duration, Effect } from 'effect'
 import { egressRetrySchedule } from '@/infrastructure/egress/egress-retry'
 import type { S3StorageEnvConfig } from '@/domain/models/process-env/storage/storage'
@@ -212,7 +210,6 @@ export const s3Delete = async (
     Effect.timeoutOrElse(
       // @effect-diagnostics-next-line unknownInEffectCatch:off -- see `passThrough`: this adapter's contract is that the peer's own rejection reaches the Promise boundary verbatim
       Effect.tryPromise({
-        // eslint-disable-next-line drizzle/enforce-delete-with-where -- an S3 object store, not a Drizzle query builder: `delete` takes a key, and there is no `where` to add
         try: () => client.delete(key, { bucket }),
         catch: passThrough,
       }),
@@ -229,10 +226,10 @@ const LIST_PAGE_SIZE = 1000
 /**
  * Hard ceiling on pages walked by one listing, i.e. 100 000 objects.
  *
- * A bucket listing is paginated and truncates SILENTLY at `maxKeys`: a bucket
- * with 1500 objects used to answer with 1000 and no indication that 500 were
- * dropped — so `s3List` under-reported files and `s3GetTotalBytes` returned a
- * quota figure that could never trip its own limit. Following the continuation
+ * A bucket listing is paginated and truncates SILENTLY at `maxKeys`: read as one
+ * page, a bucket with 1500 objects answers with 1000 and no indication that 500
+ * were dropped — so `s3List` would under-report files and `s3GetTotalBytes`
+ * would return a quota figure that could never trip its own limit. Following the continuation
  * token fixes the common case, but an unbounded loop turns a dashboard read
  * into an unbounded round-trip count against a remote endpoint.
  *
@@ -383,7 +380,7 @@ export const s3GetTotalBytes = async (
  * `string`, not `Promise<string>`: there is no network and nothing to time
  * out, so a wrapper here would be inert ceremony that reads as protection.
  * `sovrium/require-egress-timeout` counts `presign` among its S3 egress
- * methods and therefore still reports these two sites; the suppression stays
+ * methods and therefore still reports this site; the suppression stays
  * until `S3_EGRESS_METHODS` drops it, which is a change to `[internal ref]` and so
  * belongs to `[internal ref]`.
  */
@@ -393,35 +390,3 @@ export const s3GetSignedUrl = async (
   key: string,
   expiresIn: number
 ): Promise<string> => client.presign(key, { bucket, expiresIn, method: 'GET' })
-
-/**
- * Parameters for {@link s3GetSignedUploadUrl}
- */
-export interface S3SignedUploadUrlParams {
-  readonly client: Bun.S3Client
-  readonly bucket: string
-  readonly key: string
-  readonly expiresIn: number
-  readonly contentType?: string
-}
-
-/**
- * A time-limited URL that accepts a `PUT` of the object's bytes.
- *
- * When a content type is supplied it is bound INTO the signature, so an upload
- * declaring a different one is rejected by the object store. The AWS presigner
- * dropped it silently — the typed and untyped URLs were byte-identical — which
- * made the parameter look honoured while granting an unconstrained write.
- *
- * Carries no deadline, for the reason given on {@link s3GetSignedUrl}: signing
- * is local arithmetic and there is no request to abandon.
- */
-export const s3GetSignedUploadUrl = async (params: S3SignedUploadUrlParams): Promise<string> => {
-  const { client, bucket, key, expiresIn, contentType } = params
-  return client.presign(key, {
-    bucket,
-    expiresIn,
-    method: 'PUT',
-    ...(contentType ? { type: contentType } : {}),
-  })
-}

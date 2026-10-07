@@ -51,7 +51,7 @@ const respectsDoNotTrack = (app: App): boolean =>
  * How many clicks this link has already been credited with.
  *
  * Counted over `system.analytics_events` because that is the ONE place a click is
- * written ([internal ref] D6). Two consequences are accepted and documented in the user
+ * written. Two consequences are accepted and documented in the user
  * story rather than worked around here: the count is bounded by the analytics
  * retention window, and counting-then-deciding is not atomic, so a burst may
  * overshoot a cap by a small number.
@@ -186,7 +186,6 @@ export const recordClick = (
 
   // effect-swallow: fire-and-forget by design — the redirect has already been decided, and a click row that cannot be written must not turn a working link into an error.
   const recorded = provideDomain(c, program).pipe(Effect.ignore)
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget by design: the redirect must not wait on (or fail with) the analytics write. `ignoreVoid` does not cover the `void` operator, so the suppression is the only lever; same idiom as analytics.ts.
   void Effect.runPromise(recorded)
 }
 

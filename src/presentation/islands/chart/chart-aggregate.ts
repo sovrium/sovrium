@@ -7,6 +7,7 @@
 
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import { readDisplayText } from '../runtime/record-display-label'
+import { seriesColor, type ChartSeriesConfig } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -30,6 +31,12 @@ export interface ChartAggregateConfig {
   readonly groupBy: string
   readonly interval?: DateInterval
   readonly order?: CategoryOrder
+  /** The aggregated series' colour — a theme role or a hex value. */
+  readonly color?: string
+  /** Draw at most this many categories; the rest fold into one named `otherLabel`. */
+  readonly limit?: number
+  /** Name of the folded remainder (default "Other"). */
+  readonly otherLabel?: string
 }
 
 /**
@@ -124,7 +131,41 @@ export function aggregateRecords(
       ...(label === undefined ? {} : { label }),
     }
   })
-  return orderCategories(data, config.order, options, fallback)
+  return foldPastLimit(orderCategories(data, config.order, options, fallback), buckets, config)
+}
+
+/** The key the folded remainder is drawn under — no stored value can be it. */
+export const OTHER_CATEGORY_KEY = '\u0000other'
+
+/**
+ * Past `limit`, the largest categories are kept — in the order already decided —
+ * and every other one folds into ONE category named `otherLabel`, drawn last.
+ * Its figure is the chart's own aggregate over the folded values: their sum
+ * for a sum or a count, their average for an average.
+ */
+function foldPastLimit(
+  data: readonly AggregatedDatum[],
+  buckets: Readonly<Record<string, readonly number[]>>,
+  config: ChartAggregateConfig
+): readonly AggregatedDatum[] {
+  const { limit } = config
+  if (limit === undefined || data.length <= limit) return data
+  const kept = new Set(
+    data
+      .toSorted((a, b) => b.value - a.value)
+      .slice(0, limit)
+      .map((datum) => datum.key)
+  )
+  const folded = data.filter((datum) => !kept.has(datum.key))
+  const values = folded.flatMap((datum) => buckets[datum.key] ?? [])
+  return [
+    ...data.filter((datum) => kept.has(datum.key)),
+    {
+      key: OTHER_CATEGORY_KEY,
+      label: config.otherLabel ?? 'Other',
+      value: reduceAggregate(config.function, values),
+    },
+  ]
 }
 
 /**
@@ -196,12 +237,14 @@ export function orderCategories<D extends AggregatedDatum>(
 /**
  * Gives each category its option's label and colour, so every mark and the
  * legend read the same declaration. Categories without an option are returned
- * unchanged, and so is the whole series when the field declares none.
+ * unchanged, and so is the whole series when the field declares none. A
+ * colour the datum already carries — the chart's own `chartAggregate.color`,
+ * painted on every bar — is kept: the author named it for this chart.
  */
 export function decorateCategories<D extends AggregatedDatum>(
   data: readonly D[],
   options: readonly ChartCategoryOption[] | undefined
-): readonly D[] {
+): readonly (D & { readonly label?: string; readonly color?: string })[] {
   if (!options || options.length === 0) return data
   return data.map((datum) => {
     const option = options.find((candidate) => candidate.value === datum.key)
@@ -209,7 +252,18 @@ export function decorateCategories<D extends AggregatedDatum>(
     return {
       ...datum,
       label: option.label,
-      ...(option.color === undefined ? {} : { color: option.color }),
+      ...(option.color === undefined || datum.color !== undefined ? {} : { color: option.color }),
     }
   })
+}
+
+/** Every datum in the one styling series' colour, or the data as they were without one. */
+export const paintEvery = <T extends object>(
+  data: readonly T[],
+  series: readonly ChartSeriesConfig[] | undefined
+): readonly T[] => {
+  const styling = series?.[0]
+  if (styling === undefined) return data
+  const color = seriesColor(styling, 0)
+  return data.map((datum) => ({ ...datum, color }))
 }

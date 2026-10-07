@@ -546,17 +546,12 @@ export const DataSourceSchema = Schema.Struct({
    * run by the shared decode pipeline, so `validate`, `start` and `build` reach
    * the same verdict.
    *
-   * It used to be checked only when that component was a `table`:
-   * `validateDbTableColumns` was the one validator that rejected an unknown
-   * name, and the walker feeding it (`collectDataTableComponents`) filters on
-   * `type === 'table'`. So under a `kpi`, `chart`, `kanban`, `calendar`,
-   * `gallery`, `list`, `timeline`, `container`, `form` or `record-field` an
-   * undeclared name decoded clean and rendered an empty component, while the
-   * generic pass that DOES visit them (`validateComponentFieldReferences`)
-   * skipped it, deferring to a rule that never ran for it. [internal ref]..038
-   * closed that by keying the rule on the SHAPE that binds a table rather than
-   * on the component type carrying it, which is what makes the `description`
-   * below true rather than aspirational.
+   * The rule is keyed on the SHAPE that binds a table rather than on the
+   * component type carrying it. A check that ran only for `type === 'table'`
+   * would let an undeclared name under a `kpi`, `chart`, `kanban`, `calendar`,
+   * `gallery`, `list`, `timeline`, `container`, `form` or `record-field` decode
+   * clean and render an empty component. Keying on the shape is what makes the
+   * `description` below true rather than aspirational.
    *
    * A ROUTE
    * REFERENCE deliberately is not, and cannot be: which table `/records/:table`
@@ -579,16 +574,38 @@ export const DataSourceSchema = Schema.Struct({
   /**
    * One of the bound table's declared `views[]`, by id or name.
    *
-   * Only the `table` component reads through it: the reference against
-   * `tables[].views[]`, and the refusals beside `system` and on every other
-   * component type, are checked at config load
-   * (`data-source-view-validation.ts`), and the grid then reads
-   * `/api/tables/:t/views/:v/records`, read-only.
+   * ─── ONE BINDING FOR EVERY DATA COMPONENT ─────────────────────────────────
+   *
+   * A view is configuration declared ON THE TABLE, never a feature of a page
+   * component. Every data component that reads a table — `table`, `kanban`,
+   * `calendar`, `gallery`, `list`, `chart`, `kpi` — binds EITHER to one of the
+   * table's views (`{ table, view }`) OR directly to the table (`{ table }`). A
+   * board, a calendar and a grid of the same records are three components, each
+   * with its own binding.
+   *
+   * ─── WHAT THE VIEW OWNS ───────────────────────────────────────────────────
+   *
+   * With `view` set, the view decides the filter, the sort, the grouping and the
+   * visible fields, on the server. The binding must not redeclare them: a
+   * `filter`, `sort` or `fields` beside `view` is refused when the config loads,
+   * with a message naming the view, because two sources of truth for one rule
+   * means one of them silently loses. Bound directly to the table, the component
+   * declares its own `filter` / `sort` as before.
+   *
+   * What the component keeps either way is how it DRAWS the records: a board's
+   * `kanbanGroupBy` columns, a calendar's `dateField`, a gallery's card fields, a
+   * chart's axes and series, a grid's columns. A reader's search, filter and
+   * sort from a toolbar narrow what they see for this visit only and are stored
+   * nowhere.
+   *
+   * The reference is resolved against `tables[].views[]` at config load
+   * (`data-source-view-validation.ts`); `view` beside a system read endpoint is
+   * refused — an endpoint has no table, so it has no views.
    */
   view: Schema.optional(
     Schema.String.annotate({
       description:
-        "Id or name of one of the table's declared views. The grid then reads through that view: its filters, sorts and fields apply on the server, and a public view lets a page with no access rule show the table to visitors who are not signed in.",
+        "Id or name of one of the bound table's declared views. The component then reads through that view: its filters, sorts, grouping and fields apply on the server, and a public view lets a page with no access rule show the records to visitors who are not signed in. With a view set, filter, sort and fields are owned by the view and may not be repeated here.",
       examples: ['open_campaigns'],
     })
   ),
@@ -600,7 +617,8 @@ export const DataSourceSchema = Schema.Struct({
       })
     ).pipe(
       Schema.annotate({
-        description: 'Specific fields to fetch from the table',
+        description:
+          'Specific fields to fetch from the table. Only when the component binds the table directly; a bound view owns its visible fields, and repeating them here is refused.',
         examples: [['title', 'author', 'createdAt']],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -608,16 +626,18 @@ export const DataSourceSchema = Schema.Struct({
   ),
   /** Data fetching mode */
   mode: Schema.optional(DataSourceModeSchema),
-  /** Filter conditions (AND logic) */
+  /** Filter conditions (AND logic) — only when bound directly to the table */
   filter: Schema.optional(
     Schema.Array(DataFilterSchema).annotate({
-      description: 'Filter conditions applied with AND logic',
+      description:
+        'Filter conditions applied with AND logic. Only when the component binds the table directly; a bound view owns its own filters, and repeating them here is refused.',
     })
   ),
-  /** Sort rules (applied in order) */
+  /** Sort rules (applied in order) — only when bound directly to the table */
   sort: Schema.optional(
     Schema.Array(DataSortSchema).annotate({
-      description: 'Sort rules applied in order',
+      description:
+        'Sort rules applied in order. Only when the component binds the table directly; a bound view owns its own sort, and repeating it here is refused.',
     })
   ),
   /** Pagination configuration (list mode only) */
@@ -660,11 +680,12 @@ export const DataSourceSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
-  /** Maximum number of results (search mode) */
+  /** Maximum number of rows the component shows in all */
   limit: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
-        description: 'Maximum number of results to return',
+        description:
+          'Maximum number of rows the component shows in all. A grid asks for no more than this and draws no pager when it fits on one page; with a smaller pagination.pageSize, each page holds pageSize rows and the pager counts no more than the limit',
         examples: [10, 20, 50],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
@@ -695,11 +716,20 @@ export const DataSourceSchema = Schema.Struct({
         'Companion to bindTo: the bound publisher is a shared filter/period selector whose published params are merged into every request this data source issues. One selector can drive many sibling subscribers. Inert without bindTo.',
     })
   ),
-  /** How the bound data is refreshed after the initial load (default: none) */
+  /**
+   * How the bound data is refreshed after the initial load (default: none).
+   *
+   * Honoured by the components drawn in the browser: a `table` bound to its
+   * table, a `list` drawn with `listDisplay.itemTemplate`, a `kanban`, a `kpi`
+   * and a `chart`. Components following the same table on one page share one
+   * subscription. Refused on rows the server draws (a `container` with a
+   * `dataSource`, a `list` without an item template); ignored by a `table`
+   * bound to one of its table's views.
+   */
   refreshMode: Schema.optional(
     RefreshModeSchema.annotate({
       description:
-        "Data refresh strategy for this binding (default: 'none'). 'poll' uses pollIntervalMs; 'realtime' subscribes to live change events.",
+        "Data refresh strategy for this binding (default: 'none'). 'poll' re-reads every pollIntervalMs; 'realtime' subscribes to the table's change feed, one subscription per table per page. Honoured by a table bound to its table, a list drawn with listDisplay.itemTemplate, a kanban, a kpi and a chart; refused on rows the server draws (a container with a dataSource, a list without an item template); ignored by a table bound to one of its table's views.",
     })
   ),
   /**
@@ -725,7 +755,7 @@ export const DataSourceSchema = Schema.Struct({
   identifier: 'DataSource',
   title: 'Data Source',
   description:
-    'Binds a component to table data. Supports list, single-record, and search modes with filtering, sorting, and pagination.',
+    'Binds a data component to a table: either to one of its declared views (table + view, the view owning filter, sort, grouping and fields) or directly to the table (table, with optional filter and sort). Supports list, single-record, and search modes, and pagination.',
 })
 
 /** @public */

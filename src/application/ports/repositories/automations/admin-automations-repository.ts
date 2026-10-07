@@ -71,6 +71,8 @@ export interface AdminAutomationRunRow {
   readonly durationMs: number | null
   readonly error: string | null
   readonly createdAt: Date | string
+  /** When the values this run captured were erased with an account; `null` otherwise. */
+  readonly valuesErasedAt: Date | string | null
 }
 
 /**

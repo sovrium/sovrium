@@ -6,7 +6,7 @@
  */
 
 /**
- * Code-block chrome stylesheet generator ([internal ref],
+ * Code-block chrome stylesheet generator (the pages layout markdown pages requirement,
  * cluster 2).
  *
  * The Shiki highlighter (`infrastructure/markdown/shiki-highlighter.ts`)
@@ -26,14 +26,9 @@
  *    under `github-dark` (the founder-review defect). The docs three-column
  *    layout keeps its own higher-specificity `.prose pre.shiki` chrome
  *    (`markdown-article-enhancements.ts`) for its bordered docs styling.
- *  - A small set of `.tok-XXXXXX { color: #XXXXXX }` rules — one per hex
- *    color expected from the configured design. These are not exhaustive
- *    (Shiki themes carry hundreds of TextMate scopes); the rules below
- *    cover the most common token colors for the two themes the spec
- *    fixture exercises (`github-dark` and `nord`). Uncovered tokens render
- *    as plain text against the chrome — legible, just monochrome — which
- *    is the same graceful-degrade contract the unknown-language fallback
- *    uses.
+ *  - A curated set of `.tok-XXXXXX { color: #XXXXXX }` rules for the light
+ *    half; an uncovered token renders in the chrome's ink, legible if
+ *    monochrome (the unknown-language fallback's contract).
  *
  * The CSS is injected into `buildSourceCSS` in `infrastructure/css/compiler.ts`
  * so it flows through BOTH compile paths:
@@ -51,6 +46,7 @@
  * utility classes, not arbitrary author selectors emitted via raw CSS.
  */
 
+import { flooredPalette } from './code-block-theme-palette'
 import type { Design } from '@/domain/models/app/design'
 
 /**
@@ -238,8 +234,7 @@ const generateContainerChrome = (chrome: ChromeColors): string =>
  *     `border-radius`; inside a frame that cuts two light notches out from under
  *     the header bar and two more above the output — the double-rounded seam a
  *     reader sees as a rendering glitch. An UNFRAMED block must keep its radius,
- *     so the reset is scoped to the frame rather than applied globally
- *.
+ *     so the reset is scoped to the frame rather than applied globally.
  *  2. **It has to outrank `.prose`.** The docs article patches `.prose pre.shiki`
  *     (0,2,1) with its own border + radius; these rules are emitted UNLAYERED at
  *     (0,2,2), so they win regardless of source order and regardless of which of
@@ -391,20 +386,24 @@ const DARK_SCHEME_ROOT = "html:is(.dark, [data-theme='dark'])"
  *     colour — it falls to `#e1e4e8`-class chrome ink instead, monochrome but
  *     legible, which is the same graceful degrade an uncovered token already
  *     gets in the light scheme.
- *  3. **Then the dark palette paints back over it**, one rule per curated hex,
- *     matching the `tok-dark-XXXXXX` classes the highlighter put on the very
- *     same spans. It outranks the reset by one class, which is why the reset can
+ *  3. **Then the dark palette paints back over it**: the curated hexes plus
+ *     every foreground the named theme declares (`loadCodeBlockDarkPalette`),
+ *     each held to 4.5:1, matching the highlighter's `tok-dark-XXXXXX` classes. It outranks the reset by one class, which is why the reset can
  *     be written as broadly as it is.
  *
  * Scoped to `pre.shiki code span` rather than to `span`: the line-number gutter
  * is a sibling of the code, and nothing here has any business touching it.
  */
-const generateDarkSchemeArm = (darkThemeName: string): string => {
+const generateDarkSchemeArm = (darkThemeName: string, palette: readonly string[]): string => {
   const chrome = resolveChromeColors(darkThemeName)
-  const tokenRules = Object.entries(COMMON_TOKEN_COLORS)
+  const curated = Object.entries(COMMON_TOKEN_COLORS).map(
+    ([hex, color]) => [hex, tokenColorUnder(darkThemeName, hex, color)] as const
+  )
+  const ownPalette = flooredPalette(palette, COMMON_TOKEN_COLORS, chrome)
+  const tokenRules = [...curated, ...ownPalette]
     .map(
       ([hex, color]) =>
-        `  ${DARK_SCHEME_ROOT} pre.shiki code span.tok-dark-${hex} { color: ${tokenColorUnder(darkThemeName, hex, color)}; }`
+        `  ${DARK_SCHEME_ROOT} pre.shiki code span.tok-dark-${hex} { color: ${color}; }`
     )
     .join('\n')
   return `/* Sovrium code-block dark design: ${darkThemeName} */
@@ -428,24 +427,23 @@ ${tokenRules}`
  * the served CSS always carries a design name regardless of whether the
  * operator declared code-block config.
  *
- * The base `pre.shiki` chrome and `.tok-XXX` token-color rules remain
- * theme-name-agnostic (colors come from the highlighted markup's `tok-XXX`
- * class). The theme-name emission is purely additive — it does not change
- * the rendered DOM, only the CSS surface.
- *
  * When — and only when — the app also names `design.codeBlock.darkTheme`, the
  * dark-scheme arm is appended after everything above, so its rules win by
  * source order as well as by specificity. An app that names no counterpart gets
  * a stylesheet with no dark-scoped code-block rule in it at all.
  */
-export const generateCodeBlockStyles = (design?: Design): string => {
+export const generateCodeBlockStyles = (
+  design?: Design,
+  darkPalette: readonly string[] = []
+): string => {
   const themeName = resolveCodeBlockThemeName(design)
   const chromeColors = resolveChromeColors(themeName)
   const chrome = generateContainerChrome(chromeColors)
   const tokenRules = generateTokenColorRules()
   const themeHook = generateThemeScopedHook(themeName, chromeColors)
   const darkThemeName = design?.codeBlock?.darkTheme
-  const darkArm = darkThemeName === undefined ? '' : `\n${generateDarkSchemeArm(darkThemeName)}`
+  const darkArm =
+    darkThemeName === undefined ? '' : `\n${generateDarkSchemeArm(darkThemeName, darkPalette)}`
   const floors = generateContrastFloorRules(themeName)
   return `${chrome}\n${FRAME_CHROME}\n${LINE_NUMBER_GUTTER}\n${tokenRules}\n${themeHook}${floors === '' ? '' : `\n${floors}`}${darkArm}`
 }

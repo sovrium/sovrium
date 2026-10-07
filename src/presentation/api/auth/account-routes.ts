@@ -12,16 +12,14 @@ import {
   LoadPendingErasure,
   ScheduleAccountDeletion,
 } from '@/application/use-cases/account'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import {
-  purgeDueAccounts,
-  resolvePurgeTableAuthorship,
-} from '@/infrastructure/database/account-purge'
+import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
+import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
 import {
   provideDomain,
@@ -193,20 +191,23 @@ async function handleDelete(c: Context, app: App): Promise<Response> {
   // pairing; metadata carries the grace period + scheduled timestamp so
   // operator triage can answer "when did this account schedule erasure?"
   // without joining additional tables. Best-effort (catalog miss is logged
-  // and dropped inside emitAuditEvent — the user-visible 202 must not fail
+  // and dropped inside EmitAuditEvent — the user-visible 202 must not fail
   // because of an audit side-effect).
   const actor = await runDomainPromise(c, resolveActor(userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
-    actor,
-    resourceId: userId,
-    severity: 'critical',
-    result: 'success',
-    metadata: {
-      gracePeriodDays: GRACE_PERIOD_DAYS,
-      scheduledErasureAt: result.scheduledErasureAt.toISOString(),
-    },
-  })
+  await runDomainPromise(
+    c,
+    EmitAuditEvent({
+      action: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
+      actor,
+      resourceId: userId,
+      severity: 'critical',
+      result: 'success',
+      metadata: {
+        gracePeriodDays: GRACE_PERIOD_DAYS,
+        scheduledErasureAt: result.scheduledErasureAt.toISOString(),
+      },
+    })
+  )
 
   return c.json(result.body, 202)
 }

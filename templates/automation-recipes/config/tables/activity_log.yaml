@@ -22,6 +22,8 @@ fields:
       - log-new-lead
       - daily-digest
       - alert-on-failure
+      - review-recent-leads
+      - score-leads
   # Three outcomes, and colour is spent on them and on nothing else: the
   # light-scheme success, warning and error of config/design.yaml.
   - id: 3

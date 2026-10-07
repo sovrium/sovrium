@@ -31,6 +31,8 @@ export interface AuthFormStateInput {
   readonly redirectUrl?: string
   readonly successToast?: ToastConfig
   readonly errorToast?: ToastConfig
+  /** The form declares `onSuccess.type: 'successPage'`. */
+  readonly hasSuccessPage?: boolean
 }
 
 /**
@@ -58,7 +60,7 @@ export interface AuthFormStateResult {
  * submits populate the inline and summary error maps without dispatching.
  */
 export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult {
-  const { method, strategy, fields, redirectUrl, successToast, errorToast } = input
+  const { method, strategy, fields, redirectUrl, successToast, errorToast, hasSuccessPage } = input
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [summaryErrors, setSummaryErrors] = useState<FieldErrors>({})
   const [state, setState] = useState<AuthState>({ isPending: false })
@@ -90,6 +92,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
       redirectUrl,
       successToast,
       errorToast,
+      hasSuccessPage,
       setState,
     })
   }

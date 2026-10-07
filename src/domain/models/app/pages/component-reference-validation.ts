@@ -21,8 +21,8 @@ import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
  *
  * ─── WHAT IS A PLACEMENT HERE ──────────────────────────────────────────────
  *
- * An object whose keys are `$ref` and at most `vars`, and whose `$ref` is a
- * bare name. That excludes an action template reference (it always carries its
+ * An object whose keys are `$ref` and at most `vars` and `children`, and whose
+ * `$ref` is a bare name. That excludes an action template reference (it always carries its
  * step `name`), and a path-shaped value (a file include the loader already
  * replaced, or — in a TypeScript config — a value the name grammar refuses on
  * its own). The walk reaches every page and every template body at any depth,
@@ -35,8 +35,9 @@ import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
  * refused the same way, at boot — two spellings of one placement must not fail
  * at two different moments. `component` is also an ordinary field on other
  * nodes, so the placement is told apart by SHAPE, as the `$ref` one is: an
- * object whose keys are `component` plus at most one of `vars` / `variables`,
- * and whose `component` is a string, written as a member of a component list.
+ * object whose keys are `component` plus at most one of `vars` / `variables`
+ * (and the slot's `children`), and whose `component` is a string, written as a
+ * member of a component list.
  * A `specimen` holds a component OBJECT and sits beside `type`, and its
  * `subject` is a lone object rather than a list member; an `openDrawer` action
  * carries `action`; none of them matches.
@@ -52,13 +53,16 @@ interface AppForReferenceValidation {
 /** How a placement was spelled — it decides the message's second sentence. */
 type PlacementForm = '$ref' | 'component'
 
-/** One placement: the template name it asks for, and the key that asked. */
-interface Placement {
+/** One placement: the template name it asks for, the key that asked, and the node. */
+export interface Placement {
   readonly name: string
   readonly form: PlacementForm
+  readonly node: Readonly<Record<string, unknown>>
 }
 
-const REF_PLACEMENT_KEYS: ReadonlySet<string> = new Set(['$ref', 'vars'])
+// `children` rides along on either form: the page components that fill the
+// template's `$children` slot.
+const REF_PLACEMENT_KEYS: ReadonlySet<string> = new Set(['$ref', 'vars', 'children'])
 const VALUE_KEYS: ReadonlySet<string> = new Set(['vars', 'variables'])
 
 /** The template name a node places with a bare `$ref`, or `undefined`. */
@@ -76,7 +80,7 @@ const refPlacedName = (record: Readonly<Record<string, unknown>>): string | unde
 const componentPlacedName = (record: Readonly<Record<string, unknown>>): string | undefined => {
   const name = record['component']
   if (typeof name !== 'string') return undefined
-  const others = Object.keys(record).filter((key) => key !== 'component')
+  const others = Object.keys(record).filter((key) => key !== 'component' && key !== 'children')
   return others.length <= 1 && others.every((key) => VALUE_KEYS.has(key)) ? name : undefined
 }
 
@@ -89,9 +93,9 @@ const placementOf = (
   inArray: boolean
 ): Placement | undefined => {
   const ref = refPlacedName(record)
-  if (ref !== undefined) return { name: ref, form: '$ref' }
+  if (ref !== undefined) return { name: ref, form: '$ref', node: record }
   const component = inArray ? componentPlacedName(record) : undefined
-  return component === undefined ? undefined : { name: component, form: 'component' }
+  return component === undefined ? undefined : { name: component, form: 'component', node: record }
 }
 
 /**
@@ -103,14 +107,16 @@ const placementOf = (
  * single object (`subject: { component: site-header }`) naming a template that,
  * under the admin console, belongs to the documented app rather than this one.
  */
-const collectPlacements = (node: unknown, inArray = false): readonly Placement[] => {
+export const collectPlacements = (node: unknown, inArray = false): readonly Placement[] => {
   if (Array.isArray(node)) return node.flatMap((member: unknown) => collectPlacements(member, true))
   if (node === null || typeof node !== 'object') return []
   const record = node as Readonly<Record<string, unknown>>
   const own = placementOf(record, inArray)
+  // A placement's own `children` are page components for the template's slot,
+  // so a placement written among them is checked where it is written too.
   return own === undefined
     ? Object.values(record).flatMap((value: unknown) => collectPlacements(value))
-    : [own]
+    : [own, ...collectPlacements(record['children'])]
 }
 
 /** The `name` of every declared template. */

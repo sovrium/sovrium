@@ -1,0 +1,27 @@
+# sovrium-library: block/comments-feed@0.30.0
+name: comments-feed
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col max-w-2xl gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Comments]'
+      - type: comments
+        sort: newest
+        limit: 20
+        paginationStyle: loadMore
+        emptyText: No comment yet. Start the thread.
+        props:
+          placeholder: Add a comment

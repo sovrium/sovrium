@@ -25,7 +25,6 @@ import type { Context, Hono } from 'hono'
 const COOKIE_NAME = 'sovrium_low_data'
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 180 // ~6 months
 
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is mutable by library design
 async function handleLowDataOptOut(c: Context): Promise<Response> {
   const rawNext = c.req.query('next')
   const next = typeof rawNext === 'string' && rawNext.startsWith('/') ? rawNext : '/'
@@ -41,7 +40,6 @@ async function handleLowDataOptOut(c: Context): Promise<Response> {
 }
 
 /** Chain the low-data opt-out route onto a Hono app. */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
 export function chainLowDataOptOutRoute<T extends Hono>(honoApp: T): T {
   return honoApp.get('/__sovrium/eco/low-data-opt-out', handleLowDataOptOut) as T
 }

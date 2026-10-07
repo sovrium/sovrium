@@ -6,25 +6,4 @@ props:
   id: record-movement-dialog
   title: Record a movement
   description: A receipt is positive, a pick is negative. The product's stock follows on its own.
-children:
-  - type: form
-    dataSource:
-      table: stock_movements
-    fields:
-      - { field: reference, label: Reference }
-      - { field: product, label: Product }
-      - { field: warehouse, label: Warehouse }
-      - { field: type, label: Type }
-      - { field: quantity, label: Quantity }
-      - { field: moved_at, label: Date }
-      - { field: note, label: Party / note }
-    action:
-      type: crud
-      operation: create
-      table: stock_movements
-      submitLabel: Record movement
-      onSuccess:
-        navigate: /stock
-        toast:
-          message: Movement recorded
-          variant: success
+formRef: record-movement

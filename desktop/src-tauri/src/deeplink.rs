@@ -347,6 +347,52 @@ pub fn link_in_argv<I: IntoIterator<Item = S>, S: AsRef<str>>(argv: I) -> Option
         .find(|a| a.len() <= MAX_LINK_BYTES && a.starts_with("sovrium:"))
 }
 
+/// The link this process was LAUNCHED by, if any — read once, at setup.
+///
+/// Every channel a link can arrive by has exactly one reader, so that no link is
+/// confirmed twice:
+///
+/// * `current` is the deep-link plugin's `get_current()`. On macOS a launching
+///   link is an Apple event the plugin records; on Windows and Linux the plugin
+///   reads a lone-argument argv at its own init. Either way it may have emitted
+///   its event before this crate was listening, so the recorded value is the
+///   only copy left.
+/// * `argv` (with the executable's name first) is the fallback for the one case
+///   the plugin skips by design: a link that arrived beside other arguments.
+///
+/// The result is still a raw string. It goes through [`handle`], which parses
+/// and confirms it like any other link.
+pub fn cold_start_link<I: IntoIterator<Item = S>, S: AsRef<str>>(
+    current: Option<Vec<String>>,
+    argv: I,
+) -> Option<String> {
+    if let Some(link) = current.and_then(link_in_argv) {
+        return Some(link);
+    }
+    forwarded_link_the_plugin_skipped(argv)
+}
+
+/// The link in a forwarded argv that the deep-link plugin did NOT deliver.
+///
+/// `single-instance` (with its `deep-link` feature) hands a second launch's
+/// argv to the plugin before calling this crate. The plugin takes an argv of
+/// exactly one argument after the executable's name and emits the event this
+/// crate listens on; anything longer it leaves alone. So a lone-argument argv is
+/// already handled, and handling it again here would stack a second dialog.
+pub fn forwarded_link_the_plugin_skipped<I: IntoIterator<Item = S>, S: AsRef<str>>(
+    argv: I,
+) -> Option<String> {
+    let args: Vec<String> = argv
+        .into_iter()
+        .skip(1)
+        .map(|a| a.as_ref().to_string())
+        .collect();
+    if args.len() == 1 {
+        return None;
+    }
+    link_in_argv(args)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -554,6 +600,116 @@ mod tests {
     fn an_oversized_argv_entry_is_not_treated_as_a_link() {
         let huge = format!("sovrium://new?template={}", "a".repeat(MAX_LINK_BYTES));
         assert_eq!(link_in_argv([huge.as_str()]), None);
+    }
+
+    /// The conf the bundler reads. `include_str!` rather than a runtime read, so
+    /// the test sees exactly the file this crate is compiled against.
+    fn tauri_conf() -> serde_json::Value {
+        serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json parses")
+    }
+
+    #[test]
+    fn the_conf_declares_the_scheme_for_the_desktop_targets() {
+        // Without this block the bundler writes no `CFBundleURLTypes` into the
+        // macOS Info.plist, no protocol key from the Windows installer and no
+        // `x-scheme-handler` MimeType into the Linux `.desktop` file — and the
+        // OS never hands this process a single link, however correct the
+        // parser below is.
+        let conf = tauri_conf();
+        let desktop = &conf["plugins"]["deep-link"]["desktop"];
+        // The plugin accepts one protocol object or a list of them.
+        let protocols = match desktop {
+            serde_json::Value::Array(list) => list.clone(),
+            one => vec![one.clone()],
+        };
+        let schemes: Vec<String> = protocols
+            .iter()
+            .flat_map(|p| p["schemes"].as_array().cloned().unwrap_or_default())
+            .filter_map(|s| s.as_str().map(str::to_owned))
+            .collect();
+        assert_eq!(
+            schemes,
+            vec![SCHEME.to_string()],
+            "plugins.deep-link.desktop must declare exactly the one scheme the parser answers to"
+        );
+
+        // The three installers that carry the registration must stay targets.
+        let targets: Vec<&str> = conf["bundle"]["targets"]
+            .as_array()
+            .expect("bundle.targets is a list")
+            .iter()
+            .filter_map(|t| t.as_str())
+            .collect();
+        for registering in ["app", "nsis", "deb"] {
+            assert!(
+                targets.contains(&registering),
+                "{registering} must stay a bundle target"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cold_start_link_comes_from_the_plugin_first() {
+        // macOS delivers a launching link through the plugin, never argv; on
+        // Windows and Linux the plugin has already read argv at its own init,
+        // before this crate could listen for the event it emitted.
+        let current = Some(vec!["sovrium://new?template=crm".to_string()]);
+        assert_eq!(
+            cold_start_link(current, ["/opt/sovrium", "sovrium://new?template=crm"]),
+            Some("sovrium://new?template=crm".to_string())
+        );
+        let link = cold_start_link(
+            Some(vec!["sovrium://new?template=crm".to_string()]),
+            ["/Applications/Sovrium.app/Contents/MacOS/sovrium-desktop"],
+        )
+        .expect("the launching link is handled");
+        assert_eq!(
+            parse(&link),
+            Ok(Intent::NewFromTemplate {
+                template: "crm".into()
+            })
+        );
+    }
+
+    #[test]
+    fn a_cold_start_link_falls_back_to_argv_the_plugin_skipped() {
+        // The plugin only reads an argv of exactly one argument. A link that
+        // arrived beside a flag is still ours, and still goes through `parse`.
+        assert_eq!(
+            cold_start_link(
+                None,
+                ["/opt/sovrium", "--flag", "sovrium://new?template=blog"]
+            ),
+            Some("sovrium://new?template=blog".to_string())
+        );
+        assert_eq!(cold_start_link(None, ["/opt/sovrium"]), None);
+        assert_eq!(
+            cold_start_link(Some(vec![]), ["/opt/sovrium", "--flag"]),
+            None
+        );
+    }
+
+    #[test]
+    fn a_link_the_plugin_already_delivered_is_not_handled_twice() {
+        // `single-instance` forwards a lone-argument argv to the deep-link
+        // plugin, which emits the event this crate listens on. Handling the same
+        // argv again in the callback would stack a second confirmation dialog.
+        assert_eq!(
+            forwarded_link_the_plugin_skipped(["/opt/sovrium", "sovrium://new?template=crm"]),
+            None
+        );
+        assert_eq!(
+            forwarded_link_the_plugin_skipped([
+                "/opt/sovrium",
+                "--flag",
+                "sovrium://new?template=crm"
+            ]),
+            Some("sovrium://new?template=crm".to_string())
+        );
+        assert_eq!(
+            forwarded_link_the_plugin_skipped(["/opt/sovrium", "--flag"]),
+            None
+        );
     }
 
     #[test]

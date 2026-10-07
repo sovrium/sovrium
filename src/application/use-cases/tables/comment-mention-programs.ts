@@ -36,6 +36,7 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { findUserEmailsByIds } from '@/application/use-cases/auth/find-user-email'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { extractMentionIds } from '@/domain/models/app/tables/comment-mention-markup-service'
 import { rulesNameCurrentUser } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
@@ -213,7 +214,7 @@ const selectRecordReaders = (
     if (scope.app.auth === undefined || people.length === 0) return people
 
     const roles = yield* getUserRoles(people.map((user) => user.id))
-    const roleOf = (userId: string): string => roles.get(userId) ?? 'member'
+    const roleOf = (userId: string): string => toGrantingRole(roles.get(userId), scope.app)
     const tableReaders = yield* selectTableReaders(scope, people, roleOf)
     if (scope.table.rowLevelPermissions?.read?.when === undefined) return tableReaders
     if (tableReaders.length === 0) return tableReaders

@@ -297,20 +297,16 @@ export type SidebarLeafItem = Schema.Schema.Type<typeof SidebarLeafItemSchema>
  * A sub-entry: one row inside a parent entry's disclosure, optionally holding a
  * list of its own.
  *
- * ─── WHY THERE IS A THIRD LEVEL, HAVING ARGUED THERE WOULD NEVER BE ────────
+ * ─── WHY THERE IS A THIRD LEVEL ─────────────────────────────────────────────
  *
- * This type carried the opposite claim until 2026-09-09: that two levels was
- * "deliberate and structural", because "a sidebar is a way IN, and a third
- * level of navigation is a page's own contents rather than the app's chrome".
- *
- * The second half of that sentence is still true and is now the ARGUMENT FOR
- * the level rather than against it. Sovrium's own design-system console proved
- * it: its UI kit is one page holding eighty component types under twelve
- * headed categories, and reaching a category means opening the kit and
- * scrolling it. The categories ARE the page's own contents — and a reader
- * already inside that page wants them where the navigation is. What the old
- * ruling actually got right is that such a list has no business in the chrome
- * of every OTHER page, which is what {@link SidebarShowWhenSchema} answers.
+ * "A third level of navigation is a page's own contents rather than the app's
+ * chrome" is true — and is the ARGUMENT FOR the level rather than against it.
+ * Sovrium's own design-system console shows it: its UI kit is one page holding
+ * eighty component types under twelve headed categories, and reaching a
+ * category means opening the kit and scrolling it. The categories ARE the
+ * page's own contents — and a reader already inside that page wants them where
+ * the navigation is. Such a list has no business in the chrome of every OTHER
+ * page, which is what {@link SidebarShowWhenSchema} answers.
  *
  * ─── THE THIRD LEVEL IS ALWAYS OPEN, AND CARRIES NO TOGGLE ─────────────────
  *

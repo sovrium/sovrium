@@ -47,7 +47,7 @@ function spellAsDeclared(languages: Languages | undefined, winner: string): stri
  *
  * Priority: `urlLanguage` > `page.meta.lang` > `detectedLanguage` > `languages.default` > `'en-US'`.
  *
- * The `/:lang/` URL prefix sits ABOVE `page.meta.lang` ([internal ref]..039).
+ * The `/:lang/` URL prefix sits ABOVE `page.meta.lang`.
  * A locale a visitor asked for by URL is an explicit request and must win: with
  * `meta.lang` on top, a page that declared one became locale-frozen and `/fr/`
  * served English under `lang="en"` while the sitemap advertised it as
@@ -62,7 +62,7 @@ function spellAsDeclared(languages: Languages | undefined, winner: string): stri
  * Two inputs arrive through it, and the name records only the first because it
  * arrived first: the `/{lang}/` URL prefix, and — on a request carrying no
  * prefix — the operator's PERSISTED preference (`resolvePreferredLanguage`,
- * `[internal ref]..057`). They never collide: the route layer consults the
+ * the languages specs). They never collide: the route layer consults the
  * cookie only where there is no prefix to consult instead, which is what makes
  * an address a visitor typed or was linked to outrank whatever this particular
  * browser remembers.

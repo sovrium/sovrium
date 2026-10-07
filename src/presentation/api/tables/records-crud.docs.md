@@ -2,7 +2,7 @@
 
 > The single-record lifecycle — the three request shapes, the status each answers with, and the one token that protects a write from overwriting a change it never saw.
 
-Every write body carries the canonical `{ "fields": { … } }` envelope.
+Every write body carries the canonical `{ "fields": { … } }` envelope, sent as `Content-Type: application/json`. A request body labelled anything else — `text/plain`, a form encoding, or no type at all — is refused with `415` before it is read, and nothing is written; only the HTML-form routes (`…/records/:id/update`, `…/records/:id/delete`, `…/records/bulk-update`, `…/records/bulk-delete`) take a form post.
 
 ## Create
 
@@ -37,6 +37,8 @@ A record's `id` is a string in every response — create, list, read, update, re
 A relationship value is judged by **your** read rules on the related table. A value naming a row you may not read — the related table refuses your role, or a row-level rule hides that row from you — answers exactly as a value naming a row that does not exist: `400`, the same body, and nothing written. A many-to-many value naming any such row is refused whole, and a refused create stores no record, not even the one its links were for. Links to rows you may read, and every link an admin writes, are unaffected.
 
 A record may carry nothing but its many-to-many links: it is created with every other field at its default, singly or in a batch. A required field with no default is still refused as missing.
+
+A record and the many-to-many links it names are stored together or not at all. A create answered with an error leaves no record behind, so retrying it never duplicates one.
 
 ## Read
 
@@ -78,6 +80,8 @@ A relationship value is judged as on create: a row you may not read answers as a
 
 A many-to-many value in an update **adds** links: `["2"]` on a record linked to `["1", "3"]` leaves it linked to all three. Only an empty list or `null` removes links, and it removes every link you may read. To drop one link, clear the field, then send the links to keep.
 
+An update is applied whole: when any part fails, including a link, the request answers the error and the record keeps its previous values and links.
+
 **A refused write answers `404`, not `403`.** A caller who may read a row but not change it gets the same answer as one asking about a row that never existed, so the write boundary cannot be mapped by probing it. The practical consequence for a client: a `404` from `PATCH` is not evidence the record is gone.
 
 ## Guarding against a lost update
@@ -92,6 +96,8 @@ Send a top-level `updatedAt` beside `fields`. The server compares it against the
 ```
 
 A stale token answers `409` with a message telling the caller to reload and retry.
+
+The token is checked as part of the write itself: two edits made from the same read cannot both be applied — the second answers `409`. The comparison is made to the millisecond, the precision `updatedAt` is answered with.
 
 The comparison is **skipped entirely** in three cases: the token is absent, the stored row carries no timestamp, or either value will not parse as one. Locking is therefore opt-in per request rather than a property of the table, and a client that omits the token silently gets last-write-wins. That is a deliberate default — making it mandatory would break every integration that writes a row it did not first read — but it means the protection exists only where a client asks for it.
 

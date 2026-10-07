@@ -9,24 +9,4 @@ props:
   id: add-task-dialog
   title: Add task
   description: Give it a person and a date so it shows on the timeline and the calendar.
-children:
-  - type: form
-    dataSource:
-      table: tasks
-    fields:
-      - { field: title, label: Title }
-      - { field: project, label: Project }
-      - { field: assignee, label: Assignee }
-      - { field: start_date, label: Start date }
-      - { field: due_date, label: Due date }
-      - { field: priority, label: Priority }
-    action:
-      type: crud
-      operation: create
-      table: tasks
-      submitLabel: Add task
-      onSuccess:
-        navigate: /board
-        toast:
-          message: Task added
-          variant: success
+formRef: add-task

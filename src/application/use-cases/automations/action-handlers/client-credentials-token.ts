@@ -8,13 +8,12 @@
 import { createHash } from 'node:crypto'
 import { Data, Effect } from 'effect'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
-import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
-import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import {
-  requestClientCredentialsToken,
-  withRefreshLockEffect,
+  OAuthTokenClient,
   type OAuth2RefreshProps,
-} from '@/infrastructure/connections/token-refresh'
+} from '@/application/ports/services/oauth-token-client'
+import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
+import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
 import { stringProp } from './shared'
 import type { ConnectionDef } from './static-auth-header'
 
@@ -113,12 +112,12 @@ const requestAndStore = (
   name: string,
   props: OAuth2RefreshProps,
   connectionId: string
-): Effect.Effect<ClientCredentialsOutcome, never, ConnectionTokenRepository> =>
+): Effect.Effect<ClientCredentialsOutcome, never, ConnectionTokenRepository | OAuthTokenClient> =>
   Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () => requestClientCredentialsToken(props),
-      catch: (cause) => new ClientCredentialsTransportError({ cause }),
-    }).pipe(
+    const result = yield* OAuthTokenClient.use((tokens) =>
+      tokens.requestClientCredentialsToken(props)
+    ).pipe(
+      Effect.mapError((error) => new ClientCredentialsTransportError({ cause: error.cause })),
       Effect.catchTag('ClientCredentialsTransportError', () =>
         Effect.succeed({ ok: false as const, error: 'token_request_failed' })
       )
@@ -165,13 +164,18 @@ export const resolveClientCredentialsToken = (
   name: string,
   props: OAuth2RefreshProps | undefined,
   connectionId: string
-): Effect.Effect<ClientCredentialsOutcome, never, ConnectionTokenRepository> =>
+): Effect.Effect<
+  ClientCredentialsOutcome,
+  never,
+  ConnectionTokenRepository | OAuthTokenClient | SentinelTokens
+> =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
     const stored = yield* tokenRepo.findForApp({ connectionId }).pipe(
       // effect-swallow: an unreadable row is not an outage here — the grant can mint a replacement without anyone's help, which the branch below does.
       Effect.orElseSucceed(() => undefined)
     )
+    const { isSentinelAccessToken } = yield* SentinelTokens
     const valid =
       stored !== undefined &&
       props !== undefined &&
@@ -190,17 +194,19 @@ export const obtainClientCredentialsToken = (
   name: string,
   props: OAuth2RefreshProps | undefined,
   connectionId: string
-): Effect.Effect<ClientCredentialsOutcome, never, ConnectionTokenRepository> => {
+): Effect.Effect<ClientCredentialsOutcome, never, ConnectionTokenRepository | OAuthTokenClient> => {
   if (props === undefined) {
     return Effect.succeed({
       ok: false,
       reason: `connection ${name}: missing clientId, clientSecret or tokenUrl for the client credentials grant`,
     } as const)
   }
-  return withRefreshLockEffect(
-    { connectionId, userId: undefined },
-    requestAndStore(name, props, connectionId),
-    (cause) => new ClientCredentialsTransportError({ cause })
+  return OAuthTokenClient.use((tokens) =>
+    tokens.withRefreshLock(
+      { connectionId, userId: undefined },
+      requestAndStore(name, props, connectionId),
+      (cause) => new ClientCredentialsTransportError({ cause })
+    )
   ).pipe(
     Effect.catchTag('ClientCredentialsTransportError', () =>
       Effect.succeed({

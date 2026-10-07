@@ -11,6 +11,11 @@ permissions:
   create: [admin]
   update: [admin]
   delete: [admin]
+  # The assistant's guess at what a comment is (config/automations/
+  # triage-comment.yaml) is a note for the editor, never shown to readers.
+  fields:
+    - field: kind
+      read: [admin]
 rowLevelPermissions:
   read:
     when:
@@ -53,3 +58,15 @@ fields:
     type: formula
     formula: "CAST(substr(CAST(posted_at AS TEXT), 9, 2) AS INTEGER) || ' ' || CASE substr(CAST(posted_at AS TEXT), 6, 2) WHEN '01' THEN 'January' WHEN '02' THEN 'February' WHEN '03' THEN 'March' WHEN '04' THEN 'April' WHEN '05' THEN 'May' WHEN '06' THEN 'June' WHEN '07' THEN 'July' WHEN '08' THEN 'August' WHEN '09' THEN 'September' WHEN '10' THEN 'October' WHEN '11' THEN 'November' WHEN '12' THEN 'December' END || ' ' || substr(CAST(posted_at AS TEXT), 1, 4)"
     resultType: string
+  # What the comment is, as the local AI model reads it the moment it arrives:
+  # a question to answer, a correction to check, praise, or spam to reject.
+  # Empty when no model answered. The desk shows it beside each comment.
+  - id: 7
+    name: kind
+    type: single-select
+    options:
+      - Question
+      - Correction
+      - Praise
+      - Spam
+      - Other

@@ -27,18 +27,23 @@ export const entry = defineLibraryEntry({
   category: 'application',
   tags: ['activity', 'feed', 'timeline', 'history', 'events'],
   description:
-    'A card listing the records of your events table newest first — what happened, who did it, and how long ago — with a Load more button past the first page.',
+    'A card listing the records of your events table newest first, each one a sentence — who did what — and how long ago, with a Load more button past the first page.',
   notes: [
     PLACE_NOTE,
     DATA_NOTE,
+    'Each row reads as one sentence: the actor, then what they did. Write the event as the phrase that follows a name — "moved INV-0142 to Paid", "invited Lea Martin" — so the row reads "Clara Moreau moved INV-0142 to Paid".',
     'It is a `list` over the events, not the `timeline` type: `timeline` draws dated bars on a time axis, which suits a schedule rather than a feed.',
     THEME_NOTE,
   ],
   params: [
     stringParam('headline', 'The heading above the feed. Empty to omit.', '[Activity]'),
     stringParam('table', 'The table the events are read from.', 'events'),
-    stringParam('titleField', 'The text field saying what happened.', 'title'),
-    stringParam('actorField', 'The text field saying who or what did it.', 'actor'),
+    stringParam('actorField', 'The text field naming who or what did it.', 'actor'),
+    stringParam(
+      'titleField',
+      'The text field saying what they did, as the phrase that follows the name.',
+      'title'
+    ),
     stringParam('dateField', 'The date-and-time field the feed is sorted by.', 'occurred_at'),
     stringParam(
       'emptyMessage',
@@ -77,8 +82,7 @@ export const entry = defineLibraryEntry({
                   },
                   listDisplay: {
                     itemTemplate: {
-                      title: `$record.${p('titleField')}`,
-                      subtitle: `$record.${p('actorField')}`,
+                      title: `$record.${p('actorField')} $record.${p('titleField')}`,
                       metadata: [{ field: p('dateField'), format: 'relative-time' }],
                     },
                     emptyMessage: p('emptyMessage'),

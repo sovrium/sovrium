@@ -19,8 +19,8 @@
  * ## Why this is not `renderWithCache`
  *
  * The obvious predicate — "call the renderer and see whether it 404s" — is
- * unusable here. `renderWithCache` runs the shared-view anti-enumeration gate,
- * consults the page cache, and WRITES a cache entry on a miss. A routing-layer
+ * unusable here. `renderWithCache` observes the session, consults the page
+ * cache, and WRITES a cache entry on a miss. A routing-layer
  * guard must be pure: it runs on paths that will never be rendered, and it must
  * not observe a session, populate a cache, or read the filesystem.
  *
@@ -100,7 +100,7 @@ export interface DeclaredPageMatch {
  * page matches — the caller then 404s.
  *
  * When no page pattern matches directly, the path is retried against the BASE
- * PATH of every index-bearing collection (`contentDir.index`, [internal ref]): a
+ * PATH of every index-bearing collection (`contentDir.index`, the `contentDir.index` convention): a
  * request for `/docs` resolves to the `/docs/:slug` page with the index slug
  * pre-filled.
  *

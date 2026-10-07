@@ -29,14 +29,10 @@
  * The two walks differ in exactly one respect — which keys are skipped at the
  * root — so they should end as one walk taking that set as a parameter.
  *
- * The reason they were not merged has now GONE. This note used to say the
- * specimen serialiser lived under `dashboard-surfaces/` and that merging across
- * a tree being deleted would be a conflict for no gain. That deletion has
- * happened: the serialiser is `specimenSnippet` in
- * `@/domain/models/app/design/specimen-snippet`, one directory away from
- * this file, and the merge is now what that note predicted — a rename and a
- * parameter. It is left undone rather than hidden, so the next reader inherits
- * the work and not a stale excuse for it.
+ * Nothing blocks the merge: the other serialiser is `specimenSnippet` in
+ * `@/domain/models/app/design/specimen-snippet`, one directory away from this
+ * file, and the merge is a rename and a parameter. It is left undone rather
+ * than hidden, so the next reader inherits the work and not an excuse for it.
  *
  * Until then the difference is stated in both directions rather than left for a
  * reader to infer from two similar functions.

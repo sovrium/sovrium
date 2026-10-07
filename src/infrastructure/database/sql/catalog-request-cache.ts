@@ -14,7 +14,7 @@
  * twice. `listRecords` probes `deleted_at` to build its `WHERE` clause
  * (`crud-read.ts`), and the `COUNT(*)` that answers `pagination.total` runs
  * through `computeAggregations`, which builds the identical clause and probes
- * again. Measured 2026-09-01 with `SOVRIUM_DB_QUERY_HEADER=on`, both dialects:
+ * again. Measured with `SOVRIUM_DB_QUERY_HEADER=on`, both dialects:
  * a list request issued 9 statements, two of them
  * `information_schema.columns` / `pragma_table_info` round-trips answering one
  * question. With this memo it issues 8.
@@ -115,7 +115,6 @@ export const cachedColumnExists = (
   if (hit !== undefined) return hit
 
   const pending = columnExists(runner, tableName, columnName)
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the one sanctioned mutation: this map IS the request-scoped memo, same shape as the counter box in telemetry/db-query-counter.ts
   box.set(key, pending)
   return pending
 }

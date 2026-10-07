@@ -22,9 +22,9 @@ import type { SendMailOptions } from './nodemailer'
  * In **development** the terminal belongs to one person, who is at that moment
  * blocked. Dropping the message silently is what makes local work on an auth
  * flow impossible: the reset link they need in order to click it exists for one
- * instant inside the process and is then discarded, and the one-line notice
- * they used to get named the recipient and the subject but not the URL — the
- * one part of the message nobody can reconstruct by hand. So the whole message
+ * instant inside the process and is then discarded, and a one-line notice
+ * naming the recipient and the subject would still omit the URL — the one
+ * part of the message nobody can reconstruct by hand. So the whole message
  * joins the journal they are already watching.
  *
  * In **production** the log is shipped, retained, and read by people who are
@@ -33,8 +33,8 @@ import type { SendMailOptions } from './nodemailer'
  * keeps the single line it has always had, with no body and no links, and that
  * asymmetry is the point rather than an inconsistency to tidy away.
  *
- * [internal ref] (the dev journal carries To/Subject/body/Link) against
- * [internal ref] (production carries none of them).
+ * a CLI log journal spec (the dev journal carries To/Subject/body/Link) against
+ * a CLI log journal spec (production carries none of them).
  */
 
 /**
@@ -75,7 +75,6 @@ const HTML_ENTITIES: Readonly<Record<string, string>> = {
 }
 
 /** Render a nodemailer address value as one human-readable string. */
-// eslint-disable-next-line functional/prefer-immutable-types -- nodemailer's Address is mutable by library design, like its Transporter
 const describeRecipient = (to: SendMailOptions['to']): string => {
   if (to === undefined || to === null) return 'unknown'
   if (typeof to === 'string') return to

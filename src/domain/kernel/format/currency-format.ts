@@ -169,12 +169,12 @@ export const formatCurrencyValue = (
  * declares none — in which case a `format: 'currency'` rendering keeps the USD
  * defaults.
  *
- * **A DECLARED CODE drives the symbol, not the field TYPE.** The gate used to
- * be `type === 'currency'`, which got the wider question wrong: a `formula`
- * computing `unit_price * stock_on_hand` printed `$224,430.90` in the column
- * beside the `€28.63` it was multiplied from, although the author had declared
- * the currency on the field. `currency` FIELDS are unaffected: their code is
- * required by the currency field schema, so the first arm matches every one.
+ * **A DECLARED CODE drives the symbol, not the field TYPE.** A
+ * `type === 'currency'` gate would get the wider question wrong: a `formula`
+ * computing `unit_price * stock_on_hand` would print `$224,430.90` in the
+ * column beside the `€28.63` it was multiplied from, although the author
+ * declared the currency on the field. `currency` FIELDS always carry a code
+ * (the currency field schema requires it), so the first arm matches every one.
  *
  * ONE rule for every surface that formats an amount — the grid cell, the
  * summary total beneath it and a kanban card's footer. A second copy once let

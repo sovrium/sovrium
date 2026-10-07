@@ -36,7 +36,7 @@ import type { ComponentRenderer, DispatchableComponentType } from './component-d
  * These components render semantic HTML elements for page structure.
  */
 /**
- * The marker a repeating container carries into the browser.
+ * The marker a repeating container carries into the browser (the record-drawer children-slot design, CAP-6).
  *
  * Spelled LITERALLY on both sides of the SSR boundary — here, and in
  * `presentation/islands/overlays/record-drawer-repeat.ts`, which reads it — for
@@ -48,7 +48,7 @@ import type { ComponentRenderer, DispatchableComponentType } from './component-d
 const REPEAT_ATTRIBUTE = 'data-repeat-record'
 
 /**
- * The name a repeat gave its element (`repeat.as`, [internal ref]), carried beside the
+ * The name a repeat gave its element (`repeat.as`, the run-as-a-page design), carried beside the
  * field so the island knows which namespace a copy's `$<as>.` tokens read.
  * Absent when the repeat is unnamed, so a CAP-6 container renders exactly as it
  * did before names existed. Spelled on both sides for the reason above.
@@ -173,7 +173,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     // "no recipe", not "no classes". The author channel survives — and so does
     // the inert `card` marker `style-processor.ts` writes from
     // `COMPONENT_TYPE_CLASS_MAP`, which arrives here already merged into
-    // `authorClassName`. Its `@layer components` rule was retired, so it paints
+    // `authorClassName`. No `@layer components` rule answers it, so it paints
     // nothing, but removing the CLASS is not cascade-safe (see
     // `css/styles/component-layer-generators.ts`).
     if (variant === 'scoped') {
@@ -285,7 +285,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
 
   // Spinner — the box, the mark that turns in it, and the announcement.
   //
-  // It was a bare passthrough `<div>` until review row 49 (2026-09-16): _"Il
+  // It was a bare passthrough `<div>` until review row 49: _"Il
   // n'y a pas de spinner, on ne voit rien."_ The element had a box wherever an
   // author had sized it, so it was VISIBLE and three assertions said so while
   // the reader saw nothing — which is why the criteria behind this one are
@@ -331,7 +331,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
   },
 
   // Divider — renders an <hr> with prestyled `sv-border` color tone
-  //. `style` (solid|dashed|dotted) maps to inline `borderStyle`
+  // `style` (solid|dashed|dotted) maps to inline `borderStyle`
   // since that's a schema literal that shouldn't go through the token
   // cascade. `label` (when present) wraps the rule in an aria-separator
   // container with muted-fg label text so labelled separators read as
@@ -353,13 +353,11 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
         >
           <hr
             className={ruleClassName}
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
             style={{ borderStyle }}
           />
           <span className={computeDividerLabelTextClasses()}>{label}</span>
           <hr
             className={ruleClassName}
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
             style={{ borderStyle }}
           />
         </div>
@@ -370,7 +368,6 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
       <hr
         {...omitInternalMarkers(elementProps)}
         className={ruleClassName}
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
         style={{ borderStyle }}
       />
     )

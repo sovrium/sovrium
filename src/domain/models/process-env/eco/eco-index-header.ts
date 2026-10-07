@@ -57,7 +57,7 @@ export type EcoIndexGrade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
  *
  * The table is fine-grained at the small end so the low-data variant of
  * even a tiny default-homepage render grades at least one letter better
- * than its full sibling (: the spec
+ * than its full sibling (per an admin eco low data mode spec: the spec
  * compares grade letters between full and low-data fetches of the same
  * URL). The largest threshold sits at 500 KB, beyond which a page is
  * unambiguously over budget.

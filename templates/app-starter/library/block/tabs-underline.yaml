@@ -1,0 +1,22 @@
+# sovrium-library: block/tabs-underline@0.30.0
+name: tabs-underline
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: tabs
+    layout: flow
+    defaultTab: details
+    panels:
+      - id: details
+        label: Details
+        body: '[The record’s fields.]'
+      - id: invoices
+        label: Invoices
+        body: '[The invoices linked to this record.]'
+      - id: activity
+        label: Activity
+        body: '[What happened to this record, newest first.]'
+      - id: files
+        label: Files
+        body: '[The files attached to this record.]'

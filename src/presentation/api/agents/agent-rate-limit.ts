@@ -8,7 +8,7 @@
 /**
  * Per-agent action rate limiter (in-memory sliding window).
  *
- * [internal ref]: an agent's actions are subject to the same kind of
+ * An agent's actions are subject to the same kind of
  * rate limiting human users face — a burst of rapid `POST
  * /api/agents/:name/execute` calls must eventually produce HTTP 429.
  *
@@ -74,7 +74,6 @@ export const checkAgentRateLimit = (agentName: string, role: string): AgentRateL
     return { limited: true, retryAfter }
   }
 
-  // eslint-disable-next-line functional/no-expression-statements -- record the attempt in the shared limiter's mutable store
   limiter.record(agentName, { windowMs, maxRequests: ceiling })
   return { limited: false, retryAfter: 0 }
 }

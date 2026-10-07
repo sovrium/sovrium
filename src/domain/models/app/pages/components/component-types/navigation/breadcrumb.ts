@@ -125,4 +125,22 @@ export const breadcrumbFields = {
       description: 'Separator character between breadcrumb items (default: "/")',
     })
   ),
+  /**
+   * The label of the LAST crumb of a derived trail — the page the reader is on.
+   *
+   * A record page's last segment is an id (`/orders/42`), and `labels` maps
+   * segments, which an id is not. This names the current crumb directly, so a
+   * record page reads `Orders / Order 42 — Acme` with `currentLabel:
+   * $record.title`. Requires `derive`, like `labels` and `home`.
+   */
+  currentLabel: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Label of the last crumb of a derived trail — the current page. Accepts $record.<field> (a record page names its record) and $t: keys. Requires derive.',
+        examples: ['$record.title', '$t:nav.current'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
 } as const

@@ -9,13 +9,10 @@ import { useMemo } from 'react'
 import { useRealtimeReconciliation } from '../../../hooks/use-realtime-reconciliation'
 import { useCursorFeedView } from '../../../hooks/use-system-cursor-pages'
 import { buildColumns } from '../columns'
-import {
-  applyClientFilters,
-  resolveClientSorted,
-  useColumnSizingPersistence,
-} from '../island-setup-helpers'
+import { applyClientFilters, resolveClientSorted } from '../island-setup-helpers'
 import { createRowActionHandler } from '../row-actions'
 import { useDataTableInstance } from '../use-table'
+import { cappedRows, cappedTotal } from './row-cap'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
 import type { EffectiveQuery } from './use-effective-query'
@@ -34,8 +31,11 @@ export type GridInstance = ReturnType<typeof useGridInstance>
  * The server returns the unfiltered page — the filter-builder is purely client
  * state, so narrowing happens here, before the records reach TanStack Table.
  * The one exception is a load-more grid, which filters on the server.
+ *
+ * A binding's `limit` caps both the rows and the total the pager counts: the
+ * server pages in whole page sizes, so the last page under the cap is cut here.
  */
-export function useGridRecords(ctx: SetupContext, records: RecordsQuery) {
+export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, records: RecordsQuery) {
   const cursorFeed = useCursorFeedView(
     records.cursorPages,
     records.query.data,
@@ -53,15 +53,26 @@ export function useGridRecords(ctx: SetupContext, records: RecordsQuery) {
   // A load-more grid sent the builder's rows with its request (see
   // `resolveLoadMoreFeed`), so every row it holds already matches them.
   const { filteredOnServer } = records
-  const rows = useMemo(
-    () =>
-      filteredOnServer
-        ? cursorFeed.records
-        : applyClientFilters(cursorFeed.records, activeFilters, filterConjunction, fieldMeta),
-    [cursorFeed.records, activeFilters, filterConjunction, fieldMeta, filteredOnServer]
-  )
+  const { limit } = ctx.params.dataSource
+  const { pageIndex, pageSize } = layout.tableState.pagination
+  // A feed holds every page it has loaded, so its cap counts from its first row.
+  const offset = records.loadMore || cursorFeed.cursorPaged ? 0 : pageIndex * pageSize
+  const rows = useMemo(() => {
+    const held = cappedRows(cursorFeed.records, limit, offset)
+    return filteredOnServer
+      ? held
+      : applyClientFilters(held, activeFilters, filterConjunction, fieldMeta)
+  }, [
+    cursorFeed.records,
+    limit,
+    offset,
+    activeFilters,
+    filterConjunction,
+    fieldMeta,
+    filteredOnServer,
+  ])
 
-  return { cursorFeed, rows, totalRecords: cursorFeed.total }
+  return { cursorFeed, rows, totalRecords: cappedTotal(cursorFeed.total, limit) }
 }
 
 /**
@@ -181,12 +192,6 @@ export function useGridInstance(
       grid.totalRecords
     ),
   })
-
-  // Column-width persistence is preferences-backed (DB-table-only). For a
-  // system source `tableKey` is empty and `updatePreferences` no-ops, but the
-  // effect's localStorage write is also keyed on `tableKey`, so passing the
-  // empty key keeps the persistence inert.
-  useColumnSizingPersistence(ctx.tableKey, tableState.columnSizing, layout.prefs.updatePreferences)
 
   return { table, conflict, dismissConflict }
 }

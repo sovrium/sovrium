@@ -22,19 +22,15 @@
  * that resolves to no one.
  */
 
-import { Data, Effect } from 'effect'
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { Effect } from 'effect'
+import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { logError } from '@/infrastructure/logging/logger'
+import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { EmitAuditInput } from '@/application/use-cases/admin/audit-log/emit'
 import type { Actor } from '@/domain/models/api/admin/envelope/actor'
-
-/** The audit entry could not be written. */
-class UserActAuditError extends Data.TaggedError('UserActAuditError')<{
-  readonly cause: unknown
-}> {}
 
 /**
  * Who performed a privileged act on an account: a signed-in person, or an
@@ -68,27 +64,15 @@ const personActor = (userId: string): Effect.Effect<Actor, never, AuthRepository
 const authorActor = (author: UserActAuthor): Effect.Effect<Actor, never, AuthRepository> =>
   author.kind === 'user'
     ? personActor(author.userId)
-    : // eslint-disable-next-line unicorn/no-null -- the actor contract is `null` for non-human actors
-      Effect.succeed<Actor>({ id: null, type: 'automation', role: 'system' })
+    : Effect.succeed<Actor>({ id: null, type: 'automation', role: 'system' })
 
 /**
- * Write one entry. A failed write is logged and swallowed: the act it records
- * has already happened, and failing the request now would tell the caller it
- * had not.
+ * Write one entry. The store's write is total — a failed write is logged and
+ * absorbed there — because the act it records has already happened, and
+ * failing the request now would tell the caller it had not.
  */
-const emit = (input: EmitAuditInput): Effect.Effect<void> =>
-  Effect.tryPromise({
-    try: () => emitAuditEvent(input),
-    catch: (cause) => new UserActAuditError({ cause }),
-  }).pipe(
-    Effect.tapCause((cause) =>
-      Effect.sync(() => {
-        logError(`[audit-log] could not record ${input.action}`, cause)
-      })
-    ),
-    // effect-swallow: logged above; the act already stood, so the request that made it must not now report a failure.
-    Effect.ignore
-  )
+const emit = (input: EmitAuditInput): Effect.Effect<void, never, AuditLogRepository> =>
+  EmitAuditEvent(input)
 
 /**
  * Write the entry for an act on an account. Every act this module records is
@@ -100,7 +84,7 @@ const emitUserAct = (
   actor: Actor,
   userId: string,
   metadata?: Readonly<Record<string, unknown>>
-): Effect.Effect<void> =>
+): Effect.Effect<void, never, AuditLogRepository> =>
   emit({
     action,
     actor,
@@ -124,7 +108,7 @@ export const recordRoleChange = (input: {
   readonly userId: string
   readonly previousRole: string | null
   readonly role: string
-}): Effect.Effect<void, never, AuthRepository> =>
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* authorActor(input.author)
     yield* emitUserAct(AUDIT_ACTIONS.USER_ROLE_CHANGED, actor, input.userId, {
@@ -142,7 +126,7 @@ export const recordImpersonation = (input: {
   readonly phase: 'started' | 'stopped'
   readonly adminId: string
   readonly userId: string
-}): Effect.Effect<void, never, AuthRepository> =>
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* personActor(input.adminId)
     yield* emitUserAct(
@@ -166,7 +150,7 @@ export const recordBan = (input: {
   readonly author: UserActAuthor
   readonly userId: string
   readonly expiresAt: string | null
-}): Effect.Effect<void, never, AuthRepository> =>
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* authorActor(input.author)
     yield* emitUserAct(AUDIT_ACTIONS.USER_BANNED, actor, input.userId, {
@@ -183,7 +167,7 @@ export const recordBan = (input: {
 export const recordUnban = (input: {
   readonly author: UserActAuthor
   readonly userId: string
-}): Effect.Effect<void, never, AuthRepository> =>
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* authorActor(input.author)
     yield* emitUserAct(
@@ -201,7 +185,7 @@ export const recordUnban = (input: {
 export const recordPasswordSet = (input: {
   readonly adminId: string
   readonly userId: string
-}): Effect.Effect<void, never, AuthRepository> =>
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* personActor(input.adminId)
     yield* emitUserAct(AUDIT_ACTIONS.USER_PASSWORD_SET, actor, input.userId)
@@ -216,7 +200,7 @@ export const recordPasswordSet = (input: {
  */
 export const recordAccountDeletionRequest = (
   userId: string
-): Effect.Effect<void, never, AuthRepository> =>
+): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
   Effect.gen(function* () {
     const actor = yield* personActor(userId)
     yield* emit({

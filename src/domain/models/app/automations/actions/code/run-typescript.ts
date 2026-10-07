@@ -28,9 +28,12 @@ import { ActionBaseFields } from '../base'
  * In YAML configs, developers write the function as a multiline string.
  *
  * The `actions` context provides programmatic access to ALL action types:
- *   actions.record.create({ table, data })
+ *   actions.record.create({ table, data })                 -> { id }
  *   actions.record.read({ table, id })
  *   actions.record.list({ table, filter, sort, limit, offset, fields })
+ *   actions.record.update({ table, id | filter, data })    -> { updated, ids }
+ *   actions.record.upsert({ table, id | filter, data })    -> { operation, id }
+ *   actions.record.delete({ table, filter })               -> { deletedCount }
  *   actions.email.send({ to, subject, body })
  *   actions.http.request({ url, method, headers, body })
  *   actions.webhook.send({ url, event, data })

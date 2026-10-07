@@ -30,7 +30,6 @@ export interface SSGOptions {
   readonly defaultLanguage?: string
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
-  readonly hydration?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly pagePaths?: readonly string[] // Explicit list of page paths to generate
   readonly publicDir?: string // Directory containing static assets to copy
@@ -39,17 +38,11 @@ export interface SSGOptions {
 /**
  * Register explicit page paths in Hono app for SSG discovery
  */
-function registerPagePaths(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono type is mutable
-  app: Hono,
-  pagePaths: readonly string[]
-): void {
+function registerPagePaths(app: Hono, pagePaths: readonly string[]): void {
   const mutableApp = app as Hono
 
-  // eslint-disable-next-line functional/no-loop-statements -- Imperative route registration required by Hono's mutable API for toSSG discovery
   for (const path of pagePaths) {
     if (path !== '/') {
-      // eslint-disable-next-line functional/no-expression-statements -- Necessary side effect to mutate Hono app for toSSG route discovery
       mutableApp.get(path, (c) => c.text(''))
     }
   }
@@ -130,7 +123,6 @@ function normalizeFilePath(file: string, outputDir: string): string {
  * @returns Effect with output directory and generated files
  */
 export const generateStaticSite = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono is a mutable class from external library
   app: Hono | Readonly<Hono>,
   options: Readonly<SSGOptions>
 ): Effect.Effect<
@@ -164,7 +156,6 @@ export const generateStaticSite = (
 
       // Check if SSG generation was successful
       if (!result.success) {
-        // eslint-disable-next-line functional/no-throw-statements -- Error handling requires throw
         throw new Error(
           `Static site generation failed: ${result.error?.message || 'Unknown error'}`
         )

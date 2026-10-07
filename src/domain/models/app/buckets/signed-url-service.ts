@@ -12,11 +12,16 @@ export type SignedUrlOperation = 'download' | 'upload'
 
 /**
  * The upload limits a signed upload URL carries: the allowed `contentType`
- * (the empty string means "any") and the `maxSize` in bytes.
+ * (the empty string means "any type the bucket accepts") and the `maxSize` in
+ * bytes — plus `uploadedBy`, the id of the signed-in person who SIGNED it. The
+ * `PUT` that follows carries no session, so the URL itself is the only thing
+ * that can say whose object the bytes become; binding the id into the token is
+ * what stops a holder from re-attributing them by editing the query.
  */
 export interface SignedUrlUploadConstraints {
   readonly contentType: string
   readonly maxSize: number
+  readonly uploadedBy?: string
 }
 
 /**
@@ -53,6 +58,10 @@ export const signedUrlPayload = (claims: SignedUrlClaims): string => {
     // An absent constraint is `undefined`, which JSON renders as `null` in an array.
     constraints?.contentType,
     constraints?.maxSize,
+    // Appended only when present, so every token minted without a signer —
+    // every download, an anonymous upload — keeps its exact former payload.
+    // The array LENGTH then differs, so the two shapes can never collide.
+    ...(constraints?.uploadedBy === undefined ? [] : [constraints.uploadedBy]),
   ])
 }
 

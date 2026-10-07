@@ -45,8 +45,7 @@ export type PresetParseResult =
 
 /**
  * Preset names must be alphanumeric with optional hyphens (e.g. `thumbnail`,
- * `hero-banner`). This keeps preset names safe to embed in URLs and matches
- * [internal ref].
+ * `hero-banner`). This keeps preset names safe to embed in URLs and matches.
  */
 const PRESET_NAME_PATTERN = /^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/
 
@@ -72,7 +71,7 @@ const toPresetConfig = (raw: Readonly<Record<string, unknown>>): PresetConfig =>
 /**
  * Name the first unrecognised key in a preset, if any.
  *
- * Unknown keys used to be dropped without comment. That is exactly how a
+ * Unknown keys are not dropped without comment. That is exactly how a
  * withdrawn capability rots quietly: every existing `crop` preset would keep
  * booting and keep answering `200` while silently no longer cropping. Naming
  * the key turns it into one startup failure the operator fixes once.
@@ -87,7 +86,6 @@ const findUnknownPresetKey = (raw: Readonly<Record<string, unknown>>): string | 
  * - a JSON object of `{ "<name>": { ...config } }` — a validated `PresetMap`
  * - malformed JSON, a non-object value, or an invalid preset name — an error
  *   (which the server-startup path surfaces as a fatal startup failure, per
- * [internal ref])
  */
 export const parsePresetEnv = (raw: string | undefined): PresetParseResult => {
   if (raw === undefined || raw.trim() === '') {
@@ -182,10 +180,10 @@ const presetMissError = (presetName: string, presetCount: number): TransformPars
  *
  * - `presetName` absent — parse the explicit query params as-is.
  * - `presetName` present but no presets configured / unknown — a validation
- * error which surfaces as HTTP 400.
+ *   error which surfaces as HTTP 400 (a buckets transforms spec).
  * - `presetName` present and known — the preset config provides the base
  *   transform values, and any explicit query parameter (e.g. `?width=300`)
- * overrides the preset's value for that field.
+ *   overrides the preset's value for that field.
  */
 export const resolvePresetTransform = (
   query: Readonly<Record<string, string | undefined>>,

@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every component type a page can place (90), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
+Every component type a page can place (96), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
 
 ## Contents
 
@@ -48,9 +48,11 @@ Read: `sovrium docs form-controls`
 | `input` | A single line of text, typed by the reader. |
 | `input-group` | One input with a fixed prefix, suffix or action fused to its edge. |
 | `radio-group` | One choice among a few, all visible at once. |
+| `rating` | A row of stars that reads a rating, and writes a whole one inside a form. |
 | `record-picker` | One row of another table, found by typing its name and linked. |
 | `rich-text-editor` | Formatted prose, written in place, with only the marks you allow. |
 | `select` | One choice among many, folded until opened. |
+| `signature-pad` | A well to sign in, or a typed name, stored once with the statement agreed to. |
 | `slider` | A number in a range, dragged rather than typed. |
 | `switch` | A setting that applies as soon as it flips. |
 | `textarea` | Several lines of text, growing with what is written. |
@@ -72,8 +74,10 @@ Read: `sovrium docs data-components`
 | `kanban` | Records as cards in columns, one column per value of a select field. |
 | `kpi` | One number that matters, with its label and its movement. |
 | `list` | Records as rows with a title, a subtitle and a trailing value. |
+| `map` | Records placed as pins at their location, with a list twin a keyboard can use. |
 | `matrix` | Two sets of things crossed, each intersection a glyph rather than a word: rows and columns are nodes of the graph `dataSource` names, and a cell is the edge between them. |
 | `table` | The records of a table as a grid — sorting, filtering, grouping, selection, paging — or the rows you write in the config. |
+| `tree` | The records of one table nested under their parents, opened branch by branch. |
 
 ## Layout
 
@@ -96,6 +100,7 @@ Read: `sovrium docs components/content-components`
 | --- | --- |
 | `audio` | An audio file with play, progress and duration. |
 | `code` | Source text in a monospace block, highlighted by language. |
+| `file-preview` | A stored file shown inline: a PDF in its viewer, an image with zoom, else a download. |
 | `icon` | One glyph from the app's icon set, sized and coloured by the text around it. |
 | `iframe` | Another page embedded at a fixed height. |
 | `image` | A picture with its alt text, lazy unless it is above the fold. |
@@ -120,6 +125,7 @@ Read: `sovrium docs components/display-components`
 | `marquee` | A strip of logos or words that scrolls sideways. |
 | `record-field` | One field of one record, drawn read-only in its own format. |
 | `scroll-area` | A region that scrolls inside the page with a thin scrollbar. |
+| `stepper` | One task split into ordered steps, each a body of its own, with a rail that shows progress. |
 | `swatch` | One colour drawn as a filled square with its value and its name. |
 | `tabs` | A short list of views, one visible at a time. |
 | `timeline` | Events on a line: declared in the config, or every record of a table between two dates. |

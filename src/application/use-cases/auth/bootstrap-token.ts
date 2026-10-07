@@ -38,7 +38,7 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
-import { Auth } from '@/infrastructure/auth/better-auth/auth-service'
+import { AccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { BootstrapTokenDatabaseError } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import type { BootstrapTokenError } from '@/domain/models/process-env'
 
@@ -184,7 +184,7 @@ export const claimBootstrapToken = (
   | BootstrapTokenError
   | BootstrapAdminCreationError
   | AuthDatabaseError,
-  BootstrapTokenRepository | Auth | AuthRepository
+  BootstrapTokenRepository | AccountProvisioner | AuthRepository
 > =>
   Effect.gen(function* () {
     const tokenHash = hashBootstrapToken(input.token)
@@ -192,22 +192,10 @@ export const claimBootstrapToken = (
     const repo = yield* BootstrapTokenRepository
     yield* repo.claim(tokenHash)
 
-    const auth = yield* Auth
+    const { userId } = yield* (yield* AccountProvisioner)
+      .createUser({ email: input.email, password: input.password, name: input.name, role: 'admin' })
+      .pipe(Effect.mapError((error) => new BootstrapAdminCreationError({ cause: error.cause })))
 
-    const created = yield* Effect.tryPromise({
-      try: () =>
-        auth.api.createUser({
-          body: {
-            email: input.email,
-            password: input.password,
-            name: input.name,
-            role: 'admin',
-          },
-        }),
-      catch: (cause) => new BootstrapAdminCreationError({ cause }),
-    })
-
-    const userId = (created as { user?: { id?: string } } | undefined)?.user?.id
     if (typeof userId !== 'string' || userId.length === 0) {
       return yield* new BootstrapAdminCreationError({
         cause: new Error('Better Auth createUser returned no user id'),

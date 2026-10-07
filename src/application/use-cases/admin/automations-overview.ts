@@ -39,6 +39,7 @@ import {
   type AdminAutomationsDatabaseError,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { adminNestedSteps } from '@/application/use-cases/automations/run/nested-step-record'
 import {
   bucketRowsByTimestamp,
   buildDenseBucketGrid,
@@ -67,6 +68,7 @@ import {
   type RunStatus,
 } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeRunsCursor, encodeRunsCursor } from './automations-runs-query'
 import type { App } from '@/domain/models/app'
 
 // ─── Shared item helpers ───────────────────────────────────────────────────────
@@ -77,7 +79,6 @@ import type { App } from '@/domain/models/app'
  * or string depending on the driver. We normalize for the response shape.
  */
 function toIso(value: Readonly<Date> | string | null | undefined): string | null {
-  // eslint-disable-next-line unicorn/no-null -- API contract uses `null` for absent timestamps (matches public run schema); preserved from the former route helper
   if (value === null || value === undefined) return null
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 }
@@ -115,22 +116,22 @@ function buildAdminRunItem(
   triggerType: string
 ): AutomationRunAdminItem {
   const startedAtIso = toIso(row.startedAt) ?? toIso(row.createdAt) ?? new Date().toISOString()
+  // The erasure marker the public run reads carry, present only when set.
+  const valuesErasedAt = toIso(row.valuesErasedAt)
   return {
     id: row.id,
     automationName: row.automationName,
     status: coerceStatus(row.status),
     triggerType,
-    // eslint-disable-next-line unicorn/no-null -- public run schema's triggerData is `.nullable()`; null is the canonical absent value
     triggerData: (row.triggerData ?? null) as unknown,
     startedAt: startedAtIso,
     completedAt: toIso(row.completedAt),
     durationMs: row.durationMs,
     attempt: 1,
     error: row.error,
+    ...(valuesErasedAt === null ? {} : { valuesErasedAt }),
     _admin: {
-      // eslint-disable-next-line unicorn/no-null -- API envelope canonically uses `null` for absent values (matches public schema + audit envelope contract)
       lastModifiedBy: null,
-      // eslint-disable-next-line unicorn/no-null -- D2 forward contract: every active row has deletedAt === null until the column lands
       deletedAt: null,
     },
   }
@@ -199,40 +200,12 @@ function tallyStatuses(rows: ReadonlyArray<{ readonly status: string | null }>):
   )
 }
 
-// ─── Runs cursor (opaque base64 of `{ startedAt, id }`) ─────────────────────────
-
-/** Encode a runs-list cursor — opaque base64 of `{ startedAt, id }`. */
-export function encodeRunsCursor(startedAt: string, id: string): string {
-  return Buffer.from(JSON.stringify({ startedAt, id }), 'utf8').toString('base64')
-}
-
-/**
- * Decode a runs-list cursor. Returns `null` (the use case maps that to "ignore
- * the cursor") when the payload is malformed.
- */
-export function decodeRunsCursor(
-  cursor: string
-): { readonly startedAt: string; readonly id: string } | null {
-  try {
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8')) as {
-      readonly startedAt?: unknown
-      readonly id?: unknown
-    }
-    // eslint-disable-next-line unicorn/no-null -- null sentinel, see above
-    if (typeof decoded.startedAt !== 'string' || typeof decoded.id !== 'string') return null
-    return { startedAt: decoded.startedAt, id: decoded.id }
-  } catch {
-    // eslint-disable-next-line unicorn/no-null -- null sentinel, see above
-    return null
-  }
-}
-
 // ─── Overview use case ──────────────────────────────────────────────────────────
 
 /**
  * Outcome of the overview build. `Ok` carries the response-schema-validated
  * body; `ValidationFailed` signals the assembled body failed the response gate
- * (the route maps this to a 500 + logs the Zod error, exactly as before).
+ * (the route maps this to a 500 + logs the schema decode error, exactly as before).
  */
 export type AutomationsOverviewOutcome =
   | { readonly _tag: 'Ok'; readonly body: AutomationsOverviewResponse }
@@ -249,7 +222,7 @@ export type AutomationsOverviewOutcome =
  *
  * `totals.automations` is the count of configured automations from the live App
  * (resolved by the route's `resolveApp` thunk so a draft-publish swap is
- * reflected without restart — [internal ref]).
+ * reflected without restart — the live-migration-on-publish design).
  */
 export const BuildAutomationsOverview = (
   app: App,
@@ -366,7 +339,6 @@ function deriveRunsNextCursor(
   limit: number
 ): string | null {
   const lastRow = pageRows[pageRows.length - 1]
-  // eslint-disable-next-line unicorn/no-null -- API envelope uses `null` for an absent next page (matches public list schema)
   if (rowCount <= limit || lastRow === undefined) return null
   return encodeRunsCursor(toIso(lastRow.createdAt) ?? new Date().toISOString(), lastRow.id)
 }
@@ -408,7 +380,6 @@ export const BuildAdminRunsList = (
     // filters server-side and that it must not re-filter the page in memory.
     // Omitting the key on a no-term request would silently re-arm that
     // in-memory pass the moment an operator CLEARS the box.
-    // eslint-disable-next-line unicorn/no-null -- the tri-state contract distinguishes `null` (searches, no term) from an ABSENT key (does not search)
     const appliedQuery = input.q ?? null
     const body = { items, nextCursor, appliedQuery }
     const parsed = decodeSafe(automationsRunsListResponseSchema)(body)
@@ -429,7 +400,7 @@ export const BuildAdminRunsList = (
  *
  * The `Ok` body carries the run row + `_admin` envelope PLUS the per-step I/O
  * list (`steps`) so the dashboard's run-detail panel renders the per-step
- * Input/Output panels ([internal ref] [internal ref]). The
+ * Input/Output panels (the admin dashboard automations runs requirement [internal ref]). The
  * extra `steps` field is additive — clients parsing against the bare
  * `automationsRunsDetailResponseSchema` simply strip it.
  */
@@ -444,8 +415,7 @@ const decodeStepLogEntry = decodeSafe(stepLogEntrySchema)
  * Read the persisted `logs` column as the step's log entries. Always an array:
  * an absent or non-array column is a step that logged nothing, and an entry
  * the engine would never write (unknown level, missing message, a bare value)
- * is DROPPED one by one — the same degrade-don't-fail policy the detail read
- * applies to the step rows themselves, so one corrupt entry cannot 500 a run.
+ * is DROPPED one by one, so one corrupt entry cannot 500 a run.
  */
 function readStepLogs(logs: unknown): AdminRunStep['logs'] {
   if (!Array.isArray(logs)) return []
@@ -456,11 +426,9 @@ function readStepLogs(logs: unknown): AdminRunStep['logs'] {
 }
 
 /**
- * Project a persisted step row to the admin run-step shape (the per-step I/O the
- * dashboard run-detail panel renders). `input` is the action's `props`; `output`
- * is the step's output payload — both already persisted in the run model
- * (`run-persistence.ts:108-109`). `null`-coalesces absent values to match the
- * schema's `.nullable()` declarations.
+ * Project a persisted step row to the admin run-step shape: `input` is the
+ * action's resolved `props`, absent values read `null`, and a path or loop
+ * step carries the steps it ran (`nested-step-record.ts`).
  */
 function buildAdminRunStep(step: {
   readonly actionName: string
@@ -470,17 +438,17 @@ function buildAdminRunStep(step: {
   readonly output: unknown
   readonly error: string | null
   readonly logs?: unknown
+  readonly nested?: unknown
 }): AdminRunStep {
   return {
     index: step.stepIndex,
     name: step.actionName,
     status: step.status,
-    // eslint-disable-next-line unicorn/no-null -- schema declares input/output `.nullable()`; null is the canonical absent value
     input: step.input ?? null,
-    // eslint-disable-next-line unicorn/no-null -- schema declares input/output `.nullable()`
     output: step.output ?? null,
     error: step.error,
     logs: readStepLogs(step.logs),
+    ...adminNestedSteps(step.nested),
   }
 }
 

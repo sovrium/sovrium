@@ -52,28 +52,7 @@ components:
               id: add-person-dialog
               title: Add person
               description: They appear in the directory at once. Give them an account with sovrium admin create to let them sign in.
-            children:
-              - type: form
-                dataSource:
-                  table: employees
-                fields:
-                  - { field: name, label: Name }
-                  - { field: email, label: Email }
-                  - { field: title, label: Role }
-                  - { field: team, label: Team }
-                  - { field: start_date, label: Since }
-                  - { field: salary, label: Salary }
-                  - { field: allowance_days, label: Time off per year (days) }
-                action:
-                  type: crud
-                  operation: create
-                  table: employees
-                  submitLabel: Add person
-                  onSuccess:
-                    navigate: /
-                    toast:
-                      message: Person added
-                      variant: success
+            formRef: add-person
           - type: container
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4

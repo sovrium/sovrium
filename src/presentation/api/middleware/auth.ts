@@ -6,7 +6,11 @@
  */
 
 import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
-import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
+import {
+  isOpenToEveryone,
+  SIGNED_OUT_VISITOR_ROLE,
+  toPermissionValue,
+} from '@/domain/models/app/auth/permission-evaluation'
 import { resolveInheritedPermissions } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
@@ -15,7 +19,7 @@ import { getRequestTrustedClientIp } from './client-ip'
 import { isPublicViewRead } from './public-view-read'
 import { carriesCredential } from './request-credential'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { AdminRoleResolvable } from '@/domain/models/app'
+import type { AdminRoleResolvable, App } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
 
 /**
@@ -148,7 +152,7 @@ export function authMiddleware(auth: BetterAuthLike) {
       // WITHOUT this branch ever running. Wiring the `bearer` plugin — even for
       // an unrelated reason — would silently turn this into a second, unaudited
       // credential path into every auth-gated route. Spec
-      // `[internal ref]` pins the Bearer form as non-authenticating.
+      // An API auth API keys spec pins the Bearer form as non-authenticating.
       //
       // Contract + measurements:
       if (authHeader?.toLowerCase().startsWith('bearer ')) {
@@ -204,7 +208,7 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  *    rate-limit + classifier guards inside `comment-handlers.ts` (running BEFORE
  *    record-exists / DB writes) provide the spam floor that makes this safe.
  *
- * 2. **[internal ref] public read** — an anonymous `GET` on a table whose resolved
+ * 2. **the anonymous `permissions.read: 'all'` rule public read** — an anonymous `GET` on a table whose resolved
  *    `permissions.read` is `'all'` (the documented "everyone incl.
  *    unauthenticated"). Scoped TIGHT: reads only (list + single record), opt-in
  *    per table. Non-`all` tables and writes keep the normal 401 (S1
@@ -223,11 +227,9 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  * Implemented as a factory rather than a plain handler so the live-App
  * resolver (`resolveApp`) can be injected by the composition root —
  * `app.tables[]` is the source of truth for both per-table flags and must be
- * re-read on every request ([internal ref] live publish).
+ * re-read on every request (the live-migration-on-publish design live publish).
  */
-export function requireAuthOrGuestComment(
-  resolveApp: () => { readonly tables?: ReadonlyArray<unknown> } | undefined
-) {
+export function requireAuthOrGuestComment(resolveApp: () => TablesApp | undefined) {
   return async (c: ContextWithSession, next: Next): Promise<Response | undefined> => {
     if (c.var.session) {
       await next()
@@ -262,19 +264,21 @@ export function requireAuthOrGuestComment(
  * consistent session/role without each re-implementing the guest-fallback
  * branch. `enrichUserRole` skips its DB lookups for `userId: 'guest'` and keeps
  * this pre-set role/groups.
+ *
+ * The role is `SIGNED_OUT_VISITOR_ROLE`, never the string `guest`: an app may
+ * declare its own `guest` role, and the evaluators read the visitor role as
+ * anonymous — `'authenticated'` (a table, a field, a write) never admits her.
  */
 function injectGuestPrincipal(c: ContextWithSession): void {
   const guestSession: UserSession = {
     userId: GUEST_USER_ID,
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     token: '',
-    // eslint-disable-next-line unicorn/no-null -- Session.ipAddress is `string | null`
     ipAddress: null,
-    // eslint-disable-next-line unicorn/no-null -- Session.userAgent is `string | null`
     userAgent: null,
   } as UserSession
   c.set('session', guestSession)
-  c.set('userRole', 'guest')
+  c.set('userRole', SIGNED_OUT_VISITOR_ROLE)
   c.set('userGroups', [] as readonly string[])
 }
 
@@ -293,6 +297,25 @@ function isGuestCommentCreateRequest(c: Context): boolean {
   return /^\/api\/tables\/[^/]+\/records\/[^/]+\/comments\/?$/.test(c.req.path)
 }
 
+/** The part of the app the anonymous carve-outs read: its decoded tables. */
+type TablesApp = Pick<App, 'tables'>
+
+/**
+ * The table a `/api/tables/{table}/records...` request names, matched by name
+ * or by id. The segment is read off the path rather than from Hono's param
+ * binding, because this middleware runs upstream of `validateTable`.
+ */
+function findRequestedTable(
+  c: Context,
+  app: TablesApp | undefined
+): NonNullable<App['tables']>[number] | undefined {
+  const tableKey = c.req.path.match(/^\/api\/tables\/([^/]+)\/records/)?.[1]
+  if (tableKey === undefined) return undefined
+  return app?.tables?.find(
+    (table) => table.name === tableKey || String(table.id ?? '') === tableKey
+  )
+}
+
 /**
  * Whether a signed-out visitor is let through to a record's thread.
  *
@@ -304,39 +327,19 @@ function isGuestCommentCreateRequest(c: Context): boolean {
  * `'authenticated'` rung or a role list on either means a signed-in caller, so
  * the visitor gets the same `401` the record gives her, and nothing is written.
  */
-function guestThreadOpens(
-  c: Context,
-  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
-): boolean {
+function guestThreadOpens(c: Context, app: TablesApp | undefined): boolean {
   if (!hasGuestCommentsEnabled(c, app)) return false
   if (!tableOpensToEveryone(c, app, 'read')) return false
   if (c.req.method !== 'POST') return true
   return tableOpensToEveryone(c, app, 'comment', { omittedIsOpen: true })
 }
 
-function hasGuestCommentsEnabled(
-  c: Context,
-  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
-): boolean {
-  if (!app?.tables) return false
-  // Extract the {tableId} segment without depending on Hono param binding
-  // (this middleware runs upstream of `validateTable`, so `c.req.param('tableId')`
-  // is unavailable here).
-  const match = c.req.path.match(/^\/api\/tables\/([^/]+)\/records\//)
-  if (!match) return false
-  const tableKey = match[1] ?? ''
-  const table = app.tables.find((t): t is { readonly name?: string; readonly id?: unknown } => {
-    if (typeof t !== 'object' || t === null) return false
-    const candidate = t as { readonly name?: unknown; readonly id?: unknown }
-    return candidate.name === tableKey || String(candidate.id ?? '') === tableKey
-  })
-  if (!table) return false
-  const { comments } = table as { readonly comments?: { readonly guestComments?: boolean } }
-  return comments?.guestComments === true
+function hasGuestCommentsEnabled(c: Context, app: TablesApp | undefined): boolean {
+  return findRequestedTable(c, app)?.comments?.guestComments === true
 }
 
 /**
- * [internal ref] public-read carve-out — matches the two READ record routes only:
+ * the anonymous `permissions.read: 'all'` rule public-read carve-out — matches the two READ record routes only:
  *   `GET /api/tables/:t/records`         (list)
  *   `GET /api/tables/:t/records/:id`     (single record)
  * The single-record shape anchors to one trailing segment so deeper subroutes
@@ -383,7 +386,7 @@ function isRecordCreateRequest(c: Context): boolean {
 /**
  * True when the `/api/tables/:t/records...` request targets a table whose
  * RESOLVED `permissions.<operation>` is the `'all'` literal — everyone, the
- * anonymous visitor included (public read under [internal ref]; a public create, the
+ * anonymous visitor included (public read under the anonymous `permissions.read: 'all'` rule; a public create, the
  * records-API twin of a public form). The grant is read the way the records
  * route reads it: through `inherit`, with `override` applied, so a table whose
  * own block says `'all'` but whose override narrows it is closed, and a table
@@ -393,7 +396,7 @@ function isRecordCreateRequest(c: Context): boolean {
  */
 function tableOpensToEveryone(
   c: Context,
-  app: { readonly tables?: ReadonlyArray<unknown> } | undefined,
+  app: TablesApp | undefined,
   operation: 'read' | 'create' | 'comment',
   options: { readonly omittedIsOpen?: boolean } = {}
 ): boolean {
@@ -407,9 +410,6 @@ function tableOpensToEveryone(
   return isOpenToEveryone(toPermissionValue(grant))
 }
 
-type ResolvableTable = Parameters<typeof resolveInheritedPermissions>[0]
-type ResolvableTables = Parameters<typeof resolveInheritedPermissions>[1]
-
 /**
  * The grants of the table a `/api/tables/:t/records...` request names, once
  * `inherit` and `override` are applied (`resolveInheritedPermissions`, the
@@ -420,25 +420,12 @@ type ResolvableTables = Parameters<typeof resolveInheritedPermissions>[1]
  */
 function resolveRequestedTableGrants(
   c: Context,
-  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
+  app: TablesApp | undefined
 ): ReturnType<typeof resolveInheritedPermissions> | 'closed' {
-  if (!app?.tables) return 'closed'
-  // Extract the {tableId} segment without depending on Hono param binding
-  // (this middleware runs upstream of `validateTable`).
-  const match = c.req.path.match(/^\/api\/tables\/([^/]+)\/records/)
-  if (!match) return 'closed'
-  const tableKey = match[1] ?? ''
-  const table = app.tables.find((t) => {
-    if (typeof t !== 'object' || t === null) return false
-    const candidate = t as { readonly name?: unknown; readonly id?: unknown }
-    return candidate.name === tableKey || String(candidate.id ?? '') === tableKey
-  })
-  if (!table) return 'closed'
-  const permissions = resolveInheritedPermissions(
-    table as ResolvableTable,
-    app.tables as ResolvableTables
-  )
-  const ownPermissions = (table as { readonly permissions?: unknown }).permissions
+  const table = findRequestedTable(c, app)
+  if (!table || !app?.tables) return 'closed'
+  const permissions = resolveInheritedPermissions(table, app.tables)
+  const ownPermissions = table.permissions
   return ownPermissions !== undefined && permissions === undefined ? 'closed' : permissions
 }
 
@@ -473,36 +460,37 @@ export function requireAuth() {
  */
 type ResolveTierApp = () => AdminRoleResolvable | undefined
 
+/** The one anti-enumeration 404 body every admin guard answers, anonymous or not. */
+const adminNotFound = (c: Context) =>
+  c.json({ success: false, error: 'Not Found', message: 'Not found', code: 'NOT_FOUND' }, 404)
+
 /**
  * Build the single admin guard middleware (Native Admin Dashboard / `/api/admin/*`).
  *
  * The returned handler reads the session, resolves the caller's global role,
- * and grants access when that role can reach the admin surface at all
- * (the canonical `isAdminTier(role, app)` predicate). Config is code-only: there is no
- * runtime config-mutation surface, so the historical editor/viewer split is
- * collapsed — every admin-capable role gets the same full access. The canonical
- * anti-enumeration 404 (never 403) is returned for authenticated-but-non-admin
- * callers so the admin route surface is never discoverable (S1). When
- * `notFoundOnMissingSession` is true the guard also 404s unauthenticated callers
- * (read-surface anti-enumeration); otherwise it 401s them.
+ * and admits it when that role reaches the admin surface at all (any tier of
+ * `resolveDashboardTier`) or, with `editorOnly`, only when it resolves to
+ * `admin-editor`: the read-only `admin-viewer` tier reads the console but is
+ * refused its operational writes. Every refusal is the anti-enumeration 404
+ * (never 403), so the admin route surface is never discoverable (S1). When
+ * `notFoundOnMissingSession` is true the guard also 404s unauthenticated
+ * callers; otherwise it 401s them.
  *
  * `resolveApp` threads the live App so a custom top role (e.g. partner's
  * `engineer`) resolves to admin access implicitly. When omitted, the resolver
  * runs against an empty app, so built-in `admin` and the legacy `operator` role
- * resolve — preserving the historical behavior of call sites that do not thread
- * the app.
+ * resolve, as for every call site that does not thread the app.
  */
-function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveTierApp) {
+function makeAdminGuard(
+  notFoundOnMissingSession: boolean,
+  resolveApp?: ResolveTierApp,
+  editorOnly = false
+) {
   return async (c: ContextWithSession, next: Next) => {
     const { session } = c.var
 
     if (!session) {
-      if (notFoundOnMissingSession) {
-        return c.json(
-          { success: false, error: 'Not Found', message: 'Not found', code: 'NOT_FOUND' },
-          404
-        )
-      }
+      if (notFoundOnMissingSession) return adminNotFound(c)
       return c.json(
         {
           success: false,
@@ -514,20 +502,18 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
       )
     }
 
-    // Lazy imports to avoid database / domain initialization at import time.
+    // Lazy (no database / domain initialization at import time):
     const { getUserRole } = await import('@/application/use-cases/tables/user-role')
-    const { isAdminTier } = await import('@/domain/models/app')
+    const { canEditOperations, isAdminTier } = await import('@/domain/models/app')
+    const { adminPlaneNeedsPasskey } = await import('@/domain/models/app/auth/passkeys-service')
     const role = await runDomainPromise(c, getUserRole(session.userId))
     const app = resolveApp?.() ?? {}
+    // `canEditOperations` is shared with the `edit-operations` page capability.
+    const admitted = editorOnly ? canEditOperations(role, app) : isAdminTier(role, app)
 
-    if (!isAdminTier(role, app)) {
-      // S1 anti-enumeration: authenticated-but-non-admin callers receive 404
-      // (never 403) so the admin route surface is not discoverable.
-      return c.json(
-        { success: false, error: 'Not Found', message: 'Not found', code: 'NOT_FOUND' },
-        404
-      )
-    }
+    // S1 anti-enumeration: an authenticated caller below the required tier
+    // receives 404 (never 403) so the admin route surface is not discoverable.
+    if (!admitted || adminPlaneNeedsPasskey(app, session.signInMethod)) return adminNotFound(c)
 
     await next()
   }
@@ -545,13 +531,6 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
  * admin access implicitly. Built-in `admin` resolves regardless, so existing
  * call sites that omit it are unchanged.
  *
- * **Usage**:
- * ```typescript
- * app.use('/api/admin/*', authMiddleware(auth))
- * app.use('/api/admin/*', requireAuth())
- * app.use('/api/admin/*', requireAdmin(resolveLiveApp))
- * ```
- *
  * @returns Hono middleware function
  */
 export function requireAdmin(resolveApp?: ResolveTierApp) {
@@ -565,11 +544,19 @@ export function requireAdmin(resolveApp?: ResolveTierApp) {
  *
  * Retained as a distinct export so the read-route call sites keep their
  * anti-enumeration-on-missing-session posture without each having to opt in.
- * Config code-only collapsed the editor/viewer split, so this grants the same
- * full access as `requireAdmin`.
+ * It admits every tier; the operational writes add {@link requireAdminEditor}.
  *
  * @returns Hono middleware function
  */
 export function requireAdminTier(resolveApp?: ResolveTierApp) {
   return makeAdminGuard(true, resolveApp)
 }
+
+/**
+ * Require the `admin-editor` tier: the guard of the operational writes
+ * listed in `admin-editor-writes.ts`. Every other caller — the read-only
+ * `admin-viewer` tier and the legacy `operator` alias included — receives the
+ * same 404 as a stranger.
+ */
+export const requireAdminEditor = (resolveApp?: ResolveTierApp) =>
+  makeAdminGuard(true, resolveApp, true)

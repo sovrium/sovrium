@@ -1,0 +1,15 @@
+# Two clients, so the client page and the client form have something to show.
+records:
+  - key: lefort
+    fields:
+      legal_name: Maison Lefort SARL
+      contact_email: studio@lefort.example
+      billing_address: 12 rue des Tanneurs, 59000 Lille
+      payment_terms: 30 days
+      vat_number: FR 00 000000000
+      name: Maison Lefort
+  - key: halden
+    fields:
+      legal_name: Halden & Co
+      contact_email: accounts@halden.example
+      name: Halden & Co

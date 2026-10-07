@@ -31,9 +31,9 @@ import type { RuntimeCapability } from '@/domain/models/app/pages/components/vis
 /**
  * Whether one runtime capability can actually RUN for this app on this host.
  *
- * The `ai` row is the provider half alone. It used to be a conjunction with
- * `appRequiresAi(app)`, which kept the Welcome composer dark on an app that
- * declares no AI even with a provider configured. Every app now carries the
+ * The `ai` row is the provider half alone, not a conjunction with
+ * `appRequiresAi(app)`, which would keep the Welcome composer dark on an app
+ * that declares no AI even with a provider configured. Every app carries the
  * built-in System Agent, so a configured provider is all a chat needs to run.
  *
  * `appRequiresAi` still gates the boot-time checks (`collectAiProviderPhases`,

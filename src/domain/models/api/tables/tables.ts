@@ -41,17 +41,18 @@ const viewFilterConditionResponseSchema = Schema.Struct({
  *
  * FOUR SHAPES, NOT ONE. The config schema is a three-arm union whose group arms
  * recurse through `Schema.suspend`: a bare condition, `{ and: [...] }`,
- * `{ or: [...] }`, and either group holding another group. This used to be
- * modelled as a single `z.object({ and?: cond[], or?: cond[] })` — only the flat
- * middle of that space — and the two arms it omitted broke DIFFERENTLY:
+ * `{ or: [...] }`, and either group holding another group. A single
+ * `{ and?: cond[], or?: cond[] }` object would model only the flat middle of
+ * that space, and the two arms it omits break DIFFERENTLY:
  *
- *   - a BARE condition parsed to `{}`. Zod strips what an object schema does not
- *     name, so `field` / `operator` / `value` were removed on the way out and the
- *     endpoint answered 200 describing a view that looked unfiltered. A client
- *     building a filter UI from it would offer to add the first filter to a view
- *     that already had one.
- *   - a NESTED group threw at the route boundary, because every element of `and`
- *     was typed as a flat condition and a nested `{ or: [...] }` has no `field`.
+ *   - a BARE condition would parse to `{}`. An object schema strips what it does
+ *     not name, so `field` / `operator` / `value` would be dropped on the way out
+ *     and the endpoint would answer 200 describing a view that looks unfiltered.
+ *     A client building a filter UI from it would offer to add the first filter
+ *     to a view that already has one.
+ *   - a NESTED group would throw at the route boundary, because every element of
+ *     `and` would be typed as a flat condition and a nested `{ or: [...] }` has
+ *     no `field`.
  *
  * `z.lazy` mirrors the config schema's own `Schema.suspend`, so nesting survives
  * to arbitrary depth rather than to some fixed number of levels.
@@ -201,7 +202,7 @@ export const tableSummarySchema = Schema.Struct({
 // ============================================================================
 
 /**
- * Per-field AI-compute refinement status ([internal ref] Phase 2).
+ * Per-field AI-compute refinement status.
  *
  * An AI-computed value resolves in two tiers: a deterministic baseline written
  * synchronously, then a provider refinement. When the refinement never lands,
@@ -323,7 +324,7 @@ const orderedAggregationValueSchema = Schema.Union([
   Schema.Record(Schema.String, orderedValueSchema),
 ])
 
-const aggregationsSchema = Schema.Struct({
+export const aggregationsSchema = Schema.Struct({
   count: optionalField(
     Schema.Union([Schema.String, Schema.Finite]).annotate({
       description: 'Total count of records (flat number for shortcut form, string otherwise)',
@@ -348,6 +349,23 @@ const aggregationsSchema = Schema.Struct({
     })
   ),
 }).annotate({ description: 'Aggregation results' })
+
+/**
+ * One group of a grouped read — shared by the list response's `groups` and the
+ * aggregate read's, so a group cannot mean two things on two routes.
+ */
+export const recordGroupSchema = Schema.Struct({
+  name: Schema.Union([Schema.String, Schema.Null]).annotate({
+    description: 'Group value from the groupBy field',
+  }),
+  path: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description: 'Group values from the outermost level down to this one',
+    })
+  ),
+  count: Schema.Finite.annotate({ description: 'Number of records in group' }),
+  aggregations: optionalField(aggregationsSchema),
+})
 
 /**
  * List records response schema
@@ -394,20 +412,7 @@ export const listRecordsResponseSchema = Schema.Struct({
   appliedQuery: appliedQuerySchema,
   aggregations: optionalField(aggregationsSchema),
   groups: optionalField(
-    Schema.Array(
-      Schema.Struct({
-        name: Schema.Union([Schema.String, Schema.Null]).annotate({
-          description: 'Group value from the groupBy field',
-        }),
-        path: optionalField(
-          Schema.Array(Schema.String).annotate({
-            description: 'Group values from the outermost level down to this one',
-          })
-        ),
-        count: Schema.Finite.annotate({ description: 'Number of records in group' }),
-        aggregations: optionalField(aggregationsSchema),
-      })
-    ).annotate({
+    Schema.Array(recordGroupSchema).annotate({
       description:
         'Grouped results when groupBy is provided — one entry per group at EVERY named level',
     })
@@ -618,6 +623,8 @@ export const getViewRecordsResponseSchema = Schema.Struct({
       description: 'Totals over the rows the view returns, when `aggregate` was requested',
     })
   ),
+  // The view's own `groupBy`, applied by this route: one entry per group at every level.
+  groups: listRecordsResponseSchema.fields.groups,
 })
 
 // ============================================================================

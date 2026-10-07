@@ -48,10 +48,8 @@ export function DataTableView(props: DataTableViewProps) {
         // chain hydration OWNS, so a frame dressed server-side comes undone here
         // if this element keeps its natural height.
         //
-        // It carries the floor as well as the height, and from the CURRENT row
-        // height rather than the authored one: this element re-renders when the
-        // density control moves, so the frame's minimum tracks the rhythm the
-        // rows are actually being drawn at.
+        // It carries the floor as well as the height, from the row height the
+        // rows are drawn at, so the frame's minimum tracks their rhythm.
         className={`w-full overflow-hidden${
           props.layout === 'fill'
             ? ` ${computeTableFillShellClasses({ rowHeight: props.currentRowHeight })}`

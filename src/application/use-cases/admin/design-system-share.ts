@@ -43,7 +43,7 @@
  * The plaintext is returned to the caller and referenced nowhere else in this
  * module — no `logInfo`, no error payload, no metadata field on the audit
  * entry. The HTTP-observable half of that promise is covered by
- * `[internal ref]`; the log half has no fixture that could observe it,
+ * an admin design system spec; the log half has no fixture that could observe it,
  * so it is a property of this file rather than of a spec.
  */
 

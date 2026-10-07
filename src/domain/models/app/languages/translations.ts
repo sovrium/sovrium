@@ -49,11 +49,21 @@ export const TranslationKeySchema = Schema.String.pipe(
  * }
  * ```
  */
-export const TranslationDictionarySchema = Schema.Record(TranslationKeySchema, Schema.String).pipe(
+export const TranslationDictionarySchema = Schema.Record(Schema.String, Schema.String).pipe(
   Schema.annotate({
     title: 'Translation Dictionary',
     description: 'Maps translation keys to localized strings for a single language',
-  })
+  }),
+  // Keys: any string in the key position, and the pattern enforced by
+  // `isPropertyNames`, so a mistyped key is refused by name at its own path
+  // with the pattern it must match. A pattern on the key schema itself makes
+  // Effect 4 skip the entry, and the config report then named it an unknown
+  // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+  Schema.check(
+    Schema.isPropertyNames(TranslationKeySchema, {
+      toJsonSchema: () => ({ propertyNames: { type: 'string', pattern: '^[a-zA-Z0-9._-]+$' } }),
+    })
+  )
 )
 
 /**
@@ -79,21 +89,30 @@ export const TranslationDictionarySchema = Schema.Record(TranslationKeySchema, S
  * }
  * ```
  */
-export const TranslationsSchema = Schema.Record(
-  Schema.String.pipe(
-    Schema.check(
-      Schema.isPattern(/^[a-z]{2}$/, {
-        message: 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
-      })
-    )
-  ),
-  TranslationDictionarySchema
-).pipe(
+const TranslationLanguageKeySchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}$/, {
+      message: 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
+    })
+  )
+)
+
+export const TranslationsSchema = Schema.Record(Schema.String, TranslationDictionarySchema).pipe(
   Schema.annotate({
     title: 'Centralized Translations',
     description:
       'Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations.',
-  })
+  }),
+  // Keys: any string in the key position, and the pattern enforced by
+  // `isPropertyNames`, so a mistyped key is refused by name at its own path
+  // with the pattern it must match. A pattern on the key schema itself makes
+  // Effect 4 skip the entry, and the config report then named it an unknown
+  // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+  Schema.check(
+    Schema.isPropertyNames(TranslationLanguageKeySchema, {
+      toJsonSchema: () => ({ propertyNames: { type: 'string', pattern: '^[a-z]{2}$' } }),
+    })
+  )
 )
 
 /** @public */

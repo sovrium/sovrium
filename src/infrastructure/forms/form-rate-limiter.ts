@@ -6,8 +6,7 @@
  */
 
 /**
- * In-process token-bucket rate-limiter for top-level form submissions
- *.
+ * In-process token-bucket rate-limiter for top-level form submissions.
  *
  * The limiter maintains two sliding-window buckets per call:
  *
@@ -41,35 +40,21 @@
  */
 
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
+import type {
+  RateLimitPolicy,
+  RateLimitResult,
+} from '@/application/ports/services/submission-rate-limiter'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** Resolved rate-limit policy (after applying schema + defaults). */
-export interface RateLimitPolicy {
-  /** Submissions allowed per IP-hash in the window. */
-  readonly perIp: number
-  /** Submissions allowed per form (all IPs combined) in the window. */
-  readonly perForm: number
-  /** Rolling window in seconds. */
-  readonly windowSeconds: number
-}
-
-/** Outcome reasons surfaced on rate-limit rejection. */
-export type RateLimitReason = 'rate_limit_per_ip' | 'rate_limit_per_form'
-
-export type RateLimitResult =
-  | { readonly ok: true }
-  | {
-      readonly ok: false
-      readonly reason: RateLimitReason
-      /**
-       * Whole seconds until the oldest request in the binding window
-       * expires. RFC 7231 §7.1.3 requires a positive integer.
-       */
-      readonly retryAfterSec: number
-    }
+// Declared with the `SubmissionRateLimiter` port; re-exported for the route
+// guards that count anonymous creates and comments against the same windows.
+export type {
+  RateLimitPolicy,
+  RateLimitResult,
+} from '@/application/ports/services/submission-rate-limiter'
 
 // ---------------------------------------------------------------------------
 // State (per-process)
@@ -150,9 +135,7 @@ export const checkAndRecord = (input: Readonly<CheckAndRecordInput>): RateLimitR
   }
 
   // Both windows have budget — record the timestamp against both.
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiters' mutable stores
   perIpLimiter.record(ipKey, config, now)
-  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiters' mutable stores
   perFormLimiter.record(formName, { windowMs, maxRequests: policy.perForm }, now)
 
   return { ok: true }

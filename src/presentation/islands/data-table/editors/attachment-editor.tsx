@@ -5,16 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". The two are not interchangeable here — swapping them turns
-   every clear gesture into a silent no-op. */
-
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   Cell-level editor: mounted per open cell, torn down on commit or cancel, and
-   its handlers close over the upload state. */
-
 import { useRef, useState } from 'react'
 import {
   computeTableAddRowInputClasses,
@@ -85,7 +75,6 @@ export function AttachmentEditor(
       )
       const written = uploads.map((upload) => toColumnValue(upload, storeMetadata === true))
       const next: FieldWriteValue = multiple ? written : (written[0] ?? null)
-      // eslint-disable-next-line functional/immutable-data -- Ref carries the committed value to a Tab that may fire before the state settles.
       committedRef.current = next
       setStatus('idle')
       commit(next)

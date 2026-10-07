@@ -133,7 +133,6 @@ export function useKpiSystemValue(system: KpiSystemSource | undefined) {
       if (AUTH_DENIAL_STATUSES.has(res.status)) return { kind: 'denied' }
       if (!res.ok) {
         // Transient failure — throw so TanStack Query retries before degrading.
-        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors to drive retries
         throw new Error(`KPI system endpoint failed: ${String(res.status)}`)
       }
       const envelope = (await res.json()) as unknown

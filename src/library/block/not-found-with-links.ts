@@ -64,7 +64,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     THEME_NOTE,
-    'The three destinations are placeholders: edit their labels, lines and addresses in the installed fragment.',
+    'Set each destination with its three parameters — label, line and address — to the pages your readers look for most.',
   ],
   params: [
     stringParam('headline', 'The heading, rendered as the page h1.', 'Nothing here'),
@@ -73,6 +73,23 @@ export const entry = defineLibraryEntry({
       'One sentence under the heading.',
       'These are the pages people usually look for.'
     ),
+    stringParam('firstLabel', 'The first destination.', 'Home'),
+    stringParam(
+      'firstLine',
+      'One line on what the first destination offers.',
+      '[What the home page offers]'
+    ),
+    stringParam('firstHref', 'The address of the first destination.', '/'),
+    stringParam('secondLabel', 'The second destination.', '[Docs]'),
+    stringParam(
+      'secondLine',
+      'One line on what the second destination offers.',
+      '[What the reader finds there]'
+    ),
+    stringParam('secondHref', 'The address of the second destination.', '/docs'),
+    stringParam('thirdLabel', 'The third destination.', '[Contact]'),
+    stringParam('thirdLine', 'One line on what the third destination offers.', '[Who answers]'),
+    stringParam('thirdHref', 'The address of the third destination.', '/contact'),
   ],
   env: [],
   requires: [],
@@ -97,9 +114,9 @@ export const entry = defineLibraryEntry({
                       className: 'mt-6 flex flex-col border-t border-border',
                     },
                     children: [
-                      destination('house', 'Home', '[What the home page offers]', '/'),
-                      destination('file-text', '[Docs]', '[What the reader finds there]', '/docs'),
-                      destination('mail', '[Contact]', '[Who answers]', '/contact'),
+                      destination('house', p('firstLabel'), p('firstLine'), p('firstHref')),
+                      destination('file-text', p('secondLabel'), p('secondLine'), p('secondHref')),
+                      destination('mail', p('thirdLabel'), p('thirdLine'), p('thirdHref')),
                     ],
                   },
                 ],

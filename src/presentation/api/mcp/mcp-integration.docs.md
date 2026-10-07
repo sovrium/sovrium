@@ -23,7 +23,7 @@ The MCP server is **off by default** and the route mounts only when the operator
 | `MCP_RATE_LIMIT_PER_MINUTE` | `60`              | Requests per minute, per credential                                                                                                 |
 | `MCP_RATE_LIMIT_PER_DAY`    | `5000`            | Requests per day, per credential                                                                                                    |
 | `MCP_AUDIT_ENABLED`         | `true`            | Record every tool call                                                                                                              |
-| `MCP_EXPOSE_INTERNALS`      | `true`            | Give admins read-only tools over auth and system tables                                                                             |
+| `MCP_EXPOSE_INTERNALS`      | `true`            | Give admins read-only tools over auth and system tables, and the admin read tools                                                   |
 | `MCP_CONFIRM_DESTRUCTIVE`   | `true`            | Mark deletes and non-idempotent calls as needing confirmation                                                                       |
 
 ```bash

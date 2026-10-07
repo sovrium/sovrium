@@ -58,10 +58,7 @@
  * escalates to HTTP 500, so the caller is not misled into thinking the
  * side effect committed.
  *
- * Wave: [internal ref],
- * [internal ref],
- * [internal ref],
- * [internal ref].
+ * Wave: the automations actions auth assign role requirement,
  */
 
 import { Data, Effect } from 'effect'
@@ -69,6 +66,7 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
+import { ConfigAccountProvisioner } from '@/application/ports/services/account-provisioner'
 import {
   assignRoleUnderLastAdminRail,
   banUnderLastAdminRail,
@@ -253,7 +251,6 @@ export const handleAuthBanUser: ActionHandler = (action, app, automation) =>
       yield* recordBan({
         author: { kind: 'automation', automation: automation.name },
         userId,
-        // eslint-disable-next-line unicorn/no-null -- a ban without an end is `null` on the trail
         expiresAt: null,
       })
     }
@@ -335,44 +332,29 @@ const provisionUser = (
     readonly password: string | undefined
     readonly role: string | undefined
   }
-): Effect.Effect<string, AuthCreateUserError> =>
+): Effect.Effect<string, AuthCreateUserError, ConfigAccountProvisioner> =>
   Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        // Loaded lazily: this module is reachable from `registerCronAutomations`
-        // at BOOT (via the action-handler barrel), so a static import made every
-        // server — including the ~3 in 4 that declare no `auth:` block — pay for
-        // the Better Auth graph. An app without auth can never reach
-        // `auth/createUser`, and one with auth has already loaded the package
-        // through its own auth layer, so this resolves from cache.
-        const { createAuthInstance } = await import('@/infrastructure/auth/better-auth/auth')
-        const authInstance = createAuthInstance(app.auth)
-        // Better Auth's admin createUser requires a password; generate a
-        // strong throwaway when the action omitted one (the schema marks
-        // `password` optional). 32 hex chars + symbol satisfies the
-        // length/complexity check the vendored route enforces.
-        const password =
-          input.password && input.password.length > 0
-            ? input.password
-            : `${crypto.randomUUID().replace(/-/g, '')}A1!`
-        return authInstance.api.createUser({
-          body: {
-            email: input.email,
-            name: input.name,
-            password,
-            ...(input.role ? { role: input.role as 'user' | 'admin' } : {}),
-          },
-        })
-      },
-      catch: (cause) =>
-        new AuthCreateUserError({
-          cause,
-          message:
-            cause instanceof Error ? cause.message : `auth.createUser failed: ${String(cause)}`,
-        }),
-    })
+    // Better Auth's admin createUser requires a password; generate a strong
+    // throwaway when the action omitted one (the schema marks `password`
+    // optional). 32 hex chars + symbol satisfies the length/complexity check
+    // the vendored route enforces.
+    const password =
+      input.password && input.password.length > 0
+        ? input.password
+        : `${crypto.randomUUID().replace(/-/g, '')}A1!`
+    const { userId } = yield* (yield* ConfigAccountProvisioner)
+      .createUser(app.auth, { email: input.email, name: input.name, password, role: input.role })
+      .pipe(
+        Effect.mapError(
+          ({ cause }) =>
+            new AuthCreateUserError({
+              cause,
+              message:
+                cause instanceof Error ? cause.message : `auth.createUser failed: ${String(cause)}`,
+            })
+        )
+      )
 
-    const userId = (result as { user?: { id?: string } } | undefined)?.user?.id
     if (typeof userId !== 'string' || userId.length === 0) {
       return yield* new AuthCreateUserError({
         cause: undefined,

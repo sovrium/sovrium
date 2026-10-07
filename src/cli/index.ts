@@ -48,12 +48,12 @@
  * - `SOVRIUM_DEFAULT_LANGUAGE` (optional) - Default language
  * - `SOVRIUM_GENERATE_SITEMAP` (optional) - Generate sitemap.xml (true/false)
  * - `SOVRIUM_GENERATE_ROBOTS` (optional) - Generate robots.txt (true/false)
- * - `SOVRIUM_HYDRATION` (optional) - Enable client-side hydration (true/false)
  * - `SOVRIUM_BUNDLE_OPTIMIZATION` (optional) - Bundle optimization strategy
  */
 
 import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/commands/admin'
+import { handleBackupCommand } from '@/cli/commands/backup'
 import { handleBuildCommand } from '@/cli/commands/build'
 import { handleChangelogCommand } from '@/cli/commands/changelog'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
@@ -64,6 +64,7 @@ import { handleMcpCommand } from '@/cli/commands/mcp'
 import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
 import { handleRestartCommand } from '@/cli/commands/restart'
+import { handleRestoreCommand } from '@/cli/commands/restore'
 import { handleSchemaCommand } from '@/cli/commands/schema'
 import { handleSecretCommand } from '@/cli/commands/secret'
 import { handleSeedCommand } from '@/cli/commands/seed'
@@ -74,7 +75,8 @@ import { handleTypesCommand } from '@/cli/commands/types'
 import { getCurrentVersion, handleUpdateCommand } from '@/cli/commands/update'
 import { handleValidateCommand } from '@/cli/commands/validate'
 import { getCommandHelp } from '@/cli/runtime/command-help'
-import { findUnknownFlag, parseArgs } from '@/cli/runtime/dispatch'
+import { parseArgs } from '@/cli/runtime/dispatch'
+import { findUnknownFlag } from '@/cli/runtime/flag-vocabulary'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 
@@ -121,13 +123,15 @@ const HELP_TEXT = [
   '  sovrium admin create <email>  Create an admin user',
   '  sovrium secret generate       Print fresh secrets as .env lines',
   '  sovrium secret adopt          Persist $SOVRIUM_ENCRYPTION_KEY to the data dir',
+  '  sovrium backup [config]       Write database, key, config and uploads to one archive',
+  '  sovrium restore <file>        Put a backup back (never over a running server)',
   '  sovrium update                Update to the latest version',
   '',
   'Options:',
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write to a file (schema, design-system) or dir (types, skills)',
+  '  --output <path>               Write to a file (schema, design-system, backup) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
   '  --format <md|json|llms>       Export format (design-system, docs, changelog; default: md)',
   '  --full                        Print the whole manual (docs)',
@@ -139,7 +143,8 @@ const HELP_TEXT = [
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
   '  --password <value>            Admin password (admin create; else prompted)',
-  '  --force                       Overwrite existing files (init), edited skill files (skills)',
+  '  --force                       Overwrite existing files (init, restore), edited skill files (skills)',
+  '  --data-dir <dir>              Data directory to restore into (restore)',
   '  --target <name>               claude | agents | all (skills; default: claude)',
   '  --dir <path>                  Seed-file directory (seed; default: <config>/seed)',
   '  --mode <mode>                 if-empty | upsert | replace (seed; default: if-empty)',
@@ -226,7 +231,19 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       password: parsed.password,
     }),
   secret: async () => handleSecretCommand(parsed.subcommand, parsed.positionalArg),
-  update: async () => handleUpdateCommand({ helpRequested: parsed.helpRequested ?? false }),
+  backup: async () =>
+    handleBackupCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
+  restore: async () =>
+    handleRestoreCommand({
+      archivePath: parsed.configFile,
+      dataDir: parsed.dataDir,
+      force: parsed.forceFlag,
+    }),
+  update: async () =>
+    handleUpdateCommand({
+      helpRequested: parsed.helpRequested ?? false,
+      insecureSkipChecksum: rawArgs.includes('--insecure-skip-checksum'),
+    }),
   // An EXIT command, not a persistent one: it brings the schema forward and
   // stops. A platform release phase waits on the exit code.
   migrate: async () =>
@@ -332,10 +349,10 @@ const parsed = parseArgs(rawArgs)
 /**
  * Answer `<command> --help` and exit 0, BEFORE either dispatch table runs.
  *
- * `--help` used to be opt-in per command, and only `start` and `update` opted
- * in — so `schema --help` dumped the whole JSON Schema, `stop --help` stopped a
- * live server, and `init --help` scaffolded a project into the working
- * directory, overwriting an existing `CLAUDE.md`. Asking a command what its
+ * If `--help` were opt-in per command, a command that forgot to opt in would
+ * simply run — `schema --help` dumping the whole JSON Schema, `stop --help`
+ * stopping a live server, `init --help` scaffolding a project into the working
+ * directory and overwriting an existing `CLAUDE.md`. Asking a command what its
  * options are must never be the thing that runs it.
  *
  * Centralising the lookup (rather than threading a flag into each handler) is
@@ -348,7 +365,6 @@ const showCommandHelpIfRequested = (): boolean => {
   const commandHelp = parsed.helpRequested === true ? getCommandHelp(parsed.command) : undefined
   if (commandHelp === undefined) return false
   Effect.runSync(Console.log(commandHelp))
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(0)
   return true
 }
@@ -368,7 +384,6 @@ const rejectUnknownFlag = (): void => {
     headline: `Unknown flag "${unknownFlag}".`,
     guidance: "Run 'sovrium --help' to list the accepted flags.",
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -381,7 +396,6 @@ const runCommand = async (): Promise<void> => {
   const exitHandler = exitCommands[parsed.command]
   if (exitHandler) {
     await exitHandler()
-    // eslint-disable-next-line functional/no-expression-statements
     process.exit(0)
     return
   }
@@ -392,12 +406,10 @@ const runCommand = async (): Promise<void> => {
     return
   }
 
-  // Unknown command. This used to fall through to an implicit `start` with no
-  // config, which was survivable only because that path then errored on "No
-  // configuration provided". Auto-discovery removes that accidental backstop:
-  // in a directory holding an `app.yaml`, `sovrium strt` would silently BOOT A
-  // SERVER. So an unknown word is now reported as a typo, exactly as an unknown
-  // *flag* already is above.
+  // Unknown command. It does not fall through to an implicit `start`: with
+  // config auto-discovery, in a directory holding an `app.yaml`, `sovrium strt`
+  // would silently BOOT A SERVER. So an unknown word is reported as a typo,
+  // exactly as an unknown *flag* already is above.
   //
   // Still reaching their handlers, and not this branch: bare `sovrium` (parseArgs
   // defaults the command to `start`) and `sovrium ./app.yaml` (isConfigFile
@@ -406,7 +418,6 @@ const runCommand = async (): Promise<void> => {
     headline: `Unknown command "${parsed.command}".`,
     guidance: "Run 'sovrium --help' to list the available commands.",
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -432,6 +443,5 @@ runCommand().catch((error: unknown) => {
       'If this looks like a bug, report it at\n' +
       '  https://github.com/sovrium/sovrium/issues/new',
   })
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 })

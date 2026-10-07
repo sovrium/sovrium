@@ -42,7 +42,7 @@ import type { App } from '@/domain/models/app'
  * Create branch of `record/upsert` — no existing match was found.
  *
  * Single-arg config so the helper stays within the `max-params` budget once the
- * [internal ref] `actorId` is threaded alongside the table/data/overrides.
+ * the `runAs: 'triggering-user'` design `actorId` is threaded alongside the table/data/overrides.
  */
 const upsertCreate = (config: {
   readonly actorId: string
@@ -72,7 +72,7 @@ const upsertCreate = (config: {
  * Update branch of `record/upsert` — one or more rows matched.
  *
  * Single-arg config so the helper stays within the `max-params` budget once the
- * [internal ref] `actorId` is threaded alongside the table/matchedIds/data/overrides.
+ * the `runAs: 'triggering-user'` design `actorId` is threaded alongside the table/matchedIds/data/overrides.
  */
 const upsertUpdate = (config: {
   readonly actorId: string
@@ -101,7 +101,10 @@ const upsertUpdate = (config: {
     )
     return updates._tag === 'Failure'
       ? failureFromError(updates.failure)
-      : ({ status: 'success', output: { operation: 'updated' } } as const)
+      : ({
+          status: 'success',
+          output: { operation: 'updated', id: String(matchedIds[0]) },
+        } as const)
   })
 
 /** The writes an upsert is about to make: one create, or one update per matched row. */

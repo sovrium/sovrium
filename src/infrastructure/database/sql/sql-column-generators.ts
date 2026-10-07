@@ -184,7 +184,7 @@ const generateDefaultClause = (field: Fields[number]): string => {
  * The DB-side DEFAULT *expression* for a field's base column (the text after
  * `DEFAULT `), or `undefined` when the column carries no default.
  *
- * [internal ref]: a view-backed table's `INSTEAD OF INSERT` trigger inserts base
+ * A view-backed table's `INSTEAD OF INSERT` trigger inserts base
  * columns straight from the `NEW` row, so an omitted DEFAULT-bearing base
  * column (e.g. a `created-at` field) arrives as NULL instead of picking up the
  * base column's default. The trigger generator uses this expression to emit
@@ -267,7 +267,7 @@ const generateFormulaColumn = (
   // Immutable formulas can use GENERATED ALWAYS AS. Cast numeric `/` division
   // operands to a numeric type so integer-by-integer division does not truncate
   // (`heures + minutes / 60` over INTEGER columns → 2.5, not 2) —
-  // [internal ref]. Only division operands are cast, so
+  // Only division operands are cast, so
   // integer-arg functions (REPEAT/CHR) and EXTRACT keywords are unaffected.
   const castFormula = allFields
     ? castFormulaDivisionOperands(translatedFormula, allFields)

@@ -9,8 +9,11 @@ app; and the HR overview counts the team and its time off.
 
 - **Tables** (2): employees, time_off_requests
 - **Pages** (5): directory (`/`), time-off, requests (admin), overview (admin), sign-in
-- **Automations** (1): approve-time-off
-- **Singletons**: auth, design
+- **Automations** (3): approve-time-off; join-new-account-to-directory (an auth trigger on
+  `signUp`, with an `auth` assignRole step for the People team); and record-to-google-doc — a
+  library recipe (`library/recipe/`, with its `library/connection/google.yaml`) copying a
+  welcome document for each new hire once the Google variables are set
+- **Singletons**: auth, design, env
 - **Seed data**: `seed/` — twelve sign-in accounts, twelve people with their managers, and eleven
   time-off requests, dated relative to the day you seed
 - **Static assets**: `public/` (served at the site root)

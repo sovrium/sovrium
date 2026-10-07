@@ -80,10 +80,7 @@ interface BoundListener {
  * app driven by `app.request()` in a unit test, say — in which case the
  * request's own URL is the only origin there is.
  */
-export const resolveLoopbackOrigin = (
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono's Context is mutable by design
-  c: Context
-): string | undefined => {
+export const resolveLoopbackOrigin = (c: Context): string | undefined => {
   // `getBunServer` reads `c.env` with an `in` check, which throws on a
   // non-object — and `app.request()` supplies none. Guard before the call.
   const { env } = c

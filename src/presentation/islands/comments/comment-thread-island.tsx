@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines-per-function, complexity, react-perf/jsx-no-new-function-as-prop -- comment-thread-island composes 6 conditional UI states (loading, error, empty, list, form, pagination) into a single component; per-handler arrow props are conventional React pattern. */
+/* eslint-disable max-lines-per-function, complexity -- comment-thread-island composes 6 conditional UI states (loading, error, empty, list, form, pagination) into a single component; per-handler arrow props are conventional React pattern. */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import {
   computeCommentActionClasses,
@@ -18,10 +18,11 @@ import {
 } from '@/presentation/design/comments-default-classes'
 import { CommentMentionSource } from './comment-mention-source'
 import { CommentStringsContext, type CommentStrings } from './comment-strings'
-import { buildListUrl, deleteCommentApi, patchComment, postComment } from './comment-thread-api'
+import { buildListUrl } from './comment-thread-api'
 import { NumberedPagination, SortDropdown } from './comment-thread-controls'
 import { CommentThreadForm } from './comment-thread-form'
 import { CommentList } from './comment-thread-list'
+import { useCommentMutations } from './use-comment-mutations'
 import { useScrollFetch } from './use-scroll-fetch'
 import type { CommentsListResponse, CommentThreadIslandProps } from './comment-thread-types'
 
@@ -58,7 +59,6 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
     'data-testid': testId,
   } = props
   const threadingEnabled = threading === true
-  const queryClient = useQueryClient()
   const [sort, setSort] = useState<'newest' | 'oldest'>(props.sort)
   const [loadedComments, setLoadedComments] = useState<CommentsListResponse['comments']>([])
   const { offset, goToOffset, restart, sentinelRef } = useScrollFetch(limit)
@@ -100,42 +100,10 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
     rootRef.current?.parentElement?.setAttribute('aria-busy', String(listQuery.isFetching))
   }, [listQuery.isFetching])
 
-  const invalidateAll = (): void => {
-    queryClient.invalidateQueries({ queryKey: ['comments', tableName, recordId] })
-    queryClient.invalidateQueries({ queryKey: ['comment-count', tableName, recordId] })
-  }
-
-  const createMutation = useMutation({
-    mutationFn: (content: string) => postComment({ tableName, recordId, content }),
-    onSuccess: () => {
-      restartFromFirstPage()
-      invalidateAll()
-    },
-  })
-
-  const editMutation = useMutation({
-    mutationFn: (input: { readonly commentId: string; readonly content: string }) =>
-      patchComment({ tableName, recordId, commentId: input.commentId, content: input.content }),
-    onSuccess: () => invalidateAll(),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (commentId: string) => deleteCommentApi({ tableName, recordId, commentId }),
-    onSuccess: () => invalidateAll(),
-  })
-
-  const replyMutation = useMutation({
-    mutationFn: (input: { readonly parentCommentId: string; readonly content: string }) =>
-      postComment({
-        tableName,
-        recordId,
-        content: input.content,
-        parentCommentId: input.parentCommentId,
-      }),
-    onSuccess: () => {
-      restartFromFirstPage()
-      invalidateAll()
-    },
+  const { createMutation, editMutation, deleteMutation, replyMutation } = useCommentMutations({
+    tableName,
+    recordId,
+    onListReset: restartFromFirstPage,
   })
 
   const visible = paginationStyle === 'loadMore' ? loadedComments : (listQuery.data?.comments ?? [])

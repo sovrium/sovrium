@@ -55,26 +55,40 @@ export const ComponentReferenceNameSchema = Schema.String.pipe(
  *
  * @see [internal ref]#/properties/vars
  */
+const ComponentVarKeySchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Component Variable Key',
+    description: 'Variable name (alphanumeric)',
+    examples: ['color', 'icon', 'text', 'titleColor'],
+  }),
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+      message:
+        'Component variable key must start with a letter and contain only alphanumeric characters',
+    })
+  )
+)
+
 export const ComponentVarsSchema = Schema.Record(
-  Schema.String.pipe(
-    Schema.annotate({
-      title: 'Component Variable Key',
-      description: 'Variable name (alphanumeric)',
-      examples: ['color', 'icon', 'text', 'titleColor'],
-    }),
-    Schema.check(
-      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-        message:
-          'Component variable key must start with a letter and contain only alphanumeric characters',
-      })
-    )
-  ),
+  Schema.String,
   Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
 ).pipe(
   Schema.annotate({
     title: 'Component Variables',
     description: 'Variables to substitute in the component template',
-  })
+  }),
+  // Keys: any string in the key position, and the pattern enforced by
+  // `isPropertyNames`, so a mistyped key is refused by name at its own path
+  // with the pattern it must match. A pattern on the key schema itself makes
+  // Effect 4 skip the entry, and the config report then named it an unknown
+  // property with nothing accepted. The JSON Schema rendering keeps the pattern.
+  Schema.check(
+    Schema.isPropertyNames(ComponentVarKeySchema, {
+      toJsonSchema: () => ({
+        propertyNames: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9]*$' },
+      }),
+    })
+  )
 )
 
 /**
@@ -100,12 +114,58 @@ export const SimpleComponentReferenceSchema = Schema.Struct({
 )
 
 /**
+ * Component nested variables (for deep object variable substitution)
+ *
+ * Variables with nested object support for dot-notation access ($user.name).
+ * Values can be any type including nested objects.
+ */
+const ComponentNestedVariablesSchema = Schema.Record(Schema.String, Schema.Unknown).pipe(
+  Schema.annotate({
+    title: 'Component Nested Variables',
+    description: 'Variables with nested object support for dot-notation substitution',
+  })
+)
+
+/**
+ * The page items a reference hands to its template's slot.
+ *
+ * Declared by the CALLER of {@link buildComponentReferenceSchema} rather than
+ * here: the items are page components, and the page component schema
+ * (`pages/components/component.ts`) itself places references — importing it
+ * from this module would close an import cycle whose evaluation order decides
+ * whether a union member is still in its temporal dead zone.
+ */
+export type ComponentReferenceChildrenSchema = Schema.Codec<
+  ReadonlyArray<unknown>,
+  ReadonlyArray<unknown>,
+  never
+>
+
+/** The `children` key every reference form carries — see {@link buildComponentReferenceSchema}. */
+const referenceChildrenField = (children: ComponentReferenceChildrenSchema) =>
+  Schema.optional(
+    children.annotate({
+      description:
+        "The page's own components for the template's slot. The template marks the slot by writing `children: $children` on one of its nodes; these components fill it, read in the page's scope — the page's record, `$t:` keys and visibility rules — and never receive the template's `vars`. A template with no slot refuses them.",
+    })
+  )
+
+/**
  * Component Reference (reference to a reusable component template with variable substitution)
  *
  * Allows referencing and customizing predefined component templates.
- * Supports two syntaxes:
+ * Supports four syntaxes:
  * 1. Full syntax: { $ref: 'component-name', vars: {...} } (vars optional; absent means no values)
- * 2. Shorthand syntax: { component: 'component-name' } (vars default to empty object)
+ * 2. Hybrid syntax: { component: 'component-name', vars: {...} }
+ * 3. Variables syntax: { component: 'component-name', variables: {...} }
+ * 4. Shorthand syntax: { component: 'component-name' } (vars default to empty object)
+ *
+ * Every form also takes `children`: the page components that fill the
+ * template's `$children` slot (see `ComponentSlotSchema` in `./children`).
+ *
+ * Built by a factory because the slot's items are page components, which are
+ * declared where pages are — `pages/components/component.ts` builds the one
+ * instance the AppSchema decodes, as `ComponentReferenceSchema`.
  *
  * @example
  * ```typescript
@@ -119,91 +179,77 @@ export const SimpleComponentReferenceSchema = Schema.Struct({
  *   },
  * }
  *
- * // Shorthand syntax
+ * // Shorthand syntax, filling the template's slot
  * const reference2 = {
- *   component: 'shared-component',
+ *   component: 'app-shell',
+ *   children: [{ type: 'text', element: 'h1', content: 'Invoices' }],
  * }
  * ```
- *
  */
-const FullComponentReferenceSchema = Schema.Struct({
-  $ref: ComponentReferenceNameSchema,
-  // Optional: a template with no `$variable` placeholders is placed with a bare
-  // `{ $ref: name }`. An absent `vars` is read as no values, exactly like `{}`.
-  vars: Schema.optional(
-    ComponentVarsSchema.pipe(
+export const buildComponentReferenceSchema = (children: ComponentReferenceChildrenSchema) =>
+  Schema.Union([
+    Schema.Struct({
+      $ref: ComponentReferenceNameSchema,
+      // Optional: a template with no `$variable` placeholders is placed with a bare
+      // `{ $ref: name }`. An absent `vars` is read as no values, exactly like `{}`.
+      vars: Schema.optional(
+        ComponentVarsSchema.pipe(
+          Schema.annotate({
+            description:
+              "Values for the template's `$variable` placeholders. Omit it for a template that has none.",
+            defaultNote: '{}',
+          })
+        )
+      ),
+      children: referenceChildrenField(children),
+    }).pipe(
       Schema.annotate({
-        description:
-          "Values for the template's `$variable` placeholders. Omit it for a template that has none.",
-        defaultNote: '{}',
+        title: 'Component Reference (Full Syntax)',
+        description: 'Reference to a reusable component template with variable substitution',
       })
-    )
-  ),
-}).pipe(
-  Schema.annotate({
-    title: 'Component Reference (Full Syntax)',
-    description: 'Reference to a reusable component template with variable substitution',
-  })
-)
-
-const ShorthandComponentReferenceSchema = Schema.Struct({
-  component: ComponentReferenceNameSchema,
-}).pipe(
-  Schema.annotate({
-    title: 'Component Reference (Shorthand)',
-    description: 'Shorthand reference to a reusable component without variables',
-  })
-)
-
-const HybridComponentReferenceSchema = Schema.Struct({
-  component: ComponentReferenceNameSchema,
-  vars: ComponentVarsSchema,
-}).pipe(
-  Schema.annotate({
-    title: 'Component Reference (Hybrid)',
-    description: 'Shorthand component reference with variable substitution',
-  })
-)
-
-/**
- * Component nested variables (for deep object variable substitution)
- *
- * Variables with nested object support for dot-notation access ($user.name).
- * Values can be any type including nested objects.
- */
-const ComponentNestedVariablesSchema = Schema.Record(Schema.String, Schema.Unknown).pipe(
-  Schema.annotate({
-    title: 'Component Nested Variables',
-    description: 'Variables with nested object support for dot-notation substitution',
-  })
-)
-
-const ComponentReferenceWithVariablesSchema = Schema.Struct({
-  component: ComponentReferenceNameSchema,
-  variables: ComponentNestedVariablesSchema,
-}).pipe(
-  Schema.annotate({
-    title: 'Component Reference (With Variables)',
-    description: 'Shorthand component reference with nested variable substitution',
-  })
-)
-
-export const ComponentReferenceSchema = Schema.Union([
-  FullComponentReferenceSchema,
-  HybridComponentReferenceSchema,
-  ComponentReferenceWithVariablesSchema,
-  ShorthandComponentReferenceSchema,
-]).pipe(
-  Schema.annotate({
-    title: 'Component Reference',
-    description:
-      'Reference to a reusable component template. Supports full syntax ($ref + vars), hybrid syntax (component + vars), variables syntax (component + variables), or shorthand (component name only).',
-  })
-)
+    ),
+    Schema.Struct({
+      component: ComponentReferenceNameSchema,
+      vars: ComponentVarsSchema,
+      children: referenceChildrenField(children),
+    }).pipe(
+      Schema.annotate({
+        title: 'Component Reference (Hybrid)',
+        description: 'Shorthand component reference with variable substitution',
+      })
+    ),
+    Schema.Struct({
+      component: ComponentReferenceNameSchema,
+      variables: ComponentNestedVariablesSchema,
+      children: referenceChildrenField(children),
+    }).pipe(
+      Schema.annotate({
+        title: 'Component Reference (With Variables)',
+        description: 'Shorthand component reference with nested variable substitution',
+      })
+    ),
+    Schema.Struct({
+      component: ComponentReferenceNameSchema,
+      children: referenceChildrenField(children),
+    }).pipe(
+      Schema.annotate({
+        title: 'Component Reference (Shorthand)',
+        description: 'Shorthand reference to a reusable component without variables',
+      })
+    ),
+  ]).pipe(
+    Schema.annotate({
+      title: 'Component Reference',
+      description:
+        "Reference to a reusable component template. Supports full syntax ($ref + vars), hybrid syntax (component + vars), variables syntax (component + variables), or shorthand (component name only). Any form may pass `children` to fill the template's `$children` slot.",
+    })
+  )
 
 /** @public */
 export type ComponentReferenceName = Schema.Schema.Type<typeof ComponentReferenceNameSchema>
 /** @public */
 export type ComponentVars = Schema.Schema.Type<typeof ComponentVarsSchema>
 export type SimpleComponentReference = Schema.Schema.Type<typeof SimpleComponentReferenceSchema>
-export type ComponentReference = Schema.Schema.Type<typeof ComponentReferenceSchema>
+export type ComponentReference = Schema.Schema.Type<
+  ReturnType<typeof buildComponentReferenceSchema>
+>

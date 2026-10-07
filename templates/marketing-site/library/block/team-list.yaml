@@ -1,0 +1,213 @@
+# sovrium-library: block/team-list@0.30.0
+name: team-list
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: grid
+        props:
+          className: grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-20
+        children:
+          - type: flex
+            props:
+              className: flex flex-col max-w-2xl gap-4
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+                content: '[Who you will work with]'
+              - type: text
+                element: p
+                props:
+                  className: text-lg text-pretty text-foreground-muted sm:text-xl
+                content: The people a client actually talks to.
+          - type: flex
+            props:
+              className: flex flex-col gap-0
+            children:
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-3
+                    children:
+                      - type: avatar
+                        label: '[Full name]'
+                        initials: AB
+                        size: md
+                      - type: flex
+                        props:
+                          className: flex flex-col gap-0.5 text-left
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md font-semibold text-foreground
+                            content: '[Full name]'
+                          - type: text
+                            element: span
+                            props:
+                              className: text-sm text-foreground-subtle
+                            content: '[Role]'
+                  - type: link
+                    props:
+                      href: '#member-1'
+                      aria-label: Profile of team member 1
+                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: link
+                          size: 18
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-3
+                    children:
+                      - type: avatar
+                        label: '[Full name]'
+                        initials: AB
+                        size: md
+                      - type: flex
+                        props:
+                          className: flex flex-col gap-0.5 text-left
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md font-semibold text-foreground
+                            content: '[Full name]'
+                          - type: text
+                            element: span
+                            props:
+                              className: text-sm text-foreground-subtle
+                            content: '[Role]'
+                  - type: link
+                    props:
+                      href: '#member-2'
+                      aria-label: Profile of team member 2
+                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: link
+                          size: 18
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-3
+                    children:
+                      - type: avatar
+                        label: '[Full name]'
+                        initials: AB
+                        size: md
+                      - type: flex
+                        props:
+                          className: flex flex-col gap-0.5 text-left
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md font-semibold text-foreground
+                            content: '[Full name]'
+                          - type: text
+                            element: span
+                            props:
+                              className: text-sm text-foreground-subtle
+                            content: '[Role]'
+                  - type: link
+                    props:
+                      href: '#member-3'
+                      aria-label: Profile of team member 3
+                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: link
+                          size: 18
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-3
+                    children:
+                      - type: avatar
+                        label: '[Full name]'
+                        initials: AB
+                        size: md
+                      - type: flex
+                        props:
+                          className: flex flex-col gap-0.5 text-left
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md font-semibold text-foreground
+                            content: '[Full name]'
+                          - type: text
+                            element: span
+                            props:
+                              className: text-sm text-foreground-subtle
+                            content: '[Role]'
+                  - type: link
+                    props:
+                      href: '#member-4'
+                      aria-label: Profile of team member 4
+                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: link
+                          size: 18
+              - type: flex
+                props:
+                  className: flex items-center justify-between gap-4 border-b border-border py-4 last:border-b-0
+                children:
+                  - type: flex
+                    props:
+                      className: flex items-center gap-3
+                    children:
+                      - type: avatar
+                        label: '[Full name]'
+                        initials: AB
+                        size: md
+                      - type: flex
+                        props:
+                          className: flex flex-col gap-0.5 text-left
+                        children:
+                          - type: text
+                            element: span
+                            props:
+                              className: text-md font-semibold text-foreground
+                            content: '[Full name]'
+                          - type: text
+                            element: span
+                            props:
+                              className: text-sm text-foreground-subtle
+                            content: '[Role]'
+                  - type: link
+                    props:
+                      href: '#member-5'
+                      aria-label: Profile of team member 5
+                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                    children:
+                      - type: icon
+                        props:
+                          name: link
+                          size: 18

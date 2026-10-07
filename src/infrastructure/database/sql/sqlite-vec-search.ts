@@ -6,7 +6,7 @@
  */
 
 /**
- * sqlite-vec accelerated RAG search (Phase 2, [internal ref]).
+ * sqlite-vec accelerated RAG search (Phase 2, the SQLite RAG design).
  *
  * The OPT-IN acceleration path behind `RAG_SQLITE_VEC=on`. It produces the
  * IDENTICAL `EmbeddingSearchResult` contract as the Phase 1 app-side cosine
@@ -40,7 +40,7 @@
  * `RAG_SQLITE_VEC=on` becomes a net win once the corpus is large enough that
  * skipping the full cosine scan dominates the per-query index-build cost. When
  * the corpus outgrows per-query rebuilds, the next step (out of scope for
- * [internal ref] Phase 2) is a PERSISTENT `vec0` index maintained incrementally on the
+ * the SQLite RAG design) is a PERSISTENT `vec0` index maintained incrementally on the
  * rebuild/write path instead of rebuilt at search time.
  */
 
@@ -123,9 +123,7 @@ const denseCandidateRowids = (
   // Build an ephemeral vec0 index sized to the query dimension. A temp table is
   // private to this connection and dropped on close, so concurrent searches and
   // the primary connection never collide.
-  // eslint-disable-next-line functional/no-expression-statements -- ephemeral per-search index lifecycle (drop-then-create)
   client.exec('DROP TABLE IF EXISTS temp.rag_vec_idx')
-  // eslint-disable-next-line functional/no-expression-statements -- create the dimension-sized vec0 index
   client.exec(`CREATE VIRTUAL TABLE temp.rag_vec_idx USING vec0(embedding float[${dim}])`)
 
   const insert = client.prepare('INSERT INTO temp.rag_vec_idx(rowid, embedding) VALUES (?, ?)')
@@ -133,7 +131,6 @@ const denseCandidateRowids = (
   rows.forEach((row) => {
     const vec = deserializeEmbedding(row.embedding)
     if (vec.length === dim) {
-      // eslint-disable-next-line functional/no-expression-statements -- per-row index insert
       insert.run(row.rowid, toVecLiteral(vec))
     }
   })
@@ -145,7 +142,6 @@ const denseCandidateRowids = (
   const knn = client
     .query('SELECT rowid FROM temp.rag_vec_idx WHERE embedding MATCH ? AND k = ? ORDER BY distance')
     .all(toVecLiteral(input.embedding), k) as ReadonlyArray<{ readonly rowid: number }>
-  // eslint-disable-next-line functional/no-expression-statements -- release the ephemeral index
   client.exec('DROP TABLE IF EXISTS temp.rag_vec_idx')
   return new Set(knn.map((r) => r.rowid))
 }
@@ -164,14 +160,11 @@ const lexicalCandidateRowids = (
   const terms = query.trim()
   if (terms.length === 0 || rows.length === 0) return new Set()
 
-  // eslint-disable-next-line functional/no-expression-statements -- ephemeral per-search FTS5 index lifecycle
   client.exec('DROP TABLE IF EXISTS temp.rag_fts_idx')
-  // eslint-disable-next-line functional/no-expression-statements -- create the FTS5 lexical index (content-only, external rowid)
   client.exec('CREATE VIRTUAL TABLE temp.rag_fts_idx USING fts5(content)')
   const insert = client.prepare('INSERT INTO temp.rag_fts_idx(rowid, content) VALUES (?, ?)')
 
   rows.forEach((row) => {
-    // eslint-disable-next-line functional/no-expression-statements -- per-row index insert
     insert.run(row.rowid, row.content)
   })
 
@@ -194,7 +187,6 @@ const lexicalCandidateRowids = (
       return [] as ReadonlyArray<{ readonly rowid: number }>
     }
   })()
-  // eslint-disable-next-line functional/no-expression-statements -- release the ephemeral FTS5 index
   client.exec('DROP TABLE IF EXISTS temp.rag_fts_idx')
   return new Set(hits.map((r) => r.rowid))
 }

@@ -67,6 +67,20 @@ export type ReadTableAsCaller = (
 ) => Promise<CallerTableView>
 
 /**
+ * Sign a download address for one stored file, for the caller of this request.
+ *
+ * `scope: 'record'` — the file is an attachment of a record the page has
+ * already read for her, so the record's own gates have answered; `'bucket'` —
+ * a fixed file the page names, which she may preview only where the bucket's
+ * own sign permission admits her. `undefined` where it does not.
+ */
+export type SignFileUrl = (
+  bucket: string,
+  key: string,
+  scope: 'record' | 'bucket'
+) => Promise<string | undefined>
+
+/**
  * Page renderer port for server-side rendering
  *
  * This interface defines the contract for rendering pages to HTML,
@@ -149,7 +163,7 @@ export class PageRenderer extends Context.Service<
          */
         readonly previewMode?: boolean
         /**
-         * The `/:lang/` URL-prefix locale ([internal ref]..039).
+         * The `/:lang/` URL-prefix locale.
          *
          * Kept separate from `detectedLanguage` — which also carries the browser
          * `Accept-Language` guess — because only a locale the visitor asked for
@@ -192,7 +206,7 @@ export class PageRenderer extends Context.Service<
           rowsKey: string
         ) => Promise<readonly Record<string, unknown>[]>
         /**
-         * [internal ref]: the SINGLE-RECORD sibling, for a page-level `{ system }`
+         * The SINGLE-RECORD sibling, for a page-level `{ system }`
          * binding.
          *
          * Its absence is NOT indistinguishable from a missing record, and the
@@ -231,6 +245,8 @@ export class PageRenderer extends Context.Service<
          * every view and field the table declares and carries no permissions.
          */
         readonly readTableAsCaller?: ReadTableAsCaller
+        /** The download-address signer a `file-preview` draws its file through. */
+        readonly signFileUrl?: SignFileUrl
       }
     ) => PageRenderResult | Promise<PageRenderResult>
 
@@ -258,8 +274,7 @@ export class PageRenderer extends Context.Service<
 
     /**
      * Render the RSS 2.0 feed XML for the first PUBLIC page that opts in via
-     * `page.rss !== false && page.rss !== undefined` — see `findRssPage`
-     * ([internal ref]..018).
+     * `page.rss !== false && page.rss !== undefined` — see `findRssPage`.
      *
      * Returns `undefined` when no public page in `app.pages` declares `rss`,
      * which the route handler maps to a 404 — the `/feed.xml` endpoint

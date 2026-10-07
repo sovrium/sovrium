@@ -16,7 +16,7 @@
  *
  * Source story: [internal ref]
  *
- * @see plan-design §10 (locked 2026-05-09) — overview shape contract
+ * @see plan-design §10 — overview shape contract
  * @see keystone plan §12 Q1 — two-tier RBAC (admin / operator)
  * @see src/domain/models/api/admin/audit-log/action-catalog.ts — the authority
  *      on `resource.type`. `table.overview.queried` maps to the singular
@@ -107,8 +107,7 @@ export type TableOverviewBreakdownItem = typeof tableOverviewBreakdownItemSchema
  *   3. `series`   — bucketed write-volume time series whose `interval` is
  *                   derived from the query `period`
  *
- * Aggregation invariants enforced at the application layer (and asserted by
- * [internal ref]):
+ * Aggregation invariants enforced at the application layer:
  *
  *   - `totals.tables === by_table.length`
  *   - `totals.total_rows === sum(by_table[].rowCount)`

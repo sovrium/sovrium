@@ -11,7 +11,7 @@ import type { Form } from '@/domain/models/app/forms'
  * Effective anti-spam policy resolved against a form's optional `antiSpam`
  * block.
  *
- * [internal ref] locks the default-on policy: when a form omits the `antiSpam`
+ * a forms spec locks the default-on policy: when a form omits the `antiSpam`
  * block entirely (or omits an individual sub-key), the renderer and submission
  * pipeline apply these defaults instead of treating "absent" as "disabled".
  *

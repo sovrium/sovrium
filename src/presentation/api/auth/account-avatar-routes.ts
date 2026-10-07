@@ -32,8 +32,9 @@ import type { Context, Hono } from 'hono'
  * stores them, mints the URL from the key it just wrote, and persists through
  * the injected {@link AvatarProfileStore}. "The server issued this URL" is
  * therefore a fact about the code path, not a shape the value happens to have —
- * which matters because shape can be forged and ownership cannot be checked
- * (`file_storage_metadata.uploaded_by_id` is written by nothing).
+ * which matters because shape can be forged. The object is also catalogued
+ * against its owner (`file_storage_metadata.uploaded_by_id`), which is how
+ * erasure finds it with every other file the person uploaded.
  *
  * ## Both verbs are session-scoped by construction
  *
@@ -90,10 +91,9 @@ const badRequest = (c: Context, error: string) =>
  * The avatar bucket, resolved the ONE way — the host's if it declares one,
  * otherwise the engine-owned fallback.
  *
- * It used to answer `undefined` for an app with no declared bucket, and the
- * upload then 404'd. That deliberately avoided minting a URL nothing would
- * serve; the fallback removes the premise instead, by making the download route
- * serve that URL. Still NOT the built-in `system` bucket: the minted URL names
+ * Never `undefined`, even for an app with no declared bucket: rather than
+ * refusing to mint a URL nothing would serve, the fallback makes the download
+ * route serve that URL. Still NOT the built-in `system` bucket: the minted URL names
  * `avatars` literally, and `system` carries record attachments and their own
  * rules.
  */
@@ -199,7 +199,10 @@ async function persistAvatar(
   const mimeType = upload.extension === 'jpg' ? 'image/jpeg' : `image/${upload.extension}`
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    yield* storage.upload(key, upload.bytes, mimeType, AVATAR_BUCKET_NAME)
+    yield* storage.upload(key, upload.bytes, mimeType, {
+      bucket: AVATAR_BUCKET_NAME,
+      uploadedById: userId,
+    })
   })
 
   const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))
@@ -223,9 +226,9 @@ function createHandleUploadAvatar(app: App, store: AvatarProfileStore) {
     const session = getSessionContext(c)
     if (session === undefined) return unauthorized(c)
 
-    // Never `undefined` any more: an app declaring no bucket gets the
-    // engine-owned one. The 404 that used to stand here reported a
-    // MISCONFIGURED host, which was the wrong answer for the operator console —
+    // Never `undefined`: an app declaring no bucket gets the engine-owned one.
+    // A 404 here would report a MISCONFIGURED host, which is the wrong answer
+    // for the operator console —
     // it ships inside every binary and cannot require its host to have declared
     // a bucket on its behalf.
     const bucket = resolveAvatarBucketFor(app)
@@ -251,7 +254,6 @@ function createHandleDeleteAvatar(store: AvatarProfileStore) {
     const previous = await store.readImage(session.userId)
     // Clear the column first: it is the value every reader projects, so it is
     // the one that must stop naming the object even if the blob store is down.
-    // eslint-disable-next-line unicorn/no-null -- persistence side effect; `null` is this column's own "no avatar" value
     await store.writeImage(session.userId, null)
     await removeAvatarObject(c, previous)
 

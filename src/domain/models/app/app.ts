@@ -19,12 +19,13 @@ import { validateAllRoleReferences, validateTableRoleReferences } from './auth/r
 import { type Action, AutomationsSchema } from './automations'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
+import { validateComponentPlacements } from './component-placement-validation'
 import { ComponentsSchema } from './components'
-import { callIssue, ConnectionsSchema } from './connections'
+import { connectionCallIssue } from './connection-file-source-validation'
+import { ConnectionsSchema } from './connections'
 import { DecisionsSchema } from './decisions'
 import { DescriptionSchema } from './description'
 import { DesignSchema } from './design'
-import { validateAllDesignConsoleComponents } from './design/design-console-component-validation'
 import { validateAllDesignReferences } from './design/design-validation'
 import { EnvVarsSchema } from './env'
 import { validateAllEnvReferences } from './env-reference-validation'
@@ -38,7 +39,6 @@ import { validateAllQrCodePayloads } from './links/qr-code-validation'
 import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
 import { PagesSchema } from './pages'
-import { validateAllComponentReferences } from './pages/component-reference-validation'
 import { validateAllPageAccessGroups } from './pages/page-access-validation'
 import { validateAllSelectEmptyOptions } from './pages/select-empty-option-validation'
 import { validateAllMultipleSearchableSelects } from './pages/select-multiple-searchable-validation'
@@ -109,7 +109,7 @@ interface ColumnRef {
  * `filter` (update / delete / upsert / batchDelete), the `sort` keys and
  * `fields` selection of `list`, and `batchUpsert`'s `matchField`.
  *
- * `sort` joined this set with [internal ref]'s `record/list`, and it is the WORSE of
+ * `sort` joined this set with the `record.read` split's `record/list`, and it is the WORSE of
  * the filter/sort pair. An unknown filter field returns a visibly wrong row set;
  * an unknown sort key returns the right rows in an arbitrary order and reports
  * success — on SQLite the quoted unknown name resolves to a string constant, so
@@ -126,7 +126,7 @@ interface ColumnRef {
  * rule is about names that do not exist, not solely about SQL injection
  * surfaces.
  *
- * `record/read` left this set in the same change: since [internal ref] it is
+ * `record/read` left this set in the same change: since the `record.read` split it is
  * primary-key-only and has no author-supplied identifier left to adjudicate.
  *
  * `batchUpdate` is absent by nature, not by omission — its per-item filters
@@ -244,21 +244,6 @@ const validateSelectDeclarations = (
 }
 
 /**
- * The page-component checks of the final filter, as one branch: the design
- * console's plotted tokens, then every bare `$ref` placement against
- * `app.components`. Grouped for the same complexity-budget reason as
- * {@link validateSelectDeclarations}.
- */
-const validateComponentPlacements = (
-  app: Parameters<typeof validateAllDesignConsoleComponents>[0] &
-    Parameters<typeof validateAllComponentReferences>[0]
-): true | string => {
-  const designConsoleError = validateAllDesignConsoleComponents(app)
-  if (designConsoleError !== true) return designConsoleError
-  return validateAllComponentReferences(app)
-}
-
-/**
  * The declaration checks closing the final filter, as one branch: table
  * permission groups, then every `$env.NAME` anywhere in the configuration
  * against the variables `app.env` declares. Grouped for the same
@@ -344,7 +329,7 @@ export const AppSchema = Schema.Struct({
    * lets an author — or an agent building on their behalf — be HANDED the app's
    * design rules instead of inferring them from the tokens.
    *
-   * There is no top-level `theme` key and no `design.theme` block: [internal ref]
+   * There is no top-level `theme` key and no `design.theme` block: the single-design-schema rule
    * flattened every token category onto `design` under the name of the decision
    * it makes rather than the CSS property that renders it. A config using a
    * removed spelling is refused by name, with its destination in the message.
@@ -921,10 +906,9 @@ export const AppSchema = Schema.Struct({
         return `Automation '${connectionError.automation}' action '${connectionError.action.name}' references connection '${(connectionError.action.props as { readonly connection: string }).connection}' which does not exist`
       }
 
-      // A `connection` / `call` step must name an operation its connection
-      // declares, pass only declared parameters, pass every required one, and
-      // give each literal a value of the declared type. Folded into this check
-      // rather than added beside it: the AppSchema pipe is at its arity limit.
+      // A `connection` / `call` step must fit the operation it names, and a file
+      // parameter may not read what the trigger's caller chooses. Folded into
+      // this check: the AppSchema pipe is at its arity limit.
       const callError = app.automations
         .flatMap((a) =>
           collectAllActions(a.actions as ReadonlyArray<Action>)
@@ -935,7 +919,7 @@ export const AppSchema = Schema.Struct({
             .map((action) => ({
               automation: a.name,
               action,
-              issue: callIssue(action.props, app.connections ?? []),
+              issue: connectionCallIssue(a, action.props, app),
             }))
         )
         .find((entry) => entry.issue !== undefined)
@@ -1065,7 +1049,8 @@ export const AppSchema = Schema.Struct({
   // Forms cross-validation (bundled): name uniqueness, id uniqueness,
   // path uniqueness + page-path collision, submitTo.table existence,
   // submitTo.automation existence, page form-component formRef existence
-  // AND mutual exclusion with inline dataSource/fields/fieldGroups.
+  // AND mutual exclusion with inline dataSource/fields, and the refusal of a
+  // page form that would create a record on its own (formRef is the bridge).
   Schema.check(Schema.makeFilter((app) => validateAllFormsReferences(app))),
   // AI/MCP cross-validation (bundled): manual-trigger-only aiAccess,
   // whitelist consistency, reserved 'auth_'/'system_' table prefixes.
@@ -1082,7 +1067,7 @@ export const AppSchema = Schema.Struct({
   // embedded as a knowledge source.
   // Final bundled filter: agent table-knowledge references
   // AND page-access group references
-  //. Two unrelated checks are bundled into one
+  // Two unrelated checks are bundled into one
   // `Schema.filter` call because each additional filter in the chain pushes
   // TypeScript's deep-instantiation depth over the limit and collapses the
   // derived `App` type to `never`.

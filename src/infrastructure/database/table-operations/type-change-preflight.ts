@@ -22,7 +22,7 @@
  * default, so the permissive engine is the one an operator validates the edit
  * against. It ships, and the identical edit aborts the production Postgres boot.
  *
- * Three properties, from [internal ref], are the decision rather than decoration:
+ * Three properties, from the assert-data-not-exit-codes rule for upgrades, are the decision rather than decoration:
  *
  * 1. **Refuse, never repair.** Not coerce, not truncate, not quarantine.
  *    Truncating `3.9` to `3` silently falsifies someone's number; dropping the
@@ -269,7 +269,7 @@ const findPreviousFields = (
  * - **The live column must not already hold a judged scalar.** This is the
  *   load-bearing one, and it is a statement about Postgres rather than a
  *   conservatism: a TEXT column reaches its new type through Postgres's INPUT
- * FUNCTION, which is the oracle [internal ref] adopts, while a column already holding
+ *   FUNCTION, which is the oracle the assert-data-not-exit-codes rule for upgrades adopts, while a column already holding
  *   a scalar reaches it through a CAST function with entirely different
  *   semantics — `numeric → integer` ROUNDS rather than failing, and
  *   `integer → boolean` maps non-zero to true. Judging those by the input
@@ -324,7 +324,7 @@ export const planTypeChangeProbes = (params: {
  * The operator-facing refusal.
  *
  * Pure, so the wording is unit-testable without a database. The shape is the one
- * [internal ref] specifies: the qualified column, the target type, a row COUNT, and
+ * the assert-data-not-exit-codes rule for upgrades specifies: the qualified column, the target type, a row COUNT, and
  * each offending row by id AND by value — the id is what the operator queries
  * on, the value is what tells them why. Rows that convert cleanly are never
  * named, so the message does not send anyone to edit data that is already fine.

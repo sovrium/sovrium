@@ -24,6 +24,7 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
+import { mayTriggerAgentNamed } from '@/presentation/api/agents/agent-trigger-guard'
 import {
   agentAttribution,
   resolveAgentTurnBinding,
@@ -78,7 +79,7 @@ import type { Hono, Context } from 'hono'
  * Generic AI Chat route — `POST /api/ai/chat`.
  *
  * This is the cross-cutting chat endpoint asserted by
- * `[internal ref]` (`[internal ref]` and
+ * `[internal ref]` (an AI chat cross spec and
  * neighbours). It is distinct from the per-agent endpoint
  * `POST /api/agents/:name/chat` mounted by `ai-mcp-status.ts` — that one is
  * tied to a declared `app.agents[]` entry; this one is the default,
@@ -104,7 +105,7 @@ interface ChatRequestPayload {
   readonly agent?: string
   /**
    * Optional token confirming a previously-pending destructive action
-   *. When present and it resolves to a stashed
+   * When present and it resolves to a stashed
    * confirmation, an affirmative message commits the mutation.
    */
   readonly confirmationToken?: string
@@ -140,7 +141,7 @@ const extractPageContext = (raw: unknown): ContextPageScope | undefined => {
 }
 
 const parseRequestBody = async (
-  c: Readonly<Context>
+  c: Context
 ): Promise<ChatRequestPayload | { readonly error: string }> => {
   const raw = (await c.req.json().catch(() => undefined)) as unknown
   const parsed = decodeSafe(chatRequestSchema)(raw)
@@ -150,7 +151,6 @@ const parseRequestBody = async (
   // Enforce the operator-tunable `AI_CHAT_MAX_MESSAGE_LENGTH` cap. Unset → no
   // limit; an over-length message is rejected with a 400 carrying a message
   // that mentions "length" so callers can distinguish it from other 400s
-  //.
   const { maxMessageLength } = resolveChatErrorConfig()
   if (maxMessageLength !== undefined && parsed.data.message.length > maxMessageLength) {
     return {
@@ -176,7 +176,7 @@ const parseRequestBody = async (
  * A *present-but-empty/invalid* `AI_PROVIDER` is a misconfiguration of an
  * intended feature and surfaces as 503 from the service layer below.
  */
-const aiDisabledResponse = (c: Readonly<Context>): Response | undefined => {
+const aiDisabledResponse = (c: Context): Response | undefined => {
   const provider = process.env.AI_PROVIDER
   if (provider === undefined) {
     return notFound(c, 'AI is not enabled. Set AI_PROVIDER to enable AI features.')
@@ -185,24 +185,22 @@ const aiDisabledResponse = (c: Readonly<Context>): Response | undefined => {
 }
 
 /**
- * Run the per-user chat rate-limit gate for one request ([internal ref]-*).
+ * Run the per-user chat rate-limit gate for one request (the AI chat rate requirement-*).
  *
  * Keyed by the acting user's id so different users have independent counters
- *. A no-op unless `AI_CHAT_RATE_LIMIT` is set, so the
+ * A no-op unless `AI_CHAT_RATE_LIMIT` is set, so the
  * rest of the chat specs (which never set it) are unaffected. Returns a 429
  * `Response` (with `Retry-After`) when the request must be rejected, or the
  * limiter decision when the request may proceed — the decision carries the
  * remaining quota surfaced as `X-RateLimit-Remaining` on the 200 response.
  */
 const applyChatRateLimit = (
-  c: Readonly<Context>
+  c: Context
 ): { readonly rejected: Response } | { readonly decision: ChatRateLimitDecision } => {
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   const principalKey = session?.userId ?? 'anonymous'
   const decision = checkChatRateLimit(principalKey)
-  return decision.limited
-    ? { rejected: rateLimitedResponse(c as unknown as Context, decision.retryAfter) }
-    : { decision }
+  return decision.limited ? { rejected: rateLimitedResponse(c, decision.retryAfter) } : { decision }
 }
 
 /**
@@ -215,19 +213,14 @@ const applyChatRateLimit = (
  * tools, the tool-table allowlist, the attribution name — is data threaded into
  * one path, not a second path.
  *
- * That is the whole point of the shape. The agent path used to be its own
- * transport (a hard-coded `${baseUrl}/chat/completions` fetch), and every
- * capability the generic path gained afterwards silently skipped it: tool
- * EXECUTION, `actions[]`, provider-aware endpoint selection, agent attribution
- * on the persisted row. Each was a separate defect with a separate spec; all
- * four had one cause.
+ * The agent path is not its own transport: a separate one silently misses every
+ * capability the generic path gains.
  *
- * A 404 for an undeclared agent is decided here rather than inside the turn:
- * the agent name is request DATA, and a name the app never declared is a bad
- * request, not a provider failure.
+ * A 404 for an undeclared agent — or one the caller may not trigger — is
+ * decided here, before the turn: the name is request DATA, not a provider failure.
  */
 export const runAgentBoundChatTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   app: App,
   req: { readonly message: string; readonly sessionId: string; readonly agentName: string }
 ): Promise<Response> => {
@@ -236,7 +229,7 @@ export const runAgentBoundChatTurn = async (
     const error = `Agent '${req.agentName}' is not declared in the app schema.`
     return c.json(errorBody({ error, code: ApiErrorCode.NOT_FOUND }), 404)
   }
-  const actorName = getSessionContext(c as unknown as Context)?.userId ?? 'anonymous'
+  const actorName = getSessionContext(c)?.userId ?? 'anonymous'
   return runChatTurn(c, {
     services: requireDomainContext(c),
     systemPrompt: scope.binding.systemPrompt,
@@ -281,7 +274,7 @@ interface AgentTurnScope {
  * keeps it from handing a member a table only an admin may read.
  */
 const resolveAgentTurnScope = async (
-  c: Readonly<Context>,
+  c: Context,
   app: App,
   agentName: string
 ): Promise<AgentTurnScope | undefined> => {
@@ -296,7 +289,8 @@ const resolveAgentTurnScope = async (
     }
   }
   const binding = resolveAgentTurnBinding(app, agentName)
-  if (binding === undefined) return undefined
+  // Its trigger grant, as on every road into an agent; refused as undeclared.
+  if (binding === undefined || !(await mayTriggerAgentNamed(c, app, agentName))) return undefined
   const caller = await agentCaller(c, app)
   return {
     binding,
@@ -307,7 +301,7 @@ const resolveAgentTurnScope = async (
 }
 
 const handleChat = async (
-  c: Readonly<Context>,
+  c: Context,
   app: App | undefined,
   anonLimit: AiAnonRateLimit
 ): Promise<Response> => {
@@ -315,7 +309,7 @@ const handleChat = async (
   if (disabled) return disabled
   // The anonymous limit (apps without `auth`) runs first, so a refused caller
   // reaches neither the body parser nor the model.
-  const anonymous = anonLimit(c as unknown as Context, app, 'chat')
+  const anonymous = anonLimit(c, app, 'chat')
   if (anonymous !== undefined) return anonymous
   const parsed = await parseRequestBody(c)
   if ('error' in parsed) {
@@ -339,7 +333,7 @@ const handleChat = async (
 
   // Identify the acting user for activity monitoring
   // and resolve their role — drives table RBAC and the per-request context.
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   const actorName = session?.userId ?? 'anonymous'
   const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
 
@@ -406,7 +400,7 @@ const buildChatTurnInput = (parts: {
  *
  * Only TRANSIENT failures (503/429) are retried, up to `AI_CHAT_MAX_RETRIES`;
  * each retry re-runs the attempt and so produces one more recorded provider
- * request, which is what [internal ref] asserts on. A non-transient
+ * request, which is what an AI chat error spec asserts on. A non-transient
  * failure (401/400) is never retried.
  */
 const withChatRetries = (
@@ -437,8 +431,7 @@ const resolveTurnToolTables = (input: ChatTurnInput): ReturnType<typeof toToolCa
  * The per-agent provider overrides an agent-bound turn layers onto the shared
  * `ai.chat` call — empty for a generic turn. The port forwards each onto
  * whichever wire format the resolved provider speaks, which is precisely what
- * the old hard-coded `/chat/completions` fetch could not do
- *.
+ * the old hard-coded `/chat/completions` fetch could not do.
  */
 const agentProviderOverrides = (
   agent: AgentTurnBinding | undefined
@@ -456,13 +449,13 @@ const agentProviderOverrides = (
  * union onto HTTP status codes. The optional
  * `AI_CHAT_TIMEOUT` deadline is threaded into the provider call; transient
  * failures (503/429) are retried up to `AI_CHAT_MAX_RETRIES` while
- * non-transient ones fail fast ([internal ref] — each retry is one
+ * non-transient ones fail fast (an AI chat error spec — each retry is one
  * more recorded provider request). The response carries a fixed, user-friendly
  * message — the raw provider message is never forwarded to the caller.
  *
  * The turn's message list is the fresh system prompt, then the session's prior
  * exchanges loaded from DURABLE storage so history survives a restart
- *, then the new user message. It is
+ * then the new user message. It is
  * kept in a local because the tool-calling loop extends it with tool results.
  *
  * The program runs on the observability runtime under the request-edge
@@ -481,7 +474,7 @@ const agentProviderOverrides = (
  * distinction is worth carrying.
  */
 const chatProviderFailure = async (
-  c: Readonly<Context>,
+  c: Context,
   failure: ChatTurnError,
   actorName: string
 ): Promise<Response> => {
@@ -506,7 +499,7 @@ const replayedHistory = async (input: ChatTurnInput): Promise<ReadonlyArray<Chat
     ? []
     : loadDurableHistory(input.services, input.actorName, input.sessionId)
 
-const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<Response> => {
+const runChatTurn = async (c: Context, input: ChatTurnInput): Promise<Response> => {
   // Lazy retention sweep — delete this user's conversations older than
   // `AI_MEMORY_MAX_AGE_DAYS` before the new turn lands.
   await applyRetentionPolicy(input.services, input.actorName)
@@ -590,7 +583,7 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
 /**
  * Complete an agent-bound turn that returned prose: persist the exchange
  * (tagged with the agent so the row is attributed regardless of which transport
- * carried it — [internal ref]), record activity, and return the standard
+ * carried it — an AI memory spec), record activity, and return the standard
  * `{ reply, actions, sessionId }` envelope.
  *
  * `actions` is empty because a prose turn took none — not because the field is
@@ -598,7 +591,7 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
  * loop above.
  */
 const finishAgentTurn = async (
-  c: Readonly<Context>,
+  c: Context,
   input: ChatTurnInput,
   agent: AgentTurnBinding,
   reply: string
@@ -633,13 +626,13 @@ const finishAgentTurn = async (
 // route registration and auth wiring are co-located with the buffered route.
 
 const handleChatStream = async (
-  c: Readonly<Context>,
+  c: Context,
   app: App | undefined,
   anonLimit: AiAnonRateLimit
 ): Promise<Response> => {
   const disabled = aiDisabledResponse(c)
   if (disabled) return disabled
-  const anonymous = anonLimit(c as unknown as Context, app, 'chat')
+  const anonymous = anonLimit(c, app, 'chat')
   if (anonymous !== undefined) return anonymous
   const parsed = await parseRequestBody(c)
   if ('error' in parsed) {
@@ -647,7 +640,7 @@ const handleChatStream = async (
   }
   // Identify the acting user so the completed streamed exchange can be
   // persisted to that user's durable conversation history.
-  const session = getSessionContext(c as unknown as Context)
+  const session = getSessionContext(c)
   const userId = session?.userId ?? 'anonymous'
   return buildStreamResponse(c, {
     services: requireDomainContext(c),
@@ -671,15 +664,13 @@ const handleChatStream = async (
  * which still performs its own raw provider fetch and advertises the external
  * MCP tool catalog rather than table tools.
  */
-export function chainAiChatRoutes<T extends Hono>(honoApp: T, app?: App): T {
+export function chainAiChatRoutes(honoApp: Hono, app?: App): Hono {
   // One window per route chain, shared by the buffered and streamed routes: an
   // anonymous visitor's chat budget is the same whichever transport it uses.
   const anonLimit = createAiAnonRateLimit()
   const withChat = honoApp
-    .post('/api/ai/chat', (c) => handleChat(c as unknown as Readonly<Context>, app, anonLimit))
-    .post('/api/ai/chat/stream', (c) =>
-      handleChatStream(c as unknown as Readonly<Context>, app, anonLimit)
-    ) as unknown as T
+    .post('/api/ai/chat', (c) => handleChat(c, app, anonLimit))
+    .post('/api/ai/chat/stream', (c) => handleChatStream(c, app, anonLimit))
   // Conversation-history routes (GET list, GET :sessionId, DELETE :sessionId)
   // for durable chat memory. Auth is
   // enforced by the `authMiddleware + requireAuth` chain in `api-routes.ts`.

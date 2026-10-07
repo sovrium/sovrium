@@ -34,7 +34,7 @@ import type { Bucket } from '@/domain/models/app/buckets'
  * still exposed every one of its objects to any signed-in caller through this
  * system bucket, because storage keys are flat and carry no bucket — see
  * {@link deriveSystemBucketPermissions} for the full rule and its bounds
- * (`[internal ref]`/`-017`).
+ * (the buckets perm specs).
  */
 export const resolveUploadBucket = (
   app: App,

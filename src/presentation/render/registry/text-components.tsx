@@ -6,6 +6,7 @@
  */
 
 import { resolveSessionTemplate } from '@/presentation/design/session-template'
+import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
 import { renderTextComponentMarkdown } from '@/presentation/render/markdown/text-component-markdown'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
@@ -74,14 +75,14 @@ export const textComponents: Partial<Record<DispatchableComponentType, Component
   // second growing dispatch.
   kbd: kbdComponent,
 
-  // NOTE: the standalone `code` block renderer used to live here. It moved to
-  // `code-block-component.tsx` when the block gained frame chrome (filename
-  // header, terminal marker, command output) and a working copy button — this
-  // file was already carrying complexity disables on its `text:` renderer and
-  // had no room for a second growing dispatch.
+  // NOTE: the standalone `code` block renderer lives in
+  // `code-block-component.tsx`, not here: it carries frame chrome (filename
+  // header, terminal marker, command output) and a copy button, and this file
+  // already carries complexity disables on its `text:` renderer with no room
+  // for a second growing dispatch.
 
-  // eslint-disable-next-line complexity, max-statements -- [internal ref] Lane C debt + P-05 markdown branch: text renderer dispatches across 14 element variants (h1..h6, p, span, label, code, etc.) plus the markdown branch. Measured 2026-07-30 AFTER the standalone `code` block moved to `code-block-component.tsx`: complexity 17 (max 10), 23 statements (max 20) — that extraction did NOT bring either under its cap, so both disables are still load-bearing. Dropping them needs the element chain replaced by a per-variant dispatch table (the four same-signature branches — pre/code/p/blockquote — plus the `label` branch lifted into its own helper); another extraction of one variant will not do it.
-  text: ({ elementProps, content, renderedChildren, component, rawProps }) => {
+  // eslint-disable-next-line complexity, max-statements -- text renderer dispatches across 14 element variants (h1..h6, p, span, label, code, etc.) plus the markdown branch: complexity 17 (max 10), 23 statements (max 20). Dropping the disables needs the element chain replaced by a per-variant dispatch table (the four same-signature branches — pre/code/p/blockquote — plus the `label` branch lifted into its own helper); extracting one more variant will not do it.
+  text: ({ elementProps, content, renderedChildren, component, rawProps, designStyles }) => {
     const c = (component ?? {}) as Record<string, unknown>
     const element = c['element'] as string | undefined
     const headingLevel = element ? HEADING_LEVELS[element] : undefined
@@ -102,12 +103,15 @@ export const textComponents: Partial<Record<DispatchableComponentType, Component
     // wrapper carries the schema-level `elementProps` (className/id/data-testid)
     // so author attributes survive the markdown branch.
     if (rawProps?.['format'] === 'markdown' && typeof content === 'string') {
-      const safeHtml = renderTextComponentMarkdown(content)
+      const safeHtml = applyProsePartClasses(
+        renderTextComponentMarkdown(content),
+        designStyles?.parts
+      )
       return (
         <article
           {...omitInternalMarkers(elementProps)}
           data-component="markdown"
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; HTML is pre-rendered + canonically sanitised
+          // eslint-disable-next-line sovrium/require-sanitized-html -- sanitizeRichTextHTML output; applyProsePartClasses only adds escaped class and data-part attributes
           dangerouslySetInnerHTML={{ __html: safeHtml }}
         />
       )

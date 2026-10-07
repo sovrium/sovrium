@@ -139,10 +139,10 @@ export const handleHealthCheck = async (c: Context, app: App, auth?: SessionRead
     return c.json(data, 200)
   } catch (error) {
     logError('[Health] Health response could not be built', error)
-    // The canonical envelope, like every other 500 on this API. It used to
-    // emit `{ error, code: 'HEALTH_CHECK_FAILED' }` — a body with no
-    // `message`, carrying a code that is not in `ApiErrorCode` and that no
-    // client could branch on.
+    // The canonical envelope, like every other 500 on this API — not a bespoke
+    // `{ error, code: 'HEALTH_CHECK_FAILED' }`, which has no `message` and
+    // carries a code that is not in `ApiErrorCode` and that no client could
+    // branch on.
     return internalError(c)
   }
 }

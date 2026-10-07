@@ -57,7 +57,6 @@ const LANGUAGE_WRITING_PATHS: ReadonlyMap<string, 'body' | 'data'> = new Map([
  * clearing their preference, which is exactly how a person returns to the
  * default and must always be allowed.
  */
-// eslint-disable-next-line functional/prefer-immutable-types
 const readLanguageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): unknown => {
   const body = ctx.body as { language?: unknown; data?: { language?: unknown } } | undefined
   if (location === 'data') {
@@ -131,7 +130,6 @@ export const acceptedPreferenceLanguages = (
  * what to fix.
  */
 export function applyLanguagePreferenceGuard(
-  // eslint-disable-next-line functional/prefer-immutable-types -- the Better Auth hook context is mutable by its own type
   ctx: AuthMiddlewareCtx,
   languages: Languages | undefined
 ) {
@@ -146,7 +144,6 @@ export function applyLanguagePreferenceGuard(
     return
   }
 
-  // eslint-disable-next-line functional/no-throw-statements
   throw new APIError('BAD_REQUEST', {
     message:
       'That language is not one this app declares. Choose one of its supported languages, or send `language: null` to clear the preference.',

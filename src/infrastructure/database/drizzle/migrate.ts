@@ -13,7 +13,8 @@ import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
 import { migrate as migratePg } from 'drizzle-orm/bun-sql/migrator'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import { migrate as migrateSqlite } from 'drizzle-orm/bun-sqlite/migrator'
-import { Effect, Data } from 'effect'
+import { Effect } from 'effect'
+import { DatabaseConnectionError } from '@/application/ports/services/database-migrator'
 import { adminSearchFtsBootStatements } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
 import {
   postgresClientOptions,
@@ -46,21 +47,17 @@ import type { DatabaseDialectConfig } from '@/domain/models/process-env/database
 /**
  * The driver's own words, not the wrapper's.
  *
- * Every `catch:` below used to be a bare `String(error)`. On a `DrizzleQueryError`
- * that yields `Failed query: <sql>` and nothing else — the driver's message
+ * No `catch:` below is a bare `String(error)`. On a `DrizzleQueryError` that
+ * yields `Failed query: <sql>` and nothing else — the driver's message
  * (`relation "auth.oauth_resource" already exists`) lives on `.cause`, one hop
- * away and invisible. That is the same defect class that hid the v0.23.0 root
- * cause from everyone reading the logs.
+ * away and invisible. That defect class hid the v0.23.0 root cause from
+ * everyone reading the logs.
  */
 const driverMessage = (error: unknown): string => String(withCauseInMessage(error))
 
-/**
- * Error when database connection fails
- */
-export class DatabaseConnectionError extends Data.TaggedError('DatabaseConnectionError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+// Declared with the `DatabaseMigrator` port, which is how the boot sequence
+// reaches the migrator; re-exported here for every existing importer.
+export { DatabaseConnectionError }
 
 // Declared in `migration-error.ts` so `migration-folder.ts` can name it too
 // without an import cycle; re-exported here because this is where every
@@ -209,7 +206,6 @@ const runPostgresMigrations = (
     // `int8 -> string` contract true on the boot path as well, so the next
     // pre-flight to read a count does not have to know about the override.
     // Same reset, same reason as `buildClient()` in `db-bun.ts`.
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- driver-level connection setup; restores Bun's own documented default
     client.options.bigint = false
 
     // Test database connection first to fail fast on connection errors
@@ -268,7 +264,6 @@ const runSqliteMigrations = (
         // Create the parent dir first — `bun:sqlite` `{ create: true }` makes
         // the file but not its directory, and the zero-config default now lives
         // under `./.sovrium/`. Skip the in-memory sentinel (no filesystem path).
-        // eslint-disable-next-line functional/no-expression-statements -- filesystem prep before the synchronous driver open
         if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
         return new BunSqlite(path, { create: true })
       },

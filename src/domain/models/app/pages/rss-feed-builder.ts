@@ -189,10 +189,9 @@ interface BuildRssFeedXmlFromItemsInput {
  * `app.description`) when:
  *   - the meta field is absent or empty, or
  *   - it carries a per-record `$record.*` token (meaningless for a shared feed —
- * the [internal ref] fallback guard).
+ *     the pages publishing spec fallback guard).
  * `$t:` tokens resolve against `app.languages.default` (the feed is shared, so
  * the default locale wins regardless of any reader's locale —
- * [internal ref]).
  */
 export function resolveRssChannelIdentity(
   app: App,
@@ -284,7 +283,7 @@ ${itemsXml.join('\n')}
  *      fetching `records` from the database (so the slice here is purely
  *      defensive against caller bugs — the real cap lives in the fetcher).
  *
- *..018 the channel includes title, link,
+ * Per the pages publishing specs the channel includes title, link,
  * description, lastBuildDate, and an atom:link self-reference. Each item
  * carries title / link / description / pubDate / guid.
  */

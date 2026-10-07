@@ -23,8 +23,8 @@
  * `boundaries` allowlist in `[internal ref]`.
  *
  * Two further copies survived that consolidation because they live in
- * `presentation/api/routes/` rather than in `route-setup/` — the shared-views
- * and command-search limiters — and were folded in later. Read the list above as
+ * `presentation/api/routes/` rather than in `route-setup/` — among them the
+ * command-search limiter — and were folded in later. Read the list above as
  * a record of the first pass, not as an inventory: the callers are whatever
  * `rg -l rateLimitedResponse src` reports today.
  *
@@ -55,10 +55,8 @@ interface TooManyRequestsInput {
   /**
    * Whole seconds, emitted verbatim as the `Retry-After` header value.
    *
-   * Optional because one caller legitimately has no hint to give: the admin
-   * limiter in `auth-routes.ts` has always answered without the header. Adding
-   * one there would be a behaviour change rather than a refactor, so the
-   * envelope accommodates its absence instead of quietly inventing a value.
+   * Optional so a caller with no meaningful hint omits the header rather than
+   * inventing a value.
    */
   readonly retryAfterSeconds?: number
 }
@@ -71,7 +69,6 @@ interface TooManyRequestsInput {
  * assignable to the `Context` default. Only `c.json` is used.
  */
 export const tooManyRequestsResponse = <E extends Env, P extends string>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
   c: Context<E, P>,
   input: Readonly<TooManyRequestsInput>
 ): Response =>
@@ -92,7 +89,6 @@ export const tooManyRequestsResponse = <E extends Env, P extends string>(
  * limiter in front of an HTTP route returns once a caller is over its ceiling.
  */
 export const rateLimitedResponse = <E extends Env, P extends string>(
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
   c: Context<E, P>,
   retryAfterSeconds?: number
 ): Response =>

@@ -31,7 +31,7 @@
  * (the palette suppresses its runtime, `ai-chat` its island). `date-picker`,
  * `date-range-picker` and `dropdown-menu` carry no such flag, and adding one
  * would be a second, unrelated change to their DEFAULT cell — which
- * `[internal ref]`'s "every closed cell stays shut" clause would then
+ * an admin design system spec's "every closed cell stays shut" clause would then
  * be asserting against a moved baseline. The `specimenOpen` branch is inert by
  * construction: nothing reaches it without the state vocabulary's own `open`
  * reach, so the second gate buys nothing and costs a behaviour change.

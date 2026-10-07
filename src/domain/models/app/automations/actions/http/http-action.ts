@@ -29,6 +29,6 @@ export const HttpActionSchema: Schema.Codec<Action & { readonly type: 'http' }, 
     HttpPatchActionSchema,
     HttpDeleteActionSchema,
     HttpRequestActionSchema,
-  ]) as unknown as Schema.Codec<Action & { readonly type: 'http' }, unknown>
+  ]) as Schema.Codec<Action & { readonly type: 'http' }, unknown>
 /** @public */
 export type HttpAction = Schema.Schema.Type<typeof HttpActionSchema>

@@ -44,7 +44,7 @@ A stored record answers with its generated id, the field values, and the authors
 
 <!-- sovrium:options recordSchema -->
 
-`_aiCompute` appears only on a table declaring AI fields, and reports for each of them whether the value is the model's answer or the locally computed fallback. `_display` appears only where a relationship or a user field needs a human-readable label beside its stored key. Neither is present otherwise, so a client reading a plain table sees neither.
+`_aiCompute` appears only on a table declaring AI fields, and reports for each of them the caller may read whether the value is the model's answer or the locally computed fallback; a field hidden from the caller is left out of it, as it is left out of `fields`. `_display` appears only where a relationship or a user field needs a human-readable label beside its stored key. Neither is present otherwise, so a client reading a plain table sees neither.
 
 ## Record ids and relationship values are strings
 
@@ -90,6 +90,19 @@ The three actor keys resolve to the authenticated user's id. They are also reada
 | Record ids              | An id that is not a record key answers `404`, as a key no record holds does; in a batch body, an update skips it and a delete or restore answers `404`, as each does for a missing id |
 
 **`404` rather than `403` is the deliberate answer to every denial here.** A `403` states that the thing exists, which is exactly the fact an attacker is probing for. Making "absent" and "forbidden" indistinguishable means a caller walking ids learns nothing from the difference — and it means a `404` on a write is not proof the row is gone.
+
+## Measuring what a request costs the database
+
+Set `SOVRIUM_DB_QUERY_HEADER=on` and every response carries two headers that tell you how much database work it took:
+
+| Header                 | What it counts                                                       |
+| ---------------------- | -------------------------------------------------------------------- |
+| `X-Sovrium-Db-Queries` | The SQL statements issued while serving the request                  |
+| `X-Sovrium-Db-Rows`    | The rows the database returned while reading records for the request |
+
+The two answer different questions. A read that resolves something once per row shows up in the statement count; a read that loads a whole table to return one page costs a single statement and only shows up in the row count. A page of records, a grouped page and an aggregate read all cost the same statements and the same rows over a table of fifty rows as over a table of five thousand.
+
+The variable is off by default and should stay off in production: with it on, the counts let a caller tell a record that does not exist from one it may not see, which is exactly what the `404` answers above are there to hide. Turn it on in a test environment to pin a request's cost.
 
 ## Raw values and display values
 

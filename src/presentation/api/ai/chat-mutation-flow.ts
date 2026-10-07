@@ -154,10 +154,10 @@ export const evaluateMutationTurn = async (
 
   // Group memberships are resolved HERE, on the intent path, because the gap
   // they close is a whole-path omission and not a confirmation-replay concern
-  //. A `group:<name>` grant could never match the bare `userRole`
-  // this path used to pass, so every group grant was inert on the FIRST
-  // request as much as on a replay — the AI door and the records-API door
-  // disagreeing about who may open the same operation.
+  // A `group:<name>` grant can never match a bare `userRole`, so passing
+  // only the role would make every group grant inert on the FIRST request as
+  // much as on a replay — the AI door and the records-API door disagreeing
+  // about who may open the same operation.
   //
   // The confirmation branch above deliberately does NOT re-resolve them: a
   // stashed confirmation commits on the identity captured when it was issued,

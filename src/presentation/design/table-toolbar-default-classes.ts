@@ -7,9 +7,9 @@
 
 /**
  * The bar ABOVE the grid — the toolbar strip and its two button weights, the
- * search field and the way a hit is marked, and the segmented view switcher.
+ * search field and the way a hit is marked.
  *
- * One band, three controls, and a single shared constraint: none of them may
+ * One band, two controls, and a single shared constraint: none of them may
  * restate the button recipe. `button-default-classes.ts` already resolves to
  * the design exactly, so every control here COMPOSES it. The one class the
  * active state has to change goes through {@link swapUtility}, not through
@@ -166,66 +166,3 @@ export const computeTableSearchClasses = (): string => TABLE_SEARCH
  * why the row is here" without claiming a hue the data may already own.
  */
 export const computeTableSearchHitClasses = (): string => `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-
-// ──────────────────────────────────────────────────────────────────────────────
-// VIEW SWITCHER — grid / kanban / calendar / gallery, as ONE control
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: `display:inline-flex; border:1px solid #d3d3d3; border-radius:4px;
-// overflow:hidden`, item `padding:4px 10px; font-size:12px`, active
-// `background:#1e1e1e; color:#fafafa`, every item but the first
-// `border-left:1px solid #d3d3d3`.
-const TABLE_VIEW_SWITCHER = [
-  'inline-flex overflow-hidden',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  'border',
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
-
-/**
- * Compute the default className for the view-switcher GROUP.
- *
- * ## One segmented control, not four buttons
- * The switcher shipped as four independently bordered buttons separated by a
- * 4px gap, which says four unrelated actions where the truth is one control
- * with four positions — exactly one of which is always active. A segmented
- * control says that structurally: one border around the set, dividers inside
- * it, and no gap for the eye to read as separation.
- *
- * `overflow-hidden` is what lets the items' square corners sit inside the
- * group's rounded ones; without it the active fill paints past the radius at
- * both ends.
- */
-export const computeTableViewSwitcherClasses = (): string => TABLE_VIEW_SWITCHER
-
-const TABLE_VIEW_SWITCHER_ITEM = 'px-2.5 py-1 text-sm'
-
-/**
- * Compute the default className for one position of the view switcher.
- *
- * `first` suppresses the leading divider rather than the last one suppressing a
- * trailing rule: N positions need N-1 dividers, and hanging them off the LEFT
- * edge of every item but the first means the group's own border is never
- * doubled at either end.
- *
- * The active position takes the primary fill — the only place in the grid's
- * chrome that does, and the reason it can: a switcher's active position is a
- * statement about what the reader is looking at, which is the same class of
- * claim `+ New record` makes about what they can do.
- */
-export const computeTableViewSwitcherItemClasses = ({
-  active,
-  first = false,
-}: {
-  readonly active: boolean
-  readonly first?: boolean
-}): string =>
-  [
-    TABLE_VIEW_SWITCHER_ITEM,
-    first ? '' : `border-l border-[${v('sv-border-strong', T.borderStrong)}]`,
-    active
-      ? `bg-[${v('sv-primary', T.primary)}] text-[${v('sv-primary-fg', T.primaryFg)}]`
-      : `bg-[${v('sv-bg-raised', T.bgRaised)}] text-[${v('sv-fg', T.fg)}] hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ]
-    .filter(Boolean)
-    .join(' ')

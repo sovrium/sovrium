@@ -100,8 +100,8 @@ const probeCreatedByColumn = async (
  * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. Every probe runs on the `db`
  * facade — the SHARED pool — and this backs the two authenticated GDPR
  * endpoints, so it is a request path. The width is the number of distinct app
- * tables: config-bounded, which is precisely the provenance the 2026-07-25
- * incident had. Each probe is a single cheap catalog lookup, but cheapness caps
+ * tables: config-bounded, which is precisely the provenance a production
+ * pool-exhaustion incident had. Each probe is a single cheap catalog lookup, but cheapness caps
  * DURATION, not WIDTH; ten configured tables would still take ten of the ten
  * default pool slots and starve every co-firing request, including the session
  * lookup that authenticated this one.
@@ -131,7 +131,7 @@ const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]
   // The `db` facade drives `getExistingColumnNames` as a `RawSqlRunner` — it
   // carries `execute()` (Postgres) or `all()` (SQLite); the helper picks
   // whichever the active dialect needs (never the Postgres-only `db.execute`).
-  const runner = db as unknown as RawSqlRunner
+  const runner = db as RawSqlRunner
   return Effect.forEach(
     sanitized,
     (candidate) => wrap(() => probeCreatedByColumn(runner, candidate)),
@@ -256,7 +256,6 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
   cancelErasure: (userId) =>
     wrap(async () => {
       // SQL `NULL` literal clears the pending erasure.
-      // eslint-disable-next-line functional/no-expression-statements -- DB side effect
       await executeRaw(
         db,
         sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = NULL WHERE id = ${userId}`
@@ -272,19 +271,16 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       // read never surfaced it and the (integer-ms) purge sweep never matched.
       const scheduledValue = isSqliteRuntime() ? scheduledAt.getTime() : scheduledAt
       await db.transaction(async (tx) => {
-        // eslint-disable-next-line functional/no-expression-statements -- DB side effect
         await executeRaw(
           tx,
           sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledValue} WHERE id = ${userId}`
         )
         // Revoke ALL of the caller's sessions — the account is on its way out.
-        // eslint-disable-next-line functional/no-expression-statements -- DB side effect
         await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
       })
       // Those sessions went by raw SQL, which no Better Auth session-delete
       // hook sees: close the live realtime connections they opened now, with
       // the session-ended code, rather than at the next re-check.
-      // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect
       closeUserConnections(userId, SESSION_ENDED)
     }),
 })

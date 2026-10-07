@@ -65,6 +65,7 @@
 
 import { Schema } from 'effect'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The closed set of admin entity kinds the global search spans. The query
@@ -174,3 +175,25 @@ export const adminSearchResponseSchema = Schema.Struct({
 })
 
 export type AdminSearchResponse = typeof adminSearchResponseSchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/search`.
+ *
+ * `q` is a plain optional string, matching today's handler: it is trimmed by
+ * the use-case, an absent or blank term answers 200 with empty `groups`, and
+ * there is no length refusal. Deliberately NOT the shared `searchTermSchema`,
+ * whose 200-character ceiling would turn a long term into a 400 this route has
+ * never answered.
+ */
+export const adminSearchQuerySchema = Schema.Struct({
+  q: optionalField(
+    Schema.String.annotate({
+      description:
+        'The search term, matched across every admin entity kind. Trimmed; absent or blank answers an empty `groups` list, never a 404.',
+      examples: ['ada'],
+    })
+  ),
+}).annotate({ identifier: 'AdminSearchQuery' })
+
+/** @public */
+export type AdminSearchQuery = typeof adminSearchQuerySchema.Type

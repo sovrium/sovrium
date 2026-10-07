@@ -19,23 +19,21 @@ import {
   ArrayChipsCell,
   CodeInlineCell,
   CountBadgeCell,
-  FormulaReadonlyCell,
-  GeolocationCell,
   JsonPreviewCell,
   LinkedRecordPillCell,
   StatusPillCell,
   UserPillCell,
   type CellRenderer,
 } from './cell-renderers'
+import { DateCell, DateTimeCell, DurationCell } from './date-cells'
+import { FormulaReadonlyCell } from './formula-cell'
+import { GeolocationCell } from './geolocation-cell'
 import {
   AttachmentLinkCell,
   AttachmentListCell,
   BarcodeCell,
   CheckboxCell,
   ColorSwatchCell,
-  DateCell,
-  DateTimeCell,
-  DurationCell,
   ProgressCell,
   RatingCell,
   RichTextPreviewCell,

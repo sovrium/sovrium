@@ -79,7 +79,7 @@ export function buildInitScript(
     <script
       key={`init-${providerIndex}`}
       data-testid={`analytics-${provider.name}`}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
+      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
       dangerouslySetInnerHTML={{
         __html: provider.initScript,
       }}
@@ -114,7 +114,7 @@ export function buildMarkerScript(
     <script
       key={`marker-${providerIndex}`}
       data-testid={`analytics-${provider.name}`}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
+      // eslint-disable-next-line sovrium/require-sanitized-html -- operator-authored code from the validated app config, rendered verbatim by design: the config author is trusted, and sanitizing would strip the script
       dangerouslySetInnerHTML={{
         __html: `/* ${provider.name} analytics marker */`,
       }}
@@ -149,7 +149,6 @@ export function buildConfigScript(
       key={`config-${providerIndex}`}
       data-testid={`analytics-${provider.name}-config`}
       type="application/json"
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: serializeJsonForScript(provider.config),
       }}

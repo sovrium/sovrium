@@ -9,21 +9,22 @@ import {
   authPendingLabel,
   authSubmitLabel,
   defaultAuthFields,
+  isAccountFormMethod,
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
-import {
-  AUTH_ERROR_BANNER_STYLE,
-  AUTH_SUCCESS_BANNER_STYLE,
-  computeAuthFeedbackBannerClasses,
-  computeFormLayoutClasses,
-} from '@/presentation/design/form-layout-classes'
+import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { AccountMethodBoundary } from './account-method-boundary'
+import { AuthFormFeedback } from './auth-form-feedback'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { OAuthSignInForm } from './auth-form-oauth'
+import { PasskeyForm } from './auth-form-passkey'
+import { SsoSignInForm, type SsoButtonProvider } from './auth-form-sso'
 import { useAuthFormState } from './auth-form-state'
-import { type AuthState, type ToastConfig } from './auth-form-submit'
+import { type ToastConfig } from './auth-form-submit'
+import { AuthSuccessPage, type AuthSuccessPageConfig } from './auth-form-success-page'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,68 +64,48 @@ interface AuthFormIslandProps {
    * rather than silently becoming a different form.
    */
   readonly provider?: string
+  /** `verifyTwoFactor`'s factor and its "Trust this device" offer (`account-method-form`). */
+  readonly factor?: string
+  readonly trustDevice?: boolean
+  /** The query key an invitation answer reads its token from (`page.invitation.param`). */
+  readonly tokenParam?: string
+  /** The island's own words in the page language, where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
+  /** The `auth.sso` providers a `strategy: 'sso'` form draws a button for. */
+  readonly ssoProviders?: readonly SsoButtonProvider[]
   readonly successToast?: ToastConfig
   readonly errorToast?: ToastConfig
+  /** `onSuccess.type: 'successPage'`: the page that replaces the form once sent. */
+  readonly successPage?: AuthSuccessPageConfig
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
   readonly initialValues?: Record<string, string>
 }
 
-// ---------------------------------------------------------------------------
-// Feedback sub-component
-// ---------------------------------------------------------------------------
-
-function AuthFormFeedback({ state }: { readonly state: AuthState }) {
-  if (state.error) {
-    return (
-      <div
-        data-error=""
-        role="alert"
-        className={computeAuthFeedbackBannerClasses()}
-        style={AUTH_ERROR_BANNER_STYLE}
-      >
-        {state.error}
-      </div>
-    )
-  }
-  if (state.success) {
-    return (
-      <div
-        data-error=""
-        data-success=""
-        role="status"
-        className={computeAuthFeedbackBannerClasses()}
-        style={AUTH_SUCCESS_BANNER_STYLE}
-      >
-        {state.success}
-      </div>
-    )
-  }
-  // No result yet — an empty, hidden slot. `hidden` keeps it out of layout so it
-  // reserves no phantom gap in the form's flex stack, and matches the SSR
-  // skeleton's `<div data-error hidden />` byte-for-byte (the styled banner only
-  // ever appears post-submit, client-side, so hydration never sees a mismatch).
-  return (
-    <div
-      data-error=""
-      hidden
-    />
-  )
-}
+/** Stable empty list, so a form with no stamped provider does not re-render per pass. */
+const NO_SSO_PROVIDERS: readonly SsoButtonProvider[] = []
 
 // ---------------------------------------------------------------------------
 // Credential (email/password) branch
 // ---------------------------------------------------------------------------
 
+/** The fields a credential form draws: the server's, or the method's defaults. */
+const credentialFields = (props: AuthFormIslandProps): readonly AuthFormField[] =>
+  props.fields && props.fields.length > 0
+    ? props.fields
+    : defaultAuthFields(props.method, props.strategy)
+
+/** The submit and in-flight labels: the server-resolved ones, or the built-ins. */
+const credentialLabels = (props: AuthFormIslandProps) => ({
+  submitLabel: props.submitLabel ?? authSubmitLabel(props.method),
+  pendingLabel: props.pendingLabel ?? authPendingLabel(props.method),
+})
+
 function CredentialAuthForm(props: AuthFormIslandProps) {
   const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
-  const fields =
-    props.fields && props.fields.length > 0
-      ? props.fields
-      : defaultAuthFields(method, props.strategy)
-  const submitLabel = props.submitLabel ?? authSubmitLabel(method)
-  const pendingLabel = props.pendingLabel ?? authPendingLabel(method)
+  const fields = credentialFields(props)
+  const { submitLabel, pendingLabel } = credentialLabels(props)
 
   const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState({
     method,
@@ -133,7 +114,17 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
     redirectUrl,
     successToast,
     errorToast,
+    hasSuccessPage: props.successPage !== undefined,
   })
+
+  if (props.successPage !== undefined && state.sentValues !== undefined)
+    return (
+      <AuthSuccessPage
+        {...props}
+        config={props.successPage}
+        values={state.sentValues}
+      />
+    )
 
   return (
     <form
@@ -191,6 +182,34 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
  * not sit behind a conditional return.
  */
 export default function AuthFormIsland(props: AuthFormIslandProps) {
+  if (isAccountFormMethod(props.method)) {
+    return <AccountMethodBoundary {...props} />
+  }
+  if (props.strategy === 'sso') {
+    return (
+      <SsoSignInForm
+        providers={props.ssoProviders ?? NO_SSO_PROVIDERS}
+        callbackUrl={props.redirectUrl}
+        className={props.className}
+        id={props.id}
+        data-testid={props['data-testid']}
+      />
+    )
+  }
+  // `registerPasskey` is not a credential method, so it sits outside `AuthMethod`.
+  const registers = (props.method as string) === 'registerPasskey'
+  if (props.strategy === 'passkey' || registers) {
+    return (
+      <PasskeyForm
+        mode={registers ? 'register' : 'sign-in'}
+        label={props.submitLabel}
+        callbackUrl={props.redirectUrl}
+        className={props.className}
+        id={props.id}
+        data-testid={props['data-testid']}
+      />
+    )
+  }
   if (props.strategy === 'oauth') {
     return (
       <OAuthSignInForm

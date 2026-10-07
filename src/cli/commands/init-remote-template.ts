@@ -56,7 +56,6 @@ export const isRemoteTemplateRef = (input: string): boolean =>
 
 const fail = (message: string): never => {
   printStderr(`Error: ${message}`)
-  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
@@ -124,11 +123,14 @@ const downloadTarball = async (refSpec: RemoteTemplateRef, tempDir: string): Pro
     return fail(`template URL rejected (${validation.issue.reason}): ${url}`)
   }
 
-  const response = await withFetchTimeout(validation.url, {}, FETCH_TIMEOUT_MS).catch(
-    (error: unknown) =>
-      fail(
-        `could not reach ${new URL(url).host} (${error instanceof Error ? error.message : String(error)}) — check your network or use a bundled template name`
-      )
+  const response = await withFetchTimeout(
+    validation.url,
+    { redirect: 'follow' },
+    FETCH_TIMEOUT_MS
+  ).catch((error: unknown) =>
+    fail(
+      `could not reach ${new URL(url).host} (${error instanceof Error ? error.message : String(error)}) — check your network or use a bundled template name`
+    )
   )
   if (response.status === 404) {
     return fail(
@@ -143,7 +145,6 @@ const downloadTarball = async (refSpec: RemoteTemplateRef, tempDir: string): Pro
   // a `tar` binary on PATH, and the tarball goes straight from the response into
   // `tempDir` without landing on disk first.
   try {
-    // eslint-disable-next-line functional/no-expression-statements
     await new Bun.Archive(await response.arrayBuffer()).extract(tempDir)
   } catch (error) {
     return fail(
@@ -179,9 +180,7 @@ const copyOneFile = async (
   clobber: boolean
 ): Promise<boolean> => {
   if (!clobber && (await Bun.file(destPath).exists())) return false
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(dirname(destPath), { recursive: true })
-  // eslint-disable-next-line functional/no-expression-statements
   await Bun.write(destPath, Bun.file(srcPath))
   return true
 }

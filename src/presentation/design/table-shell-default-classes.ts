@@ -340,14 +340,14 @@ export const computeTableStickyHeaderClasses = (): string => TABLE_STICKY_HEADER
 // overflow:hidden; text-overflow:ellipsis`.
 //
 // The padding is FIXED and does NOT follow `rowHeight`. That decoupling is the
-// reason this part exists: the header used to interpolate the BODY's density
-// map, so switching a grid to `tall` grew the column labels' padding to 16px
-// alongside the data — turning a density control for the ROWS into one that
-// also inflated the chrome above them. A header is chrome; its size is a
+// reason this part exists: a header interpolating the BODY's density map would
+// grow the column labels' padding to 16px alongside the data when a grid
+// switches to `tall` — turning a density control for the ROWS into one that
+// also inflates the chrome above them. A header is chrome; its size is a
 // constant of the design, not of how much air the reader wants around values.
 //
 // `--sv-density-row-y` rather than a `5px` literal: the token's default IS
-// 5px, so nothing moves, but an authored `design.density` now reaches it.
+// 5px, so the default is unchanged, and an authored `design.density` reaches it.
 //
 // The bottom padding carries HALF A PIXEL more than the top, and that is a fact
 // about collapsed borders: the header cell's 1px rule is shared with the first

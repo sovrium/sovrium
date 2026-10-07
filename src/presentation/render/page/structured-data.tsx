@@ -116,7 +116,6 @@ function renderTaggedJsonLdArray(
         <script
           key={`${entry.type}-${index}`}
           type="application/ld+json"
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
             __html: serializeJsonForScript(expandTaggedJsonLd(entry)),
           }}
@@ -138,7 +137,6 @@ function renderOrchestratorJsonLd(structuredData: object): Readonly<ReactElement
         <script
           key={key}
           type="application/ld+json"
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
             __html: serializeJsonForScript(value),
           }}
@@ -171,7 +169,6 @@ function renderDirectJsonLdArray(
         <script
           key={`synth-${index}`}
           type="application/ld+json"
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
             __html: serializeJsonForScript(doc),
           }}
@@ -202,7 +199,6 @@ function renderAuthoredStructuredData(structuredData: object): Readonly<ReactEle
     return (
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
         dangerouslySetInnerHTML={{
           __html: serializeJsonForScript(structuredData),
         }}
@@ -220,7 +216,7 @@ export function StructuredDataScript({
   readonly page: Page
   /**
    * Auto-synthesised JSON-LD documents for content-directory pages
-   *. Rendered ONLY when the author did not
+   * Rendered ONLY when the author did not
    * provide `meta.schema` — the resolver already enforces author-wins by
    * returning an empty array in that case.
    */

@@ -10,6 +10,7 @@ import { resolvesWithoutAppTablesEntry } from '@/domain/models/app/pages/table-n
 import { isSystemFieldName } from '@/domain/models/app/tables/system-fields'
 import { SystemSourceRefSchema } from '../../../../../system-sources'
 import { RowClickActionSchema } from '../../../action'
+import { AuthSourceSchema } from '../../../auth-source'
 import { DataSourceSchema } from '../../../data-source'
 import { DataTablePaginationSchema } from '../../../pagination'
 import { optBool } from '../../../shared-schemas'
@@ -22,21 +23,16 @@ import { visibilityFields } from '../../modules/visibility'
 import { DataTableBulkActionSchema } from './bulk-actions'
 import { validateColumnDisplayFields } from './column-display-field-validation'
 import { DataTableColumnSchema } from './columns'
-import { DataTableGroupBySchema } from './group-by'
 import { DataTableLayoutSchema } from './layout'
 import { DataTableRowExpandConfigSchema } from './row-expand'
 import { DataTableSelectionSchema } from './selection'
 import { staticRowFields } from './static-rows'
 import { DataTableSummaryItemSchema } from './summary'
-import { DataTableToolbarSchema } from './toolbar'
 import {
   collectDataTableComponents,
   collectDataTableRowColorBindings,
-  DataTableKanbanGroupBySchema,
-  DataTableViewLabelsSchema,
-  DataTableViewsSchema,
-  type DataTableViewBindings,
-} from './view-types'
+} from './table-components-service'
+import { DataTableToolbarSchema } from './toolbar'
 
 // Re-exported through this module — and so through the directory barrel — for
 // the same reason `tableFields` was consolidated here: a data-table's config
@@ -63,18 +59,13 @@ export const RowHeightSchema = Schema.Literals(['short', 'medium', 'tall']).anno
  * DB-table data source — the shared {@link DataSourceSchema}, which is what
  * actually DECODES.
  *
- * There used to be a second, hand-written `DataTableDbDataSourceSchema` here
- * declaring `{ table, view?, filter?, sort? }`. It drove the `DataTable` TYPE
- * and this file's cross-validator while `tableFields` — the record
- * `ComponentSchema` really decodes — bound the shared schema instead. The two
- * had drifted 14 keys apart, and the drift was not harmless: `view` was on the
- * type, documented in this file's own `@example`, and cross-checked by the
- * validator, yet `sovrium validate` REJECTED it as an unknown property. Exactly
- * the shape of the `defaultSort` bug deleted before it.
+ * An alias, not a second hand-written schema: a separate definition driving the
+ * `DataTable` TYPE and this file's cross-validator would drift from the record
+ * `ComponentSchema` really decodes — a key on the type, documented and
+ * cross-checked, yet REJECTED by `sovrium validate` as an unknown property.
  *
- * Aliased rather than deleted outright so the name in this file's validators
- * keeps meaning something, but it is now the shared definition — there is no
- * second source left to drift from.
+ * The name is kept so this file's validators read naturally, but it is the
+ * shared definition — there is no second source to drift from.
  */
 export const DataTableDbDataSourceSchema = DataSourceSchema
 
@@ -98,9 +89,9 @@ export const DataTableDbDataSourceSchema = DataSourceSchema
  *    `cellStyle`) render against those rows;
  *  - `app.tables` column cross-validation is SKIPPED (the columns describe the
  *    endpoint's shape, not a declared table);
- *  - DB-table-only features are gated OFF: record CRUD writes, saved/user views,
- *    user-preferences, realtime/SSE, and CSV import. Sort / filter / search /
- *    pagination remain ON (read-only, endpoint/client-side).
+ *  - DB-table-only features are gated OFF: record CRUD writes, realtime/SSE,
+ *    and CSV import. Sort / filter / search / pagination remain ON (read-only,
+ *    endpoint/client-side).
  *
  * @example
  * ```yaml
@@ -139,11 +130,12 @@ export const DataTableDataSourceSchema = Schema.Union([
     description: 'System read-endpoint binding for the data table',
   }),
   SystemSourceRefSchema,
+  AuthSourceSchema,
 ]).annotate({
   identifier: 'DataTableComponentDataSource',
   title: 'Data Table Data Source',
   description:
-    'DB-table binding (DataSource), an inline system read-endpoint binding, OR a named app.systemSources reference',
+    'DB-table binding (DataSource), an inline system read-endpoint binding, a named app.systemSources reference, OR an account list the server scopes to the reader (auth)',
 })
 
 // ---------------------------------------------------------------------------
@@ -160,6 +152,21 @@ export const DataTableDataSourceSchema = Schema.Union([
  * It lives in `schema.ts` rather than the sibling `index.ts` purely to break the
  * import cycle that deriving the composite would otherwise create; `index.ts`
  * re-exports it, so every existing import path is unchanged.
+ *
+ * ─── WHAT A GRID DOES NOT DECLARE ──────────────────────────────────────────
+ *
+ * A way of looking at a table is CONFIGURATION ON THE TABLE, never a feature of
+ * a page component: lasting filters, sorts, grouping and the visible field set
+ * are a view in `tables[].views[]`, and the grid binds it with
+ * `dataSource.view`. So the grid carries no `views` switcher, no `viewLabels`,
+ * no `groupBy`, no `kanbanGroupBy`/`dateField` for switched-in board and
+ * calendar modes, and its toolbar no saved-views menu, density, column toggle or
+ * group-by picker — a board and a calendar of the same records are a `kanban`
+ * and a `calendar` component, each with its own binding. Every removed key is
+ * refused at load with a message naming its replacement
+ * (`removed-table-keys.ts`). Bound to a table directly, the grid may still
+ * narrow it with `dataSource.filter` / `dataSource.sort`; bound to a view, the
+ * view owns those and the grid must not redeclare them.
  *
  * ─── ONE BAG, TWO MODES ────────────────────────────────────────────────────
  *
@@ -216,7 +223,7 @@ export const tableFields = {
    *
    * Re-binding such a grid to a system source over `/api/tables/:table/records`
    * looks equivalent and is not: inline edit, the typed create modal, the
-   * `_canCreate` gate, saved views and density are all gated on
+   * `_canCreate` gate and the column derivation are all gated on
    * `!isSystemSource` by construction. A system source would render rows and
    * silently drop the entire record-CRUD feature set the grid exists for.
    *
@@ -250,7 +257,6 @@ export const tableFields = {
   ),
   selection: Schema.optional(DataTableSelectionSchema),
   pagination: Schema.optional(DataTablePaginationSchema),
-  groupBy: Schema.optional(DataTableGroupBySchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
       Schema.annotate({ description: 'Summary row with aggregate computations' }),
@@ -258,6 +264,15 @@ export const tableFields = {
     )
   ),
   toolbar: Schema.optional(DataTableToolbarSchema),
+  /**
+   * Draw the grid as a reading, whatever the reader may write: no New record,
+   * no Import, no add-row line and no in-cell editing. Search, sort, filters
+   * and export stay. Presentation only — the records API answers exactly as it
+   * would without it.
+   */
+  readOnly: optBool(
+    'Draw the grid as a reading even for a reader who may write the table: no New record, Import or add-row line and no in-cell editing, while search, sort, filters and export stay. The records API is unchanged.'
+  ),
   bulkActions: Schema.optional(
     Schema.Array(DataTableBulkActionSchema).pipe(
       Schema.annotate({ description: 'Actions available when rows are selected' }),
@@ -301,33 +316,27 @@ export const tableFields = {
     Schema.Boolean.annotate({ description: 'Show row number column' })
   ),
   /**
-   * View types the `toolbar.viewSwitcher` offers, in tab order. Switching is a
-   * PRESENTATION change over the same bound dataset — active filters, sorts,
-   * search and grouping survive a switch untouched. Omitted means grid only,
-   * which is the behaviour of every config written before this field existed.
-   */
-  views: Schema.optional(DataTableViewsSchema),
-  /** Localizable labels for the view-switcher controls (each becomes an aria-label) */
-  viewLabels: Schema.optional(DataTableViewLabelsSchema),
-  /** Field grouping records into columns when the kanban view is active */
-  kanbanGroupBy: Schema.optional(DataTableKanbanGroupBySchema),
-  /** Date/datetime field positioning records when the calendar view is active */
-  dateField: Schema.optional(
-    Schema.String.annotate({
-      description:
-        'Date or datetime field that positions each record on the calendar view. Required whenever `views` includes `calendar`.',
-      examples: ['due_date', 'scheduled_at'],
-    })
-  ),
-  /**
    * Action fired when a row is clicked.
    *
    * Narrowed to the two variants the row-click handler implements
-   * (`navigate` / `openDrawer`) — see `RowClickActionSchema`. The full
-   * `ActionSchema` used to be accepted here, which let six variants validate
-   * and then silently do nothing at runtime.
+   * (`navigate` / `openDrawer`) — see `RowClickActionSchema`. Accepting the
+   * full `ActionSchema` would let six variants validate and then silently do
+   * nothing at runtime.
    */
   onRowClick: Schema.optional(RowClickActionSchema),
+  /**
+   * How the grid reads on a phone. `scroll` (the default) keeps the grid and
+   * scrolls it sideways; `rows` turns each row into a two-line item — the
+   * first column as its title, the next two as its second line — so a phone
+   * reader scans down rather than across. Applies below the `sm` breakpoint
+   * only; wider screens always draw the grid.
+   */
+  phoneLayout: Schema.optional(
+    Schema.Literals(['scroll', 'rows']).annotate({
+      description:
+        'How the grid reads below the sm breakpoint: scroll (default, the grid scrolls sideways) or rows (each row becomes a two-line item, the first column as its title and the next two beneath it).',
+    })
+  ),
   /**
    * Expand a row into its full record — the grid's own record panel, replacing
    * the `onRowClick: openDrawer` + sibling record-bound `drawer` hand-wiring.
@@ -343,12 +352,11 @@ export const tableFields = {
 /**
  * Data Table Schema — the SAME fields the decoder uses, nothing more.
  *
- * Built from {@link tableFields} rather than re-declared. It used to be a
- * second, hand-written `Schema.Struct` listing 21 keys while the decoder used a
- * 26-key record, with nothing linking them; the two had already drifted in both
- * directions (`defaultSort` typed but rejected at validate, `autoSave` decoded
- * but absent from `keyof DataTable`), and each drift cost a full RED cycle to
- * find. Derivation makes the class of bug unrepresentable: a key added here IS
+ * Built from {@link tableFields} rather than re-declared. A second,
+ * hand-written `Schema.Struct` with nothing linking it to the decoder's record
+ * would drift in both directions (a key typed but rejected at validate, or
+ * decoded but absent from `keyof DataTable`). Derivation makes the class of
+ * bug unrepresentable: a key added here IS
  * a key the decoder accepts, because there is only one list.
  *
  * `DataTable` (the type) is what {@link validateDataTableColumns} reads, so it
@@ -414,7 +422,6 @@ export const DataTableSchema = Schema.Struct(tableFields).annotate({
  *
  * Checks:
  * - Field columns reference fields that exist in the table
- * - groupBy field exists in the table
  * - Summary fields exist in the table
  * - dataSource.sort fields exist in the table
  * - dataSource.filter fields exist in the table
@@ -429,8 +436,7 @@ export function validateDataTableColumns(
 ): { readonly valid: boolean; readonly errors: readonly string[] } {
   // System-source binding: columns describe the endpoint envelope, NOT a declared
   // table — skip app.tables cross-validation entirely (contract requirement #3).
-  // The view-type PRESENCE rule still applies: it asks whether the author wrote
-  // the config a listed view needs, which is decidable without a table.
+  // The row-expand STRUCTURE rule still applies: it is decidable without a table.
   //
   // `dataSource` is OPTIONAL, and this additionally runs against the RAW parsed
   // config (see `validateDataTableFieldReferences`), where even a declared type
@@ -440,15 +446,9 @@ export function validateDataTableColumns(
   // crashed CLI. A component with no object `dataSource` binds to nothing this
   // rule can check, so it is skipped exactly as an unresolvable table name is.
   //
-  // The type used to say `dataSource` was required. That was the hand-written
-  // duplicate talking: the decoder never required it, which is why this guard
-  // had to exist in the first place. The two now agree.
+  // The decoder does not require `dataSource`, and neither does the type.
   const { dataSource } = dataTable
-  const presenceErrors = [
-    ...validateViewTypePresence(dataTable),
-    ...validateGroupByLevels(dataTable),
-    ...validateRowExpand(dataTable),
-  ]
+  const presenceErrors = validateRowExpand(dataTable)
   if (typeof dataSource !== 'object' || dataSource === null || !('table' in dataSource)) {
     return { valid: presenceErrors.length === 0, errors: presenceErrors }
   }
@@ -529,20 +529,6 @@ function validateDbTableColumns(
     return []
   })
 
-  // Every grouping level is checked, not just the primary one. A typo in a
-  // `thenBy` level is the same authoring mistake as a typo in `groupBy.field`
-  // and has to fail the same way: checking only the first level would make the
-  // nested levels the one part of the config where a misspelt field validates
-  // and renders nothing.
-  const groupByErrors: readonly string[] = dataTable.groupBy
-    ? [
-        ...checkField(dataTable.groupBy.field, 'groupBy'),
-        ...(dataTable.groupBy.thenBy ?? []).flatMap((level, index) =>
-          checkField(level.field, `groupBy.thenBy[${index}]`)
-        ),
-      ]
-    : []
-
   const summaryErrors: readonly string[] = (dataTable.summary ?? []).flatMap((item) =>
     checkField(item.field, 'summary')
   )
@@ -564,99 +550,15 @@ function validateDbTableColumns(
 
   const errors = [
     ...columnErrors,
-    ...groupByErrors,
     ...summaryErrors,
     ...rowExpandErrors,
     ...dataSourceSortErrors,
     ...dataSourceFilterErrors,
-    ...validateViewTypeBindings(dataTable, checkField),
   ]
 
   return { valid: errors.length === 0, errors }
 }
 
-/**
- * EXISTENCE half of the view-type contract — the field a view type binds to
- * must exist on the bound table. DB-table binding only; see
- * {@link validateViewTypePresence} for the half that applies everywhere.
- */
-function validateViewTypeBindings(
-  dataTable: DataTable,
-  checkField: (field: string, context: string) => readonly string[]
-): readonly string[] {
-  return [
-    ...(dataTable.kanbanGroupBy ? checkField(dataTable.kanbanGroupBy.field, 'kanbanGroupBy') : []),
-    ...(dataTable.dateField === undefined ? [] : checkField(dataTable.dateField, 'dateField')),
-  ]
-}
-
-/**
- * PRESENCE half of the view-type contract — every view type listed in `views`
- * carries the config it needs to render.
- *
- * `kanban` needs a field to build columns from; `calendar` needs a field to
- * position events on. `grid` and `gallery` need nothing beyond the binding.
- *
- * Declaring `views: ['kanban']` without `kanbanGroupBy` is an AUTHORING error,
- * not a runtime state, so it is refused at validation — the same contract the
- * surrounding validator already applies to a `groupBy` naming a field that does
- * not exist. A config that validates should render. The alternatives both ship
- * a broken surface that LOOKS deliberate: a silently disabled tab is
- * indistinguishable from one the author never declared, and an "explained empty
- * state" explains a mistake to the end user instead of to the author who can
- * fix it.
- *
- * Decidable without a table, so it applies to the system-source binding too —
- * that binding skips every other cross-check. What it cannot decide there is
- * whether the named key exists in the endpoint's rows; that residue surfaces at
- * runtime as an explained empty state, which is the honest split: the author
- * did everything statically checkable and the endpoint drifted.
- *
- * Nothing is inferred. There is deliberately no "first date field wins"
- * fallback — that silently repoints the calendar the day someone adds a
- * `createdAt` column.
- */
-export function validateViewTypePresence(dataTable: DataTableViewBindings): readonly string[] {
-  const views = dataTable.views ?? []
-  return [
-    ...(views.includes('kanban') && dataTable.kanbanGroupBy === undefined
-      ? [
-          "views: 'kanban' requires `kanbanGroupBy.field` — the field whose values become the board's columns",
-        ]
-      : []),
-    ...(views.includes('calendar') && dataTable.dateField === undefined
-      ? [
-          "views: 'calendar' requires `dateField` — the date field that positions each record on the calendar",
-        ]
-      : []),
-  ]
-}
-
-/**
- * STRUCTURAL half of the grouping contract — the levels must describe a real
- * hierarchy, independent of which table they bind to.
- *
- * One rule: **no field may appear twice across the levels.** Grouping by `stage`
- * and then by `stage` again puts exactly one sub-group inside every group — every
- * record in a group shares the value the group was formed on, so the second level
- * partitions nothing. It is always an authoring mistake (a copy-pasted level, or
- * a level the author meant to repoint), it costs a header row per group to render,
- * and there is no configuration for which it is the intended result.
- *
- * Refused rather than ignored, on the same terms as the view-type presence rules
- * above: a config that validates should render something the author meant.
- * Silently collapsing the duplicate level would leave an author staring at a grid
- * that ignores a line they wrote.
- *
- * Decidable without a table, so it applies to the system-source binding too —
- * that binding skips every other cross-check. What it cannot decide there is
- * whether the fields exist in the endpoint's rows; that residue is the same
- * honest split the view-type rule documents.
- *
- * The DEPTH limit is not enforced here — `thenBy`'s own `maxItems(2)` refuses a
- * fourth level at decode time, before this validator runs, and stating it twice
- * would give one mistake two voices.
- */
 /**
  * The field names a `rowExpand` DECLARES, or none.
  *
@@ -717,22 +619,6 @@ function validateRowExpand(dataTable: DataTable): readonly string[] {
   ]
 }
 
-function validateGroupByLevels(dataTable: DataTable): readonly string[] {
-  const { groupBy } = dataTable
-  if (!groupBy) return []
-
-  const levels = [groupBy.field, ...(groupBy.thenBy ?? []).map((level) => level.field)]
-  const duplicates = levels.filter(
-    (field, index) => typeof field === 'string' && levels.indexOf(field) !== index
-  )
-
-  return duplicates.length === 0
-    ? []
-    : [
-        `groupBy: field '${duplicates[0]}' is used by more than one grouping level. Each level must group by a different field — a repeated field puts exactly one sub-group inside every group, which partitions nothing.`,
-      ]
-}
-
 /**
  * Build `tableName → declared field names` from a RAW parsed config.
  *
@@ -759,20 +645,12 @@ function collectTableFieldNames(config: unknown): ReadonlyMap<string, readonly s
  * Raw-config entry point for the data-table field-reference sweep — the thing
  * that makes {@link validateDataTableColumns} actually run.
  *
- * That validator was written, unit-tested 26 ways, and then never wired to a
- * caller: `sovrium validate`'s post-decode sweeps reached the unknown-field-type
- * check, the view-type presence check and the `rowColorField` check, but nothing
- * ever cross-checked `columns[]`, `groupBy`, `summary`, `dataSource.sort` or
- * `dataSource.filter` against the bound table. A typo in any of them rendered an
- * empty column and said nothing.
+ * Without this entry point nothing would cross-check `columns[]`, `summary`,
+ * `dataSource.sort` or `dataSource.filter` against the bound table, and a typo
+ * in any of them would render an empty column and say nothing.
  *
- * This SUBSUMES the former standalone view-type presence sweep rather than
- * running alongside it: {@link validateDataTableColumns} already begins with
- * {@link validateViewTypePresence} and returns those errors for system-source
- * bindings too, so keeping both would report every presence error twice.
- *
- * RUN BY THE SHARED DECODE PIPELINE, not only by `sovrium validate`. This
- * comment used to say the reverse. See `runSemanticChecks` in
+ * RUN BY THE SHARED DECODE PIPELINE, not only by `sovrium validate`. See
+ * `runSemanticChecks` in
  * `application/use-cases/config/decode-app-config.ts` for why a check that fires
  * in one command and not another is itself the divergence the config contract
  * exists to close.
@@ -842,18 +720,10 @@ export {
 export { DataTableSelectionSchema } from './selection'
 export { DataTablePaginationSchema } from '../../../pagination'
 export { ComponentSearchSchema } from '../../../component-search'
-export { DataTableGroupBySchema } from './group-by'
 export { SummaryFunctionSchema, DataTableSummaryItemSchema } from './summary'
 export { DataTableToolbarSchema } from './toolbar'
 export { DataTableBulkActionSchema } from './bulk-actions'
-export {
-  DataTableViewTypeSchema,
-  DataTableViewsSchema,
-  DataTableViewLabelsSchema,
-  DataTableKanbanGroupBySchema,
-  collectDataTableViewBindings,
-  collectDataTableRowColorBindings,
-} from './view-types'
+export { collectDataTableRowColorBindings } from './table-components-service'
 
 // ---------------------------------------------------------------------------
 // Type exports
@@ -864,11 +734,9 @@ export type { FieldColumn, ActionColumn, DataTableColumn } from './columns'
 export type { DataTableSelection } from './selection'
 export type { DataTablePagination } from '../../../pagination'
 export type { ComponentSearch } from '../../../component-search'
-export type { DataTableGroupBy } from './group-by'
 export type { SummaryFunction, DataTableSummaryItem } from './summary'
 export type { DataTableToolbar } from './toolbar'
 export type { DataTableBulkAction } from './bulk-actions'
-export type { DataTableViewType, DataTableViewLabels, DataTableKanbanGroupBy } from './view-types'
 export type RowHeight = Schema.Schema.Type<typeof RowHeightSchema>
 export type DataTableDbDataSource = Schema.Schema.Type<typeof DataTableDbDataSourceSchema>
 export type DataTableSystemSource = Schema.Schema.Type<typeof DataTableSystemSourceSchema>

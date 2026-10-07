@@ -287,7 +287,8 @@ const validateViewFields = (
 }
 
 /**
- * Validate that view groupBy references existing fields in the table.
+ * Validate that every level of a view's groupBy — the primary field and each
+ * nested `thenBy` level — references an existing field of the table.
  *
  * @param views - Array of views to validate
  * @param fieldNames - Set of valid field names in the table
@@ -296,20 +297,24 @@ const validateViewFields = (
 const validateViewGroupBy = (
   views: ReadonlyArray<{
     readonly id: string | number
-    readonly groupBy?: { readonly field: string }
+    readonly groupBy?: {
+      readonly field: string
+      readonly thenBy?: ReadonlyArray<{ readonly field: string }>
+    }
   }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  const invalidView = views
-    .filter(
-      (view): view is typeof view & { readonly groupBy: { readonly field: string } } =>
-        view.groupBy !== undefined
+  const missing = views
+    .flatMap((view) =>
+      view.groupBy === undefined
+        ? []
+        : [view.groupBy.field, ...(view.groupBy.thenBy ?? []).map((level) => level.field)]
     )
-    .find((view) => !fieldNames.has(view.groupBy.field) && !SPECIAL_FIELDS.has(view.groupBy.field))
+    .find((field) => !fieldNames.has(field) && !SPECIAL_FIELDS.has(field))
 
-  if (invalidView) {
+  if (missing !== undefined) {
     return {
-      message: `groupBy references non-existent field '${invalidView.groupBy.field}' - field not found in table`,
+      message: `groupBy references non-existent field '${missing}' - field not found in table`,
       path: ['views'],
     }
   }

@@ -70,13 +70,11 @@ export interface SyncKnowledgeStats {
  * does not expose but the bun-sqlite runtime client does. Centralizing the
  * branch keeps the dialect seam in one place.
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's native mutable `SQL` shape; wrapping in `Readonly<>` breaks the `db.execute`/`db.all` APIs which require `SQL`. Same rationale as the aggregation-helpers selectors.
 const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, unknown>>> => {
   if (isSqliteRuntime()) {
     // `db.all` exists on the bun-sqlite runtime client; the PG facade type omits
     // it, so reach it through a structural cast at this dialect seam.
     const sqliteDb = db as unknown as {
-      // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's native mutable `SQL` shape; the bun-sqlite `db.all` runtime signature takes `SQL`.
       all: (q: SQL) => ReadonlyArray<Record<string, unknown>>
     }
     return sqliteDb.all(query)
@@ -138,9 +136,9 @@ const loadKnowledgeRecords = (input: {
         return { id: String(row['id']), fields }
       })
     },
-    // Keep the cause so the tap below can name it. `catch: () => []` discarded
-    // it here AND again in the `orElseSucceed`, which is why a renamed table and
-    // an empty one used to produce byte-identical behaviour and no log line.
+    // Keep the cause so the tap below can name it. A `catch: () => []` here (and
+    // again in the `orElseSucceed`) would discard it, so a renamed table and an
+    // empty one would behave byte-identically with no log line.
     catch: (cause) => new KnowledgeTableUnreadable({ table: input.table, cause }),
   }).pipe(
     Effect.tapCause((cause) =>
@@ -225,7 +223,7 @@ const fieldGroupsOf = (entry: {
 
 /**
  * Embed a single agent's table-knowledge and persist it
- *.
+ * (the AI RAG table knowledge requirement / PER-AGENT-KNOWLEDGE).
  *
  * Pre-clears the agent's existing embeddings (`source_id` prefixed
  * `table-agent:<agent>:`) so re-running is idempotent — a rebuild replaces
@@ -315,7 +313,6 @@ export const runSyncKnowledgeAtStartup = async (input: {
     })
     .filter((agent) => agent.tables.length > 0)
   if (agents.length === 0) return
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget background logging (promise result intentionally discarded)
   await runSyncKnowledge(agents).catch((error: unknown) => {
     logError('[ai-rag] knowledge sync failed', error)
   })
@@ -363,7 +360,7 @@ const loadSingleRecord = async (input: {
 
 /**
  * Re-embed a single knowledge record after an `INSERT`/`UPDATE`
- *. Pre-clears that record's prior embeddings so
+ * Pre-clears that record's prior embeddings so
  * an update replaces rather than duplicates. When the record no longer
  * matches the entry's filter, its embeddings are simply removed.
  */
@@ -404,13 +401,11 @@ export const embedKnowledgeRecord = async (input: {
         swallowLogged('record embeddings not persisted', { sourceId, rows: String(rows.length) })
       )
   }).pipe(Effect.provide(RagSyncLayer))
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
 }
 
 /**
- * Remove every embedding for a single knowledge record after a `DELETE`
- *.
+ * Remove every embedding for a single knowledge record after a `DELETE`.
  */
 export const removeKnowledgeRecordEmbeddings = async (input: {
   readonly agentName: string
@@ -424,6 +419,5 @@ export const removeKnowledgeRecordEmbeddings = async (input: {
       .deleteBySourceIdPrefix(sourceId)
       .pipe(swallowLogged('record embeddings not removed', { sourceId }))
   }).pipe(Effect.provide(RagSyncLayer))
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
 }

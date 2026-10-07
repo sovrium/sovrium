@@ -1,0 +1,40 @@
+# sovrium-library: block/not-found-centered@0.30.0
+name: not-found-centered
+type: container
+element: main
+props:
+  className: 'px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24 flex min-h-[70vh] items-center justify-center'
+children:
+  - type: flex
+    props:
+      className: flex flex-col mx-auto max-w-2xl items-center gap-4 text-center
+    children:
+      - type: text
+        element: span
+        props:
+          className: font-mono text-md text-foreground-subtle
+        content: '404'
+      - type: text
+        element: h1
+        props:
+          className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05]'
+        content: This page does not exist
+      - type: text
+        element: p
+        props:
+          className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-md
+        content: 'The link may be old, or the address mistyped.'
+      - type: flex
+        props:
+          className: flex flex-col gap-3 sm:flex-row sm:items-center mt-4 w-full sm:w-auto sm:justify-center
+        children:
+          - type: link
+            props:
+              href: /
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+            content: Back to home
+          - type: link
+            props:
+              href: /contact
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+            content: '[Contact]'

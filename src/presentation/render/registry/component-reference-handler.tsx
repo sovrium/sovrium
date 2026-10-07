@@ -32,7 +32,6 @@ export function renderComponentReferenceError({
 }: ComponentReferenceErrorProps): ReactElement {
   return (
     <div
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR error fallback; rendered only when a component reference is missing
       style={{
         padding: '1rem',
         border: '2px dashed red',

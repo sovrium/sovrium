@@ -5,4 +5,5 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+export * from './catalog-specimen-axes'
 export * from './catalog-specimens'

@@ -71,10 +71,9 @@
  *
  * ─── IT IS A FRAME, NOT A SECOND HOST ──────────────────────────────────────
  *
- * The `/preview/:section` routes were retired in 2026-09-03 because a second
+ * There are no user-navigable `/preview/:section` routes: a second
  * user-navigable host for the same content is a second place for the scheme,
- * the rail and the specimen bounds to disagree. That ruling is not reversed
- * here. What this serves is the INSIDE of a frame: no heading, no rail, no
+ * the rail and the specimen bounds to disagree. This does not become one. What this serves is the INSIDE of a frame: no heading, no rail, no
  * chrome, no navigation, linked from nothing, and embeddable only by its own
  * origin (`frame-ancestors 'self'`, set by the route).
  */
@@ -99,7 +98,7 @@ export const componentFramePath = (name: string): string =>
  *
  * Everything else about a frame is deliberately isolated — that is what the
  * document boundary is FOR. The scheme is the exception: a light specimen
- * inside a dark console is `[internal ref]`'s defect wearing an
+ * inside a dark console is an admin design system spec's defect wearing an
  * `<iframe>`, and a reader reviewing a header in the dark cannot review the
  * dark header if the frame stays light.
  *
@@ -213,7 +212,7 @@ const framePage = (name: string, path: string, template: Component): Page =>
     // page of the operator's own takes to draw it — so the frame documents what
     // their pages render rather than a second interpretation of it.
     components: [{ component: (template as { readonly name?: string }).name ?? name }],
-  }) as unknown as Page
+  }) as Page
 
 /**
  * Build the app that renders one component's framed document.
@@ -263,5 +262,5 @@ export const buildComponentFrameApp = (
     badge: false,
     palette: { enabled: false },
     pages: [framePage(name, path, template as Component)],
-  } as unknown as App
+  } as App
 }

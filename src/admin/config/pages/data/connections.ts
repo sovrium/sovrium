@@ -145,6 +145,8 @@ const CONNECTIONS_COLUMNS = [
   {
     type: 'actions',
     label: '$t:admin.connections.col.actions',
+    // Authorize and disconnect are editor-only writes: the read-only tier gets no column.
+    capability: 'edit-operations',
     // ─── THE MAINTENANCE GESTURES RECEDE; THE ONE THAT SETS UP DOES NOT ──────
     //
     // The reference draws this column with `Reconnect` and `Disconnect` quiet

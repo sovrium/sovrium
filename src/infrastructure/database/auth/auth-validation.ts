@@ -54,7 +54,6 @@ export const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
  *
  * @throws BetterAuthUsersTableRequired if users table doesn't exist or lacks required columns
  */
-/* eslint-disable functional/no-throw-statements */
 export const ensureBetterAuthUsersTable = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   dialect: Dialect = defaultDialect()
@@ -108,7 +107,6 @@ export const ensureBetterAuthUsersTable = async (
 
   logDebug('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
 }
-/* eslint-enable functional/no-throw-statements */
 
 /**
  * Read the `id` column type from the SQLite `auth_user` table via
@@ -152,7 +150,6 @@ const readPostgresAuthUserIdType = async (tx: {
  * up. Running the PG `CREATE OR REPLACE FUNCTION` body on SQLite would crash
  * with a syntax error.
  */
-/* eslint-disable functional/no-expression-statements */
 export const ensureUpdatedByTriggerFunction = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   dialect: Dialect = defaultDialect()
@@ -167,4 +164,3 @@ export const ensureUpdatedByTriggerFunction = async (
     $$ LANGUAGE plpgsql
   `)
 }
-/* eslint-enable functional/no-expression-statements */

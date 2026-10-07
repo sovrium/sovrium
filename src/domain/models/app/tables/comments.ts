@@ -146,10 +146,8 @@ export const CommentsConfigSchema = Schema.Struct({
    * dashboard). Default `false` — no read-state is written and no `unreadCount`
    * is returned, preserving the stateless behavior.
    *
-   * Implemented: the per-user read-state, the mark-read endpoint, and
-   * the `unreadCount` projection ship as an opt-in capability. See
-   * `[internal ref]` [internal ref] and
-   * `[internal ref]`.
+   * The per-user read-state, the mark-read endpoint, and the `unreadCount`
+   * projection ship together as this one opt-in capability.
    */
   readTracking: Schema.optional(
     Schema.Boolean.pipe(

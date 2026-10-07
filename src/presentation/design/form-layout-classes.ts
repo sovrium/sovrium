@@ -78,6 +78,28 @@ export const computeFormLayoutClasses = (): string => 'flex w-full flex-col gap-
 export const computeFormFieldClasses = (): string => 'flex w-full flex-col gap-1'
 
 /**
+ * `labelPlacement: side` on a hosted form, set on the `<form>`: from the `md`
+ * breakpoint each field wrapper becomes a row — its label in a fixed column on
+ * the left, its control and help in the column beside — so every control starts
+ * on one vertical line. Below `md` the fields stack as they do by default.
+ */
+export const computeFormSideLabelClasses = (): string =>
+  'md:[&_.form-field]:grid md:[&_.form-field]:grid-cols-[12rem_minmax(0,1fr)] md:[&_.form-field]:items-start md:[&_.form-field]:gap-x-4 md:[&_.form-field>label]:pt-2 md:[&_.form-field>:not(label)]:col-start-2'
+
+/** A hosted form's `<form>` stack, its labels beside their controls under `labelPlacement: side`. */
+export const computeHostedFormLayoutClasses = (labelPlacement: string | undefined): string =>
+  labelPlacement === 'side'
+    ? `${computeFormLayoutClasses()} ${computeFormSideLabelClasses()}`
+    : computeFormLayoutClasses()
+
+/**
+ * The bar `stickyActions` pins to the bottom of the view while a form scrolls:
+ * the count of changed fields, Discard, and the submit.
+ */
+export const computeFormSaveBarClasses = (): string =>
+  'bg-background border-border sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t py-3'
+
+/**
  * The canonical control SURFACE — what an `<input>`, `<select>` or `<textarea>`
  * looks like when a form paints one itself.
  *

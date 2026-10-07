@@ -235,7 +235,7 @@ const renderOverflow = (hidden: number, size: AvatarSize): ReactElement | undefi
  * four to the DOM.
  */
 export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
-  const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
+  const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
   const size = sizeOf(source)
   const shape = shapeOf(source)

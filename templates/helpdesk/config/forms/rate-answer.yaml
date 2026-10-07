@@ -2,11 +2,14 @@
 # `/rate?ticket=<id>`; the ticket rides into the rating from the link, so the
 # requester only picks a score.
 #
-# Anyone with the link can rate, because the requester has no account. Two
-# things keep that small: a ticket takes one rating only (`unique` on
-# `ratings.ticket`), and the honeypot drops naive bots. A rating on a ticket
-# that is not resolved yet is still accepted — the form cannot check the
-# ticket's status — so the team reads ratings next to the ticket they rate.
+# Treat the rating as a signal, not a proof. The requester has no account, and
+# ticket ids are sequential numbers, so the link is not a secret: anyone can
+# open `/rate?ticket=5` and rate ticket 5. A ticket takes one rating only
+# (`unique` on `ratings.ticket`), which stops a link passed around from
+# piling up scores, but it also means whoever rates first is the one counted.
+# The form cannot check that the person rating is the person who wrote in, or
+# that the ticket is resolved yet. So the team reads each rating next to the
+# ticket it rates, and the honeypot drops naive bots.
 id: 2
 name: rate-answer
 title: How did we do?

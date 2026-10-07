@@ -19,6 +19,7 @@ import {
   OAuth2ConnectionSchema,
   TokenExchangeConnectionSchema,
 } from '@/domain/models/app/connections'
+import automationConnectionOperationsBody from '@/domain/models/app/connections/connection-operations.docs.md' with { type: 'file' }
 import automationConnectionsBody from '@/domain/models/app/connections/connections.docs.md' with { type: 'file' }
 import { EnvVarSchema } from '@/domain/models/app/env'
 import automationEnvVarsBody from '@/domain/models/app/env/env.docs.md' with { type: 'file' }
@@ -174,7 +175,6 @@ export const automations = defineSection({
         BasicConnectionSchema,
         BearerConnectionSchema,
         TokenExchangeConnectionSchema,
-        ConnectionOperationSchema,
       ],
       stories: [
         'US-AUTOMATIONS-CONNECTIONS-ACTION-AUTH',
@@ -186,7 +186,6 @@ export const automations = defineSection({
         'US-AUTOMATIONS-CONNECTIONS-DEFAULT-REDIRECT-URI',
         'US-AUTOMATIONS-CONNECTIONS-LONG-LIVED-TOKEN',
         'US-AUTOMATIONS-CONNECTIONS-OAUTH2-FLOW',
-        'US-AUTOMATIONS-CONNECTIONS-OPERATIONS',
         'US-AUTOMATIONS-CONNECTIONS-PER-USER-TOKENS',
         'US-AUTOMATIONS-CONNECTIONS-PROVIDER-SHORTHAND',
         'US-AUTOMATIONS-CONNECTIONS-RECONNECT-NEEDED',
@@ -194,6 +193,27 @@ export const automations = defineSection({
         'US-AUTOMATIONS-CONNECTIONS-TOKEN-REFRESH',
         'US-AUTOMATIONS-CONNECTIONS-TOKEN-RESPONSE-FIELDS',
       ],
+    }),
+    defineArticle({
+      slug: 'automation-connection-operations',
+      title: 'Connection Operations',
+      description:
+        'Declare the endpoints of a connected service once — method, path, typed parameters, a field-encoded or written body, pagination — and call them by name from any automation step.',
+      keywords: [
+        'sovrium',
+        'connections',
+        'operations',
+        'baseUrl',
+        'connection call',
+        'pagination',
+        'multipart/related',
+        'raw body',
+      ],
+      order: 5045,
+      sidebarLabel: 'Connection Operations',
+      body: automationConnectionOperationsBody,
+      documents: [ConnectionOperationSchema],
+      stories: ['US-AUTOMATIONS-CONNECTIONS-OPERATIONS'],
     }),
     defineArticle({
       slug: 'automation-env-vars',

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import backupBody from '@/cli/commands/backup.docs.md' with { type: 'file' }
 import changelogBody from '@/cli/commands/changelog.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
 import cliFlagsBody from '@/cli/commands/cli-flags.docs.md' with { type: 'file' }
@@ -240,6 +241,27 @@ export const section = defineSection({
       stories: ['US-CLI-COMMANDS-ADMIN'],
     }),
     defineArticle({
+      slug: 'backup-restore',
+      title: 'Back Up and Restore',
+      description:
+        'Write the database, the encryption key, the config tree and the uploads into one archive with sovrium backup, and put it back with sovrium restore.',
+      keywords: [
+        'sovrium backup',
+        'sovrium restore',
+        'backup',
+        'restore',
+        'pg_dump',
+        'encryption-key',
+        '--data-dir',
+        '--force',
+      ],
+      order: 1435,
+      sidebarLabel: 'Back Up & Restore',
+      body: backupBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-BACKUP-RESTORE'],
+    }),
+    defineArticle({
       slug: 'cli-flags',
       title: 'Global Flags & Exit Codes',
       description:
@@ -290,6 +312,7 @@ export const section = defineSection({
       documents: [],
       stories: [
         'US-CLI-CONFIG-VALIDATION',
+        'US-CLI-CONFIG-VALIDATION-REPORT',
         'US-CLI-DESIGN-SYSTEM',
         'US-CLI-STARTING-SERVER-CONFIG-SOURCES',
       ],

@@ -42,6 +42,5 @@ const AGENT_EMAIL_SUFFIX = '@agents.sovrium.local'
  * on it — the point is that adding one later cannot silently turn this exclusion
  * into a wildcard that stops excluding.
  */
-/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const notAnAgentAccount = (emailColumn: LikeOperand): SQL =>
   notEndsWithInsensitive(emailColumn, AGENT_EMAIL_SUFFIX)

@@ -38,7 +38,7 @@
  *     something that is not a sentence end just to produce two halves, would be
  *     a worse lie than no second register at all.
  *
- * `[internal ref]` asserts the first two directly, by rejoining what
+ * an admin design system spec asserts the first two directly, by rejoining what
  * the page rendered and by counting quote characters in the instruction.
  */
 

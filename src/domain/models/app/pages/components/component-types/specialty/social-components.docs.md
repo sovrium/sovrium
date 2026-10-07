@@ -58,6 +58,10 @@ Write `manual` where a config used `true`, and `auto` where it used `false`.
 
 Guest comments open a thread only where the record itself is open to a signed-out visitor: the table's gate wins. Reading the thread needs the table's `read` to be `all`, and posting needs, on top, a `comment` grant of `all` (or none). On a table whose `read` or `comment` is `authenticated` or a role list, a signed-out visitor gets on the thread the same `401` she gets on the record, and nothing is written.
 
+A post is judged by its gates before its body is checked. Under `auth-required` moderation a signed-out visitor is answered `401` whatever she sends, an empty or malformed body included; a post that fills the honeypot is silently discarded (`200` with `{ "success": true, "discarded": true }`, nothing stored) even when the rest of its body is malformed, so the trap reads as a success; the rate limit comes next, and only then is the body validated.
+
+A reply's parent must be a top-level comment on the same record. A parent that does not exist, or that belongs to another record — top-level or not — is refused with the same `404`, and nothing is stored; a parent on the same record that is itself a reply is refused with `422`.
+
 The guest form sends nothing until the page's script has run: its Post button waits for it, so a comment, a name or an email never travels in the page address.
 
 ### Count display

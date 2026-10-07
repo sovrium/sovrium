@@ -61,6 +61,7 @@ import {
   validateOutboundUrl,
 } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { isPrivateOutboundOptIn } from '@/infrastructure/process/security-posture'
 
 /**
  * How many redirects are followed before the chain is refused.
@@ -95,8 +96,12 @@ export type RedirectFollowResult =
       readonly message: string
     }
 
-/** The 3xx codes that carry a `Location` a client is expected to follow. */
-const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308])
+/**
+ * The 3xx codes that carry a `Location` a client is expected to follow. Shared
+ * with `guardedFetch`, so the two redirect walkers cannot come to disagree on
+ * what a redirect is.
+ */
+export const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308])
 
 /**
  * Whether plain `http` is acceptable for a hop to this host.
@@ -107,10 +112,9 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]
  * flag would quietly allow a hop to `http://example.com` under it.
  */
 const allowsPlainHttpHop = (hostname: string): boolean =>
-  process.env.SOVRIUM_ALLOW_PRIVATE_OUTBOUND === '1' && isPrivateOutboundHost(hostname)
+  isPrivateOutboundOptIn() && isPrivateOutboundHost(hostname)
 
 /** Refuse a hop whose scheme the operator never agreed to. */
-// eslint-disable-next-line functional/prefer-immutable-types -- URL is a Web standard interface with setters, so the immutability lint reads it as mutable; nothing here writes to it (same exemption as `with-fetch-timeout.ts`)
 const schemeRefusal = (from: string, to: URL): RedirectFollowResult | undefined => {
   if (to.protocol === 'https:') return undefined
   if (to.protocol === 'http:' && allowsPlainHttpHop(to.hostname)) return undefined
@@ -145,8 +149,7 @@ const guardRefusal = (from: string, to: string): RedirectFollowResult | undefine
  * holds its socket for as long as the process lives. `catch` because cancelling a
  * body that is already done is not an error worth propagating over a redirect.
  */
-const discardBody = async (response: Response): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- releasing the socket produces no value; the whole effect IS the side effect
+export const discardBody = async (response: Response): Promise<void> => {
   await response.body?.cancel().catch(() => undefined)
 }
 
@@ -155,7 +158,6 @@ const discardBody = async (response: Response): Promise<void> => {
  * a loop so the hop budget is a parameter instead of mutable state.
  */
 const requestHop = async (
-  // eslint-disable-next-line functional/prefer-immutable-types -- URL is a Web standard interface with setters, so the immutability lint reads it as mutable; nothing here writes to it (same exemption as `with-fetch-timeout.ts`)
   url: URL,
   origin: string,
   timeoutMs: number,
@@ -222,7 +224,6 @@ const requestHop = async (
  * @public
  */
 export const fetchFollowingRedirects = async (
-  // eslint-disable-next-line functional/prefer-immutable-types -- URL is a Web standard interface with setters, so the immutability lint reads it as mutable; nothing here writes to it (same exemption as `with-fetch-timeout.ts`)
   url: URL,
   timeoutMs: number
 ): Promise<RedirectFollowResult> => requestHop(url, url.href, timeoutMs, MAX_REDIRECT_HOPS)

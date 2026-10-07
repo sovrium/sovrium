@@ -1,0 +1,39 @@
+# sovrium-library: recipe/pennylane-invoices-to-table@0.30.0
+name: pennylane-invoices-to-table
+trigger:
+  type: cron
+  expression: 30 7 * * *
+actions:
+  - name: fetch
+    type: connection
+    operator: call
+    props:
+      connection: pennylane
+      operation: get-customer-invoices
+      params:
+        limit: 100
+      paginate: all
+  - name: fresh
+    type: state
+    operator: filterNew
+    props:
+      input: '{{steps.fetch.data}}'
+      key: id
+      namespace: pennylane
+  - name: fileEach
+    type: loop
+    operator: each
+    props:
+      items: '{{steps.fresh.items}}'
+      actions:
+        - name: fileInvoice
+          type: record
+          operator: create
+          props:
+            table: customer_invoices
+            data:
+              pennylane_id: '{{loop.item.id}}'
+              invoice_number: '{{loop.item.invoice_number}}'
+              amount: '{{loop.item.amount}}'
+              invoice_date: '{{loop.item.date}}'
+              status: '{{loop.item.status}}'

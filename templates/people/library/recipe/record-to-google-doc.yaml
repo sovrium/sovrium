@@ -1,0 +1,32 @@
+# sovrium-library: recipe/record-to-google-doc@0.30.0
+# Every person added to the directory gets their own copy of your welcome
+# document, named after them and shared with their email — they can read it
+# and comment, not rewrite it. Set the Google variables (see `.env.example`)
+# and connect the account from the admin console to turn it on.
+name: record-to-google-doc
+trigger:
+  type: record
+  table: employees
+  events:
+    - create
+actions:
+  - name: copy
+    type: connection
+    operator: call
+    props:
+      connection: google
+      operation: copy-file
+      params:
+        fileId: $env.ONBOARDING_DOC_TEMPLATE_ID
+        name: '{{trigger.data.record.name}}'
+  - name: share
+    type: connection
+    operator: call
+    props:
+      connection: google
+      operation: share-file
+      params:
+        fileId: '{{steps.copy.data.id}}'
+        role: commenter
+        type: user
+        emailAddress: '{{trigger.data.record.email}}'

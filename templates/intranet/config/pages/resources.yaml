@@ -32,7 +32,7 @@ components:
         content: Guides first, then the policies, then the tools you open every day.
       - type: list
         props:
-          className: rounded-lg border border-border bg-background-raised [&_li]:px-3
+          className: rounded-lg border border-border bg-background-raised
         dataSource:
           table: resources
           sort:
@@ -46,3 +46,7 @@ components:
             badge: $record.category
             metadata:
               - { field: url, format: text }
+
+        classes:
+          parts:
+            item: px-3

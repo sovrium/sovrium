@@ -637,6 +637,22 @@ export const resolveDashboardTier = (
 export const isAdminTier = (roleName: string, app: AdminRoleResolvable): boolean =>
   resolveDashboardTier(roleName, app) !== undefined
 
+/**
+ * `true` when `roleName` may make the console's OPERATIONAL writes — re-fire a
+ * run, pause or resume an automation, re-point a public link, connect or
+ * disconnect an OAuth account, publish the design system to a link holder.
+ *
+ * The ONE definition of the `admin-editor` tier as a power: the admin-route
+ * guard of those writes (`requireAdminEditor`) and the `edit-operations` caller
+ * capability a console page gates their controls on both read it, so the
+ * control a page draws and the request the server accepts can never disagree.
+ * The read-only `admin-viewer` tier — and the legacy `operator` alias that
+ * resolves to it — reaches the console ({@link isAdminTier}) and holds no such
+ * power. Orthogonal to {@link isAdminEquivalent}, which governs ACCOUNT writes.
+ */
+export const canEditOperations = (roleName: string, app: AdminRoleResolvable): boolean =>
+  resolveDashboardTier(roleName, app) === 'admin-editor'
+
 // ============================================================================
 // Invite authorization
 // ============================================================================

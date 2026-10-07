@@ -6,15 +6,40 @@
  */
 
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import {
+  guardedFetch,
+  guardedText,
+  TOKEN_RESPONSE_MAX_BYTES,
+} from '@/infrastructure/egress/guarded-fetch'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
-import type { RefreshResult } from './token-refresh'
+import type {
+  LongLivedExchangeProps,
+  RefreshResult,
+} from '@/application/ports/services/oauth-token-client'
+import type { GuardedResponse } from '@/infrastructure/egress/guarded-fetch'
 
-/** The client and endpoint a long-lived token exchange is made with. */
-export interface LongLivedExchangeProps {
-  readonly clientId: string
-  readonly clientSecret: string
-  readonly tokenUrl: string
+/**
+ * Read Meta's answer: the long-lived token and its lifetime. An answer cut at
+ * the size cap is reported as too large rather than handed to the JSON parser.
+ */
+const readExchangeAnswer = (response: GuardedResponse): RefreshResult => {
+  if (response.truncated) return { ok: false, error: 'exchange_response_too_large' }
+  const tokens = JSON.parse(guardedText(response)) as {
+    readonly access_token?: unknown
+    readonly expires_in?: unknown
+  }
+  if (typeof tokens.access_token !== 'string' || tokens.access_token === '') {
+    return { ok: false, error: 'exchange_response_missing_access_token' }
+  }
+  return {
+    ok: true,
+    accessToken: tokens.access_token,
+    refreshToken: undefined,
+    expiresAt:
+      typeof tokens.expires_in === 'number'
+        ? new Date(Date.now() + tokens.expires_in * 1000)
+        : undefined,
+  }
 }
 
 /**
@@ -43,31 +68,19 @@ export const exchangeMetaLongLivedToken = async (
   url.searchParams.set('client_secret', props.clientSecret)
   url.searchParams.set('fb_exchange_token', currentToken)
   try {
-    const response = await withFetchTimeout(
-      url.toString(),
+    // Every redirect hop passes the guard too: the URL carries the secret.
+    const sent = await guardedFetch(
+      url,
       { method: 'GET', headers: { Accept: 'application/json' } },
-      OAUTH_CALLBACK_TIMEOUT_MS
+      { timeoutMs: OAUTH_CALLBACK_TIMEOUT_MS, maxBodyBytes: TOKEN_RESPONSE_MAX_BYTES }
     )
+    if (!sent.ok) return { ok: false, error: `exchange_invalid_url_${sent.reason}` }
+    const { response } = sent
     if (!response.ok) {
       const range = response.status >= 400 && response.status < 500 ? '4xx' : '5xx'
       return { ok: false, error: `exchange_endpoint_${range}_${String(response.status)}` }
     }
-    const tokens = (await response.json()) as {
-      readonly access_token?: unknown
-      readonly expires_in?: unknown
-    }
-    if (typeof tokens.access_token !== 'string' || tokens.access_token === '') {
-      return { ok: false, error: 'exchange_response_missing_access_token' }
-    }
-    return {
-      ok: true,
-      accessToken: tokens.access_token,
-      refreshToken: undefined,
-      expiresAt:
-        typeof tokens.expires_in === 'number'
-          ? new Date(Date.now() + tokens.expires_in * 1000)
-          : undefined,
-    }
+    return readExchangeAnswer(response)
   } catch {
     return { ok: false, error: 'exchange_request_failed' }
   }

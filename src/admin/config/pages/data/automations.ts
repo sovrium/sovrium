@@ -147,14 +147,13 @@ const CATALOG_COLUMNS = [
   {
     type: 'actions',
     label: '',
+    capability: 'edit-operations',
     actions: [
       {
         label: '$t:admin.automations.catalog.action.pause',
         visibleWhen: { field: 'state', eq: 'active' },
         // Both labels EXPLICIT: the confirm-gate runtime falls back to FRENCH
-        // ('Confirmer' / 'Annuler'), which is a live defect in the English
-        // console and is reported separately. Do not drop these to "use the
-        // default": the default is wrong.
+        // ('Confirmer' / 'Annuler'). Do not drop these: the default is wrong.
         //
         // The message's second sentence is a factual claim, verified before it
         // shipped: every gate is consulted at dispatch/resolve time, nothing
@@ -950,6 +949,7 @@ const retryButton = (): PageComponent =>
     type: 'button',
     label: '$t:admin.automations.runs.detail.retry',
     variant: 'secondary',
+    visibility: { capability: 'edit-operations' },
     confirm: {
       title: '$t:admin.automations.runs.detail.retry.title',
       message: '$t:admin.automations.runs.detail.retry.message',

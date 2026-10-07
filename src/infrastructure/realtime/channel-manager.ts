@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements, functional/immutable-data */
-
 /**
  * In-memory channel subscription manager.
  *
@@ -24,7 +22,7 @@
 
 // The three exports in this section have exactly one consumer,
 // `realtime-service-live.ts`, which is itself unreachable — see the realtime
-// orphan cluster baselined in `knip.config.ts` (2026-09-03). They surfaced the
+// orphan cluster baselined in `knip.config.ts`. They surfaced the
 // moment the barrel entry glob stopped making that file a reachability root.
 // They are tagged rather than deleted only because deleting them belongs with
 // the rest of the cluster, in one `[internal ref]` pass.
@@ -45,10 +43,8 @@ export const addSubscription = (channel: string, userId: string): void => {
 export const removeSubscription = (channel: string, userId: string): void => {
   const subs = subscriptions.get(channel)
   if (subs) {
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
     subs.delete(userId)
     if (subs.size === 0) {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
       subscriptions.delete(channel)
     }
   }
@@ -90,10 +86,8 @@ export const addChannelListener = (channel: string, listener: ChannelListener): 
   return () => {
     const current = listeners.get(channel)
     if (!current) return
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
     current.delete(listener)
     if (current.size === 0) {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
       listeners.delete(channel)
     }
   }

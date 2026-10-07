@@ -38,7 +38,7 @@ export function isUniqueConstraintViolation(error: unknown): boolean {
  * Matched on the driver's own result code — Postgres SQLSTATE `23503`, SQLite
  * `SQLITE_CONSTRAINT_FOREIGNKEY` — both measured, rather than on wire text.
  *
- * [internal ref].
+ * [internal ref] / a forms spec.
  */
 export function isForeignKeyViolation(error: unknown): boolean {
   return findConstraintViolation(error) === 'foreign-key'
@@ -90,7 +90,7 @@ export function buildInsertClauses(
 }
 
 /**
- * [internal ref](b): Resolve the real row for a view-backed insert.
+ * the view-backed-table write rule(b): Resolve the real row for a view-backed insert.
  *
  * A table carrying a rollup / lookup / count field is materialized as a VIEW
  * over `<table>_base` with an `INSTEAD OF INSERT` trigger. `RETURNING *` on the
@@ -112,7 +112,7 @@ export function buildInsertClauses(
  *   - SQLite: `last_insert_rowid()` is UNSAFE here — after an `INSTEAD OF` trigger
  *     completes, its value REVERTS to the pre-trigger value (SQLite semantics),
  *     so the trigger's base-INSERT rowid is lost and a stale id (a previous
- * insert's) is returned. [internal ref] surfaced this: an m2m junction (and the
+ *     insert's) is returned. The many-to-many junction-write rule surfaced this: an m2m junction (and the
  *     create response id) got written against the WRONG record on a view-backed
  *     table. Instead, read `MAX(id)` of the `<table>_base` table: within this
  *     write transaction SQLite serializes writers and the id auto-increments, so
@@ -143,7 +143,7 @@ async function resolveViewBackedInsertRow(
 
 /**
  * Run the `INSERT ... RETURNING *` and, for view-backed tables (nullish id),
- * resolve the real row ([internal ref](b) via {@link resolveViewBackedInsertRow}).
+ * resolve the real row (the view-backed-table write rule(b) via {@link resolveViewBackedInsertRow}).
  */
 export async function insertAndResolveRow(
   tx: Readonly<DrizzleTransaction>,

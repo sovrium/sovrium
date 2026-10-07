@@ -8,6 +8,7 @@
 import { stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
+import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
@@ -18,6 +19,7 @@ import {
   resolveDefaultPublicDir,
 } from './option-parsing'
 import { lazyImportIndex, lazyImportCli, lazyImportLogger, lazyImportStartupSummary } from './utils'
+import { collectConfigAttribution } from './validate'
 import type { GenerateStaticOptions } from '@/application/use-cases/server/generate-static'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
@@ -35,7 +37,6 @@ const parseBuildOptions = (): GenerateStaticOptions => {
     defaultLanguage: Bun.env.SOVRIUM_DEFAULT_LANGUAGE,
     generateSitemap: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_SITEMAP),
     generateRobotsTxt: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_ROBOTS),
-    hydration: parseBooleanEnv(Bun.env.SOVRIUM_HYDRATION),
     bundleOptimization: Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined,
     publicDir: readPublicDirEnv(),
   }
@@ -50,7 +51,6 @@ const parseBuildOptions = (): GenerateStaticOptions => {
     { key: 'defaultLanguage', value: envVars.defaultLanguage },
     { key: 'generateSitemap', value: envVars.generateSitemap },
     { key: 'generateRobotsTxt', value: envVars.generateRobotsTxt },
-    { key: 'hydration', value: envVars.hydration },
     { key: 'bundleOptimization', value: envVars.bundleOptimization },
     { key: 'publicDir', value: envVars.publicDir },
   ].reduce(
@@ -134,11 +134,32 @@ const buildPublicDirLabel = async (
 }
 
 /**
+ * Print why a build did not happen, and exit 1.
+ *
+ * Same split as `sovrium start`: a refused config prints as prose, because it
+ * is the author's mistake to read rather than a Sovrium fault to trace. Routing
+ * it through `logError` would also forward the author's typo to error tracking
+ * as if the engine had crashed.
+ */
+const exitOnBuildFailure = (
+  error: unknown,
+  logError: (message: string, error: unknown) => void
+): never => {
+  if (isConfigRejectedError(error)) {
+    printStderr(formatConfigRejection(error, 'built'))
+  } else {
+    logError('Failed to build static site', error)
+  }
+  // Terminate process - imperative statement required for CLI
+  process.exit(1)
+}
+
+/**
  * Handle the 'build' command.
  *
  * NOTE: the second arg is named `publicDir` because dispatch threads
- * `parsed.publicDir` here, but the build pipeline historically treats it as an
- * `outputDir` override (the build command never had an output-dir flag of its
+ * `parsed.publicDir` here, but the build pipeline treats it as an
+ * `outputDir` override (the build command has no output-dir flag of its
  * own). The opt-out tri-state `string | false` shows up here too because the
  * dispatcher returns `false` for `--no-publicDir`; for build, `false` simply
  * means "no flag override" — `outputDir` falls back to the env / default.
@@ -158,7 +179,8 @@ export const handleBuildCommand = async (
   // working directory. `start` anchors the same way and for the same reason:
   // a discovered config must resolve `public/` and `dist/` exactly as a named
   // one does, or `sovrium build` beside an `app.yaml` silently ships no assets.
-  const { app, configFile } = await resolveAppSchema('build', filePath)
+  // Deprecated keys still decode, so only a walk of the raw config sees them.
+  const { app, configFile } = warnDeprecatedKeys(await resolveAppSchema('build', filePath))
   const envOptions = parseBuildOptions()
   const defaultOutputDir = configFile ? join(dirname(configFile), 'dist') : './dist'
   // `publicDir === false` is the `--no-publicDir` opt-out from dispatch. For
@@ -174,20 +196,11 @@ export const handleBuildCommand = async (
 
   // Build the static site, timing it for the "Generated N files in Xs" phase.
   const startedAt = Date.now()
-  const result = await build(app, options).catch((error) => {
-    // Same split as `sovrium start`: a refused config prints as prose, because
-    // it is the author's mistake to read rather than a Sovrium fault to trace.
-    // Routing it through `logError` would also forward the author's typo to
-    // error tracking as if the engine had crashed.
-    if (isConfigRejectedError(error)) {
-      printStderr(formatConfigRejection(error, 'built'))
-    } else {
-      logError('Failed to build static site', error)
-    }
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  })
+  // The `$ref` source map, so a refusal names the partial each problem lives in
+  // exactly as `sovrium validate` does — the report is meant to be the same one.
+  const result = await build(app, options, await collectConfigAttribution(configFile)).catch(
+    (error: unknown) => exitOnBuildFailure(error, logError)
+  )
   const durationMs = Date.now() - startedAt
 
   // Render the completion banner with the same format as `sovrium start`.

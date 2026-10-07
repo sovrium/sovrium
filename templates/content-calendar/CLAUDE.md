@@ -11,7 +11,11 @@ scheduled, and every Monday the team gets the week's pieces by email.
   marks a late one, `campaign_name` reads the campaign's name for the filter bars)
 - **Forms** (1): new-piece (opened in the New piece dialog on every page)
 - **Pages** (4): calendar (`/`), pipeline, content (`/content`, All content), sign-in
-- **Automations** (3): own-new-piece, approve-for-scheduling, monday-digest (a cron)
+- **Automations** (5): own-new-piece, approve-for-scheduling, monday-digest (a cron),
+  mint-tracked-link (a `link` create step writing the short link on the piece), and
+  record-to-linkedin-post — a library recipe (`library/recipe/`, with its
+  `library/connection/linkedin.yaml`) posting a LinkedIn piece when it is marked Published,
+  once the LinkedIn variables are set
 - **Singletons**: auth, design, env
 - **Seed data**: `seed/` — two sign-in accounts, four campaigns and fifteen pieces, dated
   relative to the day you seed, with one thumbnail in `seed/assets/`

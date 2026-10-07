@@ -6,8 +6,7 @@
  */
 
 /**
- * Markdown → plain-text conversion — pure domain logic
- * ([internal ref]: [internal ref]).
+ * Markdown → plain-text conversion — pure domain logic.
  *
  * Strips Markdown formatting markers so a `.md` knowledge document is
  * embedded as readable prose, not raw syntax. The document *structure*

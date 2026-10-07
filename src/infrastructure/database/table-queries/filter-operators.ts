@@ -95,11 +95,11 @@ const handleBooleanOperator = (field: string, operator: string): string | undefi
 /**
  * The members a set-membership operator (`in`, `notIn`) compares against.
  *
- * A single value is a list of one: without this, a scalar fell through to the
- * comparison fallback, `=`, which for `notIn` INVERTS the filter (`notIn:
- * "done"` listed exactly the done rows). A missing member (`null`) is dropped
- * from a `notIn` list: `NOT IN (…, NULL)` is never true, so one null in the
- * list used to leave out every row. A row with no value is already left out by
+ * A single value is a list of one: without this, a scalar would fall through to
+ * the comparison fallback, `=`, which for `notIn` INVERTS the filter (`notIn:
+ * "done"` would list exactly the done rows). A missing member (`null`) is
+ * dropped from a `notIn` list: `NOT IN (…, NULL)` is never true, so one null in
+ * the list would leave out every row. A row with no value is already left out by
  * the `IS NOT NULL` both builders state.
  */
 const setMembersOf = (operator: 'in' | 'notIn', value: unknown): readonly unknown[] => {
@@ -268,6 +268,7 @@ const buildPatternFragment = (
       : operator === 'startsWith'
         ? `${stringValue}%`
         : `%${stringValue}`
+  // sql-literal: keyword -- the escape character is a module constant
   return sql`lower(${column}) LIKE lower(${pattern}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
 }
 
@@ -386,5 +387,6 @@ export const generateSqlConditionFragment = (
   // Comparison operators (equals, notEquals, gt, lt, gte, lte) and fallback.
   // The SQL operator keyword is static; the value is bound as a parameter.
   const sqlOperator = SQL_OPERATOR_MAP[operator] ?? '='
+  // sql-literal: keyword -- `sqlOperator` comes from the closed SQL_OPERATOR_MAP
   return sql`${column} ${sql.raw(sqlOperator)} ${value}`
 }

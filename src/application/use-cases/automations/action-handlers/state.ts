@@ -101,7 +101,6 @@ export const handleStateDelete: ActionHandler = (action, _app, automation) =>
     if (!key) return { status: 'failure', error: 'state.delete requires a key' } as const
 
     const repo = yield* AutomationStateRepository
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- false positive: this is a port method, not a Drizzle call; the repo's delete impl uses a where clause internally.
     const result = yield* Effect.result(repo.delete({ automationId: automation.id, key }))
     if (result._tag === 'Failure') {
       return { status: 'failure', error: String(result.failure.cause) } as const

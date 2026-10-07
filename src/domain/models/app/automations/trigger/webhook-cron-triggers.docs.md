@@ -79,15 +79,58 @@ Nothing validates that a `bearer` block actually carries a `token`, so an incomp
 
 An `hmac` webhook checks a signature the way its `scheme` says the provider writes it. Omitted, the scheme is `hex`.
 
-| `scheme` | Signed string                           | Where the signature is read                                                      |
-| -------- | --------------------------------------- | -------------------------------------------------------------------------------- |
-| `hex`    | the raw body                            | `header` (default `X-Signature`), after `prefix`, as hex                         |
-| `base64` | the raw body                            | `header`, after `prefix`, as base64 — Shopify's format                           |
-| `stripe` | `<t>.<raw body>`                        | `Stripe-Signature: t=<t>,v1=<hex>`; any of several `v1` entries may match        |
-| `slack`  | `v0:<timestamp>:<raw body>`             | `X-Slack-Signature: v0=<hex>`, with the timestamp in `X-Slack-Request-Timestamp` |
-| `svix`   | `<svix-id>.<svix-timestamp>.<raw body>` | `svix-signature: v1,<base64>`, any of several; the secret is the `whsec_…` value |
+| `scheme`         | Signed string                           | Where the signature is read                                                       |
+| ---------------- | --------------------------------------- | --------------------------------------------------------------------------------- |
+| `hex`            | the raw body                            | `header` (default `X-Signature`), after `prefix`, as hex                          |
+| `base64`         | the raw body                            | `header`, after `prefix`, as base64 — Shopify's format                            |
+| `stripe`         | `<t>.<raw body>`                        | `Stripe-Signature: t=<t>,v1=<hex>`; any of several `v1` entries may match         |
+| `slack`          | `v0:<timestamp>:<raw body>`             | `X-Slack-Signature: v0=<hex>`, with the timestamp in `X-Slack-Request-Timestamp`  |
+| `svix`           | `<svix-id>.<svix-timestamp>.<raw body>` | `svix-signature: v1,<base64>`, any of several; the secret is the `whsec_…` value  |
+| `hmac-timestamp` | set by the layout                       | the `header` you name, laid out as `format` says or as its keys spell out, as hex |
 
 `stripe`, `slack` and `svix` are always HMAC-SHA256 and fix their own headers, so `header`, `prefix` or `algorithm` beside them is refused when the configuration loads. They also sign a timestamp: a request whose timestamp is more than `tolerance` seconds (300 by default) from the server clock is refused as a replay, however valid its signature. `tolerance` beside `hex` or `base64`, which sign no timestamp, is refused too. Every refusal is a `401` that runs nothing, and every comparison is constant-time.
+
+`hmac-timestamp` is for a sender that signs the way Stripe does but under its own header. Name the header and pick the layout from `format`; the signature is always the hex HMAC-SHA256 of the signed string under `secret`.
+
+| `format`           | Signed string     | Example sender                                                                   |
+| ------------------ | ----------------- | -------------------------------------------------------------------------------- |
+| `t=<ts>,v1=<sig>`  | `<ts>.<raw body>` | Calendly, in `Calendly-Webhook-Signature`; any of several `v1` entries may match |
+| `ts=<ts>;h1=<sig>` | `<ts>:<raw body>` | Paddle Billing, in `Paddle-Signature`                                            |
+| `t=<ts>,v0=<sig>`  | `<ts>.<raw body>` | Unipile, in `unipile-signature`                                                  |
+
+```yaml
+# Requires env: [{ key: CALENDLY_WEBHOOK_SIGNING_KEY }] at the top of the app
+trigger:
+  type: webhook
+  method: POST
+  auth:
+    type: hmac
+    scheme: hmac-timestamp
+    header: Calendly-Webhook-Signature
+    format: t=<ts>,v1=<sig>
+    secret: $env.CALENDLY_WEBHOOK_SIGNING_KEY
+    tolerance: 180
+```
+
+A sender whose layout no `format` names is declared by spelling the layout out instead: `timestampKey` and `signatureKey` name the two entries of the header, `separator` the character between entries (`,` by default, or `;`), and `join` the character between the timestamp and the raw body in the signed string (`.` by default, or `:`). Several entries under the signature key may appear; one matching is enough.
+
+```yaml
+# Requires env: [{ key: RELAY_WEBHOOK_SECRET }] at the top of the app
+trigger:
+  type: webhook
+  method: POST
+  auth:
+    type: hmac
+    scheme: hmac-timestamp
+    header: X-Relay-Signature
+    timestampKey: ts
+    signatureKey: sig1
+    separator: ';'
+    join: ':'
+    secret: $env.RELAY_WEBHOOK_SECRET
+```
+
+`header` is required with `hmac-timestamp`, and so is exactly one layout: `format`, or `timestampKey` with `signatureKey`. Both at once, one key without the other, or `separator` and `join` without the keys is refused when the configuration loads; so are `format` and the four layout keys beside any other scheme, and `prefix` or `algorithm` beside `hmac-timestamp`. Its timestamp follows the same `tolerance` rule as the named schemes, and a refusal is the same `401` that runs nothing.
 
 ### Answering a provider's subscription handshake
 
@@ -103,6 +146,8 @@ trigger:
 ```
 
 A handshake presenting the verify token you entered in the provider console is answered `200` with the challenge, verbatim, as plain text. It runs nothing — no run is created — and it is answered before the method check and before `auth`, since the verify token is its only credential. A wrong token, another `hub.mode` or a missing challenge gets the same `404` as a webhook that does not exist, echoing nothing. The signed events the provider then posts go through `auth` and run the automation as usual.
+
+`GET /api/automations`, the automation listing every signed-in member reads, never carries a webhook secret: the verify token, a signing `secret` and every secret field of `auth` are listed as `[redacted]`, whether you wrote a literal value or an `$env` reference.
 
 ### What the payload looks like
 

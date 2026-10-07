@@ -5,14 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". */
-
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One handler per rank: each closes over the rank it writes. */
-
 import {
   computeRatingGlyphClasses,
   computeRatingRowClasses,
@@ -20,6 +12,14 @@ import {
   ratingGlyphsFor,
 } from '@/presentation/design/cell-affordances-default-classes'
 import type { ReactElement } from 'react'
+
+/** The arrows move the pick one rank, as in any radio group. */
+const ARROW_STEP: Readonly<Record<string, number>> = {
+  ArrowRight: 1,
+  ArrowUp: 1,
+  ArrowLeft: -1,
+  ArrowDown: -1,
+}
 
 /**
  * The rating scale, as a radio group — ONE control for the two surfaces that
@@ -61,6 +61,14 @@ export function RatingScale({
       role="radiogroup"
       aria-label={label}
       className={`${computeRatingRowClasses()} w-fit`}
+      onKeyDown={(e) => {
+        const step = ARROW_STEP[e.key]
+        if (step === undefined) return
+        e.preventDefault()
+        const next = Math.min(ranks, Math.max(1, current + step))
+        commit(next)
+        ;(e.currentTarget.children[next - 1] as HTMLElement | undefined)?.focus()
+      }}
     >
       {Array.from({ length: ranks }, (_unused, index) => {
         const rank = index + 1
@@ -72,7 +80,7 @@ export function RatingScale({
             role="radio"
             aria-checked={rank === current}
             aria-label={`${rank} of ${ranks}`}
-            tabIndex={-1}
+            tabIndex={rank === Math.max(current, 1) ? 0 : -1}
             data-rating-glyph
             data-filled={isFilled}
             className={`cursor-pointer leading-none ${computeRatingGlyphClasses({ filled: isFilled })}`}

@@ -229,7 +229,7 @@ const buildSidebarEntries = (
   const groupBy = contentDir.nav?.groupBy
   const groupLabels = contentDir.nav?.groupLabels
   const groupIcons = contentDir.nav?.groupIcons
-  // [internal ref]: the index article's sidebar entry links to the collection BASE
+  // The index article's sidebar entry links to the collection BASE
   // PATH (its single canonical URL), not its slugged URL — so prev/next
   // neighbours point to/from the base path too.
   const indexBasePath =
@@ -313,7 +313,7 @@ export const listContentDir = async (
   pagePath: string,
   currentSlug: string | undefined,
   /**
-   * [internal ref] — the articles this reader may open, by their front matter
+   * The articles this reader may open, by their front matter
    * `access`. An article outside it leaves the sidebar and previous/next.
    */
   isReadable?: (frontmatter: Readonly<Record<string, string>>) => boolean

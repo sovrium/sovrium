@@ -1,0 +1,13 @@
+name: about
+path: /about
+meta:
+  title: 'About · [Product]'
+  description: '[Who builds the product, and why.]'
+components:
+  - component: navbar-simple
+  - component: hero-centered
+  - component: team-grid
+  - component: team-list
+  - component: testimonial-single
+  - component: newsletter-centered
+  - component: footer-columns

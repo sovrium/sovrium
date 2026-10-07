@@ -1,0 +1,30 @@
+name: contact
+path: /contact
+meta:
+  title: 'Contact · [Product]'
+  description: '[How to reach the team.]'
+components:
+  - component: navbar-simple
+  # The page's one heading; the blocks below carry the second-level ones.
+  - type: container
+    element: section
+    props:
+      className: px-5 pt-14 sm:px-8 sm:pt-20 lg:px-16
+    children:
+      - type: container
+        props:
+          className: mx-auto flex w-full max-w-6xl flex-col gap-3
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-semibold tracking-tight text-foreground sm:text-5xl
+            content: '[Contact]'
+          - type: text
+            element: p
+            props:
+              className: text-lg text-foreground-muted
+            content: '[Who answers, and how fast.]'
+  - component: contact-split
+  - component: contact-centered
+  - component: footer-simple

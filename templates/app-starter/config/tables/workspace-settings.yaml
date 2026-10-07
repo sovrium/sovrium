@@ -1,0 +1,12 @@
+# One row of workspace-wide settings, edited on the workspace settings page.
+id: 6
+name: workspace_settings
+fields:
+  - { id: 1, name: legal_name, type: single-line-text }
+  - { id: 2, name: tax_id, type: single-line-text }
+  - { id: 3, name: billing_email, type: email }
+  - { id: 4, name: reminders_enabled, type: checkbox }
+  - { id: 5, name: reminder_days, type: integer }
+permissions:
+  read: authenticated
+  update: [admin]

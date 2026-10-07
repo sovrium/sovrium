@@ -49,12 +49,11 @@ const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): 
  * than another emits a DIFFERENT table for the SAME config, so the three cannot
  * be allowed to declare their own near-copies of this shape and drift apart.
  *
- * `tablePrimaryKeyTypes` is REQUIRED, and deliberately so. It used to be the
- * last of five optional positional arguments, which meant every caller that
- * stopped short of it silently produced a table whose `relationship` columns
- * fell back to the hardcoded `INTEGER` — so a foreign key onto a TEXT/UUID-keyed
- * parent could not be built and the boot died on `foreign key constraint … cannot
- * be implemented`. An optional argument that must always be passed is a comment;
+ * `tablePrimaryKeyTypes` is REQUIRED, and deliberately so. As a trailing
+ * optional argument, any caller stopping short of it would silently produce a
+ * table whose `relationship` columns fall back to the hardcoded `INTEGER` — so a
+ * foreign key onto a TEXT/UUID-keyed parent could not be built and the boot
+ * would die on `foreign key constraint … cannot be implemented`. An optional argument that must always be passed is a comment;
  * a required one is a compile error. Pass `buildTablePrimaryKeyTypesMap(tables)`
  * built from the SAME post-defaults table list the rest of the migration uses.
  */

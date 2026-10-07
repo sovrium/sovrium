@@ -11,32 +11,31 @@
  * When the chat request body carries an `agent` field naming an entry in
  * `app.agents[]`, the chat turn is bound to that agent's configuration:
  *
- * - [internal ref]: the agent's `systemPrompt` is sent as the
+ *  - an AI agent prompt spec: the agent's `systemPrompt` is sent as the
  *    `system` message to the AI provider (and verbatim per agent — two agents
  *    with distinct prompts produce distinct system messages).
- * - [internal ref]: the agent's `model` override is sent;
+ *  - an AI agent prompt spec: the agent's `model` override is sent;
  *    when omitted, the platform default (`AI_MODEL`) is used.
- * - [internal ref]: the agent's `temperature` override is
+ *  - an AI agent prompt spec: the agent's `temperature` override is
  *    sent; when omitted, the env default (`AI_TEMPERATURE`) is used, if any.
- * - [internal ref]: auto-generated table context (one line
+ *  - an AI agent prompt spec: auto-generated table context (one line
  *    per `app.tables[]` entry) is appended AFTER the agent prompt so the LLM
  *    knows which data surfaces it may reason about.
- * - [internal ref]: `{{appName}}` / `{{userRole}}` template
+ *  - `{{appName}}` / `{{userRole}}` template
  *    variables in the agent prompt are resolved before delivery.
- * - [internal ref]: the resolved system prompt is NEVER echoed back
+ *  - the resolved system prompt is NEVER echoed back
  *    in the JSON response — only the model's `reply` is returned.
  *
  * TRANSPORT: this module resolves the agent BINDING only — it performs no
  * provider round-trip. The turn is dispatched by `ai-chat.ts` through the
  * `AiService` port, exactly like a generic turn.
  *
- * It used to `fetch` `${baseUrl}/chat/completions` directly, on the rationale
- * that the per-agent `model` / `temperature` overrides had to reach the wire.
- * That rationale was wrong on both counts. `ChatInput` carries `model`,
- * `temperature`, `maxTokens` and `tools`, so the port puts every override on
- * the wire; and hard-coding the OpenAI-compatible path made the agent path
- * unreachable on Ollama — the sovereignty-default provider — which serves chat
- * at the native `/api/chat`. There is no `OLLAMA_BASE_URL` an operator can set
+ * It does not `fetch` `${baseUrl}/chat/completions` directly, and the per-agent
+ * `model` / `temperature` overrides are no reason to. `ChatInput` carries
+ * `model`, `temperature`, `maxTokens` and `tools`, so the port puts every
+ * override on the wire; and hard-coding the OpenAI-compatible path would make
+ * the agent path unreachable on Ollama — the sovereignty-default provider —
+ * which serves chat at the native `/api/chat`. There is no `OLLAMA_BASE_URL` an operator can set
  * that satisfies both a hard-coded `/chat/completions` and the native
  * `/api/chat`: one of the two always 404s. Only the port knows which shape a
  * provider speaks.
@@ -44,7 +43,7 @@
  * Going through the port also earns the agent path the three things the raw
  * fetch structurally could not have: the tool-EXECUTION loop (it read replies
  * via `choices[0].message.content`, which is empty on a `tool_calls` reply, so
- * every tool call was silently dropped — [internal ref]), a populated
+ * every tool call was silently dropped — an AI agent tools spec), a populated
  * `actions[]` instead of a hard-coded `[]`, and durable turns attributed to
  * the agent that produced them.
  */
@@ -197,7 +196,6 @@ export const resolveAgentTurnBinding = (
   // provider's own default" (`llama3.1` on Ollama, the configured default on a
   // cloud provider) — strictly better than shipping a model name no real
   // provider serves. The agent override still wins, then `AI_MODEL`
-  //.
   const model = agent.model ?? process.env.AI_MODEL
   const toolTables = resolveAgentToolTables(app, agent)
   return {

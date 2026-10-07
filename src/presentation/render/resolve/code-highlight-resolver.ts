@@ -6,8 +6,7 @@
  */
 
 /**
- * PRE-render Shiki highlight pass for the standalone `code` COMPONENT
- * ([internal ref]..033, [internal ref]).
+ * PRE-render Shiki highlight pass for the standalone `code` COMPONENT.
  *
  * ## Why a pre-pass and not a post-render splice
  *
@@ -55,7 +54,7 @@ import type { Component } from '@/domain/models/app/pages/components'
  *
  * `preClass` is Shiki's own `<pre>` class list (`shiki <themeName>`), which the
  * renderer must re-emit verbatim so the theme-name selector contract
- * (`[class*="nord"]`, [internal ref]) and the code-block chrome CSS both
+ * (`[class*="nord"]`, a pages content spec) and the code-block chrome CSS both
  * still resolve. `innerHtml` is the `<code>…</code>` subtree, injected by the
  * renderer into a React-owned `<pre>` so the author's `data-testid` / `id` stay
  * on the `<pre>` element itself.

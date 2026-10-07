@@ -62,22 +62,14 @@ import * as structuralTypes from './structural'
 /**
  * The component-type categories the catalog publishes a route for.
  *
- * ─── `editors` NO LONGER EXISTS TO EXCLUDE ─────────────────────────────────
+ * ─── THERE IS NO `editors` CATEGORY ────────────────────────────────────────
  *
- * There used to be a fifteenth category holding `schema-json-editor`,
- * `schema-yaml-editor`, `schema-form-editor` and `schema-ai-agent`, refused
- * here because their SSR placeholders shipped a live Submit button and a
- * textbox whose island POSTed into the records API — [internal ref] A3 clause 2 on
- * the markup, clause 3 on the wire, and the config-editing plane [internal ref] D3
- * relocated to paid Cloud, re-admitted through a door marked "design".
+ * Config-authoring editor types do not exist ([internal ref] D3 puts the
+ * config-editing plane in paid Cloud, and [internal ref] A3 forbids a live submit path
+ * in the console), so there is no category to exclude. An author who writes one
+ * of their names meets the decode-time refusal in `retired-types.ts`.
  *
- * The refusal held, and then the four types were DELETED outright. A category
- * that cannot be drawn because it is empty needs no exclusion, so the entry is
- * gone rather than kept as a tombstone. What replaces it is the decode-time
- * refusal in `retired-types.ts`, which is where an author who writes one of
- * those names now meets the answer.
- *
- * ─── AND THE LIST IS NOW COMPLETE BUT FOR THE TWO EXCLUSIONS ──────────────
+ * ─── THE LIST IS COMPLETE BUT FOR THE TWO EXCLUSIONS ──────────────────────
  *
  * Twelve of fourteen. What is left unlisted is `custom` (renders the
  * operator's own HTML, so there is no generic specimen) and `modules` (shared
@@ -89,10 +81,7 @@ import * as structuralTypes from './structural'
  * The ORDER is the reading order of the approved mockup, not alphabetical: what
  * a reader clicks, what they fill in, what they read data from, what holds it
  * together, then the content and the chrome. This list is the ONLY place that
- * order lives. `design-system-catalog-coverage.ts` used to restate it — that
- * module was deleted in `ebde3f4038` when the console became configuration, and
- * the sentence pointing at it survived the module by two waves, telling every
- * reader to go and reconcile this list against a file that is not there.
+ * order lives; nothing else restates it.
  */
 export const CATALOG_COMPONENT_CATEGORIES = [
   'interactive',
@@ -117,7 +106,7 @@ export type CatalogComponentCategory = (typeof CATALOG_COMPONENT_CATEGORIES)[num
  *
  * `form` (category `data`) — emits `<button type="submit">` unconditionally
  * (`crud-form-renderer.tsx`, create AND update branches), and `data` is a route
- * `[internal ref]` sweeps for A3 clause 2. Drawing it would put a live
+ * an admin design system spec sweeps for A3 clause 2. Drawing it would put a live
  * write control inside a preview frame. Same class as `editors` above: a safety
  * exclusion. Do not delete this as dead weight — the catalog would go red on
  * 022, but only after someone had shipped a submit button into the console.
@@ -134,7 +123,7 @@ export type CatalogComponentCategory = (typeof CATALOG_COMPONENT_CATEGORIES)[num
  * component than the one they hold.
  *
  * The invariant that forced the split survives the merge and is what stops the
- * duplication coming back: `[internal ref]` asserts no two refused
+ * duplication coming back: an admin design system spec asserts no two refused
  * types share a sentence, for the reason `-065` already asserts it inside the
  * `data` route. One sentence written once and pasted across N types goes false
  * on all N together, and no reader can tell which one it stopped describing.
@@ -148,13 +137,13 @@ export const EXCLUDED_TYPES: Readonly<Record<string, string>> = {
  *
  * ─── WHY A SENTENCE, AND WHY IT LIVES HERE ─────────────────────────────────
  *
- * The kit index used to carry a meta line of AXIS COUNTS — `7 variants · used
- * on 3 pages` — and that line was empty on more than half the grid, because
- * most types declare neither a variant union nor a size union and are used
- * nowhere in a given app. Where it did appear it answered "how many shapes does
- * this have", which is not the question an author opens a catalogue with. The
- * question is *when would I reach for this rather than the one below it*, and
- * only a sentence answers it. The counts are not lost: they moved to the type
+ * The kit index carries a sentence, not a meta line of AXIS COUNTS — `7
+ * variants · used on 3 pages`. Such a line would be empty on more than half the
+ * grid, because most types declare neither a variant union nor a size union and
+ * are used nowhere in a given app; and where it appeared it would answer "how
+ * many shapes does this have", which is not the question an author opens a
+ * catalogue with. The question is *when would I reach for this rather than the
+ * one below it*, and only a sentence answers it. The counts live on the type
  * page, beside the axes they count.
  *
  * It lives in the DOMAIN, beside the category partition, for the reason this
@@ -193,6 +182,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   'theme-toggle': 'The one control that flips the colour scheme and remembers the choice.',
 
   // form-controls
+  rating: 'A row of stars that reads a rating, and writes a whole one inside a form.',
+  'signature-pad': 'A well to sign in, or a typed name, stored once with the statement agreed to.',
   checkbox: 'A yes or no the reader sets, with room for several in a list.',
   'code-editor':
     'Source text the reader edits, highlighted by language and indented to your width.',
@@ -213,6 +204,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   'toggle-group': 'A row of toggles where one, or several, stay pressed.',
 
   // data
+  map: 'Records placed as pins at their location, with a list twin a keyboard can use.',
+  tree: 'The records of one table nested under their parents, opened branch by branch.',
   calendar: 'Records on a month or week grid, placed by their date field.',
   chart: 'A figure over rows: bars, lines, areas or a donut, one series per colour.',
   'filter-bar':
@@ -238,6 +231,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   'split-pane': 'Two panels side by side with a draggable divider.',
 
   // content
+  'file-preview':
+    'A stored file shown inline: a PDF in its viewer, an image with zoom, else a download.',
   audio: 'An audio file with play, progress and duration.',
   code: 'Source text in a monospace block, highlighted by language.',
   icon: "One glyph from the app's icon set, sized and coloured by the text around it.",
@@ -254,6 +249,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   accordion: 'Stacked sections that open one at a time.',
   avatar: 'A person or a thing as a small round mark: a picture, initials, or nothing at all.',
   'description-list': 'Pairs of a term and its detail, read down rather than across.',
+  stepper:
+    'One task split into ordered steps, each a body of its own, with a rail that shows progress.',
   'empty-state': 'What a view says when it has nothing to show, and what to do about it.',
   'list-item': 'One row of a list: a leading mark, a title, a subtitle, a trailing value.',
   marquee: 'A strip of logos or words that scrolls sideways.',

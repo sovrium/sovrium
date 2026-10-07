@@ -1,0 +1,310 @@
+# sovrium-library: block/settings-account@0.30.0
+name: settings-account
+type: container
+element: section
+props:
+  className: flex w-full max-w-180 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-1
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-semibold tracking-tight text-foreground
+        content: Account
+      - type: text
+        element: p
+        props:
+          className: text-md text-foreground-muted
+        content: 'Your name, how you sign in, and your account itself.'
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Profile
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: How you appear to the people you work with.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Name
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: Shown on your comments and activity.
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: form
+                    props:
+                      aria-label: Name
+                    endpoint:
+                      url: /api/auth/update-user
+                      method: POST
+                      responseEnvelope: better-auth
+                      submitLabel: Save name
+                      submitVariant: secondary
+                      onSuccess:
+                        type: toast
+                        variant: success
+                        message: Name saved.
+                      onError:
+                        type: toast
+                        variant: destructive
+                        message: Your name could not be saved. Try again.
+                    fields:
+                      - field: name
+                        control: text
+                        label: Name
+                        defaultValue: $session.name
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Email
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Where sign-in links and notifications go.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Email address
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: We send a link to the new address; it changes once you open it.
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: form
+                    props:
+                      aria-label: Email address
+                    endpoint:
+                      url: /api/auth/change-email
+                      method: POST
+                      responseEnvelope: better-auth
+                      submitLabel: Change email
+                      submitVariant: secondary
+                      onSuccess:
+                        type: toast
+                        variant: success
+                        message: Check the new inbox for a confirmation link.
+                      onError:
+                        type: toast
+                        variant: destructive
+                        message: The email could not be changed. Check the address and try again.
+                    fields:
+                      - field: newEmail
+                        control: email
+                        label: New email
+                        defaultValue: $session.email
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Password
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: Use one you do not use anywhere else.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Change password
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: Your other devices stay signed in.
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: form
+                    props:
+                      aria-label: Change password
+                    endpoint:
+                      url: /api/auth/change-password
+                      method: POST
+                      responseEnvelope: better-auth
+                      submitLabel: Change password
+                      submitVariant: secondary
+                      onSuccess:
+                        type: toast
+                        variant: success
+                        message: Password changed.
+                      onError:
+                        type: toast
+                        variant: destructive
+                        message: The password could not be changed. Check the current one and try again.
+                    fields:
+                      - field: currentPassword
+                        control: password
+                        label: Current password
+                      - field: newPassword
+                        control: password
+                        label: New password
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Delete account
+              - type: text
+                element: p
+                props:
+                  className: text-md text-foreground-muted
+                content: This removes your account and everything only you can see. It cannot be undone.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-error-border border-error-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Delete your account
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-foreground-muted
+                    content: 'You are signed out everywhere, at once.'
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: button
+                    variant: destructive
+                    props:
+                      label: Delete account…
+                      className: self-start
+                      interactions:
+                        click:
+                          modal: settings-account-delete
+                  - type: alert-dialog
+                    props:
+                      id: settings-account-delete
+                      title: Delete your account?
+                    content: 'Your account, your sessions and everything only you can see are deleted. Records you shared stay with the team. Type your email to confirm.'
+                    confirmLabel: Delete account
+                    cancelLabel: Keep my account
+                    confirmText: $session.email
+                    action:
+                      type: fetch
+                      url: /api/auth/delete-user
+                      method: POST
+                      onSuccess:
+                        type: toast
+                        variant: success
+                        message: Your account is deleted.
+                        reload: true

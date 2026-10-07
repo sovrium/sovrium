@@ -47,6 +47,7 @@ export const KNOWN_FIELD_TYPES = [
   'lookup',
   'multi-select',
   'multiple-attachments',
+  'signature',
   'number',
   'percentage',
   'phone-number',

@@ -1,0 +1,33 @@
+# sovrium-library: block/banner-top@0.30.0
+name: banner-top
+type: alert
+alertVariant: default
+props:
+  dismissible: true
+  aria-label: Announcement
+  className: w-full justify-center text-md
+  style:
+    backgroundColor: var(--color-primary)
+    color: var(--color-primary-fg)
+    borderColor: var(--color-primary)
+    borderRadius: '0'
+    borderWidth: '0'
+    alignItems: center
+    padding: 10px 16px
+children:
+  - type: flex
+    props:
+      className: flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center
+    children:
+      - type: text
+        element: span
+        props:
+          className: ''
+        content: '[What changed, in one line.]'
+      - type: link
+        props:
+          href: /changelog
+          className: font-medium underline underline-offset-4
+          style:
+            color: inherit
+        content: '[Read more]'

@@ -23,7 +23,7 @@
  * moved to Review and rewritten as Scheduled cannot re-satisfy "status equals
  * Review", so it cannot start the next run. Two automations that re-write each
  * other's tables with no trigger condition on either are refused the same way
- *; a cycle that hangs on a condition, or runs through more than two
+ * a cycle that hangs on a condition, or runs through more than two
  * automations, is bounded at run time instead, by the record-event depth limit.
  *
  * Reads the steps at the top level of `actions`. Runs over the RAW config at

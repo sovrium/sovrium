@@ -153,23 +153,31 @@ export default {
                   element: 'p',
                   props: {
                     format: 'markdown',
-                    className:
-                      '[&_p]:!text-foreground-muted [&_p]:text-[17px] [&_p]:leading-[1.6] [&_code]:font-mono [&_code]:text-[1em]',
+                  },
+                  classes: {
+                    parts: {
+                      paragraph: '!text-foreground-muted text-[17px] leading-[1.6]',
+                      inlineCode: 'font-mono text-[1em]',
+                    },
                   },
                   content:
                     'This page is `app.yaml`. Change the heading there and save — the page reloads on its own.',
                 },
                 {
                   type: 'container',
-                  props: {
-                    className:
-                      '[&_figure]:border-[#30363d] [&_figcaption]:h-[34px] [&_figcaption]:border-[#30363d] [&_figcaption]:bg-[#0d1117] [&_figcaption]:px-3 [&_figcaption]:py-0 [&_figcaption]:text-[12px] [&_figcaption]:!text-[#9da7b3] [&_pre]:!bg-[#0d1117] [&_pre]:!px-3.5 [&_pre]:!py-3 [&_pre]:!text-[13px] [&_pre]:!leading-[1.65]',
-                  },
                   children: [
                     {
                       type: 'code',
                       props: {
                         language: 'yaml',
+                        className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]',
+                      },
+                      classes: {
+                        parts: {
+                          frame: 'border-[#30363d]',
+                          caption:
+                            'h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]',
+                        },
                       },
                       filename: 'app.yaml',
                       copy: false,
@@ -263,8 +271,12 @@ export default {
                   element: 'p',
                   props: {
                     format: 'markdown',
-                    className:
-                      '[&_p]:!text-foreground-subtle [&_p]:text-[13.5px] [&_code]:font-mono',
+                  },
+                  classes: {
+                    parts: {
+                      paragraph: '!text-foreground-subtle text-[13.5px]',
+                      inlineCode: 'font-mono',
+                    },
                   },
                   content: 'This page goes away as soon as you write your own page at `/`.',
                 },
@@ -320,8 +332,12 @@ export default {
                   element: 'p',
                   props: {
                     format: 'markdown',
-                    className:
-                      '[&_p]:!text-foreground-muted [&_p]:text-[17px] [&_p]:leading-[1.6] [&_code]:font-mono [&_code]:text-[1em]',
+                  },
+                  classes: {
+                    parts: {
+                      paragraph: '!text-foreground-muted text-[17px] leading-[1.6]',
+                      inlineCode: 'font-mono text-[1em]',
+                    },
                   },
                   content:
                     'Add a page with its `path:` set to this address in `app.yaml`, or go back to the start.',

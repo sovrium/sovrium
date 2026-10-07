@@ -37,11 +37,78 @@ contentDir:
 # The documentation layout: the sidebar, the article at a reading measure, the
 # outline of its headings, "Last updated" from each file's `updated` date, and
 # previous / next.
+#
+# `frame` measures the layout: the sidebar and outline widths, and the height
+# of the sticky header both rails stick below. `classes` styles the parts the
+# layout draws by name: the current page and the links carry the accent, and
+# each kind of callout sits on its own ground in light and dark.
+#
+# `#0d0d0d` is the ground of the `github-dark` code theme (`codeBlock.theme` in
+# design.yaml): the bar naming each code block — "terminal", or the file it
+# belongs in — is painted the same, so block and bar read as one dark panel.
+# Change the code theme, change this colour with it.
 markdown:
   layout: docs
   toc:
+    # The outline starts at the sections: the page title is already above it.
+    minDepth: 2
     maxDepth: 2
     position: sidebar
+  frame:
+    sidebarWidth: 248px
+    tocWidth: 220px
+    # The article column, its title and its closing lines alike, reads at one
+    # measure.
+    contentMaxWidth: 653px
+    stickyOffset: 3.5rem
+    # The copy and view-as-markdown actions beside the title are left out.
+    articleActions: false
+    # On a phone the sections button sits in the site's bar.
+    menuButton: header
+  classes:
+    parts:
+      # The row holding the sidebar, the article and the outline: edge to edge
+      # from a laptop up, flush under the bar on a phone.
+      frame: max-lg:pt-0 lg:max-w-none lg:gap-0 lg:px-0
+      # Sections sit close; every section after the first opens with a gap.
+      navGroup: mb-0.5 border-t-0 pt-3.5 first:pt-0
+      # The sections button is an icon in the bar's left gutter, not a labelled
+      # pill.
+      menuButton: absolute top-2 left-2 z-40 h-9 border-0 bg-transparent px-2 text-[0px]
+      sidebar: lg:px-3.5 lg:py-5
+      navGroupLabel: mb-0.5 px-2.5 pb-1.5 font-mono text-[12px] leading-[15.6px] font-medium
+      navLink: border-l-0 px-2.5 py-1 text-[14px]
+      article: max-lg:px-0 max-lg:pt-0 lg:px-12 lg:pt-8
+      articleHeader: mb-3.5
+      lastUpdated: '!mt-5'
+      toc: lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-stretch lg:border-l lg:border-border lg:px-5 lg:py-8
+      # Every block of the article sits 12px from the next.
+      heading1: '!mt-3 !mb-3.5 !text-[36px] tracking-tight'
+      heading2: '!mt-6 !mb-3 !text-[24px]'
+      heading3: '!my-3'
+      lead: '!mt-0 !mb-3.5 !text-[16px] !leading-[1.6] text-foreground-muted'
+      paragraph: '!my-3 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+      list: '!my-3'
+      table: '!my-3'
+      quote: '!my-3'
+      listItem: '!text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+      link: '!text-primary-subtle-foreground underline underline-offset-2'
+      # A callout's first line is its title, written on a line of its own.
+      callout: >-
+        !my-3 rounded-r-lg border border-l-[3px] border-[#e5ded5]
+        border-l-[var(--color-warmth-border,var(--color-border-strong))] bg-[#f5f0eb] px-4 !py-3
+        !text-foreground dark:border-[#262626] dark:bg-[#171717]
+        *:!my-0 *:first:!mb-0.5
+      calloutNote: '!border-l-primary !bg-primary-subtle'
+      calloutTip: '!border-l-success !bg-success/10'
+      calloutWarning: '!border-l-warning !bg-background-subtle'
+      codeFrame: '!my-3 !border-[#0d0d0d]'
+      codeCaption: '!h-[34px] !border-white/10 !bg-[#0d0d0d] !py-0 !text-[#8b949e]'
+      codeBlock: '!py-3 !text-[13px] !leading-[1.65]'
+      image: rounded-lg border border-border
+    states:
+      current:
+        navLink: '!bg-primary-subtle !text-primary-subtle-foreground'
 
 # The first component renders above the article, the rest below it.
 components:

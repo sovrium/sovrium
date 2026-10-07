@@ -29,8 +29,8 @@
 import { Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import { needsReconnect } from '@/domain/models/app/admin/connection-status'
-import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import { effectiveScope } from './connection-definition'
 import { ConnectionStoreError } from './errors'
 import type { ConnectionDef } from './connection-definition'
@@ -123,7 +123,7 @@ export const persistConnectionToken = (input: {
  * A stored token that is the test-mode seeder's SENTINEL reports as not
  * connected. Without that gate, a user created against a `scope: 'user'`
  * connection would always observe `connected`, because the seeder upserts a
- * 1h-TTL sentinel row at user-create time — and `[internal ref]`
+ * 1h-TTL sentinel row at user-create time — and an automation connection spec
  * / `-077` exist precisely to test the "has NOT yet authorized" state.
  */
 export const readConnectionStatus = (input: {
@@ -132,7 +132,7 @@ export const readConnectionStatus = (input: {
 }): Effect.Effect<
   ConnectionStatus,
   ConnectionStoreError,
-  ConnectionRepository | ConnectionTokenRepository
+  ConnectionRepository | ConnectionTokenRepository | SentinelTokens
 > =>
   Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
@@ -150,6 +150,7 @@ export const readConnectionStatus = (input: {
       .pipe(
         Effect.mapError((cause) => new ConnectionStoreError({ operation: 'findForUser', cause }))
       )
+    const { isSentinelAccessToken } = yield* SentinelTokens
     if (token === undefined || isSentinelAccessToken(token.accessToken)) {
       return { connected: false, expiresAt: undefined, hasRefreshToken: false }
     }

@@ -101,7 +101,8 @@ const routes: readonly RouteSpec[] = [
     method: 'post',
     pathTemplate: '/api/automations/{automationSlug}/form-action',
     summary: 'Trigger an automation form action',
-    description: 'Triggers the automation as a form action with optional input data.',
+    description:
+      "Runs a manual automation a page component names, under that page's access rule and the trigger's declared role, while it is neither paused nor disabled. A signed-in caller is recorded as the run's starter. Any other automation answers as an unknown name.",
     operationIdBase: 'triggerAutomationFormAction',
     request: {
       body: {

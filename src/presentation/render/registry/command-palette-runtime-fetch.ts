@@ -16,14 +16,14 @@
  * a request is issued and WHICH response is allowed to win, with no knowledge of
  * what the palette renders.
  *
- * ## What it replaced, and why
+ * ## Why it is async
  *
- * The palette used to read every endpoint through a SYNCHRONOUS
- * `XMLHttpRequest` (`xhr.open(url, false)`). That blocks the main thread for the
- * entire round trip, on every 200 ms debounce tick, against an endpoint whose
- * production failure mode was a Gateway Timeout — so a slow search did not merely
- * feel slow, it froze the page the reader was typing into, and the palette could
- * not even paint their own keystrokes until the server answered.
+ * A SYNCHRONOUS `XMLHttpRequest` (`xhr.open(url, false)`) blocks the main
+ * thread for the entire round trip, on every 200 ms debounce tick, against an
+ * endpoint whose production failure mode is a Gateway Timeout — so a slow
+ * search would not merely feel slow, it would freeze the page the reader is
+ * typing into, and the palette could not even paint their own keystrokes until
+ * the server answered.
  *
  * Going async removes the freeze and introduces the two problems async always
  * introduces. Both are handled here:

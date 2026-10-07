@@ -10,6 +10,10 @@ Assistant answers from all of it.
 
 - **Tables** (6): suppliers, warehouses, products, stock_movements, orders, purchase_orders
 - **Pages** (6): products (`/`), stock, orders, suppliers, assistant, sign-in
+- **Automations** (2): low-stock-digest (weekday 07:30 email to purchasing, counted, sorted
+  and trimmed with `data` steps), and record-to-google-doc — a library recipe
+  (`library/recipe/`, with its `library/connection/google.yaml`) writing each new order's
+  confirmation in Google Docs once the Google keys are set
 - **AI agents** (1): catalog-assistant — reads the tables and drafts purchase orders, with
   the member role
 - **Singletons**: auth, design

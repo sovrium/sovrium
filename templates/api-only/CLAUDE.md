@@ -10,6 +10,11 @@ account; the admin comes from `AUTH_ADMIN_*`, the demo member and viewer from th
 - **Tables** (2): projects, tasks (each with a `permissions` block: every role reads, admin and
   member create and update, only admin deletes; a refused call answers 404)
 - **Pages** (1): home (`/`, the developer landing)
+- **Automations** (3): task-intake (a webhook that files a task, its body signed in
+  `X-Signature`), task-done-call-out (a signed call to `TASK_EVENTS_URL` when a task is done),
+  and record-to-linear-issue — a library recipe (`library/recipe/`, with its
+  `library/connection/linear.yaml`) mirroring each new task into Linear. All three are idle
+  until their `env` keys are set
 - **Singletons**: design (compact, mono headings, one teal accent), auth (sign-up closed, API
   keys on)
 - **Seed**: `seed/` — five projects, ten tasks (eight open, two done, every open task

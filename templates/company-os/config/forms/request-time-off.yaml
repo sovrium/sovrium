@@ -1,0 +1,35 @@
+# The Request time off dialog on Team & time off opens this form. Filing
+# a request starts the approval automation.
+#
+# A form placed on an app page with `formRef` writes its table row and no
+# entry in the Submissions inbox: that inbox is for intake forms, and adding
+# a record from inside the app is ordinary work, not an intake.
+id: 2
+name: request-time-off
+title: Request time off
+access:
+  require: authenticated
+  redirectTo: /sign-in
+submitTo:
+  table: time_off_requests
+display:
+  submitLabel: Send request
+# The page reloads on the new record, as the list or board it lands on
+# reads it on load.
+onSuccess:
+  type: redirect
+  url: /people
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: employee
+    label: Person
+  - kind: table-field
+    column: type
+    label: Type
+  - kind: table-field
+    column: start_date
+    label: From
+  - kind: table-field
+    column: end_date
+    label: To

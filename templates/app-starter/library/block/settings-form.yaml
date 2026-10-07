@@ -1,0 +1,59 @@
+# sovrium-library: block/settings-form@0.30.0
+name: settings-form
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col max-w-3xl gap-6
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Settings]'
+      - type: form
+        dataSource:
+          table: workspace_settings
+          mode: single
+          param: id
+        labelPlacement: side
+        stickyActions: true
+        fields:
+          - field: legal_name
+            label: '[Legal name]'
+          - field: tax_id
+            label: '[Tax number]'
+          - field: billing_email
+            label: '[Billing email]'
+          - field: reminders_enabled
+            label: '[Send reminders]'
+          - field: reminder_days
+            label: '[Days after the due date]'
+        sections:
+          - title: '[Organisation]'
+            description: How the organisation appears on documents.
+            fields:
+              - legal_name
+              - tax_id
+              - billing_email
+          - title: '[Reminders]'
+            description: When a late payment gets a reminder.
+            fields:
+              - reminders_enabled
+              - reminder_days
+        action:
+          type: crud
+          operation: update
+          table: workspace_settings
+          submitLabel: Save settings
+          onSuccess:
+            toast:
+              message: Settings saved.
+              variant: success

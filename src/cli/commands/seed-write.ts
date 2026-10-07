@@ -133,7 +133,6 @@ const createOne = async (step: {
       table: input.tables.find((candidate) => candidate.name === table.name),
       fields: resolved.value,
     })
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedWriteError(`${table.fileName} (key "${record.key}"): ${explained}`)
   }
   const { id } = result.success
@@ -184,7 +183,6 @@ const writeSelfLinks = (
           )
           const id = idOfKey(resolved.index, table.name, record.key)
           if (id === undefined) {
-            // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
             throw new SeedWriteError(
               `${table.fileName} (key "${record.key}"): the row was not written, so its link ` +
                 `to the same table cannot be.`
@@ -201,7 +199,6 @@ const writeSelfLinks = (
               table: input.tables.find((candidate) => candidate.name === table.name),
               fields: resolved.value,
             })
-            // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
             throw new SeedWriteError(`${table.fileName} (key "${record.key}"): ${explained}`)
           }
           return resolved.index
@@ -299,7 +296,6 @@ const upsertAll = async (
       table: input.tables.find((candidate) => candidate.name === table.name),
       fields: {},
     })
-    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedWriteError(`${table.fileName}: ${explained}`)
   }
   const indexed = await indexUpsertedKeys(resolved.index, table, resolved.value)
@@ -343,7 +339,6 @@ const runReplaceDeletes = (input: ExecuteSeedPlanInput): Promise<void> =>
       Promise.resolve()
     )
     .catch((error: unknown) => {
-      // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
       throw new SeedWriteError(
         `--mode replace could not clear the target tables: ${describe(error)}. ` +
           `A table outside the seed set may hold a foreign key into one of them.`

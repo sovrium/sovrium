@@ -99,9 +99,9 @@ pages:
         visibility: { capability: administer-accounts }
 ```
 
-Two powers, and only two: `admin-console` lets the caller reach the operator console at all, and `administer-accounts` lets them create, ban and re-role users.
+Three powers, and only three: `admin-console` lets the caller reach the operator console at all, `administer-accounts` lets them create, ban and re-role users, and `edit-operations` lets them make the console's operational writes — retry a run, pause or resume an automation, create, re-point, disable or delete a link, connect or disconnect an account, and share the design system. `edit-operations` is held by exactly the console tier the server accepts those writes from (`admin-editor`, which an app's top role and the built-in `admin` resolve to).
 
-They are genuinely different. A console viewer satisfies the first, reaches the console, and is refused on every account write — so a surface painting a change-role control for them would be advertising something the backend answers with `404`.
+They are genuinely different. A console viewer satisfies the first, reaches the console, and is refused on every account write and every operational write — so a surface painting a change-role or a retry control for them would be advertising something the backend answers with `404`.
 
 **An unmet capability REMOVES the component, together with everything inside it.** It is not hidden with CSS and not rendered disabled: a hidden action column still ships every row action's endpoint to somebody forbidden to call it, which is a disclosure rather than a style, and a greyed-out control advertises a power that will be refused.
 
@@ -136,6 +136,8 @@ pages:
 One authored page, two bodies. An automations directory on an app that declares none is not a `404` — it is a page with an honest empty state, which is exactly the case `access` and `requires` cannot express: both answer an unmet condition by making the page unreachable.
 
 The vocabulary is the same closed set `requires` uses, so the two levels cannot drift into disagreeing about what "declares automations" means. A typo is refused at startup.
+
+The set includes the sign-in ways — `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso` — and `auth.signUp`, which holds unless `allowSignUp: false`. A sign-in page gates each alternative on the one it needs, so an app shows only the ways it actually offers, and a "Create an account" link disappears from an app that closed sign-up.
 
 The two keys compose by AND, so declaring one capability and excluding another means "for apps that do the first and not the second". Naming the SAME capability in both is refused: it could never render on any instance.
 

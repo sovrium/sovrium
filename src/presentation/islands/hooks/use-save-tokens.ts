@@ -70,7 +70,6 @@ export function useSaveTokens(tableName: string) {
   const rememberToken = useCallback((rowId: string | number, response: unknown): void => {
     const token = readResponseToken(response)
     if (token === undefined) return
-    // eslint-disable-next-line functional/immutable-data -- Ref holds the newest token per row, learned from our own writes
     savedTokensRef.current = { ...savedTokensRef.current, [String(rowId)]: token }
   }, [])
 

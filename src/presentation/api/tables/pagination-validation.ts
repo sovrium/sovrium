@@ -19,7 +19,7 @@ import type { Context } from 'hono'
  * client's value straight through as `Number(raw)`. Anything the response
  * schema refused therefore failed on the way OUT, inside `runEffect`, and the
  * caller was told `500 Internal Server Error`. Measured on both dialects
- * (2026-09-01): `limit` of `0`, `-5`, `1.5`, `101`, `500`, `1e3` or `abc`, and
+ * `limit` of `0`, `-5`, `1.5`, `101`, `500`, `1e3` or `abc`, and
  * `offset` of `-5` or `abc`, every one a 500. A value the client supplied and
  * the contract rejects is a bad REQUEST; 500 tells the caller the server
  * broke, which sends them to look in the wrong place entirely.

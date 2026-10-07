@@ -15,11 +15,10 @@ import type { Context } from 'hono'
  * System fields that exist in every table but are not in `app.tables[].fields`.
  *
  * Must stay in step with `SYSTEM_FIELDS` in
- * `domain/validators/field-read-filter.ts`. This list used to
- * omit the three authorship columns and — worse — was declared but never
- * consulted, so a sort on any system column fell through to the
- * "not found in table.fields" branch below and was rejected. `?sort=created_by`
- * therefore returned 400 for every non-admin role.
+ * `domain/validators/field-read-filter.ts`, and it must actually be consulted:
+ * otherwise a sort on any system column falls through to the
+ * "not found in table.fields" branch below and is rejected — `?sort=created_by`
+ * would return 400 for every non-admin role.
  */
 const SYSTEM_FIELDS = new Set([
   'id',

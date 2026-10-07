@@ -37,7 +37,7 @@ Three classes of change are tracked:
 
 - **Structural** — adding, removing and renaming fields and tables.
 - **Field property** — a type change, a constraint, a default, an options list, a `required` toggle.
-- **Index and view** — adding and dropping indexes, creating and updating saved views.
+- **Index and view** — adding and dropping indexes, creating and updating table views.
 
 IDs are the rename anchor — keep the `id` stable and change the `name` to rename a column or a table without losing data. For a table, the `id` must be written in the config: a table renamed without one reads as one table removed and another added, and a migration never drops a table that still holds rows, so it refuses and names the `id` to add. **Table Indexes & Constraints** and **Table Validation** document the per-field properties migrations track.
 

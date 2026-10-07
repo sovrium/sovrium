@@ -1,0 +1,17 @@
+# The payment reminders the workspace sends, from gentle to firm.
+records:
+  - key: first
+    fields:
+      name: First reminder
+      days_late: 7
+      message: A friendly note that the invoice is a week past its due date.
+  - key: second
+    fields:
+      name: Second reminder
+      days_late: 21
+      message: The invoice is three weeks late. Please let us know when to expect payment.
+  - key: final
+    fields:
+      name: Final notice
+      days_late: 45
+      message: Last reminder before we pause work on the account.

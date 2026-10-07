@@ -38,12 +38,11 @@
  * their implementation (`agent-execution-gates.ts`). Until it did, an operator
  * who capped an agent at two actions a minute got that cap on `/execute` and no
  * cap at all here, and a scheduled run's token cost was dropped on the floor
- * ([internal ref].. -012).
+ * (an AI agent schedule spec. -012).
  *
  * BOTH routes are gated by `permissions.trigger`: the trigger is a second way
  * to run the same agent under the same privileged identity, and the readback
- * serves `taskPrompt`, which is prompt material exactly as `systemPrompt` is
- *.
+ * serves `taskPrompt`, which is prompt material exactly as `systemPrompt` is.
  *
  * Cron expression and timezone validity are enforced at schema-decode time by
  * `AgentScheduleSchema`; these handlers assume a well-formed schedule.
@@ -95,10 +94,7 @@ type ScheduleTarget =
  * was never declared and from one the caller may not reach, or the three
  * answers become an enumeration oracle keyed on the name in the URL.
  */
-const resolveScheduleTarget = async (
-  c: Readonly<Context>,
-  app: App | undefined
-): Promise<ScheduleTarget> => {
+const resolveScheduleTarget = async (c: Context, app: App | undefined): Promise<ScheduleTarget> => {
   const agent = findAgent(app, c.req.param('name') ?? '')
   if (!agent) return { refusal: agentNotFound(c) }
   const triggerRefusal = await checkTriggerPermission(c, agent, app)
@@ -110,7 +106,7 @@ const resolveScheduleTarget = async (
 
 const handleGetSchedule =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const target = await resolveScheduleTarget(c, app)
     if ('refusal' in target) return target.refusal
     const { agent, schedule } = target
@@ -136,7 +132,7 @@ const handleGetSchedule =
  * route.
  */
 const triggerWithinSlot = async (
-  c: Readonly<Context>,
+  c: Context,
   agent: Agent,
   taskPrompt: string
 ): Promise<Response> => {
@@ -161,12 +157,12 @@ const triggerWithinSlot = async (
 
 const handleTriggerSchedule =
   (app: App | undefined) =>
-  async (c: Readonly<Context>): Promise<Response> => {
+  async (c: Context): Promise<Response> => {
     const target = await resolveScheduleTarget(c, app)
     if ('refusal' in target) return target.refusal
     const { agent, schedule } = target
 
-    // [internal ref]: an agent on a deployment with no AI provider is INERT —
+    // An agent on a deployment with no AI provider is INERT —
     // declared and discoverable but not runnable. Degrade with 503 rather than
     // calling an unreachable provider and then reporting `completed` for a run
     // that never happened.
@@ -206,10 +202,6 @@ const handleTriggerSchedule =
  */
 export function chainAgentScheduleRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
-    .post('/api/agents/:name/schedule/trigger', (c) =>
-      handleTriggerSchedule(app)(c as unknown as Readonly<Context>)
-    )
-    .get('/api/agents/:name/schedule', (c) =>
-      handleGetSchedule(app)(c as unknown as Readonly<Context>)
-    ) as T
+    .post('/api/agents/:name/schedule/trigger', (c) => handleTriggerSchedule(app)(c))
+    .get('/api/agents/:name/schedule', (c) => handleGetSchedule(app)(c)) as T
 }

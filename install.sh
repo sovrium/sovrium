@@ -7,8 +7,14 @@
 #   SOVRIUM_INSTALL_DIR=/usr/local curl -fsSL https://sovrium.com/install | sh
 #
 # Options:
-#   --no-modify-path    Don't add Sovrium to your shell PATH
-#   --version X.Y.Z     Install a specific version (default: latest)
+#   --no-modify-path          Don't add Sovrium to your shell PATH
+#   --version X.Y.Z           Install a specific version (default: latest)
+#   --insecure-skip-checksum  Install WITHOUT verifying the published sha256
+#                             (not recommended; prints a warning)
+#
+# Every download is HTTPS-only (TLS 1.2+), and the archive is installed only
+# when its published sha256 can be fetched AND matches. A missing, unreadable
+# or mismatching checksum stops the install with nothing written.
 #
 # Environment variables:
 #   SOVRIUM_INSTALL_DIR   Custom install PREFIX (default: ~/.sovrium). The
@@ -23,11 +29,13 @@ set -eu
 # The six renderers that make this script obey the same standard as the
 # TypeScript CLI. See docs/architecture/patterns/terminal-language.md §11.
 # `printf`, never `echo` — echo mangles backslashes and leading `-` under dash.
+# Glyphs are literal UTF-8 passed as `%s` arguments: dash's printf has no `\x`
+# escapes, so a hex-escaped glyph printed as `\xe2\x80\xa6` on Debian and Ubuntu.
 
 say()  { printf '  %s\n' "$1"; }              # banner prose / guidance
-ok()   { printf '  \xe2\x9c\x93 %s\n' "$1"; }        # banner phase
-warn() { printf '  \xe2\x9a\xa0 %s\n' "$1"; }        # banner degradation
-step() { printf '%s\xe2\x80\xa6\n' "$1" >&2; }       # stream narration -> stderr
+ok()   { printf '  %s %s\n' '✓' "$1"; }        # banner phase
+warn() { printf '  %s %s\n' '⚠' "$1"; }        # banner degradation
+step() { printf '%s%s\n' "$1" '…' >&2; }       # stream narration -> stderr
 die()  {
   printf 'Error: %s\n' "$1" >&2
   [ -n "${2:-}" ] && printf '\n%s\n' "$2" >&2
@@ -50,6 +58,7 @@ BIN_DIR="$INSTALL_DIR/bin"
 
 MODIFY_PATH=1
 VERSION=""
+SKIP_CHECKSUM=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -59,12 +68,14 @@ while [ $# -gt 0 ]; do
       VERSION="$1"
       ;;
     --version=*) VERSION="${1#--version=}" ;;
+    --insecure-skip-checksum) SKIP_CHECKSUM=1 ;;
     --help|-h)
       printf '%s\n' "Usage: curl -fsSL https://sovrium.com/install | sh"
       printf '\n%s\n' "Install the Sovrium binary and add it to your PATH."
       printf '\n%s\n' "Options:"
       printf '%s\n' "  --no-modify-path              Leave your shell rc files alone"
       printf '%s\n' "  --version X.Y.Z               Install a specific version (default: latest)"
+      printf '%s\n' "  --insecure-skip-checksum      Install without verifying the sha256 (not recommended)"
       printf '%s\n' "  --help, -h                    Show this help message"
       printf '\n%s\n' "Environment variables:"
       printf '%s\n' "  SOVRIUM_INSTALL_DIR           Install prefix (default: ~/.sovrium)"
@@ -82,16 +93,30 @@ done
 
 # ─── Download helper (curl or wget) ──────────────────────────
 
-# download <url> <dest> ; returns non-zero on failure (no exit, caller decides)
-download() {
+# Every request is HTTPS-only, redirects included: curl refuses any other
+# protocol and anything below TLS 1.2, and wget runs with --https-only. A wget
+# that cannot honour --https-only (BusyBox) is refused rather than trusted.
+#
+# fetch <url> <dest> ; <dest> "-" writes to stdout. Returns non-zero on
+# failure (no exit, caller decides).
+fetch() {
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1" -o "$2" && return 0
+    curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$2" && return 0
   elif command -v wget >/dev/null 2>&1; then
-    wget -q "$1" -O "$2" && return 0
+    if ! wget --help 2>&1 | grep -q -- '--https-only'; then
+      die "This wget cannot be restricted to HTTPS." \
+"Install curl (or GNU wget), then re-run this script."
+    fi
+    wget --https-only -q "$1" -O "$2" && return 0
   else
-    die "Neither curl nor wget is available." "Install one of them, then re-run this script." 
+    die "Neither curl nor wget is available." "Install one of them, then re-run this script."
   fi
   return 1
+}
+
+# download <url> <dest>
+download() {
+  fetch "$1" "$2"
 }
 
 # ─── Detect platform ─────────────────────────────────────────
@@ -141,13 +166,7 @@ fetch_latest_version() {
 
   step "Fetching the latest version"
 
-  if command -v curl >/dev/null 2>&1; then
-    VERSION=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
-  elif command -v wget >/dev/null 2>&1; then
-    VERSION=$(wget -qO- "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
-  else
-    die "Neither curl nor wget is available." "Install one of them, then re-run this script."
-  fi
+  VERSION=$(fetch "https://api.github.com/repos/$GITHUB_REPO/releases/latest" - | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/') || VERSION=""
 
   if [ -z "$VERSION" ]; then
     die "Could not resolve the latest version from the GitHub API." \
@@ -157,6 +176,62 @@ fetch_latest_version() {
 }
 
 # ─── Download and verify ─────────────────────────────────────
+
+# Every release since v0.4.10 publishes sovrium-<version>-<target>.sha256 next
+# to its archive, so an absent or unreadable one is a fault to stop on, never a
+# reason to install unverified. The only way past it is the explicit
+# --insecure-skip-checksum flag, which is announced on stderr and repeated in
+# the closing banner.
+CHECKSUM_REPORT="If this keeps happening, do not install by hand: report it to
+security@sovrium.com (or https://github.com/$GITHUB_REPO/issues), quoting the
+version and platform above. The checksum protects you from a corrupted or
+tampered download."
+
+verify_checksum() {
+  if [ "$SKIP_CHECKSUM" -eq 1 ]; then
+    CHECKSUM_WARNING="Checksum NOT verified — installed with --insecure-skip-checksum"
+    return
+  fi
+
+  CHECKSUM_FETCHED=0
+  download "$CHECKSUM_URL" "$TEMP_DIR/$CHECKSUM_FILE" && [ -s "$TEMP_DIR/$CHECKSUM_FILE" ] && CHECKSUM_FETCHED=1
+  if [ "$CHECKSUM_FETCHED" -eq 0 ]; then
+    die "Could not fetch the published checksum for ${ARCHIVE}. Nothing was installed." \
+"  ${CHECKSUM_URL}
+
+Re-run this script. ${CHECKSUM_REPORT}
+
+To install without verification anyway (not recommended), re-run with
+  --insecure-skip-checksum"
+  fi
+
+  EXPECTED=$(awk '{ print $1; exit }' "$TEMP_DIR/$CHECKSUM_FILE")
+  case "$EXPECTED" in
+    *[!0-9a-fA-F]*|"") EXPECTED="" ;;
+  esac
+  if [ "${#EXPECTED}" -ne 64 ]; then
+    die "The published checksum for ${ARCHIVE} is unreadable. Nothing was installed." \
+"  ${CHECKSUM_URL}
+
+${CHECKSUM_REPORT}"
+  fi
+
+  step "Verifying the checksum"
+  if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL=$(sha256sum "$TEMP_DIR/$ARCHIVE" | awk '{ print $1 }')
+  elif command -v shasum >/dev/null 2>&1; then
+    ACTUAL=$(shasum -a 256 "$TEMP_DIR/$ARCHIVE" | awk '{ print $1 }')
+  else
+    die "Cannot verify the download: neither sha256sum nor shasum is available. Nothing was installed." \
+"Install one of them (coreutils or perl), then re-run this script."
+  fi
+
+  if [ "$(printf '%s' "$EXPECTED" | tr 'A-F' 'a-f')" != "$ACTUAL" ]; then
+    die "Checksum does not match the published sha256. Nothing was installed." \
+"The download may be corrupt or tampered with. Re-run this script.
+${CHECKSUM_REPORT}"
+  fi
+}
 
 download_and_install() {
   ARCHIVE="sovrium-${VERSION}-${TARGET}.tar.gz"
@@ -175,32 +250,7 @@ download_and_install() {
   ${URL}
   https://github.com/$GITHUB_REPO/releases"
   fi
-  # Checksum file is best-effort — verification is skipped if absent.
-  download "$CHECKSUM_URL" "$TEMP_DIR/$CHECKSUM_FILE" 2>/dev/null || true
-
-  # Verify checksum if available
-  if [ -f "$TEMP_DIR/$CHECKSUM_FILE" ] && [ -s "$TEMP_DIR/$CHECKSUM_FILE" ]; then
-    step "Verifying the checksum"
-    cd "$TEMP_DIR"
-    if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum -c "$CHECKSUM_FILE" --quiet 2>/dev/null || {
-        die "Checksum does not match the published sha256. Nothing was installed." \
-"The download may be corrupt or tampered with. Re-run this script; if it fails
-again, report it at https://github.com/$GITHUB_REPO/issues"
-      }
-    elif command -v shasum >/dev/null 2>&1; then
-      shasum -a 256 -c "$CHECKSUM_FILE" --quiet 2>/dev/null || {
-        die "Checksum does not match the published sha256. Nothing was installed." \
-"The download may be corrupt or tampered with. Re-run this script; if it fails
-again, report it at https://github.com/$GITHUB_REPO/issues"
-      }
-    else
-      CHECKSUM_WARNING="Checksum not verified \xe2\x80\x94 no sha256sum or shasum on this system"
-    fi
-    cd - >/dev/null
-  else
-    CHECKSUM_WARNING="Checksum not published for this build \xe2\x80\x94 installed without verification"
-  fi
+  verify_checksum
 
   # Extract
   step "Extracting"
@@ -283,6 +333,12 @@ update_path() {
 # ─── Main ─────────────────────────────────────────────────────
 
 main() {
+  # The opt-out is announced BEFORE any download, on stderr, so it cannot be
+  # missed in a log or mistaken for a normal install.
+  if [ "$SKIP_CHECKSUM" -eq 1 ]; then
+    printf '%s\n' "Warning: --insecure-skip-checksum is set. The download will NOT be verified against its published sha256." >&2
+  fi
+
   # Nothing opens the script. A user who just typed the curl one-liner has it on
   # screen; "Sovrium Installer" over a rule restates it and then makes them wait.
   # The first real line reports work starting, sooner and with information.
@@ -299,7 +355,7 @@ main() {
 
   if [ -n "$CHECKSUM_WARNING" ]; then
     printf '\n'
-    warn "$(printf '%b' "$CHECKSUM_WARNING")"
+    warn "$CHECKSUM_WARNING"
   fi
 
   printf '\n'

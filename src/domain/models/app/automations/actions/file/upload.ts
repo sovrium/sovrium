@@ -32,7 +32,8 @@ export const FileUploadActionSchema = Schema.Struct({
     /** Source data for the upload */
     source: TemplateStringSchema.pipe(
       Schema.annotate({
-        description: 'Previous step result key, URL, or base64 data',
+        description:
+          'Previous step result key, URL (with `headers` when the download needs credentials), or base64 data',
       })
     ),
 
@@ -41,6 +42,20 @@ export const FileUploadActionSchema = Schema.Struct({
       TemplateStringSchema.pipe(
         Schema.annotate({
           description: 'Storage key destination. If omitted, auto-generated.',
+        })
+      )
+    ),
+
+    /**
+     * Request headers sent when `source` is an `http(s)://` URL — the API key
+     * of a service whose downloads are authenticated. Never sent to another
+     * origin a redirect points to; every value is a secret in the run record.
+     */
+    headers: Schema.optional(
+      Schema.Record(Schema.String, TemplateStringSchema).pipe(
+        Schema.annotate({
+          description:
+            'Request headers sent with the download when `source` is a URL, for a service whose files need its API key (values support template variables and `$env`, e.g. `Authorization: Bearer $env.API_KEY`). They are sent to the source as written, a plain `http://` URL included, so use an `https://` source. They are not sent on to another origin a redirect points to, every value is redacted from the run record, and they are ignored for a source that is not a URL.',
         })
       )
     ),

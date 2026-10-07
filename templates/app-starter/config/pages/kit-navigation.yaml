@@ -1,0 +1,21 @@
+name: kit-navigation
+path: /kit/navigation
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: 'Navigation blocks · App starter'
+  description: 'Headings, trails, tabs and menus.'
+components:
+  - $ref: ./_nav.yaml
+  - component: app-navbar-search
+  - component: app-navbar-command
+  - component: page-heading-actions
+  - component: breadcrumb-chevron
+  - component: breadcrumb-slash
+  - component: section-heading-tabs
+  - component: tabs-underline
+  - component: tabs-segmented
+  - component: card-heading
+  - component: vertical-nav-grouped
+  - component: vertical-nav-settings

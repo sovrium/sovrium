@@ -58,4 +58,4 @@ export const describedRef = <S extends Schema.Top>(schema: S, description: strin
 export const describedUnknown = (
   description: string
 ): Schema.Codec<unknown, unknown, never, never> =>
-  Schema.Any.annotate({ description }) as unknown as Schema.Codec<unknown, unknown, never, never>
+  Schema.Any.annotate({ description }) as Schema.Codec<unknown, unknown, never, never>

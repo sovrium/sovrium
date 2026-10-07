@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { InTransactionBody } from './drizzle/transaction-body-guard'
 import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
 
 /**
@@ -14,18 +15,18 @@ import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
  * ## Why this exists
  *
  * Drizzle's `transaction()` takes a plain async callback, so somewhere an
- * Effect has to become a Promise. Every transaction in `table-queries/` used to
- * do that with a bare `Effect.runPromise` (or the `runEffectInTx` wrapper) in
- * the callback body — one FRESH ROOT fiber per statement, with two consequences:
+ * Effect has to become a Promise. Doing that with a bare `Effect.runPromise`
+ * in the callback body starts one FRESH ROOT fiber per statement, with two
+ * consequences:
  *
  *   - **Spans detached.** `traceDbQuery` opens a span on the request's fiber,
  *     but a root fiber starts from `Context.empty()`, so every span the body
- *     opened became an orphan root instead of a child of the `http.server`
- *     span it belonged under. The same applied to log annotations and to every
+ *     opens becomes an orphan root instead of a child of the `http.server`
+ *     span it belongs under. The same applies to log annotations and to every
  *     other fiber-scoped reference.
  *   - **Interruption severed.** Interrupting the outer fiber (an aborted HTTP
- *     request, a `Effect.timeout`) could not reach the root fiber inside the
- *     callback, so the transaction ran to completion against a client that had
+ *     request, a `Effect.timeout`) cannot reach the root fiber inside the
+ *     callback, so the transaction runs to completion against a client that has
  *     already gone away.
  *
  * This module holds the single irreducible `runPromiseWith` for the
@@ -94,7 +95,10 @@ import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
  * so a body here is all-or-nothing on both engines and no other request's write
  * is captured by it. The one rule it adds: a body issues its statements through
  * `tx`, never through the shared `db`, which would wait for the very
- * transaction it is part of.
+ * transaction it is part of. The body runs with `InTransactionBody` set, so on
+ * SQLite a body that reaches the shared `db` — directly or through a helper —
+ * fails at once with a message naming this rule instead of hanging
+ * (`drizzle/transaction-body-guard.ts`).
  *
  * @param database - the Drizzle client to open the transaction on
  * @param body - the work to run against the transaction handle
@@ -112,7 +116,12 @@ export const withTransaction = <A, E, R, E2>(
   Effect.flatMap(Effect.context<R>(), (services) =>
     Effect.tryPromise({
       try: (signal) =>
-        database.transaction((tx) => Effect.runPromiseWith(services)(body(tx), { signal })),
+        database.transaction((tx) =>
+          Effect.runPromiseWith(services)(
+            Effect.provideService(body(tx), InTransactionBody, true),
+            { signal }
+          )
+        ),
       catch: onTransactionFailure,
     })
   )

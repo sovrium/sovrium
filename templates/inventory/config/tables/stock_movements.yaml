@@ -63,6 +63,21 @@ fields:
     name: created_by
     type: created-by
 
+views:
+  # The ledger as the Stock page shows it: every movement but the opening
+  # balances, newest first, per warehouse — Paris first, then Lyon, then
+  # Lille (descending by name happens to be the order of their size).
+  - id: ledger_by_warehouse
+    name: Ledger by warehouse
+    filters:
+      and:
+        - { field: type, operator: notEquals, value: Opening balance }
+    sorts:
+      - { field: moved_at, direction: desc }
+    groupBy:
+      field: warehouse
+      direction: desc
+
 aiAccess:
   description: >-
     Stock in and out, signed: positive for a receipt or a transfer in, negative

@@ -49,27 +49,30 @@ components:
               - type: table
                 props:
                   id: registrations-grid
-                  # Status is an outlined word, not a filled chip: green once
-                  # confirmed, amber on the waitlist.
-                  className: '[&_td:nth-child(3)_span]:!border [&_td:nth-child(3)_span]:!border-current [&_td:nth-child(3)_span]:!rounded-full [&_td:nth-child(3)_span]:!bg-transparent [&_td:nth-child(3)_span_span]:!border-0'
+                # Status is an outlined word, not a filled chip: green once
+                # confirmed, amber on the waitlist. The outline takes the
+                # word's own colour.
+                classes:
+                  parts:
+                    chip: '!rounded-full !border !border-current !bg-transparent'
                 dataSource:
                   table: registrations
+                  # By event, the latest registrations first, so this week's
+                  # arrivals are on the first page; the filter bar finds anyone else.
+                  view: by_event
                   bindTo: registrations-filter
                   sharedFilter: {}
-                  # The latest registrations first, so this week's arrivals are
-                  # on the first page; the filter bar finds anyone else.
-                  sort:
-                    - { field: registered_at, direction: desc }
                 rowHeight: short
                 columns:
                   - { field: name, label: Attendee, sortable: true }
                   - { field: email, label: Email }
                   - field: status
                     label: Status
+                    badgeForm: outline
                     cellStyle:
-                      - { when: { eq: Confirmed }, className: '[&_*]:!text-success' }
-                      - { when: { eq: Waitlist }, className: '[&_*]:!text-warning' }
-                      - { when: { eq: Cancelled }, className: '[&_*]:!text-foreground-muted' }
+                      - { when: { eq: Confirmed }, tone: success }
+                      - { when: { eq: Waitlist }, tone: warning }
+                      - { when: { eq: Cancelled }, tone: muted }
                   - { field: registered_at, label: Registered, format: short-date, align: right }
                   - { field: checked_in, label: Arrived }
                   # The door: one press marks the person as arrived. Already
@@ -91,8 +94,6 @@ components:
                             message: Checked in
                             variant: success
                             refetch: registrations-grid
-                groupBy:
-                  field: event
                 pagination:
                   pageSize: 100
                 emptyMessage: People who register on the public page appear here, grouped by event. Share the public page, or add an attendee by hand.

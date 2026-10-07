@@ -92,7 +92,7 @@ export async function evaluateFormAccessForRequest(
 /**
  * Render a minimal HTML 401 page for an access-gated form. The body
  * references the form name and the required access level so the
- * [internal ref] assertions (`/feedback/` + `/authenticated/`) match.
+ * a forms spec assertions (`/feedback/` + `/authenticated/`) match.
  */
 export function renderFormUnauthorizedHtml(formName: string, require: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>401 — authentication required</title></head><body><main class="form-access-denied" data-status="401"><p>Form "${formName}" requires ${require} access.</p></main></body></html>`

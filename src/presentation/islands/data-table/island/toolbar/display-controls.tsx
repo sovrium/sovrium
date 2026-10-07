@@ -6,25 +6,18 @@
  */
 
 import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
-import { DensityMenu } from '../density-menu'
 import { useGridString } from '../grid-strings'
-import { SettingsDialog } from '../settings-dialog'
-import { ColumnsMenu } from '../toolbar-menus'
 import { ExportControl, ExportSelectedButton } from './export-controls'
-import type { RowDensity } from '../../../hooks/use-table-preferences'
 import type { DataTableInstance } from '../table-features'
 import type { ActiveFilter } from '../use-ui-state'
 
 /**
  * The controls that change how the rows already fetched are PRESENTED or taken
- * away: column visibility, export, refresh, density, and preference reset.
+ * away: export and refresh.
  */
 export interface DisplayControlsProps {
   readonly table: DataTableInstance
   readonly tableName: string
-  readonly columnToggleEnabled: boolean
-  readonly columnsMenuOpen: boolean
-  readonly onToggleColumnsMenu: () => void
   /** Multi-row selection is on, so a selection-scoped export is meaningful. */
   readonly canExportSelection: boolean
   readonly selectedCount: number
@@ -44,39 +37,12 @@ export interface DisplayControlsProps {
   readonly onCloseExportMenu: () => void
   readonly refreshEnabled: boolean
   readonly onRefresh: () => void
-  readonly densityEnabled: boolean
-  readonly currentDensity: RowDensity
-  readonly onSelectDensity: (density: RowDensity) => void
-  /**
-   * Reset every personal preference for this table (column widths, density,
-   * column order, default view). When undefined the Settings button is hidden.
-   *
-   * The dialog rides the density flag because that flag is what declares this
-   * grid HAS preferences to remember. Rendering it unconditionally put a
-   * "Reset to defaults" in front of every grid, including the ones with
-   * nothing to reset.
-   */
-  readonly onResetPreferences?: () => void
 }
 
 export function DisplayControls(props: DisplayControlsProps) {
-  const columnsLabel = useGridString('datatable.columns', 'Columns')
   const refreshLabel = useGridString('datatable.refresh', 'Refresh')
   return (
     <>
-      {props.columnToggleEnabled && (
-        <div className="relative">
-          <button
-            type="button"
-            className={computeTableToolbarButtonClasses({ active: props.columnsMenuOpen })}
-            aria-label={columnsLabel}
-            onClick={props.onToggleColumnsMenu}
-          >
-            {columnsLabel}
-          </button>
-          {props.columnsMenuOpen && <ColumnsMenu table={props.table} />}
-        </div>
-      )}
       {props.canExportSelection && (
         <ExportSelectedButton
           table={props.table}
@@ -106,15 +72,6 @@ export function DisplayControls(props: DisplayControlsProps) {
         >
           {refreshLabel}
         </button>
-      )}
-      {props.densityEnabled && (
-        <DensityMenu
-          current={props.currentDensity}
-          onSelect={props.onSelectDensity}
-        />
-      )}
-      {props.densityEnabled && props.onResetPreferences && (
-        <SettingsDialog onReset={props.onResetPreferences} />
       )}
     </>
   )

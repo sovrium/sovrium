@@ -79,7 +79,7 @@ export const CronTriggerSchema = Schema.Struct({
       if (zone !== undefined && Result.isFailure(zone)) return `Invalid IANA timezone: ${timezone}`
       const parsed = Cron.parse(expression, zone?.success)
       if (Result.isFailure(parsed)) {
-        const cause = parsed.failure as unknown as { readonly message?: string }
+        const cause = parsed.failure as { readonly message?: string }
         const detail = cause.message ?? String(parsed.failure)
         return `Invalid cron expression "${expression}": ${detail}`
       }

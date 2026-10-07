@@ -90,23 +90,29 @@ export type QueryCondition = Schema.Schema.Type<typeof QueryConditionSchema>
  * | --------------------- | -------------------------------------------------------------------------- |
  * | `admin-console`       | `isAdminTier(session.role, app)` — may reach the operator console at all    |
  * | `administer-accounts` | `isAdminEquivalent(session.role, app)` — may create, ban and re-role users  |
+ * | `edit-operations`     | `canEditOperations(session.role, app)` — may make the console's operational writes |
  *
- * The two are genuinely different, which is why both are here: an
- * `admin-viewer` satisfies the first and not the second, reaches the console,
- * and is 404ed by the admin-route middleware on every account WRITE. A surface
- * painting Change-role for them would be painting a control the backend
- * refuses.
+ * The three are genuinely different, which is why all are here: an
+ * `admin-viewer` satisfies the first and neither of the others, reaches the
+ * console, and is 404ed by the admin-route middleware on every account WRITE and
+ * every operational write (`EDITOR_ONLY_WRITES`). A surface painting Change-role
+ * or Retry for them would be painting a control the backend refuses.
  *
- * @see src/domain/models/app/auth/roles/index.ts — `isAdminTier`, `isAdminEquivalent`
+ * @see src/domain/models/app/auth/roles/index.ts — `isAdminTier`, `isAdminEquivalent`, `canEditOperations`
  * @see src/domain/models/app/pages/requires.ts — the app-side sibling
  */
-export const CALLER_CAPABILITIES = ['admin-console', 'administer-accounts'] as const
+export const CALLER_CAPABILITIES = [
+  'admin-console',
+  'administer-accounts',
+  'edit-operations',
+] as const
 
 /** One caller capability from the closed set. */
 export const CallerCapabilitySchema = Schema.Literals([...CALLER_CAPABILITIES]).annotate({
   identifier: 'CallerCapability',
   title: 'Caller Capability',
-  description: 'A power the requesting session must hold for the component to be rendered at all',
+  description:
+    'A power the requesting session must hold for the component to be rendered at all: `admin-console` reaches the operator console, `administer-accounts` may create, ban and re-role users, `edit-operations` may make the console operational writes (retry a run, pause or resume an automation, manage links, connect or disconnect an account, share the design system)',
 })
 
 /** @public */
@@ -463,9 +469,10 @@ export const VisibilitySchema = Schema.Struct({
   /** Field-based condition (SSR-excluded when condition doesn't match) */
   condition: Schema.optional(
     Schema.Struct({
-      /** Field reference (e.g., $user.plan, $user.role) */
+      /** Field reference (e.g., $user.plan, $user.role, $invitation.status) */
       field: Schema.String.annotate({
-        description: 'Field reference to evaluate (e.g., $user.plan)',
+        description:
+          'Field reference to evaluate: a signed-in user field (e.g., $user.plan), or, on a page declaring `invitation`, an invitation field (e.g., $invitation.status)',
       }),
       /** Comparison operator */
       operator: Schema.Literals(['eq', 'neq']).annotate({

@@ -54,7 +54,6 @@ export function PreviewMappingHeader({
                 <select
                   aria-label={`Map column ${header}`}
                   value={mapping}
-                  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-column change handler closes over columnIndex; React Compiler will memoize once enabled in Bun.
                   onChange={(event) => onMappingChange(columnIndex, event.currentTarget.value)}
                   className={computeTablePanelControlClasses()}
                 >

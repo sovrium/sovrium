@@ -58,7 +58,7 @@ export class BootstrapTokenRepository extends Context.Service<
      * Hard-delete every row in `system.sovrium_bootstrap_tokens`. Stronger
      * than `expireAll` — used during boot when the bootstrap window is
      * unambiguously closed (a user already exists OR AUTH_ADMIN_EMAIL was
-     * set), so the table is left empty ([internal ref] asserts
+     * set), so the table is left empty (a schema bootstrap spec asserts
      * `count(*) = 0` after such a boot).
      */
     readonly purgeAll: Effect.Effect<void, BootstrapTokenDatabaseError>

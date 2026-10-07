@@ -1,6 +1,7 @@
 # Recipe 1 — a webhook becomes a lead.
 #
-# POST a JSON body with `name` and `email` (and `company` if you have it) to
+# POST a JSON body with `name` and `email` (and `company` and `message` if you
+# have them) to
 #   /api/automations/capture-lead-from-webhook/webhook
 # with the header `Authorization: Bearer <LEADS_WEBHOOK_TOKEN>`. A request
 # without the token is refused with a 401 and writes nothing, so a form, a
@@ -30,6 +31,7 @@ actions:
         name: '{{trigger.data.body.name}}'
         email: '{{trigger.data.body.email}}'
         company: '{{trigger.data.body.company}}'
+        message: '{{trigger.data.body.message}}'
         source: Webhook
         captured_at: '{{now}}'
   - name: logRun

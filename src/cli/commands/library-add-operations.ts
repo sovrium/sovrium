@@ -84,10 +84,8 @@ const pasteBlock = (
   operations: readonly ConnectionOperation[]
 ): string =>
   format === 'typescript'
-    ? // eslint-disable-next-line unicorn/no-null -- JSON.stringify requires null as its replacer
-      JSON.stringify({ operations }, null, 2)
-    : // eslint-disable-next-line unicorn/no-null -- the stringify signature takes null as its replacer
-      Bun.YAML.stringify({ operations }, null, 2)
+    ? JSON.stringify({ operations }, null, 2)
+    : Bun.YAML.stringify({ operations }, null, 2)
         .split('\n')
         .map((line) => line.trimEnd())
         .join('\n')

@@ -27,7 +27,7 @@ type DateRelatedField = DateField | DateTimeField | TimeField
  *
  * The arithmetic lives in `@/domain/utils/currency-format` so the data-table's
  * `format: 'currency'` column renders identically to this `?format=display`
- * path — the grid used to hard-code `$` and `en-US`, which made a field
+ * path — rather than hard-coding `$` and `en-US`, which would make a field
  * declaring `currency: 'EUR'` render `$0.35`.
  *
  * @param value - The numeric value to format
@@ -295,11 +295,11 @@ function formatBytes(bytes: number): string {
 /**
  * Render an attachment value as a human-readable label.
  *
- * [internal ref]: the read-path enricher promotes a bare storage key into an
+ * The read-path enricher promotes a bare storage key into an
  * object (`{ key, signedUrl, ... }`) and a key list into an array of those, so
  * a plain `String(value)` here degrades to `'[object Object]'`. Prefer the
  * file name the value carries, falling back to the storage key.
- * `[internal ref]` is the guard.
+ * A buckets signed URLs spec is the guard.
  */
 function attachmentDisplayLabel(value: unknown): string {
   if (value === null || value === undefined) return ''

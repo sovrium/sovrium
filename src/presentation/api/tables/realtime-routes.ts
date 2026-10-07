@@ -6,7 +6,7 @@
  */
 
 /**
- * Real-time presence-awareness route chain (Wave-6).
+ * Real-time presence-awareness route chain.
  *
  * Registers `GET /api/realtime/presence` — the page-path-scoped presence
  * SSE endpoint. Always registered; the handler returns 401 when no session
@@ -35,7 +35,9 @@ export function chainRealtimeRoutes<T extends Hono>(
   app: App,
   getSession?: PresenceReaderResolver
 ) {
-  return honoApp.get('/api/realtime/presence', enrichUserRole(), (c) =>
-    handlePresence(c, app, getSession)
+  return honoApp.get(
+    '/api/realtime/presence',
+    enrichUserRole(() => app),
+    (c) => handlePresence(c, app, getSession)
   )
 }

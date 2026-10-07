@@ -37,6 +37,13 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
   'auth.apiKeys': (app) => app.auth?.apiKeys === true,
   'auth.twoFactor': (app) => app.auth?.twoFactor !== undefined && app.auth.twoFactor !== false,
   'auth.groups': (app) => (app.auth?.groups?.length ?? 0) > 0,
+  'auth.passkeys': (app) => app.auth?.passkeys !== undefined && app.auth.passkeys !== false,
+  'auth.magicLink': (app) =>
+    (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'magicLink'),
+  'auth.oauth': (app) => (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'oauth'),
+  'auth.sso': (app) => (app.auth?.sso?.length ?? 0) > 0,
+  // `allowSignUp` defaults to open, so only an explicit `false` closes it
+  'auth.signUp': (app) => app.auth !== undefined && app.auth.allowSignUp !== false,
   tables: (app) => (app.tables?.length ?? 0) > 0,
   forms: (app) => (app.forms?.length ?? 0) > 0,
   links: (app) => (app.links?.length ?? 0) > 0,
@@ -44,7 +51,7 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
   agents: (app) => (app.agents?.length ?? 0) > 0,
   buckets: (app) => (app.buckets?.length ?? 0) > 0,
   connections: (app) => (app.connections?.length ?? 0) > 0,
-  // [internal ref]: `!== undefined` here served the page to an instance whose every
+  // `!== undefined` here served the page to an instance whose every
   // analytics endpoint 404s. The shared predicate is the one `api-routes.ts`
   // gates those endpoints on, `false` included.
   analytics: analyticsIsEnabled,

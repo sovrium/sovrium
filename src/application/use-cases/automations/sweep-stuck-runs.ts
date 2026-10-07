@@ -31,6 +31,7 @@ import { resolveAutomationDefaultTimeoutMs } from '@/domain/models/process-env/a
 import { notifyPlatformFailure } from './notify-platform-failure'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
 /** How long past its timeout a run may still be `running` before it is swept. */
@@ -54,7 +55,7 @@ export const sweepStuckRuns = (
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository
+  AutomationRunOutcomeRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const defaultTimeoutMs = resolveAutomationDefaultTimeoutMs(processEnv)

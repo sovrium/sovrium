@@ -27,10 +27,9 @@ export function resolveColorToken(tokenName: string, design?: Design): string | 
 /**
  * Resolve an easing token reference against `design.motion.easings`.
  *
- * It used to read `theme.animations.easing` — a reserved key inside the flat
- * animation record, told apart from a real animation only by the shape of its
- * value. `motion` gives the ladder its own member, so this is now a plain
- * lookup rather than a discrimination.
+ * `motion` gives the easing ladder its own member, so this is a plain lookup
+ * rather than telling a reserved key apart from a real animation by the shape
+ * of its value.
  *
  * @param tokenName - Name of the easing token (e.g., 'smooth', 'bounce')
  * @param design - Optional design configuration

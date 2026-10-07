@@ -50,30 +50,30 @@ export const errorResponseSchema = Schema.Struct({
     'BAD_REQUEST',
     'CONFLICT',
     'PAYLOAD_TOO_LARGE',
+    // A body not declared as JSON, sent to a JSON route. Distinct from
+    // BAD_REQUEST because the repair differs: the body may be perfectly well
+    // formed, and only its `Content-Type` has to change.
+    'UNSUPPORTED_MEDIA_TYPE',
     'RATE_LIMITED',
     'INTERNAL_ERROR',
     'SERVICE_UNAVAILABLE',
     'STORAGE_ERROR',
-    // Admitted 2026-09-03. `buckets.ts` `transformFailureResponse` has emitted
-    // this literal on the 500 image-transform-failure path since the silent
-    // passthrough was removed, so the union described a contract the runtime
-    // had already left. Narrowing the ROUTE instead would have folded a
-    // distinguishable failure ("the encoder ran and failed") into the generic
-    // STORAGE_ERROR, losing the only signal that separates it from an
-    // unreachable object store.
+    // `buckets.ts` `transformFailureResponse` emits this literal on the 500
+    // image-transform-failure path. Folding it into the generic STORAGE_ERROR
+    // would lose a distinguishable failure ("the encoder ran and failed") — the
+    // only signal that separates it from an unreachable object store.
     'TRANSFORM_ERROR',
     'DATABASE_ERROR',
     'QUOTA_EXCEEDED',
-    // Admitted 2026-09-11, in one pass, for two distinct reasons.
+    // Nine codes, admitted for two distinct reasons.
     //
-    // The first six were ALREADY ON THE WIRE and absent from this union, so
-    // the published contract described responses the runtime does not send.
-    // Each survives the "could the status alone carry this?" test by naming a
+    // The first six are on the wire, and the published contract must describe
+    // the responses the runtime sends. Each survives the "could the status alone carry this?" test by naming a
     // DIFFERENT repair than its nearest existing member:
     //
     //   AI_PROVIDER_NOT_CONFIGURED — 503, and the operator must set an env var.
     //     SERVICE_UNAVAILABLE says "wait and retry", which is never true here.
-    // Already documented as the contract by [internal ref]'s AC table.
+    //     Already documented as the contract by the AI RAG SQLite requirement's AC table.
     //   TOO_MANY_CONNECTIONS — 429, and the caller must CLOSE a stream.
     //     RATE_LIMITED says "send more slowly", which frees nothing.
     //   NESTED_REPLY_REJECTED — 422; the parent exists but is itself a reply,
@@ -85,9 +85,8 @@ export const errorResponseSchema = Schema.Struct({
     //     an invitation. Expiry is the only one of the two worth asking for a
     //     fresh invitation over, and 410 has no other member here.
     //
-    // The last three were MISSING, and their absence was making the code lie.
-    // Three call sites carried a comment saying so — a 405 shipped
-    // BAD_REQUEST, and 502/504 both shipped SERVICE_UNAVAILABLE — which tells
+    // The last three keep the code honest: without them a 405 would ship
+    // BAD_REQUEST, and 502/504 would both ship SERVICE_UNAVAILABLE — which tells
     // a client the service is down when an upstream is merely slow or broken.
     'AI_PROVIDER_NOT_CONFIGURED',
     'TOO_MANY_CONNECTIONS',
@@ -131,6 +130,7 @@ export const ApiErrorCode = {
   BAD_REQUEST: 'BAD_REQUEST',
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',

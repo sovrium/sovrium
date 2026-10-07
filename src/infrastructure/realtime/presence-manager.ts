@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/prefer-immutable-types -- in-memory presence registry intentionally mutates Maps in place */
-
 /**
  * In-memory presence channel manager — Wave-6 presence awareness.
  *
@@ -76,7 +74,6 @@ const evictOldestForCapacity = (
   if (overBy <= 0) return
   const oldestFirst = [...page.entries()].toSorted(([, a], [, b]) => a.lastSeen - b.lastSeen)
   oldestFirst.slice(0, overBy).forEach(([connectionId, tracked]) => {
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
     page.delete(connectionId)
     publishToChannel(presenceChannel(appId, pagePath), {
       type: 'leave',
@@ -96,7 +93,7 @@ const evictOldestForCapacity = (
  *
  * Returns the full presence snapshot AFTER the join so the joining connection
  * can immediately render every colleague already on the page (the
- * `presence-sync` payload — [internal ref]).
+ * `presence-sync` payload — a realtime spec).
  */
 export const joinPresence = (params: {
   readonly appId: string
@@ -109,13 +106,13 @@ export const joinPresence = (params: {
   const page = pages.get(channelKey) ?? new Map<string, TrackedEntry>()
   pages.set(channelKey, page)
 
-  // [internal ref]: evict the oldest entries so the new connection joins
+  // Evict the oldest entries so the new connection joins
   // within the per-page cap.
   evictOldestForCapacity(page, appId, pagePath)
 
   page.set(connectionId, { entry, lastSeen: Date.now() })
 
-  // [internal ref]: announce the join to everyone already connected.
+  // Announce the join to everyone already connected.
   publishToChannel(channelKey, { type: 'join', user: entry })
 
   return snapshotEntries(appId, pagePath)
@@ -136,10 +133,8 @@ export const leavePresence = (params: {
   if (!page) return
   const tracked = page.get(connectionId)
   if (!tracked) return
-  // eslint-disable-next-line drizzle/enforce-delete-with-where
   page.delete(connectionId)
   if (page.size === 0) {
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
     pages.delete(channelKey)
   }
   publishToChannel(channelKey, {
@@ -165,7 +160,7 @@ export const touchPresence = (params: {
 
 /**
  * Reap presence entries whose connection has not sent a heartbeat within the
- * stale window ([internal ref]: 60s — `presenceStaleTimeoutMs`).
+ * stale window (a realtime spec: 60s — `presenceStaleTimeoutMs`).
  *
  * A reaped entry broadcasts a `leave` event so other connections drop the
  * stale user from their indicator. Each map key is the full channel string
@@ -189,7 +184,6 @@ const reapStalePresence = (now: number = Date.now()): void => {
         : channelKey
     ;[...page.entries()].forEach(([connectionId, tracked]) => {
       if (tracked.lastSeen >= staleBefore) return
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
       page.delete(connectionId)
       publishToChannel(channelKey, {
         type: 'leave',
@@ -198,7 +192,6 @@ const reapStalePresence = (now: number = Date.now()): void => {
       })
     })
     if (page.size === 0) {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
       pages.delete(channelKey)
     }
   })
@@ -214,7 +207,6 @@ const reapStalePresence = (now: number = Date.now()): void => {
  * first presence join so a server with zero presence-enabled pages never arms
  * a timer.
  */
-// eslint-disable-next-line functional/no-let
 let reapTimer: ReturnType<typeof setInterval> | undefined
 
 /** Arm the stale-cleanup timer (idempotent — safe to call on every join). */

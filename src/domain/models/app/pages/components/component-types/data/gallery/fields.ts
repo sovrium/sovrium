@@ -17,13 +17,11 @@ import { GalleryGridColumnsSchema } from './grid-columns'
 // (`{ pageSize, style }` — `PaginationStyleSchema` in `../../../data-source`),
 // exactly as every other data-bound component does, and NOT as a key of its own.
 //
-// A `GalleryPaginationStyleSchema` of its own stood here until 2026-09-14,
-// carrying the same three members as that shared vocabulary one level down. It
-// was exported, typed, and referenced by nothing — and the cost of that was
-// never the dead bytes. A reader who found it took the gallery to be incapable
-// of paging at all, and proposed adding a second, competing `pagination` key
-// beside the one that already works. It is deleted rather than re-pointed, so
-// the question resolves at the single place that answers it.
+// There is deliberately no gallery-specific pagination-style schema here. An
+// unreferenced copy of the shared vocabulary would mislead a reader into taking
+// the gallery to be incapable of paging, and into adding a second, competing
+// `pagination` key beside the one that already works. The question resolves at
+// the single place that answers it.
 
 // ---------------------------------------------------------------------------
 // Component type definition
@@ -42,6 +40,21 @@ export const galleryFields = {
     Schema.Literals(['grid', 'masonry', 'carousel']).annotate({
       description:
         'Gallery layout mode: grid | masonry | carousel. `carousel` lays the same cards on one horizontal track paged by its own controls, so a set too wide to grid is still walkable.',
+    })
+  ),
+  /**
+   * Lead the grid with one card drawn larger — the latest essay on a blog's
+   * index, the flagship product of a shop.
+   *
+   * `first` spans the first card across two columns from the `md` breakpoint
+   * up and sets its cover beside its text rather than above it; below `md`
+   * it is an ordinary card. Grid layout only: a masonry or carousel track has
+   * no column span to give.
+   */
+  featured: Schema.optional(
+    Schema.Literals(['none', 'first']).annotate({
+      description:
+        "Lead the grid with a larger card: 'first' spans the first card across two columns from the md breakpoint up, its cover beside its text; 'none' (default) draws every card alike. Grid layout only.",
     })
   ),
   emptyMessage: Schema.optional(

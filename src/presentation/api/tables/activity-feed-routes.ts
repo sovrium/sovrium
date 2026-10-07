@@ -209,7 +209,6 @@ function parseActionFilter(
   if (VALID_ACTIONS.includes(action as (typeof VALID_ACTIONS)[number])) {
     return action as 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
   }
-  // eslint-disable-next-line unicorn/no-null -- Null signals invalid action (vs undefined = no filter)
   return null
 }
 
@@ -392,8 +391,10 @@ async function handleListActivityLogs(c: Context, app: App) {
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
   return honoApp
-    .get('/api/activity/:activityId', enrichUserRole(), (c) =>
+    .get('/api/activity/:activityId', enrichUserRole(resolveApp), (c) =>
       handleGetActivityById(c, resolveApp())
     )
-    .get('/api/activity', enrichUserRole(), (c) => handleListActivityLogs(c, resolveApp())) as T
+    .get('/api/activity', enrichUserRole(resolveApp), (c) =>
+      handleListActivityLogs(c, resolveApp())
+    ) as T
 }

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
 import { CHANGELOG_HELP_TEXT, DOCS_HELP_TEXT, LIBRARY_HELP_TEXT } from './reference-help'
 
 /**
@@ -12,21 +13,19 @@ import { CHANGELOG_HELP_TEXT, DOCS_HELP_TEXT, LIBRARY_HELP_TEXT } from './refere
  *
  * ## Why this file exists
  *
- * `--help` used to be opt-in PER COMMAND: `src/cli/index.ts` forwarded a
- * `helpRequested` flag into two handlers (`start`, `update`) and every other
- * command treated the flag as an absent config and simply RAN. That meant
- * `sovrium schema --help` dumped the JSON Schema, `sovrium stop --help` stopped
- * a running server, and — the reason this is a bug fix rather than a polish —
- * `sovrium init --help` scaffolded a project into the working directory and
- * OVERWROTE an existing `CLAUDE.md`. Asking a command what its options are must
- * never be a destructive act.
+ * If `--help` were opt-in PER COMMAND (a `helpRequested` flag threaded into
+ * each handler), every command that forgot it would treat the flag as an
+ * absent config and simply RUN: `sovrium schema --help` dumping the JSON
+ * Schema, `sovrium stop --help` stopping a running server, and
+ * `sovrium init --help` scaffolding a project into the working directory and
+ * OVERWRITING an existing `CLAUDE.md`. Asking a command what its options are
+ * must never be a destructive act.
  *
- * The fix is a single short-circuit in `runCommand()` keyed off this map, ahead
- * of BOTH dispatch tables. The per-command opt-in is exactly how eleven
- * commands were missed; with the lookup central, a new command inherits
- * `--help` by being added here rather than by remembering to thread a flag.
+ * So there is a single short-circuit in `runCommand()` keyed off this map,
+ * ahead of BOTH dispatch tables. With the lookup central, a new command
+ * inherits `--help` by being added here rather than by remembering to thread a flag.
  *
- * Every entry MUST open with a `Usage:` line — `[internal ref]` asserts
+ * Every entry MUST open with a `Usage:` line — a CLI commands help spec asserts
  * that contract across the whole command surface.
  *
  * Kept in its OWN module (rather than in `index.ts`) so `commands/start.ts` and
@@ -65,7 +64,7 @@ export const START_HELP_TEXT = [
 ].join('\n')
 
 export const UPDATE_HELP_TEXT = [
-  'Usage: sovrium update',
+  'Usage: sovrium update [--insecure-skip-checksum]',
   '',
   'Update Sovrium to the latest version. Behaviour depends on how it was installed:',
   '  binary                        Self-replace from GitHub Releases (Unix)',
@@ -74,6 +73,7 @@ export const UPDATE_HELP_TEXT = [
   '  docker                        Prints the `docker pull` instruction',
   '',
   'Options:',
+  '  --insecure-skip-checksum      Install without verifying the sha256 (not recommended)',
   '  --help, -h                    Show this help message',
   '',
   'Environment variables (advanced / test seams):',
@@ -82,7 +82,6 @@ export const UPDATE_HELP_TEXT = [
   '  SOVRIUM_UPDATE_API_HOST       Override the GitHub API host',
   '  SOVRIUM_UPDATE_DRY_RUN        Print package-manager command instead of running',
 ].join('\n')
-
 const BUILD_HELP_TEXT = [
   'Usage: sovrium build [config] [options]',
   '',
@@ -445,6 +444,8 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   stop: STOP_HELP_TEXT,
   restart: RESTART_HELP_TEXT,
   reload: RELOAD_HELP_TEXT,
+  backup: BACKUP_HELP_TEXT,
+  restore: RESTORE_HELP_TEXT,
 }
 
 /**

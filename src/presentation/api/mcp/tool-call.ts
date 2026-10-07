@@ -6,7 +6,7 @@
  */
 
 /**
- * MCP `tools/call` dispatcher.
+ * MCP `tools/call` dispatcher (the AI MCP server RBAC requirement, M-6).
  *
  * Translates a JSON-RPC `tools/call` request into the same application-layer
  * programs that the HTTP record handlers run, so RBAC, field-level read /
@@ -29,12 +29,7 @@ import {
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
-import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
-import {
-  createRecordProgram,
-  updateRecordProgram,
-} from '@/application/use-cases/tables/write-record-programs'
 import { isAiAccessEnabled, toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
@@ -60,6 +55,7 @@ import {
   type McpToolResult,
   runProgramAsToolResult,
 } from './tool-call-helpers'
+import { runMcpRecordCreate, runMcpRecordDelete, runMcpRecordUpdate } from './write-calls'
 import { applyCreateRules, applyUpdateRules, refuseLockedRecord } from './write-tool-rules'
 import type { McpCaller } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -334,19 +330,13 @@ async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
     return toolFailure(-32_603, RECORD_NOT_FOUND)
   }
 
-  return runProgramAsToolResult({
-    program: createRecordProgram({
-      session,
-      tableName: table.name,
-      fields,
-      app,
-      userRole: authority.role,
-      userGroups: authority.groups,
-      linkReader: linkReaderOf(input),
-    }),
+  return runMcpRecordCreate({
+    ...{ app, session, tableName: table.name, fields, userRole: authority.role },
+    ...{ userGroups: authority.groups, linkReader: linkReaderOf(input) },
+    domainContext: input.domainContext,
     // The echoed record answers to the same whitelist a read does: a write
     // naming only whitelisted fields must not hand back the rest of the row.
-    formatSuccess: (out) => applyMcpFieldExposureToRecord(out as Record<string, unknown>, table),
+    formatSuccess: (out) => applyMcpFieldExposureToRecord(out, table),
   })
 }
 
@@ -366,15 +356,11 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
   const requested = checkWritePermissions(input, change)
   const fields = await applyUpdateRules(ruleInput(input), requested)
 
-  return runProgramAsToolResult({
-    program: updateRecordProgram(session, table.name, recordId, {
-      fields,
-      app,
-      userRole: authority.role,
-      userGroups: authority.groups,
-      linkReader: linkReaderOf(input),
-    }),
-    formatSuccess: (out) => applyMcpFieldExposureToRecord(out as Record<string, unknown>, table),
+  return runMcpRecordUpdate({
+    ...{ app, session, tableName: table.name, recordId, fields, userRole: authority.role },
+    ...{ userGroups: authority.groups, linkReader: linkReaderOf(input) },
+    domainContext: input.domainContext,
+    formatSuccess: (out) => applyMcpFieldExposureToRecord(out, table),
   })
 }
 
@@ -388,15 +374,16 @@ async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
   if (!readsTable(input)) return toolSuccess(MISSING_RECORD_DELETE)
   if (!(await rowIsInScope(input, recordId, 'delete')))
     return toolFailure(-32_603, RECORD_NOT_FOUND)
-  return runProgramAsToolResult({
-    program: deleteRecordProgram(session, table.name, recordId, app),
+  return runMcpRecordDelete({
+    ...{ app, session, tableName: table.name, recordId },
+    domainContext: input.domainContext,
   })
 }
 
 /** The records API's refusal for anything out of the caller's reach. */
 const RECORD_NOT_FOUND = 'Resource not found'
 
-/** What `deleteRecordProgram` answers for a record that does not exist. */
+/** What a delete answers for a record that does not exist. */
 const MISSING_RECORD_DELETE = { success: false, setNullPerformed: false, restrictViolation: false }
 
 /**
@@ -461,6 +448,7 @@ const ruleInput = (input: ExecBranchInput) => ({
   userRole: input.authority.role,
   userGroups: input.authority.groups,
   signedOut: isGuestSession(input.session.userId),
+  writerId: input.caller.userId,
   domainContext: input.domainContext,
 })
 
@@ -508,13 +496,10 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
  * programs. Every authenticated caller names a user; `userId` is `undefined`
  * only on the unreachable fail-closed fallback caller, for which the
  * authorship helpers fall back to `null` for created_by / updated_by. The
- * four `null`s are required by the Better Auth-shaped UserSession contract —
- * the fields are not meaningful for an MCP-issued session but the typed shape
- * demands them.
+ * `null`s are what the Better Auth-shaped UserSession contract demands.
  */
 function synthesizeSession(userId: string | undefined): UserSession {
   const now = new Date()
-  /* eslint-disable unicorn/no-null -- UserSession fields are typed string | null */
   return {
     id: 'mcp-session',
     userId: userId ?? '',
@@ -526,8 +511,8 @@ function synthesizeSession(userId: string | undefined): UserSession {
     userAgent: null,
     impersonatedBy: null,
     activeOrganizationId: null,
+    signInMethod: null,
   }
-  /* eslint-enable unicorn/no-null */
 }
 
 /**

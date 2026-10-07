@@ -147,7 +147,7 @@ const renderGroupRow = ({
 
 /** `input-group` — the label, then the row of addons and the field. */
 export const inputGroupComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
-  const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
+  const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const label = text(source, 'label')
   const fieldId = fieldIdOf(text(source, 'name'), label)
   const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)

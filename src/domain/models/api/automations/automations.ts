@@ -61,7 +61,11 @@ export const stepLogEntrySchema = Schema.Struct({
   }),
 }).annotate({ description: 'One entry a code action wrote with context.log' })
 
-export const stepResultSchema = Schema.Struct({
+/**
+ * The fields every recorded step carries, at the top level of a run and
+ * inside a path or a loop alike.
+ */
+const stepResultBaseSchema = Schema.Struct({
   name: Schema.String.annotate({ description: 'Action step name' }),
   type: Schema.String.annotate({ description: 'Action type (code, http, record, etc.)' }),
   status: Schema.Literals([
@@ -89,7 +93,66 @@ export const stepResultSchema = Schema.Struct({
   ),
 })
 
-export type StepResult = typeof stepResultSchema.Type
+type StepResultBase = typeof stepResultBaseSchema.Type
+
+/** One path a `path/branch` step ran, with the steps executed inside it. */
+export interface StepPathRun {
+  readonly name: string
+  readonly steps: readonly StepResult[]
+}
+
+/** One item a `loop/each` step ran, with the steps executed for it. */
+export interface StepIterationRun {
+  readonly index: number
+  readonly steps: readonly StepResult[]
+}
+
+/**
+ * A recorded step. A `path/branch` step also carries the paths it ran and a
+ * `loop/each` step the items it ran, each with the steps executed inside —
+ * recorded, and masked, exactly like the run's top-level steps, so a failure
+ * deep inside a branch is readable from the run detail alone.
+ */
+export interface StepResult extends StepResultBase {
+  readonly paths?: readonly StepPathRun[] | undefined
+  readonly iterations?: readonly StepIterationRun[] | undefined
+}
+
+// The explicit annotation is what makes the recursion typeable, and the
+// `identifier` is what turns it into a `$ref` cycle in the OpenAPI document
+// instead of an endless inline walk (see `viewFilterNodeResponseSchema`).
+export const stepResultSchema: Schema.Codec<StepResult> = Schema.suspend(
+  (): Schema.Codec<StepResult> =>
+    Schema.Struct({
+      ...stepResultBaseSchema.fields,
+      paths: optionalField(
+        Schema.Array(
+          Schema.Struct({
+            name: Schema.String.annotate({ description: 'Name of the path that ran' }),
+            steps: Schema.Array(stepResultSchema).annotate({
+              description: 'The steps executed inside this path, in the order they ran',
+            }),
+          }).annotate({ description: 'One path a path/branch step ran' })
+        ).annotate({
+          description:
+            'Present on a path/branch step: each path it ran, in the order it ran them, with the steps executed inside. Absent on other steps.',
+        })
+      ),
+      iterations: optionalField(
+        Schema.Array(
+          Schema.Struct({
+            index: Schema.Int.annotate({ description: 'Zero-based position of the item' }),
+            steps: Schema.Array(stepResultSchema).annotate({
+              description: 'The steps executed for this item, in the order they ran',
+            }),
+          }).annotate({ description: 'One item a loop/each step ran' })
+        ).annotate({
+          description:
+            'Present on a loop/each step: each item it ran, in order, with the steps executed for it. Absent on other steps.',
+        })
+      ),
+    }) as never
+).annotate({ identifier: 'AutomationRunStep', description: 'One recorded step of a run' })
 
 // ─── Run Schema ──────────────────────────────────────────────────────────────
 
@@ -236,7 +299,7 @@ export type ListAutomationApprovalsResponse = typeof listAutomationApprovalsResp
  * Forward-looking shape for `GET /api/automations/runs` — declares the
  * paginated response we WILL ship once the runs listing supports paging.
  *
- * Drift note ([internal ref] audit, Wave-2 2026-05-01): the live route handler
+ * Drift note: the live route handler
  * (`routes/automations/index.ts:handleListRuns`) currently emits
  * `{ runs: [...] }` without a `pagination` envelope. Pagination wiring is
  * tracked separately and will land alongside the `?page` / `?pageSize`
@@ -356,7 +419,7 @@ export type WebhookDefaultResponse = typeof webhookDefaultResponseSchema.Type
  * is signed in, started the run herself, and every step's reach is intersected
  * with hers, so the run can hand her back its last output.
  *
- * [internal ref] (Wave-3, 2026-05-04): the response surfaces only the **last
+ * the last-action-output webhook response rule: the response surfaces only the **last
  * action's output** as `output`, mirroring n8n's "When Last Node Finishes"
  * mode. Per-action visibility lives at the runs detail endpoint
  * (`GET /api/automations/runs/:id` → `runDetailSchema.steps[]`).

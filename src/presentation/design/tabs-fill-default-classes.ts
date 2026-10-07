@@ -67,7 +67,7 @@ const TABS_FILL_SHELL = 'flex min-h-0 flex-1 flex-col'
 
 /**
  * A VERTICAL root keeps its two-track grid — replacing it with a flex column
- * would put the trigger rail back above the panel and undo `[internal ref]`
+ * would put the trigger rail back above the panel and undo a pages tabs spec
  * — so it claims the leftover height without touching `display`, and pins the
  * panel's track so the bound reaches it: one filling row beside the rail from
  * `md` up, rail-then-filling-panel while they are stacked.

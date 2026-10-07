@@ -9,73 +9,18 @@ import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode } from 'react'
 import { computeMenuTriggerClasses } from '@/presentation/design/navigation-default-classes'
 import { authClient } from '@/presentation/islands/runtime/auth-client'
-import { MenuItemBody } from './menu-popup-body'
-import { ToggleMenuItem } from './menu-toggle-item'
-import { TriggerContent } from './menu-trigger-content'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
-} from './overlay-default-classes'
+} from './menu-default-classes'
+import { PlainMenuItem, NavigateMenuItem } from './menu-entries'
+import { MenuItemBody } from './menu-popup-body'
+import { ToggleMenuItem } from './menu-toggle-item'
+import { TriggerContent } from './menu-trigger-content'
 import { useSessionBoundTrigger } from './use-session-bound-trigger'
+import type { MenuIslandProps } from './menu-island-props'
 import type { MenuItem, MenuSurface } from './menu-item-types'
-
-interface MenuIslandProps {
-  readonly menuItems?: readonly MenuItem[]
-  readonly floatingSide?: 'top' | 'right' | 'bottom' | 'left'
-  readonly floatingAlign?: 'start' | 'center' | 'end'
-  readonly triggerHtml?: string
-  readonly triggerLabel?: string
-  /**
-   * The trigger's COMPOSED content, serialized from the author's `children`.
-   *
-   * Distinct from {@link MenuIslandProps.triggerHtml}, which the shared
-   * `context-menu` / rich-trigger paths use and which deliberately carries no
-   * chevron: a composed `dropdown-menu` trigger is still a dropdown, so it
-   * keeps the affordance that says so.
-   */
-  readonly triggerChildrenHtml?: string
-  /**
-   * The `$session.<field>` template a bound `triggerLabel` carries.
-   *
-   * The label itself ships EMPTY. Resolution is CLIENT-side, from the caller's
-   * own session, so the served bytes name nobody and a cached page cannot leak
-   * one caller to the next.
-   */
-  readonly triggerLabelTemplate?: string
-  /**
-   * Composed-trigger content (React node). When provided, it replaces
-   * `triggerLabel` / `triggerHtml` as the trigger button's content — used when a
-   * surface composes the menu inline with a rich trigger (e.g. the admin operator
-   * identity bar). Not serializable, so only the React-composed path uses it.
-   */
-  readonly triggerContent?: ReactNode
-  /**
-   * Quiet metadata rendered inside the popup BELOW the items (React node) — for
-   * a line that reports rather than acts, so it never has to masquerade as a
-   * disabled menu item. Like {@link MenuIslandProps.triggerContent} it is not
-   * serializable, so only the React-composed path uses it.
-   */
-  readonly footerContent?: ReactNode
-  readonly triggerClassName?: string
-  readonly triggerAriaLabel?: string
-  /**
-   * Popup surface tone (`popupVariant` schema field). `inverted` paints a
-   * near-black primary popup with light items so the menu matches a near-black
-   * primary CTA trigger.
-   */
-  readonly popupVariant?: MenuSurface
-  /**
-   * Open the trigger on pointer hover in addition to click ([internal ref],
-   * [internal ref]). Scoped to label-trigger mode — the shared
-   * `context-menu` / rich-trigger paths never receive it, so they keep
-   * click/right-click behaviour only.
-   */
-  readonly openOnHover?: boolean
-  readonly className?: string
-  readonly id?: string
-  readonly 'data-testid'?: string
-}
 
 /** Sign out, then return to `redirectTo` regardless of the sign-out outcome. */
 async function performLogout(redirectTo: string): Promise<void> {
@@ -84,29 +29,6 @@ async function performLogout(redirectTo: string): Promise<void> {
   } finally {
     window.location.assign(redirectTo)
   }
-}
-
-/** True when a navigate path leaves the app (an absolute http(s) URL). */
-function isExternalPath(path: string): boolean {
-  return /^https?:\/\//i.test(path)
-}
-
-/** A plain (or inert-action) menu item — label/icon/shortcut, no behaviour. */
-function PlainMenuItem({
-  item,
-  surface,
-}: {
-  readonly item: MenuItem
-  readonly surface: MenuSurface
-}): ReactElement {
-  return (
-    <Menu.Item
-      disabled={item.disabled}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
-    >
-      <MenuItemBody item={item} />
-    </Menu.Item>
-  )
 }
 
 /** A menu item that signs the operator out via the config `auth` `logout` action. */
@@ -125,39 +47,6 @@ function LogoutMenuItem({
     <Menu.Item
       disabled={item.disabled}
       onClick={handleClick}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
-    >
-      <MenuItemBody item={item} />
-    </Menu.Item>
-  )
-}
-
-/**
- * A `navigate` menu item — Base UI renders the whole row as the anchor so
- * keyboard activation follows the href (external links open a new tab).
- */
-function NavigateMenuItem({
-  item,
-  surface,
-}: {
-  readonly item: MenuItem
-  readonly surface: MenuSurface
-}): ReactElement {
-  const path = item.action?.path ?? '#'
-  const external = isExternalPath(path)
-  const anchor = external ? (
-    <a
-      href={path}
-      target="_blank"
-      rel="noopener noreferrer"
-    />
-  ) : (
-    <a href={path} />
-  )
-  return (
-    <Menu.Item
-      disabled={item.disabled}
-      render={anchor}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />

@@ -1,0 +1,56 @@
+# sovrium-library: block/table-with-filters@0.30.0
+name: table-with-filters
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: '[Invoices]'
+      - type: filter-bar
+        publishes:
+          bindTo: table-with-filters-filter
+        fields:
+          - name: client
+            label: '[Client]'
+            kind: text
+          - name: budget
+            label: '[Amount]'
+            kind: number
+          - name: due_date
+            label: '[Date]'
+            kind: date
+      - type: table
+        dataSource:
+          table: projects
+          bindTo: table-with-filters-filter
+          sharedFilter: {}
+          sort:
+            - field: due_date
+              direction: desc
+        columns:
+          - field: title
+            label: '[Reference]'
+          - field: client
+            label: '[Client]'
+          - field: budget
+            label: '[Amount]'
+            align: right
+          - field: due_date
+            label: '[Date]'
+            format: short-date
+        pagination:
+          pageSize: 10
+        emptyMessage: No record yet. Create one to see it here.
+        noMatchMessage: Nothing matches these filters. Remove one to widen the search.

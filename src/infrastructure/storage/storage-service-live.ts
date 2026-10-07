@@ -5,14 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/prefer-immutable-types -- Effect Layer service object is mutated during construction by library design */
-
 import { Effect, Layer } from 'effect'
 import {
   StorageService,
   StorageError,
   UNATTRIBUTED_BUCKET,
   storageObjectNotFound,
+  uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import {
   parseStorageEnvConfig,
@@ -36,6 +35,7 @@ import {
   localUpload,
   localDownload,
   localDelete,
+  localDeleteIfPresent,
   localList,
   localGetTotalBytes,
   localValidateDirectory,
@@ -47,12 +47,10 @@ import {
   s3Delete,
   s3List,
   s3GetSignedUrl,
-  s3GetSignedUploadUrl,
   s3GetTotalBytes,
-  s3ValidateBucket,
 } from './s3-adapter'
-import { probeS3BucketOnce } from './s3-bucket-probe'
-import type { BucketBinding } from '@/application/ports/services/storage-service'
+import { findMissingS3EnvVar, warnIfS3BucketUnreachable } from './s3-reachability'
+import type { BucketBinding, UploadTarget } from '@/application/ports/services/storage-service'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
 
@@ -146,6 +144,7 @@ const getMetadataFromCatalog = (
     readonly size: number
     readonly lastModified: string
     readonly bucket?: string
+    readonly uploadedBy?: string
   },
   StorageError
 > =>
@@ -158,72 +157,11 @@ const getMetadataFromCatalog = (
             size: meta.size,
             lastModified: meta.lastModified,
             ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
+            ...(meta.uploadedBy === null ? {} : { uploadedBy: meta.uploadedBy }),
           })
         : Effect.fail(makeError(storageObjectNotFound(key)))
     )
   )
-
-const signedUploadUrlUnsupported = (provider: string): Effect.Effect<string, StorageError> =>
-  Effect.fail(
-    new StorageError({ cause: `Signed upload URLs not supported for ${provider} storage` })
-  )
-
-/**
- * Find the first missing required S3 environment variable when
- * STORAGE_PROVIDER=s3. Returns the env-var name (e.g. "STORAGE_S3_BUCKET") so
- * startup errors surface with the name the operator actually wrote, instead of
- * a generic Effect Schema decode error reporting the schema-key name (e.g.
- * "bucket") — which names nothing an operator can grep their deployment for.
- *
- * Runs only when the operator has set at least one of the four, so an
- * unconfigured install still reaches `parseStorageEnvConfig` and gets the
- * schema's own message rather than a guess about which var came first.
- */
-const findMissingS3EnvVar = (): string | undefined => {
-  if (process.env.STORAGE_PROVIDER !== 's3') return undefined
-  const requiredS3Vars: ReadonlyArray<string> = [
-    'STORAGE_S3_BUCKET',
-    'STORAGE_S3_ENDPOINT',
-    'STORAGE_S3_ACCESS_KEY_ID',
-    'STORAGE_S3_SECRET_ACCESS_KEY',
-  ]
-  const anySet = requiredS3Vars.some((name) => process.env[name] !== undefined)
-  if (!anySet) return undefined
-  return requiredS3Vars.find((name) => !process.env[name])
-}
-
-/**
- * Take the advisory S3 bucket probe and warn when it did not answer.
- *
- * This used to be an `Effect.tryPromise` inside the layer body whose failure
- * ABORTED construction, which had two costs. A bucket that was briefly
- * unreachable took down every composition holding this layer — including ones
- * serving routes that never touch storage — and, because the failure then had
- * to be erased somewhere, both composition roots wrapped the layer in
- * `Layer.orDie`. And since `routes/buckets/effect-runner.ts` re-provides the
- * layer per request, the check cost an S3 `LIST` on every signed-URL request.
- *
- * Now: at most one `LIST` per process per endpoint, and a warning instead of a
- * failure. The operator still learns about it at boot; a request against a
- * genuinely broken backend still fails with the `StorageError` the operation
- * itself raises, which is the error that can actually be acted on.
- *
- * Never rejects — `probeS3BucketOnce` resolves its failures as values — so the
- * caller's `Effect.promise` cannot become a defect.
- */
-const warnIfS3BucketUnreachable = async (
-  client: Bun.S3Client,
-  endpoint: string,
-  bucket: string
-): Promise<void> => {
-  const probe = await probeS3BucketOnce(`${endpoint}|${bucket}`, () =>
-    s3ValidateBucket(client, bucket)
-  )
-  if (probe.reachable) return
-  logWarning(
-    `[storage] S3 bucket "${bucket}" did not answer a reachability probe: ${String(probe.cause)}. Storage operations will surface their own errors.`
-  )
-}
 
 export const StorageServiceLive = Layer.effect(
   StorageService,
@@ -237,7 +175,6 @@ export const StorageServiceLive = Layer.effect(
       // Thrown synchronously so error.message surfaces with the canonical env-var name
       // (matches the existing pattern of Schema.decodeUnknownSync in parseStorageEnvConfig).
       // Effect.fail with a tagged error would lose the message at the top-level catch.
-      // eslint-disable-next-line functional/no-throw-statements -- see comment above
       throw new Error(`Required env var ${missingS3Var} is missing`)
     }
     const config = parseStorageEnvConfig()
@@ -250,8 +187,9 @@ export const StorageServiceLive = Layer.effect(
       // effect-promise: total -- `warnIfS3BucketUnreachable` only awaits `probeS3BucketOnce`, which converts every rejection into a value; neither has a failure mode.
       yield* Effect.promise(() => warnIfS3BucketUnreachable(client, config.endpoint, s3Bucket))
       return StorageService.of({
-        upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
-          assertBucketWritable(key, bucket).pipe(
+        upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
+          const { bucket, uploadedById } = uploadTargetParts(target)
+          return assertBucketWritable(key, bucket).pipe(
             Effect.flatMap(() =>
               Effect.tryPromise({
                 try: () =>
@@ -262,12 +200,14 @@ export const StorageServiceLive = Layer.effect(
                       size: content.length,
                       storageProvider: 's3',
                       bucket,
+                      uploadedById,
                     })
                   ),
                 catch: (e: unknown) => makeError(e),
               })
             )
-          ),
+          )
+        },
         download: (key: string, bucket: BucketBinding) =>
           assertBucketBinding(key, bucket).pipe(
             Effect.flatMap(() =>
@@ -291,15 +231,14 @@ export const StorageServiceLive = Layer.effect(
                 : Effect.fail(makeError(storageObjectNotFound(key)))
             )
           ),
+        deleteUncataloguedBytes: (key: string) =>
+          Effect.tryPromise({
+            try: () => s3Delete(client, s3Bucket, key),
+            catch: (e: unknown) => makeError(e),
+          }),
         getSignedUrl: (key: string, expiresIn: number) =>
           Effect.tryPromise({
             try: () => s3GetSignedUrl(client, s3Bucket, key, expiresIn),
-            catch: (e: unknown) => makeError(e),
-          }),
-        getSignedUploadUrl: (key: string, expiresIn: number, contentType?: string) =>
-          Effect.tryPromise({
-            try: () =>
-              s3GetSignedUploadUrl({ client, bucket: s3Bucket, key, expiresIn, contentType }),
             catch: (e: unknown) => makeError(e),
           }),
         getMetadata: getMetadataFromCatalog,
@@ -329,8 +268,9 @@ export const StorageServiceLive = Layer.effect(
           new StorageError({ cause: `Local storage directory "${dir}" is not accessible: ${e}` }),
       })
       return StorageService.of({
-        upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
-          assertBucketWritable(key, bucket).pipe(
+        upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
+          const { bucket, uploadedById } = uploadTargetParts(target)
+          return assertBucketWritable(key, bucket).pipe(
             Effect.flatMap(() =>
               Effect.tryPromise({
                 try: () =>
@@ -341,12 +281,14 @@ export const StorageServiceLive = Layer.effect(
                       size: content.length,
                       storageProvider: 'local',
                       bucket,
+                      uploadedById,
                     })
                   ),
                 catch: (e: unknown) => makeError(e),
               })
             )
-          ),
+          )
+        },
         download: (key: string, bucket: BucketBinding) =>
           assertBucketBinding(key, bucket).pipe(
             Effect.flatMap(() =>
@@ -370,10 +312,13 @@ export const StorageServiceLive = Layer.effect(
                 : Effect.fail(makeError(storageObjectNotFound(key)))
             )
           ),
+        deleteUncataloguedBytes: (key: string) =>
+          Effect.tryPromise({
+            try: () => localDeleteIfPresent(dir, key),
+            catch: (e: unknown) => makeError(e),
+          }),
         getSignedUrl: (_key: string, _expiresIn: number) =>
           Effect.fail(new StorageError({ cause: 'Signed URLs not supported for local storage' })),
-        getSignedUploadUrl: (_key: string, _expiresIn: number, _contentType?: string) =>
-          signedUploadUrlUnsupported('local'),
         getMetadata: getMetadataFromCatalog,
         list: (prefix: string) =>
           Effect.tryPromise({
@@ -404,13 +349,12 @@ export const StorageServiceLive = Layer.effect(
             'No storage provider configured. Set STORAGE_PROVIDER=s3|local or DATABASE_URL to enable file storage.',
         })
       return StorageService.of({
-        upload: (_key: string, _content: Uint8Array, _mimeType: string, _bucket: BucketBinding) =>
+        upload: (_key: string, _content: Uint8Array, _mimeType: string, _target: UploadTarget) =>
           Effect.fail(notConfigured()),
         download: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
         delete: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
+        deleteUncataloguedBytes: (_key: string) => Effect.fail(notConfigured()),
         getSignedUrl: (_key: string, _expiresIn: number) => Effect.fail(notConfigured()),
-        getSignedUploadUrl: (_key: string, _expiresIn: number, _contentType?: string) =>
-          Effect.fail(notConfigured()),
         getMetadata: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
         list: (_prefix: string) => Effect.fail(notConfigured()),
         getTotalBytes: Effect.succeed(0),
@@ -432,9 +376,9 @@ export const StorageServiceLive = Layer.effect(
     })
 
     return StorageService.of({
-      upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
+      upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) =>
         Effect.tryPromise({
-          try: () => byteaUpload(key, content, mimeType, bucket),
+          try: () => byteaUpload(key, content, mimeType, target),
           catch: (e: unknown) => makeError(e),
         }),
       download: (key: string, bucket: BucketBinding) =>
@@ -447,10 +391,11 @@ export const StorageServiceLive = Layer.effect(
           try: () => byteaDelete(key, bucket),
           catch: (e: unknown) => makeError(e),
         }),
+      // The payload is a row cascading off the catalog row, so deleting that row
+      // already removed the bytes: nothing is left to delete.
+      deleteUncataloguedBytes: (_key: string) => Effect.void,
       getSignedUrl: (_key: string, _expiresIn: number) =>
         Effect.fail(new StorageError({ cause: 'Signed URLs not supported for bytea storage' })),
-      getSignedUploadUrl: (_key: string, _expiresIn: number, _contentType?: string) =>
-        signedUploadUrlUnsupported('bytea'),
       getMetadata: getMetadataFromCatalog,
       list: (prefix: string) =>
         Effect.tryPromise({

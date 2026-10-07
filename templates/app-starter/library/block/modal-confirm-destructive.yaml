@@ -1,0 +1,20 @@
+# sovrium-library: block/modal-confirm-destructive@0.30.0
+name: modal-confirm-destructive
+type: container
+props:
+  className: w-full px-4 py-6 sm:px-10 sm:py-8
+children:
+  - type: button
+    variant: destructive
+    label: Delete client
+    interactions:
+      click:
+        modal: modal-confirm-destructive-dialog
+  - type: alert-dialog
+    confirmLabel: Delete client
+    cancelLabel: Cancel
+    props:
+      id: modal-confirm-destructive-dialog
+      title: Delete Atelier Nord?
+      description: Its 12 invoices and 48 comments are deleted with it. This cannot be undone.
+      variant: destructive

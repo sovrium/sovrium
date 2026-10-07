@@ -85,6 +85,8 @@ design:
 
 Writing `hover: { root: 'hover:bg-neutral-800' }` is refused, for a concrete reason rather than a stylistic one: it would emit `hover:hover:bg-neutral-800`, which generates no CSS at all. You would have a valid config and no hover style. Other prefixes stay legal and are combined with the state — `md:bg-neutral-800` under `hover` becomes `hover:md:bg-neutral-800`.
 
+`current` is the entry that points at the page being read — the current link of a sidebar, a navigation menu or a breadcrumb, which Sovrium marks with `aria-current="page"`. `states: { current: { link: bg-primary-subtle } }` restyles it without a selector.
+
 `focus` and `focusVisible` are both in the set rather than collapsed into one, because they are different: `focus` fires when a script or a mouse moves focus; `focusVisible` only on the keyboard path.
 
 **A state Sovrium computes rather than the browser** — `loading`, `pressed` — is not expressible here. Those have no CSS state to attach to; the renderer decides them. Mixing the two would mean half your entries applying through the stylesheet and half through code, with no way to tell from the config which kind you had written.

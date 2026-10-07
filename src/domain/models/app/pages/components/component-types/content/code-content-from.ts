@@ -34,7 +34,7 @@
  * string ready-made. That is a rendered string in an API contract: it freezes
  * the console's own prose, comment lines and whitespace into a payload other
  * readers see, and it forecloses `$t:` translation of a line the console wrote.
- * — the rule is that an admin read endpoint publishes FACTS the
+ * See the facts-not-strings rule — the rule is that an admin read endpoint publishes FACTS the
  * console gates and templates on, never a string the console would otherwise
  * have composed.
  *
@@ -128,7 +128,7 @@ export const CodeContentFromSchema = Schema.Struct({
    * Content rendered when the endpoint returns no rows.
    *
    * The copy lives HERE and not on the endpoint, which is the whole posture of
-   * [internal ref]: an empty state is a sentence the console writes, so the console
+   * an empty state is a sentence the console writes, so the console
    * keeps it. Like every other top-level `code` field it is NOT reached by `$t:`
    * substitution (that runs over `props`), so a renderer wanting it translated
    * must resolve it with `resolveTranslationPattern`, as the frame labels do.

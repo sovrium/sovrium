@@ -99,7 +99,6 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
   // Fallback table for a message that names none: the session's prior table,
   // or — when a page scope narrows the visible list to exactly one table — that
   // sole table, so "Show all records" on a single-table page resolves
-  //.
   const fallback =
     lastQueriedTable.get(input.sessionId) ?? (tables.length === 1 ? tables[0]?.name : undefined)
   const intent = parseQueryIntent(input.message, tables, fallback)
@@ -116,7 +115,6 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
     return { kind: 'forbidden', message: outcome.message }
   }
   // Remember the table so a follow-up on this session can reuse it.
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- module-local mutable Map, mirrors conversation store
   lastQueriedTable.set(input.sessionId, intent.table)
   return { kind: 'answered', action: outcome.action, reply: outcome.reply }
 }

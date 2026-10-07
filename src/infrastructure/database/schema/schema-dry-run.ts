@@ -63,7 +63,12 @@ import {
 } from '../schema-migration/table-classification'
 import { ambiguousRenameMessage, type TableRenameStep } from '../schema-migration/table-operations'
 import { sqliteTransactionLike } from '../sql/dialect-ddl'
-import { executeSQL, getExistingColumns, tableExists } from '../sql/sql-execution'
+import {
+  executeSQL,
+  getExistingColumns,
+  postgresTransactionLike,
+  tableExists,
+} from '../sql/sql-execution'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import {
@@ -313,14 +318,10 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
 
 /**
  * Open a read-only connection satisfying `TransactionLike`, and close it after.
- *
- * The SQLite branch opens `{ create: false, readonly: true }`, which is not
- * belt-and-braces: `openSqliteDdlDatabase` — the opener the apply path uses —
- * CREATES the file and writes WAL pages, so borrowing it here made `--dry-run`
- * bring a database into existence merely by describing it. The Postgres-only
- * specs could never have caught that, which is exactly how a SQLite-only defect
- * ships. An absent file never reaches this function at all; see
- * {@link planConfigTableChanges}.
+ * SQLite opens `{ create: false, readonly: true }` on purpose: the apply path's
+ * opener CREATES the file and writes WAL pages, so `--dry-run` would bring a
+ * database into existence by describing it. (An absent file never gets here;
+ * see {@link planConfigTableChanges}.)
  */
 const withReadOnlyTx = <A>(
   config: DatabaseDialectConfig,
@@ -328,10 +329,9 @@ const withReadOnlyTx = <A>(
 ): Effect.Effect<A, never> =>
   config.dialect === 'postgres'
     ? Effect.acquireUseRelease(
-        // One connection: the view comparison creates a TEMPORARY probe view,
-        // which lives in its session, then reads it back.
+        // One connection: the TEMPORARY probe view lives in its session.
         Effect.sync(() => new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))),
-        (client) => use({ unsafe: (sql: string) => client.unsafe(sql) }),
+        (client) => use(postgresTransactionLike(client)),
         // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; as the `acquireUseRelease` RELEASE arm it must also stay infallible, or a teardown failure would displace the plan this read-only transaction just produced.
         (client) => Effect.promise(() => client.close())
       )
@@ -548,7 +548,7 @@ export const planConfigTableChanges = (
         // line does not mean "no previous snapshot"; it means the plan was
         // computed against a snapshot nobody could read. The report would then
         // under-state the change set with no indication it had done so, which
-        // [internal ref] classes as a defect rather than a limitation — the same
+        // The two-machine `sovrium migrate` design classes as a defect rather than a limitation — the same
         // judgement this module already makes about the unsimulated recreate.
         // Letting a defect through turns a silently wrong plan into a refusal.
         // effect-swallow: see the paragraph above — a missing previous snapshot is the FIRST-BOOT case, not an error, and `orElseSucceed` is narrowed to failures precisely so a defect still refuses the plan.

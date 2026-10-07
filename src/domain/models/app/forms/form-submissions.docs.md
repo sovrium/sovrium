@@ -2,7 +2,7 @@
 
 > The built-in submission ledger, its lifecycle statuses, and the transaction that keeps a ledger row from promising a record that was never written.
 
-Every submission produces a durable record. By default it lands in the built-in submission ledger — the platform's canonical "this form received an answer" log — and, where the form names a table, in that table too. The two writes are transactional.
+Every submission made on a form's own route produces a durable record. By default it lands in the built-in submission ledger — the platform's canonical "this form received an answer" log — and, where the form names a table, in that table too. The two writes are transactional. A submission made through a `formRef` embed on an app page is an in-app edit rather than an intake, and skips the ledger unless the form asks for it — see below.
 
 ```yaml
 forms:
@@ -20,7 +20,7 @@ forms:
 
 ## The ledger
 
-It lives in an internal, Sovrium-managed schema, mirroring the isolation the auth tables get; you never create or manage it. Every submission writes one row unless the form opts out.
+It lives in an internal, Sovrium-managed schema, mirroring the isolation the auth tables get; you never create or manage it. Every submission on the form's own route writes one row unless the form opts out.
 
 These are the columns a top-level form's submission fills. The table is shared with the older share-link submission path, so it carries a few more that a form never writes.
 
@@ -70,6 +70,32 @@ forms:
       - { kind: standalone, name: event_payload, inputType: long-text }
 ```
 
+## Submissions made through a page embed
+
+A form placed on an app page with `formRef` is how a reader adds a record from inside the app — a task on a project page, an interaction on a contact. Those submissions are ordinary edits, and filling the Submissions inbox with them would bury the intake it exists for. So `storeSubmission` is read by surface:
+
+| `submitTo.storeSubmission` | On the form's own route | Through a `formRef` embed on an app page |
+| -------------------------- | ----------------------- | ---------------------------------------- |
+| omitted                    | stored                  | not stored                               |
+| `true`                     | stored                  | stored                                   |
+| `false`                    | not stored              | not stored                               |
+
+The table row and the automation are unaffected: an embedded submission still writes to `submitTo.table` and still runs `submitTo.automation`. When no ledger row is written, `$submission.id` is empty in the success message and redirect.
+
+```yaml
+forms:
+  - id: 2
+    name: report-incident
+    title: Report an incident
+    submitTo:
+      table: incidents
+      storeSubmission: true # triage embedded reports in the Submissions inbox too
+    fields:
+      - { kind: table-field, column: summary, required: true }
+```
+
+**A capped form always stores.** A form declaring `availability.maxSubmissions` writes its ledger row on every surface, whatever `storeSubmission` says, because the cap is counted by reserving that row: a submission that wrote none could not be counted against it.
+
 ## Bypass the ledger only when you mean it
 
-`storeSubmission: false` is the only way to skip it, and it is for a high-volume form that routes to a stream or a queue. Whenever it is set, the form must still name a table or an automation, or validation fails — a form that persists nowhere is a configuration bug rather than a choice.
+`storeSubmission: false` is the only way to skip it everywhere, and it is for a high-volume form that routes to a stream or a queue. Whenever it is set, the form must still name a table or an automation, or validation fails — a form that persists nowhere is a configuration bug rather than a choice.

@@ -5,12 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements -- this repository is the
-   I/O boundary: `await db.insert(...)` / `await db.select(...)` are intentional
-   effectful statements, the same shape as the other Drizzle repositories. */
-
 /**
- * `system.ai_compute_status` access ([internal ref] Phase 2, design §3 Option A).
+ * `system.ai_compute_status` access (the real-AI-provider rule for AI-compute fields, design §3 Option A).
  *
  * The observable refinement signal: one row per `(appId, tableName, recordId,
  * fieldName)` carrying the `pending | refined | failed | skipped` lifecycle.
@@ -18,9 +14,8 @@
  * record-API `_aiCompute` projection reads it. Cross-dialect via the
  * `resolveDialectSchema` selector + Drizzle query builder (no raw SQL).
  *
- * Plain async functions (not an Effect Layer) so both the application worker
- * and the presentation read-projection can consume them directly — the worker
- * wraps the writes in `Effect.tryPromise`, the projection awaits the read.
+ * Plain async functions; the use-cases reach them through the
+ * `AiComputeStatusRepository` port, whose Live implementation wraps each one.
  */
 
 import { and, eq, inArray } from 'drizzle-orm'
@@ -28,26 +23,13 @@ import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { aiComputeStatus as aiComputeStatusPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { aiComputeStatus as aiComputeStatusSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
+import type {
+  AiComputeFieldStatus,
+  AiComputeStatusKey,
+  AiComputeStatusValue,
+} from '@/application/ports/repositories/ai/ai-compute-status-repository'
 
 const aiComputeStatus = resolveDialectSchema(aiComputeStatusPg, aiComputeStatusSqlite)
-
-/** The terminal + in-flight refinement lifecycle states. */
-export type AiComputeStatusValue = 'pending' | 'refined' | 'failed' | 'skipped'
-
-/** A status row keyed by `(appId, tableName, recordId, fieldName)`. */
-export interface AiComputeStatusKey {
-  readonly appId: string
-  readonly tableName: string
-  readonly recordId: string
-  readonly fieldName: string
-}
-
-/** The projection shape returned to the record-API `_aiCompute` block. */
-export interface AiComputeFieldStatus {
-  readonly status: AiComputeStatusValue
-  readonly attempt: number
-  readonly error?: string
-}
 
 const keyMatch = (key: AiComputeStatusKey) =>
   and(
@@ -126,7 +108,6 @@ export const upsertAiComputeStatus = async (
   options: { readonly attempt?: number; readonly error?: string } = {}
 ): Promise<void> => {
   const now = new Date()
-  // eslint-disable-next-line unicorn/no-null -- `error` is a nullable text column; null clears a prior failure reason.
   const errorValue = options.error ?? null
   await db
     .insert(aiComputeStatus)

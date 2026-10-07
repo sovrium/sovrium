@@ -99,6 +99,8 @@ export const section = defineSection({
         componentType('date-picker'),
         componentType('date-range-picker'),
         componentType('record-picker'),
+        componentType('rating'),
+        componentType('signature-pad'),
       ],
       stories: [
         'US-DESIGN-SYSTEM-COMPONENT-TYPES-FORM-CONTROLS-DATE-RANGE-PICKER',

@@ -9,17 +9,14 @@
  * Live implementation of `LinkRepository` — every Drizzle query against
  * `system.links`, and nothing else.
  *
- * Modelled on `user-view-repository-live.ts`, the canonical dual-dialect
- * system-table repository. The row ↔ record translation both directions depend
- * on lives in `link-row-codec.ts`, which documents the three departures from
- * that model (Drizzle-owned JSON codec, `Date` values never bound into raw SQL,
+ * A dual-dialect system-table repository. The row ↔ record translation both
+ * directions depend on lives in `link-row-codec.ts`, which documents its three
+ * particularities (Drizzle-owned JSON codec, `Date` values never bound into raw SQL,
  * and `passwordHash` structurally absent from the returned record).
  *
  * Unique-index violations on `(app_name, slug) WHERE deleted_at IS NULL` become
  * `LinkSlugConflictError`; every other driver failure becomes `LinkDbError`.
  */
-
-/* eslint-disable unicorn/no-null -- every nullable column and every port field is spelled `null`, not `undefined`: SQL has one absence marker and the port contract mirrors it, so `undefined` here would mean "leave alone" on a write and would silently drop the key on a read. */
 
 import { and, desc, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
@@ -61,7 +58,6 @@ const links = resolveDialectSchema(linksPg, linksSqlite)
 const isUniqueViolation = (err: unknown): boolean => findConstraintViolation(err) === 'unique'
 
 /** `WHERE` fragment scoping to one live row of one source. */
-// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `SQL` carries protected members, so `Readonly<SQL>` is not assignable back to the `.where()` parameter; the native mutable shape is the only one that composes. Same rationale as `systemTableRef` in admin-search-repository-live.ts.
 const liveRowWhere = (appName: string, slug: string, source: LinkSource): SQL | undefined =>
   and(
     eq(links.appName, appName),
@@ -358,5 +354,3 @@ export const LinkRepositoryLive = Layer.effect(
     })
   })
 )
-
-/* eslint-enable unicorn/no-null */

@@ -19,20 +19,17 @@
  * `page-crud-gating.tsx`); this module decides when each runs.
  */
 
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
-import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
-import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { resolvePageQueryValues } from '@/domain/models/app/pages/query-props'
+import {
+  repeatedFormNames,
+  type FormRefOptionSets,
+} from '@/presentation/render/forms/form-ref-option-sources'
 import {
   expandFormRefs,
   type FormRefExpansionContext,
 } from '@/presentation/render/forms/form-ref-resolver'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
-import {
-  markDrawerFieldAccess,
-  unreadableTableFields,
-  unreadableTables,
-} from '@/presentation/render/props/resolve-record-drawer-access'
+import { markDrawerFieldAccess } from '@/presentation/render/props/resolve-record-drawer-access'
 import { markRelatedGuestCaller } from '@/presentation/render/props/resolve-record-drawer-related'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-drawer-dispatch-resolver'
@@ -44,174 +41,31 @@ import {
   applyOverlayTriggerGate,
   applyVisibilityToComponents,
 } from '@/presentation/render/resolve/visibility-filter'
-import { stripAuthActionsIfUnconfigured, stripUnconfiguredOAuthForms } from './page-access-gating'
-import { applyCrudCreatePermissions, applyCrudUpdatePermissions } from './page-crud-gating'
+import {
+  markPasskeyAutofill,
+  stripAuthActionsIfUnconfigured,
+  stripUnconfiguredOAuthForms,
+} from './page-access-gating'
+import {
+  buildCommandPaletteComponent,
+  hasAuthoredPalette,
+  withNavigablePages,
+} from './page-command-palette'
+import {
+  applyCrudCreatePermissions,
+  applyCrudUpdatePermissions,
+  withholdUnofferedFormRefs,
+} from './page-crud-gating'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
-import type { FormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
-
-/**
- * The one "may this caller open that page?" question every palette page list
- * asks — the same `checkPageAccess` the page route applies. A misconfigured
- * `access` (an unknown role or group) is not `allowed`, so it drops the page.
- */
-const mayOpenPage = (page: Page, app: App, session: SessionInfo | undefined): boolean =>
-  checkPageAccess(page.access, app, session).allowed
-
-/**
- * Filter an AUTHORED palette's `props.pages` list for this caller.
- *
- * An author's list is the candidate set, never an allow-list: an entry that
- * resolves to a declared page (by `path`, else by `name`) the caller may not
- * open is dropped, so a gated page's title never reaches the markup of a page
- * an anonymous visitor renders. An entry naming no declared page is kept — it
- * points at nothing the engine gates.
- */
-const filterAuthoredPages = (
-  pages: unknown,
-  app: App,
-  session: SessionInfo | undefined
-): unknown => {
-  if (!Array.isArray(pages)) return pages
-  return pages.filter((entry: unknown) => {
-    if (typeof entry !== 'object' || entry === null) return true
-    const { path, name } = entry as { readonly path?: unknown; readonly name?: unknown }
-    const declared =
-      typeof path === 'string'
-        ? findDeclaredPage(app, path)?.page
-        : (app.pages ?? []).find((page) => typeof name === 'string' && page.name === name)
-    return declared === undefined || mayOpenPage(declared, app, session)
-  })
-}
-
-/**
- * Applies all component filters to a page: auth stripping, OAuth filtering,
- * visibility rules, CRUD create/update permission checks, and `formRef`
- * expansion (turning page-form components into pre-rendered embedded forms
- * via `expandFormRefs` from `forms/form-ref-resolver.ts`).
- *
- * `parentRecord` (Y-5) is forwarded to `expandFormRefs` so embedded forms
- * can resolve `inlinePrefill` tokens like `$parent.id` against the host
- * page's `dataSource: { mode: 'single' }` record.
- *
- * A render-time-only `command-palette` component is appended to every page so
- * the global `Cmd+K` palette is available app-wide without schema authoring.
- *
- * The synthesized component carries the app's navigable pages (static pages
- * only — record-detail templates with a `:param` segment are excluded) in its
- * `props.pages` so the palette runtime can offer "Go to <page>" quick actions
- * without an extra API call. Tables reach the renderer separately via the
- * component-dispatch `tables` config.
- *
- * Only the pages THIS caller may open are listed, decided by the same
- * `checkPageAccess` the page route applies (roles, the admin tier, groups,
- * `authenticated`, `all`). The palette is rendered per request, so unlike the
- * sitemap or the feed it can follow the session — and a page the caller
- * cannot open must not be named in the markup that carries the palette.
- */
-const buildCommandPaletteComponent = (app: App, session: SessionInfo | undefined): Component => {
-  // Resolve `$t:` tokens in page titles.
-  const navigablePages = (app.pages ?? [])
-    .filter((page) => typeof page.path === 'string' && !page.path.includes(':'))
-    .filter((page) => mayOpenPage(page, app, session))
-    .map((page) => ({
-      name: page.name,
-      path: page.path,
-      title: resolveTranslationPattern(
-        page.meta?.title && page.meta.title.length > 0 ? page.meta.title : page.name,
-        app.languages?.default ?? 'en',
-        app.languages
-      ),
-    }))
-  // The create dialogs name each table's text fields: never one this caller may not read.
-  const unreadableFields = unreadableTableFields(app, session)
-  // A table this caller may not read is not named at all, nor its fields.
-  const hiddenTables = unreadableTables(app, session)
-  return {
-    type: 'command-palette',
-    props: {
-      pages: navigablePages,
-      ...(Object.keys(unreadableFields).length === 0
-        ? {}
-        : { _unreadableFields: unreadableFields }),
-      ...(hiddenTables.length === 0 ? {} : { _unreadableTables: hiddenTables }),
-    },
-  } as unknown as Component
-}
-
-/**
- * True when the page already carries a `command-palette` of its own, at any
- * depth.
- *
- * Authoring one is the third palette state — after "appended by the engine" and
- * "switched off app-wide" — and it SUPPRESSES the append. Two palettes bound to
- * one ⌘K open two overlays on one keystroke, so this is a defect the append
- * must not create rather than a composition.
- */
-const hasAuthoredPalette = (items: ReadonlyArray<Component | string> | undefined): boolean => {
-  if (items === undefined) return false
-  return items.some((item) => {
-    if (typeof item === 'string') return false
-    if ('component' in item || '$ref' in item) return false
-    if ((item as { readonly type?: string }).type === 'command-palette') return true
-    const { children } = item as { readonly children?: ReadonlyArray<Component | string> }
-    return hasAuthoredPalette(children)
-  })
-}
-
-/**
- * Give an authored built-in palette the app's navigable pages.
- *
- * The built-in mode's "Go to <page>" quick actions come from `props.pages`,
- * which only the app knows — so an authored palette declaring no `search` would
- * otherwise offer an empty list purely for having been placed by hand. A
- * search-mode palette is left alone: it has no page list, by design.
- *
- * An author-written `props.pages` wins over the injected list but is filtered
- * for this caller first — see `filterAuthoredPages`.
- */
-const withNavigablePages = (
-  items: ReadonlyArray<Component | string>,
-  synthesized: Component,
-  app: App,
-  session: SessionInfo | undefined
-): ReadonlyArray<Component | string> =>
-  items.map((item) => {
-    if (typeof item === 'string') return item
-    if ('component' in item || '$ref' in item) return item
-    const node = item as Component & {
-      readonly search?: unknown
-      readonly props?: Record<string, unknown>
-      readonly children?: ReadonlyArray<Component | string>
-    }
-    if (node.type === 'command-palette') {
-      if (node.search !== undefined) return item
-      const injected = (synthesized as { readonly props?: Record<string, unknown> }).props ?? {}
-      const authored = node.props ?? {}
-      const props =
-        'pages' in authored
-          ? {
-              ...injected,
-              ...authored,
-              pages: filterAuthoredPages(authored['pages'], app, session),
-            }
-          : { ...injected, ...authored }
-      return { ...node, props } as unknown as Component
-    }
-    if (node.children === undefined) return item
-    return {
-      ...node,
-      children: withNavigablePages(node.children, synthesized, app, session),
-    } as unknown as Component
-  })
+import type { FormRefReaders } from '@/presentation/render/forms/form-ref-readers'
 
 /**
  * Inputs to {@link applyPageComponentFilters}. An options object rather than a
  * positional list: the pipeline has accumulated a per-request locale (P9), a
- * request query and a URL-prefix locale ([internal ref]..039), and a
+ * request query and a URL-prefix locale, and a
  * seventh positional argument is a call site nobody can read.
  */
 interface PageComponentFilterInput {
@@ -239,6 +93,8 @@ interface PageComponentFilterInput {
   readonly callerCapabilities?: readonly CallerCapability[]
   /** The table-backed choices of each embedded form, read before this pass. */
   readonly formOptions?: FormRefOptionSets
+  /** The table each embedded form writes to, as this reader may see it. */
+  readonly formReaders?: FormRefReaders
   /**
    * The tree {@link gatePageComponents} already produced for this request,
    * when the caller needed it first; computed here when absent.
@@ -252,16 +108,19 @@ interface PageComponentFilterInput {
  */
 function formRefContext(
   input: PageComponentFilterInput,
-  activeLang: string
+  activeLang: string,
+  components: Page['components']
 ): FormRefExpansionContext {
-  const { parentRecord, requestQuery, formOptions, session } = input
+  const { parentRecord, requestQuery, formOptions, formReaders, session } = input
   return {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
     session,
     activeLang,
-    // [internal ref]: host request query for embedded `$query` prefill.
+    repeatedForms: repeatedFormNames(components, session, input.app),
+    // [internal ref] / a forms spec: host request query for embedded `$query` prefill.
     ...(requestQuery !== undefined ? { query: requestQuery } : {}),
     ...(formOptions !== undefined ? { formOptions } : {}),
+    ...(formReaders !== undefined ? { formReaders } : {}),
   }
 }
 
@@ -278,11 +137,11 @@ function formRefContext(
  * its choices.
  */
 export function gatePageComponents(
-  input: Omit<PageComponentFilterInput, 'formOptions' | 'gatedComponents'>
+  input: Omit<PageComponentFilterInput, 'formOptions' | 'formReaders' | 'gatedComponents'>
 ): Page['components'] {
   const { rawPage, app, session, requestQuery } = input
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
-  const oauthFiltered = stripUnconfiguredOAuthForms(authStripped, app)
+  const oauthFiltered = markPasskeyAutofill(stripUnconfiguredOAuthForms(authStripped, app), app)
   // P10: the CALLER-power gate runs before the three session gates below and
   // EXCLUDES rather than hiding — a CSS-hidden action column would still ship
   // every row action's endpoint to a caller forbidden to call it (S1/S4).
@@ -334,7 +193,11 @@ export function gatePageComponents(
       applyVisibilityToComponents(capabilityGated, session, app)
     )
   )
-  const createPermFiltered = applyCrudCreatePermissions(visibilityFiltered, app.tables, session)
+  const createPermFiltered = withholdUnofferedFormRefs(
+    applyCrudCreatePermissions(visibilityFiltered, app.tables, session),
+    app,
+    session
+  )
   return applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
 }
 
@@ -346,7 +209,11 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // default) so an embedded `formRef` localizes its `$t:` title/label/onSuccess
   // to match the rest of the page rather than always the default locale.
   const activeLang = resolvePageLanguage(rawPage, app.languages, detectedLanguage, urlLanguage).lang
-  const expanded = expandFormRefs(updatePermFiltered, app, formRefContext(input, activeLang))
+  const expanded = expandFormRefs(
+    updatePermFiltered,
+    app,
+    formRefContext(input, activeLang, updatePermFiltered)
+  )
   // The design-system catalog's field-type specimens: render-time-only
   // descriptors the admin surface builder emits, expanded into the control the
   // crud form draws for that field type. Runs AFTER `expandFormRefs` (a

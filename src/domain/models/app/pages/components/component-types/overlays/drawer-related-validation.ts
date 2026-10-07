@@ -6,7 +6,7 @@
  */
 
 /**
- * Decode rules for a drawer's `related` sections ([internal ref] CAP-8).
+ * Decode rules for a drawer's `related` sections.
  *
  * Every rule here refuses a config whose section would otherwise list NOTHING
  * in silence: a `field` that is not a relationship back to the drawer's table

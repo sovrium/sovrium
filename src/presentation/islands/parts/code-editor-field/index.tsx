@@ -118,7 +118,6 @@ export function CodeEditorField({
       <span className={computeFormFieldLabelClasses()}>{displayLabel ?? name}</span>
       <CodeMirror
         value={value}
-        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- form-field handler; re-render triggered by CodeMirror's own value updates dominates inline-handler cost
         onChange={(val) => onChange(name, val)}
         extensions={extensions}
         readOnly={readOnly}

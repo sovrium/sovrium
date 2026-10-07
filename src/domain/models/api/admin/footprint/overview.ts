@@ -21,20 +21,16 @@
  * this operator. A declared value describes how the instance is configured,
  * never what it emitted.
  *
- * **Two panels were retired, for the same reason twice: the dashboard was
- * reporting numbers nothing computed.**
+ * **Two panels are deliberately absent, for the same reason twice: a dashboard
+ * must not report numbers nothing computes.**
  *
- * - `rgesn` reported `passing` out of a literal `total: 78` from ten
- *   evaluators, three of which were the literal `true`. It is NOT replaced:
- *   the denominator was right (78 is the real 2024 référentiel size) but the
- *   numerator was invented, and an RGESN result is a product-level fact —
+ * - There is no `rgesn` panel. An RGESN result is a product-level fact —
  *   identical on every install of a given version — so it belongs in published
  *   documentation, not in a per-instance telemetry surface that implies it was
  *   measured HERE.
- * - `aiProviderMix.byCarbonClass` was always all-zeros: no code path anywhere
- *   incremented it. It is replaced by {@link aiProviderMixPanelSchema}'s
- *   `routing`, which carries three facts the binary genuinely computes and
- *   acts on.
+ * - There is no per-carbon-class AI provider count, because no code path
+ *   computes one. {@link aiProviderMixPanelSchema}'s `routing` carries three
+ *   facts the binary genuinely computes and acts on instead.
  *
  * Source story: [internal ref]
  * Pattern: [internal ref]
@@ -240,8 +236,7 @@ export const lowDataModePanelSchema = Schema.Struct({
  *
  * [internal ref] D6 Verification #4 requires the footprint surface to CITE its
  * measurement source: a byte count with no stated origin is indistinguishable
- * from a fabricated one — which is precisely what this panel used to ship (a
- * hardcoded `bytes: 0` on every table row).
+ * from a fabricated one (a hardcoded `bytes: 0` on every table row, say).
  *
  * `'unavailable'` is a first-class outcome, not an error: a SQLite build
  * without the `dbstat` virtual table genuinely cannot size a table, and saying

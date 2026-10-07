@@ -11,7 +11,7 @@
  *
  * **The first non-keystone consumer of `createAdminListEndpoint`.**
  *
- * Where `[internal ref]` (story #3) authored the helper
+ * Where the admin automations runs list requirement (story #3) authored the helper
  * against a DB-backed list (`automation_runs`), this story is the canary:
  * if the helper API generalizes to a config-backed list (rows come from
  * the in-memory `app.forms[]` array, not from a runtime-mutated DB table),
@@ -44,7 +44,7 @@
  * Source story: [internal ref]
  *
  * @see [internal ref] D2, D3, D9 — locked by story #3, consumed here
- * @see plan §4.4 — per-story design for [internal ref]
+ * @see plan §4.4 — per-story design for the admin forms list requirement
  * @see plan §3.5 — helper API additivity-only across stories #3–#7
  * @see plan §6.5 — schema reuse rule (extend, never duplicate)
  */

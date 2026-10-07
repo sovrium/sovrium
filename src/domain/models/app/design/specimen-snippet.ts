@@ -20,7 +20,7 @@
  * the specimen's props change. Both the snippet and the machine-readable
  * `drawnProps` are therefore projections of ONE object — the specimen's own
  * `component` definition — so they cannot disagree with the thing drawn above
- * them or with each other. `[internal ref]` asserts exactly that:
+ * them or with each other. An admin design system spec asserts exactly that:
  * every prop the specimen was drawn with must appear in the snippet.
  *
  * ─── WHY IT IS A DOMAIN SERVICE AND NOT A PAGE BUILDER'S HELPER ────────────

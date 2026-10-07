@@ -61,14 +61,14 @@ export interface EmbeddingSearchResult {
 /**
  * AI Embedding Repository Port.
  *
- * Backs the RAG pipeline ([internal ref] /
+ * Backs the RAG pipeline (the AI RAG embedding requirement / TABLE-KNOWLEDGE /
  * PER-AGENT-KNOWLEDGE): `system.ai_embeddings` holds one row per embedded
  * text chunk, scoped by `agentName` so each agent's knowledge is isolated.
  *
  * `insertMany` is the primary write primitive. `search` performs a pgvector
  * cosine-similarity nearest-neighbour query, optionally scoped to an agent.
  * `deleteBySourceIdPrefix` removes stale embeddings when a source record or
- * document is removed.
+ * document is removed (an AI RAG embed spec / TABLE-009).
  */
 export class AiEmbeddingRepository extends Context.Service<
   AiEmbeddingRepository,

@@ -10,10 +10,10 @@
  *
  * Used by:
  *   - `application/use-cases/forms/submit-form.ts` to drop hidden-field
- * values from the submitted payload and to flip
- * `requiredWhen` rules into hard required-field rejections.
+ *     values from the submitted payload and to flip
+ *     `requiredWhen` rules into hard required-field rejections.
  *   - `application/use-cases/forms/submit-form.ts` to skip required-field
- * enforcement on conditionally-hidden fields.
+ *     enforcement on conditionally-hidden fields.
  *
  * Two browser-side mirrors exist, and a change here must reach both:
  *

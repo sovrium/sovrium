@@ -17,6 +17,8 @@
  */
 
 import { validateTranslatedFormAddresses } from './form-address-validation'
+import { validateCalculationFormulas } from './form-calculation-validation'
+import { validateFormCreatePaths } from './form-create-path-validation'
 import { validateFormOptionSources } from './form-option-source-validation'
 
 /**
@@ -43,6 +45,7 @@ interface FormFieldShape {
   readonly column?: string
   readonly name?: string
   readonly inputType?: string
+  readonly formula?: string
   readonly defaultValue?: string | number | boolean
   readonly hidden?: boolean
   readonly visibleWhen?: ConditionRuleShape
@@ -92,6 +95,7 @@ interface PageShape {
 interface AppForFormsValidation {
   readonly forms?: ReadonlyArray<FormShape>
   readonly pages?: ReadonlyArray<PageShape>
+  readonly components?: ReadonlyArray<unknown>
   readonly tables?: ReadonlyArray<TableShape>
   readonly automations?: ReadonlyArray<{ readonly name: string }>
   readonly languages?: Parameters<typeof validateTranslatedFormAddresses>[0]['languages']
@@ -222,66 +226,15 @@ interface FormComponentLocator {
 }
 
 /**
- * Build a "mutually exclusive with inline X, Y, Z" suffix listing whichever
- * of dataSource/fields/fieldGroups/wizard are present on the component.
+ * Build a "mutually exclusive with inline X, Y" suffix listing whichever of
+ * dataSource/fields are present on the component.
  */
 const inlineConflictsSuffix = (
   component: Readonly<Record<string, unknown>>
 ): string | undefined => {
-  const hasDataSource = component['dataSource'] !== undefined
-  const hasFields = component['fields'] !== undefined
-  const hasFieldGroups = component['fieldGroups'] !== undefined
-  const hasWizard = component['wizard'] !== undefined
-  if (!hasDataSource && !hasFields && !hasFieldGroups && !hasWizard) return undefined
-  return [
-    hasDataSource ? 'dataSource' : undefined,
-    hasFields ? 'fields' : undefined,
-    hasFieldGroups ? 'fieldGroups' : undefined,
-    hasWizard ? 'wizard' : undefined,
-  ]
-    .filter((c): c is string => c !== undefined)
-    .join(', ')
+  const conflicts = ['dataSource', 'fields'].filter((key) => component[key] !== undefined)
+  return conflicts.length === 0 ? undefined : conflicts.join(', ')
 }
-
-/**
- * Shape of a wizard step on an inline `type: form` page component.
- */
-interface WizardStepShape {
-  readonly label: string
-  readonly fields: ReadonlyArray<string>
-}
-
-/**
- * Validate that every `wizard.steps[].fields[]` entry on an inline form
- * component references a field declared in that component's own `fields[]`
- * array. A step that lists a name not present on the form is a
- * cross-validation error.
- */
-const validateWizardStepFields = (pages: ReadonlyArray<PageShape>): string | undefined =>
-  pages.reduce<string | undefined>((pageAcc, page, pageIndex) => {
-    if (pageAcc !== undefined) return pageAcc
-    if (!page.components) return undefined
-    return page.components.reduce<string | undefined>((compAcc, component, componentIndex) => {
-      if (compAcc !== undefined) return compAcc
-      if (component.type !== 'form') return undefined
-      const wizard = component['wizard'] as
-        { readonly steps?: ReadonlyArray<WizardStepShape> } | undefined
-      if (wizard?.steps === undefined) return undefined
-      const formFields = component['fields'] as
-        ReadonlyArray<{ readonly field?: string }> | undefined
-      const declared = new Set(
-        (formFields ?? []).map((f) => f.field).filter((f): f is string => typeof f === 'string')
-      )
-      return wizard.steps.reduce<string | undefined>((stepAcc, wizardStep, stepIndex) => {
-        if (stepAcc !== undefined) return stepAcc
-        const unknownField = wizardStep.fields.find((name) => !declared.has(name))
-        if (unknownField !== undefined) {
-          return `pages[${pageIndex}] '${page.name}' components[${componentIndex}]: wizard.steps[${stepIndex}] '${wizardStep.label}' references unknown field '${unknownField}' which is not declared in the form's fields[]`
-        }
-        return undefined
-      }, undefined)
-    }, undefined)
-  }, undefined)
 
 /**
  * Validate a single form component on a page.
@@ -304,8 +257,8 @@ const validateFormComponent = (
 
 /**
  * Validate page form components: `formRef` must reference an existing form,
- * AND `formRef` is mutually exclusive with the inline `dataSource`/`fields`/
- * `fieldGroups` definition.
+ * AND `formRef` is mutually exclusive with the inline `dataSource`/`fields`
+ * definition.
  */
 const validatePageFormRefs = (
   pages: ReadonlyArray<PageShape>,
@@ -473,7 +426,7 @@ const validateDefaultValueTypes = (forms: ReadonlyArray<FormShape>): string | un
   }, undefined)
 
 /**
- * [internal ref] helpers — conditional-logic cross-validation.
+ * the forms specs helpers — conditional-logic cross-validation.
  *
  * Walks every `visibleWhen` / `requiredWhen` / `disabledWhen` rule on every
  * field of every form. Two checks per simple sub-rule:
@@ -582,7 +535,7 @@ const resolveFieldType = (
 const ORDERED_OPERATORS = new Set(['gt', 'gte', 'lt', 'lte'])
 
 /**
- * [internal ref]: every conditional rule must reference a field that exists
+ * Every conditional rule must reference a field that exists
  * on the same form.
  */
 const validateConditionalFieldReferences = (forms: ReadonlyArray<FormShape>): string | undefined =>
@@ -611,8 +564,8 @@ const validateConditionalFieldReferences = (forms: ReadonlyArray<FormShape>): st
   }, undefined)
 
 /**
- * [internal ref]: ordered operators (`gt`/`gte`/`lt`/`lte`) require a numeric
- * or date field. Run after [internal ref] so reference validity is already
+ * Ordered operators (`gt`/`gte`/`lt`/`lte`) require a numeric
+ * or date field. Run after a forms spec so reference validity is already
  * established for any leaf rule we inspect here.
  */
 const validateConditionalOperatorTypes = (
@@ -649,7 +602,7 @@ const validateConditionalOperatorTypes = (
   }, undefined)
 
 /**
- * [internal ref]: `layout: 'multi-step'` requires `steps` to be non-empty.
+ * `layout: 'multi-step'` requires `steps[]` to be non-empty.
  * The schema's `Schema.Array(...).pipe(Schema.minItems(1))` already rejects
  * an explicit empty array, but `steps[]` is `optional`, so a missing `steps`
  * key alongside `layout: 'multi-step'` slips through; this rule closes that
@@ -667,7 +620,7 @@ const validateMultiStepRequiresSteps = (forms: ReadonlyArray<FormShape>): string
   }, undefined)
 
 /**
- * [internal ref]: step ids must be unique within `steps`. Walks each form's
+ * Step ids must be unique within `steps[]`. Walks each form's
  * `steps[]` and reports the first duplicate, naming both occurrences.
  */
 const validateStepIdUniqueness = (forms: ReadonlyArray<FormShape>): string | undefined =>
@@ -682,7 +635,7 @@ const validateStepIdUniqueness = (forms: ReadonlyArray<FormShape>): string | und
   }, undefined)
 
 /**
- * [internal ref]: every entry in `step.fields` must match a top-level form
+ * Every entry in `step.fields[]` must match a top-level form
  * field's submitter-facing identifier (column for table-bound, name for
  * standalone / signature / calculation). Reports the first unknown reference,
  * naming the step id and the missing field.
@@ -705,7 +658,7 @@ const validateStepFieldNames = (forms: ReadonlyArray<FormShape>): string | undef
   }, undefined)
 
 /**
- * [internal ref]: every `goToWhen.goTo` must reference an existing
+ * Every `goToWhen[].goTo` must reference an existing
  * `step.id` in the same form. A self-reference is allowed (matches a
  * declared id and is documented as a "no-op" pattern).
  */
@@ -747,7 +700,8 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateSubmitToTable(forms, tableNames),
     () => validateSubmitToAutomation(forms, automationNames),
     () => validatePageFormRefs(pages, formNames),
-    () => validateWizardStepFields(pages),
+    // The page form never creates a record: `formRef` is the only bridge.
+    () => validateFormCreatePaths(app),
     () => validateTableFieldColumns(forms, tables),
     () => validateSubmitToMappingTargets(forms, tables),
     () => validateFieldNameUniqueness(forms),
@@ -758,6 +712,8 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateStepIdUniqueness(forms),
     () => validateStepFieldNames(forms),
     () => validateGoToWhenTargets(forms),
+    // A calculation reads only its form's fields, through number helpers, without a cycle.
+    () => validateCalculationFormulas(forms),
     // Choices read from a table: structure first, then what a form may publish.
     () => validateFormOptionSources(app),
     // A `$t:` address a form sends its visitor to, checked in every language.

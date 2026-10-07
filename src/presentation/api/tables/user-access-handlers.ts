@@ -236,7 +236,6 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
   }
   // A new grant changes what the account may read: its live subscriptions are
   // closed and judged again at the handshake, with the grant included.
-  // eslint-disable-next-line functional/no-expression-statements -- closing the connections IS the effect
   closeUserConnections(validated.user_id)
   return c.json(toFieldsResponse(result.success), 201)
 }

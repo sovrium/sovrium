@@ -1,0 +1,78 @@
+# sovrium-library: block/logos-grid@0.30.0
+name: logos-grid
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24 lg:py-16!
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col items-center gap-6 text-center
+        children:
+          - type: text
+            element: p
+            props:
+              className: text-sm text-foreground-subtle text-md text-foreground-muted
+            content: '[Used by teams at — permission required for each logo]'
+          - type: grid
+            props:
+              className: grid grid-cols-1 w-full grid-cols-3 gap-4 lg:grid-cols-6
+            children:
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 1
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 2
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 3
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 4
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 5
+              - type: container
+                props:
+                  className: flex h-14 items-center justify-center rounded-lg border border-border bg-background-inset
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-mono text-sm text-foreground-subtle
+                    content: logo 6

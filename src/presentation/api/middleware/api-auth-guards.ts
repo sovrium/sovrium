@@ -15,9 +15,11 @@
  * chain, so that adding a route can never silently land upstream of a gate.
  */
 
+import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enabled'
 import {
   chainAdminRouteGuards,
   chainAdminRouteGuardsWithoutAuth,
+  type SessionHono,
 } from '@/presentation/api/middleware/admin-route-guards'
 import { applyApiIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import {
@@ -32,10 +34,43 @@ import {
   applyTablesRateLimitMiddleware,
 } from '@/presentation/api/middleware/request-guards'
 import { getLiveApp } from '@/presentation/api/runtime/live-app-store'
-import { sharedViewsRateLimitMiddleware } from '@/presentation/api/tables/shared-view-rate-limit'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { Hono } from 'hono'
+
+/** The admin-only analytics reports: session (when auth exists), sign-in, then admin tier. */
+const ANALYTICS_ADMIN_REPORT_PATHS = [
+  '/api/analytics/overview',
+  '/api/analytics/pages',
+  '/api/analytics/referrers',
+  '/api/analytics/devices',
+  '/api/analytics/campaigns',
+  '/api/analytics/events',
+] as const
+
+/**
+ * Gates for the analytics reports, applied only when the app has analytics.
+ *
+ * `/api/analytics/targets` takes the session but NOT `requireAuth` /
+ * `requireAdmin`: its handler answers 404 for a missing session and for a
+ * non-admin, which is the S1 anti-enumeration contract. A `requireAuth` there
+ * would short-circuit with 401 first and confirm the endpoint exists to a
+ * prober.
+ */
+const chainAnalyticsReportGuards = (
+  hono: SessionHono,
+  resolveAppForTier: () => App,
+  auth?: Readonly<ReturnType<typeof createAuthInstance>>
+): SessionHono => {
+  const gated = ANALYTICS_ADMIN_REPORT_PATHS.reduce<SessionHono>(
+    (acc, path) =>
+      (auth ? acc.use(path, authMiddleware(auth)) : acc)
+        .use(path, requireAuth())
+        .use(path, requireAdmin(resolveAppForTier)),
+    hono
+  )
+  return auth ? gated.use('/api/analytics/targets', authMiddleware(auth)) : gated
+}
 
 export const applyApiAuthGuards = (
   honoWithHealth: Hono,
@@ -82,7 +117,7 @@ export const applyApiAuthGuards = (
   // F6 dashboard-tier model: thread the live App into the admin-route tier
   // guards so a custom top role (e.g. partner's `engineer`) resolves to
   // `admin-editor` implicitly. Reads the published live App when present
-  //, falling back to the boot `app`.
+  // Falling back to the boot `app`.
   const resolveAppForTier = (): App => (getLiveApp() as App | undefined) ?? app
   // A form with a custom `path` answers on a second, arbitrary URL that no
   // wildcard below covers (`/forms/*` and `/api/forms/*` miss e.g.
@@ -106,18 +141,9 @@ export const applyApiAuthGuards = (
     : honoWithActivityRateLimit
   const honoWithPreAdminGuards = auth
     ? honoWithFormPathAuth
-        // The session on `/api/tables*` was extracted ahead of the rate limit.
+        // The session on `/api/tables*` is already extracted, ahead of the rate limit.
         .use('/api/tables', requireAuth())
         .use('/api/tables/*', requireAuthOrGuestComment(resolveAppForGuestCommentExemption))
-        // Cycle 6 ([internal ref]..026): shared-view lookup-by-id.
-        // Mounted at a sibling path to `/api/tables/*` because the lookup is
-        // cross-table-by-design — any authenticated user can fetch a saved
-        // view IFF the table the view binds to grants them read permission.
-        // The handler enforces that gate; the middleware here just ensures
-        // we have a session to evaluate against.
-        .use('/api/shared-views/*', authMiddleware(auth))
-        .use('/api/shared-views/*', requireAuth())
-        .use('/api/shared-views/*', sharedViewsRateLimitMiddleware)
         .use('/api/activity', authMiddleware(auth))
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', authMiddleware(auth))
@@ -138,30 +164,16 @@ export const applyApiAuthGuards = (
     ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, resolveAppForTier)
     : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, resolveAppForTier)
 
+  // The analytics report gates exist only where the reports do. With no live
+  // `analytics` block no `/api/analytics/*` route is registered, and a gate
+  // left standing there would answer an anonymous probe 401 instead of the
+  // 404 every other caller gets — confirming a surface the app never mounted.
+  const honoWithAnalyticsGuards = analyticsIsEnabled(app)
+    ? chainAnalyticsReportGuards(honoWithAdminGuards, resolveAppForTier, auth)
+    : honoWithAdminGuards
+
   const honoWithAuth = auth
-    ? honoWithAdminGuards
-        .use('/api/analytics/overview', authMiddleware(auth))
-        .use('/api/analytics/overview', requireAuth())
-        .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/pages', authMiddleware(auth))
-        .use('/api/analytics/pages', requireAuth())
-        .use('/api/analytics/pages', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/referrers', authMiddleware(auth))
-        .use('/api/analytics/referrers', requireAuth())
-        .use('/api/analytics/referrers', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/devices', authMiddleware(auth))
-        .use('/api/analytics/devices', requireAuth())
-        .use('/api/analytics/devices', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/campaigns', authMiddleware(auth))
-        .use('/api/analytics/campaigns', requireAuth())
-        .use('/api/analytics/campaigns', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/events', authMiddleware(auth))
-        // `/api/analytics/targets` takes the session but NOT `requireAuth` /
-        // `requireAdmin`, exactly like `/events` above: its handler answers 404
-        // for a missing session and for a non-admin, which is the S1
-        // anti-enumeration contract. A `requireAuth` here would short-circuit
-        // with 401 first and confirm the endpoint exists to a prober.
-        .use('/api/analytics/targets', authMiddleware(auth))
+    ? honoWithAnalyticsGuards
         // Automations: extract session so manual triggers can resolve
         // the caller's role against trigger.requiredRole. Webhook triggers
         // remain anonymous-friendly — handlers gate per-trigger inside the
@@ -208,7 +220,7 @@ export const applyApiAuthGuards = (
         // distinguished cleanly.
         .use('/api/session/active-scope/:tableSlug', authMiddleware(auth))
         // Generic AI chat endpoint (cross-cutting). Always authenticated
-        // when `app.auth` is configured — the
+        // when `app.auth` is configured — per an AI chat cross spec the
         // unauthenticated request must short-circuit to HTTP 401 before
         // the handler runs. The route itself is registered below by
         // `chainAiChatRoutes`.
@@ -216,7 +228,7 @@ export const applyApiAuthGuards = (
         .use('/api/ai/chat', requireAuth())
         // Streaming variant — same auth contract (POST /api/ai/chat/stream).
         // Registered as a sibling route by `chainAiChatRoutes`; per
-        // [internal ref] must accept JSON body + return 200 + SSE.
+        // An AI chat stream spec must accept JSON body + return 200 + SSE.
         .use('/api/ai/chat/stream', authMiddleware(auth))
         .use('/api/ai/chat/stream', requireAuth())
         // Chat dictation (`POST /api/ai/transcriptions`). authMiddleware only:
@@ -224,7 +236,7 @@ export const applyApiAuthGuards = (
         // so the endpoint does not reveal that it exists (S1).
         .use('/api/ai/transcriptions', authMiddleware(auth))
         // Conversation-history routes (durable AI chat memory,
-        // [internal ref]) — list/get/delete a user's
+        // The AI memory conversation history requirement) — list/get/delete a user's
         // conversation threads. Per-user scoping needs
         // the authenticated session, so both the bare path and the
         // `:sessionId` sub-paths get the auth chain.
@@ -238,6 +250,10 @@ export const applyApiAuthGuards = (
         // the decision handlers return 401/403 directly so the spec can
         // distinguish unauthenticated from insufficient-role.
         .use('/api/agents/*', authMiddleware(auth))
+        // Hono's `/*` needs at least one more segment, so the bare listing
+        // `GET /api/agents` is mounted on its own: without it the listing never
+        // sees the session and answers as if every caller were signed out.
+        .use('/api/agents', authMiddleware(auth))
         // Account self-service + GDPR routes (D3/D4/D5). authMiddleware
         // attaches the session so the export/delete handlers can read the
         // caller id and return 401 themselves. requireAuth is NOT chained:
@@ -257,28 +273,18 @@ export const applyApiAuthGuards = (
         // signed-in account, and why its body carries no email.
         .use('/api/users/*', authMiddleware(auth))
         // Recent items + command-palette search
-        //. authMiddleware
+        // authMiddleware
         // attaches the session so the per-user recent list and the
         // favorited-boost ranking can resolve the caller. Handlers tolerate a
         // missing session, so requireAuth is not chained.
         .use('/api/recent', authMiddleware(auth))
         .use('/api/command-search', authMiddleware(auth))
-        // Realtime presence (Wave-6). authMiddleware attaches the session so
+        // Realtime presence. authMiddleware attaches the session so
         // the presence SSE handler can resolve the caller's id + display
         // name. requireAuth is NOT chained — the handler returns 401 itself
         // so the SSE response shape stays under the handler's control.
         .use('/api/realtime/presence', authMiddleware(auth))
-    : honoWithAdminGuards
-        .use('/api/analytics/overview', requireAuth())
-        .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/pages', requireAuth())
-        .use('/api/analytics/pages', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/referrers', requireAuth())
-        .use('/api/analytics/referrers', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/devices', requireAuth())
-        .use('/api/analytics/devices', requireAdmin(resolveAppForTier))
-        .use('/api/analytics/campaigns', requireAuth())
-        .use('/api/analytics/campaigns', requireAdmin(resolveAppForTier))
+    : honoWithAnalyticsGuards
 
   return honoWithAuth
 }

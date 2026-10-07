@@ -32,7 +32,7 @@ import { printDocument, printFailure } from '@/infrastructure/logging/cli-output
  * ## The type-only contract
  *
  * The declaration exports TYPES and never a value — see the generator
- * (`scripts/build/generate-embedded-config-types.ts`) and [internal ref].
+ * (`scripts/build/generate-embedded-config-types.ts`) and a CLI packaging types spec.
  * The binary leaves bare-package specifiers unresolved, so a value import would
  * type-check and then fail at boot; `import type` is erased at transpile time
  * and never resolved at all. Keeping values out of the declaration makes that
@@ -77,7 +77,6 @@ export interface TypesFilesResult {
  * written but reports them inside its own scaffold banner.
  */
 export const writeConfigTypesFiles = async (targetDir: string): Promise<TypesFilesResult> => {
-  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(targetDir, { recursive: true })
 
   const declarationPath = join(targetDir, DECLARATION_FILENAME)

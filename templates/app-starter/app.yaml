@@ -1,0 +1,125 @@
+name: app-starter
+version: 1.0.0
+description: >-
+  A starting point for a business app: every sign-in way, a dashboard, settings
+  and profile pages, and a list of records that each open on their own page.
+
+auth:
+  $ref: ./config/auth.yaml
+
+env:
+  - key: SSO_CLIENT_ID
+    description: Client id your identity provider gave this app, for single sign-on.
+    required: false
+  - key: SSO_CLIENT_SECRET
+    description: Client secret your identity provider gave this app, for single sign-on.
+    required: false
+
+tables:
+  - $ref: ./config/tables/projects.yaml
+  - $ref: ./config/tables/tasks.yaml
+  - $ref: ./config/tables/activity.yaml
+  - $ref: ./config/tables/clients.yaml
+  - $ref: ./config/tables/people.yaml
+  - $ref: ./config/tables/workspace-settings.yaml
+  - $ref: ./config/tables/reminders.yaml
+  - $ref: ./config/tables/bookings.yaml
+
+# The page blocks below were installed with `sovrium library add`. Each file
+# starts with the line naming the entry and version it came from.
+components:
+  - $ref: ./library/block/auth-sso.yaml
+  - $ref: ./library/block/auth-sign-up.yaml
+  - $ref: ./library/block/auth-magic-link.yaml
+  - $ref: ./library/block/auth-password-reset-new.yaml
+  - $ref: ./library/block/auth-password-reset.yaml
+  - $ref: ./library/block/auth-two-factor.yaml
+  - $ref: ./library/block/auth-invitation-accept.yaml
+  - $ref: ./library/block/dashboard-worklist.yaml
+  - $ref: ./library/block/record-header.yaml
+  - $ref: ./library/block/record-meta-sidebar.yaml
+  - $ref: ./library/block/record-edit-sections.yaml
+  - $ref: ./library/block/record-comments.yaml
+  - $ref: ./library/block/drawer-record.yaml
+  - $ref: ./library/block/settings-account.yaml
+  - $ref: ./library/block/settings-security.yaml
+  - $ref: ./library/block/settings-api-keys.yaml
+  - $ref: ./library/block/settings-team.yaml
+  - $ref: ./library/block/dashboard-metrics.yaml
+  - $ref: ./library/block/auth-sign-in.yaml
+  - $ref: ./library/block/record-related-list.yaml
+  - $ref: ./library/block/dashboard-overview.yaml
+  - $ref: ./library/block/alert-inline.yaml
+  - $ref: ./library/block/alert-validation-summary.yaml
+  - $ref: ./library/block/app-navbar-command.yaml
+  - $ref: ./library/block/app-navbar-search.yaml
+  - $ref: ./library/block/breadcrumb-chevron.yaml
+  - $ref: ./library/block/breadcrumb-slash.yaml
+  - $ref: ./library/block/card-heading.yaml
+  - $ref: ./library/block/comments-feed.yaml
+  - $ref: ./library/block/empty-basic.yaml
+  - $ref: ./library/block/empty-with-starters.yaml
+  - $ref: ./library/block/modal-confirm-destructive.yaml
+  - $ref: ./library/block/page-heading-actions.yaml
+  - $ref: ./library/block/pagination-numbered.yaml
+  - $ref: ./library/block/pagination-simple.yaml
+  - $ref: ./library/block/progress-bar.yaml
+  - $ref: ./library/block/section-heading-tabs.yaml
+  - $ref: ./library/block/shell-sidebar.yaml
+  - $ref: ./library/block/shell-stacked.yaml
+  - $ref: ./library/block/tabs-segmented.yaml
+  - $ref: ./library/block/tabs-underline.yaml
+  - $ref: ./library/block/toast-confirm.yaml
+  - $ref: ./library/block/vertical-nav-grouped.yaml
+  - $ref: ./library/block/vertical-nav-settings.yaml
+  - $ref: ./library/block/steps-horizontal.yaml
+  - $ref: ./library/block/calendar-month.yaml
+  - $ref: ./library/block/calendar-week.yaml
+  - $ref: ./library/block/dl-rows.yaml
+  - $ref: ./library/block/dl-stacked.yaml
+  - $ref: ./library/block/drawer-form.yaml
+  - $ref: ./library/block/gallery-cards.yaml
+  - $ref: ./library/block/kpi-row-trend.yaml
+  - $ref: ./library/block/kpi-sparkline.yaml
+  - $ref: ./library/block/list-avatars.yaml
+  - $ref: ./library/block/modal-form.yaml
+  - $ref: ./library/block/record-form-two-column.yaml
+  - $ref: ./library/block/settings-form.yaml
+  - $ref: ./library/block/table-with-actions.yaml
+  - $ref: ./library/block/table-with-filters.yaml
+  - $ref: ./library/block/timeline-activity.yaml
+
+forms:
+  - $ref: ./library/form/dashboard-worklist-new.yaml
+  - $ref: ./library/form/record-related-list-add.yaml
+  - $ref: ./library/form/drawer-form.yaml
+  - $ref: ./library/form/modal-form.yaml
+  - $ref: ./library/form/record-form-two-column.yaml
+
+# Sign-in pages first, then the signed-in app.
+pages:
+  - $ref: ./config/pages/overview.yaml
+  - $ref: ./config/pages/project.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/sso.yaml
+  - $ref: ./config/pages/sign-up.yaml
+  - $ref: ./config/pages/magic-link.yaml
+  - $ref: ./config/pages/reset-password.yaml
+  - $ref: ./config/pages/reset-password-new.yaml
+  - $ref: ./config/pages/two-step.yaml
+  - $ref: ./config/pages/invite.yaml
+  - $ref: ./config/pages/metrics.yaml
+  - $ref: ./config/pages/worklist.yaml
+  - $ref: ./config/pages/settings.yaml
+  - $ref: ./config/pages/settings-security.yaml
+  - $ref: ./config/pages/settings-api-keys.yaml
+  - $ref: ./config/pages/settings-team.yaml
+  - $ref: ./config/pages/projects.yaml
+  - $ref: ./config/pages/project-edit.yaml
+  - $ref: ./config/pages/kit-navigation.yaml
+  - $ref: ./config/pages/kit-feedback.yaml
+  - $ref: ./config/pages/kit-data.yaml
+  - $ref: ./config/pages/kit-client.yaml
+  - $ref: ./config/pages/settings-workspace.yaml
+  - $ref: ./config/pages/kit-shell-sidebar.yaml
+  - $ref: ./config/pages/kit-shell-stacked.yaml

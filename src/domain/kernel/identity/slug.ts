@@ -8,7 +8,7 @@
 /**
  * Pure helpers for the publishing-workflow slug convention.
  *
- * [internal ref] (slug-management) defines a
+ * the pages access publishing requirement (slug-management) defines a
  * convention-over-configuration contract for collection pages:
  *
  *   - A table that declares a `slug` field and a `title` field gains

@@ -38,36 +38,11 @@ import {
 } from '@/domain/models/app/pages/content-dir-access'
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
-import type { PageAccess } from '@/domain/models/app/pages/access'
+import type {
+  ContentDirBody,
+  ContentDirEntry,
+} from '@/application/ports/services/content-dir-reader'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
-
-/**
- * A single markdown file resolved from a `contentDir` page.
- */
-export interface ContentDirEntry {
-  /** URL slug derived from the file per `slugFrom` (e.g. `getting-started`). */
-  readonly slug: string
-  /** Frontmatter `title`, or the slug when no title is declared. */
-  readonly title: string
-  /** Frontmatter `section`/`category` group, when present. */
-  readonly section: string | undefined
-  /**
-   * Group key resolved from `contentDir.nav.groupBy` (falling back to
-   * `section`/`category`), when present. Drives the H2 sections in `/llms.txt`.
-   */
-  readonly group: string | undefined
-  /** Frontmatter `description`, when present. */
-  readonly description: string | undefined
-  /** Resolved page URL (route prefix + slug, e.g. `/docs/getting-started`). */
-  readonly path: string
-  /** The source file's modification time — the sitemap's `<lastmod>`. */
-  readonly modifiedAt?: Date
-  /**
-   * The article's own `access`, from its front matter. Absent means
-   * the article follows its page alone; a public artefact skips any other.
-   */
-  readonly access?: PageAccess
-}
 
 /**
  * Parsed file record before slug derivation — one file of a cached corpus.
@@ -80,17 +55,6 @@ export interface ParsedFile {
   readonly body: string
   /** The file's modification time in epoch milliseconds, when readable. */
   readonly modifiedAtMs?: number
-}
-
-/**
- * A markdown file's resolved metadata paired with its full markdown body
- * (frontmatter stripped). Consumed by the `/llms-full.txt` generator.
- */
-export interface ContentDirBody {
-  /** The entry metadata (slug, title, group, path, …). */
-  readonly entry: ContentDirEntry
-  /** The markdown body with the YAML frontmatter block removed. */
-  readonly body: string
 }
 
 /** Strip trailing `/` from `contentDir.directory` (defensive). */
@@ -192,7 +156,7 @@ const sortFiles = (
 }
 
 /**
- * Resolve an entry's public URL. [internal ref]: the `contentDir.index` article is
+ * Resolve an entry's public URL. The `contentDir.index` convention: the `contentDir.index` article is
  * listed at the collection BASE PATH (its single canonical URL — the page path
  * minus its trailing dynamic segment), so sitemap `<loc>` / `/llms.txt` bullets
  * / search results deep-link `/docs` rather than `/docs/introduction`. Every
@@ -246,8 +210,8 @@ interface CachedCorpus {
  * Process-global corpus cache, keyed by `${absoluteDir}::${include}`.
  *
  * The scan + read + frontmatter-parse of a whole content directory (hundreds
- * of files for a real docs site) used to run on EVERY page render, sitemap
- * build, and palette search. The corpus is cached here and revalidated by a
+ * of files for a real docs site) would otherwise run on EVERY page render,
+ * sitemap build, and palette search. The corpus is cached here and revalidated by a
  * cheap stat signature — except in production, where content is immutable for
  * the process lifetime (deploys replace the whole tree), so the first fill is
  * trusted without further stats.
@@ -286,8 +250,8 @@ const computeStatSignature = async (
 
 /**
  * Compute a short checksum of a content directory's CURRENT on-disk state — the
- * page cache's corpus key for a `'content'` page ([internal ref]
- * -CACHE, [internal ref]..008).
+ * page cache's corpus key for a `'content'` page (the infrastructure page render requirement
+ * -CACHE, the static page cache specs).
  *
  * Deliberately does its own glob + `stat` scan on EVERY call rather than
  * reusing {@link loadContentDirCorpus}'s memoized signature: that cache
@@ -317,7 +281,6 @@ export const computeContentDirCorpusChecksum = async (
 
 /** Clear the corpus cache (tests + hot-reload paths). */
 export const clearContentDirCache = (): void => {
-  // eslint-disable-next-line functional/immutable-data -- cache reset is this helper's entire purpose
   corpusCache.clear()
 }
 
@@ -345,7 +308,6 @@ export const loadContentDirCorpus = async (
 
   const parsed = await Promise.all(relativePaths.map((path) => readFile(normalised, path)))
   const files = parsed.filter((file): file is ParsedFile => file !== undefined)
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- memoization write; the surrounding function stays referentially transparent per signature
   corpusCache.set(cacheKey, { files, signature })
   return files
 }
@@ -401,7 +363,7 @@ export const readContentDirBodies = async (
 
 /**
  * Read a single contentDir article's frontmatter-stripped markdown body by slug
- * — the per-page `.md` export twin — with
+ * the per-page `.md` export twin — with
  * the article's own front matter `access`. Returns `undefined` when no
  * included file resolves to that slug: an unknown slug, or a file hidden by
  * `contentDir.filter` (e.g. a draft). Both are a genuine not-found for the `.md`
@@ -424,3 +386,5 @@ export const readContentDirBodyForSlug = async (
   if (match === undefined) return undefined
   return { body: match.body, ...accessOverlay(match.frontmatter) }
 }
+
+export type { ContentDirBody, ContentDirEntry }

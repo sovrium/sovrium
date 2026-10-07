@@ -8,10 +8,9 @@
 /**
  * Audit-log query filter + boot-reset hook.
  *
- * Historically this module backed `GET /api/admin/audit-log` with a
- * process-scoped in-memory FIFO buffer. That append/list path was superseded
- * by the Drizzle-backed store (`drizzle-store.ts`) when the route bucket was
- * consolidated to emit through `emitAuditEvent`. What remains here is the
+ * Despite its name, this module stores nothing: `GET /api/admin/audit-log` is
+ * served by the Drizzle-backed store (`drizzle-store.ts`), which every route
+ * feeds through `emitAuditEvent`. What lives here is the
  * shared `AuditListFilter` shape (still consumed by the Drizzle store and the
  * `emit` use-case) and the stable boot-reset hook called from
  * `createApiRoutes`.
@@ -23,44 +22,6 @@
  * Consumed by the Drizzle-backed store and the `emit` use-case. All fields are
  * optional; an empty filter returns the full log.
  */
-export interface AuditListFilter {
-  readonly actorId?: string | undefined
-  readonly action?: string | undefined
-  /**
-   * Transport ("canal") filter — narrows the feed to entries made through one
-   * modality (`config-file | env | api | mcp | restore`). Backs the
-   * `GET /api/admin/audit-log?transport=` filter
-   *.
-   */
-  readonly transport?: string | undefined
-  /**
-   * Resource-type filter — narrows the feed to entries touching one kind of
-   * resource (`config`, `form`, `form.submission`, `table.record`, …). Backs
-   * the `GET /api/admin/audit-log?resourceType=` filter.
-   *
-   * Matched EXACTLY, never by prefix: several catalog resource types are
-   * dotted compounds sharing a parent's prefix (`form` vs `form.submission`,
-   * `automation` vs `automation.run`), so a prefix match would silently
-   * over-return the children when the parent is requested.
-   *
-   * The value set is OPEN — every new `ACTION_CATALOG` row may introduce a
-   * resource type — so an unrecognised value is a predicate that matches
-   * nothing (200 with an empty item set), not a client error.
-   */
-  readonly resourceType?: string | undefined
-  /**
-   * Resource-id filter — narrows the feed to entries about ONE resource (an
-   * automation's name, a user's id). Matched exactly. Used with `action` to
-   * find, say, the latest `automation.resumed` of one automation.
-   */
-  readonly resourceId?: string | undefined
-  /** Entries at or after this instant only. */
-  readonly since?: Readonly<Date> | undefined
-  /** Entries whose severity is one of these. An empty list matches nothing. */
-  readonly severities?: readonly string[] | undefined
-  /** Entries whose action is one of these. An empty list matches nothing. */
-  readonly actions?: readonly string[] | undefined
-}
 
 /**
  * Boot-time reset hook (test-only — called from `createApiRoutes` at every

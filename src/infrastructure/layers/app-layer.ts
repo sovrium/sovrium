@@ -7,13 +7,17 @@
 
 import { Effect, Layer } from 'effect'
 import { AiLive } from '@/infrastructure/ai/layer'
+import { LocalAiProbeLive } from '@/infrastructure/ai/local-ai-probe-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
+import { accountProvisionerFor } from '@/infrastructure/auth/better-auth/account-provisioner-live'
 import { NoAuthLayer } from '@/infrastructure/auth/better-auth/auth-service'
 import { TypeScriptValidatorLive } from '@/infrastructure/automations/typescript-validator'
 import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
+import { DatabaseMigratorLive } from '@/infrastructure/database/drizzle/database-migrator-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AdminDigestSnapshotRepositoryLive } from '@/infrastructure/database/repositories/admin/admin-digest-snapshot-repository-live'
+import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories/admin/boot-ledger-repository-live'
 import { AdminAgentConversationsRepositoryLive } from '@/infrastructure/database/repositories/agents/admin-agent-conversations-repository-live'
 import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/analytics/activity-log-repository-live'
@@ -41,14 +45,14 @@ import { McpInternalsRepositoryLive } from '@/infrastructure/database/repositori
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TablesOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/tables-overview-repository-live'
 import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
-import { UserTablePreferencesRepositoryLive } from '@/infrastructure/database/repositories/tables/user-table-preferences-repository-live'
-import { UserViewRepositoryLive } from '@/infrastructure/database/repositories/tables/user-view-repository-live'
 import { UsersDirectoryRepositoryLive } from '@/infrastructure/database/repositories/tables/users-directory-repository-live'
 import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
+import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import { SubmissionRateLimiterLive } from '@/infrastructure/forms/submission-rate-limiter-live'
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
-import { LoggerLive } from '@/infrastructure/logging/logger'
+import { LoggerLive, logError } from '@/infrastructure/logging/logger'
 import { ContentDirReaderLive } from '@/infrastructure/markdown/content-dir-reader-live'
 import { CronSchedulerLive } from '@/infrastructure/scheduling/cron-scheduler-live'
 import { PageCacheLive } from '@/infrastructure/server/cache/page-cache-live'
@@ -105,10 +109,15 @@ const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth> =>
     ? Layer.unwrap(
         Effect.tryPromise({
           try: () => import('@/infrastructure/auth/better-auth/layer'),
-          catch: (cause) =>
-            new ServerCreationError(
+          catch: (cause) => {
+            // The wrapped message below is what the boot prints; the import's own
+            // error rides only as a nested `cause`, which the defect rendering
+            // does not show. Log it first so a failed boot names what failed.
+            logError('[AUTH] Authentication module could not be loaded', cause)
+            return new ServerCreationError(
               new Error('Authentication module could not be loaded', { cause })
-            ),
+            )
+          },
         }).pipe(
           Effect.map((module) => module.createAuthLayer(authConfig)),
           Effect.orDie
@@ -139,8 +148,6 @@ const PageRendererWithDeps = PageRendererLive.pipe(
 // `DatabaseLive` is merged below as well, so `Database` itself stays available
 // to handlers; Effect memoises it, so naming it twice builds it once.
 const DatabaseBackedRepositories = Layer.mergeAll(
-  UserViewRepositoryLive,
-  UserTablePreferencesRepositoryLive,
   // `LinkRepository` — the links console and the `link/*` automation steps
   // call the same use-cases, so the port belongs to the app rather than to
   // either caller. `AutomationRuntimeLayer` names this same layer for its own
@@ -150,9 +157,32 @@ const DatabaseBackedRepositories = Layer.mergeAll(
   LinkRepositoryLive
 ).pipe(Layer.provide(DatabaseLive))
 
-export const createAppLayer = (authConfig?: AuthConfig) =>
+// The application-layer ports that took over a direct infrastructure import, one
+// line each. All of them are `Layer.succeed`, so naming them costs the boot nothing.
+//
+//   - `AuditLogRepository` — the one audit funnel (`EmitAuditEvent`), reached by
+//     the account-act recorder on Better Auth hooks and by every admin route.
+//   - `EmailSender` — operator notices and the weekly digest; reads the SMTP
+//     transport lazily, so a mail-less deployment pays nothing.
+//   - `DatabaseMigrator` — the schema migration that precedes every boot.
+//   - `LocalAiProbe` — the local-model reachability check behind
+//     `ECO_AI_PROVIDER_PRECEDENCE=local-only`.
+//   - `SubmissionRateLimiter` — the public form-submission windows.
+const PortAdapters = Layer.mergeAll(
+  AuditLogRepositoryLive,
+  EmailSenderLive,
+  DatabaseMigratorLive,
+  LocalAiProbeLive,
+  SubmissionRateLimiterLive
+)
+
+// `Auth`, plus the `AccountProvisioner` port built over that same instance (the
+// first-admin bootstrap creates accounts through the engine, never through a
+// row insert). One layer value, named twice, is built once.
+const appLayerWithAuth = (authLayer: Layer.Layer<Auth>) =>
   Layer.mergeAll(
-    authLayerFor(authConfig),
+    authLayer,
+    accountProvisionerFor(authLayer),
     DatabaseLive,
     ServerFactoryLive,
     PageRendererWithDeps,
@@ -164,29 +194,25 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     // OTEL_EXPORTER_OTLP_TRACES_ENDPOINT and disposed on shutdown — the app-layer
     // scope closes right after boot, so a scoped tracer wired here would be
     // finalized before it ever exported a span. See
-    // [internal ref].
     LoggerLive,
     AuthRepositoryLive,
+    PortAdapters,
     // `BootstrapTokenRepository` — the boot-time first-admin token flow in
-    // `startServer`, which bound this for itself until W5a. A `Layer.succeed`,
-    // so naming it here costs the boot nothing.
+    // `startServer`. A `Layer.succeed`, so naming it here costs the boot nothing.
     BootstrapTokenRepositoryLive,
-    // `AnalyticsRepository` — the first port moved here by the server-runtime
-    // work (W3). It used to be re-provided per call by
-    // `presentation/api/routes/analytics/effect-runner.ts`, which that folder's
-    // handlers, the sibling `routes/analytics.ts` readers, and the short-link
-    // redirect all reached for. Carried by the app layer, it is resolved once at
-    // boot and handed to every request by the runtime `createServer` owns.
+    // `AnalyticsRepository` — used by the analytics handlers and readers and by
+    // the short-link redirect. Carried by the app layer rather than re-provided
+    // per call, it is resolved once at boot and handed to every request by the
+    // runtime `createServer` owns.
     //
-    // Each W3b..n folder adds its ports here the same way, and retires its own
-    // runner once that runner's LAST caller has moved.
+    // Every route folder adds its ports here the same way, rather than running
+    // its own per-call runner.
     AnalyticsRepositoryLive,
     // `SpeechService` — chat dictation (`POST /api/ai/transcriptions`). The
     // automation runtime binds the same layer for `ai/transcribe` steps; the
     // body reads `STT_*` once and does no I/O, so naming it twice costs nothing.
     SpeechServiceLive,
-    // W3b onward — one port set per route folder, each added when that folder's
-    // handlers moved to `provideDomain` and its runner was retired.
+    // One port set per route folder whose handlers run through `provideDomain`.
     AccountRepositoryLive,
     CommandSearchRepositoryLive,
     AdminAgentConversationsRepositoryLive,
@@ -194,8 +220,8 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     UsersDirectoryRepositoryLive,
     UsersOverviewRepositoryLive,
     // `TablesOverviewRepository` — the live row-count read behind the dashboard
-    // `records` tile (W5a). Every other port the admin overview roll-up needs
-    // was already here; this was the last one each block still bound for itself.
+    // `records` tile. Like every other port the admin overview roll-up needs,
+    // it is carried here so no block binds it for itself.
     TablesOverviewRepositoryLive,
     UserEntityListRepositoryLive,
     AdminFormsRepositoryLive,
@@ -282,6 +308,9 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     CronSchedulerLive
   )
 
+export const createAppLayer = (authConfig?: AuthConfig) =>
+  appLayerWithAuth(authLayerFor(authConfig))
+
 /**
  * Static build layer composition
  *
@@ -293,6 +322,9 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
  * DATABASE_URL (e.g., in E2E tests or CI static generation).
  */
 export const createStaticBuildLayer = Layer.mergeAll(
+  // `ContentDirReader` — the Markdown twins and the page-search corpus read the
+  // content directories through it.
+  ContentDirReaderLive,
   ServerFactoryLive,
   PageRendererWithDeps,
   CSSCompilerLive,

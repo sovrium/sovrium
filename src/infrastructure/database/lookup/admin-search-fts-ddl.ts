@@ -6,7 +6,7 @@
  */
 
 /**
- * Admin Global Search FTS5 boot DDL (SQLite ONLY) — [internal ref].
+ * Admin Global Search FTS5 boot DDL (SQLite ONLY).
  *
  * The Drizzle SQLite migration creates the durable CONTENT table
  * `system__admin_search_index` (id / type / entity_id / title / body / href /

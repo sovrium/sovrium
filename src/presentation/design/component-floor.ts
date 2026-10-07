@@ -110,6 +110,12 @@ const FOCUS_VISIBLE_RING = [
   `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
 ].join(' ')
 
+/** The language switcher's focus ring: the trigger recipe's block, which draws no offset. */
+const SWITCHER_FOCUS_RING = [
+  'focus-visible:outline-none focus-visible:ring-2',
+  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
+].join(' ')
+
 /** A link's focus affordance — an underline, not a ring. Same derivation rule. */
 const LINK_FOCUS_CLASS = [
   'focus-visible:outline-none focus-visible:underline',
@@ -153,15 +159,26 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
  *  1. the island renders an element for that exact part name;
  *  2. that element is the one that takes keyboard focus — not merely a wrapper
  *     around it, since a `focus-visible:` rule on a wrapper never fires;
- *  3. the part is reachable from `design.components`, i.e. the island reads it
- *     out of the serialised `designClasses` map. A part no island reads cannot
+ *  3. the part is reachable from `design.components` or `classes`: the island
+ *     reads it out of the serialised `designClasses` map, or the server
+ *     renderer reads it off its resolved part map. A part nothing reads cannot
  *     be broken by an operator, so flooring it protects nothing.
  *
  * An entry keyed on a part that fails any of the three is dead config that
  * reads as coverage — worse than an honest absence, because the next reader
  * takes it for a guarantee.
  *
- * `select.trigger` is the only entry that passes today: it is Base UI's
+ * `language-switcher.link` passes on the server side: the `toggle` variant's
+ * `<a>` is drawn and focused by the SSR renderer, which layers this floor after
+ * the author's `link` part.
+ *
+ * `form.submit` passes the same way, on both form surfaces: the server draws
+ * the `<button type="submit">` with the button recipe. A form's `input` part is
+ * NOT floored: its controls take their focus treatment from two different
+ * places (the element rule of the component layer on a hosted form, a
+ * `focus:` recipe on a page form), so no one block replays either.
+ *
+ * `select.trigger` is the island entry: it is Base UI's
  * `Select.Trigger`, the `role="combobox"` button that `plain-select.tsx`
  * renders and focuses, and whose own recipe emits a byte-identical ring (see
  * `select-default-classes.ts`, pinned by `component-floor.test.ts`).
@@ -183,6 +200,12 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
  */
 const PART_FLOOR: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   select: { trigger: FOCUS_VISIBLE_RING },
+  // The `toggle` variant's `<a>` — the element that takes focus — whose recipe
+  // is the switcher trigger's, ring without offset.
+  'language-switcher': { link: SWITCHER_FOCUS_RING },
+  // The submit of a hosted form and of a page form — both drawn with the
+  // button recipe, whose block this is.
+  form: { submit: FOCUS_VISIBLE_RING },
 }
 
 /** Shared empty map, so an unfloored type costs no allocation per render. */

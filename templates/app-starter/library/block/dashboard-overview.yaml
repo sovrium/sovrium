@@ -1,0 +1,197 @@
+# sovrium-library: block/dashboard-overview@0.30.0
+name: dashboard-overview
+type: container
+element: section
+props:
+  className: mx-auto flex w-full max-w-360 flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-wrap items-end justify-between gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: 'Overview'
+          - type: text
+            element: p
+            props:
+              className: text-md text-foreground-muted
+            content: 'How projects moved over the period.'
+      - type: container
+        element: nav
+        props:
+          aria-label: Period
+          className: flex w-fit items-center gap-0.5 rounded-md border border-border p-0.5
+        children:
+          - type: link
+            content: 7 days
+            props:
+              href: '?period=7d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 7d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+          - type: link
+            content: 30 days
+            props:
+              href: '?period=30d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 30d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+          - type: link
+            content: 90 days
+            props:
+              href: '?period=90d'
+              className: rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground
+            activeWhen:
+              value: $window.id
+              equals: 90d
+            activeProps:
+              aria-current: page
+              className: rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4
+    children:
+      - type: kpi
+        label: 'Projects'
+        dataSource: &dataSource
+          table: projects
+          filter: &filter
+            - field: due_date
+              operator: gte
+              value: $window.start
+            - field: due_date
+              operator: lte
+              value: $window.end
+        kpiAggregate:
+          function: count
+        kpiFormat:
+          type: number
+      - type: kpi
+        label: 'Budget'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: sum
+          field: budget
+        kpiFormat: &kpiFormat
+          type: currency
+          options:
+            currency: EUR
+      - type: kpi
+        label: 'Average budget'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: avg
+          field: budget
+        kpiFormat: *kpiFormat
+      - type: kpi
+        label: 'Largest budget'
+        dataSource: *dataSource
+        kpiAggregate:
+          function: max
+          field: budget
+        kpiFormat: *kpiFormat
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 lg:grid-cols-12
+    children:
+      - type: container
+        element: section
+        props:
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-md font-semibold text-foreground
+            content: 'Budget by day'
+          - type: chart
+            chartType: area
+            dataSource: *dataSource
+            chartAggregate:
+              function: sum
+              field: budget
+              groupBy: due_date
+              interval: day
+            yAxis:
+              field: budget
+              format: currency
+      - type: container
+        element: section
+        props:
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-4
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-md font-semibold text-foreground
+            content: Activity
+          - type: list
+            props:
+              aria-label: Activity
+            dataSource:
+              table: activity
+              sort:
+                - field: happened_at
+                  direction: desc
+              limit: 6
+            listDisplay:
+              itemTemplate:
+                title: $record.actor
+                subtitle: $record.summary
+                metadata:
+                  - field: happened_at
+                    format: relative-date
+                    className: font-mono
+              emptyMessage: No activity yet. Changes people make show up here.
+  - type: container
+    element: section
+    props:
+      className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+    children:
+      - type: text
+        element: h2
+        props:
+          className: text-md font-semibold text-foreground
+        content: 'Latest projects'
+      - type: table
+        props:
+          aria-label: Latest projects
+        readOnly: true
+        dataSource:
+          table: projects
+          filter: *filter
+          sort:
+            - field: due_date
+              direction: desc
+        pagination:
+          pageSize: 8
+        columns:
+          - field: title
+            label: 'Project'
+            editable: false
+          - field: due_date
+            label: 'Due'
+            format: short-date
+            editable: false
+          - field: budget
+            label: 'Budget'
+            align: right
+            format: currency
+            editable: false
+        phoneLayout: rows
+        emptyMessage: 'No project in this period. Choose a longer period to see more.'

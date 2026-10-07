@@ -38,7 +38,7 @@
  * day the catalogue drew a client-fetching `list` specimen — the key test read
  * it as a reference, the walk handed it back untouched, and it rendered a bare
  * empty `<ul>` on the kit page while its six sibling data types fetched
- * normally. `[internal ref]` is the coverage the narrowing was waiting
+ * normally. An admin design system spec is the coverage the narrowing was waiting
  * for.
  *
  * The remaining `'component' in item` tests — in the TOC, collection and

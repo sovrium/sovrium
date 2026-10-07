@@ -1,0 +1,74 @@
+# sovrium-library: block/content-with-toc@0.30.0
+name: content-with-toc
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: grid
+        props:
+          className: 'grid grid-cols-1 gap-16 lg:grid-cols-[13rem_minmax(0,1fr)]'
+        children:
+          - type: container
+            element: aside
+            props:
+              className: hidden lg:block
+            children:
+              - type: toc
+                props:
+                  sticky: true
+                  className: lg:top-8 text-sm
+          - type: container
+            element: article
+            props:
+              className: flex min-w-0 max-w-2xl flex-col gap-6
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05] lg:text-5xl'
+                content: '[Guide title]'
+              - type: text
+                element: p
+                props:
+                  className: text-lg text-pretty text-foreground-muted sm:text-xl
+                content: '[What the reader can do by the end.]'
+              - type: text
+                element: h2
+                props:
+                  className: mt-4 text-2xl font-semibold tracking-tight text-foreground
+                content: '[First part]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                content: '[Paragraph.]'
+              - type: code
+                props:
+                  language: yaml
+                filename: app.yaml
+                content: "pages:\n  - path: /\n    components:\n      - component: hero-centered"
+              - type: text
+                element: h2
+                props:
+                  className: mt-4 text-2xl font-semibold tracking-tight text-foreground
+                content: '[Second part]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                content: '[Paragraph.]'
+              - type: text
+                element: h2
+                props:
+                  className: mt-4 text-2xl font-semibold tracking-tight text-foreground
+                content: '[Third part]'
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                content: '[Paragraph.]'

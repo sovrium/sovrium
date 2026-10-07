@@ -77,14 +77,12 @@ type GateRequirements = TableRepository | AuthRepository | DataSourceRepository
  * reporting afterwards. That matters for a batch of writes: a run that is going
  * to abort anyway should not keep committing rows past the failure.
  *
- * `batchCreate` originally attempted every item regardless and only used the
- * flag to decide the STEP's final status, contradicting its own published
- * annotation. It was moved here and onto the shared `runBatchItems` loop rather
- * than left to diverge: three copies of one rule is how the divergence arose in
- * the first place. `continueOnItemError: true` is unaffected — it still attempts
- * every item — so the change is confined to the documented default.
+ * `batchCreate` runs on the same shared `runBatchItems` loop rather than its
+ * own: a copy that attempts every item regardless and only uses the flag for
+ * the STEP's final status would contradict the published annotation, and three
+ * copies of one rule is how such a divergence arises. `continueOnItemError:
+ * true` still attempts every item.
  *
- * Specs: [internal ref]..003,
  * -BATCHUPDATE-001..003, -BATCHDELETE-001..003, -BATCHUPSERT-001..003
  * (+ REGRESSION).
  */
@@ -476,13 +474,13 @@ const withDriverDetail = (error: unknown): string => {
 /**
  * The cap applied when the config declares no `limit`.
  *
- * `limit` is optional, so an omitted one used to mean NO cap — strictly more
+ * `limit` is optional, and an omitted one meaning NO cap would be strictly more
  * permissive than the largest cap an author is allowed to write, since the
  * schema bounds the declared value to `1..10_000`. Omitting the safety limit
- * therefore bought more reach than asking for the maximum, which is the
+ * would then buy more reach than asking for the maximum, which is the
  * opposite of what a safety limit is for. Defaulting to the schema's own
  * ceiling closes that hole without inventing a number: every batch an author
- * could have expressed explicitly still runs unchanged.
+ * could express explicitly runs unchanged.
  */
 const DEFAULT_BATCH_DELETE_LIMIT = 10_000
 

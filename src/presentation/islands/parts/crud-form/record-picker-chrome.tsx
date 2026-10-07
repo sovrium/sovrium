@@ -5,11 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop --
-   One chip row is mounted per multi-valued relationship field; its remove
-   handler closes over that field's current link set, which is the state that
-   re-renders it. */
-
 import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
 import {
   computeFormControlClasses,

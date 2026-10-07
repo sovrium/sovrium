@@ -7,15 +7,18 @@
 
 import calendarBody from '@/domain/models/app/pages/components/component-types/data/calendar/calendar.docs.md' with { type: 'file' }
 import chartBody from '@/domain/models/app/pages/components/component-types/data/chart/chart.docs.md' with { type: 'file' }
+import endpointFormBody from '@/domain/models/app/pages/components/component-types/data/form/form-endpoint.docs.md' with { type: 'file' }
 import dataFormBody from '@/domain/models/app/pages/components/component-types/data/form/form.docs.md' with { type: 'file' }
 import galleryBody from '@/domain/models/app/pages/components/component-types/data/gallery/gallery.docs.md' with { type: 'file' }
 import graphBody from '@/domain/models/app/pages/components/component-types/data/graph/graph.docs.md' with { type: 'file' }
 import kanbanBody from '@/domain/models/app/pages/components/component-types/data/kanban/kanban.docs.md' with { type: 'file' }
 import kpiBody from '@/domain/models/app/pages/components/component-types/data/kpi/kpi.docs.md' with { type: 'file' }
 import dataListBody from '@/domain/models/app/pages/components/component-types/data/list/list.docs.md' with { type: 'file' }
+import mapBody from '@/domain/models/app/pages/components/component-types/data/map/map.docs.md' with { type: 'file' }
 import matrixBody from '@/domain/models/app/pages/components/component-types/data/matrix/matrix.docs.md' with { type: 'file' }
 import gridEditingBody from '@/domain/models/app/pages/components/component-types/data/table/grid-editing.docs.md' with { type: 'file' }
 import dataTableBody from '@/domain/models/app/pages/components/component-types/data/table/table.docs.md' with { type: 'file' }
+import treeBody from '@/domain/models/app/pages/components/component-types/data/tree/tree.docs.md' with { type: 'file' }
 import { componentType } from './component-directives'
 import { defineArticle, defineSection } from './define'
 
@@ -43,7 +46,7 @@ export const section = defineSection({
       title: 'Tables & Filter Bars',
       description:
         'The data grid — columns, selection, bulk actions, grouping and summaries — plus the filter-bar that narrows it and everything else listening on the same channel.',
-      keywords: ['sovrium', 'data table', 'columns', 'selection', 'bulkActions', 'groupBy'],
+      keywords: ['sovrium', 'data table', 'columns', 'selection', 'bulkActions', 'summary'],
       order: 3400,
       sidebarLabel: 'Tables & Filters',
       body: dataTableBody,
@@ -55,6 +58,7 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-001',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-003',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-AI-STATUS',
+        'US-PAGES-DATA-COMPONENTS-DATA-TABLE-COLUMN-PRESENTATION',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-DISPLAY-CONFIG',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-GROUP-SUMMARY',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-NESTED-GROUP',
@@ -70,18 +74,6 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-VISIBLE-WHEN',
         'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-001',
         'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-002',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-003',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-004',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-005',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-006',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-007',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-008',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-009',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-010',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-011',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-012',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-013',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-014',
         'US-PAGES-DATA-COMPONENTS-SELECT-PUBLISHES',
       ],
     }),
@@ -127,7 +119,10 @@ export const section = defineSection({
       sidebarLabel: 'Lists',
       body: dataListBody,
       documents: [componentType('list')],
-      stories: [],
+      stories: [
+        'US-PAGES-DATA-COMPONENTS-DATA-LIST-HIDE-WHEN-EMPTY',
+        'US-PAGES-DATA-COMPONENTS-DATA-LIST-ITEM-LAYOUT',
+      ],
     }),
     defineArticle({
       slug: 'data-components-boards',
@@ -145,6 +140,8 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-CSV-IMPORT-EXPORT-002',
         'US-PAGES-DATA-COMPONENTS-DATA-KANBAN',
         'US-PAGES-DATA-COMPONENTS-DATA-KANBAN-COLORED-SELECT-GROUP-BY',
+        'US-PAGES-DATA-COMPONENTS-DATA-KANBAN-COLUMN-SIZING',
+        'US-PAGES-DATA-COMPONENTS-DATA-KANBAN-DROP-HOOKS',
         'US-PAGES-DATA-COMPONENTS-DATA-KANBAN-SWIMLANES',
         'US-PAGES-DATA-COMPONENTS-DATA-KANBAN-SYSTEM-READ-ENDPOINT-DATA-SOURCE',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-OPTION-COLORS',
@@ -163,6 +160,7 @@ export const section = defineSection({
       documents: [componentType('gallery')],
       stories: [
         'US-PAGES-DATA-COMPONENTS-DATA-GALLERY',
+        'US-PAGES-DATA-COMPONENTS-DATA-GALLERY-FEATURED-CARD',
         'US-PAGES-DATA-COMPONENTS-DATA-GALLERY-SYSTEM-READ-ENDPOINT-DATA-SOURCE',
       ],
     }),
@@ -177,6 +175,7 @@ export const section = defineSection({
       documents: [componentType('calendar')],
       stories: [
         'US-PAGES-DATA-COMPONENTS-DATA-CALENDAR',
+        'US-PAGES-DATA-COMPONENTS-DATA-CALENDAR-DAY-MIN-HEIGHT',
         'US-PAGES-DATA-COMPONENTS-DATA-CALENDAR-SYSTEM-READ-ENDPOINT-DATA-SOURCE',
       ],
     }),
@@ -198,6 +197,7 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-004',
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-005',
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-ACCESSIBLE-NAME',
+        'US-PAGES-DATA-COMPONENTS-DATA-CHART-AGGREGATE-COLOR',
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-EMPTY-STATE-REGION',
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-FIELD-OPTIONS',
         'US-PAGES-DATA-COMPONENTS-DATA-CHART-SHAPES',
@@ -217,6 +217,8 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-KPI-001',
         'US-PAGES-DATA-COMPONENTS-DATA-KPI-002',
         'US-PAGES-DATA-COMPONENTS-DATA-KPI-003',
+        'US-PAGES-DATA-COMPONENTS-DATA-KPI-READ-BUDGET',
+        'US-PAGES-DATA-COMPONENTS-DATA-KPI-SIZE-TONE',
       ],
     }),
     defineArticle({
@@ -235,6 +237,7 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-MATRIX-EMPTY-AND-DEGRADED',
         'US-PAGES-DATA-COMPONENTS-DATA-MATRIX-GRID-RENDERING',
         'US-PAGES-DATA-COMPONENTS-DATA-MATRIX-SCHEMA-REFUSALS',
+        'US-PAGES-DATA-COMPONENTS-DATA-MATRIX-TABLES-SOURCE',
       ],
     }),
     defineArticle({
@@ -254,41 +257,70 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-GRAPH-LANE-RENDERING',
         'US-PAGES-DATA-COMPONENTS-DATA-GRAPH-SCHEMA-REFUSALS',
         'US-PAGES-DATA-COMPONENTS-DATA-GRAPH-SELECTION-AND-REACH',
+        'US-PAGES-DATA-COMPONENTS-DATA-GRAPH-TABLES-SOURCE',
       ],
+    }),
+    defineArticle({
+      slug: 'data-components-maps',
+      title: 'Maps',
+      description:
+        'The map component — records drawn as pins at their location, with clustering, a pin card and a list twin; tiles from the operator.',
+      keywords: ['sovrium', 'map', 'geolocation', 'pins', 'locationField', 'MAP_TILES_URL'],
+      order: 3415,
+      sidebarLabel: 'Maps',
+      body: mapBody,
+      documents: [componentType('map')],
+      stories: ['US-PAGES-DATA-COMPONENTS-DATA-MAP-MAP'],
+    }),
+    defineArticle({
+      slug: 'data-components-trees',
+      title: 'Trees',
+      description:
+        'The tree component — the records of one table nested by a relationship to itself, with search, counts and keyboard navigation.',
+      keywords: ['sovrium', 'tree', 'hierarchy', 'parentField', 'folders', 'self relationship'],
+      order: 3417,
+      sidebarLabel: 'Trees',
+      body: treeBody,
+      documents: [componentType('tree')],
+      stories: ['US-PAGES-DATA-COMPONENTS-DATA-TREE-TREE'],
     }),
     defineArticle({
       slug: 'data-components-forms',
       title: 'The Form Component',
       description:
-        'form — one type, two modes: table-bound writes through the records API, static submits to a declared form or to a URL of your own.',
-      keywords: ['sovrium', 'form', 'dataSource', 'fields', 'fieldGroups', 'endpoint'],
+        'form — the form that works on data already inside the app: edit a record, post to your own endpoint, sign in or up, or place a forms[] entry with formRef.',
+      keywords: ['sovrium', 'form', 'dataSource', 'fields', 'formRef', 'endpoint'],
       order: 3416,
       sidebarLabel: 'Form Component',
       body: dataFormBody,
       documents: [componentType('form')],
       stories: [
         'US-PAGES-AUTH-COMPONENTS',
-        'US-PAGES-CRUD-COMPONENTS-001',
         'US-PAGES-CRUD-COMPONENTS-002',
         'US-PAGES-CRUD-COMPONENTS-003',
-        'US-PAGES-CRUD-COMPONENTS-004',
         'US-PAGES-CRUD-COMPONENTS-005',
         'US-PAGES-CRUD-FORM-NATIVE-LABELS',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-001',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-002',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-003',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-004',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-005',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-006',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-007',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-008',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-009',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-010',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-CONDITIONAL-FIELDS-ADVANCED',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-CUSTOM-ENDPOINT-SUBMIT',
+        'US-PAGES-DATA-COMPONENTS-DATA-FORM-ASIDE',
         'US-PAGES-DATA-COMPONENTS-DATA-FORM-FORMREF',
-        'US-PAGES-DATA-COMPONENTS-DATA-FORM-WIZARD',
       ],
+    }),
+    defineArticle({
+      slug: 'data-components-endpoint-forms',
+      title: 'Endpoint Forms',
+      description:
+        "A form that posts its fields to a URL you name — submit button, switch, star and help-text controls, required and length rules, and prefilling from the caller's session.",
+      keywords: ['sovrium', 'form', 'endpoint', 'required', 'minLength', 'defaultValue'],
+      order: 3418,
+      sidebarLabel: 'Endpoint Forms',
+      body: endpointFormBody,
+      documents: [],
+      stories: ['US-PAGES-DATA-COMPONENTS-DATA-FORM-CUSTOM-ENDPOINT-SUBMIT'],
     }),
   ],
 })

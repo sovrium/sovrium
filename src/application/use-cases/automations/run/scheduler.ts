@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/immutable-data, functional/prefer-immutable-types, functional/no-expression-statements, no-restricted-syntax, drizzle/enforce-delete-with-where -- module-level mutable scheduler state is intentional: FIFO queues + AbortController registry must mutate in place. Same pattern as run-history-store.ts. The drizzle/enforce-delete-with-where rule fires on every Map.delete() call (it's a SQL-only rule but ESLint can't distinguish JS Map.delete from Drizzle's delete query builder) — disable file-wide. */
+/* eslint-disable functional/immutable-data, functional/prefer-immutable-types, functional/no-expression-statements, no-restricted-syntax -- module-level mutable scheduler state is intentional: FIFO queues + AbortController registry must mutate in place. Same pattern as run-history-store.ts. The drizzle/enforce-delete-with-where rule fires on every Map.delete() call (it's a SQL-only rule but ESLint can't distinguish JS Map.delete from Drizzle's delete query builder) — disable file-wide. */
 
 /**
  * Per-automation FIFO concurrency scheduler.
@@ -33,8 +33,7 @@
  * have a DB-backed record after the fact.
  *
  * Concurrency limit resolution (in order):
- *   1. `automation.concurrency.limit` from the schema (1-50; per
- * [internal ref]).
+ *   1. `automation.concurrency.limit` from the schema (1-50).
  *   2. `process.env.AUTOMATION_CONCURRENCY_DEFAULT` (operator override).
  *   3. The hard-coded {@link DEFAULT_CONCURRENCY_LIMIT} (5 per the locked
  *      architectural decision).

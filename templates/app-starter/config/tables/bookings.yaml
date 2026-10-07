@@ -1,0 +1,10 @@
+# Meetings with a start and an end, for the week calendar.
+id: 8
+name: bookings
+fields:
+  - { id: 1, name: title, type: single-line-text }
+  - { id: 2, name: starts_at, type: datetime }
+  - { id: 3, name: ends_at, type: datetime }
+permissions:
+  read: authenticated
+  create: authenticated

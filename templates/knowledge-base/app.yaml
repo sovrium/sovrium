@@ -33,8 +33,14 @@ pages:
   - $ref: ./config/pages/assistant.yaml
   - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/not-found.yaml
 
 # A small "Built with Sovrium" line after each page's content rather than a
 # floating pill, so it never sits over an article.
 badge:
   placement: footer
+
+# Reusable page pieces, placed with `component: <name>`. The not-found page
+# comes from the Sovrium library.
+components:
+  - $ref: ./library/block/not-found-with-links.yaml

@@ -22,8 +22,8 @@
  * The vocabulary is the founder-approved convention transcribed — 52 boards,
  * 200 cells, and 36 types that deliberately draw none, recorded at
  * `[internal ref]`
- * (P6(b), founder round 18: one States strip per type page, at most six cells;
- * a type whose rendering does not change under any condition draws none).
+ * (one States strip per type page, at most six cells; a type whose rendering
+ * does not change under any condition draws none).
  *
  * "It has no states" is a claim about the component, not about this table
  * having been filled in yet: a `divider` has no states at all, and a `tooltip`
@@ -163,7 +163,6 @@ const DEPICTED_STATES: ReadonlySet<string> = new Set([
   // popup's OWN markup, so its appearance is real — but its POSITION is the
   // console's arrangement and its MODALITY is dropped, and a drawing whose
   // placement nobody navigated to is a depiction under any reading of the word
-  //.
   //
   // The close call, recorded because it will be re-litigated: `command-palette`'s
   // `empty` and `ai-chat`'s `error` reach through the same render-time-prop
@@ -291,16 +290,14 @@ const stripOf = (
  *
  * `link` was the fourth member and has left, keeping the same four cell NAMES
  * and diverging on all three reaches — see its entry in the per-type table and
- * `[internal ref]`. The category key was the defect: one line covering four types is
+ * The category key was the defect: one line covering four types is
  * what published a button's hover paint onto an inline `<a>`.
  *
- * `form-controls` used to be the second entry — `default | disabled | error |
- * readonly`, derived from the native attributes the dispatcher reads. It is
- * gone because the convention retired `readonly` from the vocabulary outright
- * (it appears on none of the 52 boards) and renamed `error` to `invalid`, and
- * because all 16 of its members now carry their own strip: a `checkbox` draws
- * `checked` and its sibling `slider` does not. A category key serving nobody is
- * data that can only drift.
+ * There is no `form-controls` entry: all 16 of its members carry their own
+ * strip — a `checkbox` draws `checked` and its sibling `slider` does not — and
+ * a category key serving nobody is data that can only drift. (The vocabulary
+ * has no `readonly` — it appears on none of the 52 boards — and calls the
+ * error state `invalid`.)
  *
  * A category absent from the table draws no states, which is the answer for
  * eleven of the twelve and is a fact rather than a gap.
@@ -311,7 +308,7 @@ const CATEGORY_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
     // hover colour, where an input's is a surface tint.
     //
     // A fill WITHOUT a foreground is how the `button-group` cell came to read
-    // 1.33:1 for its `Day` and `Week` labels (measured 2026-09-16) — the paint
+    // 1.33:1 for its `Day` and `Week` labels — the paint
     // landed and nothing told the text about it. So the fill now travels with
     // the foreground it needs, said TWICE because the two reach different
     // things and neither reaches both:
@@ -378,13 +375,12 @@ const CATEGORY_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
  * reach, and a recipe written for one would be an option that validates and is
  * read by nothing.
  *
- * It was SEVEN. `ai-chat`, `breadcrumb`, `command-palette` and `form` left the
- * list together, and each for its own reason rather than by a relaxation of the
- * bound: a renderer bug that made a breadcrumb's landmark name unreachable from
- * config, and three types whose refusals were about a live TRANSPORT that
- * [internal ref] A3 clause 1 never required a specimen to carry. Their cells are
- * reached like any other — see `command-palette`'s `empty` and `ai-chat`'s
- * `error` below, both of which now have a reach where they used to have none.
+ * `ai-chat`, `breadcrumb`, `command-palette` and `form` are NOT on this list,
+ * each for its own reason rather than by a relaxation of the bound: a
+ * breadcrumb's landmark name is reachable from config, and the other three only
+ * need a live TRANSPORT that [internal ref] A3 clause 1 does not require a specimen to
+ * carry. Their cells are reached like any other — see `command-palette`'s
+ * `empty` and `ai-chat`'s `error` below.
  */
 const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   // ── interactive ──────────────────────────────────────────────────────────
@@ -394,15 +390,14 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   badge: [],
   // A `link` draws the SAME FOUR CELLS as its category and reaches all three of
   // them differently, which is the shape no category key can express and the
-  // reason this entry exists (`[internal ref]`, founder rulings on rows 16, 17 and 18
-  // of the 2026-09-16 console review).
+  // reason this entry exists (the standalone-link recipe rule).
   //
   // An inline `<a>` is the one member of `interactive` that is not a filled,
-  // box-like control, and the category's recipe treated it as one. Measured
-  // live, 2026-09-16: the hover cell painted `--color-primary-hover` under a
-  // `--sv-primary` word — 1.20:1, a solid black block with the word invisible
-  // in it — the focus cell drew the shared 4px ring, and the disabled cell
-  // rendered `<a href="#" disabled="">`, which disables nothing.
+  // box-like control. Measured live with the category's recipe applied: the
+  // hover cell painted `--color-primary-hover` under a `--sv-primary` word —
+  // 1.20:1, a solid black block with the word invisible in it — the focus cell
+  // drew the shared 4px ring, and the disabled cell rendered
+  // `<a href="#" disabled="">`, which disables nothing.
   link: stripOf(['default', 'hover', 'focus', 'disabled'], {
     // Row 16, verbatim: _"pour le lien, on va juste faire un changement de
     // couleur du texte"_. No fill at all — the colour IS the state — and the

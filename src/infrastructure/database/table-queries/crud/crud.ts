@@ -7,6 +7,7 @@
 
 // Re-export all CRUD operations from modular files
 export { listRecords, computeAggregations, listTrash, getRecord } from './crud-read'
+export { computeGroupedAggregations } from './crud-group'
 export {
   createRecord,
   updateRecord,

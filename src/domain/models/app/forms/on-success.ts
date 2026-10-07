@@ -134,7 +134,7 @@ export const RedirectOnSuccessSchema = Schema.Struct({
    *   - `$submission.id`   → ledger row id (empty when `storeSubmission: false`)
    *   - `$record.id`       → bound-table row id (empty when no `submitTo.table`)
    *   - `$record.<column>` → any submitter-provided column value of the
-   * inserted row (empty when unresolved; [internal ref]). Only columns the
+   *     inserted row (empty when unresolved; a forms spec). Only columns the
    *     submitter supplied are interpolated — privileged / computed columns
    *     are never exposed through the redirect URL.
    *

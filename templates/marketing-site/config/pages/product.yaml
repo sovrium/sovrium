@@ -1,0 +1,10 @@
+name: product
+path: /product
+meta:
+  title: 'Product tour · [Product]'
+  description: '[The product, screen by screen.]'
+components:
+  - component: navbar-simple
+  - component: hero-split-image
+  - component: logos-grid
+  - component: footer-simple

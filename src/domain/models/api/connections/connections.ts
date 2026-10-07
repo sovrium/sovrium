@@ -96,7 +96,7 @@ export type ConnectionStatusResponse = typeof connectionStatusResponseSchema.Typ
 /**
  * Single entry in the per-connection user roster.
  *
- * SECURITY INVARIANT:
+ * SECURITY INVARIANT ([internal ref], an automation connection spec):
  * This schema's structural definition INTENTIONALLY excludes the following
  * sensitive fields. Their absence is the documented contract — if any future
  * route handler emits them, the schema will fail validation:
@@ -142,7 +142,7 @@ export type ConnectionUserEntry = typeof connectionUserEntrySchema.Type
  * token rows are auth-only artifacts (the test seeder runs before role
  * promotion). See `dropAdminUsers` in `users-handler.ts`.
  *
- * [internal ref] (Wave-2 audit, 2026-05-01): currently a documentation contract
+ * Currently a documentation contract
  * only — the route does not validate against this schema. When OpenAPI
  * wiring lands for connection routes, switch the route to
  * `Effect.try(() => decodeOrThrow(connectionUsersResponseSchema)(payload))` so

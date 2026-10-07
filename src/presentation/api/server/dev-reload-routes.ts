@@ -33,11 +33,10 @@
  *    strict-CSP inline-script-count contract.
  *
  * The tag is added HERE, by the same mount that serves the script, rather than
- * by the page renderer. It used to be rendered by `PageBodyScripts` behind its
- * own read of `NODE_ENV`, so a surface that never mounts these routes — the
- * app a static build renders through — still printed a tag naming a script it
- * would not ship. One mount now decides both, so a page can only load the
- * client from a server that answers it.
+ * by the page renderer. A renderer deciding on its own read of `NODE_ENV` would
+ * let a surface that never mounts these routes — the app a static build renders
+ * through — print a tag naming a script it does not ship. One mount decides
+ * both, so a page can only load the client from a server that answers it.
  *
  * ## Why this is ONE file again
  *
@@ -208,16 +207,15 @@ export function chainDevReloadRoutes<T extends Hono>(honoApp: T) {
   const clientScript = buildClientScript()
 
   // One listener per open connection, torn down with the stream's scope. The
-  // source used to be `Stream.never`, which is what made the reconnect the
-  // only delivery mechanism — a stream that emits nothing has nothing to push
-  // a hot swap onto. Same `Stream.callback` shape as the record-subscription
+  // source is not `Stream.never`, which would leave the reconnect as the only
+  // delivery mechanism — a stream that emits nothing has nothing to push a hot
+  // swap onto. Same `Stream.callback` shape as the record-subscription
   // endpoint, including the finalizer: v4 does NOT treat the returned effect
   // as the cleanup, so the unsubscribe must be registered against the scope or
   // it never runs and the listener leaks on every disconnect.
   const source = Stream.callback<Record<string, unknown>>((queue) =>
     Effect.gen(function* () {
       const unsubscribe = addChannelListener(DEV_RELOAD_CHANNEL, (event) => {
-        // eslint-disable-next-line functional/no-expression-statements -- synchronous push into the stream queue
         Queue.offerUnsafe(queue, event)
       })
       yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribe()))
@@ -264,10 +262,9 @@ const injectDevReloadTag: MiddlewareHandler = async (c, next) => {
   const html = await c.res.text()
   const at = html.lastIndexOf('</body>')
   const headers = new Headers(c.res.headers)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Headers.delete is the Fetch API Headers method, not a Drizzle query builder
   headers.delete('Content-Length')
   const body = at === -1 ? html : `${html.slice(0, at)}${DEV_RELOAD_TAG}${html.slice(at)}`
-  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-param-reassign -- Hono's middleware contract replaces the response by assignment
+  // eslint-disable-next-line no-param-reassign -- Hono's middleware contract replaces the response by assignment
   c.res = new Response(body, { status: c.res.status, statusText: c.res.statusText, headers })
 }
 

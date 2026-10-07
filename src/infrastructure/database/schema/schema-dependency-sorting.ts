@@ -111,14 +111,12 @@ export const sortTablesByDependencies = (tables: readonly Table[]): readonly Tab
     const updated = new Map(
       Array.from(remaining.entries()).map(([name, deps]) => {
         const newDeps = new Set(deps)
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- Topological sort requires working copy mutation for efficiency; drizzle false positive (Set.delete not DB)
         newDeps.delete(current)
         return [name, newDeps]
       })
     )
 
     // Remove current table from remaining
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- Topological sort requires working copy mutation for efficiency; drizzle false positive (Map.delete not DB)
     updated.delete(current)
 
     // Find next table with no dependencies

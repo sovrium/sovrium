@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { Effect, Layer } from 'effect'
 import { RealtimeService, RealtimeError } from '@/application/ports/services/realtime-service'
 import { logDebug } from '@/infrastructure/logging/logger'

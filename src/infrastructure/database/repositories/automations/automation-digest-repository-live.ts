@@ -44,7 +44,7 @@ const wrap = makeDbWrap((cause) => new AutomationDigestDatabaseError({ cause }))
  * `digest_key` alone — NOT by `(automation_id, digest_key)` — because the
  * digest lifecycle is intentionally cross-automation: one automation may
  * `collect` items under a key while a separate automation `release`s them
- *. `automation_id` is still
+ * `automation_id` is still
  * recorded on each bucket (it is a non-null FK) using the automation that
  * created the bucket, but it is not a lookup discriminator.
  *
@@ -105,13 +105,11 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
           )
           .limit(1)
         if (existing[0] === undefined) {
-          // eslint-disable-next-line functional/no-expression-statements
           await db
             .insert(automationDigestItems)
             .values({ bucketId, item: jsonbLiteral(item), dedupeKey })
         }
       } else {
-        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationDigestItems).values({ bucketId, item: jsonbLiteral(item) })
       }
 
@@ -149,7 +147,7 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
       const orderClause =
         sort === undefined
           ? asc(automationDigestItems.collectedAt)
-          : sql`${automationDigestItems.item} ->> CAST(${sort.field} AS TEXT) ${sql.raw(sort.direction === 'desc' ? 'DESC' : 'ASC')}`
+          : sql`${automationDigestItems.item} ->> CAST(${sort.field} AS TEXT) ${sort.direction === 'desc' ? sql.raw('DESC') : sql.raw('ASC')}`
 
       const itemsQuery = db
         .select({ item: automationDigestItems.item })
@@ -158,7 +156,6 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
         .orderBy(orderClause)
       const items = limit !== undefined ? await itemsQuery.limit(limit) : await itemsQuery
 
-      // eslint-disable-next-line functional/no-expression-statements
       await db
         .update(automationDigestBuckets)
         .set({ status: 'released', releasedAt: new Date() })

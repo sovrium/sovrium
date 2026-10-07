@@ -6,7 +6,7 @@
  */
 
 /**
- * AI-compute write-phase signalling ([internal ref] Phase 2, design §4).
+ * AI-compute write-phase signalling.
  *
  * Runs at the create/update write seam for BOTH dialects. For each AI-compute
  * field that fired on the write it consults the shared baseline guard:
@@ -27,20 +27,17 @@
  */
 
 import { Cause, Effect } from 'effect'
+import { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import {
   applyBaselineGuard,
   isExplicitUserValue,
   type AiComputeKind,
 } from '@/domain/models/app/tables/ai-compute-baseline'
 import { fieldToRequestConfig } from '@/domain/models/app/tables/ai-compute-build-request'
-import { upsertAiComputeStatus } from '@/infrastructure/database/ai-compute-status-repository'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  AiComputeStoreError,
-  refineAiComputeField,
-  type RefineAiComputeFieldInput,
-} from './refine-field'
+import { refineAiComputeField, type RefineAiComputeFieldInput } from './refine-field'
+import type { AiComputeStoreError } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { App, Table } from '@/domain/models/app'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -122,22 +119,20 @@ const writeSkippedStatuses = (params: {
   readonly tableName: string
   readonly recordId: string | number
   readonly fields: readonly AiComputeField[]
-}): Effect.Effect<void, AiComputeStoreError> => {
-  const { appId, tableName, recordId, fields } = params
-  return Effect.forEach(
-    fields,
-    (field) =>
-      Effect.tryPromise({
-        try: () =>
-          upsertAiComputeStatus(
-            { appId, tableName, recordId: String(recordId), fieldName: field.name },
-            'skipped'
-          ),
-        catch: (cause) => new AiComputeStoreError({ step: 'write-status', cause }),
-      }),
-    { discard: true }
-  )
-}
+}): Effect.Effect<void, AiComputeStoreError, AiComputeStatusRepository> =>
+  Effect.gen(function* () {
+    const { appId, tableName, recordId, fields } = params
+    const store = yield* AiComputeStatusRepository
+    yield* Effect.forEach(
+      fields,
+      (field) =>
+        store.upsertStatus(
+          { appId, tableName, recordId: String(recordId), fieldName: field.name },
+          'skipped'
+        ),
+      { discard: true }
+    )
+  })
 
 /** One record's user-supplied field map, as the batch write paths carry it. */
 export interface AiComputeBatchWrite {
@@ -173,7 +168,7 @@ export const markUserAuthoredAiFieldsForRecords = (params: {
   readonly app: App
   readonly tableName: string
   readonly records: readonly AiComputeBatchWrite[]
-}): Effect.Effect<void> => {
+}): Effect.Effect<void, never, AiComputeStatusRepository> => {
   const { app, tableName, records } = params
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return Effect.void
@@ -278,11 +273,11 @@ const labelled = <E, R>(
  * computed field is enqueued to the shared worker on SQLite (Postgres uses the
  * NOTIFY listener). Gated for non-AI tables.
  *
- * RETURNS A DESCRIPTION, NOT A RUNNING FIBER. This used to start its own root
- * fiber per branch — detached from the write that caused it, outside its trace,
- * and binding a fresh `AiLive` every time. The caller decides how to detach it
- * now, which is the only place that knows whether there is a fiber to fork from
- * (standing rule E1). TODO(W4): the two detach sites below should hand their
+ * RETURNS A DESCRIPTION, NOT A RUNNING FIBER. It does not start its own root
+ * fiber per branch — that would detach it from the write that caused it, put it
+ * outside its trace, and bind a fresh `AiLive` every time. The caller decides
+ * how to detach it, which is the only place that knows whether there is a fiber to fork from
+ * (standing rule E1). TODO: the two detach sites below should hand their
  * fiber to the server runtime's scope once that scope owns long-lived work,
  * rather than each detaching on its own.
  *
@@ -298,7 +293,7 @@ export const signalAiComputeWritePhase = (params: {
   readonly incoming: Readonly<Record<string, unknown>>
   readonly old?: Readonly<Record<string, unknown>> | undefined
   readonly record: Readonly<Record<string, unknown>>
-}): Effect.Effect<void, never, AiService> => {
+}): Effect.Effect<void, never, AiService | AiComputeStatusRepository> => {
   const { app, tableName, op, recordId, incoming, old, record } = params
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return Effect.void
@@ -329,7 +324,7 @@ export const signalAiComputeWritePhase = (params: {
 
   // Computed → enqueue the worker on SQLite only (Postgres uses the listener).
   const computedBranch =
-    isSqliteRuntime() && computed.length > 0
+    parseDatabaseDialectConfig().dialect === 'sqlite' && computed.length > 0
       ? labelled(
           Effect.forEach(
             computed.map((d) =>

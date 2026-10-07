@@ -36,7 +36,7 @@
  *   - `table-shell-default-classes.ts`    frame, `<table>`, `<thead>`, `<th>`
  *   - `table-body-default-classes.ts`     `<tbody>`, rows, cells, cursor, selection
  *   - `table-group-default-classes.ts`    groups, summary, empty, skeleton, add row
- *   - `table-toolbar-default-classes.ts`  toolbar, search, view switcher
+ *   - `table-toolbar-default-classes.ts`  toolbar, search
  *   - `table-pager-default-classes.ts`    pager, bulk bar
  *   - `table-panel-default-classes.ts`    panel, save status, chip, row actions
  *   - `table-overlay-default-classes.ts`  everything the grid opens IN FRONT of itself
@@ -92,8 +92,6 @@ export {
   computeTableToolbarPrimaryButtonClasses,
   computeTableSearchClasses,
   computeTableSearchHitClasses,
-  computeTableViewSwitcherClasses,
-  computeTableViewSwitcherItemClasses,
 } from './table-toolbar-default-classes'
 
 export {

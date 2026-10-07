@@ -47,7 +47,7 @@ import {
   computeMenuItemToggleTrackClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
-} from './overlay-default-classes'
+} from './menu-default-classes'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 

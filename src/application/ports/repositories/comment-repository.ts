@@ -186,8 +186,7 @@ export class CommentRepository extends Context.Service<
     /**
      * `true` when this guest email already has an approved (non-deleted)
      * comment on this table — the precondition behind
-     * `comments.autoApprove.previouslyApproved`
-     *.
+     * `comments.autoApprove.previouslyApproved`.
      *
      * Exists because `resolveCommentModerationStatus` is pure and synchronous
      * by contract: the route layer resolves this boolean and passes it in as
@@ -259,7 +258,7 @@ export class CommentRepository extends Context.Service<
     }) => Effect.Effect<number, DatabaseError>
 
     /**
-     * Mark every comment on a record read for the current user ([internal ref],
+     * Mark every comment on a record read for the current user (the per-user comment read-state design,
      * opt-in `comments.readTracking`). Upserts the per-user high-watermark
      * row for `(user_id, table_id, record_id)` to NOW(). Idempotent.
      */
@@ -271,7 +270,7 @@ export class CommentRepository extends Context.Service<
 
     /**
      * Count the comments on a record that are unread for the current user
-     *. The viewer's own comments never count; a comment is unread
+     * The viewer's own comments never count; a comment is unread
      * when it has no read-state watermark or was created after it. Powers the
      * `unreadCount` projection on the comment read response.
      */

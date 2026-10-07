@@ -35,7 +35,7 @@ import { handleTargets } from '@/presentation/api/analytics/targets-handlers'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { unauthorized, validationError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import { effectValidator, type ValidatedContext } from '@/presentation/api/runtime/effect-validator'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { Context, Hono } from 'hono'
 
@@ -122,27 +122,25 @@ interface AnalyticsRouteConfig {
   readonly resolveApp?: () => AdminRoleResolvable
 }
 
+type CollectContext = ValidatedContext<'json', typeof analyticsCollectSchema.Type>
+
 /**
  * Handle POST /api/analytics/collect — public endpoint, no auth required
  *
- * Records a page view with privacy-safe visitor hashing.
- * Also triggers retention cleanup (fire-and-forget) to purge stale records.
+ * Records a page view (privacy-safe visitor hash) and fires the retention cleanup.
  * Returns 204 No Content for fastest response.
  */
-async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<Response> {
+async function handleCollect(c: CollectContext, config: AnalyticsRouteConfig): Promise<Response> {
   const { appName, retentionDays, excludedPaths, respectDoNotTrack } = config
-  const body = c.req.valid('json' as never)
-  const pagePath = (body as { readonly p: string }).p
+  const { p: pagePath, ...body } = c.req.valid('json')
 
   // Check if path is excluded - return 204 without recording
   if (matchesAnyGlobPattern(excludedPaths, pagePath)) {
-    // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
 
   // Check Do Not Track header when respectDoNotTrack is enabled
   if (respectDoNotTrack && c.req.header('DNT') === '1') {
-    // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
 
@@ -151,7 +149,6 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
   const acceptLanguage = c.req.header('accept-language') ?? ''
 
   // Fire-and-forget: record page view and purge stale data asynchronously
-  // eslint-disable-next-line functional/no-expression-statements
   void Effect.runPromise(
     provideDomain(
       c,
@@ -160,19 +157,19 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
           collectPageView({
             appName,
             pagePath,
-            pageTitle: (body as { readonly t?: string }).t,
-            referrerUrl: (body as { readonly r?: string }).r,
+            pageTitle: body.t,
+            referrerUrl: body.r,
             ip,
             userAgent,
             timeZone: resolveOperatorTimezone(),
             acceptLanguage,
-            screenWidth: (body as { readonly sw?: number }).sw,
-            screenHeight: (body as { readonly sh?: number }).sh,
-            utmSource: (body as { readonly us?: string }).us,
-            utmMedium: (body as { readonly um?: string }).um,
-            utmCampaign: (body as { readonly uc?: string }).uc,
-            utmContent: (body as { readonly ux?: string }).ux,
-            utmTerm: (body as { readonly ut?: string }).ut,
+            screenWidth: body.sw,
+            screenHeight: body.sh,
+            utmSource: body.us,
+            utmMedium: body.um,
+            utmCampaign: body.uc,
+            utmContent: body.ux,
+            utmTerm: body.ut,
           }),
           purgeOldAnalyticsData(appName, retentionDays, resolveOperatorTimezone()),
         ],
@@ -190,7 +187,6 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
     )
   )
 
-  // eslint-disable-next-line unicorn/no-null
   return c.body(null, 204)
 }
 
@@ -459,14 +455,11 @@ const readEvents = (
  * Supports cursor-based pagination.
  */
 async function handleEvents(c: Context, appName: string, app: Roles): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) {
-    return unauthorized(c)
-  }
-
-  const role = await runDomainPromise(c, getUserRole(session.userId))
-  if (!isAdminEquivalent(role, app)) {
-    return unauthorized(c)
+  // The same gate as every sibling report: 401 without a session, 404 (S1) for
+  // a signed-in caller who is not admin-equivalent.
+  const denied = await requireAdminSession(c, app)
+  if (denied) {
+    return denied
   }
 
   const params = parseEventsQuery(c)

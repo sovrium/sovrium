@@ -134,7 +134,6 @@ function statusOf(
     ...(disclosesDefault(envVar) ? { defaultValue: envVar.default } : {}),
     isSet,
     source,
-    // eslint-disable-next-line unicorn/no-null -- the contract types `masked` as nullable, and `null` is the JSON-visible "no value resolved"
     masked: isSet ? ENV_VALUE_MASK : null,
   }
 }

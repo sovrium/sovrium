@@ -68,42 +68,29 @@ import { WebhookSchema } from './webhooks'
  */
 
 /**
- * Validate table schema including fields, permissions, views, and roles.
- * Orchestrates all validation functions from extracted modules.
- *
- * IMPORTANT: This function uses a generic type parameter instead of an inline type annotation
- * to avoid narrowing the Table type when used with Schema.check(Schema.makeFilter(...)).
- * Inline type annotations would cause TypeScript to narrow the schema's output type, removing
- * properties like `id`, `required`, etc. from fields — cascading errors to all downstream
- * consumers.
- *
- * @param table - Table to validate (type inferred from the filter callback)
- * @returns Validation error object if invalid, true if valid
+ * The decoded table, before the table-level filter runs. The validators below
+ * read it typed, so a renamed or reshaped option fails here at compile time
+ * instead of being read through a hand-written cast.
  */
+type TableShape = typeof TableStruct.Type
+
 type ValidationError = { readonly message: string; readonly path: ReadonlyArray<string> }
 
 const validateStructure = (
-  table: Readonly<Record<string, unknown>>,
+  table: TableShape,
   fieldNames: ReadonlySet<string>
 ): ValidationError | undefined => {
   if (table.primaryKey) {
-    const primaryKey = table.primaryKey as {
-      readonly type: string
-      readonly fields?: ReadonlyArray<string>
-    }
-    const primaryKeyError = validatePrimaryKey(primaryKey, fieldNames)
+    const primaryKeyError = validatePrimaryKey(table.primaryKey, fieldNames)
     if (primaryKeyError) return primaryKeyError
   }
 
-  const indexes = table.indexes as
-    ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }> | undefined
+  const { indexes, unique } = table
   if (indexes && indexes.length > 0) {
     const indexError = validateIndexes(indexes, fieldNames)
     if (indexError) return indexError
   }
 
-  const unique = table.unique as
-    ReadonlyArray<{ readonly fields: ReadonlyArray<string> }> | undefined
   if (unique && unique.length > 0) {
     const uniqueError = validateUniqueConstraints(unique, fieldNames)
     if (uniqueError) return uniqueError
@@ -113,30 +100,18 @@ const validateStructure = (
 }
 
 const validateAccessAndViews = (
-  table: Readonly<Record<string, unknown>>,
-  fields: ReadonlyArray<{
-    readonly name: string
-    readonly type: string
-    readonly formula?: string
-  }>,
+  table: TableShape,
   fieldNames: ReadonlySet<string>
 ): ValidationError | undefined => {
+  const { fields, views } = table
   if (table.permissions) {
-    const permissions = table.permissions as {
-      readonly fields?: ReadonlyArray<{ readonly field: string }>
-    }
-    const permissionsError = validateTablePermissions(permissions, fields, fieldNames)
+    const permissionsError = validateTablePermissions(table.permissions, fields, fieldNames)
     if (permissionsError) return permissionsError
   }
 
-  const rowRuleError = validateRowRuleTypes(
-    table.rowLevelPermissions as Parameters<typeof validateRowRuleTypes>[0],
-    fields
-  )
+  const rowRuleError = validateRowRuleTypes(table.rowLevelPermissions, fields)
   if (rowRuleError) return rowRuleError
 
-  const views = table.views as
-    ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }> | undefined
   if (views && views.length > 0) {
     const viewsError =
       validateViews(views, fields, fieldNames) ??
@@ -147,12 +122,8 @@ const validateAccessAndViews = (
   return undefined
 }
 
-const validateTableSchema = (table: Readonly<Record<string, unknown>>): ValidationError | true => {
-  const fields = table.fields as ReadonlyArray<{
-    readonly name: string
-    readonly type: string
-    readonly formula?: string
-  }>
+const validateTableSchema = (table: TableShape): ValidationError | true => {
+  const { fields } = table
   const fieldNames = new Set(fields.map((field) => field.name))
 
   // Validate formula fields (always required)
@@ -164,7 +135,7 @@ const validateTableSchema = (table: Readonly<Record<string, unknown>>): Validati
   if (structureError) return structureError
 
   // Validate access control and views (permissions, views)
-  const accessError = validateAccessAndViews(table, fields, fieldNames)
+  const accessError = validateAccessAndViews(table, fieldNames)
   if (accessError) return accessError
 
   // Validate webhook name uniqueness and payload field references
@@ -219,10 +190,10 @@ const validateWebhookPayloadFields = (
  * must reference real table fields.
  */
 const validateWebhooks = (
-  table: Readonly<Record<string, unknown>>,
+  table: TableShape,
   fieldNames: ReadonlySet<string>
 ): ValidationError | undefined => {
-  const webhooks = table.webhooks as ReadonlyArray<WebhookForValidation> | undefined
+  const { webhooks } = table
   if (!webhooks || webhooks.length === 0) return undefined
 
   const names = webhooks.map((webhook) => webhook.name)
@@ -237,7 +208,7 @@ const validateWebhooks = (
   return validateWebhookPayloadFields(webhooks, fieldNames)
 }
 
-export const TableSchema = Schema.Struct({
+const TableStruct = Schema.Struct({
   id: Schema.optional(TableIdSchema),
   name: NameSchema,
   fields: FieldsSchema,
@@ -262,7 +233,7 @@ export const TableSchema = Schema.Struct({
    *       - fields: [slug]
    * ```
    *
-   * Used by [internal ref] (slug-management) — collection
+   * Used by the pages access publishing requirement (slug-management) — collection
    * pages rely on slug uniqueness to address records by URL segment.
    * Internally, the schema initializer normalizes top-level `unique` into
    * field-level `unique: true` (single-field) or `indexes` entries with
@@ -525,7 +496,9 @@ export const TableSchema = Schema.Struct({
    * @see AiAccessSchema for full configuration options
    */
   aiAccess: Schema.optional(AiAccessSchema),
-}).pipe(
+})
+
+export const TableSchema = TableStruct.pipe(
   Schema.annotate({
     identifier: 'Table',
     title: 'Table',
@@ -570,7 +543,7 @@ export const TableSchema = Schema.Struct({
     // `validateTableSchema` keeps its own `{ message, path }` return: it is a
     // domain result read by its own unit tests, and adapting at the seam keeps
     // the Effect vocabulary out of the domain helpers.
-    Schema.makeFilter((table: Readonly<Record<string, unknown>>) => {
+    Schema.makeFilter((table: TableShape) => {
       const result = validateTableSchema(table)
       return result === true ? true : { path: result.path, issue: result.message }
     })

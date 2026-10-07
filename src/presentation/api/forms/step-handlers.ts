@@ -143,7 +143,7 @@ async function readJsonBody(c: Context): Promise<Record<string, unknown>> {
  * fragment with prefilled values from the per-session draft. Returns
  * 404 when the form or the step is not registered.
  *
- * [internal ref]: this endpoint serves the gated form's own inputs, so it
+ * This endpoint serves the gated form's own inputs, so it
  * enforces the form's `access.require` exactly as the canonical route
  * does. A status-only gate would not be enough here — the endpoint answers
  * with a bare fragment, so the denial must also carry none of the step.
@@ -192,7 +192,7 @@ export async function handleGetStepFragment(
  *     supplied step was already the last visible step.
  *   - 404 when the form or step is not registered.
  *
- * [internal ref]: gated by the form's `access.require` before anything is
+ * Gated by the form's `access.require` before anything is
  * read or merged. The response body reveals the flow's step graph, so a
  * denied caller must not reach the resolver.
  */
@@ -229,7 +229,6 @@ export async function handlePostStepAdvance(c: Context, app: App): Promise<Respo
   mergeDraft(sessionId, name, body)
 
   return c.json({
-    // eslint-disable-next-line unicorn/no-null -- public contract: null when the supplied step is the last visible step
     nextStepId: resolveVisibleNextStepId(form, stepId, merged) ?? null,
   })
 }
@@ -281,7 +280,6 @@ export async function handlePostDraftReset(c: Context, app: App): Promise<Respon
 
   const body = await readJsonBody(c)
   replaceDraft(ensureDraftSession(c), name, body)
-  // eslint-disable-next-line unicorn/no-null -- Hono's 204 helper requires an explicit null body; `undefined` emits a body on a status that forbids one
   return c.body(null, 204)
 }
 

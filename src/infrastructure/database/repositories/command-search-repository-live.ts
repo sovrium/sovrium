@@ -67,7 +67,7 @@ const labelExpression = (columns: readonly string[]): Readonly<SQL> => {
 
 /**
  * The FTS candidate predicate for `query`, or `undefined` when there is none to
- * apply.
+ * apply (the pages command search hardening requirement, [internal ref]).
  *
  * `undefined` is returned for a query that tokenizes to NOTHING — a
  * punctuation-only search such as `%%%`. That case has two natural and opposite
@@ -108,6 +108,7 @@ const ftsCandidatePredicate = (
   // built over, or the planner silently falls back to a sequential scan — which
   // is the exact cost this predicate exists to remove. Both come from
   // `pgSearchVectorExpression`; do not inline it here.
+  // sql-literal: ddl -- must stay byte-identical to the GIN index expression; columns are the table's declared text fields
   return sql`${sql.raw(pgSearchVectorExpression(columns))} @@ to_tsquery('simple', ${toPgTsQuery(tokens)})`
 }
 

@@ -1,9 +1,10 @@
-# Kerlo Automations — four automations running inside the app they serve.
+# Kerlo Automations — six automations running inside the app they serve.
 #
 # A small studio's lead intake, automated: a webhook writes leads, every new
 # lead emails the team and is logged, a cron sends the evening digest, and a
 # run that fails after its retries is written down while the operators are
-# emailed. Every run leaves a line in the app's own database.
+# emailed. A button reviews the latest leads through a sub-automation. Every
+# run leaves a line in the app's own database.
 name: kerlo-automations
 version: 2.0.0
 description: >-
@@ -19,6 +20,12 @@ env:
   - key: LEADS_WEBHOOK_TOKEN
     description: Bearer token a caller must send to the lead webhook (recipe 1).
     required: true
+  # Optional: a Mistral API key turns on the summary of each lead's message
+  # (library/recipe/record-to-mistral-summary.yaml). Without it the app runs as
+  # before and that one automation cannot reach Mistral.
+  - key: MISTRAL_API_KEY
+    description: API key of your Mistral account, for the summary of each lead's message.
+    required: false
 
 auth:
   $ref: ./config/auth.yaml
@@ -43,8 +50,38 @@ automations:
   - $ref: ./config/automations/log-new-lead.yaml
   - $ref: ./config/automations/daily-digest.yaml
   - $ref: ./config/automations/alert-on-failure.yaml
+  - $ref: ./config/automations/review-recent-leads.yaml
+  - $ref: ./config/automations/score-leads.yaml
+  - $ref: ./library/recipe/record-to-mistral-summary.yaml
+
+# Reusable steps, declared once and placed in any automation with
+# `$ref: <name>`. A `$name` in the step is filled from the `$vars` the caller
+# passes; `{{…}}` is filled at run time, where the step runs.
+actions:
+  - name: log-lead-review
+    variables:
+      recipe: score-leads
+    action:
+      type: record
+      operator: create
+      props:
+        table: activity_log
+        data:
+          logged_at: '{{now}}'
+          recipe: $recipe
+          outcome: Succeeded
+          attempts: 1
+          # The tier rule, in one place: a lead who gave a company is a
+          # company lead.
+          detail: 'Reviewed {{loop.item.name}}: {{ifValue loop.item.company "company" "individual"}} lead'
+          lead: '{{loop.item.id}}'
 
 # A small "Built with Sovrium" line after each page's content rather than a
 # floating pill, so it never sits over the last run of the list.
 badge:
   placement: footer
+
+# The Mistral API the summary recipe calls, installed from the Sovrium
+# library. Its key comes from MISTRAL_API_KEY, never this file.
+connections:
+  - $ref: ./library/connection/mistral.yaml

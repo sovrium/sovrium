@@ -16,9 +16,9 @@
  *
  * ## The markdown heading drops the link
  *
- * The published heading is `## [0.27.0](<compare url>) (2026-09-23)`. A
+ * The published heading is `## [0.27.0](<compare url>)`. A
  * terminal cannot follow the link and a reader skimming for a version has to
- * read past it, so the terminal heading is `## 0.27.0 (2026-09-23)`. The link
+ * read past it, so the terminal heading is `## 0.27.0`. The link
  * is not lost: `--format json` carries it as `compareUrl`.
  *
  * ## Breaking changes first

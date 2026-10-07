@@ -13,8 +13,7 @@
  * (e.g. swapping `grant_type` from `authorization_code` to `password`
  * would break the entire flow).
  *
- * Used by buildAuthorizeUrl / buildTokenExchangeBody in connections/index.ts
- * (specs).
+ * Used by buildAuthorizeUrl / buildTokenExchangeBody in connections/index.ts.
  */
 export const RESERVED_AUTH_PARAMS: ReadonlySet<string> = new Set([
   'client_id',

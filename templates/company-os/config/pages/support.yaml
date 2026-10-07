@@ -44,26 +44,7 @@ components:
               id: new-ticket-dialog
               title: New ticket
               description: It lands in New until someone picks it up.
-            children:
-              - type: form
-                dataSource:
-                  table: tickets
-                fields:
-                  - { field: subject, label: Subject }
-                  - { field: company, label: Client }
-                  - { field: contact, label: Contact }
-                  - { field: priority, label: Priority }
-                  - { field: assignee, label: Held by }
-                action:
-                  type: crud
-                  operation: create
-                  table: tickets
-                  submitLabel: Add ticket
-                  onSuccess:
-                    navigate: /support
-                    toast:
-                      message: Ticket added
-                      variant: success
+            formRef: new-ticket
           - type: container
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4
@@ -82,8 +63,6 @@ components:
                       - { value: Normal, label: Normal }
                       - { value: Low, label: Low }
               - type: kanban
-                props:
-                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Resolved]]:flex-[0_0_8rem]!'
                 dataSource:
                   table: tickets
                   bindTo: ticket-filter
@@ -92,6 +71,8 @@ components:
                   field: status
                   # Resolved tickets are done; they stay one click away.
                   collapsed: [Resolved]
+                  columnSizing: fill
+                  columnWidths: { Resolved: 8rem }
                 drag:
                   enabled: true
                   persistAction:

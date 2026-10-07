@@ -19,8 +19,6 @@
  * drawer control does; the save sends it as held.
  */
 
-/* eslint-disable react-perf/jsx-no-new-function-as-prop -- a field's onChange closes over its name; transient surface, rendered only while the drawer is open */
-
 import { cn } from '@/presentation/design/class-merge'
 import {
   inputComponentTypeOf,

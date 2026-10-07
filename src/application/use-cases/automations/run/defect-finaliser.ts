@@ -53,7 +53,7 @@ const closeAbandonedRun = (
     // E6: the cause is logged BEFORE the run is closed over it — nothing below
     // carries it any further.
     // An interruption is not an internal error: it is the server stopping the
-    // run (a shutdown that could not wait for it — [internal ref]), and the row says so.
+    // run (a shutdown that could not wait for it — the chained-run shutdown and cross-automation cycle rule), and the row says so.
     const interrupted = Cause.hasInterruptsOnly(cause)
     logError(
       interrupted

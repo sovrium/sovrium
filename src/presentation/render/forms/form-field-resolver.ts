@@ -24,11 +24,12 @@ import { resolveTranslationPattern } from '@/domain/models/app/languages/transla
 import { optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import {
   nativeInputTypeOf,
+  resolveTypedColumnConfig,
   type ControlAttributeField,
 } from '@/presentation/design/field-control-attributes'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
-import { resolveTypedColumnConfig } from '@/presentation/render/elements/crud-form/crud-form-field-resolver'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
+import { calculationItem } from './form-calculation-item'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
 import type { DensityStepName } from '@/domain/models/app/design'
@@ -152,7 +153,7 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   // single-select, led by the empty option, never as a free text box its
   // option CHECK would refuse.
   status: 'select',
-  // [internal ref]: user-typed columns FK to
+  // [internal ref] / the forms specs: user-typed columns FK to
   // `auth_user.id`. They render as a picker carrying the
   // `data-field-type="user"` / `data-allow-multiple` markers the spec
   // asserts, whose options are the app's accounts read on the server for a
@@ -288,7 +289,7 @@ function standaloneOptions(
 ): ResolvedFormField['options'] {
   if (field.optionsSource !== undefined) return optionSets[field.name] ?? []
   // Resolve the option label's `$t:` token against the active locale
-  // ([internal ref] parity for standalone select fields); the stored `value` is
+  // (a forms spec parity for standalone select fields); the stored `value` is
   // never localized.
   return field.options?.map((option) => ({
     value: option.value,
@@ -377,7 +378,7 @@ function fileUploadOverlay(
 }
 
 /**
- * [internal ref]: surface `user.allowMultiple` so the picker can
+ * [internal ref] / a forms spec: surface `user.allowMultiple` so the picker can
  * render the right widget (single-select vs multi-select). Returns `undefined`
  * for non-`user` columns so the spread in `resolveTableField` omits the field
  * entirely. Extracted to keep `resolveTableField` under the complexity cap.
@@ -471,10 +472,8 @@ const resolveSectionItem = (
 })
 
 /**
- * Resolve a single FormField definition into the shape the renderer
- * needs. A section resolves to a heading item that submits nothing; a
- * calculation is skipped (returns `undefined`) — it is not a user-input field
- * and the foundation tier does not render it.
+ * Resolve one FormField into the renderer's shape: a section to a heading item
+ * that submits nothing, a calculation to a read-only input the runtime fills.
  */
 function resolveField(
   field: Readonly<FormField>,
@@ -483,7 +482,8 @@ function resolveField(
   context: FieldResolutionContext & { readonly index: number }
 ): ResolvedFormField | undefined {
   const { activeLang, optionSets } = context
-  if (field.kind === 'calculation') return undefined
+  if (field.kind === 'calculation')
+    return calculationItem(field, languages, activeLang, resolveText)
   if (field.kind === 'section') {
     return resolveSectionItem(field, context.index, languages, activeLang)
   }

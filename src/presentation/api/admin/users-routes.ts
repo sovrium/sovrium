@@ -6,158 +6,40 @@
  */
 
 /**
- * Admin endpoint for the users domain: `GET /api/admin/users/overview`.
+ * Admin endpoints for the people of the instance:
  *
- * Second overview-shape endpoint after `[internal ref]`
- * (story #1). Period-aware operator dashboard tile producing:
+ *   - GET /api/admin/users/overview — the users dashboard tile.
+ *   - GET /api/admin/users          — the account directory (JSON), plus its
+ *     `?format=csv` download.
+ *   - GET /api/admin/invitations    — the outstanding invitations.
  *
- *   - totals.users           — live user count (excluding soft-deleted rows)
- *   - totals.active_24h      — distinct users with a session row in last 24h
- *   - totals.new_in_period   — users created within the requested period
- *   - totals.by_role         — exhaustive admin / operator / member breakdown
- *   - series.interval/points — dense bucketed signups + sessions_started rollup
+ * The three reads are admin read-registry entries
+ * (`application/use-cases/admin/people-read-operations.ts`), mounted here
+ * through `chainAdminReadRoutes`: the route, its OpenAPI operation and its MCP
+ * admin tool are one entry. Only the overview writes an admin audit event.
  *
- * Anti-enumeration 404 (keystone §6.4 / S1) is wired upstream by
- * `requireAdminTier()` in `infrastructure/server/route-setup/api-routes.ts`,
- * which returns 404 for both missing-session and wrong-role callers. The
- * handler therefore only needs to honour the success path + the response
- * validation gate.
- *
- * Emits `user.overview.queried` once per successful read; the failure path
- * does NOT emit (the unknown / unauthorized path never reaches this handler
- * because the middleware short-circuits before it runs).
- *
- * Data access (the dialect-aware auth.user / auth.session reads) lives in the
- * `users-overview` use case + repository; this handler keeps only HTTP, auth,
- * query validation, the response-validation gate, and the audit emit, then calls
- * the use case via the effect runner.
- */
-
-import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
-import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
-import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
-import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
-import { parseSortSpec } from '@/domain/kernel/format/sort-spec'
-import { buildCsvAttachmentDisposition } from '@/domain/kernel/url/csv-attachment'
-import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import {
-  adminUsersDirectoryQuerySchema,
-  usersOverviewQuerySchema,
-} from '@/domain/models/api/admin/users'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
-import { logError } from '@/infrastructure/logging/logger'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
-import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import type { ContextWithSession } from '@/presentation/api/middleware/auth'
-import type { Context, Hono } from 'hono'
-
-// ─── Overview handler ────────────────────────────────────────────────────────
-
-async function handleUsersOverview(c: Context): Promise<Response> {
-  const session = (c as ContextWithSession).var.session!
-
-  // Parse period preset (default '24h' enforced at the Zod layer).
-  const parsedQuery = decodeSafe(usersOverviewQuerySchema)({
-    period: c.req.query('period'),
-  })
-  if (!parsedQuery.success) {
-    return c.json({ success: false, message: 'Invalid query', code: 'BAD_REQUEST' }, 400)
-  }
-  const { period } = parsedQuery.data
-
-  // Build the overview body (data access + pure bucketing) via the use case.
-  const outcome = await runRequestEffect(c, provideDomain(c, BuildUsersOverview(period)))
-
-  if (outcome._tag === 'ValidationFailed') {
-    logError(
-      '[admin] users overview response validation failed',
-      outcome.error,
-      requestLogAttributes(c)
-    )
-    return c.json(
-      { success: false, message: 'Failed to build users overview', code: 'INTERNAL_ERROR' },
-      500
-    )
-  }
-
-  // Emit audit entry — single emit per successful HTTP call. The catalog row
-  // (`user.overview.queried` → resource.type `user`) is the canonical pairing;
-  // resourceId is the caller's user id so the audit log can be filtered to
-  // "every overview read this operator performed".
-  const actor = await runDomainPromise(c, resolveActor(session.userId))
-  await emitAuditEvent({
-    action: AUDIT_ACTIONS.USER_OVERVIEW_QUERIED,
-    actor,
-    resourceId: session.userId,
-    severity: 'info',
-    result: 'success',
-  })
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(outcome.body, 200)
-}
-
-// ─── Directory handler ───────────────────────────────────────────────────────
-
-/**
- * `GET /api/admin/users` — the Data-tab **Utilisateurs** account directory
- *.
- *
- * Reads the Better Auth `user` table DIRECTLY (via the dialect-aware
- * `authUsersTable()` selector inside the repository), decoupled from the Better
- * Auth admin-plugin's literal-`admin` gate, so EVERY admin-tier operator —
- * including a custom top role like the partner app's `engineer` — reaches it.
- * Returns the secret-free `{ users: [{ id, email, name, role, banned }] }`
- * directory subset the `EndUserRow` table renders.
- *
- * `?q=` narrows that body server-side over `email` + `name`. Before it existed
- * the parameter was ACCEPTED and discarded — Hono drops an unknown query param
- * silently — so every search answered 200-with-everything, and an operator
- * looking for a colleague by name got "no user matches" for an account sitting
- * in the table. An over-length term is a 400 rather than a silent truncation.
+ * The directory's CSV download is a FORMAT of the directory read, not another
+ * read, so it is the one HTTP-only branch below: it decodes the same query
+ * through the same decoder, and exports every account that MATCHES rather than
+ * the page the grid happens to show.
  *
  * Anti-enumeration 404 (S1) is wired upstream by `authMiddleware` +
- * `requireAdminTier()` on the bare `/api/admin/users` path in
- * `infrastructure/server/route-setup/api-routes.ts`, so the handler only honours
- * the success path + the response-validation gate.
- *
- * NO audit emit: the audit action catalog has no fitting `user.directory.*`
- * action (only the overview-specific `user.overview.queried`), and per the
- * implementation contract a new catalog entry must NOT be invented here. A
- * future `user.directory.queried` catalog row would let this read emit one
- * audit entry on success, mirroring the overview handler — flagged in the
- * follow-ups.
+ * `requireAdminTier()` on `/api/admin/users`, `/api/admin/users/overview` and
+ * the `/api/admin/*` catch-all, which answer 404 for both missing-session and
+ * wrong-role callers.
  */
-/**
- * Parse the directory's query knobs.
- *
- * The literal below is an explicit ALLOW-LIST, and an unlisted key is how every
- * one of these controls came to be inert: Hono drops an unrecognised query
- * parameter without complaint, so the grid's pager, column headers and Export
- * button each sent a parameter that was accepted and discarded, and each got a
- * confident 200 back.
- *
- * `sort` takes the combined `field:direction` spelling a column header emits;
- * {@link parseSortSpec} splits it so the two halves meet their own enums, and a
- * column the directory cannot order by is refused rather than ignored.
- */
-function parseDirectoryQuery(c: Context) {
-  const sortSpec = parseSortSpec(c.req.query('sort'))
-  return decodeSafe(adminUsersDirectoryQuerySchema)({
-    q: c.req.query('q'),
-    page: c.req.query('page'),
-    limit: c.req.query('limit'),
-    sort: sortSpec?.field,
-    // A direction spelled inside `sort` wins over a separate `?order=`: it is
-    // the more specific statement, and the only one a header click sends.
-    order: sortSpec?.direction ?? c.req.query('order'),
-  })
-}
+
+import { USERS_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
+import { decodeUsersDirectoryQuery } from '@/application/use-cases/admin/people-read-operations'
+import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
+import { buildCsvAttachmentDisposition } from '@/domain/kernel/url/csv-attachment'
+import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
+import { logError } from '@/infrastructure/logging/logger'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
+import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import type { App } from '@/domain/models/app'
+import type { Context, Hono, Next } from 'hono'
 
 /** The columns a directory CSV export carries, in the order the grid shows them. */
 const DIRECTORY_CSV_COLUMNS = ['id', 'email', 'name', 'role', 'banned'] as const
@@ -177,39 +59,32 @@ const csvRow = (user: {
   readonly banned: boolean
 }): Readonly<Record<string, unknown>> => ({ ...user, banned: String(user.banned) })
 
-async function handleUsersDirectory(c: Context): Promise<Response> {
-  // The directory's query surface. Parsing it through the shared schema is what
-  // turns an over-length term or an unsupported sort column into a 400 instead
-  // of an answer to a question the operator never asked.
-  const parsedQuery = parseDirectoryQuery(c)
-  if (!parsedQuery.success) {
-    return c.json({ success: false, message: 'Invalid query parameters', code: 'BAD_REQUEST' }, 400)
-  }
-  const { q, page, limit, sort, order } = parsedQuery.data
+const badRequest = (c: Context, message: string): Response =>
+  c.json({ success: false, message, code: 'BAD_REQUEST' }, 400)
+
+/**
+ * `GET /api/admin/users?format=…` — the directory as a CSV download.
+ *
+ * Runs ahead of the registry's JSON read and yields to it when no `format` is
+ * asked for. An export is of everything that MATCHES, not of the page: the
+ * page and limit are dropped. Without `Content-Disposition` the Export button,
+ * which navigates the whole browser, would land the operator on raw data.
+ */
+async function handleUsersDirectoryFormat(c: Context, next: Next): Promise<Response | void> {
   const format = c.req.query('format')
-  if (format !== undefined && format !== 'csv') {
-    return c.json(
-      { success: false, message: 'Only csv format is supported', code: 'BAD_REQUEST' },
-      400
-    )
-  }
-  const wantsCsv = format === 'csv'
+  if (format === undefined) return next()
+  const decoded = decodeUsersDirectoryQuery({
+    q: c.req.query('q'),
+    page: c.req.query('page'),
+    limit: c.req.query('limit'),
+    sort: c.req.query('sort'),
+    order: c.req.query('order'),
+  })
+  if (decoded._tag !== 'Ok') return badRequest(c, 'Invalid query parameters')
+  if (format !== 'csv') return badRequest(c, 'Only csv format is supported')
 
-  const outcome = await runRequestEffect(
-    c,
-    provideDomain(
-      c,
-      BuildUsersDirectory({
-        ...(q !== undefined ? { q } : {}),
-        ...(sort !== undefined ? { sort, order } : {}),
-        // An export is of everything that MATCHES, not of the page the grid
-        // happens to be showing — an operator who exports while on page 2 means
-        // the directory, not rows 26 to 33.
-        ...(wantsCsv ? {} : { page, limit }),
-      })
-    )
-  )
-
+  const { page: _page, limit: _limit, ...matching } = decoded.input
+  const outcome = await runRequestEffect(c, provideDomain(c, BuildUsersDirectory(matching)))
   if (outcome._tag === 'ValidationFailed') {
     logError(
       '[admin] users directory response validation failed',
@@ -221,40 +96,28 @@ async function handleUsersDirectory(c: Context): Promise<Response> {
       500
     )
   }
-
-  if (wantsCsv) {
-    // A `text/csv` body with no `Content-Disposition` is rendered in the tab
-    // rather than saved, and the Export button navigates the whole browser —
-    // so without this header the operator leaves the console and lands on raw
-    // data. `exportRecordsToCsv` emits the header row even for zero matches,
-    // which keeps "nobody matched" distinct from "the export broke".
-    return new Response(exportRecordsToCsv(outcome.body.users.map(csvRow), DIRECTORY_CSV_COLUMNS), {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': buildCsvAttachmentDisposition('users', new Date()),
-        'Cache-Control': 'no-store',
-      },
-    })
-  }
-
-  c.header('Cache-Control', 'no-store')
-  return c.json(outcome.body, 200)
+  return new Response(exportRecordsToCsv(outcome.body.users.map(csvRow), DIRECTORY_CSV_COLUMNS), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': buildCsvAttachmentDisposition('users', new Date()),
+      'Cache-Control': 'no-store',
+    },
+  })
 }
 
-// ─── Route registration ──────────────────────────────────────────────────────
-
 /**
- * Chain the admin/users routes onto a Hono app.
- *
- * Auth gating is wired upstream in `createApiRoutes` (authMiddleware +
- * requireAdminTier on both `/api/admin/users/overview` AND the bare
- * `/api/admin/users` directory path). No live-App resolver needed: both
- * handlers read exclusively from auth.user / auth.session and never touch the
- * schema-author-controlled App config.
+ * Chain the people routes onto a Hono app: the CSV branch first, as a
+ * middleware on the path, so it can answer before the registry's JSON read.
  */
-export function chainAdminUsersRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp
-    .get('/api/admin/users/overview', handleUsersOverview)
-    .get('/api/admin/users', handleUsersDirectory) as T
+export function chainAdminUsersRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+  return chainAdminReadRoutes(
+    // A middleware, not a second GET handler: the registry's binding stays the
+    // one GET route the path has, and this branch only answers `?format=`.
+    honoApp.use('/api/admin/users', (c, next) =>
+      c.req.method === 'GET' ? handleUsersDirectoryFormat(c, next) : next()
+    ) as T,
+    resolveApp,
+    USERS_READ_OPERATIONS
+  )
 }

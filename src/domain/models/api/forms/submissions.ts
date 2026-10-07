@@ -19,7 +19,7 @@ import { formNameSchema } from './forms'
  * - processing: bound table written, automation invocation pending
  * - done: bound table + automation both succeeded
  * - failed: ledger row preserved with status_reason; submission writes may still
- * have committed (non-rollback contract)
+ *   have committed (per the forms submission storage requirement non-rollback contract)
  * - spam: caught by honeypot or rate limiter; never reached automation/table
  */
 export const submissionStatusSchema = Schema.Literals([
@@ -45,7 +45,7 @@ export const submissionFileMetadataSchema = Schema.Struct({
 /**
  * Submitter context recorded on every ledger row.
  *
- *, the IP is HASHED (SHA-256 with per-app salt) before
+ * Per the forms anti spam requirement, the IP is HASHED (SHA-256 with per-app salt) before
  * persistence; the raw IP is never stored or returned.
  */
 export const submissionMetaSchema = Schema.Struct({
@@ -132,7 +132,7 @@ export const listSubmissionsResponseSchema = Schema.Struct({
  * Query parameters for `GET /admin/forms/{name}/submissions/export`.
  *
  * For result sets larger than 1000 rows, the endpoint returns 202 + a job id
- * instead of streaming directly (AC 122).
+ * instead of streaming directly (per the forms analytics and responses requirement AC 122).
  */
 export const exportSubmissionsRequestSchema = Schema.Struct({
   format: Schema.Literals(['csv', 'json', 'xlsx'])

@@ -46,7 +46,7 @@ const component = (value: unknown): Component => value as Component
  * So the real component is drawn beside one line naming the interaction that
  * surfaces it. The line is a CAPTION, never a drawing of the overlay: a
  * hand-composed picture of an open dialog would document markup this app never
- * emits, which is the exact failure `[internal ref]` exists to catch
+ * emits, which is the exact failure an admin design system spec exists to catch
  * in the category next door.
  *
  * ─── AND WHY THEY ARE NOT OPENED FOR THE SPECIMEN ──────────────────────────
@@ -207,7 +207,7 @@ const NAVIGATION_SPECIMENS: readonly CatalogSpecimen[] = [
  *
  * The consequence really is one thing, so it is written once here and appended;
  * what each type OPENS as is genuinely different, so each states its own. That
- * keeps the property `[internal ref]` asserts — no two refused types
+ * keeps the property an admin design system spec asserts — no two refused types
  * share a sentence — without paying for it in four hand-written variants of the
  * same true clause, which is what a single shared constant existed to prevent.
  */
@@ -237,7 +237,7 @@ const overlayRefusal = (opening: string): CatalogSpecimen['refusal'] => ({
  * `document.body`, one of them modal and holding focus — and a modal dialog
  * makes the rest of the document inert, so every other control on the page
  * leaves the accessibility tree. Measured, not predicted:
- * `[internal ref]` went from 53 textboxes to ZERO on that page, and
+ * An admin design system spec went from 53 textboxes to ZERO on that page, and
  * `-049` could no longer reach the anatomy button of a specimen it could see.
  * Two of them also brought a `<form>` with them, which the page may not carry
  * at all. That measurement was taken when `record-drawer` was a fourth type
@@ -314,7 +314,7 @@ const OVERLAY_SPECIMENS: readonly CatalogSpecimen[] = [
  * `type="submit"` control, and all three were refused together: drawn on the
  * console page they were live write transports in a document carrying the
  * operator's admin session, which [internal ref] A2 forbids outright and
- * `[internal ref]` counts at a permitted zero. Measured: with them
+ * an admin design system spec counts at a permitted zero. Measured: with them
  * drawn, that page carried two forms and two submit buttons.
  *
  * `ai-chat` and `form` are now drawn, because A3 clause 1 is narrower than the
@@ -392,7 +392,7 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
   {
     // A preview of a preview: `badge` at `badgeVariant: 'outline'`, with the
     // readout above it and a caption under it. Drawn rather than refused —
-    // nothing here carries a write path, and the whole claim of [internal ref] is that
+    // nothing here carries a write path, and the whole claim of the data-first Configuration section design is that
     // the drawing goes through the same catalogue path a `specimen` takes,
     // which a card that only described it could not show.
     //
@@ -435,7 +435,7 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
   // Both are published kit types a reader can reach, and until now each had a
   // card that neither drew nor said why — the exact signature of a type literal
   // added to a barrel with no registry entry behind it, which is the invariant
-  // `[internal ref]` now sweeps for across every category.
+  // An admin design system spec now sweeps for across every category.
   //
   // Their two reasons are DIFFERENT, and the notes say so rather than sharing
   // one sentence: a line pasted across two types goes false on both together

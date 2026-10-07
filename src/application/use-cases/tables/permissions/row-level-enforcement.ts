@@ -185,13 +185,7 @@ export const collectAssignmentScopeTables = (
   rlp: RowLevelPermissions | undefined
 ): readonly string[] => {
   if (!rlp) return []
-  const predicates = [
-    rlp.read?.when,
-    rlp.write?.when,
-    rlp.create?.when,
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property of the RowLevelPermissions struct, not a Drizzle query.
-    rlp.delete?.when,
-  ]
+  const predicates = [rlp.read?.when, rlp.write?.when, rlp.create?.when, rlp.delete?.when]
   const slugs = predicates.flatMap(extractScopeTablesFromPredicate)
   return [...new Set(slugs)]
 }

@@ -8,18 +8,12 @@
 /**
  * The step rail — "you are here, in a sequence of named positions".
  *
- * TWO surfaces draw it and they must draw the SAME thing. The form wizard has
- * had one since `form.wizard` landed, over the steps it splits a form into;
- * `progress` with `progressVariant: 'steps'` declares the same rail over
- * content that is not a form — an onboarding sequence, a checkout, anything
- * paged by something other than a crud-form.
+ * `progress` with `progressVariant: 'steps'` declares it over a sequence — an
+ * onboarding, a checkout, anything paged. It emits `data-wizard-progress` /
+ * `data-wizard-step-label`, and `aria-current="step"` marks exactly one
+ * position.
  *
- * So this module exists to keep there from being two. A second rail beside the
- * first would drift, and a screen reader would hear two vocabularies for one
- * idea: `data-wizard-progress` / `data-wizard-step-label` are the markup both
- * emit, and `aria-current="step"` marks exactly one position in either.
- *
- * `current` is a ZERO-BASED index, matching the wizard's own step counter. The
+ * `current` is a ZERO-BASED index. The
  * `progress` component's `progressValue` is a 1-based POSITION, which is what a
  * config author counts in, so the translation happens at that call site rather
  * than here.

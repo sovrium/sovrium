@@ -6,7 +6,7 @@
  */
 
 /**
- * Shared async AI-compute refinement worker ([internal ref] Phase 2, design §4).
+ * Shared async AI-compute refinement worker.
  *
  * One reusable worker invoked by BOTH engines — the only per-engine difference
  * is the trigger mechanism (Postgres NOTIFY listener vs SQLite post-write
@@ -27,20 +27,16 @@
  *      write already returned 2xx; refinement is best-effort.
  */
 
-import { Data, Effect } from 'effect'
+import { Effect } from 'effect'
+import {
+  AiComputeStatusRepository,
+  AiComputeStoreError,
+} from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import { AiService } from '@/application/ports/services/ai-service'
 import {
   buildAiComputeChatRequest,
   type AiComputeRequestConfig,
 } from '@/domain/models/app/tables/ai-compute-build-request'
-import {
-  readAiComputeStatus,
-  upsertAiComputeStatus,
-} from '@/infrastructure/database/ai-compute-status-repository'
-import {
-  readCurrentFieldValue,
-  writeBackRefinedValue,
-} from '@/infrastructure/database/ai-compute-writeback'
 import { logDebug } from '@/infrastructure/logging/logger'
 import type { AiComputeKind } from '@/domain/models/app/tables/ai-compute-baseline'
 
@@ -139,28 +135,14 @@ const isAlreadyInFlight = (status: {
 }): boolean => status.status === 'pending' && status.attempt >= 1
 
 /**
- * A database operation backing a refinement failed.
+ * A database operation backing a refinement failed — declared with its port.
  *
- * The refinement itself is best-effort: a provider that is down, slow, or that
- * answers with prose instead of JSON is recorded in the status row and the
- * baseline value stands. That contract depends entirely on the STATUS ROW being
- * writable — and that write was the one operation whose failure had nowhere to
- * go. Wrapped in `Effect.promise`, a rejecting `upsertAiComputeStatus` became a
- * defect: the status row said `pending` forever, the field was never retried,
- * and the only signal was an unhandled rejection in a detached fiber.
- *
- * `step` names which operation failed, because they mean different things to an
- * operator: a failed status write is a stuck refinement, while a failed
- * write-back is a refinement that was computed and then lost.
+ * The refinement is best-effort with respect to the provider, never with
+ * respect to the status store: a status write that fails must not become a
+ * defect in a detached fiber, leaving the row `pending` forever, so it is a
+ * typed failure the callers log. Re-exported for this module's importers.
  */
-export class AiComputeStoreError extends Data.TaggedError('AiComputeStoreError')<{
-  readonly step: 'read-status' | 'write-status' | 'read-value' | 'write-value'
-  readonly cause: unknown
-}> {}
-
-/** Wrap a rejection from the ai-compute store as a typed failure. */
-const storeFailure = (step: AiComputeStoreError['step']) => (cause: unknown) =>
-  new AiComputeStoreError({ step, cause })
+export { AiComputeStoreError }
 
 /** The status-table key for a refinement target. */
 interface RefineKey {
@@ -181,41 +163,26 @@ const applyRefinement = (
   key: RefineKey,
   attempt: number,
   content: string
-): Effect.Effect<RefineOutcome, AiComputeStoreError> =>
+): Effect.Effect<RefineOutcome, AiComputeStoreError, AiComputeStatusRepository> =>
   Effect.gen(function* () {
+    const store = yield* AiComputeStatusRepository
     const { tableName, recordId, fieldName, kind, baselineValue, appId } = input
-    const current = yield* Effect.tryPromise({
-      try: () => readCurrentFieldValue(tableName, recordId, fieldName),
-      catch: storeFailure('read-value'),
-    })
+    const current = yield* store.readFieldValue(tableName, recordId, fieldName)
     if (normalizeForCompare(current) !== normalizeForCompare(baselineValue)) {
-      yield* Effect.tryPromise({
-        try: () => upsertAiComputeStatus(key, 'skipped', { attempt }),
-        catch: storeFailure('write-status'),
-      })
+      yield* store.upsertStatus(key, 'skipped', { attempt })
       return 'skipped'
     }
     const refined = parseRefinedValue(kind, content)
     if (refined === undefined) {
       // Malformed reply for a structured kind — keep the baseline as the floor.
-      yield* Effect.tryPromise({
-        try: () =>
-          upsertAiComputeStatus(key, 'failed', {
-            attempt,
-            error: 'Provider reply was not shape-valid for the field type',
-          }),
-        catch: storeFailure('write-status'),
+      yield* store.upsertStatus(key, 'failed', {
+        attempt,
+        error: 'Provider reply was not shape-valid for the field type',
       })
       return 'failed'
     }
-    yield* Effect.tryPromise({
-      try: () => writeBackRefinedValue({ appId, tableName, recordId, fieldName, value: refined }),
-      catch: storeFailure('write-value'),
-    })
-    yield* Effect.tryPromise({
-      try: () => upsertAiComputeStatus(key, 'refined', { attempt }),
-      catch: storeFailure('write-status'),
-    })
+    yield* store.writeBack({ appId, tableName, recordId, fieldName, value: refined })
+    yield* store.upsertStatus(key, 'refined', { attempt })
     return 'refined'
   })
 
@@ -229,26 +196,21 @@ const applyRefinement = (
  * declared in the error channel as {@link AiComputeStoreError} and handled by
  * the caller. Both callers already log it.
  *
- * The returned Effect requires `AiService` (the caller provides `AiLive`).
+ * The returned Effect requires `AiService` and `AiComputeStatusRepository`.
  */
 export const refineAiComputeField = (
   input: RefineAiComputeFieldInput
-): Effect.Effect<RefineOutcome, AiComputeStoreError, AiService> =>
+): Effect.Effect<RefineOutcome, AiComputeStoreError, AiService | AiComputeStatusRepository> =>
   Effect.gen(function* () {
+    const store = yield* AiComputeStatusRepository
     const { tableName, recordId, fieldName, kind, source, baselineValue, config, appId } = input
     const key: RefineKey = { appId, tableName, recordId, fieldName }
 
     // 1. Idempotency / concurrency guard.
-    const existing = yield* Effect.tryPromise({
-      try: () => readAiComputeStatus(key),
-      catch: storeFailure('read-status'),
-    })
+    const existing = yield* store.readStatus(key)
     if (existing && isAlreadyInFlight(existing)) return 'noop'
     const attempt = (existing?.attempt ?? 0) + 1
-    yield* Effect.tryPromise({
-      try: () => upsertAiComputeStatus(key, 'pending', { attempt }),
-      catch: storeFailure('write-status'),
-    })
+    yield* store.upsertStatus(key, 'pending', { attempt })
 
     // 2. Build the request + call the provider.
     const request = buildAiComputeChatRequest({
@@ -258,10 +220,7 @@ export const refineAiComputeField = (
       config,
     })
     if (!request) {
-      yield* Effect.tryPromise({
-        try: () => upsertAiComputeStatus(key, 'skipped', { attempt }),
-        catch: storeFailure('write-status'),
-      })
+      yield* store.upsertStatus(key, 'skipped', { attempt })
       return 'skipped'
     }
 
@@ -270,10 +229,7 @@ export const refineAiComputeField = (
     if (replyResult._tag === 'Failure') {
       const { message } = replyResult.failure
       logDebug(`[ai-compute] refinement failed for ${tableName}.${fieldName}: ${message}`)
-      yield* Effect.tryPromise({
-        try: () => upsertAiComputeStatus(key, 'failed', { attempt, error: message }),
-        catch: storeFailure('write-status'),
-      })
+      yield* store.upsertStatus(key, 'failed', { attempt, error: message })
       return 'failed'
     }
 

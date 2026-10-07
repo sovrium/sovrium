@@ -7,6 +7,11 @@
 
 import { fieldSubmitIdentifier } from '@/domain/models/app/forms/form-field-helpers'
 import { computeFormRequiredMarkClasses } from '@/presentation/design/form-layout-classes'
+import {
+  FORM_RUNTIME_CALCULATIONS_SCRIPT,
+  runtimeCalculationsConfig,
+  type RuntimeCalculationsConfig,
+} from './form-runtime-calculations'
 import type { Form } from '@/domain/models/app/forms'
 import type { VisibleWhenCondition } from '@/domain/models/app/forms/visible-when'
 
@@ -239,7 +244,7 @@ export const FORM_RUNTIME_CONDITIONS_SCRIPT = `
     form.addEventListener('change', applyConditions)
     applyConditions()
   }
-`
+${FORM_RUNTIME_CALCULATIONS_SCRIPT}`
 
 /** One field's live rules, as the inline runtime reads them. */
 export interface FormRuntimeCondition {
@@ -277,10 +282,10 @@ export function collectFormRuntimeConditions(
 }
 
 /** The live rules a hosted form's runtime applies, and what it draws them with. */
-export interface RuntimeConditionsConfig {
+export interface RuntimeConditionsConfig extends RuntimeCalculationsConfig {
   /**
    * The `visibleWhen` / `requiredWhen` rules the runtime applies live
-   * ([internal ref]..214), keyed by the field's submitted name. Present only
+   * keyed by the field's submitted name. Present only
    * when at least one field carries a rule, so a form without any pays
    * nothing on the wire. `disabledWhen` is not applied on a hosted form at
    * all, here or on the server.
@@ -298,8 +303,10 @@ export function runtimeConditionsConfig(
   form: Readonly<Pick<Form, 'fields'>>
 ): RuntimeConditionsConfig {
   const conditions = collectFormRuntimeConditions(form)
-  if (conditions.length === 0) return {}
+  // Calculations are live derived state too: listed here, applied after the rules.
+  const calculations = runtimeCalculationsConfig(form)
+  if (conditions.length === 0) return calculations
   return conditions.some((rule) => rule.requiredWhen !== undefined)
-    ? { conditions, requiredMarkClass: computeFormRequiredMarkClasses() }
-    : { conditions }
+    ? { ...calculations, conditions, requiredMarkClass: computeFormRequiredMarkClasses() }
+    : { ...calculations, conditions }
 }

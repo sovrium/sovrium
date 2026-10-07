@@ -1,0 +1,123 @@
+# sovrium-library: block/not-found-with-links@0.30.0
+name: not-found-with-links
+type: container
+element: main
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-4
+        children:
+          - type: text
+            element: span
+            props:
+              className: font-mono text-md text-foreground-subtle
+            content: '404'
+          - type: text
+            element: h1
+            props:
+              className: 'text-4xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-[3.5rem] lg:leading-[1.05]'
+            content: Nothing here
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: These are the pages people usually look for.
+          - type: container
+            element: nav
+            props:
+              aria-label: Suggested pages
+              className: mt-6 flex flex-col border-t border-border
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: house
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: Home
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[What the home page offers]'
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle
+              - type: link
+                props:
+                  href: /docs
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: file-text
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Docs]'
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[What the reader finds there]'
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle
+              - type: link
+                props:
+                  href: /contact
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                children:
+                  - type: icon
+                    props:
+                      name: mail
+                      size: 20
+                      className: flex-none text-foreground-subtle
+                  - type: flex
+                    props:
+                      className: flex min-w-0 flex-1 flex-col
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: text-md font-semibold text-foreground
+                        content: '[Contact]'
+                      - type: text
+                        element: span
+                        props:
+                          className: text-sm text-foreground-subtle
+                        content: '[Who answers]'
+                  - type: icon
+                    props:
+                      name: chevron-right
+                      size: 18
+                      className: flex-none text-foreground-subtle

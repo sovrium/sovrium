@@ -16,7 +16,7 @@ import {
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
-/** A button that opens a dialog holding a short form which creates a record. */
+/** A button that opens a dialog holding a short form which adds a record. */
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'modal-form',
@@ -28,6 +28,7 @@ export const entry = defineLibraryEntry({
   notes: [
     PLACE_NOTE,
     DATA_NOTE,
+    "The form is installed into `forms:` under the block's name and placed in the dialog with `formRef`, so it adds the record through that form. Its submissions do not reach the Submissions inbox; set `submitTo.storeSubmission: true` on it to keep them there.",
     'Focus moves into the dialog when it opens and stays there until it closes. The dialog is named after the installed block, so two copies on one page open their own dialogs.',
     THEME_NOTE,
   ],
@@ -63,6 +64,26 @@ export const entry = defineLibraryEntry({
   ],
   env: [],
   requires: [],
+  forms: ({ name, params }) => {
+    const p = param(params)
+    return [
+      {
+        name,
+        title: p('title'),
+        submitTo: { table: p('table') },
+        fields: [
+          { kind: 'table-field', column: p('nameField'), label: '[Name]' },
+          {
+            kind: 'table-field',
+            column: p('emailField'),
+            label: '[Email]',
+            placeholder: 'name@example.com',
+          },
+        ],
+        onSuccess: { type: 'toast', message: p('successMessage'), variant: 'success' },
+      },
+    ]
+  },
   build: ({ name, params }) => {
     const p = param(params)
     const dialogId = `${name}-dialog`
@@ -80,21 +101,7 @@ export const entry = defineLibraryEntry({
         {
           type: 'dialog',
           props: { id: dialogId, title: p('title'), description: p('description') },
-          children: [
-            {
-              type: 'form',
-              fields: [
-                { field: p('nameField'), label: '[Name]' },
-                { field: p('emailField'), label: '[Email]', placeholder: 'name@example.com' },
-              ],
-              action: {
-                type: 'crud',
-                operation: 'create',
-                table: p('table'),
-                onSuccess: { toast: { message: p('successMessage'), variant: 'success' } },
-              },
-            },
-          ],
+          formRef: name,
         },
       ])
     )

@@ -179,7 +179,7 @@ export const systemTableExists = async (
               WHERE type = 'table' AND name = ${sqliteSystemTableName(name)} LIMIT 1`
         )
 
-  return (rows as unknown as readonly unknown[]).length > 0
+  return (rows as readonly unknown[]).length > 0
 }
 
 /**

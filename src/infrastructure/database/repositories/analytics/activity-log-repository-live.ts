@@ -77,7 +77,6 @@ const ruleTableColumns = (
 const pageCondition = (
   query: ActivityLogPageQuery,
   columnsOf: ReadonlyMap<string, ReadonlySet<string>>
-  // eslint-disable-next-line functional/prefer-immutable-types -- drizzle's `.where()` takes the upstream (structurally mutable) SQL type
 ): SQL | undefined => {
   const { filters } = query
   const admission = admissionForFilters(query.admission, filters)
@@ -170,8 +169,7 @@ const toActivityLog = (row: {
   user:
     row.userId && row.userName && row.userEmail
       ? { id: row.userId, name: row.userName, email: row.userEmail }
-      : // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
-        null,
+      : null,
 })
 
 /**

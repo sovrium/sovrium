@@ -8,7 +8,7 @@
 /**
  * The operator kill switch: an overlay row that takes a link out of service.
  *
- * The polarity is asymmetric by design ([internal ref] D3, restated on the
+ * The polarity is asymmetric by design (the links-are-records design, restated on the
  * `disabled_at` column): the overlay may only ever be MORE restrictive than the
  * file. A config-declared link the file has already disabled therefore refuses
  * the overlay in BOTH directions — re-enabling it from a console would be the
@@ -21,8 +21,6 @@
  * kill switch, and the reported state is whatever the resolver then computes —
  * still `disabled` if the row's own flag is off.
  */
-
-/* eslint-disable unicorn/no-null -- `disabledAt` and `actorId` are nullable COLUMNS: `null` is what the row holds and what the repository expects back, and `undefined` would read as "leave it alone". */
 
 import { Effect } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
@@ -95,5 +93,3 @@ export const setLinkOverlay = (input: {
     const state = yield* resolveEntryState(app.name, entry, new Date())
     return { state, changed }
   }).pipe(Effect.withSpan('links.set-overlay'))
-
-/* eslint-enable unicorn/no-null */

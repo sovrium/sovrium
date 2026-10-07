@@ -38,11 +38,15 @@ type TableField = Table['fields'][number]
 
 const isEmptyFile = (value: unknown): boolean => value instanceof File && value.size === 0
 
-/** A list-valued relationship: its links travel as a JSON array of keys. */
-const holdsLinkList = (field: TableField): boolean =>
-  field.type === 'relationship' &&
-  ((field as { readonly relationType?: string }).relationType === 'many-to-many' ||
-    (field as { readonly allowMultiple?: boolean }).allowMultiple === true)
+/**
+ * A list-valued field: a multi-select's options, or a list-valued
+ * relationship's links, travel as a JSON array.
+ */
+const holdsList = (field: TableField): boolean =>
+  field.type === 'multi-select' ||
+  (field.type === 'relationship' &&
+    ((field as { readonly relationType?: string }).relationType === 'many-to-many' ||
+      (field as { readonly allowMultiple?: boolean }).allowMultiple === true))
 
 const parseLinkList = (value: string): unknown => {
   if (!value.startsWith('[')) return [value]
@@ -67,7 +71,7 @@ const normalizeValue = (field: TableField | undefined, value: unknown): unknown 
   if (isEmptyFile(value)) return undefined
   if (field === undefined || typeof value !== 'string') return value
   if (value.trim() === '' && !storesEmpty(field)) return undefined
-  if (holdsLinkList(field)) return parseLinkList(value.trim())
+  if (holdsList(field)) return parseLinkList(value.trim())
   return value
 }
 
@@ -116,6 +120,5 @@ export function normalizeFormUpdateFields(
       ])
       .filter(([, value]) => value !== undefined)
   )
-  // eslint-disable-next-line unicorn/no-null -- `null` is the records API's "store this field empty".
   return { ...values, ...Object.fromEntries(cleared.map((name) => [name, null])) }
 }

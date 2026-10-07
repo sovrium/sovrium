@@ -15,10 +15,9 @@
  * dependency.
  *
  * The recipe mirrors the `uiKitButton` fixture in
- * `[internal ref]` (which the fixture used to
- * paint manually onto a `<span>`). Moving the recipe here makes the default
- * design land in the PRODUCTION renderer — the fixture's `uiKitButton` is now
- * a thin wrapper around the schema, not the source of styling.
+ * `[internal ref]`. Keeping the recipe here makes
+ * the default design land in the PRODUCTION renderer — the fixture's
+ * `uiKitButton` is a thin wrapper around the schema, not the source of styling.
  *
  * Layout / spacing classes (`h-8 px-3 py-1.5`) stay as raw Tailwind utilities;
  * only color / radius / shadow / motion / focus classes go through
@@ -165,14 +164,10 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
  * `infrastructure/css/arbitrary-var-safelist.ts`, so it would go missing from the
  * compiled binary's corpus instead.
  *
- * Neither trap applies to a named rung. Since 2026-09-09 the platform ladder
- * emits Tailwind's own `--text-*` namespace, so `text-base` IS 13px and the
- * utility carries size and leading together. Nothing is lost in overridability
- * that the literals ever had — the emitted property was `--font-size-*`, which
- * no utility read, so every one of those lookups always missed — and something
- * is gained: the rung moves when the ladder moves, which is why
- * `type-scale-literals.test.ts` (the compensating control that pinned the three
- * literals by hand) could be deleted rather than extended.
+ * Neither trap applies to a named rung. The platform ladder emits Tailwind's
+ * own `--text-*` namespace, so `text-base` IS 13px and the utility carries size
+ * and leading together, and the rung moves when the ladder moves — no test has
+ * to pin the three sizes as literals by hand.
  *
  * The mapping is the canvas': `.btn-sm` 12px, `.btn` 13px, `.btn-lg` 14px.
  */
@@ -211,23 +206,23 @@ const STATE_CLASS: Record<ButtonState, string> = {
 const MOTION_DEFAULT = 'transition-[background-color,border-color] duration-150'
 
 /**
- * A flat surface carries NO shadow class at all, and that is a fix rather than
- * an omission.
+ * A flat surface carries NO shadow class at all, and that is deliberate rather
+ * than an omission.
  *
- * It used to be `shadow-[${v('shadow-none', T.shadowNone)}]`, and that
- * silently removed the keyboard focus ring from every Sovrium button. Three
- * facts compose into it, and the middle one is the trap:
+ * `shadow-[${v('shadow-none', T.shadowNone)}]` silently removes the keyboard
+ * focus ring from every Sovrium button. Three facts compose into it, and the
+ * middle one is the trap:
  *
  *  1. `--sv-shadow-none` is emitted NOWHERE — the theme layer declares
- *     `--shadow-none` — so the reference always fell through to its literal
+ *     `--shadow-none` — so the reference always falls through to its literal
  *     fallback, `none`;
  *  2. Tailwind v4 composes `box-shadow` from five custom properties
  *     (`box-shadow: var(--tw-inset-shadow), …, var(--tw-ring-shadow),
  *     var(--tw-shadow)`), and `none` is a legal box-shadow value only when it
- *     stands ALONE. `--tw-shadow: none` made the whole declaration invalid, so
- *     the browser dropped it — and with it the focus ring, which is painted
+ *     stands ALONE. `--tw-shadow: none` makes the whole declaration invalid, so
+ *     the browser drops it — and with it the focus ring, which is painted
  *     through `--tw-ring-shadow` in that same list;
- *  3. `focus-visible:ring-2` was therefore inert. Measured in Chromium against
+ *  3. `focus-visible:ring-2` is therefore inert. Measured in Chromium against
  *     a live server: every ring custom property resolved correctly
  *     (`--tw-ring-shadow: 0 0 0 calc(2px + 2px) oklch(0.205 0 0)`) while the
  *     computed `box-shadow` read `none`.
@@ -299,13 +294,12 @@ const filledClasses = (variant: ButtonVariant, size: ButtonSize, state: ButtonSt
  * the list through tailwind-merge: on a same-property conflict the author's
  * class wins and this recipe's losing class is DROPPED from the output.
  *
- * That merge is what decides the winner — NOT the cascade. This comment used to
- * claim the author wins "because Tailwind v4 emits utilities in source order",
- * which was false: Tailwind emits utilities in ITS own order, not in the order a
- * renderer concatenated them, so `p-4 p-8` on one element resolved to whichever
- * `p-*` rule the stylesheet happened to emit last. Concatenation left both
- * classes in the list and made the outcome a property of the stylesheet;
- * dropping the loser makes it a property of this code.
+ * That merge is what decides the winner — NOT the cascade. Tailwind v4 does not
+ * emit utilities in the order a renderer concatenated them but in ITS own
+ * order, so `p-4 p-8` on one element resolves to whichever `p-*` rule the
+ * stylesheet happens to emit last. Concatenation would leave both classes in
+ * the list and make the outcome a property of the stylesheet; dropping the
+ * loser makes it a property of this code.
  */
 export const computeButtonDefaultClasses = (input: ButtonDefaultClassesInput = {}): string => {
   const variant = input.variant ?? 'default'

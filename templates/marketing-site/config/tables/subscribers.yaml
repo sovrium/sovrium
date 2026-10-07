@@ -1,0 +1,11 @@
+# The addresses the newsletter sign-ups collect. Anyone may sign up through the
+# newsletter form; only an admin reads the list.
+id: 4
+name: subscribers
+fields:
+  - { id: 1, name: email, type: email, required: true, unique: true }
+permissions:
+  read: [admin]
+  create: [admin]
+  update: [admin]
+  delete: [admin]

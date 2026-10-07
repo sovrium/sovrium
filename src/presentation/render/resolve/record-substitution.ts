@@ -27,7 +27,7 @@ import {
   substituteRecordVars,
   substituteScopedVars,
 } from '@/domain/models/app/pages/substitute-record-vars'
-import { substituteRecordInProps } from './record-template-substitution'
+import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
 import { filterChildrenForRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -78,16 +78,16 @@ const escapeRecordValueForHtml = escapeHtml
  *
  * WHY THIS EXISTS. `renderHTMLElement`
  * (ui/sections/renderers/element-renderers/html-element-renderer.tsx) renders
- * `content` through `dangerouslySetInnerHTML` when it starts with `<`. That
- * test used to run on the POST-substitution string — so the config author wrote
- * the literal `'$record.bio'`, which plainly is not HTML, and the RECORD then
- * decided at request time which branch that config took. A stored value
- * beginning with `<` flipped the element out of React's escaped-children path
- * into the raw-HTML path: stored XSS against every later visitor, plantable
- * through whatever ordinary write path the app exposes, no authentication
- * required. The renderer's own docstring asserted the opposite ("content is
- * from server configuration, not user input"), which is precisely why the
- * branch read as safe to every previous reader.
+ * `content` through `dangerouslySetInnerHTML` when it starts with `<`. Run on
+ * the POST-substitution string, that test would let the RECORD decide at
+ * request time which branch the config takes: the config author writes the
+ * literal `'$record.bio'`, which plainly is not HTML, yet a stored value
+ * beginning with `<` would flip the element out of React's escaped-children
+ * path into the raw-HTML path — stored XSS against every later visitor,
+ * plantable through whatever ordinary write path the app exposes, no
+ * authentication required. "Content is from server configuration, not user
+ * input" is false here, which is why the branch can read as safe when it is
+ * not.
  *
  * THE DECISION IS TAKEN FROM THE AUTHOR'S TEMPLATE ALONE. Two cases:
  *
@@ -151,7 +151,7 @@ export const withPlainTextPin = (
 
 /**
  * Substitutes `$record.<field>` tokens inside `dataSource.filter[].value`
- * strings using the parent collection record ([internal ref] —
+ * strings using the parent collection record (the pages access publishing requirement —
  * Category & Tag Patterns).
  *
  * The collection-page resolver runs BEFORE component-level dataSource
@@ -222,7 +222,7 @@ export function substituteRecordInDataSource(
  * children of components that themselves have a `dataSource`, because
  * those children are per-row templates that must be expanded against
  * each fetched record — not pre-substituted with the parent collection
- * record ([internal ref] — Category & Tag Patterns).
+ * record (the pages access publishing requirement — Category & Tag Patterns).
  */
 export function substituteRecordInComponent(
   component: Component,
@@ -235,10 +235,11 @@ export function substituteRecordInComponent(
   // raw value + bound table name as render-time props so the renderer can
   // dispatch (rich-text → sanitized HTML, attachment → download link, else text)
   // without threading the whole record down through the dispatch config.
-  if (component.type === 'record-field') {
+  if (RECORD_VALUE_TYPES.has(component.type)) {
     return injectRecordFieldValue(component, record, tableName)
   }
   const resolvedContent = substituteRecordInContent(component.content, record)
+  const describedItems = withDescriptionFieldValues(component, record, tableName)
   return {
     ...component,
     // Every OTHER string leaf — a component's own TYPED fields.
@@ -263,6 +264,7 @@ export function substituteRecordInComponent(
       resolvedContent.forcePlainText
     ),
     content: resolvedContent.content,
+    ...(describedItems !== undefined && { items: describedItems }),
     dataSource: component.dataSource
       ? substituteRecordInDataSource(component.dataSource, record)
       : component.dataSource,
@@ -335,10 +337,39 @@ function substituteRecordInTypedFields(
 }
 
 /**
+ * The components a bound record hands its raw value to, rather than a
+ * substituted template: the read-only `record-field` and the field-bound
+ * controls that draw (or write) one field of the record by its type.
+ */
+export const RECORD_VALUE_TYPES: ReadonlySet<string> = new Set([
+  'record-field',
+  'rating',
+  'signature-pad',
+  'file-preview',
+])
+
+/** The record's system timestamps, by the name the records API gives them. */
+const SYSTEM_TIMESTAMP_COLUMNS: Readonly<Record<string, string>> = {
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+}
+
+/**
+ * A field's value on the bound record. `createdAt` and `updatedAt` — the names
+ * the records API gives the system timestamps — read the stored column when
+ * the row carries only that, so a `record-field` formats them as it formats a
+ * declared date.
+ */
+const recordValueOf = (record: Record<string, unknown>, fieldName: string): unknown => {
+  const column = SYSTEM_TIMESTAMP_COLUMNS[fieldName]
+  return record[fieldName] ?? (column === undefined ? undefined : record[column])
+}
+
+/**
  * Injects the bound record's raw value + table name into a `record-field`
  * component's props (`_recordValue`, `_recordTable`). The renderer reads these
  * plus `config.tables` to look up the field's declared type and render it
- * read-only.
+ * read-only ([internal ref] / the pages data components record detail view requirement).
  */
 export function injectRecordFieldValue(
   component: Component,
@@ -346,13 +377,21 @@ export function injectRecordFieldValue(
   tableName: string | undefined
 ): Component {
   const baseProps = component.props ? substituteRecordInProps(component.props, record) : {}
-  const fieldName = baseProps['field']
-  const value = typeof fieldName === 'string' ? record[fieldName] : undefined
+  // `record-field` names its field in `props`; the field-bound controls
+  // (`rating`, `signature-pad`, `file-preview`) name it on their root.
+  const fieldName = baseProps['field'] ?? (component as { readonly field?: unknown }).field
+  const value = typeof fieldName === 'string' ? recordValueOf(record, fieldName) : undefined
+  const { altField } = component as { readonly altField?: unknown }
   return {
     ...component,
+    // A control's own sentence (`signature-pad.statement`) reads the record too.
+    ...(component.type === 'record-field' ? {} : substituteRecordInTypedFields(component, record)),
     props: {
       ...baseProps,
       _recordValue: value,
+      _recordId: record['id'],
+      // A `file-preview` reads its image's alternative text from a second field.
+      ...(typeof altField === 'string' && { _recordAlt: record[altField] }),
       ...(tableName !== undefined ? { _recordTable: tableName } : {}),
     },
   }

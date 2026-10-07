@@ -81,11 +81,11 @@ const ICON_TONES = new Set<IconTone>(['default', 'muted', 'primary'])
  * (media / display / structural / interactive) — the single canonical
  * prestyle-merge.
  *
- * This used to concatenate (`${defaults} ${authorClassName}`) and rely on "the
- * author is later, so it wins at the Tailwind cascade". That was false: Tailwind
- * v4 emits utilities in ITS own order, not in the order this function
- * concatenated them, so `p-4 p-8` resolved to whichever `p-*` rule the
- * stylesheet happened to emit last. `resolveClasses` runs the list through
+ * It does not concatenate (`${defaults} ${authorClassName}`) and rely on "the
+ * author is later, so it wins at the Tailwind cascade". That is false: Tailwind
+ * v4 emits utilities in ITS own order, not in the order a function concatenated
+ * them, so `p-4 p-8` resolves to whichever `p-*` rule the stylesheet happens to
+ * emit last. `resolveClasses` runs the list through
  * tailwind-merge instead, which DROPS the loser — so the winner is decided here.
  *
  * `authorClassName` arrives already carrying the `design.components` layer and

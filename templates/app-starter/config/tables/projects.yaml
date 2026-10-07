@@ -1,0 +1,32 @@
+# The records the whole app is about. Swap the fields for your own: every
+# block reads them through the field names you give it at install time.
+id: 1
+name: projects
+fields:
+  - { id: 1, name: title, type: single-line-text, required: true }
+  - id: 2
+    name: status
+    type: status
+    options:
+      - { value: Active, color: '#2f6f4e' }
+      - { value: On hold, color: '#9a6b00' }
+      - { value: Closed, color: '#6f6668' }
+  - { id: 3, name: client, type: single-line-text }
+  - { id: 4, name: budget, type: currency, currency: EUR }
+  - { id: 5, name: due_date, type: date }
+  - { id: 6, name: description, type: long-text }
+  - id: 7
+    name: category
+    type: single-select
+    options: [{ value: Design }, { value: Build }, { value: Support }]
+  - { id: 8, name: cover, type: url }
+permissions:
+  read: authenticated
+  create: authenticated
+  update: authenticated
+  delete: [admin]
+  comment: authenticated
+views:
+  - id: active-projects
+    name: Active projects
+    filters: { field: status, operator: equals, value: Active }

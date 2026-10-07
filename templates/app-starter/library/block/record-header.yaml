@@ -1,0 +1,122 @@
+# sovrium-library: block/record-header@0.30.0
+name: record-header
+type: container
+element: header
+props:
+  className: flex flex-col gap-4 border-b border-border pb-6
+children:
+  - type: breadcrumb
+    derive: path
+    labels:
+      projects: 'Projects'
+    currentLabel: $record.title
+  - type: flex
+    props:
+      className: flex flex-wrap items-start justify-between gap-4
+    children:
+      - type: flex
+        props:
+          className: flex min-w-0 flex-wrap items-center gap-3
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-semibold tracking-tight text-foreground
+            content: $record.title
+          - type: record-field
+            props:
+              field: status
+      - type: flex
+        props:
+          className: flex items-center gap-2
+        children:
+          - type: button
+            variant: secondary
+            props:
+              label: Edit
+              interactions:
+                click:
+                  modal: record-header-edit
+          - type: dropdown-menu
+            triggerLabel: More actions
+            menuItems:
+              - label: Delete
+                icon: trash-2
+                variant: destructive
+                action:
+                  type: crud
+                  operation: delete
+                  table: projects
+                  confirm: true
+                  confirmMessage: Delete $record.title? It cannot be undone.
+                  onSuccess:
+                    navigate: /projects
+  - type: grid
+    props:
+      className: grid grid-cols-1 gap-4 sm:grid-cols-3
+    children:
+      - type: flex
+        props:
+          className: flex min-w-0 flex-col gap-0.5
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-muted
+            content: 'Client'
+          - type: record-field
+            props:
+              field: client
+              className: text-md text-foreground
+      - type: flex
+        props:
+          className: flex min-w-0 flex-col gap-0.5
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-muted
+            content: 'Budget'
+          - type: record-field
+            props:
+              field: budget
+              className: text-md text-foreground
+      - type: flex
+        props:
+          className: flex min-w-0 flex-col gap-0.5
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-sm text-foreground-muted
+            content: 'Due'
+          - type: record-field
+            props:
+              field: due_date
+              className: text-md text-foreground
+  - type: dialog
+    props:
+      id: record-header-edit
+      title: Edit $record.title
+      description: Changes are saved to this record.
+    children:
+      - type: form
+        dataSource:
+          table: projects
+          mode: single
+          param: id
+        fields:
+          - field: title
+          - field: status
+          - field: client
+          - field: budget
+          - field: due_date
+        action:
+          type: crud
+          operation: update
+          table: projects
+          submitLabel: Save changes
+          onSuccess:
+            toast:
+              message: Changes saved.
+              variant: success

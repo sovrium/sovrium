@@ -1,0 +1,155 @@
+# sovrium-library: block/feature-grid@0.30.0
+name: feature-grid
+type: container
+element: section
+props:
+  className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
+children:
+  - type: container
+    props:
+      className: mx-auto w-full max-w-6xl
+    children:
+      - type: flex
+        props:
+          className: flex flex-col max-w-2xl gap-4
+        children:
+          - type: flex
+            props:
+              className: flex items-center gap-2
+            children:
+              - type: container
+                props:
+                  className: size-1.5 rounded-sm bg-primary
+              - type: text
+                element: span
+                props:
+                  className: font-mono text-sm text-foreground-subtle
+                content: '[Eyebrow]'
+          - type: text
+            element: h2
+            props:
+              className: 'text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-5xl sm:leading-[1.1]'
+            content: Group the benefits under one idea
+          - type: text
+            element: p
+            props:
+              className: text-lg text-pretty text-foreground-muted sm:text-xl
+            content: A sentence that frames the six items below.
+      - type: grid
+        props:
+          className: grid grid-cols-1 mt-12 gap-x-8 gap-y-12 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: file-text
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: One file describes the app
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: 'Each item states a result for the reader, in their words.'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: lock
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: Your data stays yours
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: Keep it to two lines so the grid scans in one pass.
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: workflow
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: Work runs on its own
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: 'Name what happens, not the mechanism behind it.'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: users
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: Roles decide who sees what
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: A concrete example beats an adjective.
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: database
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: Records you can export
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: 'If a number supports it, cite where it comes from.'
+          - type: flex
+            props:
+              className: flex flex-col gap-2
+            children:
+              - type: icon
+                props:
+                  name: globe
+                  size: 22
+                  className: text-foreground
+              - type: text
+                element: h4
+                props:
+                  className: text-md font-semibold text-foreground mt-2 text-lg
+                content: Runs where you choose
+              - type: text
+                element: p
+                props:
+                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                content: 'The sixth item closes the argument, it does not pad it.'

@@ -24,6 +24,7 @@
 
 import { Schema } from 'effect'
 import { cursorPaginationResponseSchema } from '@/domain/models/api/combinators/cursor-pagination'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * One agent in the admin index.
@@ -55,3 +56,37 @@ export const agentsListResponseSchema = cursorPaginationResponseSchema(
 export type AgentAdminItem = typeof agentAdminItemSchema.Type
 /** @public */
 export type AgentsListResponse = typeof agentsListResponseSchema.Type
+
+/**
+ * Query parameters for `GET /api/admin/agents`.
+ *
+ * Both are plain optional STRINGS, matching today's handler exactly rather than
+ * the shared `cursorPaginationQuerySchema`, whose two refusals the route does
+ * not make:
+ *
+ * - `limit` outside `1..200`, or not a number, falls back to `50` — it is never
+ *   answered 400.
+ * - a malformed or stale `cursor` rewinds to the first page — the token is an
+ *   internal contract, so a caller has no way to have "fixed" it.
+ *
+ * Tightening either into a 400 is a behaviour change for the route and belongs
+ * in a spec, not in a schema.
+ */
+export const agentsListQuerySchema = Schema.Struct({
+  cursor: optionalField(
+    Schema.String.annotate({
+      description:
+        "Opaque cursor from the previous page's `nextCursor`. A malformed or stale cursor rewinds to the first page rather than erroring.",
+    })
+  ),
+  limit: optionalField(
+    Schema.String.annotate({
+      description:
+        'Page size, `1` to `200` (default `50`). A value outside that range, or not a number, falls back to `50`.',
+      examples: ['50'],
+    })
+  ),
+}).annotate({ identifier: 'AgentsListQuery' })
+
+/** @public */
+export type AgentsListQuery = typeof agentsListQuerySchema.Type

@@ -35,107 +35,26 @@
  * @see src/domain/models/api/admin/organisation/graph.ts (the wire contract)
  */
 
-import { buildAdminOrganisationGraph } from '@/application/use-cases/admin/organisation-graph'
-import {
-  adminOrganisationGraphQuerySchema,
-  adminOrganisationGraphResponseSchema,
-} from '@/domain/models/api/admin/organisation/graph'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
-import { effectValidator } from '@/presentation/api/runtime/effect-validator'
-import type { AdminOrganisationGraphQuery } from '@/domain/models/api/admin/organisation/graph'
+import { ORGANISATION_READ_OPERATIONS } from '@/application/use-cases/admin/admin-read-registry'
+import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import type { App } from '@/domain/models/app'
-import type { Context, Hono } from 'hono'
-
-/**
- * Read what the paired `effectValidator('query', …)` decoded.
- *
- * The handler takes a bare `Context` so it stays callable from a test and from
- * the chain alike — the shape every sibling admin handler has — and `c.req.valid`
- * is typed only off the fluent chain, so the cast names exactly what the
- * validator put there.
- */
-const validQuery = (c: Context): AdminOrganisationGraphQuery =>
-  (c.req as unknown as { readonly valid: (target: 'query') => AdminOrganisationGraphQuery }).valid(
-    'query'
-  )
-
-/**
- * Build the handler for `GET /api/admin/organisation/graph`.
- *
- * The factory closes over the live-app resolver rather than an `App` value, so
- * every request folds the configuration the server is running at that moment.
- */
-function createHandleGetOrganisationGraph(resolveLiveApp: () => App) {
-  return async function handleGetOrganisationGraph(c: Context): Promise<Response> {
-    const graph = await runRequestEffect(
-      c,
-      provideDomain(c, buildAdminOrganisationGraph(resolveLiveApp(), validQuery(c)))
-    )
-
-    // Response gate (S4 hard allow-list): the body is an allow-list of scalars,
-    // closed enums and short rendered strings — never a raw DB row, an account
-    // address or a field value. Every struct is `strictKeys`, so a producer that
-    // starts spreading a directory row into a `person` node fails HERE rather
-    // than publishing an email.
-    const parsed = decodeSafe(adminOrganisationGraphResponseSchema)(graph)
-    if (!parsed.success) {
-      logError(
-        '[admin] organisation graph response validation failed',
-        parsed.error,
-        requestLogAttributes(c)
-      )
-      return c.json(
-        { success: false, message: 'Failed to build organisation graph', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
-
-    // The whole body is derived per request — the findings are recomputed, the
-    // principal population is read live — so a shared cache would serve one
-    // operator another operator's moment.
-    c.header('Cache-Control', 'no-store')
-    return c.json(parsed.data, 200)
-  }
-}
+import type { Hono } from 'hono'
 
 /**
  * Chain the organisation read onto a Hono app.
  *
- * Provides:
- * - GET /api/admin/organisation/graph — the resolved access graph
- *   (`principals -> grant sources -> resources`), the process lanes, the
- *   findings derived from them, the declared narrowings a Matrix cell cannot
- *   show, and the names of any source that could not be read. Takes one
- *   optional `?node=<id>` narrowing the graph to one subject.
+ * `GET /api/admin/organisation/graph` is an admin read-registry entry
+ * (`application/use-cases/admin/people-read-operations.ts`): the route, its
+ * OpenAPI operation and its MCP admin tool are one entry. Read-only:
+ * nothing is written and no finding is stored.
  *
- * Read-only: no other method is served, nothing is written, and no
- * finding is stored. Auth gating (admin tier, anti-enumeration 404) is wired
- * upstream in `admin-route-guards.ts`.
- *
- * ─── THE VALIDATOR RUNS AFTER THE GUARD, AND THAT ORDER IS THE CONTRACT ─────
- *
- * `chainAdminRouteGuards` mounts `authMiddleware` + `requireAdminTier` on
- * `/api/admin/organisation/*` before any route is chained, so Hono dispatches
- * them ahead of this route-level validator. That is what makes a MALFORMED
- * `?node=` answer 404 rather than 400 to a caller without the tier: a 400 would
- * confirm both that the route exists and that it takes this parameter, which is
- * an enumeration oracle no test of the bare path could catch (S1). The admin
- * still receives a real 400 for the same request.
- *
- * @param honoApp - Hono instance to chain the route onto
- * @param resolveLiveApp - Resolver for the config the server is currently running
- * @returns Hono app with the organisation route chained
+ * The admin-tier guard on `/api/admin/organisation/*` is mounted before any
+ * route, so a MALFORMED `?node=` answers 404 — never a 400 that would confirm
+ * the route — to a caller without the tier; the admin still gets the 400.
  */
 export function chainAdminOrganisationRoutes<T extends Hono>(
   honoApp: T,
   resolveLiveApp: () => App
 ): T {
-  return honoApp.get(
-    '/api/admin/organisation/graph',
-    effectValidator('query', adminOrganisationGraphQuerySchema),
-    createHandleGetOrganisationGraph(resolveLiveApp)
-  ) as T
+  return chainAdminReadRoutes(honoApp, resolveLiveApp, ORGANISATION_READ_OPERATIONS)
 }

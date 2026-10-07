@@ -1,0 +1,13 @@
+# The business account's settled transactions, pulled each morning from Qonto
+# by the library recipe in library/recipe/. Finance reads them beside the
+# claims to match a reimbursement to the payment that settled it. Nobody types
+# into this table: the recipe adds each transaction it has not seen before.
+id: 2
+name: bank_transactions
+fields:
+  - { id: 1, name: transaction_id, type: single-line-text }
+  - { id: 2, name: label, type: single-line-text }
+  - { id: 3, name: amount, type: decimal }
+  - { id: 4, name: settled_at, type: datetime }
+permissions:
+  read: [admin]

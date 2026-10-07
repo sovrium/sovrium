@@ -12,16 +12,16 @@
  * Given a {@link MutationIntent} parsed from the user's chat message, this
  * module:
  *
- * - enforces table-level RBAC (create/update/delete) — [internal ref]
+ *  - enforces table-level RBAC (create/update/delete)
  *    / 013;
- * - validates field values against schema constraints — [internal ref];
+ *  - validates field values against schema constraints;
  *  - requires a confirmation token before any delete, and before a bulk
- * update that affects 2+ rows — [internal ref];
+ *    update that affects 2+ rows — an AI chat mutate spec;
  *  - executes the mutation against the engine-created table and reports the
- * affected record ids back in the chat response — [internal ref] /
+ *    affected record ids back in the chat response — an AI chat mutate spec /
  *    002 / 010 / 012;
  *  - writes one `system.ai_activity_logs` row per mutation with user
- * attribution — [internal ref].
+ *    attribution.
  *
  * Which rows an update or a delete reaches is decided in ONE place, the chat
  * write gate (`chat-write-gate.ts`): the rows a chat read shows the caller,
@@ -133,7 +133,7 @@ const effectiveRolesOf = (input: ApplyMutationInput, tableName: string): readonl
  * A confirmation entry stashed when a destructive action is proposed. It is
  * re-applied when the next request on the same session carries its token.
  *
- * Every authorization input the commit runs on is CAPTURED here ([internal ref],
+ * Every authorization input the commit runs on is CAPTURED here (the captured-identity rule for AI confirmations,
  * decision 3) — `userRole`, `userGroups`, and the `tables` snapshot — and
  * `commitConfirmedMutation` re-resolves none of them. `tables` must be frozen
  * regardless: the intent was parsed against it and the `affectedCount` already
@@ -157,7 +157,7 @@ interface StoredConfirmation {
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
   /** The app as it stood when the token was issued, frozen beside `tables`. */
   readonly app: App
-  /** `Date.now` at issue time — the TTL anchor ([internal ref], decision 4). */
+  /** `Date.now` at issue time — the TTL anchor (the captured-identity rule for AI confirmations, decision 4). */
   readonly issuedAt: number
 }
 
@@ -186,7 +186,6 @@ const pendingConfirmations = new Map<string, StoredConfirmation>()
 export const consumeConfirmation = (token: string): StoredConfirmation | undefined => {
   const stored = pendingConfirmations.get(token)
   if (stored === undefined) return undefined
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- module-local mutable Map, not a Drizzle table; mirrors conversation store
   pendingConfirmations.delete(token)
   const ttlMs = parseAiConfirmationTtlMs(process.env)
   if (Date.now() - stored.issuedAt > ttlMs) return undefined
@@ -284,7 +283,7 @@ const insertRow = async (
 
 /**
  * Record one mutation in `system.ai_activity_logs` with user attribution
- *. Best-effort — a logging failure must never break
+ * Best-effort — a logging failure must never break
  * the chat turn.
  */
 const logMutation = async (
@@ -312,8 +311,8 @@ const resolveTable = (
 
 /**
  * The argument triple every table-level gate on this path takes, spread into
- * `has{Create,Update,Delete}PermissionForRoles` at the three call sites. Both
- * of the last two arguments close a hole this surface actually had:
+ * `has{Create,Update,Delete}PermissionForRoles` at the three call sites. Each
+ * of the last two arguments closes a real hole on this surface:
  *
  *  - the EFFECTIVE ROLES, not a bare role, so a `group:<name>` grant can match
  *    at all — a bare role never can, because the `group:` overlay exists only
@@ -322,9 +321,8 @@ const resolveTable = (
  *    `permissions: { inherit: '<parent>' }` resolves its parent's rule instead
  *    of reading as if it declared nothing.
  *
- * Fixing either alone is the trap: `applyCreate` was corrected for inheritance
- * in the 2026-08-26 audit wave (finding F5) and still let every group grant
- * fall through, which looked like the finding was closed.
+ * Fixing either alone is the trap: a gate corrected for inheritance alone still
+ * lets every group grant fall through, while looking fixed.
  */
 const gateArgs = (
   table: MutationTable & { readonly permissions?: unknown },
@@ -441,7 +439,7 @@ const applyUpdateById = async (
   )
 }
 
-/** Apply an update to the admitted rows ([internal ref] confirmed path). */
+/** Apply an update to the admitted rows (an AI chat mutate spec confirmed path). */
 const applyUpdateToIds = async (
   services: DomainContext,
   userEmail: string,
@@ -533,7 +531,6 @@ const stashConfirmation = (
   const confirmationToken = crypto.randomUUID()
   // A delete always asks, and quotes at least one record.
   const affectedCount = action === 'delete' ? Math.max(admittedIds.length, 1) : admittedIds.length
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- module-local mutable Map, mirrors conversation store
   pendingConfirmations.set(confirmationToken, {
     intent: input.intent,
     admittedIds,
